@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -29,12 +30,12 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := proposalutils.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMSV2(t)
 
-	env, err := changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
-		{
-			Changeset: changeset.WrapChangeSet(changeset.DeployMCMSWithTimelock),
-			Config: map[uint64]types2.MCMSWithTimelockConfig{
+	env, err := changeset.Apply(t, env, nil,
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			map[uint64]types2.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
 					Bypasser:         config,
@@ -42,8 +43,8 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 					TimelockMinDelay: big.NewInt(0),
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	chain := env.Chains[chainSelector]

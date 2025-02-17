@@ -2,16 +2,19 @@ package log_test
 
 import (
 	"context"
+	crand "crypto/rand"
 	"math/big"
 	"math/rand"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
@@ -20,7 +23,7 @@ func TestORM_broadcasts(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
 	_, addr := cltest.MustInsertRandomKey(t, ethKeyStore)
 	specV2 := cltest.MustInsertV2JobSpec(t, db, addr)
@@ -30,8 +33,8 @@ func TestORM_broadcasts(t *testing.T) {
 
 	listener := &mockListener{specV2.ID}
 
-	rawLog := cltest.RandomLog(t)
-	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), cltest.FixtureChainID.String()}
+	rawLog := randomLog(t)
+	queryArgs := []interface{}{rawLog.BlockHash, rawLog.BlockNumber, rawLog.Index, listener.JobID(), testutils.FixtureChainID.String()}
 
 	// No rows
 	res, err := db.Exec(selectQuery, queryArgs...)
@@ -81,7 +84,7 @@ func TestORM_broadcasts(t *testing.T) {
 func TestORM_pending(t *testing.T) {
 	ctx := testutils.Context(t)
 	db := testutils.NewSqlxDB(t)
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
 	num, err := orm.GetPendingMinBlock(ctx)
 	require.NoError(t, err)
@@ -108,7 +111,7 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 	db := testutils.NewSqlxDB(t)
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
-	orm := log.NewORM(db, cltest.FixtureChainID)
+	orm := log.NewORM(db, *testutils.FixtureChainID)
 
 	_, addr1 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job1 := cltest.MustInsertV2JobSpec(t, db, addr1)
@@ -116,21 +119,21 @@ func TestORM_MarkUnconsumed(t *testing.T) {
 	_, addr2 := cltest.MustInsertRandomKey(t, ethKeyStore)
 	job2 := cltest.MustInsertV2JobSpec(t, db, addr2)
 
-	logBefore := cltest.RandomLog(t)
+	logBefore := randomLog(t)
 	logBefore.BlockNumber = 34
 	require.NoError(t,
 		orm.CreateBroadcast(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
 	require.NoError(t,
 		orm.MarkBroadcastConsumed(ctx, logBefore.BlockHash, logBefore.BlockNumber, logBefore.Index, job1.ID))
 
-	logAt := cltest.RandomLog(t)
+	logAt := randomLog(t)
 	logAt.BlockNumber = 38
 	require.NoError(t,
 		orm.CreateBroadcast(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
 	require.NoError(t,
 		orm.MarkBroadcastConsumed(ctx, logAt.BlockHash, logAt.BlockNumber, logAt.Index, job1.ID))
 
-	logAfter := cltest.RandomLog(t)
+	logAfter := randomLog(t)
 	logAfter.BlockNumber = 40
 	require.NoError(t,
 		orm.CreateBroadcast(ctx, logAfter.BlockHash, logAfter.BlockNumber, logAfter.Index, job2.ID))
@@ -204,7 +207,7 @@ func TestORM_Reinitialize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := testutils.NewSqlxDB(t)
 			ctx := testutils.Context(t)
-			orm := log.NewORM(db, cltest.FixtureChainID)
+			orm := log.NewORM(db, *testutils.FixtureChainID)
 
 			jobID := cltest.MustInsertV2JobSpec(t, db, common.BigToAddress(big.NewInt(rand.Int63()))).ID
 
@@ -246,3 +249,30 @@ type mockListener struct {
 
 func (l *mockListener) JobID() int32                             { return l.jobID }
 func (l *mockListener) HandleLog(context.Context, log.Broadcast) {}
+
+func randomLog(t *testing.T) types.Log {
+	t.Helper()
+
+	topics := make([]common.Hash, 4)
+	for i := range topics {
+		topics[i] = evmutils.NewHash()
+	}
+
+	return types.Log{
+		Address:     testutils.NewAddress(),
+		BlockHash:   evmutils.NewHash(),
+		BlockNumber: uint64(rand.Intn(9999999)),
+		Index:       uint(rand.Intn(9999999)),
+		Data:        randomBytes(t, 512),
+		Topics:      []common.Hash{evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash(), evmutils.NewHash()},
+	}
+}
+
+func randomBytes(t *testing.T, n int) []byte {
+	b := make([]byte, n)
+	_, err := crand.Read(b)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return b
+}

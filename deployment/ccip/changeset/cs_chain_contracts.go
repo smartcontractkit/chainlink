@@ -18,6 +18,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
@@ -25,11 +27,24 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+)
+
+const (
+	// https://github.com/smartcontractkit/chainlink/blob/1423e2581e8640d9e5cd06f745c6067bb2893af2/contracts/src/v0.8/ccip/libraries/Internal.sol#L275-L279
+	/*
+				```Solidity
+					// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+					bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
+					// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		  		bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+				```
+	*/
+	EVMFamilySelector = "2812d52c"
+	SVMFamilySelector = "1e10bdc4"
 )
 
 var (
@@ -60,8 +75,11 @@ type NonceManagerUpdate struct {
 type PreviousRampCfg struct {
 	RemoteChainSelector uint64
 	OverrideExisting    bool
-	EnableOnRamp        bool
-	EnableOffRamp       bool
+	// Set these only if the prevOnRamp or prevOffRamp addresses are not required to be in nonce manager.
+	// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+	// it will not be possible to update the previous ramps later unless OverrideExisting is set to true.
+	AllowEmptyOnRamp  bool // If true, the prevOnRamp address can be 0x0.
+	AllowEmptyOffRamp bool // If true, the prevOffRamp address can be 0x0.
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
@@ -91,21 +109,24 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
-			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
-				return errors.New("must specify either onramp or offramp")
-			}
-			if prevRamp.EnableOnRamp {
-				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
-					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
-				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
+			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+			// it will not be possible to update the previous ramps later.
+			// Allow blank onRamp or offRamp only if AllowEmptyOnRamp or AllowEmptyOffRamp is set to true.
+			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
+			if !prevRamp.AllowEmptyOnRamp {
+				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d, "+
+						"If you want to set zero address for onRamp, set AllowEmptyOnRamp to true", sourceSel, prevRamp.RemoteChainSelector)
 				}
 			}
-			if prevRamp.EnableOffRamp {
-				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
-					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
-				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			if !prevRamp.AllowEmptyOffRamp {
+				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d"+
+						"If you want to set zero address for offRamp, set AllowEmptyOffRamp to true", prevRamp.RemoteChainSelector, sourceSel)
 				}
 			}
 		}
@@ -151,10 +172,10 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range updates.PreviousRampsArgs {
 				var onRamp, offRamp common.Address
-				if prevRamp.EnableOnRamp {
+				if !prevRamp.AllowEmptyOnRamp {
 					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
 				}
-				if prevRamp.EnableOffRamp {
+				if !prevRamp.AllowEmptyOffRamp {
 					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				}
 				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
@@ -996,6 +1017,8 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 type OffRampSourceUpdate struct {
 	IsEnabled  bool // If false, disables the source by setting router to 0x0.
 	TestRouter bool // Flag for safety only allow specifying either router or testRouter.
+	// IsRMNVerificationDisabled is a flag to disable RMN verification for this source chain.
+	IsRMNVerificationDisabled bool
 }
 
 type UpdateOffRampSourcesConfig struct {
@@ -1077,7 +1100,9 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
-				OnRamp:              common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				// TODO: how would this work when the onRamp is nonEVM?
+				OnRamp:                    common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}
 		tx, err := offRamp.ApplySourceChainConfigUpdates(txOpts, args)
@@ -1509,7 +1534,6 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 		dCfg := offramp.OffRampDynamicConfig{
 			FeeQuoter:                               state.Chains[chainSel].FeeQuoter.Address(),
 			PermissionLessExecutionThresholdSeconds: params.PermissionLessExecutionThresholdSeconds,
-			IsRMNVerificationDisabled:               params.IsRMNVerificationDisabled,
 			MessageInterceptor:                      params.MessageInterceptor,
 		}
 		tx, err := offRamp.SetDynamicConfig(txOpts, dCfg)
@@ -1618,15 +1642,14 @@ func isOCR3ConfigSetOnOffRamp(
 
 // DefaultFeeQuoterDestChainConfig returns the default FeeQuoterDestChainConfig
 // with the config enabled/disabled based on the configEnabled flag.
-func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDestChainConfig {
-	// https://github.com/smartcontractkit/ccip/blob/c4856b64bd766f1ddbaf5d13b42d3c4b12efde3a/contracts/src/v0.8/ccip/libraries/Internal.sol#L337-L337
-	/*
-		```Solidity
-			// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-			bytes4 public constant CHAIN_FAMILY_SELECTOR_EVM = 0x2812d52c;
-		```
-	*/
-	evmFamilySelector, _ := hex.DecodeString("2812d52c")
+func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...uint64) fee_quoter.FeeQuoterDestChainConfig {
+	familySelector, _ := hex.DecodeString(EVMFamilySelector) // evm
+	if len(destChainSelector) > 0 {
+		destFamily, _ := chain_selectors.GetSelectorFamily(destChainSelector[0])
+		if destFamily == chain_selectors.FamilySolana {
+			familySelector, _ = hex.DecodeString(SVMFamilySelector) // solana
+		}
+	}
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
@@ -1644,6 +1667,6 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool) fee_quoter.FeeQuoterDes
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
 		NetworkFeeUSDCents:                1,
-		ChainFamilySelector:               [4]byte(evmFamilySelector),
+		ChainFamilySelector:               [4]byte(familySelector),
 	}
 }

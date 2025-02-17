@@ -299,11 +299,6 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 
-[Workflows]
-[Workflows.Limits]
-Global = 50
-PerOwner = 5
-
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''
@@ -324,6 +319,11 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+
+[Workflows]
+[Workflows.Limits]
+Global = 50
+PerOwner = 5
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty

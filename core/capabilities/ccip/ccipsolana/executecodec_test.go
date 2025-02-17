@@ -9,8 +9,13 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/mock"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
+
+	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -54,7 +59,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				}
 			}
 
-			extraArgs := ccip_router.Any2SVMRampExtraArgs{
+			extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
 			}
@@ -146,10 +151,18 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"accountIsWritableBitmap": uint64(2),
+	}, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cd := NewExecutePluginCodecV1()
+			cd := NewExecutePluginCodecV1(mockExtraDataCodec)
 			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
@@ -181,6 +194,14 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
+	mockExtraDataCodec := ccipocr3.NewMockExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"accountIsWritableBitmap": uint64(2),
+	}, nil)
 	t.Run("decode on-chain execute report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
 		onRampAddr, err := solanago.NewRandomPrivateKey()
@@ -189,22 +210,22 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		destGasAmount := uint32(10)
 		tokenAmount := big.NewInt(rand.Int63())
 		tokenReceiver := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
-		extraArgs := ccip_router.Any2SVMRampExtraArgs{
+		extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 			ComputeUnits:     1000,
 			IsWritableBitmap: 2,
 		}
 
-		onChainReport := ccip_router.ExecutionReportSingleChain{
+		onChainReport := ccip_offramp.ExecutionReportSingleChain{
 			SourceChainSelector: uint64(chainSel),
-			Message: ccip_router.Any2SVMRampMessage{
-				Header: ccip_router.RampMessageHeader{
+			Message: ccip_offramp.Any2SVMRampMessage{
+				Header: ccip_offramp.RampMessageHeader{
 					SourceChainSelector: uint64(chainSel),
 				},
 				TokenReceiver: tokenReceiver,
 				ExtraArgs:     extraArgs,
-				TokenAmounts: []ccip_router.Any2SVMTokenTransfer{
+				TokenAmounts: []ccip_offramp.Any2SVMTokenTransfer{
 					{
-						Amount:        ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount, 32))},
+						Amount:        ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount, 32))},
 						DestGasAmount: destGasAmount,
 					},
 				},
@@ -222,7 +243,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		executeCodec := NewExecutePluginCodecV1()
+		executeCodec := NewExecutePluginCodecV1(mockExtraDataCodec)
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
 
@@ -238,12 +259,12 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		cd := NewExecutePluginCodecV1()
+		cd := NewExecutePluginCodecV1(mockExtraDataCodec)
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(encodedReport)
-		executeReport := ccip_router.ExecutionReportSingleChain{}
+		executeReport := ccip_offramp.ExecutionReportSingleChain{}
 		err = executeReport.UnmarshalWithDecoder(decoder)
 		require.NoError(t, err)
 

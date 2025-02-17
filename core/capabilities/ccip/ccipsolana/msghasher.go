@@ -7,8 +7,9 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -20,12 +21,14 @@ import (
 // Compatible with:
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
-	lggr logger.Logger
+	lggr           logger.Logger
+	extraDataCodec common.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec cciptypes.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
-		lggr: lggr,
+		lggr:           lggr,
+		extraDataCodec: extraDataCodec,
 	}
 }
 
@@ -33,8 +36,8 @@ func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
 func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (cciptypes.Bytes32, error) {
 	h.lggr.Debugw("hashing message", "msg", msg)
 
-	anyToSolanaMessage := ccip_router.Any2SVMRampMessage{}
-	anyToSolanaMessage.Header = ccip_router.RampMessageHeader{
+	anyToSolanaMessage := ccip_offramp.Any2SVMRampMessage{}
+	anyToSolanaMessage.Header = ccip_offramp.RampMessageHeader{
 		SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 		DestChainSelector:   uint64(msg.Header.DestChainSelector),
 		SequenceNumber:      uint64(msg.Header.SequenceNumber),
@@ -45,23 +48,32 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
 	for _, ta := range msg.TokenAmounts {
-		destGasAmount, err := extractDestGasAmountFromMap(ta.DestExecDataDecoded)
+		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(ta.DestExecData, msg.Header.SourceChainSelector)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
+		}
+
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 		if err != nil {
 			return [32]byte{}, err
 		}
 
-		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_router.Any2SVMTokenTransfer{
+		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
 			ExtraData:         ta.ExtraData,
 			DestGasAmount:     destGasAmount,
-			Amount:            ccip_router.CrossChainAmount{LeBytes: tokens.ToLittleEndianU256(ta.Amount.Int.Uint64())},
+			Amount:            ccip_offramp.CrossChainAmount{LeBytes: tokens.ToLittleEndianU256(ta.Amount.Int.Uint64())},
 		})
 	}
 
-	var err error
+	extraDataDecodecMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to decode extra args: %w", err)
+	}
+
 	var msgAccounts []solana.PublicKey
-	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
@@ -70,9 +82,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 	return [32]byte(hash), err
 }
 
-func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_router.Any2SVMRampExtraArgs, []solana.PublicKey, error) {
+func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_offramp.Any2SVMRampExtraArgs, []solana.PublicKey, error) {
 	// Parse input map into SolanaExtraArgs
-	var out ccip_router.Any2SVMRampExtraArgs
+	var out ccip_offramp.Any2SVMRampExtraArgs
 	var accounts []solana.PublicKey
 
 	// Iterate through the expected fields in the struct
@@ -107,7 +119,7 @@ func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_router.Any2SVMRam
 				return out, accounts, errors.New("invalid type for Accounts, expected [][32]byte")
 			}
 		default:
-			// no error here, aswe only need the keys to construct SVMExtraArgs, other keys can be skipped without
+			// no error here, as we only need the keys to construct SVMExtraArgs, other keys can be skipped without
 			// return errors because there's no guarantee SVMExtraArgs will match with SVMExtraArgsV1
 		}
 	}

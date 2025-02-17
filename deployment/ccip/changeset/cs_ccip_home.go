@@ -15,12 +15,13 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -30,7 +31,7 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
@@ -202,6 +203,9 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				RMNSignaturesTimeout:               30 * time.Minute,
 				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+				MerkleRootAsyncObserverDisabled:    false,
+				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
+				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {
@@ -618,6 +622,7 @@ func AddDonAndSetCandidateChangeset(
 			return deployment.ChangesetOutput{}, err
 		}
 		newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
+			state.Chains[cfg.HomeChainSelector].CCIPHome,
 			e.OCRSecrets,
 			offRampAddress,
 			chainSelector,
@@ -722,7 +727,7 @@ func newDonWithCandidateOp(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, addDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcms.Operation{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
@@ -809,6 +814,7 @@ func SetCandidateChangeset(
 				return deployment.ChangesetOutput{}, err
 			}
 			newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
+				state.Chains[cfg.HomeChainSelector].CCIPHome,
 				e.OCRSecrets,
 				offRampAddress,
 				chainSelector,
@@ -912,7 +918,7 @@ func setCandidateOnExistingDon(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
 		}
@@ -969,7 +975,7 @@ func promoteCandidateOp(
 	)
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
-			homeChain, updateDonTx, capabilities_registry.CapabilitiesRegistryABI, err)
+			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcms.Operation{},
 				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)

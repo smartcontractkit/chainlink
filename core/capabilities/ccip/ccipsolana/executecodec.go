@@ -10,8 +10,9 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -19,10 +20,13 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
+	extraDataCodec common.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
-	return &ExecutePluginCodecV1{}
+func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
+	return &ExecutePluginCodecV1{
+		extraDataCodec: extraDataCodec,
+	}
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
@@ -35,12 +39,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		return nil, fmt.Errorf("unexpected report message length: %d", len(chainReport.Messages))
 	}
 
-	var message ccip_router.Any2SVMRampMessage
+	var message ccip_offramp.Any2SVMRampMessage
 	var offChainTokenData [][]byte
 	if len(chainReport.Messages) > 0 {
 		// currently only allow executing one message at a time
 		msg := chainReport.Messages[0]
-		tokenAmounts := make([]ccip_router.Any2SVMTokenTransfer, 0, len(msg.TokenAmounts))
+		tokenAmounts := make([]ccip_offramp.Any2SVMTokenTransfer, 0, len(msg.TokenAmounts))
 		for _, tokenAmount := range msg.TokenAmounts {
 			if tokenAmount.Amount.IsEmpty() {
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
@@ -50,22 +54,32 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
-			destGasAmount, err := extractDestGasAmountFromMap(tokenAmount.DestExecDataDecoded)
+			destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+			}
+
+			destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 			if err != nil {
 				return nil, err
 			}
 
-			tokenAmounts = append(tokenAmounts, ccip_router.Any2SVMTokenTransfer{
+			tokenAmounts = append(tokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
 				ExtraData:         tokenAmount.ExtraData,
-				Amount:            ccip_router.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
+				Amount:            ccip_offramp.CrossChainAmount{LeBytes: [32]uint8(encodeBigIntToFixedLengthLE(tokenAmount.Amount.Int, 32))},
 				DestGasAmount:     destGasAmount,
 			})
 		}
 
-		var extraArgs ccip_router.Any2SVMRampExtraArgs
-		extraArgs, _, err := parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+
+		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
+		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
@@ -74,8 +88,8 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			return nil, fmt.Errorf("invalid receiver address: %v", msg.Receiver)
 		}
 
-		message = ccip_router.Any2SVMRampMessage{
-			Header: ccip_router.RampMessageHeader{
+		message = ccip_offramp.Any2SVMRampMessage{
+			Header: ccip_offramp.RampMessageHeader{
 				MessageId:           msg.Header.MessageID,
 				SourceChainSelector: uint64(msg.Header.SourceChainSelector),
 				DestChainSelector:   uint64(msg.Header.DestChainSelector),
@@ -100,7 +114,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		solanaProofs = append(solanaProofs, proof)
 	}
 
-	solanaReport := ccip_router.ExecutionReportSingleChain{
+	solanaReport := ccip_offramp.ExecutionReportSingleChain{
 		SourceChainSelector: uint64(chainReport.SourceChainSelector),
 		Message:             message,
 		OffchainTokenData:   offChainTokenData,
@@ -119,7 +133,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 
 func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte) (cciptypes.ExecutePluginReport, error) {
 	decoder := agbinary.NewBorshDecoder(encodedReport)
-	executeReport := ccip_router.ExecutionReportSingleChain{}
+	executeReport := ccip_offramp.ExecutionReportSingleChain{}
 	err := executeReport.UnmarshalWithDecoder(decoder)
 	if err != nil {
 		return cciptypes.ExecutePluginReport{}, fmt.Errorf("unpack encoded report: %w", err)
@@ -192,25 +206,23 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 }
 
 func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
-	var out uint32
-
-	// Iterate through the expected fields in the struct
+	// Search for the gas fields
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
 			// Expect uint32
 			if v, ok := fieldValue.(uint32); ok {
-				out = v
+				return v, nil
 			} else {
-				return out, errors.New("invalid type for destgasamount, expected uint32")
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
 			}
 		default:
-			return out, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+
 		}
 	}
 
-	return out, nil
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

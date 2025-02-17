@@ -5,14 +5,14 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -110,7 +110,7 @@ func TestLogEventProvider_LifeCycle(t *testing.T) {
 				lp := new(mocks.LogPoller)
 				lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 				lp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-				lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+				lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 				hasFitlerTimes := 1
 				if tc.unregister {
 					hasFitlerTimes = 2
@@ -149,7 +149,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 	mp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
 	mp.On("HasFilter", mock.Anything).Return(false)
-	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 	mp.On("ReplayAsync", mock.Anything).Return(nil)
 
 	p := NewLogProvider(logger.TestLogger(t), mp, big.NewInt(1), &mockedPacker{}, NewUpkeepFilterStore(), NewOptions(200, big.NewInt(1)))

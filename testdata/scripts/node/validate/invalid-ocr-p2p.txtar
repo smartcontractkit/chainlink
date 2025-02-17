@@ -328,11 +328,6 @@ MaxBinarySize = '20.00mb'
 MaxEncryptedSecretsSize = '26.40kb'
 MaxConfigSize = '50.00kb'
 
-[Workflows]
-[Workflows.Limits]
-Global = 50
-PerOwner = 5
-
 [Capabilities.GatewayConnector]
 ChainIDForNodeKey = ''
 NodeAddress = ''
@@ -353,6 +348,11 @@ InsecureConnection = false
 TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
+
+[Workflows]
+[Workflows.Limits]
+Global = 50
+PerOwner = 5
 
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 

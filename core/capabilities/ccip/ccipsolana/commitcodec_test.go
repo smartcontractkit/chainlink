@@ -12,21 +12,22 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-var randomCommitReport = func() cciptypes.CommitPluginReport {
+var randomBlessedCommitReport = func() cciptypes.CommitPluginReport {
 	pubkey, err := solanago.NewRandomPrivateKey()
 	if err != nil {
 		panic(err)
 	}
 
 	return cciptypes.CommitPluginReport{
-		MerkleRoots: []cciptypes.MerkleRootChain{
+		BlessedMerkleRoots: []cciptypes.MerkleRootChain{
 			{
 				OnRampAddress: cciptypes.UnknownAddress(pubkey.PublicKey().String()),
 				ChainSel:      cciptypes.ChainSelector(rand.Uint64()),
@@ -50,6 +51,9 @@ var randomCommitReport = func() cciptypes.CommitPluginReport {
 				{GasPrice: cciptypes.NewBigInt(big.NewInt(rand.Int63())), ChainSel: cciptypes.ChainSelector(rand.Uint64())},
 			},
 		},
+		RMNSignatures: []cciptypes.RMNECDSASignature{
+			{R: utils.RandomBytes32(), S: utils.RandomBytes32()},
+		},
 	}
 }
 
@@ -60,10 +64,36 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		expErr bool
 	}{
 		{
-			name: "base report",
+			name: "base report blessed",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
 				return report
 			},
+		},
+		{
+			name: "base report unblessed",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.RMNSignatures = nil
+				report.UnblessedMerkleRoots = report.BlessedMerkleRoots
+				report.BlessedMerkleRoots = nil
+				return report
+			},
+		},
+		{
+			name: "blessed report with no rmn signatures",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.RMNSignatures = nil
+				return report
+			},
+			expErr: true,
+		},
+		{
+			name: "rmn signature included without any blessed root",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.UnblessedMerkleRoots = report.BlessedMerkleRoots
+				report.BlessedMerkleRoots = nil
+				return report
+			},
+			expErr: true,
 		},
 		{
 			name: "empty token address",
@@ -76,9 +106,18 @@ func TestCommitPluginCodecV1(t *testing.T) {
 		{
 			name: "empty merkle root",
 			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
-				report.MerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
+				report.BlessedMerkleRoots[0].MerkleRoot = cciptypes.Bytes32{}
 				return report
 			},
+		},
+		{
+			name: "both blessed and unblessed merkle roots",
+			report: func(report cciptypes.CommitPluginReport) cciptypes.CommitPluginReport {
+				report.UnblessedMerkleRoots = []cciptypes.MerkleRootChain{
+					report.BlessedMerkleRoots[0]}
+				return report
+			},
+			expErr: true,
 		},
 		{
 			name: "zero token price",
@@ -106,7 +145,7 @@ func TestCommitPluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			report := tc.report(randomCommitReport())
+			report := tc.report(randomBlessedCommitReport())
 			commitCodec := NewCommitPluginCodecV1()
 			ctx := testutils.Context(t)
 			encodedReport, err := commitCodec.Encode(ctx, report)
@@ -126,7 +165,7 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
 	ctx := testutils.Context(b)
 
-	rep := randomCommitReport()
+	rep := randomBlessedCommitReport()
 	for i := 0; i < b.N; i++ {
 		_, err := commitCodec.Encode(ctx, rep)
 		require.NoError(b, err)
@@ -136,7 +175,7 @@ func BenchmarkCommitPluginCodecV1_Encode(b *testing.B) {
 func BenchmarkCommitPluginCodecV1_Decode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
 	ctx := testutils.Context(b)
-	encodedReport, err := commitCodec.Encode(ctx, randomCommitReport())
+	encodedReport, err := commitCodec.Encode(ctx, randomBlessedCommitReport())
 	require.NoError(b, err)
 
 	for i := 0; i < b.N; i++ {
@@ -149,7 +188,7 @@ func BenchmarkCommitPluginCodecV1_Encode_Decode(b *testing.B) {
 	commitCodec := NewCommitPluginCodecV1()
 	ctx := testutils.Context(b)
 
-	rep := randomCommitReport()
+	rep := randomBlessedCommitReport()
 	for i := 0; i < b.N; i++ {
 		encodedReport, err := commitCodec.Encode(ctx, rep)
 		require.NoError(b, err)
@@ -172,28 +211,28 @@ func Test_DecodingCommitReport(t *testing.T) {
 		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
 		merkleRoot := utils.RandomBytes32()
 
-		tpu := []ccip_router.TokenPriceUpdate{
+		tpu := []ccip_offramp.TokenPriceUpdate{
 			{
 				SourceToken: tokenSource,
 				UsdPerToken: [28]uint8(tokenPrice),
 			},
 		}
 
-		gpu := []ccip_router.GasPriceUpdate{
+		gpu := []ccip_offramp.GasPriceUpdate{
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 			{UsdPerUnitGas: [28]uint8(gasPrice), DestChainSelector: uint64(chainSel)},
 		}
 
-		onChainReport := ccip_router.CommitInput{
-			MerkleRoot: ccip_router.MerkleRoot{
+		onChainReport := ccip_offramp.CommitInput{
+			MerkleRoot: &ccip_offramp.MerkleRoot{
 				SourceChainSelector: uint64(chainSel),
 				OnRampAddress:       onRampAddr.PublicKey().Bytes(),
 				MinSeqNr:            minSeqNr,
 				MaxSeqNr:            maxSeqNr,
 				MerkleRoot:          merkleRoot,
 			},
-			PriceUpdates: ccip_router.PriceUpdates{
+			PriceUpdates: ccip_offramp.PriceUpdates{
 				TokenPriceUpdates: tpu,
 				GasPriceUpdates:   gpu,
 			},
@@ -207,7 +246,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		commitCodec := NewCommitPluginCodecV1()
 		decode, err := commitCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
-		mr := decode.MerkleRoots[0]
+		mr := decode.UnblessedMerkleRoots[0]
 
 		// check decoded ocr report merkle root matches with on-chain report
 		require.Equal(t, strconv.FormatUint(minSeqNr, 10), mr.SeqNumsRange.Start().String())
@@ -227,17 +266,17 @@ func Test_DecodingCommitReport(t *testing.T) {
 	})
 
 	t.Run("decode Borsh encoded commit report", func(t *testing.T) {
-		rep := randomCommitReport()
+		rep := randomBlessedCommitReport()
 		commitCodec := NewCommitPluginCodecV1()
 		decode, err := commitCodec.Encode(testutils.Context(t), rep)
 		require.NoError(t, err)
 
 		decoder := agbinary.NewBorshDecoder(decode)
-		decodedReport := ccip_router.CommitInput{}
+		decodedReport := ccip_offramp.CommitInput{}
 		err = decodedReport.UnmarshalWithDecoder(decoder)
 		require.NoError(t, err)
 
-		reportMerkleRoot := rep.MerkleRoots[0]
+		reportMerkleRoot := rep.BlessedMerkleRoots[0]
 		require.Equal(t, reportMerkleRoot.MerkleRoot, cciptypes.Bytes32(decodedReport.MerkleRoot.MerkleRoot))
 
 		tu := rep.PriceUpdates.TokenPriceUpdates[0]

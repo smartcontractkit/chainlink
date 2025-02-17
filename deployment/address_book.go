@@ -23,12 +23,12 @@ var (
 type ContractType string
 
 var (
-	Version1_0_0     = *semver.MustParse("1.0.0")
-	Version1_1_0     = *semver.MustParse("1.1.0")
-	Version1_2_0     = *semver.MustParse("1.2.0")
-	Version1_5_0     = *semver.MustParse("1.5.0")
-	Version1_5_1     = *semver.MustParse("1.5.1")
-	Version1_6_0_dev = *semver.MustParse("1.6.0-dev")
+	Version1_0_0 = *semver.MustParse("1.0.0")
+	Version1_1_0 = *semver.MustParse("1.1.0")
+	Version1_2_0 = *semver.MustParse("1.2.0")
+	Version1_5_0 = *semver.MustParse("1.5.0")
+	Version1_5_1 = *semver.MustParse("1.5.1")
+	Version1_6_0 = *semver.MustParse("1.6.0")
 )
 
 type TypeAndVersion struct {

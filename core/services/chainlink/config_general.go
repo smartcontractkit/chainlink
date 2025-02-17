@@ -308,12 +308,7 @@ func (g *generalConfig) AutoPprof() config.AutoPprof {
 }
 
 func (g *generalConfig) EVMEnabled() bool {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			return true
-		}
-	}
-	return false
+	return g.c.EVM.Enabled()
 }
 
 func (g *generalConfig) SolanaEnabled() bool {

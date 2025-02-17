@@ -2,8 +2,6 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.23.3
 
-toolchain go1.23.4
-
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -78,21 +76,21 @@ require (
 	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250207140936-540f8266d0c7
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250130162116-1b2ee24da54b
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250130202959-6f1f48342e36
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250214202341-4190f2db1c01
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250214202341-4190f2db1c01
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250214231858-f365e2bdecea
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250205171936-649f95193678
-	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250205171936-649f95193678
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250207143947-22151a16f100
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a
+	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250205221351-c3ca04743e06
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250213203720-e15b1333a14a
 	github.com/smartcontractkit/libocr v0.0.0-20241223215956-e5b78d8e3919
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/smartcontractkit/wsrpc v0.8.2
-	github.com/spf13/cast v1.6.0
+	github.com/spf13/cast v1.7.1
 	github.com/stretchr/testify v1.10.0
 	github.com/theodesp/go-heaps v0.0.0-20190520121037-88e35354fe0a
 	github.com/tidwall/gjson v1.18.0
@@ -127,7 +125,10 @@ require (
 	k8s.io/utils v0.0.0-20240711033017-18e509b52bc8
 )
 
-require github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
+require (
+	github.com/bytecodealliance/wasmtime-go/v28 v28.0.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
+)
 
 require (
 	cosmossdk.io/errors v1.0.1 // indirect
@@ -195,7 +196,7 @@ require (
 	github.com/ethereum/c-kzg-4844 v1.0.0 // indirect
 	github.com/ethereum/go-verkle v0.1.1-0.20240829091221-dffa7562dbe9 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/gabriel-vasile/mimetype v1.4.6 // indirect
+	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
 	github.com/gagliardetto/treeout v0.1.4 // indirect
 	github.com/gagliardetto/utilz v0.1.1 // indirect
 	github.com/gballet/go-libpcsclite v0.0.0-20191108122812-4678299bea08 // indirect
@@ -211,7 +212,7 @@ require (
 	github.com/go-ole/go-ole v1.3.0 // indirect
 	github.com/go-playground/locales v0.14.1 // indirect
 	github.com/go-playground/universal-translator v0.18.1 // indirect
-	github.com/go-playground/validator/v10 v10.22.1 // indirect
+	github.com/go-playground/validator/v10 v10.24.0 // indirect
 	github.com/go-webauthn/x v0.1.5 // indirect
 	github.com/goccy/go-json v0.10.3 // indirect
 	github.com/goccy/go-yaml v1.12.0 // indirect
@@ -364,8 +365,8 @@ require (
 	golang.org/x/sys v0.29.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20241021214115-324edc3d5d38 // indirect
-	google.golang.org/genproto/googleapis/api v0.0.0-20241021214115-324edc3d5d38 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20241021214115-324edc3d5d38 // indirect
+	google.golang.org/genproto/googleapis/api v0.0.0-20241104194629-dd2ea8efbc28 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20241104194629-dd2ea8efbc28 // indirect
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
