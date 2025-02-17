@@ -244,7 +244,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	env := setupFundingTestEnv(t)
 
 	// Build a funding configuration.
-	// Here, we assume that we want to fund each chain with an amount equal to 1000 SOL per MCMS signer.
+	// Here, we assume that we want to fund each chain with an amount equal to 589 SOL per MCMS signer.
 	// There are 4 signers (bypasser, canceller, proposer, timelock).
 	amountPerSigner := 589 * solana.LAMPORTS_PER_SOL
 	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
