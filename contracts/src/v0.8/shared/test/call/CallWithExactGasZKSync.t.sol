@@ -79,7 +79,7 @@ contract CallWithExactGasZKSync__callWithExactGasSafeReturnData is CallWithExact
   }
 
   /// @notice Reverts if _maxTotalGas is greater than gasleft()
-  function test__callWithExactGasSafeReturnData_RevertWhen_NotEnoughGasForCall() public {
+  function test__callWithExactGasSafeReturnData_FailsWhen_NotEnoughGasForCall() public {
     (bool successCall, bytes memory retData) = _limitedGasCallWithExactGas(
       500_000, // subcall has ~500k gas available
       address(s_target),
@@ -112,7 +112,7 @@ contract CallWithExactGasZKSync__callWithExactGasSafeReturnData is CallWithExact
     vm.expectRevert(NotEnoughGasForPubdata.selector);
 
     (bool successCall, ) = _limitedGasCallWithExactGas(
-      200_000, // subcall gas
+      400_000, // subcall gas
       address(s_target),
       200_000, // _maxTotalGas exactly 200k
       abi.encodeWithSelector(TestTarget.returnData.selector),
@@ -123,7 +123,6 @@ contract CallWithExactGasZKSync__callWithExactGasSafeReturnData is CallWithExact
 
   /// @notice Succeeds under normal conditions, returning data.
   function test__callWithExactGasSafeReturnData_Success() public {
-    // Allowed gas is 500k, and we pass _maxTotalGas = 300k (which is <= gasleft())
     (bool successCall, bytes memory retData) = _limitedGasCallWithExactGas(
       5_000_000,
       address(s_target),
