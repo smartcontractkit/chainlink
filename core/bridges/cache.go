@@ -146,14 +146,14 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	c.InvalidateCache(bt.Name)
 	// Update the cache with the new value
 	c.bridgeTypesCache.Store(bt.Name, *bt)
-	c.lggr.Debugw("Cache updated", "bridgeName", bt.Name, "url", bt.URL)
+	c.eng.Debugw("Cache updated", "bridgeName", bt.Name, "url", bt.URL)
 
 	return nil
 }
 
 func (c *Cache) InvalidateCache( name BridgeName){
 	c.bridgeTypesCache.Delete(name)
-	c.lggr.Debugw("Cache invalidated", "bridgeName", name)
+	c.eng.Debugw("Cache invalidated", "bridgeName", name)
 }
 
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
