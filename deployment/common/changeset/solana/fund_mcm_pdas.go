@@ -13,8 +13,14 @@ import (
 
 var _ deployment.ChangeSetV2[FundMCMSignerConfig] = FundMCMSignersChangeset{}
 
+type AmountsToTransfer struct {
+	ProposeMCM   uint64
+	CancellerMCM uint64
+	BypasserMCM  uint64
+	Timelock     uint64
+}
 type FundMCMSignerConfig struct {
-	AmountsPerChain map[uint64]uint64
+	AmountsPerChain map[uint64]AmountsToTransfer
 }
 
 // FundMCMSignersChangeset is a changeset that funds the MCMS signers on each chain. It will find the
@@ -25,8 +31,7 @@ type FundMCMSignersChangeset struct{}
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
 func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, config FundMCMSignerConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
-	numOfAccountsToFund := uint64(4)
-	for chainSelector, amount := range config.AmountsPerChain {
+	for chainSelector, chainCfg := range config.AmountsPerChain {
 		solChain, ok := e.SolChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("solana chain not found for selector %d", chainSelector)
@@ -51,7 +56,7 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 		if err != nil {
 			return fmt.Errorf("failed to get deployer balance: %w", err)
 		}
-		requiredAmount := numOfAccountsToFund * amount
+		requiredAmount := chainCfg.ProposeMCM + chainCfg.CancellerMCM + chainCfg.BypasserMCM + chainCfg.Timelock
 		if result.Value < requiredAmount {
 			return fmt.Errorf("deployer balance is insufficient, required: %d, actual: %d", requiredAmount, result.Value)
 		}
@@ -61,7 +66,7 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 
 // Apply funds the MCMS signers on each chain.
 func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMSignerConfig) (deployment.ChangesetOutput, error) {
-	for chainSelector, amount := range config.AmountsPerChain {
+	for chainSelector, cfgAmounts := range config.AmountsPerChain {
 		solChain := e.SolChains[chainSelector]
 		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
@@ -72,15 +77,33 @@ func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMS
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load MCMS state: %w", err)
 		}
 
-		accounts := []solana.PublicKey{
-			state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed),
-			state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed),
-			state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
-			state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
-		}
-		err = FundFromDeployerKey(solChain, accounts, amount)
+		err = FundFromDeployerKey(
+			solChain,
+			[]solana.PublicKey{state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
+			cfgAmounts.Timelock)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS signers on chain %d: %w", chainSelector, err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector)
+		}
+		err = FundFromDeployerKey(
+			solChain,
+			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
+			cfgAmounts.ProposeMCM)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector)
+		}
+		err = FundFromDeployerKey(
+			solChain,
+			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed)},
+			cfgAmounts.CancellerMCM)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS canceller on chain %d: %w", chainSelector, err)
+		}
+		err = FundFromDeployerKey(
+			solChain,
+			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
+			cfgAmounts.BypasserMCM)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector)
 		}
 	}
 	return deployment.ChangesetOutput{}, nil

@@ -142,7 +142,12 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 			name: "All preconditions satisfied",
 			env:  validEnv,
 			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]uint64{validSolChainSelector: 100},
+				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+					ProposeMCM:   100,
+					CancellerMCM: 100,
+					BypasserMCM:  100,
+					Timelock:     100,
+				}},
 			},
 			expectedError: "",
 		},
@@ -155,21 +160,38 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 				SolChains:  0,
 				Nodes:      1,
 			}),
-			config:        commonSolana.FundMCMSignerConfig{AmountsPerChain: map[uint64]uint64{validSolChainSelector: 100}},
+			config: commonSolana.FundMCMSignerConfig{
+				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+					ProposeMCM:   100,
+					CancellerMCM: 100,
+					BypasserMCM:  100,
+					Timelock:     100,
+				}},
+			},
 			expectedError: fmt.Sprintf("solana chain not found for selector %d", validSolChainSelector),
 		},
 		{
 			name: "Chain selector not found in environment",
 			env:  validEnv,
 			// Use a chain selector that is not present in validEnv.
-			config:        commonSolana.FundMCMSignerConfig{AmountsPerChain: map[uint64]uint64{99999: 100}},
+			config: commonSolana.FundMCMSignerConfig{AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{99999: {
+				ProposeMCM:   100,
+				CancellerMCM: 100,
+				BypasserMCM:  100,
+				Timelock:     100,
+			}}},
 			expectedError: "solana chain not found for selector 99999",
 		},
 		{
 			name: "MCMS contracts not deployed (empty seeds)",
 			env:  noMCMSEnv,
 			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]uint64{chainselectors.SOLANA_DEVNET.Selector: 100},
+				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{chainselectors.SOLANA_DEVNET.Selector: {
+					ProposeMCM:   100,
+					CancellerMCM: 100,
+					BypasserMCM:  100,
+					Timelock:     100,
+				}},
 			},
 			expectedError: "mcm/timelock seeds are empty, please deploy MCMS contracts first",
 		},
@@ -177,7 +199,12 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 			name: "Insufficient deployer balance",
 			env:  validEnv,
 			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]uint64{validSolChainSelector: 9999999999999999999},
+				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+					ProposeMCM:   9999999999999999999,
+					CancellerMCM: 9999999999999999999,
+					BypasserMCM:  9999999999999999999,
+					Timelock:     9999999999999999999,
+				}},
 			},
 			expectedError: "deployer balance is insufficient",
 		},
@@ -185,7 +212,12 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 			name: "Invalid Solana chain in environment",
 			env:  invalidSolChainEnv,
 			config: commonSolana.FundMCMSignerConfig{
-				AmountsPerChain: map[uint64]uint64{validSolChainSelector: 100},
+				AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{validSolChainSelector: {
+					ProposeMCM:   100,
+					CancellerMCM: 100,
+					BypasserMCM:  100,
+					Timelock:     100,
+				}},
 			},
 			expectedError: "failed to get existing addresses: chain selector 12463857294658392847: chain not found",
 		},
@@ -215,9 +247,14 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 	// Here, we assume that we want to fund each chain with an amount equal to 1000 SOL per MCMS signer.
 	// There are 4 signers (bypasser, canceller, proposer, timelock).
 	amountPerSigner := 589 * solana.LAMPORTS_PER_SOL
-	amountsPerChain := make(map[uint64]uint64)
+	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
 	for chainSelector := range env.SolChains {
-		amountsPerChain[chainSelector] = amountPerSigner
+		amountsPerChain[chainSelector] = commonSolana.AmountsToTransfer{
+			ProposeMCM:   amountPerSigner,
+			CancellerMCM: amountPerSigner,
+			BypasserMCM:  amountPerSigner,
+			Timelock:     amountPerSigner,
+		}
 	}
 	config := commonSolana.FundMCMSignerConfig{
 		AmountsPerChain: amountsPerChain,
