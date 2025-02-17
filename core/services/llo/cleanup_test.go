@@ -156,17 +156,8 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 	torm := mercurytransmitter.NewORM(ds, 1)
 	err := torm.Insert(testutils.Context(t), transmissions)
 	require.NoError(t, err)
-	pgtest.MustExec(t, ds, `
-UPDATE llo_mercury_transmit_queue 
-SET inserted_at = NOW() - INTERVAL '48 hours'
-WHERE transmission_hash IN (
-    SELECT transmission_hash FROM llo_mercury_transmit_queue 
-    LIMIT 5
-);
-`)
 
-	// test no cleanup
 	d, err := tr.reap(ctx, n, "orphaned")
 	require.NoError(t, err)
-	assert.Equal(t, int64(13), d)
+	assert.Equal(t, int64(n), d)
 }

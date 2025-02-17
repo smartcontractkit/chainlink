@@ -94,7 +94,6 @@ func (t *transmissionReaper) runLoop(ctx context.Context) {
 			cancel()
 			return
 		case <-ticker.C:
-			// https://smartcontract-it.atlassian.net/browse/MERC-6807
 			// TODO: Should also reap other LLO garbage that can be left
 			// behind e.g. channel definitions etc
 			t.reapAndLog(ctx, TransmissionReaperBatchSize, "stale")
@@ -139,9 +138,16 @@ WITH activeDonIds AS (
 		relay_config->>'lloDonID' IS NOT NULL
 		AND relay_config->>'lloDonID' <> ''
 )
-DELETE FROM llo_mercury_transmit_queue
-WHERE don_id NOT IN (SELECT don_id FROM activeDonIds);
-            `)
+DELETE FROM llo_mercury_transmit_queue as q
+USING (
+    SELECT transmission_hash 
+    FROM llo_mercury_transmit_queue
+    WHERE don_id NOT IN (SELECT don_id FROM activeDonIds)
+    ORDER BY inserted_at ASC
+    LIMIT $1
+) AS to_delete
+WHERE q.transmission_hash = to_delete.transmission_hash;
+            `, batchSize)
 		default:
 			return 0, fmt.Errorf("transmissionReaper: unknown reap type: %s", reapType)
 		}
