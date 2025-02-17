@@ -131,6 +131,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"EnableManualExecutionAfter": "PermissionLessExecutionThresholdSeconds"},
 							},
+							// TODO: figure out how this will be properly configured, if it has to be added to SVM state
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"IsRMNVerificationDisabled": true}},
 						},
 						MultiReader: &config.MultiReader{
 							Reads: []config.ReadDefinition{
@@ -159,6 +161,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							//    // If only one address is configured, then the space for the second address must be zeroed.
 							//    // Each address must be right padded with zeros if it is less than 64 bytes.
 							&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
+							// TODO: figure out how this will be properly configured, if it has to be added to SVM state
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"IsRMNVerificationDisabled": true}},
 						},
 						MultiReader: &config.MultiReader{
 							ReuseParams: true,
