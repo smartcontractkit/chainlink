@@ -67,6 +67,7 @@ type mocks struct {
 
 // gqlTestFramework is a framework wrapper containing the objects needed to run
 // a GQL test.
+// trigger
 type gqlTestFramework struct {
 	t *testing.T
 
