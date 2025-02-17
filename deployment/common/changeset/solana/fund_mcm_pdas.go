@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -24,7 +25,7 @@ type FundMCMSignersChangeset struct{}
 // VerifyPreconditions checks if the deployer has enough SOL to fund the MCMS signers on each chain.
 func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, config FundMCMSignerConfig) error {
 	// the number of accounts to fund per chain (bypasser, canceller, proposer, timelock)
-	numOfAccountsToFund := 4
+	numOfAccountsToFund := uint64(4)
 	for chainSelector, amount := range config.AmountsPerChain {
 		solChain, ok := e.SolChains[chainSelector]
 		if !ok {
@@ -40,11 +41,11 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 		}
 		// Check if seeds are empty
 		if mcmState.ProposerMcmSeed == [32]byte{} || mcmState.TimelockSeed == [32]byte{} || mcmState.CancellerMcmSeed == [32]byte{} || mcmState.BypasserMcmSeed == [32]byte{} {
-			return fmt.Errorf("mcm/timelock seeds are empty, please deploy MCMS contracts first")
+			return errors.New("mcm/timelock seeds are empty, please deploy MCMS contracts first")
 		}
 		// Check if program IDs exists
 		if mcmState.McmProgram.IsZero() || mcmState.TimelockProgram.IsZero() {
-			return fmt.Errorf("mcm/timelock program IDs are empty, please deploy MCMS contracts first")
+			return errors.New("mcm/timelock program IDs are empty, please deploy MCMS contracts first")
 		}
 		result, err := solChain.Client.GetBalance(e.GetContext(), solChain.DeployerKey.PublicKey(), rpc.CommitmentConfirmed)
 		if err != nil {

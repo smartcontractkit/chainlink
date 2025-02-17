@@ -83,23 +83,26 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		mcmDummyProgram,
 		[32]byte{'t', 'e', 's', 't', '3'},
 	)
-	validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, deployment.TypeAndVersion{
+	err := validEnv.ExistingAddresses.Save(validSolChainSelector, timelockID, deployment.TypeAndVersion{
 		Type:    types.RBACTimelock,
 		Version: deployment.Version1_0_0,
 	})
-	validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsProposerID, deployment.TypeAndVersion{
+	require.NoError(t, err)
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsProposerID, deployment.TypeAndVersion{
 		Type:    types.ProposerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
-	validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsCancellerID, deployment.TypeAndVersion{
+	require.NoError(t, err)
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsCancellerID, deployment.TypeAndVersion{
 		Type:    types.CancellerManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
-
-	validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsBypasserID, deployment.TypeAndVersion{
+	require.NoError(t, err)
+	err = validEnv.ExistingAddresses.Save(validSolChainSelector, mcmsBypasserID, deployment.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
+	require.NoError(t, err)
 	mcmsProposerIDEmpty := mcmsSolana.ContractAddress(
 		mcmDummyProgram,
 		[32]byte{},
@@ -113,10 +116,11 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		Nodes:     1,
 	})
 	noMCMSEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
-	noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, deployment.TypeAndVersion{
+	err = noMCMSEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, mcmsProposerIDEmpty, deployment.TypeAndVersion{
 		Type:    types.BypasserManyChainMultisig,
 		Version: deployment.Version1_0_0,
 	})
+	require.NoError(t, err)
 
 	// Note: We do not call ExistingAddresses.Save on noMCMSEnv.
 
