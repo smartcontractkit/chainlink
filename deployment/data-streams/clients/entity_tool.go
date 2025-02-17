@@ -35,7 +35,6 @@ type EntityToolClientImpl struct {
 	client  *http.Client
 }
 
-// If client is nil, http.DefaultClient is used.
 func NewEntityToolClient(baseURL string, client *http.Client) EntityToolClient {
 	if client == nil {
 		client = http.DefaultClient
@@ -53,91 +52,61 @@ type feedBuildObjectResponse struct {
 	APIs []string `json:"apis"`
 }
 
-func (c *EntityToolClientImpl) GetOverrides(ctx context.Context, in *GetOverridesRequest) (*GetOverridesResponse, error) {
+func (c *EntityToolClientImpl) getFeedBuildObjectResponse(ctx context.Context, asset, quote, product string) (*feedBuildObjectResponse, error) {
 	endpoint := c.baseURL + "/api/feed-build-object"
+	values := url.Values{}
+	values.Add("base", asset)
+	values.Add("quote", quote)
+	values.Add("product", product)
+	values.Add("configType", "DATA_STREAMS")
+	reqURL := endpoint + "?" + values.Encode()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	if err != nil {
+		return nil, errors.New("failed to create request: " + err.Error())
+	}
+	resp, err := c.client.Do(req)
+	if err != nil {
+		return nil, errors.New("request failed: " + err.Error())
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, errors.New("unexpected status code: " + http.StatusText(resp.StatusCode))
+	}
+	var result feedBuildObjectResponse
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, errors.New("failed to decode response: " + err.Error())
+	}
+	return &result, nil
+}
 
-	// Default product to "crypto" if not provided.
+func (c *EntityToolClientImpl) GetOverrides(ctx context.Context, in *GetOverridesRequest) (*GetOverridesResponse, error) {
 	product := "crypto"
 	if in.product != nil {
 		product = *in.product
 	}
-
-	values := url.Values{}
-	values.Add("base", in.asset)
-	values.Add("quote", in.quote)
-	values.Add("product", product)
-	values.Add("configType", "DATA_STREAMS")
-
-	reqURL := endpoint + "?" + values.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	res, err := c.getFeedBuildObjectResponse(ctx, in.asset, in.quote, product)
 	if err != nil {
-		return nil, errors.New("failed to create GetOverrides request: " + err.Error())
+		return nil, err
 	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, errors.New("GetOverrides request failed: " + err.Error())
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("GetOverrides unexpected status code: " + http.StatusText(resp.StatusCode))
-	}
-
-	var result feedBuildObjectResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, errors.New("failed to decode GetOverrides response: " + err.Error())
-	}
-
-	if result.ExternalAdapterRequestParams.Overrides == nil {
+	if res.ExternalAdapterRequestParams.Overrides == nil {
 		return nil, errors.New("no APIs found for the given asset and quote")
 	}
-
-	overrides := GetOverridesResponse(result.ExternalAdapterRequestParams.Overrides)
+	overrides := GetOverridesResponse(res.ExternalAdapterRequestParams.Overrides)
 	return &overrides, nil
 }
 
 func (c *EntityToolClientImpl) GetAssetEAs(ctx context.Context, in *GetAssetEAsRequest) (*GetAssetEAsResponse, error) {
-	endpoint := c.baseURL + "/api/feed-build-object"
-
 	product := "crypto"
 	if in.product != nil {
 		product = *in.product
 	}
-
-	values := url.Values{}
-	values.Add("base", in.asset)
-	values.Add("quote", in.quote)
-	values.Add("product", product)
-	values.Add("configType", "DATA_STREAMS")
-
-	reqURL := endpoint + "?" + values.Encode()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, reqURL, nil)
+	res, err := c.getFeedBuildObjectResponse(ctx, in.asset, in.quote, product)
 	if err != nil {
-		return nil, errors.New("failed to create GetAssetEAs request: " + err.Error())
+		return nil, err
 	}
-
-	resp, err := c.client.Do(req)
-	if err != nil {
-		return nil, errors.New("GetAssetEAs request failed: " + err.Error())
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.New("GetAssetEAs unexpected status code: " + http.StatusText(resp.StatusCode))
-	}
-
-	var result feedBuildObjectResponse
-	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-		return nil, errors.New("failed to decode GetAssetEAs response: " + err.Error())
-	}
-
-	if len(result.APIs) == 0 {
+	if len(res.APIs) == 0 {
 		return nil, errors.New("no APIs found for the given asset and quote")
 	}
-
-	eas := GetAssetEAsResponse(result.APIs)
+	eas := GetAssetEAsResponse(res.APIs)
 	return &eas, nil
 }
