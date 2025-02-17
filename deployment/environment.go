@@ -562,21 +562,40 @@ func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_sele
 }
 
 func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
+	var chainId string
 	var family string
+
 	switch c.Type {
 	case nodev1.ChainType_CHAIN_TYPE_EVM:
+		chainId = c.Id
 		family = chain_selectors.FamilyEVM
 	case nodev1.ChainType_CHAIN_TYPE_APTOS:
+		chainId = c.Id
 		family = chain_selectors.FamilyAptos
 	case nodev1.ChainType_CHAIN_TYPE_SOLANA:
+		// TODO: we are forced to make this conversion due to a larger mismatch
+
+		// - the c.Id field (incorrectly) has the selector id
+		// - `GetChainDetailsByChainIDAndFamily` expects a chain id. This method is also
+		// inconsistent in what it expects, so a larger fix is needed
+
+		selector, err := strconv.ParseUint(c.Id, 10, 64)
+		if err != nil {
+			return chain_selectors.ChainDetails{}, fmt.Errorf("failed to parse Solana chain ID: %w", err)
+		}
+		chainId, err = chain_selectors.GetChainIDFromSelector(selector)
+		if err != nil {
+			return chain_selectors.ChainDetails{}, err
+		}
 		family = chain_selectors.FamilySolana
 	case nodev1.ChainType_CHAIN_TYPE_STARKNET:
+		chainId = c.Id
 		family = chain_selectors.FamilyStarknet
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
 
-	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
+	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainId, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
 	}
