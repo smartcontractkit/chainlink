@@ -87,7 +87,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
 	// Only create a destination gun if we have decided to send traffic to this chain
-	for ind := range *userOverrides.NumDestinationChains {
+	for ind := 0; ind < *userOverrides.NumDestinationChains; ind++ {
+		//for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
 		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)

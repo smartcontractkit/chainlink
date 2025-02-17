@@ -362,7 +362,8 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	poolInput := make(map[uint64]changeset.DeployTokenPoolInput)
 	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
-	for _, chain := range chainSelectors {
+
+	for i, chain := range chainSelectors {
 		poolInput[chain] = changeset.DeployTokenPoolInput{
 			Type:               changeset.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
@@ -376,8 +377,60 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 				ExternalAdmin: e.Chains[chain].DeployerKey.From,
 			},
 		}
+
+		// lower the batch size to avoid timeouts
+		if (i+1)%5 == 0 {
+			println("Applying pools changes with index ", i+1)
+			_, err := applyPoolsChangeSet(e, poolInput, pools)
+			if err != nil {
+				return *e, err
+			}
+			println("resetting poolInput and pools for index", i+1)
+			poolInput = make(map[uint64]changeset.DeployTokenPoolInput)
+			pools = make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
+		}
 	}
-	env, err := commonchangeset.Apply(nil, *e, nil,
+
+	if len(poolInput) > 0 {
+		println("Applying pools changes for the rest of chains")
+		_, err := applyPoolsChangeSet(e, poolInput, pools)
+		if err != nil {
+			return *e, err
+		}
+	}
+
+	state, err = changeset.LoadOnchainState(*e)
+	if err != nil {
+		return *e, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	fmt.Println("granting mint and burn roles for link pools")
+	eg := errgroup.Group{}
+	//mu := sync.Mutex{}
+	for _, chain := range chainSelectors {
+		chain := chain
+		eg.Go(func() error {
+			fmt.Println("granting mint and burn roles for link pool on chain ", chain)
+			linkPool := state.Chains[chain].BurnMintTokenPools[changeset.LinkSymbol][deployment.Version1_5_1]
+			linkToken := state.Chains[chain].LinkToken
+			tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
+			_, err = deployment.ConfirmIfNoError(e.Chains[chain], tx, err)
+			if err != nil {
+				return fmt.Errorf("failed to grant mint and burn roles for link pool on chain %d: %w", chain, err)
+			}
+			return nil
+		})
+	}
+
+	return *e, eg.Wait()
+}
+
+func applyPoolsChangeSet(
+	e *deployment.Environment,
+	poolInput map[uint64]changeset.DeployTokenPoolInput,
+	pools map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo) (deployment.Environment, error) {
+
+	_, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployTokenPoolContractsChangeset),
 			changeset.DeployTokenPoolContractsConfig{
@@ -404,34 +457,10 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			},
 		),
 	)
-
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
-
-	state, err = changeset.LoadOnchainState(env)
-	if err != nil {
-		return *e, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	fmt.Println("granting mint and burn roles for link pools")
-	eg := errgroup.Group{}
-	for _, chain := range chainSelectors {
-		chain := chain
-		eg.Go(func() error {
-			linkPool := state.Chains[chain].BurnMintTokenPools[changeset.LinkSymbol][deployment.Version1_5_1]
-			linkToken := state.Chains[chain].LinkToken
-			tx, err := linkToken.GrantMintAndBurnRoles(e.Chains[chain].DeployerKey, linkPool.Address())
-			_, err = deployment.ConfirmIfNoError(e.Chains[chain], tx, err)
-			if err != nil {
-				return fmt.Errorf("failed to grant mint and burn roles for link pool on chain %d: %w", chain, err)
-			}
-			fmt.Println("granting mint and burn roles for link pool on chain ", chain)
-			return nil
-		})
-	}
-
-	return env, eg.Wait()
+	return *e, nil
 }
 
 // Excludes the home chain and feed chain from the lane setup to prevent race conditions with the setup
