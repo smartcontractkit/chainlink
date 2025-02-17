@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
@@ -35,24 +36,7 @@ type Analyzer func(argName string, argAbi *abi.Type, argVal interface{}, analyze
 // ArgumentContext is a storage for context that may need to Argument during its description.
 // Refer to BytesAndAddressAnalyzer and ChainSelectorAnalyzer for usage examples
 type ArgumentContext struct {
-	ChainSelector uint64
-	Ctx           map[string]interface{}
-}
-
-func NewArgumentContext(chainSelector uint64, keysAndValues ...interface{}) *ArgumentContext {
-	ctx := make(map[string]interface{})
-	var key string
-	for i, kv := range keysAndValues {
-		if i%2 == 0 {
-			key = kv.(string)
-		} else {
-			ctx[key] = kv
-		}
-	}
-	return &ArgumentContext{
-		ChainSelector: chainSelector,
-		Ctx:           ctx,
-	}
+	Ctx map[string]interface{}
 }
 
 func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
@@ -82,7 +66,7 @@ type ArrayArgument struct {
 
 func (a ArrayArgument) Describe(context *ArgumentContext) string {
 	indented := false
-	elementsDescribed := make([]string, len(a.Elements))
+	elementsDescribed := make([]string, 0, len(a.Elements))
 	for _, arg := range a.Elements {
 		argDescribed := arg.Describe(context)
 		indented = indented || strings.Contains(argDescribed, INDENT)
@@ -154,19 +138,11 @@ type ChainSelectorArgument struct {
 }
 
 func (c ChainSelectorArgument) Describe(_ *ArgumentContext) string {
-	chainID, err := chain_selectors.GetChainIDFromSelector(c.Value)
+	chainName, err := GetChainNameFromSelector(c.Value)
 	if err != nil {
 		return fmt.Sprintf("%d (unknown)", c.Value)
 	}
-	family, err := chain_selectors.GetSelectorFamily(c.Value)
-	if err != nil {
-		return fmt.Sprintf("%d (unknown)", c.Value)
-	}
-	chainInfo, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID, family)
-	if err != nil {
-		return fmt.Sprintf("%d (unknown)", c.Value)
-	}
-	return fmt.Sprintf("%d (%s)", c.Value, chainInfo.ChainName)
+	return fmt.Sprintf("%d (%s)", c.Value, chainName)
 }
 
 type BytesArgument struct {
@@ -183,23 +159,18 @@ type AddressArgument struct {
 
 func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 	description := a.Value.Hex() + " (address, unknown)"
-	addressBook, err := ContextGet[deployment.AddressBook](ctx, "AddressBook")
+	addresses, err := ContextGet[deployment.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
 		return description
 	}
-	addresses, err := addressBook.Addresses()
-	if err != nil {
-		return description
-	}
-	typeAndVersion, ok := addresses[ctx.ChainSelector][a.Value.Hex()]
-	if ok {
-		return fmt.Sprintf("%s (address, %d, %s)", a.Value.Hex(), ctx.ChainSelector, typeAndVersion.String())
-	}
-	// it can be under another chain
 	for chainSel, addresses := range addresses {
+		chainName, err := GetChainNameFromSelector(chainSel)
+		if err != nil {
+			chainName = strconv.FormatUint(chainSel, 10)
+		}
 		typeAndVersion, ok := addresses[a.Value.Hex()]
 		if ok {
-			return fmt.Sprintf("%s (address, %d, %s)", a.Value.Hex(), chainSel, typeAndVersion.String())
+			return fmt.Sprintf("%s (address, %s, %s)", a.Value.Hex(), chainName, typeAndVersion.String())
 		}
 	}
 	return description
@@ -214,11 +185,16 @@ type DecodedCall struct {
 
 func (d *DecodedCall) Describe(context *ArgumentContext) string {
 	description := strings.Builder{}
-	description.WriteString(fmt.Sprintf("Proposal chain: %s\n", ChainSelectorArgument{Value: context.ChainSelector}.Describe(context)))
-	description.WriteString(fmt.Sprintf("Address: %s (%s)\n", AddressArgument{Value: common.HexToAddress(d.Address)}.Describe(context)))
+	description.WriteString(fmt.Sprintf("Address: %s\n", AddressArgument{Value: common.HexToAddress(d.Address)}.Describe(context)))
 	description.WriteString(fmt.Sprintf("Method: %s\n", d.Method))
-	description.WriteString(fmt.Sprintf("Inputs:\n%s\n", IndentString(d.describeArguments(d.Inputs, context))))
-	description.WriteString(fmt.Sprintf("Outputs:\n%s\n", IndentString(d.describeArguments(d.Outputs, context))))
+	describedInputs := d.describeArguments(d.Inputs, context)
+	if len(describedInputs) > 0 {
+		description.WriteString(fmt.Sprintf("Inputs:\n%s\n", IndentString(describedInputs)))
+	}
+	describedOutputs := d.describeArguments(d.Outputs, context)
+	if len(describedOutputs) > 0 {
+		description.WriteString(fmt.Sprintf("Outputs:\n%s\n", IndentString(describedOutputs)))
+	}
 	return description.String()
 }
 
@@ -243,7 +219,7 @@ func NewTxCallDecoder(extraAnalyzers []Analyzer) *TxCallDecoder {
 	return &TxCallDecoder{Analyzers: analyzers}
 }
 
-func (p *TxCallDecoder) Analyze(abi *abi.ABI, data []byte) (DecodedCall, error) {
+func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (DecodedCall, error) {
 	methodID, methodData := data[:4], data[4:]
 	method, err := abi.MethodById(methodID)
 	if err != nil {
@@ -259,10 +235,10 @@ func (p *TxCallDecoder) Analyze(abi *abi.ABI, data []byte) (DecodedCall, error) 
 	if err != nil {
 		return DecodedCall{}, err
 	}
-	return p.analyzeMethodCall(method, args, outs)
+	return p.analyzeMethodCall(address, method, args, outs)
 }
 
-func (p *TxCallDecoder) analyzeMethodCall(method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (DecodedCall, error) {
+func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (DecodedCall, error) {
 	inputs := make([]NamedArgument, len(method.Inputs))
 	for i, input := range method.Inputs {
 		arg, ok := args[input.Name]
@@ -286,6 +262,7 @@ func (p *TxCallDecoder) analyzeMethodCall(method *abi.Method, args map[string]in
 		}
 	}
 	return DecodedCall{
+		Address: address,
 		Method:  method.String(),
 		Inputs:  inputs,
 		Outputs: outputs,
@@ -384,4 +361,20 @@ func IndentStringWith(s string, indent string) string {
 		}
 	}
 	return result.String()
+}
+
+func GetChainNameFromSelector(selector uint64) (string, error) {
+	chainID, err := chain_selectors.GetChainIDFromSelector(selector)
+	if err != nil {
+		return "", err
+	}
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return "", err
+	}
+	chainInfo, err := chain_selectors.GetChainDetailsByChainIDAndFamily(chainID, family)
+	if err != nil {
+		return "", err
+	}
+	return chainInfo.ChainName, nil
 }

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -21,7 +22,7 @@ func Test_AnalyzeRmnHomeSetConfig(t *testing.T) {
 	_abi, err := abi.JSON(strings.NewReader(rmn_home.RMNHomeABI))
 	require.NoError(t, err)
 	decoder := NewTxCallDecoder(nil)
-	analyzeResult, err := decoder.Analyze(&_abi, data)
+	analyzeResult, err := decoder.Analyze(common.Address{}.Hex(), &_abi, data)
 	require.NoError(t, err)
 	assert.Equal(t, _abi.Methods["setCandidate"].String(), analyzeResult.Method)
 	assert.Equal(t, "staticConfig", analyzeResult.Inputs[0].Name)
