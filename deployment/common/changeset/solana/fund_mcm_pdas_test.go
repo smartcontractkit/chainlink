@@ -12,6 +12,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonSolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -205,7 +206,8 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 
 	// Set up the test environment
 	env := setupFundingTestEnv(t)
-
+	solChainSelectors := env.AllChainSelectorsSolana()
+	testhelpers.SavePreloadedSolAddresses(t, env, solChainSelectors[0])
 	// Build a funding configuration.
 	// Here, we assume that we want to fund each chain with an amount equal to 1000 SOL per MCMS signer.
 	// There are 4 signers (bypasser, canceller, proposer, timelock).
