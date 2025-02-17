@@ -6,6 +6,9 @@
   "license": "BUSL-1.1",
   "private": false,
   "scripts": {
+    "lint": "eslint --ext js,ts .",
+    "prettier:check": "prettier '**/*' --check --ignore-unknown",
+    "prettier:write": "prettier '**/*' --write --ignore-unknown",
     "publish-beta": "pnpm publish --tag beta",
     "publish-prod": "npm dist-tag add @chainlink/contracts-ccip@1.6.0 latest",
     "compile": "./scripts/native_solc_compile_all_ccip",
@@ -51,5 +54,17 @@
     "@changesets/cli": "~2.27.8",
     "@changesets/get-github-info": "^0.6.0",
     "semver": "^7.6.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.17.17",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.3",
+    "prettier": "^3.5.0",
+    "prettier-plugin-solidity": "^1.4.2",
+    "solhint-plugin-prettier": "^0.1.0",
+    "typescript": "^5.7.3"
   }
 }
