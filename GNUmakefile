@@ -31,6 +31,10 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
 
+.PHONY: tidy
+tidy: gomodtidy ## Tidy all modules and add to git.
+	git add '**go.*'
+
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
 	go install golang.org/x/pkgsite/cmd/pkgsite@latest

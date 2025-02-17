@@ -167,6 +167,7 @@ contract MerkleMultiProofTest is Test {
     assertEq(MerkleMultiProof._merkleRoot(leaves, proofs, 0), leaves[0]);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_RevertWhen_EmptyLeaf() public {
     bytes32[] memory leaves = new bytes32[](0);
     bytes32[] memory proofs = new bytes32[](0);
@@ -175,6 +176,7 @@ contract MerkleMultiProofTest is Test {
     MerkleMultiProof._merkleRoot(leaves, proofs, 0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_CVE_2023_34459() public {
     bytes32[] memory leaves = new bytes32[](2);
     // leaves[0] stays uninitialized, i.e., 0x000...0

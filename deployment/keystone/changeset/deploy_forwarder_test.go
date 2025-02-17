@@ -56,16 +56,16 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := test.SetupTestEnv(t, test.TestConfig{
-					WFDonConfig:     test.DonConfig{N: 4},
-					AssetDonConfig:  test.DonConfig{N: 4},
-					WriterDonConfig: test.DonConfig{N: 4},
+				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+					WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+					AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+					WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 					NumChains:       nChains,
 				})
 
 				var wfNodes []string
-				for id := range te.WFNodes {
-					wfNodes = append(wfNodes, id)
+				for _, id := range te.GetP2PIDs("wfDon") {
+					wfNodes = append(wfNodes, id.String())
 				}
 
 				cfg := changeset.ConfigureForwardContractsRequest{
@@ -93,17 +93,17 @@ func TestConfigureForwarders(t *testing.T) {
 		for _, nChains := range []int{1, 3} {
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
-				te := test.SetupTestEnv(t, test.TestConfig{
-					WFDonConfig:     test.DonConfig{N: 4},
-					AssetDonConfig:  test.DonConfig{N: 4},
-					WriterDonConfig: test.DonConfig{N: 4},
+				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+					WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+					AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+					WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 					NumChains:       nChains,
 					UseMCMS:         true,
 				})
 
 				var wfNodes []string
-				for id := range te.WFNodes {
-					wfNodes = append(wfNodes, id)
+				for _, id := range te.GetP2PIDs("wfDon") {
+					wfNodes = append(wfNodes, id.String())
 				}
 
 				cfg := changeset.ConfigureForwardContractsRequest{

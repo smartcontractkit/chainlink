@@ -86,6 +86,14 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
 	}
+
+	if don.AcceptsWorkflows {
+		// TODO: CRE-277 ensure forwarders are support the next DON version
+		// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
+		// and
+		// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L274
+		return nil, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
+	}
 	cfgs, err := computeConfigs(registry, req.CapabilityConfigs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to compute configs: %w", err)
