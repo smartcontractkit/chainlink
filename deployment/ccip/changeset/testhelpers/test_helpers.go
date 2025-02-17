@@ -416,9 +416,10 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 func AddLane(
 	t *testing.T,
 	e *DeployedEnv,
-	state changeset.CCIPOnChainState,
 	from, to uint64,
 	isTestRouter bool,
+	gasprice map[uint64]*big.Int,
+	tokenPrices map[common.Address]*big.Int,
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
@@ -426,7 +427,7 @@ func AddLane(
 	toFamily, _ := chainsel.GetSelectorFamily(to)
 	changesets := []commoncs.ConfiguredChangeSet{}
 	if fromFamily == chainsel.FamilyEVM {
-		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, state, fqCfg)
+		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
 		changesets = append(changesets, evmSrcChangesets...)
 	}
 	if toFamily == chainsel.FamilyEVM {
@@ -445,10 +446,6 @@ func AddLane(
 }
 
 func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
-	value := [28]uint8{}
-	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-	require.True(t, ok)
-	bigNum.FillBytes(value[:])
 	chainFamilySelector := [4]uint8{}
 	if remoteFamily == chainsel.FamilyEVM {
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
@@ -483,12 +480,7 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 	return solanaChangesets
 }
 
-func addEVMSrcChangesets(from, to uint64, isTestRouter bool, state changeset.CCIPOnChainState, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
-	stateChainFrom := state.Chains[from]
-	tokenPrices := map[common.Address]*big.Int{
-		stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
-		stateChainFrom.Weth9.Address():     DefaultWethPrice,
-	}
+func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
 	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
@@ -510,9 +502,7 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, state changeset.CCI
 				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
-						GasPrices: map[uint64]*big.Int{
-							to: DefaultGasPrice,
-						},
+						GasPrices:   gasprice,
 					},
 				},
 			},
@@ -626,8 +616,18 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 }
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
-	fqCfg := changeset.DefaultFeeQuoterDestChainConfig(true, to)
-	AddLane(t, e, state, from, to, isTestRouter, fqCfg)
+	stateChainFrom := state.Chains[from]
+	AddLane(
+		t,
+		e,
+		from, to,
+		isTestRouter,
+		map[uint64]*big.Int{
+			to: DefaultGasPrice,
+		}, map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     DefaultWethPrice,
+		}, changeset.DefaultFeeQuoterDestChainConfig(true, to))
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
