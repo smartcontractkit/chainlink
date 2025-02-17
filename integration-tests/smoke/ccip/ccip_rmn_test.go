@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"crypto/ecdsa"
 	"errors"
 	"math/big"
 	"slices"
@@ -13,6 +14,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -32,6 +34,30 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 )
 
+func TestRMN_IncorrectSig(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		nodesWithIncorrectSigner: []int{0, 1},
+		name:                     "messages with incorrect RMN signature",
+		waitForExec:              true,
+		passIfNoCommitAfter:      30 * time.Second,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+		},
+	})
+}
+
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
@@ -50,6 +76,29 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 			{id: 0, isSigner: true, observedChainIdxs: []int{chain0}},
 			{id: 1, isSigner: true, observedChainIdxs: []int{chain0}},
 			{id: 2, isSigner: true, observedChainIdxs: []int{chain0}},
+		},
+		messagesToSend: []messageToSend{
+			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
+			{fromChainIdx: chain1, toChainIdx: chain0, count: 5},
+		},
+	})
+}
+
+func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
+	runRmnTestCase(t, rmnTestCase{
+		name:        "messages on two lanes including batching",
+		waitForExec: true,
+		homeChainConfig: homeChainConfig{
+			f: map[int]int{chain0: 1, chain1: 1},
+		},
+		remoteChainsConfig: []remoteChainConfig{
+			{chainIdx: chain0, f: 1},
+			{chainIdx: chain1, f: 1},
+		},
+		rmnNodes: []rmnNode{
+			{id: 0, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true, restart: true},
+			{id: 1, isSigner: true, observedChainIdxs: []int{chain0, chain1}, forceExit: true, restart: true},
+			{id: 2, isSigner: true, observedChainIdxs: []int{chain0, chain1}},
 		},
 		messagesToSend: []messageToSend{
 			{fromChainIdx: chain0, toChainIdx: chain1, count: 1},
@@ -309,7 +358,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		}
 		rmnRemoteConfig[selector] = changeset.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
-			Signers: tc.pf.rmnRemoteSigners,
+			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
 		}
 	}
 
@@ -333,6 +382,9 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 
 	startBlocks, seqNumCommit, seqNumExec := tc.sendMessages(t, onChainState, envWithRMN)
 	t.Logf("Sent all messages, seqNumCommit: %v seqNumExec: %v", seqNumCommit, seqNumExec)
+
+	cleanup := tc.restartNode(t, rmnCluster)
+	defer cleanup()
 
 	eg := errgroup.Group{}
 	tc.callContractsToCurseChains(ctx, t, onChainState, envWithRMN)
@@ -437,6 +489,7 @@ type rmnNode struct {
 	isSigner          bool
 	observedChainIdxs []int
 	forceExit         bool // force exit will simply force exit the rmn node to simulate failure scenarios
+	restart           bool // restart will restart the rmn node to simulate failure scenarios
 }
 
 type messageToSend struct {
@@ -458,6 +511,7 @@ type rmnTestCase struct {
 	remoteChainsConfig            []remoteChainConfig
 	rmnNodes                      []rmnNode
 	messagesToSend                []messageToSend
+	nodesWithIncorrectSigner      []int
 
 	// populated fields after environment setup
 	pf testCasePopulatedFields
@@ -470,6 +524,29 @@ type testCasePopulatedFields struct {
 	rmnHomeSourceChains              []rmn_home.RMNHomeSourceChain
 	cursedSubjectsPerChainSel        map[uint64][]uint64
 	revokedCursedSubjectsPerChainSel map[uint64]map[uint64]time.Duration
+}
+
+func (tc *rmnTestCase) alterSigners(t *testing.T, signers []rmn_remote.RMNRemoteSigner) []rmn_remote.RMNRemoteSigner {
+	for _, n := range tc.nodesWithIncorrectSigner {
+		for i, s := range signers {
+			if n >= 0 && s.NodeIndex == uint64(n) {
+				// Random address ethereum private key
+				privateKey, err := crypto.GenerateKey()
+				if err != nil {
+					t.Fatalf("failed to generate private key: %v", err)
+				}
+				publicKey := privateKey.Public()
+				publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+				if !ok {
+					t.Fatalf("failed to cast public key to ECDSA")
+				}
+				address := crypto.PubkeyToAddress(*publicKeyECDSA)
+				signers[i].OnchainPublicKey = address
+			}
+		}
+	}
+
+	return signers
 }
 
 func (tc *rmnTestCase) populateFields(t *testing.T, envWithRMN testhelpers.DeployedEnv, rmnCluster devenv.RMNCluster) {
@@ -557,6 +634,36 @@ func (tc rmnTestCase) killMarkedRmnNodes(t *testing.T, rmnCluster devenv.RMNClus
 			rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
 			require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker kill "+rmnN.Proxy.ContainerName))
 			t.Logf("Paused RMN node %d", n.id)
+		}
+	}
+}
+
+func (tc rmnTestCase) restartNode(t *testing.T, rmnCluster devenv.RMNCluster) func() {
+	errCh := make(chan error, 1)
+	go func() {
+		time.Sleep(10 * time.Second)
+		for _, n := range tc.rmnNodes {
+			if n.restart {
+				t.Logf("Restarting RMN node %d", n.id)
+				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+				if err := osutil.ExecCmd(zerolog.Nop(), "docker start "+rmnN.Proxy.ContainerName); err != nil {
+					errCh <- err
+					return
+				}
+				t.Logf("Restarted RMN node %d", n.id)
+			}
+		}
+		errCh <- nil
+	}()
+	require.NoError(t, <-errCh)
+	return func() {
+		for _, n := range tc.rmnNodes {
+			if n.restart {
+				t.Logf("Stopping RMN node %d", n.id)
+				rmnN := rmnCluster.Nodes["rmn_"+strconv.Itoa(n.id)]
+				require.NoError(t, osutil.ExecCmd(zerolog.Nop(), "docker stop "+rmnN.Proxy.ContainerName))
+				t.Logf("Stopped RMN node %d", n.id)
+			}
 		}
 	}
 }
