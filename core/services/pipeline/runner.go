@@ -347,6 +347,8 @@ func (r *runner) InitializePipeline(spec Spec) (pipeline *Pipeline, err error) {
 			// must use the unrestrictedHTTPClient because some node operators
 			// may run external adapters on their own hardware
 			task.(*BridgeTask).httpClient = r.unrestrictedHTTPClient
+			// Add logging to verify the URL
+			r.lggr.Debugw("INITIALIZE_PIPELINE_CALL: BridgeTask initialized", "bridgeName", task.(*BridgeTask).Name, "url", task.(*BridgeTask).URL)
 		case TaskTypeETHCall:
 			task.(*ETHCallTask).legacyChains = r.legacyEVMChains
 			task.(*ETHCallTask).config = r.config
