@@ -35,9 +35,11 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	testhelpers.SavePreloadedSolAddresses(t, env, chainSelector)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	err := env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	require.NoError(t, err)
+
 	// Deploy MCMS and Timelock
-	env, err := changeset.Apply(t, env, nil,
+	env, err = changeset.Apply(t, env, nil,
 		changeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
@@ -53,11 +55,8 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	// Create a logger instance.
 	lggr := logger.TestLogger(t)
-
 	// Create a valid in–memory environment with one Solana chain.
-	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		SolChains: 1,
-	})
+	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
 	// Get the sole Solana chain selector.
 	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
@@ -209,7 +208,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
-
 	// Set up the test environment
 	env := setupFundingTestEnv(t)
 

@@ -51,7 +51,7 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 		if err != nil {
 			return fmt.Errorf("failed to get deployer balance: %w", err)
 		}
-		requiredAmount := uint64(numOfAccountsToFund) * amount
+		requiredAmount := numOfAccountsToFund * amount
 		if result.Value < requiredAmount {
 			return fmt.Errorf("deployer balance is insufficient, required: %d, actual: %d", requiredAmount, result.Value)
 		}
