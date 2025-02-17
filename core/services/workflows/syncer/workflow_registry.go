@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -328,18 +329,19 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilit
 
 				event := toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr)
 
-				if event.Event.DonID == nil {
+				switch {
+				case event.Event.DonID == nil:
 					// event is missing a DonID, so don't filter it out;
 					// it applies to all Dons
 					events = append(events, event)
-				} else if *event.Event.DonID == don.ID {
+				case *event.Event.DonID == don.ID:
 					// event has a DonID and matches, so it applies to this DON.
 					events = append(events, event)
-				} else {
+				default:
 					// event doesn't match, let's skip it
 					donID := "MISSING_DON_ID"
 					if event.Event.DonID != nil {
-						donID = fmt.Sprintf("%d", *event.Event.DonID)
+						donID = strconv.FormatUint(uint64(*event.Event.DonID), 10)
 					}
 					w.lggr.Debugw("event belongs to a different don, skipping...", "don", don.ID, "gotDON", donID)
 				}
