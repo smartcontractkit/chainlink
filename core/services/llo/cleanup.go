@@ -123,12 +123,12 @@ DELETE FROM llo_mercury_transmit_queue AS q
 USING (
     SELECT transmission_hash 
     FROM llo_mercury_transmit_queue
-    WHERE inserted_at < $1
+    WHERE inserted_at < NOW() - ($1 * INTERVAL '1 MICROSECOND')
     ORDER BY inserted_at ASC
     LIMIT $2
 ) AS to_delete
 WHERE q.transmission_hash = to_delete.transmission_hash;
-            `, time.Now().Add(-t.maxAge), batchSize)
+            `, t.maxAge.Microseconds(), batchSize)
 		case "orphaned":
 			res, err = t.ds.ExecContext(ctx, `
 WITH activeDonIds AS (
