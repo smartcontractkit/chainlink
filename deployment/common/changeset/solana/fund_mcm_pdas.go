@@ -57,7 +57,6 @@ func (f FundMCMSignersChangeset) VerifyPreconditions(e deployment.Environment, c
 		}
 	}
 	return nil
-
 }
 
 // Apply funds the MCMS signers on each chain.
