@@ -2,6 +2,8 @@ package deployment
 
 type LabeledAddresses map[string]TypeAndVersion
 
+// And filters the LabeledAddresses to only include those entries that contain all
+// labels.  If labels is empty, then only unlabeled entries are returned.
 func (la LabeledAddresses) And(labels ...string) LabeledAddresses {
 	var (
 		filtered        = make(LabeledAddresses, 0)
