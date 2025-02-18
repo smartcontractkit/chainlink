@@ -9,11 +9,30 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
+type NodeType int
+
+const (
+	NodeTypeOracle NodeType = iota
+	NodeTypeBootstrap
+)
+
+func (nt NodeType) String() string {
+	switch nt {
+	case NodeTypeOracle:
+		return "oracle"
+	case NodeTypeBootstrap:
+		return "bootstrap"
+	default:
+		return "unknown"
+	}
+}
+
 type RegisterNodesInput struct {
 	EnvLabel    string
 	ProductName string
-	DONs        DONConfigMap `json:"dons,omitempty"`
-	DONsList    []DONConfig  `json:"dons_list,omitempty"`
+	// Will be deleted after migration to DONConfigMap
+	DONs     DONConfigMap `json:"dons,omitempty"`
+	DONsList []DONConfig  `json:"dons_list,omitempty"`
 }
 
 type DONConfigMap map[string]DONConfig
@@ -47,16 +66,13 @@ func validateNodeSlice(nodes []NodeCfg, nodeType string, donIndex int) error {
 	return nil
 }
 
-func registerNodesForDON(e deployment.Environment, nodes []NodeCfg, baseLabels []*ptypes.Label, isBootstrap bool) {
-	bootstrapStr := "false"
-	if isBootstrap {
-		bootstrapStr = "true"
-	}
+func registerNodesForDON(e deployment.Environment, nodes []NodeCfg, baseLabels []*ptypes.Label, nodeType NodeType) {
+	ntStr := nodeType.String()
 	for _, node := range nodes {
 		labels := append([]*ptypes.Label(nil), baseLabels...)
 		labels = append(labels, &ptypes.Label{
-			Key:   "isBootstrap",
-			Value: &bootstrapStr,
+			Key:   "nodeType",
+			Value: &ntStr,
 		})
 		nodeID, err := e.Offchain.RegisterNode(e.GetContext(), &nodev1.RegisterNodeRequest{
 			Name:      node.Name,
@@ -84,8 +100,8 @@ func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (depl
 	}
 
 	for _, don := range cfg.DONsList {
-		registerNodesForDON(e, don.Nodes, baseLabels, false)
-		registerNodesForDON(e, don.BootstrapNodes, baseLabels, true)
+		registerNodesForDON(e, don.Nodes, baseLabels, NodeTypeOracle)
+		registerNodesForDON(e, don.BootstrapNodes, baseLabels, NodeTypeBootstrap)
 	}
 
 	return deployment.ChangesetOutput{}, nil
@@ -105,6 +121,9 @@ func (cfg RegisterNodesInput) Validate() error {
 		}
 		if err := validateNodeSlice(don.Nodes, "node", i); err != nil {
 			return err
+		}
+		if len(don.BootstrapNodes) == 0 {
+			return fmt.Errorf("DON[%d] has no bootstrap nodes", i)
 		}
 		if err := validateNodeSlice(don.BootstrapNodes, "bootstrap", i); err != nil {
 			return err

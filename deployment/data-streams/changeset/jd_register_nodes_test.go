@@ -35,10 +35,9 @@ func TestRegisterNodesWithJD(t *testing.T) {
 				DONsList: []DONConfig{
 					{
 						Name: "don1",
-						Nodes: []NodeCfg{
+						BootstrapNodes: []NodeCfg{
 							{Name: "node1", CSAKey: csaKey},
 						},
-						BootstrapNodes: []NodeCfg{},
 					},
 				},
 			},
@@ -80,7 +79,9 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 					Nodes: []NodeCfg{
 						{Name: "node1", CSAKey: "0xdef"},
 					},
-					BootstrapNodes: []NodeCfg{},
+					BootstrapNodes: []NodeCfg{
+						{Name: "node2", CSAKey: "0xabc"},
+					},
 				},
 			},
 		}
@@ -106,5 +107,14 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 		}
 		err := cfg.Validate()
 		require.Error(t, err, "expected an error when CSAKey is empty")
+	})
+
+	t.Run("missing BootstrapNode", func(t *testing.T) {
+		cfg := RegisterNodesInput{
+			EnvLabel:    "test-env",
+			ProductName: "test-product",
+		}
+		err := cfg.Validate()
+		require.Error(t, err, "expected an error when BooststrapNodes is empty")
 	})
 }

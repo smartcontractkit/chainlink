@@ -110,3 +110,27 @@ func (c *EntityToolClientImpl) GetAssetEAs(ctx context.Context, in *GetAssetEAsR
 	eas := GetAssetEAsResponse(res.APIs)
 	return &eas, nil
 }
+
+func NewGetOverridesRequest(asset, quote string, product ...string) *GetOverridesRequest {
+	var prod *string
+	if len(product) > 0 {
+		prod = &product[0]
+	}
+	return &GetOverridesRequest{
+		asset:   asset,
+		quote:   quote,
+		product: prod,
+	}
+}
+
+func NewGetAssetEAsRequest(asset, quote string, product ...string) *GetAssetEAsRequest {
+	var prod *string
+	if len(product) > 0 {
+		prod = &product[0]
+	}
+	return &GetAssetEAsRequest{
+		asset:   asset,
+		quote:   quote,
+		product: prod,
+	}
+}

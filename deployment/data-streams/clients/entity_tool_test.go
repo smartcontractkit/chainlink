@@ -83,11 +83,14 @@ func TestEntityToolClient_GetOverrides(t *testing.T) {
 			defer server.Close()
 
 			client := NewEntityToolClient(server.URL, server.Client())
-			req := &GetOverridesRequest{
-				asset:   tc.asset,
-				quote:   tc.quote,
-				product: tc.product,
+
+			var req *GetOverridesRequest
+			if tc.product != nil {
+				req = NewGetOverridesRequest(tc.asset, tc.quote, *tc.product)
+			} else {
+				req = NewGetOverridesRequest(tc.asset, tc.quote)
 			}
+
 			ctx := context.Background()
 			resp, err := client.GetOverrides(ctx, req)
 			if tc.expectError {
@@ -176,11 +179,14 @@ func TestEntityToolClient_GetAssetEAs(t *testing.T) {
 			defer server.Close()
 
 			client := NewEntityToolClient(server.URL, server.Client())
-			req := &GetAssetEAsRequest{
-				asset:   tc.asset,
-				quote:   tc.quote,
-				product: tc.product,
+
+			var req *GetAssetEAsRequest
+			if tc.product != nil {
+				req = NewGetAssetEAsRequest(tc.asset, tc.quote, *tc.product)
+			} else {
+				req = NewGetAssetEAsRequest(tc.asset, tc.quote)
 			}
+
 			ctx := context.Background()
 			resp, err := client.GetAssetEAs(ctx, req)
 			if tc.expectError {
