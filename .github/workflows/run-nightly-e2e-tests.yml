@@ -19,7 +19,6 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }'
         description: 'JSON of extra arguments for the workflow.'     
 
 jobs:
