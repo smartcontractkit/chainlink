@@ -204,7 +204,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				UpgradeAuthority:    timelockSignerPDA,
 				SpillAddress:        timelockSignerPDA,
 				MCMS: &cs.MCMSConfig{
-					MinDelay: time.Duration(0),
+					MinDelay: time.Duration(2),
 				},
 			},
 		},
