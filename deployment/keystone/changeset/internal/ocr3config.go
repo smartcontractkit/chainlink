@@ -76,11 +76,16 @@ func (oc *OracleConfig) UnmarshalJSON(data []byte) error {
 		return fmt.Errorf("failed to unmarshal OracleConfig: %w", err)
 	}
 
-	requestTimeout, err := time.ParseDuration(temp.RequestTimeout)
-	if err != nil {
-		return fmt.Errorf("failed to parse RequestTimeout: %w", err)
+	if temp.RequestTimeout == "" {
+		oc.RequestTimeout = 0
+	} else {
+		requestTimeout, err := time.ParseDuration(temp.RequestTimeout)
+		if err != nil {
+			return fmt.Errorf("failed to parse RequestTimeout: %w", err)
+		}
+		oc.RequestTimeout = requestTimeout
 	}
-	oc.RequestTimeout = requestTimeout
+
 	return nil
 }
 
