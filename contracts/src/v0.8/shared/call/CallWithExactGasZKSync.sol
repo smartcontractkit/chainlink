@@ -51,10 +51,9 @@ library CallWithExactGasZKSync {
       }
     }
 
-    // We expect that the `_maxTotalGas` at least includes the `gas` required for the call.
-    // This require is more of a safety protection for the users that call this function with incorrect parameters.
-    //
-    // Ultimately, the entire `gas` sent to this call can be spent on compute regardless of the `_maxTotalGas` parameter.
+    // We require that `_maxTotalGas` does not exceed the current `gasleft()`.
+    // This is a safety check to ensure that users do not specify a gas limit higher than the available gas,
+    // which would indicate incorrect parameters and could lead to unexpected behavior.
     if (_maxTotalGas > gasleft()) {
       return (false, new bytes(0), 0);
     }
