@@ -24,7 +24,7 @@ type FundMCMSignerConfig struct {
 }
 
 // FundMCMSignersChangeset is a changeset that funds the MCMS signers on each chain. It will find the
-// singer PDA for the proposer, canceller and bypasser MCM as well as the timelock signer PDA and send the amount of
+// signer PDA for the proposer, canceller and bypasser MCM as well as the timelock signer PDA and send the amount of
 // SOL specified in the config to each of them.
 type FundMCMSignersChangeset struct{}
 
@@ -82,14 +82,14 @@ func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMS
 			[]solana.PublicKey{state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)},
 			cfgAmounts.Timelock)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund timelock signer on chain %d: %w", chainSelector, err)
 		}
 		err = FundFromDeployerKey(
 			solChain,
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)},
 			cfgAmounts.ProposeMCM)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund MCMS proposer on chain %d: %w", chainSelector, err)
 		}
 		err = FundFromDeployerKey(
 			solChain,
@@ -103,7 +103,7 @@ func (f FundMCMSignersChangeset) Apply(e deployment.Environment, config FundMCMS
 			[]solana.PublicKey{state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed)},
 			cfgAmounts.BypasserMCM)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fund mcm bypasser on chain %d: %w", chainSelector, err)
 		}
 	}
 	return deployment.ChangesetOutput{}, nil

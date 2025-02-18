@@ -53,16 +53,11 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 }
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
-	// Create a logger instance.
 	lggr := logger.TestLogger(t)
-	// Create a valid in–memory environment with one Solana chain.
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
-	// Get the sole Solana chain selector.
 	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
 
-	// Save MCMS contract addresses into the environment to simulate that MCMS contracts
-	// have been deployed. The addresses here are generated using dummy seeds.
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
 		[32]byte{'t', 'e', 's', 't'},
@@ -121,15 +116,12 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	// Note: We do not call ExistingAddresses.Save on noMCMSEnv.
-
 	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
 	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Chains:    0,
 		SolChains: 0,
 		Nodes:     1,
 	})
-	// Overwrite the solana chain with an empty one.
 	invalidSolChainEnv.SolChains[validSolChainSelector] = deployment.SolChain{}
 
 	tests := []struct {
@@ -153,7 +145,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		},
 		{
 			name: "No Solana chains found in environment",
-			// Create an environment with zero Solana chains.
 			env: memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 				Bootstraps: 1,
 				Chains:     1,
@@ -173,7 +164,6 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 		{
 			name: "Chain selector not found in environment",
 			env:  validEnv,
-			// Use a chain selector that is not present in validEnv.
 			config: commonSolana.FundMCMSignerConfig{AmountsPerChain: map[uint64]commonSolana.AmountsToTransfer{99999: {
 				ProposeMCM:   100,
 				CancellerMCM: 100,
@@ -240,27 +230,21 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
-	// Set up the test environment
 	env := setupFundingTestEnv(t)
-
-	// Build a funding configuration.
-	// Here, we assume that we want to fund each chain with an amount equal to 589 SOL per MCMS signer.
-	// There are 4 signers (bypasser, canceller, proposer, timelock).
-	amountPerSigner := 589 * solana.LAMPORTS_PER_SOL
+	cfgAmounts := commonSolana.AmountsToTransfer{
+		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,
+		CancellerMCM: 350 * solana.LAMPORTS_PER_SOL,
+		BypasserMCM:  75 * solana.LAMPORTS_PER_SOL,
+		Timelock:     83 * solana.LAMPORTS_PER_SOL,
+	}
 	amountsPerChain := make(map[uint64]commonSolana.AmountsToTransfer)
 	for chainSelector := range env.SolChains {
-		amountsPerChain[chainSelector] = commonSolana.AmountsToTransfer{
-			ProposeMCM:   amountPerSigner,
-			CancellerMCM: amountPerSigner,
-			BypasserMCM:  amountPerSigner,
-			Timelock:     amountPerSigner,
-		}
+		amountsPerChain[chainSelector] = cfgAmounts
 	}
 	config := commonSolana.FundMCMSignerConfig{
 		AmountsPerChain: amountsPerChain,
 	}
 
-	// Create the changeset instance.
 	changesetInstance := commonSolana.FundMCMSignersChangeset{}
 
 	env, err := changeset.ApplyChangesetsV2(t, env, []changeset.ConfiguredChangeSet{
@@ -283,11 +267,16 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
 		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
 	}
-	// Check if the accounts are funded
+	balances := make([]uint64, 4)
 	for _, account := range accounts {
 		balance, err := solChain.Client.GetBalance(env.GetContext(), account, rpc.CommitmentConfirmed)
-		t.Logf("Account: %s, Balance: %d", account, balance.Value)
 		require.NoError(t, err)
-		require.GreaterOrEqual(t, amountPerSigner, balance.Value)
+		t.Logf("Account: %s, Balance: %d", account, balance.Value)
+		balances = append(balances, balance.Value)
 	}
+
+	require.Equal(t, cfgAmounts.Timelock, balances[0])
+	require.Equal(t, cfgAmounts.ProposeMCM, balances[1])
+	require.Equal(t, cfgAmounts.CancellerMCM, balances[2])
+	require.Equal(t, cfgAmounts.BypasserMCM, balances[3])
 }
