@@ -278,6 +278,13 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		})
 	}
 
+	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
+	// See: https://github.com/smartcontractkit/chainlink-common/pull/1023/files#diff-dfda85aab0705d57a7fa2b7fba150451a32b6961655d67f79f23da8a3ad57614R73
+	// TODO: update link after PR gets merged
+	var reqTimeout *durationpb.Duration
+	if cfg.RequestTimeout > 0 {
+		reqTimeout = durationpb.New(cfg.RequestTimeout)
+	}
 	cfgBytes, err := proto.Marshal(&capocr3types.ReportingPluginConfig{
 		MaxQueryLengthBytes:       cfg.MaxQueryLengthBytes,
 		MaxObservationLengthBytes: cfg.MaxObservationLengthBytes,
@@ -286,7 +293,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 		MaxReportCount:            cfg.MaxReportCount,
 		MaxBatchSize:              cfg.MaxBatchSize,
 		OutcomePruningThreshold:   cfg.OutcomePruningThreshold,
-		RequestTimeout:            durationpb.New(cfg.RequestTimeout),
+		RequestTimeout:            reqTimeout,
 	})
 	if err != nil {
 		return OCR2OracleConfig{}, fmt.Errorf("failed to marshal ReportingPluginConfig: %w", err)
