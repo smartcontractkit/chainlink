@@ -356,7 +356,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 					Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
 				DonID:            donID,
 				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
-				ExecCodec:        plugin.ExecutePluginCodec,
 				MsgHasher:        messageHasher,
 				ExtraDataCodec:   plugin.ExtraArgsCodec,
 				HomeChainReader:  i.homeChainReader,
