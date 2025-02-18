@@ -16,12 +16,12 @@ import (
 // em AKA "engine metrics" is to locally scope these instruments to avoid
 // data races in testing
 type engineMetrics struct {
-	registerTriggerFailureCounter            metric.Int64Counter
-	triggerWorkflowStarterErrorCounter       metric.Int64Counter
-	workflowsRunningGauge                    metric.Int64Gauge
-	capabilityInvocationCounter              metric.Int64Counter
-	capabilityFailureCounter                 metric.Int64Counter
-	workflowRegisteredCounter                metric.Int64Counter
+	registerTriggerFailureCounter      metric.Int64Counter
+	triggerWorkflowStarterErrorCounter metric.Int64Counter
+	capabilityInvocationCounter        metric.Int64Counter
+	capabilityFailureCounter           metric.Int64Counter
+	workflowRegisteredCounter          metric.Int64Counter
+	// workflowUnregisteredCounter can also be viewed as workflow deletions
 	workflowUnregisteredCounter              metric.Int64Counter
 	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
 	workflowExecutionRateLimitPerUserCounter metric.Int64Counter
@@ -57,11 +57,6 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 	em.triggerWorkflowStarterErrorCounter, err = beholder.GetMeter().Int64Counter("platform_engine_triggerworkflow_starter_errors")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register trigger workflow starter error counter: %w", err)
-	}
-
-	em.workflowsRunningGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_count")
-	if err != nil {
-		return nil, fmt.Errorf("failed to register workflows running gauge: %w", err)
 	}
 
 	em.capabilityInvocationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_capabilities_count")
@@ -224,11 +219,6 @@ func (c workflowsMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.
 func (c workflowsMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepErrorCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
-func (c workflowsMetricLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
-	c.em.workflowsRunningGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Context) {

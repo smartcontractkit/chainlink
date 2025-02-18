@@ -1153,7 +1153,6 @@ func (e *Engine) heartbeat(ctx context.Context) {
 			return
 		case <-ticker.C:
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
-			e.metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
 		}
 	}
@@ -1266,7 +1265,7 @@ const (
 	defaultQueueSize            = 100000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
-	defaultHeartbeatCadence     = 5 * time.Minute
+	defaultHeartbeatCadence     = 1 * time.Minute
 	defaultStepTimeout          = 2 * time.Minute
 )
 
