@@ -22,6 +22,13 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
+const (
+	RouterProgramName    = "ccip_router"
+	OffRampProgramName   = "ccip_offramp"
+	FeeQuoterProgramName = "fee_quoter"
+	TokenPoolProgramName = "test_token_pool"
+)
+
 var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
 
 type DeployChainContractsConfigSolana struct {
@@ -286,26 +293,13 @@ func deployChainContractsSolana(
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
 	if chainState.FeeQuoter.IsZero() {
-		// deploy fee quoter
-		programID, err := chain.DeployProgram(e.Logger, "fee_quoter", false)
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, deployment.Version1_0_0, false)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
-		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
-
-		tv := deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to save address: %w", err)
-		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
-		bufferID, err := chain.DeployProgram(e.Logger, "fee_quoter", true)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to upgrade program: %w", err)
-		}
-		bufferProgram := solana.MustPublicKeyFromBase58(bufferID)
+		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
 		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
 		}
@@ -348,32 +342,17 @@ func deployChainContractsSolana(
 	var ccipRouterProgram solana.PublicKey
 	if chainState.Router.IsZero() {
 		// deploy router
-		programID, err := chain.DeployProgram(e.Logger, "ccip_router", false)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
-		}
-		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
-
-		tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to save address: %w", err)
-		}
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, deployment.Version1_0_0, false)
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
-		bufferID, err := chain.DeployProgram(e.Logger, "ccip_router", true)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to upgrade program: %w", err)
-		}
-		bufferProgram := solana.MustPublicKeyFromBase58(bufferID)
+		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, *config.UpgradeConfig.NewRouterVersion, true)
 		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
 		}
 		upgradeIxn, err := generateUpgradeIxn(
 			&e,
 			chainState.Router,
-			solana.MustPublicKeyFromBase58(bufferID),
+			bufferProgram,
 			config.UpgradeConfig.SpillAddress,
 			config.UpgradeConfig.UpgradeAuthority,
 		)
@@ -414,18 +393,7 @@ func deployChainContractsSolana(
 	needTokenPoolinLookupTable := false
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		programID, err := chain.DeployProgram(e.Logger, "ccip_offramp", false)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
-		}
-		offRampAddress = solana.MustPublicKeyFromBase58(programID)
-
-		tv := deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to save address: %w", err)
-		}
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_0_0, false)
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
 		tv := deployment.NewTypeAndVersion(changeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
@@ -434,16 +402,10 @@ func deployChainContractsSolana(
 		}
 		offRampAddress = changeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
-			// deploy offramp
-			programID, err := chain.DeployProgram(e.Logger, "ccip_offramp", false)
+			// deploy offramp, not upgraded in place so upgrade is false
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewOffRampVersion, false)
 			if err != nil {
 				return ixns, fmt.Errorf("failed to deploy program: %w", err)
-			}
-			e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-			offRampAddress = solana.MustPublicKeyFromBase58(programID)
-			err = ab.Save(chain.Selector, programID, tv)
-			if err != nil {
-				return ixns, fmt.Errorf("failed to save address: %w", err)
 			}
 		}
 
@@ -557,18 +519,7 @@ func deployChainContractsSolana(
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
-		programID, err := chain.DeployProgram(e.Logger, "test_token_pool", false)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
-		}
-		tokenPoolProgram = solana.MustPublicKeyFromBase58(programID)
-
-		tv := deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
-		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
-		err = ab.Save(chain.Selector, programID, tv)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to save address: %w", err)
-		}
+		tokenPoolProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, TokenPoolProgramName, deployment.Version1_0_0, false)
 		needTokenPoolinLookupTable = true
 	} else {
 		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
@@ -630,6 +581,43 @@ func deployChainContractsSolana(
 	}
 
 	return ixns, nil
+}
+
+// DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
+// if it is not an upgrade. It returns the program ID of the deployed program.
+func DeployAndMaybeSaveToAddressBook(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ab deployment.AddressBook,
+	programName string,
+	version semver.Version,
+	isUpgrade bool) (solana.PublicKey, error) {
+	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	address := solana.MustPublicKeyFromBase58(programID)
+
+	programNameToType := map[string]deployment.ContractType{
+		RouterProgramName:    changeset.Router,
+		OffRampProgramName:   changeset.OffRamp,
+		FeeQuoterProgramName: changeset.FeeQuoter,
+		TokenPoolProgramName: changeset.TokenPool,
+	}
+	programType, ok := programNameToType[programName]
+	if !ok {
+		return solana.PublicKey{}, fmt.Errorf("unknown program name: %s", programName)
+	}
+	e.Logger.Infow("Deployed program", "Program", programType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
+
+	if !isUpgrade {
+		tv := deployment.NewTypeAndVersion(programType, version)
+		err = ab.Save(chain.Selector, programID, tv)
+		if err != nil {
+			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
+		}
+	}
+	return address, nil
 }
 
 // setUpgradeAuthority creates a transaction to set the upgrade authority for a program

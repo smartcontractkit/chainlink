@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog/log"
 
@@ -91,6 +92,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		SPL2022Tokens:        make([]solana.PublicKey, 0),
 		TokenPoolLookupTable: make(map[solana.PublicKey]solana.PublicKey),
 	}
+	// Most programs upgraded in place, but some are not so we always want to
+	// load the latest version
+	versions := make(map[deployment.ContractType]semver.Version)
 	for address, tvStr := range addresses {
 		switch tvStr.Type {
 		case commontypes.LinkToken:
@@ -149,6 +153,15 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.FeeQuoterConfigPDA = feeQuoterConfigPDA
 		case OffRamp:
+			offRampVersion, ok := versions[OffRamp]
+			// if we have an offramp version, we need to make sure it's a newer version
+			if ok {
+				// if the version is not newer, skip this address
+				if offRampVersion.GreaterThan(&tvStr.Version) {
+					log.Debug().Str("address", address).Str("type", string(tvStr.Type)).Msg("Skipping offramp address, already loaded newer version")
+					continue
+				}
+			}
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.OffRamp = pub
 			offRampConfigPDA, _, err := solState.FindOfframpConfigPDA(state.OffRamp)
@@ -165,6 +178,12 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
 		}
+		existingVersion, ok := versions[tvStr.Type]
+		// This shouldn't happen, so we want to log it
+		if ok {
+			log.Warn().Str("existingVersion", existingVersion.String()).Str("type", string(tvStr.Type)).Msg("Duplicate address type found")
+		}
+		versions[tvStr.Type] = tvStr.Version
 	}
 	state.WSOL = solana.SolMint
 	return state, nil

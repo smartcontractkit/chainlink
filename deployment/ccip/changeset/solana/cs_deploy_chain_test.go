@@ -179,10 +179,23 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		e, err = commonchangeset.Apply(t, e, nil,
 			deployCs,
 			upgradeAuthorityCs,
+		)
+		require.NoError(t, err)
+		state, err := changeset.LoadOnchainStateSolana(e)
+		require.NoError(t, err)
+		oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
+		// add a second offramp address
+		e, err = commonchangeset.Apply(t, e, nil,
 			buildCs,
 			upgradeCs,
 			offRampCs,
 		)
+		require.NoError(t, err)
+		// verify the offramp address is different
+		state, err = changeset.LoadOnchainStateSolana(e)
+		require.NoError(t, err)
+		newOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
+		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 	} else {
 		e, err = commonchangeset.Apply(t, e, nil,
 			buildCs,
