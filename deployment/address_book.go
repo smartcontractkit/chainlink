@@ -22,6 +22,10 @@ var (
 // ContractType is a simple string type for identifying contract types.
 type ContractType string
 
+func (ct ContractType) String() string {
+	return string(ct)
+}
+
 var (
 	Version1_0_0 = *semver.MustParse("1.0.0")
 	Version1_1_0 = *semver.MustParse("1.1.0")

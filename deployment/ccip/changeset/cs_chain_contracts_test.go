@@ -19,8 +19,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -904,4 +906,90 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "OCR3 config FRoleDON is lower than chainConfig FChain")
+}
+
+func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.Chains)
+			// deploy a new token
+			ab := deployment.NewMemoryAddressBook()
+			for _, selector := range allChains {
+				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
+					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+							tenv.Env.Chains[selector].DeployerKey,
+							tenv.Env.Chains[selector].Client,
+							string(testhelpers.TestTokenSymbol),
+							string(testhelpers.TestTokenSymbol),
+							testhelpers.LocalTokenDecimals,
+							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+						)
+						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+							Address:  tokenAddress,
+							Contract: token,
+							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tx:       tx,
+							Err:      err,
+						}
+					},
+				)
+				require.NoError(t, err)
+			}
+			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			source := allChains[0]
+			dest := allChains[1]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+					MCMSType: commontypes.ProposerManyChainMultisig,
+				}
+			}
+
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyFeeTokensUpdatesFeeQuoterChangeset),
+					changeset.ApplyFeeTokensUpdatesConfig{
+						UpdatesByChain: map[uint64]changeset.ApplyFeeTokensUpdatesConfigPerChain{
+							source: {
+								TokensToAdd:    []changeset.TokenSymbol{testhelpers.TestTokenSymbol},
+								TokensToRemove: []changeset.TokenSymbol{changeset.LinkSymbol},
+							},
+						},
+						MCMSConfig: mcmsConfig,
+					},
+				),
+			)
+			require.NoError(t, err)
+			// Assert the fee quoter configuration is as we expect.
+			feeTokens, err := state.Chains[source].FeeQuoter.GetFeeTokens(nil)
+			require.NoError(t, err)
+			tokenAddresses, err := state.Chains[source].TokenAddressBySymbol()
+			require.NoError(t, err)
+			require.Contains(t, feeTokens, tokenAddresses[testhelpers.TestTokenSymbol])
+			require.NotContains(t, feeTokens, tokenAddresses[changeset.LinkSymbol])
+		})
+	}
 }

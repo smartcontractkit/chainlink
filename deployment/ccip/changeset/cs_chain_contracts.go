@@ -15,6 +15,10 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -268,7 +272,7 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -399,7 +403,7 @@ type UpdateOnRampDynamicConfig struct {
 
 func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, config := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -508,7 +512,7 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for srcSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChain(env, state, srcSel, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
 			return err
 		}
 		onRamp := state.Chains[srcSel].OnRamp
@@ -536,7 +540,7 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 			}
 		}
 		for destSel, update := range updates {
-			if err := ValidateChain(env, state, srcSel, false); err != nil {
+			if err := ValidateChain(env, state, srcSel, cfg.MCMS); err != nil {
 				return err
 			}
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
@@ -651,7 +655,7 @@ type WithdrawOnRampFeeTokensConfig struct {
 
 func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -1173,7 +1177,7 @@ type UpdateRouterRampsConfig struct {
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -1339,10 +1343,7 @@ type SetOCR3OffRampConfig struct {
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
-	if _, ok := state.Chains[c.HomeChainSel]; !ok {
-		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
-	}
-	if err := ValidateChain(e, state, c.HomeChainSel, c.MCMS != nil); err != nil {
+	if err := ValidateChain(e, state, c.HomeChainSel, c.MCMS); err != nil {
 		return err
 	}
 	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
@@ -1493,20 +1494,14 @@ func (cfg UpdateDynamicConfigOffRampConfig) Validate(e deployment.Environment) e
 		return err
 	}
 	for chainSel, params := range cfg.Updates {
-		if deployment.IsValidChainSelector(chainSel) != nil {
-			return fmt.Errorf("invalid chain selector %d", chainSel)
-		}
-		if _, ok := state.Chains[chainSel]; !ok {
-			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		if err := ValidateChain(e, state, chainSel, cfg.MCMS); err != nil {
+			return fmt.Errorf("chain %d: %w", chainSel, err)
 		}
 		if state.Chains[chainSel].OffRamp == nil {
 			return fmt.Errorf("missing offramp for chain %d", chainSel)
 		}
 		if state.Chains[chainSel].FeeQuoter == nil {
 			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
-		}
-		if state.Chains[chainSel].Timelock == nil {
-			return fmt.Errorf("missing timelock for chain %d", chainSel)
 		}
 		if params.GasForCallExactCheck > 0 {
 			e.Logger.Infow(
@@ -1702,9 +1697,14 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error 
 	if err != nil {
 		return err
 	}
+	if cfg.MCMSConfig != nil {
+		if err := cfg.MCMSConfig.Validate(); err != nil {
+			return err
+		}
+	}
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if _, ok := state.Chains[chainSel]; !ok {
-			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		if err := ValidateChain(e, state, chainSel, cfg.MCMSConfig); err != nil {
+			return err
 		}
 		chainState := state.Chains[chainSel]
 		if chainState.FeeQuoter == nil {
@@ -1720,7 +1720,7 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error 
 			}
 		}
 		for _, token := range updates.TokensToAdd {
-			if _, ok := tokenAddresses[token]; ok {
+			if _, ok := tokenAddresses[token]; !ok {
 				return fmt.Errorf("token %s not found for in state chain %d", token, chainSel)
 			}
 		}
@@ -1738,5 +1738,72 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error 
 }
 
 func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg ApplyFeeTokensUpdatesConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	var batches []mcmstypes.BatchOperation
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	for chainSel, updates := range cfg.UpdatesByChain {
+		chain := e.Chains[chainSel]
+		txOpts := e.Chains[chainSel].DeployerKey
+		if cfg.MCMSConfig != nil {
+			txOpts = deployment.SimTransactOpts()
+		}
+		fq := state.Chains[chainSel].FeeQuoter
+		tokenAddresses, err := state.Chains[chainSel].TokenAddressBySymbol()
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
+		}
+		var tokensToRemove, tokensToAdd []common.Address
+		for _, token := range updates.TokensToRemove {
+			tokensToRemove = append(tokensToRemove, tokenAddresses[token])
+		}
+		for _, token := range updates.TokensToAdd {
+			tokensToAdd = append(tokensToAdd, tokenAddresses[token])
+		}
+		tx, err := fq.ApplyFeeTokensUpdates(txOpts, tokensToRemove, tokensToAdd)
+		if cfg.MCMSConfig == nil {
+			if _, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[chainSel], tx, fee_quoter.FeeQuoterABI, err); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error applying token updates for chain %d: %w", chainSel, err)
+			}
+		} else {
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			op, err := proposalutils.BatchOperationForChain(
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), cfg.MCMSConfig.MCMSType.String(), nil)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
+			}
+			batches = append(batches, op)
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
+			inspectorPerChain[chainSel] = evm.NewInspector(chain.Client)
+		}
+	}
+	if cfg.MCMSConfig == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+	p, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectorPerChain,
+		batches,
+		"Apply fee tokens updates",
+		cfg.MCMSConfig.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error building proposal: %w", err)
+	}
+	return deployment.ChangesetOutput{
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*p},
+	}, nil
 
 }

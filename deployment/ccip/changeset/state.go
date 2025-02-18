@@ -890,7 +890,7 @@ func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment
 	return nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -903,12 +903,18 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
-	if checkMcms {
+	if mcmsCfg != nil {
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}
-		if chainState.ProposerMcm == nil {
+		if mcmsCfg.MCMSType == commontypes.ProposerManyChainMultisig && chainState.ProposerMcm == nil {
 			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSType == commontypes.CancellerManyChainMultisig && chainState.CancellerMcm == nil {
+			return fmt.Errorf("missing cancellerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSType == commontypes.BypasserManyChainMultisig && chainState.BypasserMcm == nil {
+			return fmt.Errorf("missing bypasserMcm on %s", chain)
 		}
 	}
 	return nil
