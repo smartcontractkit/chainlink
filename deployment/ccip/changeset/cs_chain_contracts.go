@@ -1805,5 +1805,4 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	return deployment.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*p},
 	}, nil
-
 }
