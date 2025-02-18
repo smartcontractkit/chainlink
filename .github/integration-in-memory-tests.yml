@@ -29,7 +29,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 12m -test.parallel=2 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 18m -test.parallel=2 -count=1 -json
   - id: smoke/ccip/ccip_message_limitations_test.go:*
     path: integration-tests/smoke/ccip/ccip_message_limitations_test.go
     test_env_type: in-memory

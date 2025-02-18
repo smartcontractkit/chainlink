@@ -10,6 +10,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -19,10 +20,13 @@ import (
 // Compatible with:
 // - "OffRamp 1.6.0-dev"
 type ExecutePluginCodecV1 struct {
+	extraDataCodec common.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
-	return &ExecutePluginCodecV1{}
+func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePluginCodecV1 {
+	return &ExecutePluginCodecV1{
+		extraDataCodec: extraDataCodec,
+	}
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
@@ -50,7 +54,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}
 
-			destGasAmount, err := extractDestGasAmountFromMap(tokenAmount.DestExecDataDecoded)
+			destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+			}
+
+			destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 			if err != nil {
 				return nil, err
 			}
@@ -64,8 +73,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
+		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode extra args: %w", err)
+		}
+
 		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err := parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}
@@ -192,25 +206,23 @@ func (e *ExecutePluginCodecV1) Decode(ctx context.Context, encodedReport []byte)
 }
 
 func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
-	var out uint32
-
-	// Iterate through the expected fields in the struct
+	// Search for the gas fields
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)
 		switch lowercase {
 		case "destgasamount":
 			// Expect uint32
 			if v, ok := fieldValue.(uint32); ok {
-				out = v
+				return v, nil
 			} else {
-				return out, errors.New("invalid type for destgasamount, expected uint32")
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
 			}
 		default:
-			return out, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+
 		}
 	}
 
-	return out, nil
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

@@ -1,4 +1,4 @@
-GETH_VERSION: 1.14.11
+GETH_VERSION: 1.15.0
 abstract_arbitrum_token_gateway: ../../../contracts/solc/v0.8.24/IAbstractArbitrumTokenGateway/IAbstractArbitrumTokenGateway.abi ../../../contracts/solc/v0.8.24/IAbstractArbitrumTokenGateway/IAbstractArbitrumTokenGateway.bin 779e05d8fb797d4fcfa565174c071ad9f0161d103d6a322f6d0e1e42be568fa0
 arb_node_interface: ../../../contracts/solc/v0.8.24/INodeInterface/INodeInterface.abi ../../../contracts/solc/v0.8.24/INodeInterface/INodeInterface.bin c72f9e9d1e9b9c371c42817590a490a327e743775f423d9417982914d6136ff7
 arbitrum_gateway_router: ../../../contracts/solc/v0.8.24/IArbitrumGatewayRouter/IArbitrumGatewayRouter.abi ../../../contracts/solc/v0.8.24/IArbitrumGatewayRouter/IArbitrumGatewayRouter.bin d02c8ed0b4bfe50630e0fce452f9aef23d394bd28110314356954185a6544cb8

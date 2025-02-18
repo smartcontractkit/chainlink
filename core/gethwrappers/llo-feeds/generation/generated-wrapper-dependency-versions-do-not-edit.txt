@@ -1,4 +1,4 @@
-GETH_VERSION: 1.14.11
+GETH_VERSION: 1.15.0
 channel_config_store: ../../../contracts/solc/v0.8.19/llo-feeds/v0.5.0/configuration/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.19/llo-feeds/v0.5.0/configuration/ChannelConfigStore/ChannelConfigStore.bin 3fafe83ea21d50488f5533962f62683988ffa6fd1476dccbbb9040be2369cb37
 channel_config_store_v0_5_0: ../../../contracts/solc/v0.8.19/llo-feeds/v0.5.0/configuration/ChannelConfigStore/ChannelConfigStore.abi ../../../contracts/solc/v0.8.19/llo-feeds/v0.5.0/configuration/ChannelConfigStore/ChannelConfigStore.bin 3fafe83ea21d50488f5533962f62683988ffa6fd1476dccbbb9040be2369cb37
 channel_config_verifier_proxy: ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.abi ../../../contracts/solc/v0.8.19/ChannelVerifierProxy/ChannelVerifierProxy.bin 655658e5f61dfadfe3268de04f948b7e690ad03ca45676e645d6cd6018154661

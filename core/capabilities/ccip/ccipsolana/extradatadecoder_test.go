@@ -15,11 +15,12 @@ import (
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
+	extraDataDecoder := &ExtraDataDecoder{}
 	t.Run("decode dest exec data into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)
 		encoded := make([]byte, 4)
 		binary.LittleEndian.PutUint32(encoded, destGasAmount)
-		output, err := DecodeDestExecDataToMap(encoded)
+		output, err := extraDataDecoder.DecodeDestExecDataToMap(encoded)
 		require.NoError(t, err)
 
 		decoded, exist := output[svmDestExecDataKey]
@@ -46,7 +47,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
-		output, err := DecodeExtraArgsToMap(append(svmExtraArgsV1Tag, buf.Bytes()...))
+		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(svmExtraArgsV1Tag, buf.Bytes()...))
 		require.NoError(t, err)
 		require.Len(t, output, 5)
 
@@ -74,7 +75,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		output, err := DecodeExtraArgsToMap(append(evmExtraArgsV2Tag, buf.Bytes()...))
+		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(evmExtraArgsV2Tag, buf.Bytes()...))
 		require.NoError(t, err)
 		require.Len(t, output, 2)
 

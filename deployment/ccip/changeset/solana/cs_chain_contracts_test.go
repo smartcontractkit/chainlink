@@ -121,65 +121,72 @@ func TestAddTokenPool(t *testing.T) {
 
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
+	newTokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
 
-	// TODO: can test this with solana.SolMint as well (WSOL)
-	// https://smartcontract-it.atlassian.net/browse/INTAUTO-440
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
-			changeset_solana.TokenPoolConfig{
-				ChainSelector:    solChain,
-				TokenPubKey:      tokenAddress.String(),
-				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         solTestTokenPool.LockAndRelease_PoolType,
-				// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
-				Authority: e.SolChains[solChain].DeployerKey.PublicKey().String(),
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
-			changeset_solana.RemoteChainTokenPoolConfig{
-				SolChainSelector:    solChain,
-				RemoteChainSelector: evmChain,
-				SolTokenPubKey:      tokenAddress.String(),
-				RemoteConfig: solTestTokenPool.RemoteConfig{
-					// TODO:this can be potentially read from the state if we are given the token symbol
-					PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
-					TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
-					Decimals:      9,
-				},
-				InboundRateLimit: solTestTokenPool.RateLimitConfig{
-					Enabled:  true,
-					Capacity: uint64(1000),
-					Rate:     1,
-				},
-				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
-					Enabled:  false,
-					Capacity: 0,
-					Rate:     0,
-				},
-			},
-		),
-	)
-	require.NoError(t, err)
+	remoteConfig := solTestTokenPool.RemoteConfig{
+		PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
+		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
+		Decimals:      9,
+	}
+	inboundConfig := solTestTokenPool.RateLimitConfig{
+		Enabled:  true,
+		Capacity: uint64(1000),
+		Rate:     1,
+	}
+	outboundConfig := solTestTokenPool.RateLimitConfig{
+		Enabled:  false,
+		Capacity: 0,
+		Rate:     0,
+	}
 
-	// test AddTokenPool results
-	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenAddress, state.SolChains[solChain].TokenPool)
-	require.NoError(t, err)
-	var configAccount solTestTokenPool.State
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
-	require.NoError(t, err)
-	require.Equal(t, solTestTokenPool.LockAndRelease_PoolType, configAccount.PoolType)
-	require.Equal(t, tokenAddress, configAccount.Config.Mint)
-	// try minting after this and see if the pool or the deployer key is the authority
+	tokenMap := map[string]solana.PublicKey{
+		deployment.SPL2022Tokens: newTokenAddress,
+		deployment.SPLTokens:     state.SolChains[solChain].WSOL,
+	}
 
-	// test SetupTokenPoolForRemoteChain results
-	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].TokenPool)
-	var remoteChainConfigAccount solTestTokenPool.ChainConfig
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-	require.NoError(t, err)
-	require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
+	for tokenProgramName, tokenAddress := range tokenMap {
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.AddTokenPool),
+				changeset_solana.TokenPoolConfig{
+					ChainSelector:    solChain,
+					TokenPubKey:      tokenAddress.String(),
+					TokenProgramName: tokenProgramName,
+					PoolType:         solTestTokenPool.LockAndRelease_PoolType,
+					// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
+					Authority: e.SolChains[solChain].DeployerKey.PublicKey().String(),
+				},
+			),
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
+				changeset_solana.RemoteChainTokenPoolConfig{
+					SolChainSelector:    solChain,
+					RemoteChainSelector: evmChain,
+					SolTokenPubKey:      tokenAddress.String(),
+					RemoteConfig:        remoteConfig,
+					InboundRateLimit:    inboundConfig,
+					OutboundRateLimit:   outboundConfig,
+				},
+			),
+		)
+		require.NoError(t, err)
+
+		// test AddTokenPool results
+		poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenAddress, state.SolChains[solChain].TokenPool)
+		require.NoError(t, err)
+		var configAccount solTestTokenPool.State
+		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
+		require.NoError(t, err)
+		require.Equal(t, solTestTokenPool.LockAndRelease_PoolType, configAccount.PoolType)
+		require.Equal(t, tokenAddress, configAccount.Config.Mint)
+
+		// test SetupTokenPoolForRemoteChain results
+		remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].TokenPool)
+		var remoteChainConfigAccount solTestTokenPool.ChainConfig
+		err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
+		require.NoError(t, err)
+		require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
+	}
 }
 
 func TestBilling(t *testing.T) {
@@ -345,7 +352,6 @@ func TestTokenAdminRegistry(t *testing.T) {
 	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
 	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
 
-	// TODO: transfer and accept is breaking
 	newTokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(

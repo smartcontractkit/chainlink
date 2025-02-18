@@ -14,6 +14,7 @@ import (
 func Test_decodeExtraData(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
+	extraDataDecoder := &ExtraDataDecoder{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
@@ -21,7 +22,7 @@ func Test_decodeExtraData(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		m, err := DecodeExtraArgsToMap(encoded)
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 
@@ -37,7 +38,7 @@ func Test_decodeExtraData(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		m, err := DecodeExtraArgsToMap(encoded)
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 2)
 
@@ -65,7 +66,7 @@ func Test_decodeExtraData(t *testing.T) {
 		encoded, err := d.contract.EncodeSVMExtraArgsV1(nil, decoded)
 		require.NoError(t, err)
 
-		m, err := DecodeExtraArgsToMap(encoded)
+		m, err := extraDataDecoder.DecodeExtraArgsToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 5)
 
@@ -94,7 +95,7 @@ func Test_decodeExtraData(t *testing.T) {
 		destGasAmount := uint32(10000)
 		encoded, err := abiEncodeUint32(destGasAmount)
 		require.NoError(t, err)
-		m, err := DecodeDestExecDataToMap(encoded)
+		m, err := extraDataDecoder.DecodeDestExecDataToMap(encoded)
 		require.NoError(t, err)
 		require.Len(t, m, 1)
 

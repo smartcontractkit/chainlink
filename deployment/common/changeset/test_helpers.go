@@ -5,9 +5,15 @@ import (
 	"testing"
 
 	mapset "github.com/deckarep/golang-set/v2"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 type ConfiguredChangeSet interface {
@@ -113,4 +119,100 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		}
 	}
 	return currentEnv, nil
+}
+
+// ApplyChangesetsV2 applies the changeset applications to the environment and returns the updated environment.
+func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplications []ConfiguredChangeSet) (deployment.Environment, error) {
+	currentEnv := e
+	for i, csa := range changesetApplications {
+		out, err := csa.Apply(currentEnv)
+		if err != nil {
+			return e, fmt.Errorf("failed to apply changeset at index %d: %w", i, err)
+		}
+		var addresses deployment.AddressBook
+		if out.AddressBook != nil {
+			addresses = out.AddressBook
+			err := addresses.Merge(currentEnv.ExistingAddresses)
+			if err != nil {
+				return e, fmt.Errorf("failed to merge address book: %w", err)
+			}
+		} else {
+			addresses = currentEnv.ExistingAddresses
+		}
+		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
+			// do nothing, as these jobs auto-accept.
+		}
+		if out.MCMSTimelockProposals != nil {
+			for _, prop := range out.MCMSTimelockProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
+				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+			}
+		}
+		if out.MCMSProposals != nil {
+			for _, prop := range out.MCMSProposals {
+				chains := mapset.NewSet[uint64]()
+				for _, op := range prop.Operations {
+					chains.Add(uint64(op.ChainSelector))
+				}
+
+				p := proposalutils.SignMCMSProposal(t, e, &prop)
+				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+			}
+		}
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			SolChains:         e.SolChains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
+		}
+	}
+	return currentEnv, nil
+}
+
+func DeployLinkTokenTest(t *testing.T, solChains int) {
+	lggr := logger.Test(t)
+	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains:    1,
+		SolChains: solChains,
+	})
+	chain1 := e.AllChainSelectors()[0]
+	config := []uint64{chain1}
+	var solChain1 uint64
+	if solChains > 0 {
+		solChain1 = e.AllChainSelectorsSolana()[0]
+		config = append(config, solChain1)
+	}
+
+	e, err := ApplyChangesets(t, e, nil, []ConfiguredChangeSet{
+		Configure(
+			deployment.CreateLegacyChangeSet(DeployLinkToken),
+			config,
+		),
+	})
+	require.NoError(t, err)
+	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
+	require.NoError(t, err)
+	state, err := commonState.MaybeLoadLinkTokenChainState(e.Chains[chain1], addrs)
+	require.NoError(t, err)
+	// View itself already unit tested
+	_, err = state.GenerateLinkView()
+	require.NoError(t, err)
+
+	// solana test
+	if solChains > 0 {
+		addrs, err = e.ExistingAddresses.AddressesForChain(solChain1)
+		require.NoError(t, err)
+		require.NotEmpty(t, addrs)
+	}
 }

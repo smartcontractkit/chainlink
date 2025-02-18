@@ -76,6 +76,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	// make DeltaRound greater than DeltaProgress
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
 	_, err = internal.BuildOCR3ConfigForCCIPHome(
+		state.Chains[e.HomeChainSel].CCIPHome,
 		e.Env.OCRSecrets,
 		state.Chains[chain1].OffRamp.Address().Bytes(),
 		chain1,

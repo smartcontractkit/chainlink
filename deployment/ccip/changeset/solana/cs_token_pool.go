@@ -93,17 +93,22 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
-	// make pool mint_authority for token (required for burn/mint)
-	authI, err := solTokenUtil.SetTokenMintAuthority(
-		tokenprogramID,
-		poolSigner,
-		tokenPubKey,
-		authorityPubKey,
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+
+	instructions := []solana.Instruction{createI, poolInitI}
+
+	if cfg.PoolType == solTestTokenPool.BurnAndMint_PoolType && tokenPubKey != solana.SolMint {
+		// make pool mint_authority for token
+		authI, err := solTokenUtil.SetTokenMintAuthority(
+			tokenprogramID,
+			poolSigner,
+			tokenPubKey,
+			authorityPubKey,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		instructions = append(instructions, authI)
 	}
-	instructions := []solana.Instruction{createI, poolInitI, authI}
 
 	// add signer here if authority is different from deployer key
 	if err := chain.Confirm(instructions); err != nil {
@@ -241,7 +246,6 @@ func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
 	}
 
-	// TODO: do we need to validate if everything that goes into the lookup table is already created ?
 	return nil
 }
 

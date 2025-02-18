@@ -94,22 +94,20 @@ func (t *transmissionReaper) runLoop(ctx context.Context) {
 			cancel()
 			return
 		case <-ticker.C:
-			for {
-				// TODO: Could also automatically reap orphaned transmissions
-				// that don't have a job with a matching DON ID (from job
-				// deletion)
-				//
-				// https://smartcontract-it.atlassian.net/browse/MERC-6807
-				// TODO: Should also reap other LLO garbage that can be left
-				// behind e.g. channel definitions etc
-				n, err := t.reapStale(ctx, TransmissionReaperBatchSize)
-				if err != nil {
-					t.lggr.Errorw("Failed to reap", "err", err)
-					continue
-				}
-				if n > 0 {
-					t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
-				}
+			// TODO: Could also automatically reap orphaned transmissions
+			// that don't have a job with a matching DON ID (from job
+			// deletion)
+			//
+			// https://smartcontract-it.atlassian.net/browse/MERC-6807
+			// TODO: Should also reap other LLO garbage that can be left
+			// behind e.g. channel definitions etc
+			n, err := t.reapStale(ctx, TransmissionReaperBatchSize)
+			if err != nil {
+				t.lggr.Errorw("Failed to reap", "err", err)
+				continue
+			}
+			if n > 0 {
+				t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
 			}
 		}
 	}
