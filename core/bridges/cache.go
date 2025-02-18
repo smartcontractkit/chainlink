@@ -152,19 +152,23 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	c.InvalidateCache(bt.Name)
 	// Update the cache with the new value
 	c.bridgeTypesCache.Store(bt.Name, *bt)
-	c.eng.Debugw("Cache updated", "bridgeName", bt.Name, "url", bt.URL)
+	if bridgeType, ok := c.bridgeTypesCache.Load(bt.Name); ok {
+		c.eng.Debugw("UpdateBridgeType: Cache values updated", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+} else {
+		c.eng.Debugw("UpdateBridgeType: No cached value found", "bridgeName", name) // https://grafana.ops.prod.cldev.sh/goto/QK86NAcNg?orgId=1
+}
 
 	return nil
 }
 
 func (c *Cache) InvalidateCache( name BridgeName){
-	c.bridgeTypesCache.Delete(name)
-	c.eng.Debugw("InvalidateCache: Cache invalidated", "bridgeName", name)
+	
 	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
-		c.eng.Debugw("InvalidateCache: New cached value", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+		c.eng.Debugw("InvalidateCache: Cache values to be deleted", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
 } else {
-		c.eng.Debugw("InvalidateCache: No cached value found", "bridgeName", name)
+		c.eng.Debugw("InvalidateCache: No cached value found", "bridgeName", name) // https://grafana.ops.prod.cldev.sh/goto/QK86NAcNg?orgId=1
 }
+c.bridgeTypesCache.Delete(name)
 }
 
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {
