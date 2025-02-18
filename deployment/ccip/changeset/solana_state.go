@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
@@ -32,14 +33,14 @@ var (
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
-	LinkToken                 solana.PublicKey
-	Router                    solana.PublicKey
-	Receiver                  solana.PublicKey // for tests only
-	SPL2022Tokens             []solana.PublicKey
-	TokenPool                 solana.PublicKey
-	WSOL                      solana.PublicKey
-	FeeQuoter                 solana.PublicKey
-	OffRamp                   solana.PublicKey
+	LinkToken     solana.PublicKey
+	Router        solana.PublicKey
+	Receiver      solana.PublicKey // for tests only
+	SPL2022Tokens []solana.PublicKey
+	TokenPool     solana.PublicKey
+	WSOL          solana.PublicKey
+	FeeQuoter     solana.PublicKey
+	OffRamp       solana.PublicKey
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated

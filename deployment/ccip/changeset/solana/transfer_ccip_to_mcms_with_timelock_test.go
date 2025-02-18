@@ -245,9 +245,11 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangesetSolana),
-			changeset.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParams,
+			solanachangesets.DeployChainContractsConfigSolana{
+				DeployChainContractsConfig: changeset.DeployChainContractsConfig{
+					HomeChainSelector:      homeChainSel,
+					ContractParamsPerChain: contractParams,
+				},
 			},
 		),
 		commonchangeset.Configure(
