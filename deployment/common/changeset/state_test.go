@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -49,7 +48,7 @@ func TestAddressesContainBundle(t *testing.T) {
 				{Type: "type2", Version: *v100},
 			},
 			want:    false,
-			wantErr: "", // No error, just returns false
+			wantErr: "missing contracts",
 		},
 		{
 			name: "More than one instance of a type",
@@ -77,12 +76,12 @@ func TestAddressesContainBundle(t *testing.T) {
 			got, err := deployment.AddressesContainBundle(tt.addrs, tt.wantTypes)
 
 			if tt.wantErr != "" {
-				assert.ErrorContains(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 			}
 
-			assert.Equal(t, tt.want, got)
+			require.Equal(t, tt.want, got)
 		})
 	}
 }

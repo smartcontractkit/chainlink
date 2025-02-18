@@ -318,10 +318,10 @@ func tvKey(tv TypeAndVersion) typeVersionKey {
 // AddressesContainBundle checks if the addresses
 // contains a single instance of all the addresses in the bundle.
 // It returns an error if there are more than one instance of a contract.
-func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAndVersion) (bool, error) {
+func AddressesContainBundle(addrs map[string]TypeAndVersion, bundle []TypeAndVersion) (bool, error) {
 	// Count how many times each wanted TypeAndVersion is found
 	counts := make(map[typeVersionKey]int)
-	for _, wantTV := range wantTypes {
+	for _, wantTV := range bundle {
 		wantKey := tvKey(wantTV)
 		for _, haveTV := range addrs {
 			if wantTV.Equal(haveTV) {
@@ -335,8 +335,20 @@ func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAnd
 		}
 	}
 
+	missing := make([]string, 0)
+	for _, wantTV := range bundle {
+		_, ok := counts[tvKey(wantTV)]
+		if !ok {
+			missing = append(missing, wantTV.String())
+		}
+	}
+
+	if len(missing) > 0 {
+		return false, fmt.Errorf("missing contracts %v", missing)
+	}
+
 	// Ensure we found *all* wantTypes exactly once
-	return len(counts) == len(wantTypes), nil
+	return len(counts) == len(bundle), nil
 }
 
 // AddLabel adds a string to the LabelSet in the TypeAndVersion.
