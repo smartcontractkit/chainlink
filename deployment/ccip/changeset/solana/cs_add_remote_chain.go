@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -122,16 +123,15 @@ func doAddRemoteChainToSolana(
 		var onRampBytes [64]byte
 		// already verified, skipping errcheck
 		remoteChainFamily, _ := chainsel.GetSelectorFamily(remoteChainSel)
+		var addressBytes []byte
 		switch remoteChainFamily {
 		case chainsel.FamilySolana:
-			onRampAddress := s.SolChains[remoteChainSel].Router.String()
-			addressBytes := []byte(onRampAddress)
-			copy(onRampBytes[:], addressBytes)
+			addressBytes, _ = s.SolChains[remoteChainSel].OnRampBytes()
 		case chainsel.FamilyEVM:
-			onRampAddress := s.Chains[remoteChainSel].OnRamp.Address().String()
-			addressBytes := []byte(onRampAddress)
-			copy(onRampBytes[:], addressBytes)
+			addressBytes, _ = s.Chains[remoteChainSel].OnRampBytes()
 		}
+		addressBytes = common.LeftPadBytes(addressBytes, 64)
+		copy(onRampBytes[:], addressBytes)
 
 		// verified while loading state
 		fqDestChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
