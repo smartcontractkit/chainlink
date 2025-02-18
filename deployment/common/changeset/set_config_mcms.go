@@ -25,11 +25,19 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+// Deprecated: use ConfigPerRoleV2 instead
 type ConfigPerRole struct {
 	Proposer  config.Config
 	Canceller config.Config
 	Bypasser  config.Config
 }
+
+type ConfigPerRoleV2 struct {
+	Proposer  mcmstypes.Config
+	Canceller mcmstypes.Config
+	Bypasser  mcmstypes.Config
+}
+
 type TimelockConfig struct {
 	MinDelay time.Duration // delay for timelock worker to execute the transfers.
 }
@@ -39,7 +47,13 @@ type MCMSConfig struct {
 	ProposalConfig  *TimelockConfig
 }
 
+type MCMSConfigV2 struct {
+	ConfigsPerChain map[uint64]ConfigPerRoleV2
+	ProposalConfig  *TimelockConfig
+}
+
 var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
+var _ deployment.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
 
 // Validate checks that the MCMSConfig is valid
 func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {
@@ -80,7 +94,47 @@ func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) err
 	return nil
 }
 
+// Validate checks that the MCMSConfigV2 is valid
+func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) error {
+	if len(cfg.ConfigsPerChain) == 0 {
+		return errors.New("no chain configs provided")
+	}
+	// configs should have at least one chain
+	state, err := MaybeLoadMCMSWithTimelockState(e, selectors)
+	if err != nil {
+		return err
+	}
+	for chainSelector, c := range cfg.ConfigsPerChain {
+		family, err := chain_selectors.GetSelectorFamily(chainSelector)
+		if err != nil {
+			return err
+		}
+		if family != chain_selectors.FamilyEVM {
+			return fmt.Errorf("chain selector: %d is not an ethereum chain", chainSelector)
+		}
+		_, ok := e.Chains[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain selector: %d not found in environment", chainSelector)
+		}
+		_, ok = state[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
+		}
+		if err := c.Proposer.Validate(); err != nil {
+			return err
+		}
+		if err := c.Canceller.Validate(); err != nil {
+			return err
+		}
+		if err := c.Bypasser.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // setConfigOrTxData executes set config tx or gets the tx data for the MCMS proposal
+// Deprecated: Use setConfigOrTxDataV2 instead.
 func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := cfg.ExtractSetConfigInputs()
 	opts := deployment.SimTransactOpts()
@@ -102,6 +156,31 @@ func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment
 	return tx, nil
 }
 
+// setConfigOrTxDataV2 executes set config tx or gets the tx data for the MCMS proposal
+func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+	opts := deployment.SimTransactOpts()
+	if !useMCMS {
+		opts = chain.DeployerKey
+	}
+	opts.Context = ctx
+
+	configurer := evm.NewConfigurer(chain.Client, opts)
+	res, err := configurer.SetConfig(ctx, contract.Address().Hex(), &cfg, false)
+	if err != nil {
+		return nil, err
+	}
+
+	transaction := res.RawTransaction.(*types.Transaction)
+	if !useMCMS {
+		_, err = deployment.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
+		if err != nil {
+			return nil, err
+		}
+		lggr.Infow("SetConfigMCMS tx confirmed", "txHash", res.Hash)
+	}
+	return transaction, nil
+}
+
 type setConfigTxs struct {
 	proposerTx  *types.Transaction
 	cancellerTx *types.Transaction
@@ -109,6 +188,7 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRole sets the configuration for each of the MCMS contract roles on the mcmsState.
+// Deprecated: Use setConfigPerRoleV2 instead.
 func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
@@ -122,6 +202,31 @@ func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.
 	}
 	// Bypasser set config
 	bypasserTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+
+	return setConfigTxs{
+		proposerTx:  proposerTx,
+		cancellerTx: cancellerTx,
+		bypasserTx:  bypasserTx,
+	}, nil
+}
+
+// setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRoleV2, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+	// Proposer set config
+	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+	// Canceller set config
+	cancellerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+	// Bypasser set config
+	bypasserTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
 	if err != nil {
 		return setConfigTxs{}, err
 	}
@@ -212,7 +317,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 }
 
 // SetConfigMCMSV2 is a reimplementation of SetConfigMCMS that uses the new MCMS library.
-func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
+func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -241,7 +346,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfig) (deployment.Chang
 		timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
 		proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
 		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
-		setConfigTxsChain, err := setConfigPerRole(ctx, lggr, chain, c, state, useMCMS)
+		setConfigTxsChain, err := setConfigPerRoleV2(ctx, lggr, chain, c, state, useMCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
