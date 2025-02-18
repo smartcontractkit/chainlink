@@ -300,6 +300,9 @@ func deployChainContractsSolana(
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
 		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
 		}
@@ -343,9 +346,15 @@ func deployChainContractsSolana(
 	if chainState.Router.IsZero() {
 		// deploy router
 		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, deployment.Version1_0_0, false)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, *config.UpgradeConfig.NewRouterVersion, true)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
 		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
 		}
@@ -394,6 +403,9 @@ func deployChainContractsSolana(
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
 		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_0_0, false)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
 		tv := deployment.NewTypeAndVersion(changeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
