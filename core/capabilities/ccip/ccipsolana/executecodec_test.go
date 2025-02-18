@@ -9,6 +9,11 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/mock"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
+
+	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
@@ -146,10 +151,18 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	}
 
 	ctx := testutils.Context(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"accountIsWritableBitmap": uint64(2),
+	}, nil)
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			cd := NewExecutePluginCodecV1()
+			cd := NewExecutePluginCodecV1(mockExtraDataCodec)
 			report := tc.report(randomExecuteReport(t, tc.chainSelector))
 			bytes, err := cd.Encode(ctx, report)
 			if tc.expErr {
@@ -181,6 +194,14 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
+	mockExtraDataCodec := ccipocr3.NewMockExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"accountIsWritableBitmap": uint64(2),
+	}, nil)
 	t.Run("decode on-chain execute report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
 		onRampAddr, err := solanago.NewRandomPrivateKey()
@@ -222,7 +243,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		err = onChainReport.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
-		executeCodec := NewExecutePluginCodecV1()
+		executeCodec := NewExecutePluginCodecV1(mockExtraDataCodec)
 		decode, err := executeCodec.Decode(testutils.Context(t), buf.Bytes())
 		require.NoError(t, err)
 
@@ -238,7 +259,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
 		ocrReport := randomExecuteReport(t, 124615329519749607)
-		cd := NewExecutePluginCodecV1()
+		cd := NewExecutePluginCodecV1(mockExtraDataCodec)
 		encodedReport, err := cd.Encode(testutils.Context(t), ocrReport)
 		require.NoError(t, err)
 

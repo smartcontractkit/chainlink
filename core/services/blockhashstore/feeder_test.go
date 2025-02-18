@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
@@ -444,7 +444,7 @@ func (test testCase) testFeederWithLogPollerVRFv1(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
+		Return(logpoller.Block{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		mock.Anything,
@@ -542,7 +542,7 @@ func (test testCase) testFeederWithLogPollerVRFv2(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
+		Return(logpoller.Block{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		mock.Anything,
@@ -640,7 +640,7 @@ func (test testCase) testFeederWithLogPollerVRFv2Plus(t *testing.T) {
 
 	// Mock log poller.
 	lp.On("LatestBlock", mock.Anything).
-		Return(logpoller.LogPollerBlock{BlockNumber: latest}, nil)
+		Return(logpoller.Block{BlockNumber: latest}, nil)
 	lp.On(
 		"LogsWithSigs",
 		mock.Anything,

@@ -12,7 +12,7 @@ on:
         required: true
         type: string
         description: 'The path to the project to run the flaky test detection.'
-        default: '.'  
+        default: '.'
       baseRef:
         required: false
         type: string
@@ -25,7 +25,7 @@ on:
         required: false
         type: boolean
         description: 'Run all tests in the project.'
-        default: false    
+        default: false
       maxPassRatio:
         required: false
         type: string
@@ -92,7 +92,7 @@ jobs:
       git_base_sha: ${{ steps.get_commit_sha.outputs.git_base_sha }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0
@@ -105,11 +105,11 @@ jobs:
           git_head_sha=$(git rev-parse HEAD)
           git_head_short_sha=$(git rev-parse --short HEAD)
           echo "git_head_sha=$git_head_sha" >> $GITHUB_OUTPUT
-          echo "git_head_short_sha=$git_head_short_sha" >> $GITHUB_OUTPUT          
+          echo "git_head_short_sha=$git_head_short_sha" >> $GITHUB_OUTPUT
 
           # Print HEAD SHAs to the console
           echo "HEAD SHA: $git_head_sha"
-          echo "HEAD Short SHA: $git_head_short_sha"          
+          echo "HEAD Short SHA: $git_head_short_sha"
 
           # Conditionally resolve BASE SHA
           if [ -n "${{ env.GIT_BASE_REF }}" ]; then
@@ -117,13 +117,13 @@ jobs:
 
             git_base_sha=$(git rev-parse origin/${{ env.GIT_BASE_REF }})
             echo "git_base_sha=$git_base_sha" >> $GITHUB_OUTPUT
-            
+
             # Print BASE SHA to the console
             echo "BASE SHA: $git_base_sha"
           else
             echo "BASE SHA not provided."
             echo "git_base_sha=" >> $GITHUB_OUTPUT
-          fi  
+          fi
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -153,7 +153,7 @@ jobs:
           echo $PACKAGES
           echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
 
-      - name: Find changed test files 
+      - name: Find changed test files
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
         id: find-changed-test-files
         shell: bash
@@ -168,7 +168,7 @@ jobs:
           TEST_FILES=$(flakeguard find --only-show-changed-test-files=true --base-ref=origin/${{ env.GIT_BASE_REF }} --project-path=${GH_INPUTS_PROJECT_PATH})
           echo $TEST_FILES
           echo "test_files=$TEST_FILES" >> $GITHUB_OUTPUT
-          
+
       - name: Split test packages into groups
         id: split-packages
         shell: bash
@@ -182,11 +182,11 @@ jobs:
           if [[ "$GH_INPUTS_RUN_ALL_TESTS" == "true" ]]; then
             # Use ALL_TESTS_RUNNER for a specified number of groups, each with "./..." to run all tests
             ALL_TESTS_RUNNER_COUNT=${{ env.ALL_TESTS_RUNNER_COUNT }}
-            
+
             # Create the JSON array dynamically based on ALL_TESTS_RUNNER_COUNT
             json_groups=$(jq -nc --argjson count "$ALL_TESTS_RUNNER_COUNT" \
               '[range(0; $count) | { "testPackages": "./...", "runs_on": "'"${{ env.ALL_TESTS_RUNNER }}"'" }]')
-              
+
             echo "$json_groups"
             echo "matrix<<EOF" >> $GITHUB_OUTPUT
             echo "$json_groups" >> $GITHUB_OUTPUT
@@ -236,7 +236,7 @@ jobs:
               if [[ $i -lt $EXTRA ]]; then
                   group_size=$(($group_size + 1))
               fi
-              
+
               # Extract the packages for the current group
               if [[ $group_size -gt 0 ]]; then
                   group=("${PACKAGES[@]:current_index:group_size}")
@@ -255,7 +255,7 @@ jobs:
       - name: Generate random workflow id
         id: gen_id
         shell: bash
-        run: echo "workflow_id=$(uuidgen)" >> "$GITHUB_OUTPUT"          
+        run: echo "workflow_id=$(uuidgen)" >> "$GITHUB_OUTPUT"
 
   run-tests:
     name: Run Tests
@@ -265,7 +265,7 @@ jobs:
     timeout-minutes: 180
     strategy:
       fail-fast: false
-      matrix: 
+      matrix:
         include: ${{ fromJSON(needs.get-tests.outputs.matrix) }}
     outputs:
       flakeguard_error: ${{ steps.run-tests.outputs.flakeguard_error }}
@@ -273,7 +273,7 @@ jobs:
       DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
@@ -316,7 +316,7 @@ jobs:
       - name: Setup DB
         run: go run ./core/store/cmd/preparetest
         env:
-          CL_DATABASE_URL: ${{ env.DB_URL }}        
+          CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
         run: make install-plugins
@@ -359,11 +359,11 @@ jobs:
 
       - name: Upload test result as artifact
         if: always()
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: test-result-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: test-result.json
-          retention-days: 1   
+          retention-days: 1
 
   report:
     needs: [get-tests, run-tests]
@@ -374,7 +374,7 @@ jobs:
       test_results: ${{ steps.results.outputs.results }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
@@ -404,16 +404,16 @@ jobs:
           fi
 
       - name: Download all test result artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           path: ci_test_results
           pattern:
             test-result-${{ needs.get-tests.outputs.workflow_id }}-*
-            
+
       - name: Install flakeguard
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@49bbad97ccd743e7b704e4a17f92c475f2ee044d # flakguard@0.1.0
-                
+
       - name: Aggregate Flakeguard Results
         id: results
         shell: bash
@@ -423,13 +423,13 @@ jobs:
         run: |
           # Create test results folder if it doesn't exist
           mkdir -p ci_test_results
-      
+
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
           current_branch_name="${{ github.head_ref || github.ref_name }} "
-      
+
           # Aggregate Flakeguard test results
           flakeguard aggregate-results \
             --results-path ./ci_test_results \
@@ -455,7 +455,7 @@ jobs:
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
-          jq .summary_data ./flakeguard-report/all-test-results.json          
+          jq .summary_data ./flakeguard-report/all-test-results.json
 
           # Read the summary from the generated report
           summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-results.json)
@@ -463,23 +463,23 @@ jobs:
 
       - name: Upload All Test Results as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/all-test-results.json
           name: all-test-results.json
           retention-days: 90
-      
+
       - name: Upload Failed Test Results as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results.json
           name: failed-test-results.json
-          retention-days: 90 
-          
+          retention-days: 90
+
       - name: Upload Failed Test Results With Logs as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
           name: failed-test-results-with-logs.json
@@ -499,7 +499,7 @@ jobs:
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-      
+
           # Check if the event is a pull request
           if [ "$GH_EVENT_NAME" = "pull_request" ]; then
             flakeguard generate-report \
@@ -527,7 +527,7 @@ jobs:
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
               --repo-url "https://github.com/${{ github.repository }}" \
               --action-run-id "${{ github.run_id }}" \
-              --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"          
+              --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"
           fi
           EXIT_CODE=$?
           if [ $EXIT_CODE -eq 2 ]; then
@@ -535,7 +535,7 @@ jobs:
             echo "ERROR: Flakeguard encountered an error while generating reports" >> $GITHUB_STEP_SUMMARY
             exit $EXIT_CODE
           fi
-        
+
       - name: Add Github Summary
         if: (success() || failure())
         run: |
@@ -618,7 +618,7 @@ jobs:
                   ]
                 }
               ]
-            }            
+            }
 
       - name: Send general Slack message
         uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
@@ -654,7 +654,7 @@ jobs:
                         "type": "mrkdwn",
                         "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
                       }
-                    }                 
+                    }
                   ]
                 }
               ]

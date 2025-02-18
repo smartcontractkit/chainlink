@@ -3,6 +3,7 @@ package memory
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -119,6 +120,49 @@ func generateSolanaKeypair(t testing.TB) (solana.PrivateKey, string, error) {
 	return privateKey, keypairPath, nil
 }
 
+func FundSolanaAccounts(
+	ctx context.Context, t *testing.T, accounts []solana.PublicKey, solAmount uint64, solanaGoClient *solRpc.Client,
+) {
+	t.Helper()
+
+	var sigs = make([]solana.Signature, 0, len(accounts))
+	for _, account := range accounts {
+		sig, err := solanaGoClient.RequestAirdrop(ctx, account, solAmount*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
+		require.NoError(t, err)
+		sigs = append(sigs, sig)
+	}
+
+	const timeout = 10 * time.Second
+	const pollInterval = 50 * time.Millisecond
+
+	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	remaining := len(sigs)
+	for remaining > 0 {
+		select {
+		case <-timeoutCtx.Done():
+			require.NoError(t, errors.New("unable to find transaction within timeout"))
+		case <-ticker.C:
+			statusRes, sigErr := solanaGoClient.GetSignatureStatuses(ctx, true, sigs...)
+			require.NoError(t, sigErr)
+			require.NotNil(t, statusRes)
+			require.NotNil(t, statusRes.Value)
+
+			unconfirmedTxCount := 0
+			for _, res := range statusRes.Value {
+				if res == nil || res.ConfirmationStatus == solRpc.ConfirmationStatusProcessed {
+					unconfirmedTxCount++
+				}
+			}
+			remaining = unconfirmedTxCount
+		}
+	}
+}
+
 func GenerateChainsSol(t *testing.T, numChains int) map[uint64]SolanaChain {
 	testSolanaChainSelectors := getTestSolanaChainSelectors()
 	if len(testSolanaChainSelectors) < numChains {
@@ -181,6 +225,18 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 	}
 }
 
+var SolanaProgramIDs = map[string]string{
+	"ccip_router":               solTestConfig.CcipRouterProgram.String(),
+	"test_token_pool":           solTestConfig.CcipTokenPoolProgram.String(),
+	"fee_quoter":                solTestConfig.FeeQuoterProgram.String(),
+	"test_ccip_receiver":        solTestConfig.CcipLogicReceiver.String(),
+	"ccip_offramp":              solTestConfig.CcipOfframpProgram.String(),
+	"mcm":                       solTestConfig.McmProgram.String(),
+	"timelock":                  solTestConfig.TimelockProgram.String(),
+	"access_controller":         solTestConfig.AccessControllerProgram.String(),
+	"external_program_cpi_stub": solTestConfig.ExternalCpiStubProgram.String(),
+}
+
 var once = &sync.Once{}
 
 func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string, string, error) {
@@ -195,21 +251,13 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	for i := 0; i < maxRetries; i++ {
 		port := freeport.GetOne(t)
 
-		programIds := map[string]string{
-			"ccip_router":        solTestConfig.CcipRouterProgram.String(),
-			"test_token_pool":    solTestConfig.CcipTokenPoolProgram.String(),
-			"fee_quoter":         solTestConfig.FeeQuoterProgram.String(),
-			"test_ccip_receiver": solTestConfig.CcipLogicReceiver.String(),
-			"ccip_offramp":       solTestConfig.CcipOfframpProgram.String(),
-		}
-
 		bcInput := &blockchain.Input{
 			Type:           "solana",
 			ChainID:        strconv.FormatUint(chainID, 10),
 			PublicKey:      adminKey.PublicKey().String(),
 			Port:           strconv.Itoa(port),
 			ContractsDir:   ProgramsPath,
-			SolanaPrograms: programIds,
+			SolanaPrograms: SolanaProgramIDs,
 		}
 		output, err := blockchain.NewBlockchainNetwork(bcInput)
 		if err != nil {

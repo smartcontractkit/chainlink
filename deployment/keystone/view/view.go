@@ -9,12 +9,14 @@ import (
 
 type KeystoneChainView struct {
 	CapabilityRegistry map[string]common_v1_0.CapabilityRegistryView `json:"capabilityRegistry,omitempty"`
+	WorkflowRegistry   map[string]common_v1_0.WorkflowRegistryView   `json:"workflowRegistry,omitempty"`
 	// TODO forwarders etc
 }
 
 func NewKeystoneChainView() KeystoneChainView {
 	return KeystoneChainView{
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
+		WorkflowRegistry:   make(map[string]common_v1_0.WorkflowRegistryView),
 	}
 }
 
