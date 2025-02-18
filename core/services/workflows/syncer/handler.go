@@ -622,7 +622,7 @@ func (h *eventHandler) workflowUpdatedEvent(
 	payload WorkflowRegistryWorkflowUpdatedV1,
 ) error {
 	// Remove the old workflow engine from the local registry if it exists
-	if err := h.tryEngineCleanup(hex.EncodeToString(payload.OldWorkflowID[:])); err != nil {
+	if err := h.engineCleanup(hex.EncodeToString(payload.OldWorkflowID[:])); err != nil {
 		return err
 	}
 
@@ -646,7 +646,7 @@ func (h *eventHandler) workflowPausedEvent(
 	payload WorkflowRegistryWorkflowPausedV1,
 ) error {
 	// Remove the workflow engine from the local registry if it exists
-	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+	if err := h.engineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
 		return err
 	}
 
@@ -707,7 +707,7 @@ func (h *eventHandler) workflowDeletedEvent(
 	ctx context.Context,
 	payload WorkflowRegistryWorkflowDeletedV1,
 ) error {
-	if err := h.tryEngineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
+	if err := h.engineCleanup(hex.EncodeToString(payload.WorkflowID[:])); err != nil {
 		return err
 	}
 
@@ -752,20 +752,18 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 	return string(secrets), nil
 }
 
-// tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
-// workflow engine is not running.
-func (h *eventHandler) tryEngineCleanup(wfID string) error {
-	if h.engineRegistry.IsRunning(wfID) {
-		// Remove the engine from the registry
-		e, err := h.engineRegistry.Pop(wfID)
-		if err != nil {
-			return fmt.Errorf("failed to get workflow engine: %w", err)
-		}
+// engineCleanup attempts to pop the engine from the registry,
+// then stop + close it
+func (h *eventHandler) engineCleanup(wfID string) error {
+	// Remove the engine from the registry
+	e, err := h.engineRegistry.Pop(wfID)
+	if err != nil {
+		return fmt.Errorf("failed to get workflow engine: %w", err)
+	}
 
-		// Stop the engine
-		if err := e.Close(); err != nil {
-			return fmt.Errorf("failed to close workflow engine: %w", err)
-		}
+	// Stop the engine
+	if err := e.Close(); err != nil {
+		return fmt.Errorf("failed to close workflow engine: %w", err)
 	}
 	return nil
 }
