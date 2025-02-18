@@ -163,6 +163,32 @@ type ExportedEVMKey struct {
 	Version int    `json:"version"`
 }
 
+// OCR2ExportKey is the model that represents the exported VRF key
+type OCR2ExportKey struct {
+	KeyType           string `json:"keyType"`
+	ChainType         string `json:"chainType"`
+	ID                string `json:"id"`
+	OnchainPublicKey  string `json:"onchainPublicKey"`
+	OffchainPublicKey string `json:"offchainPublicKey"`
+	ConfigPublicKey   string `json:"configPublicKey"`
+	Crypto            struct {
+		Cipher       string `json:"cipher"`
+		Ciphertext   string `json:"ciphertext"`
+		Cipherparams struct {
+			Iv string `json:"iv"`
+		} `json:"cipherparams"`
+		Kdf       string `json:"kdf"`
+		Kdfparams struct {
+			Dklen int    `json:"dklen"`
+			N     int    `json:"n"`
+			P     int    `json:"p"`
+			R     int    `json:"r"`
+			Salt  string `json:"salt"`
+		} `json:"kdfparams"`
+		Mac string `json:"mac"`
+	} `json:"crypto"`
+}
+
 // VRFExportKey is the model that represents the exported VRF key
 type VRFExportKey struct {
 	PublicKey string `json:"PublicKey"`

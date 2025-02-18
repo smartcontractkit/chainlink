@@ -457,6 +457,23 @@ func (c *ChainlinkClient) DeleteOCR2Key(id string) (*http.Response, error) {
 	return resp.RawResponse, err
 }
 
+// ExportOCR2Key exports the OCR2 key
+func (c *ChainlinkClient) ExportOCR2Key(id string) (*OCR2ExportKey, *http.Response, error) {
+	ocr2Key := &OCR2ExportKey{}
+	c.l.Info().Str(NodeURL, c.Config.URL).Str("ID", id).Msg("Exporting OCR2 Key")
+	resp, err := c.APIClient.R().
+		SetResult(ocr2Key).
+		SetPathParams(map[string]string{
+			"id": id,
+		}).
+		SetQueryParam("newpassword", ChainlinkKeyPassword).
+		Post("/v2/keys/ocr2/export/{id}")
+	if err != nil {
+		return nil, nil, err
+	}
+	return ocr2Key, resp.RawResponse, err
+}
+
 // CreateP2PKey creates an P2PKey on the Chainlink node
 func (c *ChainlinkClient) CreateP2PKey() (*P2PKey, *http.Response, error) {
 	p2pKey := &P2PKey{}

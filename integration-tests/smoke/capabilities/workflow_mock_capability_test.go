@@ -2,6 +2,7 @@ package capabilities_test
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -33,9 +34,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	capabilities2 "github.com/smartcontractkit/chainlink/integration-tests/smoke/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 
@@ -82,6 +83,26 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 
 	donTopology := buildDONTopology(t, in, dons, nodeOutputs)
 	workflowDONID := mustOneDONTopologyWithFlag(t, donTopology, WorkflowDON).ID
+
+	//Swap OCR2 Keys
+	ocr2Keys := make([]ocr2key.KeyBundle, 0)
+	for _, don := range donTopology {
+		if hasFlag(don.Flags, CapabilitiesDON) {
+			for _, n := range don.DON.Nodes {
+				//Get original key ID
+				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				require.NoError(t, err2)
+
+				b, err2 := json.Marshal(key)
+				require.NoError(t, err2)
+				kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+				require.NoError(t, err2)
+
+				ocr2Keys = append(ocr2Keys, kk)
+			}
+		}
+
+	}
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability)
 	keystoneContractSet := deployKeystoneContracts(t, testLogger, ctfEnv, chainSelector)
@@ -130,7 +151,6 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 
 	// Configure the workflow DON and contracts
 	configureContracts(t, ctfEnv, donTopology, chainSelector)
-
 	// It can take a while before the first report is produced, particularly on CI.
 	timeout := 10 * time.Minute
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
@@ -139,30 +159,14 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 	mocksClient := newCapProxyClient()
 	require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
-	testLogger.Info().Msg("Creating streams-trigger@1.1.0 capabilities...")
-	require.NoError(t, mocksClient.CreateCapability(capabilities2.CapabilityInfo{
-		ID:             "streams-trigger@1.1.0",
-		CapabilityType: capabilities2.CapabilityType_Trigger,
-		Description:    "mock streams-trigger capability",
-		DON:            nil,
-		IsLocal:        true,
-	}))
-	testLogger.Info().Msg("Creating write_ethereum-testnet-sepolia-arbitrum-1@1.0.0 capabilities...")
-	require.NoError(t, mocksClient.CreateCapability(capabilities2.CapabilityInfo{
-		ID:             "write_ethereum-testnet-sepolia-arbitrum-1@1.0.0",
-		CapabilityType: capabilities2.CapabilityType_Target,
-		Description:    "mock write_ethereum-testnet-sepolia-arbitrum-1",
-		DON:            nil,
-		IsLocal:        true,
-	}))
-
-	testLogger.Info().Msg("Hooking into mock executable capabilities")
-	require.NoError(t, mocksClient.HookExecutables(testLogger))
+	
+	//testLogger.Info().Msg("Hooking into mock executable capabilities")
+	//require.NoError(t, mocksClient.HookExecutables(testLogger))
 
 	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
 
-	go sendReports(ctx, t, mocksClient, testLogger, 4) //TODO @george-dorin: Fix me!!!
+	go sendReports(ctx, t, mocksClient, testLogger, ocr2Keys) //TODO @george-dorin: Fix me!!!
 
 	for {
 		select {
@@ -171,41 +175,34 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 			t.FailNow()
 		case <-time.After(10 * time.Second):
 			elapsed := time.Since(startTime).Round(time.Second)
-			require.NoError(t, err, "failed to get price from Keystone Consumer contract")
-
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-
+			testLogger.Info().Msgf("Elapsed time %s", elapsed)
 		}
 	}
 }
 
-func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zerolog.Logger, nrOfNodes int) {
-	keyBundles := make([]ocr2key.KeyBundle, 0)
-	for range nrOfNodes {
-		b, err := ocr2key.New(chaintype.EVM)
-		require.NoError(t, err, "cannot create key bundle")
-		keyBundles = append(keyBundles, b)
-	}
+func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zerolog.Logger, keyBundles []ocr2key.KeyBundle) {
 
 	for {
 		select {
 		case <-ctx.Done():
-			lggr.Error().Msg("context canceled")
+			lggr.Error().Msg("reports context canceled")
+			return
 		case <-time.After(10 * time.Second):
-			price := big.NewInt(int64(rand.IntN(100)))
-			r := createFeedReport(t, price, time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
+			r1 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
+			r2 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", keyBundles)
+			r3 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca", keyBundles)
 
-			out := datastreams.StreamsTriggerEvent{
-				Payload:   []datastreams.FeedReport{*r},
+			event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
+				Payload:   []datastreams.FeedReport{*r1, *r2, *r3},
 				Metadata:  datastreams.Metadata{},
 				Timestamp: time.Now().Unix(),
-			}
-			outputsv, err := values.WrapMap(out)
+			})
 			require.NoError(t, err)
-			outputBytes, err := mapToBytes(outputsv)
-			require.NoError(t, err, "cannot convert payload to bytes")
 
-			require.NoError(t, capProxy.SendTrigger("streams-trigger@1.1.0", uuid.New().String(), outputBytes))
+			eventBytes, err := mapToBytes(event)
+			require.NoError(t, err)
+
+			require.NoError(t, capProxy.SendTrigger("streams-trigger@1.1.0", uuid.New().String(), eventBytes))
 		}
 	}
 }

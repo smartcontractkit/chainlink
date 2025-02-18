@@ -5,7 +5,6 @@
 // source: proxy.proto
 
 package capabilities
-
 import (
 	context "context"
 	grpc "google.golang.org/grpc"

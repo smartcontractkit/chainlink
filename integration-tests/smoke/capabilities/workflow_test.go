@@ -1218,7 +1218,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 
 	// configure Don2Don peering capability for workflow DON's bootstrap node, but not for other DON's bootstrap nodes
 	// since they do not have any capabilities
-	if hasFlag(flags, WorkflowDON) {
+	if hasFlag(flags, WorkflowDON) || hasFlag(flags, CapabilitiesDON) {
 		bootstrapNodeConfig += fmt.Sprintf(`
 				[Capabilities.Peering.V2]
 				Enabled = true
@@ -1293,7 +1293,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 		}
 
 		// if it's workflow DON configure workflow registry
-		if hasFlag(flags, WorkflowDON) {
+		if hasFlag(flags, WorkflowDON) || hasFlag(flags, CapabilitiesDON) {
 			workflowRegistryConfig := fmt.Sprintf(`
 				[Capabilities.WorkflowRegistry]
 				Address = "%s"
@@ -1335,7 +1335,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 	}
 
 	// we need to restart all nodes for configuration changes to take effect
-	nodeset, err := ns.UpgradeNodeSet(t, nodeInput.Input, bc, 5*time.Second)
+	nodeset, err := ns.UpgradeNodeSet(t, nodeInput.Input, bc, 10*time.Second)
 	require.NoError(t, err, "failed to upgrade node set")
 
 	return &WrappedNodeOutput{nodeset, nodeInput.Name, nodeInput.Capabilities}
@@ -1611,6 +1611,7 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 
 			// create mock capability job, if DON has custom mock capability
 			if hasFlag(flags, MockCapability) {
+				//TODO @george-dorin: Move mock config this into env.toml
 				mockJobSpec := fmt.Sprintf(`
 					type = "standardcapabilities"
 					schemaVersion = 1
@@ -1618,7 +1619,17 @@ func createJobs(t *testing.T, ctfEnv *deployment.Environment, don *devenv.DON, n
 					name = "mock-capabilitie"
 					forwardingAllowed = false
 					command = "/home/capabilities/%s"
-					config = ""
+					config = """
+						port=3456
+						[[DefaultMocks]]
+						id="streams-trigger@1.1.0"
+						description="stream trigger mock"
+						type="trigger"
+						[[DefaultMocks]]
+						id="write_ethereum-testnet-sepolia-arbitrum-1@1.0.0"
+						description="write trigger mock"
+						type="target"
+					"""
 				`,
 					uuid.NewString(),
 					mockCapabilityAssetFile)
