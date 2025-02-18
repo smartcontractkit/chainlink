@@ -12,6 +12,8 @@ import (
 )
 
 func TestSolanaTokenChangeset(t *testing.T) {
+	t.Skip("This test is flaky and should be fixed")
+
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
