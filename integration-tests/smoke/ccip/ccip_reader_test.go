@@ -999,13 +999,13 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 		t,
 		chain1,
 		map[cciptypes.ChainSelector][]types.BoundContract{
-			cciptypes.ChainSelector(chain1): {
+			cciptypes.ChainSelector(chain2): {
 				{
-					Address: state.Chains[chain1].FeeQuoter.Address().String(),
+					Address: state.Chains[chain2].FeeQuoter.Address().String(),
 					Name:    consts.ContractNameFeeQuoter,
 				},
 				{
-					Address: state.Chains[chain1].Router.Address().String(),
+					Address: state.Chains[chain2].Router.Address().String(),
 					Name:    consts.ContractNameRouter,
 				},
 			},
@@ -1018,7 +1018,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 
 	// Only chainD has reader contracts bound
 	require.Len(t, prices, 1)
-	require.Equal(t, testhelpers.DefaultWethPrice, prices[cciptypes.ChainSelector(chain1)].Int)
+	require.Equal(t, testhelpers.DefaultWethPrice, prices[cciptypes.ChainSelector(chain2)].Int)
 }
 
 // Benchmark Results:
