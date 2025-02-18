@@ -56,19 +56,19 @@ func (c *Cache) WithDataSource(ds sqlutil.DataSource) ORM {
 }
 
 func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
-	c.eng.Debugw("Cache: querying bridge", "bridgeName", name)
+	c.eng.Debugw("FindBridge Cache: querying bridge in cache/db", "bridgeName", name)
 
     if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
-        c.eng.Debugw("Cache: found bridge in cache", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+        c.eng.Debugw("FindBridge Cache: found bridge in cache", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
         return bridgeType.(BridgeType), nil
     }
 
-    ormResult, err := c.ORM.FindBridge(ctx, name)
+    ormResult, err := c.ORM.FindBridge(ctx, name) // If it doesn't find the bridge in the cache, it will query the ORM
     if err == nil {
         c.bridgeTypesCache.Store(ormResult.Name, ormResult)
-        c.eng.Debugw("Cache: stored bridge in cache", "bridgeName", ormResult.Name, "url", ormResult.URL)
+        c.eng.Debugw("FindBridge Cache: found bridge in db", "bridgeName", ormResult.Name, "url", ormResult.URL)
     } else {
-        c.eng.Debugw("Cache: failed to find bridge in ORM", "bridgeName", name, "error", err)
+        c.eng.Debugw("FindBridge Cache: failed to find bridge in ORM", "bridgeName", name, "error", err)
     }
 
     return ormResult, err
