@@ -172,7 +172,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 	}
 
 	if err := deployGrp.Wait(); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %s",
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
 			c.TokenSymbol, err)
 	}
 
