@@ -20,13 +20,13 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 type mockLogPoller struct {
-	latestBlock     logpoller.LogPollerBlock
+	latestBlock     logpoller.Block
 	latestBlockErr  error
 	filteredLogs    []logpoller.Log
 	filteredLogsErr error
@@ -37,7 +37,7 @@ type mockLogPoller struct {
 func (m *mockLogPoller) RegisterFilter(ctx context.Context, filter logpoller.Filter) error {
 	return nil
 }
-func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
+func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.Block, error) {
 	return m.latestBlock, m.latestBlockErr
 }
 func (m *mockLogPoller) FilteredLogs(ctx context.Context, filter []query.Expression, limitAndSort query.LimitAndSort, queryName string) ([]logpoller.Log, error) {
@@ -145,7 +145,7 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 		t.Run("does nothing if LatestBlock older or the same as current channel definitions block", func(t *testing.T) {
 			ctx := tests.Context(t)
 			lp.latestBlockErr = nil
-			lp.latestBlock = logpoller.LogPollerBlock{BlockNumber: 42}
+			lp.latestBlock = logpoller.Block{BlockNumber: 42}
 			cdc.definitionsBlockNum = 43
 
 			err := cdc.readLogs(ctx)

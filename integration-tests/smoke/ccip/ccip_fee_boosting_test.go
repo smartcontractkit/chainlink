@@ -35,6 +35,7 @@ var (
 )
 
 func Test_CCIPFeeBoosting(t *testing.T) {
+	t.Skip("Skipping test as Fee Boosting is disabled")
 	e, _, _ := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {

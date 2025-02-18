@@ -16,6 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
+type mcmsTestCase struct {
+	name       string
+	mcmsConfig *changeset.MCMSConfig
+}
+
 func TestAddNodes(t *testing.T) {
 	t.Parallel()
 
@@ -29,21 +34,25 @@ func TestAddNodes(t *testing.T) {
 		input    input
 		checkErr func(t *testing.T, useMCMS bool, err error)
 	}
-	// run the same tests for both mcms and non-mcms
-	var mcmsConfigs = []*changeset.MCMSConfig{nil, {MinDuration: 0}}
-	for _, mc := range mcmsConfigs {
-		prefix := "no mcms"
-		if mc != nil {
-			prefix = "with mcms"
-		}
 
-		t.Run(prefix, func(t *testing.T) {
+	type mcmsCase struct {
+		name       string
+		mcmsConfig *changeset.MCMSConfig
+	}
+
+	var mcCases = []mcmsCase{
+		{name: "no mcms", mcmsConfig: nil},
+		{name: "with mcms", mcmsConfig: &changeset.MCMSConfig{MinDuration: 0}},
+	}
+	for _, mcCase := range mcCases {
+		mcmsConfig := mcCase.mcmsConfig
+		t.Run(mcCase.name, func(t *testing.T) {
 			te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
 				WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
 				AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
 				WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 				NumChains:       1,
-				UseMCMS:         mc != nil,
+				UseMCMS:         mcmsConfig != nil,
 			})
 
 			var cases = []testCase{
@@ -61,7 +70,7 @@ func TestAddNodes(t *testing.T) {
 								P2PID:               testPeerID(t, "test-peer-id"),
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -89,7 +98,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -117,7 +126,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 				{
@@ -148,7 +157,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 				},
 
@@ -180,7 +189,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)
@@ -216,7 +225,7 @@ func TestAddNodes(t *testing.T) {
 								},
 							},
 						},
-						MCMSConfig: mc,
+						MCMSConfig: mcmsConfig,
 					},
 					checkErr: func(t *testing.T, useMCMS bool, err error) {
 						require.Error(t, err)

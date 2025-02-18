@@ -23,7 +23,7 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink/v2/core/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -392,23 +392,23 @@ func (_c *Application_EVMORM_Call) RunAndReturn(run func() types.Configs) *Appli
 }
 
 // FindLCA provides a mock function with given fields: ctx, chainID
-func (_m *Application) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+func (_m *Application) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
 	ret := _m.Called(ctx, chainID)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLCA")
 	}
 
-	var r0 *logpoller.LogPollerBlock
+	var r0 *logpoller.Block
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (*logpoller.LogPollerBlock, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) (*logpoller.Block, error)); ok {
 		return rf(ctx, chainID)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *logpoller.LogPollerBlock); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *big.Int) *logpoller.Block); ok {
 		r0 = rf(ctx, chainID)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logpoller.LogPollerBlock)
+			r0 = ret.Get(0).(*logpoller.Block)
 		}
 	}
 
@@ -440,12 +440,12 @@ func (_c *Application_FindLCA_Call) Run(run func(ctx context.Context, chainID *b
 	return _c
 }
 
-func (_c *Application_FindLCA_Call) Return(_a0 *logpoller.LogPollerBlock, _a1 error) *Application_FindLCA_Call {
+func (_c *Application_FindLCA_Call) Return(_a0 *logpoller.Block, _a1 error) *Application_FindLCA_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *Application_FindLCA_Call) RunAndReturn(run func(context.Context, *big.Int) (*logpoller.LogPollerBlock, error)) *Application_FindLCA_Call {
+func (_c *Application_FindLCA_Call) RunAndReturn(run func(context.Context, *big.Int) (*logpoller.Block, error)) *Application_FindLCA_Call {
 	_c.Call.Return(run)
 	return _c
 }

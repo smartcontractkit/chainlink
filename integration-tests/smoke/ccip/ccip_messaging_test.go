@@ -4,8 +4,9 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -81,6 +82,15 @@ func Test_CCIPMessaging(t *testing.T) {
 		)
 	)
 
+	monitorCtx, monitorCancel := context.WithCancel(ctx)
+	ms := &monitorState{}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitorReExecutions(monitorCtx, t, state, destChain, ms)
+	}()
+
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(
 			mt.TestCase{
@@ -93,13 +103,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						// TODO: remove this or make it a "require.Never" once we fix double execution!
-						doubleExecStart := time.Now()
-						require.NoError(
-							t,
-							testhelpers.ConfirmDoubleExecution(t, sourceChain, e.Env.Chains[destChain], state.Chains[destChain].OffRamp, nil, []uint64{1}),
-						)
-						t.Logf("Confirmed double execution in %s", time.Since(doubleExecStart).String())
+
 					},
 				},
 			},
@@ -167,6 +171,48 @@ func Test_CCIPMessaging(t *testing.T) {
 		t.Logf("successfully manually executed message %x",
 			out.MsgSentEvent.Message.Header.MessageId)
 	})
+
+	monitorCancel()
+	wg.Wait()
+	// there should be no re-executions.
+	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
+}
+
+type monitorState struct {
+	reExecutionsObserved atomic.Int32
+}
+
+func (s *monitorState) incReExecutions() {
+	s.reExecutionsObserved.Add(1)
+}
+
+func monitorReExecutions(
+	ctx context.Context,
+	t *testing.T,
+	state changeset.CCIPOnChainState,
+	destChain uint64,
+	ss *monitorState,
+) {
+	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
+	sub, err := state.Chains[destChain].OffRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+		Start: nil,
+	}, sink)
+	if err != nil {
+		t.Fatalf("failed to subscribe to already executed msg stream: %s", err.Error())
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-sub.Err():
+			t.Fatalf("subscription error: %s", subErr.Error())
+		case ev := <-sink:
+			t.Logf("received an already executed event for seq nr %d and source chain %d",
+				ev.SequenceNumber, ev.SourceChainSelector)
+			ss.incReExecutions()
+		}
+	}
 }
 
 func manuallyExecute(
