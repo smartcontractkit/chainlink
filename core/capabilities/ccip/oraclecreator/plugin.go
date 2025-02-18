@@ -335,7 +335,6 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
 				CommitCodec:       plugin.CommitPluginCodec,
 				MsgHasher:         messageHasher,
-				ExtraDataCodec:    plugin.ExtraArgsCodec,
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
 				ContractReaders:   contractReaders,
