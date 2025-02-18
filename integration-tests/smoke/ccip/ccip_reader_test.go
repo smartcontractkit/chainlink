@@ -1021,7 +1021,7 @@ func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {
 		env,
 	)
 
-	prices := reader.GetWrappedNativeTokenPriceUSD(ctx, []cciptypes.ChainSelector{cciptypes.ChainSelector(chain), cciptypes.ChainSelector(chain2)})
+	prices := reader.GetWrappedNativeTokenPriceUSD(ctx, []cciptypes.ChainSelector{cciptypes.ChainSelector(chain1), cciptypes.ChainSelector(chain2)})
 
 	// Only chainD has reader contracts bound
 	require.Len(t, prices, 1)
