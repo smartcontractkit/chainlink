@@ -531,7 +531,6 @@ func deployChainContractsSolana(
 
 	// TOKEN POOL DEPLOY
 	var tokenPoolProgram solana.PublicKey
-	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
