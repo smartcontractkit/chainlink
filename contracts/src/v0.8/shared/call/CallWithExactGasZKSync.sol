@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
+pragma solidity ^0.8.4;
 
 import {ISystemContext} from "../../vendor/@matter-labs/era-contracts/gas-bound-caller/contracts/ISystemContext.sol";
 
@@ -55,7 +55,7 @@ library CallWithExactGasZKSync {
     // This is a safety check to ensure that a gas limit higher than the available gas is not specified,
     // which would indicate incorrect parameters and could lead to unexpected behavior.
     if (_maxTotalGas > gasleft()) {
-      return (false, new bytes(0), 0);
+      return (false, "", 0);
     }
 
     uint256 pubdataPublishedBefore = SYSTEM_CONTEXT_CONTRACT.getCurrentPubdataSpent();
