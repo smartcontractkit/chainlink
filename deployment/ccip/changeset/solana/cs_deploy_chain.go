@@ -292,6 +292,7 @@ func deployChainContractsSolana(
 
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
 		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, deployment.Version1_0_0, false)
 		if err != nil {
@@ -343,6 +344,7 @@ func deployChainContractsSolana(
 
 	// ROUTER DEPLOY
 	var ccipRouterProgram solana.PublicKey
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
 		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, deployment.Version1_0_0, false)
@@ -400,6 +402,7 @@ func deployChainContractsSolana(
 	needFQinLookupTable := false
 	needRouterinLookupTable := false
 	needTokenPoolinLookupTable := false
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
 		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_0_0, false)
@@ -528,10 +531,14 @@ func deployChainContractsSolana(
 
 	// TOKEN POOL DEPLOY
 	var tokenPoolProgram solana.PublicKey
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
 		tokenPoolProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, TokenPoolProgramName, deployment.Version1_0_0, false)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+		}
 		needTokenPoolinLookupTable = true
 	} else {
 		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
