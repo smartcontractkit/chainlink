@@ -113,6 +113,14 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 		cfg := RegisterNodesInput{
 			EnvLabel:    "test-env",
 			ProductName: "test-product",
+			DONsList: []DONConfig{
+				{
+					Name: "EmptyCSA",
+					Nodes: []NodeCfg{
+						{Name: "node1", CSAKey: "0xaaa"},
+					},
+				},
+			},
 		}
 		err := cfg.Validate()
 		require.Error(t, err, "expected an error when BooststrapNodes is empty")
