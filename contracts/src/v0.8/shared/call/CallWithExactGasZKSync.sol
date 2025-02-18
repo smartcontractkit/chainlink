@@ -52,7 +52,7 @@ library CallWithExactGasZKSync {
     }
 
     // We require that `_maxTotalGas` does not exceed the current `gasleft()`.
-    // This is a safety check to ensure that users do not specify a gas limit higher than the available gas,
+    // This is a safety check to ensure that a gas limit higher than the available gas is not specified,
     // which would indicate incorrect parameters and could lead to unexpected behavior.
     if (_maxTotalGas > gasleft()) {
       return (false, new bytes(0), 0);
