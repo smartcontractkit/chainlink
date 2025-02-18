@@ -267,7 +267,7 @@ func TestFundMCMSignersChangeset_Apply(t *testing.T) {
 		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.CancellerMcmSeed),
 		state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.BypasserMcmSeed),
 	}
-	balances := make([]uint64, 4)
+	var balances []uint64
 	for _, account := range accounts {
 		balance, err := solChain.Client.GetBalance(env.GetContext(), account, rpc.CommitmentConfirmed)
 		require.NoError(t, err)
