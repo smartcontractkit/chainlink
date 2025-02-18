@@ -707,7 +707,6 @@ func generateCloseBufferIxn(
 	recipient solana.PublicKey,
 	upgradeAuthority solana.PublicKey,
 ) (solana.Instruction, error) {
-
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(bufferAddress, true, false),
 		solana.NewAccountMeta(recipient, false, false),
