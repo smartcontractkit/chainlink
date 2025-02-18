@@ -19,7 +19,7 @@ jobs:
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Check git tag type
@@ -68,7 +68,7 @@ jobs:
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -103,7 +103,7 @@ jobs:
     environment: build-publish
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Notify Slack
@@ -149,7 +149,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 

@@ -16,8 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -570,10 +570,10 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 
 	for j := 0; j < chainCount; j++ {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
-		var blocks []logpoller.LogPollerBlock
+		var blocks []logpoller.Block
 		for i := 0; i < maxLogsSize; i++ {
-			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           ubig.NewI(int64(j + 1)),
+			blocks = append(blocks, logpoller.Block{
+				EVMChainID:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
 				BlockNumber:          int64(i + 1000),
 				FinalizedBlockNumber: 0,

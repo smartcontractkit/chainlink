@@ -6,12 +6,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -422,9 +431,13 @@ func TestUpdateOffRampsSources(t *testing.T) {
 			sourceCfg, err := state.Chains[source].OffRamp.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, dest)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[source].TestRouter.Address(), sourceCfg.Router)
+			require.True(t, sourceCfg.IsRMNVerificationDisabled)
+			require.True(t, sourceCfg.IsEnabled)
 			destCfg, err := state.Chains[dest].OffRamp.GetSourceChainConfig(&bind.CallOpts{Context: ctx}, source)
 			require.NoError(t, err)
 			require.Equal(t, state.Chains[dest].Router.Address(), destCfg.Router)
+			require.True(t, destCfg.IsRMNVerificationDisabled)
+			require.True(t, destCfg.IsEnabled)
 		})
 	}
 }
@@ -690,4 +703,205 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 			require.Contains(t, callers, state.Chains[source].OffRamp.Address())
 		})
 	}
+}
+
+func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
+	e, tenv := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
+			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+			RMNConfig: &rmn_contract.RMNConfig{
+				BlessWeightThreshold: 2,
+				CurseWeightThreshold: 2,
+				// setting dummy voters, we will permabless this later
+				Voters: []rmn_contract.RMNVoter{
+					{
+						BlessWeight:   2,
+						CurseWeight:   2,
+						BlessVoteAddr: utils.RandomAddress(),
+						CurseVoteAddr: utils.RandomAddress(),
+					},
+				},
+			},
+		}),
+		testhelpers.WithNumOfChains(3),
+		testhelpers.WithChainIDs([]uint64{chainselectors.GETH_TESTNET.EvmChainID}))
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectorsExcluding([]uint64{chainselectors.GETH_TESTNET.Selector})
+	require.Contains(t, e.Env.AllChainSelectors(), chainselectors.GETH_TESTNET.Selector)
+	require.Len(t, allChains, 2)
+	src, dest := allChains[1], chainselectors.GETH_TESTNET.Selector
+	srcChain := e.Env.Chains[src]
+	destChain := e.Env.Chains[dest]
+	pairs := []testhelpers.SourceDestPair{
+		{SourceChainSelector: src, DestChainSelector: dest},
+	}
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tenv, false)
+	// try to apply previous ramps updates without having any previous ramps
+	// it should fail
+	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
+			changeset.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
+					srcChain.Selector: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: destChain.Selector,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no previous onramp for source chain")
+	e.Env = v1_5.AddLanes(t, e.Env, state, pairs)
+	// Now apply the nonce manager update
+	// it should fail again as there is no offramp for the source chain
+	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
+			changeset.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
+					srcChain.Selector: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: destChain.Selector,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no previous offramp for source chain")
+	// Now apply the update with AllowEmptyOffRamp and it should pass
+	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
+			changeset.UpdateNonceManagerConfig{
+				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
+					srcChain.Selector: {
+						PreviousRampsArgs: []changeset.PreviousRampCfg{
+							{
+								RemoteChainSelector: destChain.Selector,
+								AllowEmptyOffRamp:   true,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+}
+
+func TestSetOCR3ConfigValidations(t *testing.T) {
+	e, _ := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithPrerequisiteDeploymentOnly(nil))
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
+	evmContractParams := make(map[uint64]changeset.ChainContractParams)
+	for _, chain := range allChains {
+		evmContractParams[chain] = changeset.ChainContractParams{
+			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
+			OffRampParams:   changeset.DefaultOffRampParams(),
+		}
+	}
+	var apps []commonchangeset.ConfiguredChangeSet
+	// now deploy contracts
+	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: evmContractParams,
+			},
+		),
+	}...)
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	require.NoError(t, err)
+	// try to apply ocr3config on offRamp without setting the active config on home chain
+	_, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			deployment.CreateLegacyChangeSet(changeset.SetOCR3OffRampChangeset),
+			changeset.SetOCR3OffRampConfig{
+				HomeChainSel:       e.HomeChainSel,
+				RemoteChainSels:    allChains,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		),
+	)
+	// it should fail as we need to update the chainconfig on CCIPHome first
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid OCR3 config state, expected active config")
+
+	// Build the per chain config.
+	wrongChainConfigs := make(map[uint64]changeset.ChainConfig)
+	ocrConfigs := make(map[uint64]changeset.CCIPOCRParams)
+	for _, chain := range allChains {
+		ocrParams := changeset.DeriveCCIPOCRParams(
+			changeset.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
+			changeset.WithDefaultExecuteOffChainConfig(nil),
+		)
+		ocrConfigs[chain] = ocrParams
+		// set wrong chain config with incorrect value of FChain
+		wrongChainConfigs[chain] = changeset.ChainConfig{
+			Readers: envNodes.NonBootstraps().PeerIDs(),
+			//nolint:gosec // disable G115
+			FChain: uint8(len(envNodes.NonBootstraps().PeerIDs())),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
+	}
+	// now set the chain config with wrong values of FChain
+	// it should fail on addDonAndSetCandidateChangeset
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			// Add the chain configs for the new chains.
+			deployment.CreateLegacyChangeSet(changeset.UpdateChainConfigChangeset),
+			changeset.UpdateChainConfigConfig{
+				HomeChainSelector: e.HomeChainSel,
+				RemoteChainAdds:   wrongChainConfigs,
+			},
+		),
+		commonchangeset.Configure(
+			// Add the DONs and candidate commit OCR instances for the chain.
+			deployment.CreateLegacyChangeSet(changeset.AddDonAndSetCandidateChangeset),
+			changeset.AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: e.HomeChainSel,
+					FeedChainSelector: e.FeedChainSel,
+				},
+				PluginInfo: changeset.SetCandidatePluginInfo{
+					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					PluginType:                      types.PluginTypeCCIPCommit,
+				},
+			},
+		),
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "OCR3 config FRoleDON is lower than chainConfig FChain")
 }

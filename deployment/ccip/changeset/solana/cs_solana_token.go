@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -59,7 +60,6 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	// TODO:does the mint need to be added as a signer here ?
 	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mintPrivKey))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
@@ -81,25 +81,51 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	}, nil
 }
 
-// TODO: there is no validation done around if the token is already deployed
-// https://smartcontract-it.atlassian.net/browse/INTAUTO-439
 type MintSolanaTokenConfig struct {
 	ChainSelector   uint64
 	TokenProgram    string
-	TokenPubkey     solana.PublicKey
+	TokenPubkey     string
 	AmountToAddress map[string]uint64 // address -> amount
 }
 
-func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
-	// get chain
+func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	// get addresses
-	tokenAddress := cfg.TokenPubkey
+	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
 	// get token program id
 	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
 	if err != nil {
+		return err
+	}
+
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), tokenAddress, &rpc.GetAccountInfoOpts{
+		Commitment: deployment.SolDefaultCommitment,
+	})
+	if err != nil {
+		fmt.Println("error getting account info", err)
+		return err
+	}
+	if accountInfo == nil || accountInfo.Value == nil {
+		return fmt.Errorf("token address %s not found", tokenAddress.String())
+	}
+	if accountInfo.Value.Owner != tokenprogramID {
+		return fmt.Errorf("token address %s is not owned by the SPL token program", tokenAddress.String())
+	}
+	return nil
+}
+
+func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
+	err := cfg.Validate(e)
+	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	// get chain
+	chain := e.SolChains[cfg.ChainSelector]
+	// get addresses
+	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
+	// get token program id
+	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgram)
+
 	// get mint instructions
 	instructions := []solana.Instruction{}
 	for toAddress, amount := range cfg.AmountToAddress {
@@ -119,7 +145,8 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 		e.Logger.Errorw("Failed to confirm instructions for token minting", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String())
+	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", tokenAddress.String())
+
 	return deployment.ChangesetOutput{}, nil
 }
 

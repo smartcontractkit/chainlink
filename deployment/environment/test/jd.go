@@ -5,25 +5,27 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+	"google.golang.org/grpc"
 
-	// "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
-
+	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
-var _ node.NodeServiceServer = (*JDNodeService)(nil)
+var _ nodev1.NodeServiceClient = (*JDNodeService)(nil)
+var _ jobv1.JobServiceClient = (*JDNodeService)(nil)
+var _ csav1.CSAServiceClient = (*JDNodeService)(nil)
 
 // JDNodeService is a mock implementation of the JobDistributor that supports
 // the Node methods
 type JDNodeService struct {
-	mu sync.RWMutex
-	//	store map[string]*wrapper
+	mu    sync.RWMutex
 	store *store
-	node.UnimplementedNodeServiceServer
+	*UnimplementedJobServiceClient
+	*UnimplementedCSAServiceClient
 }
 
 func NewJDService(nodes []deployment.Node) *JDNodeService {
@@ -48,7 +50,7 @@ func NewJDServiceFromListNodes(resp *nodev1.ListNodesResponse) (*JDNodeService, 
 	}, nil
 }
 
-func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest) (*nodev1.GetNodeResponse, error) {
+func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest, opts ...grpc.CallOption) (*nodev1.GetNodeResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -62,7 +64,7 @@ func (s *JDNodeService) GetNode(ctx context.Context, req *nodev1.GetNodeRequest)
 	}, nil
 }
 
-func (s *JDNodeService) ListNodes(ctx context.Context, req *nodev1.ListNodesRequest) (*nodev1.ListNodesResponse, error) {
+func (s *JDNodeService) ListNodes(ctx context.Context, req *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -79,7 +81,7 @@ func (s *JDNodeService) ListNodes(ctx context.Context, req *nodev1.ListNodesRequ
 	}, nil
 }
 
-func (s *JDNodeService) DisableNode(ctx context.Context, req *nodev1.DisableNodeRequest) (*nodev1.DisableNodeResponse, error) {
+func (s *JDNodeService) DisableNode(ctx context.Context, req *nodev1.DisableNodeRequest, opts ...grpc.CallOption) (*nodev1.DisableNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -94,7 +96,7 @@ func (s *JDNodeService) DisableNode(ctx context.Context, req *nodev1.DisableNode
 	return &nodev1.DisableNodeResponse{}, nil
 }
 
-func (s *JDNodeService) EnableNode(ctx context.Context, req *nodev1.EnableNodeRequest) (*nodev1.EnableNodeResponse, error) {
+func (s *JDNodeService) EnableNode(ctx context.Context, req *nodev1.EnableNodeRequest, opts ...grpc.CallOption) (*nodev1.EnableNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -110,7 +112,7 @@ func (s *JDNodeService) EnableNode(ctx context.Context, req *nodev1.EnableNodeRe
 	return &nodev1.EnableNodeResponse{}, nil
 }
 
-func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNodeRequest) (*nodev1.RegisterNodeResponse, error) {
+func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -128,7 +130,7 @@ func (s *JDNodeService) RegisterNode(ctx context.Context, req *nodev1.RegisterNo
 	return &nodev1.RegisterNodeResponse{}, nil
 }
 
-func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.ListNodeChainConfigsRequest) (*nodev1.ListNodeChainConfigsResponse, error) {
+func (s *JDNodeService) ListNodeChainConfigs(ctx context.Context, req *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -158,7 +160,7 @@ func newWrapperFromRegister(req *nodev1.RegisterNodeRequest) (*wrappedNode, erro
 	return nil, nil
 }
 
-func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRequest) (*nodev1.UpdateNodeResponse, error) {
+func (s *JDNodeService) UpdateNode(ctx context.Context, req *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -308,4 +310,60 @@ func (s *store) put(n *wrappedNode) {
 	s.db2[n.Node.NodeID] = n
 	s.csaToID[n.Node.CSAKey] = n.NodeID
 	s.p2pToID[p2pKey(n.Node.PeerID.String())] = n.NodeID
+}
+
+type UnimplementedJobServiceClient struct{}
+
+func (s *UnimplementedJobServiceClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
+	// TODO CCIP-3108  implement me
+	panic("implement me")
+}
+
+func (s *UnimplementedJobServiceClient) DeleteJob(ctx context.Context, in *jobv1.DeleteJobRequest, opts ...grpc.CallOption) (*jobv1.DeleteJobResponse, error) {
+	panic("unimplemented")
+}
+
+func (s *UnimplementedJobServiceClient) UpdateJob(ctx context.Context, in *jobv1.UpdateJobRequest, opts ...grpc.CallOption) (*jobv1.UpdateJobResponse, error) {
+	panic("unimplemented")
+}
+
+// GetJob implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) GetJob(ctx context.Context, in *jobv1.GetJobRequest, opts ...grpc.CallOption) (*jobv1.GetJobResponse, error) {
+	panic("unimplemented")
+}
+
+// GetProposal implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) GetProposal(ctx context.Context, in *jobv1.GetProposalRequest, opts ...grpc.CallOption) (*jobv1.GetProposalResponse, error) {
+	panic("unimplemented")
+}
+
+// ListJobs implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
+	panic("unimplemented")
+}
+
+// ListProposals implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) ListProposals(ctx context.Context, in *jobv1.ListProposalsRequest, opts ...grpc.CallOption) (*jobv1.ListProposalsResponse, error) {
+	panic("unimplemented")
+}
+
+// ProposeJob implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) ProposeJob(ctx context.Context, in *jobv1.ProposeJobRequest, opts ...grpc.CallOption) (*jobv1.ProposeJobResponse, error) {
+	panic("unimplemented")
+}
+
+// RevokeJob implements job.JobServiceClient.
+func (s *UnimplementedJobServiceClient) RevokeJob(ctx context.Context, in *jobv1.RevokeJobRequest, opts ...grpc.CallOption) (*jobv1.RevokeJobResponse, error) {
+	panic("unimplemented")
+}
+
+type UnimplementedCSAServiceClient struct{}
+
+func (s *UnimplementedCSAServiceClient) GetKeypair(ctx context.Context, in *csav1.GetKeypairRequest, opts ...grpc.CallOption) (*csav1.GetKeypairResponse, error) {
+	// TODO implement me
+	panic("implement me")
+}
+
+func (s *UnimplementedCSAServiceClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsRequest, opts ...grpc.CallOption) (*csav1.ListKeypairsResponse, error) {
+	panic("unimplemented")
 }

@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
@@ -19,9 +20,10 @@ import (
 // - "OffRamp 1.6.0"
 type ExecutePluginCodecV1 struct {
 	executeReportMethodInputs abi.Arguments
+	extraDataCodec            ccipcommon.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipcommon.ExtraDataCodec) *ExecutePluginCodecV1 {
 	abiParsed, err := abi.JSON(strings.NewReader(offramp.OffRampABI))
 	if err != nil {
 		panic(fmt.Errorf("parse multi offramp abi: %s", err))
@@ -33,6 +35,7 @@ func NewExecutePluginCodecV1() *ExecutePluginCodecV1 {
 
 	return &ExecutePluginCodecV1{
 		executeReportMethodInputs: methodInputs[:1],
+		extraDataCodec:            extraDataCodec,
 	}
 }
 
@@ -59,7 +62,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
-				destGasAmount, err := abiDecodeUint32(tokenAmount.DestExecData)
+				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
+				}
+
+				destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 				if err != nil {
 					return nil, fmt.Errorf("decode dest gas amount: %w", err)
 				}
@@ -82,7 +90,12 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				})
 			}
 
-			gasLimit, err := decodeExtraArgsV1V2(message.ExtraArgs)
+			decodedExtraArgsMap, err := e.extraDataCodec.DecodeExtraArgs(message.ExtraArgs, chainReport.SourceChainSelector)
+			if err != nil {
+				return nil, err
+			}
+
+			gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
 			if err != nil {
 				return nil, fmt.Errorf("decode extra args to get gas limit: %w", err)
 			}

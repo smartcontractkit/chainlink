@@ -17,7 +17,7 @@ jobs:
       pull-requests: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -36,7 +36,7 @@ jobs:
           version: ^9.0.0
 
       - name: Setup node
-        uses: actions/setup-node@v4.0.4
+        uses: actions/setup-node@v4
         if: steps.change.outputs.core-changeset == 'true'
         with:
           node-version: 20

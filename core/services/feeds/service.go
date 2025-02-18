@@ -894,12 +894,8 @@ func (s *service) ApproveSpec(ctx context.Context, id int64, force bool) error {
 					return fmt.Errorf("failed while checking for existing ccip job: %w", txerr)
 				}
 			case job.StandardCapabilities:
-				existingJobID, txerr = tx.jobORM.FindStandardCapabilityJobID(ctx, *j.StandardCapabilitiesSpec)
-				// Return an error if the repository errors. If there is a not found
-				// error we want to continue with approving the job.
-				if txerr != nil && !errors.Is(txerr, sql.ErrNoRows) {
-					return fmt.Errorf("failed while checking for existing standard capabilities job: %w", txerr)
-				}
+				// Only possible to match standard capabilities by external job id
+				// no-op
 			case job.Gateway:
 				existingJobID, txerr = tx.jobORM.FindGatewayJobID(ctx, *j.GatewaySpec)
 				// Return an error if the repository errors. If there is a not found
