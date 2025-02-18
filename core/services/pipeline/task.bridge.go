@@ -127,7 +127,7 @@ func (t *BridgeTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inp
 	overtimeCtx, cancel := overtimeContext(ctx)
 	defer cancel()
 
-	url, err := t.getBridgeURLFromName(overtimeCtx, name)
+	url, err := t.getBridgeURLFromName(overtimeCtx, name) // This doesn't pickup neither the updated URL in the bridge cache nor the bridge URL stored in the DB.
 	if err != nil {
 		return Result{Error: err}, runInfo
 	}

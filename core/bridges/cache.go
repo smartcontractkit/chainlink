@@ -56,16 +56,22 @@ func (c *Cache) WithDataSource(ds sqlutil.DataSource) ORM {
 }
 
 func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, error) {
-	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
-		return bridgeType.(BridgeType), nil
-	}
+	c.eng.Debugw("Cache: querying bridge", "bridgeName", name)
 
-	ormResult, err := c.ORM.FindBridge(ctx, name)
-	if err == nil {
-		c.bridgeTypesCache.Store(ormResult.Name, ormResult)
-	}
+    if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
+        c.eng.Debugw("Cache: found bridge in cache", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+        return bridgeType.(BridgeType), nil
+    }
 
-	return ormResult, err
+    ormResult, err := c.ORM.FindBridge(ctx, name)
+    if err == nil {
+        c.bridgeTypesCache.Store(ormResult.Name, ormResult)
+        c.eng.Debugw("Cache: stored bridge in cache", "bridgeName", ormResult.Name, "url", ormResult.URL)
+    } else {
+        c.eng.Debugw("Cache: failed to find bridge in ORM", "bridgeName", name, "error", err)
+    }
+
+    return ormResult, err
 }
 
 func (c *Cache) FindBridges(ctx context.Context, names []BridgeName) ([]BridgeType, error) {
@@ -153,7 +159,12 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 
 func (c *Cache) InvalidateCache( name BridgeName){
 	c.bridgeTypesCache.Delete(name)
-	c.eng.Debugw("Cache invalidated", "bridgeName", name)
+	c.eng.Debugw("InvalidateCache: Cache invalidated", "bridgeName", name)
+	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
+		c.eng.Debugw("InvalidateCache: New cached value", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+} else {
+		c.eng.Debugw("InvalidateCache: No cached value found", "bridgeName", name)
+}
 }
 
 func (c *Cache) GetCachedResponse(ctx context.Context, dotId string, specId int32, maxElapsed time.Duration) ([]byte, error) {

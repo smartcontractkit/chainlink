@@ -53,14 +53,6 @@ func (o *orm) transact(ctx context.Context, readOnly bool, fn func(tx *orm) erro
 	return sqlutil.Transact(ctx, func(ds sqlutil.DataSource) *orm { return &orm{ds: ds} }, o.ds, &opts, fn)
 }
 
-// FindBridge looks up a Bridge by its Name.
-// Returns sql.ErrNoRows if name not present
-func (o *orm) FindBridge(ctx context.Context, name BridgeName) (bt BridgeType, err error) {
-	stmt := "SELECT * FROM bridge_types WHERE name = $1"
-	err = o.ds.GetContext(ctx, &bt, stmt, name.String())
-
-	return
-}
 
 // FindBridges looks up multiple bridges in a single query.
 // Errors unless all bridges successfully found. Requires at least one bridge.
