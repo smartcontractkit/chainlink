@@ -203,7 +203,8 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
-	// default to excluding StepDependency
+	// An attribute called StepDependency is used to define a data dependency between steps,
+	// and not to provide input values; we should therefore disregard it when hashing the request
 	if len(r.config.RequestHashExcludedAttributes) == 0 {
 		r.config.RequestHashExcludedAttributes = []string{"StepDependency"}
 	}
