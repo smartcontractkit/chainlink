@@ -97,7 +97,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 	}
 
 	var cmd *exec.Cmd
-	// We need to specify the program ID on the inital deploy but not on upgrades
+	// We need to specify the program ID on the initial deploy but not on upgrades
 	// Upgrades happen in place so we don't need to supply the keypair
 	// It will write the .so file to a buffer and then deploy it to the existing keypair
 	if !isUpgrade {
