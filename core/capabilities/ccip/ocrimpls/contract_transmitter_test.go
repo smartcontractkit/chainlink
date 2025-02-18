@@ -317,7 +317,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		contractName,
 		methodTransmitWithSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.NewToCommitCalldata(consts.MethodCommit, ""),
+		ocrimpls.NewToCommitCalldataFunc(consts.MethodCommit, ""),
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,

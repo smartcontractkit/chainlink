@@ -18,20 +18,27 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
+// ToCalldataFunc is a function that takes in the OCR3 report and signature data and processes them.
+// It returns the contract name, method name, and arguments for the on-chain contract call.
+// The ReportWithInfo bytes field is also decoded according to the implementation of this function,
+// the commit and execute plugins have different representations for this data.
 type ToCalldataFunc func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	rs, ss [][32]byte,
 	vs [32]byte,
-) (string, string, any, error)
+) (contract string, method string, args any, err error)
 
-func NewToCommitCalldata(defaultMethod, priceOnlyMethod string) ToCalldataFunc {
+// NewToCommitCalldataFunc returns a ToCalldataFunc that is used to generate the calldata for the commit method.
+// Multiple methods are accepted in order to allow for different methods to be called based on the report data.
+// The Solana on-chain contract has two methods, one for the default commit and one for the price-only commit.
+func NewToCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataFunc {
 	return func(
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
-	) (string, string, any, error) {
+	) (contract string, method string, args any, err error) {
 		// Note that the name of the struct field is very important, since the encoder used
 		// by the chainwriter uses mapstructure, which will use the struct field name to map
 		// to the argument name in the function call.
@@ -46,8 +53,8 @@ func NewToCommitCalldata(defaultMethod, priceOnlyMethod string) ToCalldataFunc {
 			}
 		}
 
-		method := defaultMethod
-		if len(priceOnlyMethod) > 0 && len(info.MerkleRoots) == 0 && len(info.TokenPrices) > 0 {
+		method = defaultMethod
+		if priceOnlyMethod != "" && len(info.MerkleRoots) == 0 && len(info.TokenPrices) > 0 {
 			method = priceOnlyMethod
 		}
 
@@ -74,6 +81,7 @@ func NewToCommitCalldata(defaultMethod, priceOnlyMethod string) ToCalldataFunc {
 	}
 }
 
+// ToExecCalldata is a ToCalldataFunc that is used to generate the calldata for the execute method.
 func ToExecCalldata(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
@@ -153,7 +161,7 @@ func NewCommitContractTransmitter(
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   NewToCommitCalldata(defaultMethod, priceOnlyMethod),
+		toCalldataFn:   NewToCommitCalldataFunc(defaultMethod, priceOnlyMethod),
 	}
 }
 
