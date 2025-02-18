@@ -3,15 +3,21 @@ package solana
 import (
 	"errors"
 	"fmt"
+	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
@@ -46,22 +52,28 @@ type UpgradeConfigSolana struct {
 	// SpillAddress and UpgradeAuthority must be set
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
-	// We assume if the signer key is set, we're not using MCMS
-	SignerKey *solana.PrivateKey
+	MCMS             *cs.MCMSConfig
+}
+
+func (cfg UpgradeConfigSolana) Validate(e deployment.Environment, chainSelector uint64) error {
+	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
+		return nil
+	}
+	if cfg.NewFeeQuoterVersion != nil || cfg.NewRouterVersion != nil {
+		if cfg.SpillAddress.IsZero() {
+			return errors.New("spill address must be set for fee quoter and router upgrades")
+		}
+		if cfg.UpgradeAuthority.IsZero() {
+			return errors.New("upgrade authority must be set for fee quoter and router upgrades")
+		}
+	}
+	return ValidateMCMSConfig(e, chainSelector, cfg.MCMS)
 }
 
 func DeployChainContractsChangesetSolana(e deployment.Environment, config DeployChainContractsConfigSolana) (deployment.ChangesetOutput, error) {
 	c := config.DeployChainContractsConfig
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
-	}
-	if config.UpgradeConfig.NewFeeQuoterVersion != nil || config.UpgradeConfig.NewRouterVersion != nil {
-		if config.UpgradeConfig.SpillAddress.IsZero() {
-			return deployment.ChangesetOutput{}, errors.New("spill address must be set for fee quoter and router upgrades")
-		}
-		if config.UpgradeConfig.UpgradeAuthority.IsZero() {
-			return deployment.ChangesetOutput{}, errors.New("upgrade authority must be set for fee quoter and router upgrades")
-		}
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	existingState, err := changeset.LoadOnchainState(e)
@@ -75,6 +87,10 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		return deployment.ChangesetOutput{}, err
 	}
 
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]sdk.Inspector{}
+	var batches []mcmsTypes.BatchOperation
 	for chainSel := range c.ContractParamsPerChain {
 		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not supported", chainSel)
@@ -88,19 +104,52 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		if existingState.SolChains[chainSel].LinkToken.IsZero() {
 			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		ixns, err := deployChainContractsSolana(e, chain, newAddresses, config)
+		if err := config.UpgradeConfig.Validate(e, chainSel); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
+		}
+		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
+		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+
+		timelocks[chainSel] = mcmsSolana.ContractAddress(
+			mcmState.TimelockProgram,
+			mcmsSolana.PDASeed(mcmState.TimelockSeed),
+		)
+		proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+		inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
+
+		mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, config)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 			return deployment.ChangesetOutput{}, err
 		}
 		// create proposals for ixns
-		if len(ixns) > 0 {
-			e.Logger.Infow("Deployed contracts", "chain", chain.String(), "instructions", ixns)
+		if len(mcmsTxs) > 0 {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSel),
+				Transactions:  mcmsTxs,
+			})
 		}
 	}
 
+	if config.UpgradeConfig.MCMS != nil {
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			e.GetContext(),
+			timelocks,
+			proposers,
+			inspectors,
+			batches,
+			"proposal to upgrade CCIP contracts",
+			config.UpgradeConfig.MCMS.MinDelay)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+			AddressBook:           newAddresses,
+		}, nil
+	}
+
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: newAddresses,
 	}, nil
 }
@@ -276,9 +325,9 @@ func deployChainContractsSolana(
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
 	config DeployChainContractsConfigSolana,
-) ([]solana.Instruction, error) {
+) ([]mcmsTypes.Transaction, error) {
 	// we may need to gather instructions and submit them as part of MCMS
-	ixns := make([]solana.Instruction, 0)
+	ixns := make([]mcmsTypes.Transaction, 0)
 	state, err := changeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
@@ -329,15 +378,31 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
 		}
 		feeQuoterAddress = chainState.FeeQuoter
-		if config.UpgradeConfig.SignerKey != nil {
-			// if we're not using MCMS to upgrade, confirm txn with the signer key
-			if err := chain.Confirm([]solana.Instruction{upgradeIxn, closeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
-				return ixns, fmt.Errorf("failed to confirm upgradeFeeQuoter: %w", err)
-			}
-			e.Logger.Infow("Upgraded FeeQuoter", "addr", chainState.FeeQuoter.String(), "chain", chain.String())
-		} else {
-			ixns = append(ixns, upgradeIxn, closeIxn)
+		upgradeData, err := upgradeIxn.Data()
+		if err != nil {
+			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
 		}
+		upgradeTx, err := mcmsSolana.NewTransaction(
+			feeQuoterAddress.String(),
+			upgradeData,
+			big.NewInt(0),         // e.g. value
+			upgradeIxn.Accounts(), // pass along needed accounts
+			string(cs.FeeQuoter),  // some string identifying the target
+			[]string{},            // any relevant metadata
+		)
+		closeData, err := closeIxn.Data()
+		if err != nil {
+			return ixns, fmt.Errorf("failed to extract close data: %w", err)
+		}
+		closeTx, err := mcmsSolana.NewTransaction(
+			bufferProgram.String(),
+			closeData,
+			big.NewInt(0),        // e.g. value
+			closeIxn.Accounts(),  // pass along needed accounts
+			string(cs.FeeQuoter), // some string identifying the target
+			[]string{},           // any relevant metadata
+		)
+		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -382,15 +447,31 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
 		}
 		ccipRouterProgram = chainState.Router
-		if config.UpgradeConfig.SignerKey != nil {
-			// if we're not using MCMS to upgrade, confirm txn with the signer key
-			if err := chain.Confirm([]solana.Instruction{upgradeIxn, closeIxn}, solCommonUtil.AddSigners(*config.UpgradeConfig.SignerKey)); err != nil {
-				return ixns, fmt.Errorf("failed to confirm upgradeRouter: %w", err)
-			}
-			e.Logger.Infow("Upgraded Router", "addr", chainState.Router.String(), "chain", chain.String())
-		} else {
-			ixns = append(ixns, upgradeIxn, closeIxn)
+		upgradeData, err := upgradeIxn.Data()
+		if err != nil {
+			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
 		}
+		upgradeTx, err := mcmsSolana.NewTransaction(
+			ccipRouterProgram.String(),
+			upgradeData,
+			big.NewInt(0),         // e.g. value
+			upgradeIxn.Accounts(), // pass along needed accounts
+			string(cs.Router),     // some string identifying the target
+			[]string{},            // any relevant metadata
+		)
+		closeData, err := closeIxn.Data()
+		if err != nil {
+			return ixns, fmt.Errorf("failed to extract close data: %w", err)
+		}
+		closeTx, err := mcmsSolana.NewTransaction(
+			bufferProgram.String(),
+			closeData,
+			big.NewInt(0),       // e.g. value
+			closeIxn.Accounts(), // pass along needed accounts
+			string(cs.Router),   // some string identifying the target
+			[]string{},          // any relevant metadata
+		)
+		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
@@ -440,7 +521,22 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to build instruction: %w", err)
 		}
-		ixns = append(ixns, []solana.Instruction{priceUpdaterix}...)
+		priceUpdaterData, err := priceUpdaterix.Data()
+		if err != nil {
+			return ixns, fmt.Errorf("failed to extract price updater data: %w", err)
+		}
+		priceUpdaterTx, err := mcmsSolana.NewTransaction(
+			offRampAddress.String(),
+			priceUpdaterData,
+			big.NewInt(0),             // e.g. value
+			priceUpdaterix.Accounts(), // pass along needed accounts
+			string(cs.OffRamp),        // some string identifying the target
+			[]string{},                // any relevant metadata
+		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to create price updater transaction: %w", err)
+		}
+		ixns = append(ixns, priceUpdaterTx)
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
