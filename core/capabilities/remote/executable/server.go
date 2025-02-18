@@ -203,6 +203,11 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
+	// default to excluding StepDependency
+	if len(r.config.RequestHashExcludedAttributes) == 0 {
+		r.config.RequestHashExcludedAttributes = []string{"StepDependency"}
+	}
+
 	for _, path := range r.config.RequestHashExcludedAttributes {
 		if req.Inputs != nil {
 			req.Inputs.DeleteAtPath(path)
