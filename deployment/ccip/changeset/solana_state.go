@@ -23,6 +23,7 @@ var (
 	Receiver      deployment.ContractType = "Receiver"
 	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
 	WSOL          deployment.ContractType = "WSOL"
+	FeeAggregator deployment.ContractType = "FeeAggregator"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -42,6 +43,7 @@ type SolCCIPChainState struct {
 	WSOL          solana.PublicKey
 	FeeQuoter     solana.PublicKey
 	OffRamp       solana.PublicKey
+	FeeAggregator solana.PublicKey
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
@@ -174,6 +176,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.OffRampStatePDA = offRampStatePDA
+		case FeeAggregator:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.FeeAggregator = pub
 		default:
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
@@ -197,4 +202,11 @@ func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deploy
 		}
 	}
 	return solana.PublicKey{}
+}
+
+func (c SolCCIPChainState) OnRampBytes() ([]byte, error) {
+	if !c.Router.IsZero() {
+		return c.Router.Bytes(), nil
+	}
+	return nil, errors.New("no onramp found in the state")
 }

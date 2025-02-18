@@ -44,3 +44,23 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	}] = []uint64{msgSentEvent.SequenceNumber}
 	testhelpers.ConfirmExecWithSeqNrsForAll(t, e.Env, state, expectedSeqNumExec, startBlocks)
 }
+
+// dev is on going for sending request between solana and evm chains
+// this test is there to ensure addLane works between solana and evm chains
+func TestAddLanesWithSolana(t *testing.T) {
+	t.Parallel()
+	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	// Here we have CR + nodes set up, but no CCIP contracts deployed.
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	evmSelectors := e.Env.AllChainSelectors()
+	chain1, chain2 := evmSelectors[0], evmSelectors[1]
+	solSelectors := e.Env.AllChainSelectorsSolana()
+	solChain := solSelectors[0]
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, chain1, solChain, true)
+	// AddLaneWithDefaultPricesAndFeeQuoterConfig involves calling AddRemoteChainToSolana
+	// which adds chain1 to solana
+	// so we can not call AddRemoteChainToSolana again with chain1 again, hence using chain2 below
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, solChain, chain2, true)
+}

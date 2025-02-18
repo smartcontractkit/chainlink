@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -83,8 +84,19 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		if remote == routerConfigAccount.SvmChainSelector {
 			return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
+		if err := state.ValidateRamp(remote, cs.OnRamp); err != nil {
+			return err
+		}
+		routerDestChainPDA, err := solState.FindDestChainStatePDA(remote, chainState.Router)
+		if err != nil {
+			return fmt.Errorf("failed to find dest chain state pda for remote chain %d: %w", remote, err)
+		}
+		var destChainStateAccount solRouter.DestChain
+		err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
+		if err == nil {
+			return fmt.Errorf("remote %d is already configured on solana chain %d", remote, cfg.ChainSelector)
+		}
 	}
-
 	return nil
 }
 
@@ -123,17 +135,15 @@ func doAddRemoteChainToSolana(
 		var onRampBytes [64]byte
 		// already verified, skipping errcheck
 		remoteChainFamily, _ := chainsel.GetSelectorFamily(remoteChainSel)
+		var addressBytes []byte
 		switch remoteChainFamily {
 		case chainsel.FamilySolana:
-			return fmt.Errorf("support for solana chain as remote chain is not implemented yet %d", remoteChainSel)
+			addressBytes, _ = s.SolChains[remoteChainSel].OnRampBytes()
 		case chainsel.FamilyEVM:
-			onRampAddress := s.Chains[remoteChainSel].OnRamp.Address().String()
-			if onRampAddress == "" {
-				return fmt.Errorf("onramp address not found for chain %d", remoteChainSel)
-			}
-			addressBytes := []byte(onRampAddress)
-			copy(onRampBytes[:], addressBytes)
+			addressBytes, _ = s.Chains[remoteChainSel].OnRampBytes()
 		}
+		addressBytes = common.LeftPadBytes(addressBytes, 64)
+		copy(onRampBytes[:], addressBytes)
 
 		// verified while loading state
 		fqDestChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)

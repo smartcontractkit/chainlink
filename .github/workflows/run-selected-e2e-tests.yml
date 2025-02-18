@@ -40,7 +40,7 @@ run-name: ${{ inputs.workflow_run_name }}
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@59ca3330cde92af5974cfb5ca2504e67fcf19db3
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@244b17ef5c6ddad3cc841ba90117304216d031f5
     with:
       chainlink_version: ${{ github.event.inputs.chainlink_version }}
       test_path: .github/e2e-tests.yml
@@ -71,3 +71,5 @@ jobs:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}

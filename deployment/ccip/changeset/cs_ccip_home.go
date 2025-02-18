@@ -307,7 +307,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			if err := state.ValidateOffRamp(chainSelector); err != nil {
+			if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
 				return nil, err
 			}
 
@@ -461,7 +461,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if err := state.ValidateOffRamp(chainSelector); err != nil {
+		if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
 			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {

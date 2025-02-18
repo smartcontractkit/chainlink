@@ -7,11 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/gagliardetto/solana-go"
 	solSdk "github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -53,6 +54,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	upgradeAuthorityPrivateKey, err := solSdk.NewRandomPrivateKey()
 	require.NoError(t, err)
 	upgradeAuthorityPublicKey := upgradeAuthorityPrivateKey.PublicKey()
+
+	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
+	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
@@ -97,8 +101,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally so we have to change where we build
 	buildCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solana.BuildSolanaChangeset),
-		solana.BuildSolanaConfig{
+		deployment.CreateLegacyChangeSet(cs_solana.BuildSolanaChangeset),
+		cs_solana.BuildSolanaConfig{
 			ChainSelector:       solChainSelectors[0],
 			GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
 			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
@@ -106,8 +110,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		},
 	)
 	deployCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
-		solana.DeployChainContractsConfigSolana{
+		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
+		cs_solana.DeployChainContractsConfigSolana{
 			DeployChainContractsConfig: changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
@@ -119,10 +123,18 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 		},
 	)
+	// set the fee aggregator address
+	feeAggregator := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(cs_solana.SetFeeAggregator),
+		cs_solana.SetFeeAggregatorConfig{
+			ChainSelector: solChainSelectors[0],
+			FeeAggregator: feeAggregatorPubKey.String(),
+		},
+	)
 	// make sure idempotency works and setting the upgrade authority
 	upgradeAuthorityCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
-		solana.DeployChainContractsConfigSolana{
+		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
+		cs_solana.DeployChainContractsConfigSolana{
 			DeployChainContractsConfig: changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
@@ -136,8 +148,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		},
 	)
 	upgradeCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
-		solana.DeployChainContractsConfigSolana{
+		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
+		cs_solana.DeployChainContractsConfigSolana{
 			DeployChainContractsConfig: changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
@@ -147,7 +159,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					},
 				},
 			},
-			UpgradeConfig: solana.UpgradeConfigSolana{
+			UpgradeConfig: cs_solana.UpgradeConfigSolana{
 				NewFeeQuoterVersion: &deployment.Version1_1_0,
 				NewRouterVersion:    &deployment.Version1_1_0,
 				UpgradeAuthority:    upgradeAuthorityPublicKey,
@@ -158,8 +170,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	)
 	// because we cannot upgrade in place locally, we can't redeploy offramp
 	offRampCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
-		solana.DeployChainContractsConfigSolana{
+		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
+		cs_solana.DeployChainContractsConfigSolana{
 			DeployChainContractsConfig: changeset.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
@@ -169,7 +181,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					},
 				},
 			},
-			UpgradeConfig: solana.UpgradeConfigSolana{
+			UpgradeConfig: cs_solana.UpgradeConfigSolana{
 				NewOffRampVersion: &deployment.Version1_1_0,
 			},
 		},
@@ -178,6 +190,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 		e, err = commonchangeset.Apply(t, e, nil,
 			deployCs,
+			feeAggregator,
 			upgradeAuthorityCs,
 		)
 		require.NoError(t, err)
@@ -200,6 +213,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		e, err = commonchangeset.Apply(t, e, nil,
 			buildCs,
 			deployCs,
+			feeAggregator,
 			upgradeAuthorityCs,
 			upgradeCs,
 		)
@@ -232,4 +246,5 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+
 }
