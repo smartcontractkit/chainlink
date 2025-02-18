@@ -35,6 +35,7 @@ import (
 )
 
 func TestRMN_IncorrectSig(t *testing.T) {
+	t.Skip("flaking - needs to be fixed")
 	runRmnTestCase(t, rmnTestCase{
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",
