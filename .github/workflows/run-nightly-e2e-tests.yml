@@ -33,7 +33,7 @@ jobs:
       slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
-      extraArgs: ${{ inputs.extraArgs || '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }' }}
+      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
