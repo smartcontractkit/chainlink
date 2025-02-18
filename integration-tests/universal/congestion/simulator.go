@@ -301,10 +301,11 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 	}
 
 	gasLimit := block.GasLimit()
-	maxPayloadSize := gasLimit / 8 / uint64(s.NumberOfTxsPerBlock) // assume that LogDataGas is 8
-	const step = 1000
-	result := sort.Search(int(maxPayloadSize/step), func(payloadSize int) bool {
-		payloadSize *= step
+	maxPayloadSize := int(gasLimit / 8 / uint64(s.NumberOfTxsPerBlock)) // assume that LogDataGas is 8
+	const step = 100
+	// Find the largest payload that won't overflow gas limit if we send NumberOfTxsPerBlock txs
+	i := sort.Search(int(maxPayloadSize/step), func(i int) bool {
+		payloadSize := maxPayloadSize - i*step
 		var tx *types.Transaction
 		tx, err = s.emitter.EmitLogString(string(make([]byte, payloadSize)))
 		if err != nil {
@@ -316,16 +317,15 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 			panic(fmt.Errorf("failed to get the transaction by hash: %w", err))
 		}
 
-		txsToFill := int(gasLimit / receipt.GasUsed)
-		s.lggr.Infof("emitted payload size: %d that results in %d transactions to fill a block: %v", payloadSize, txsToFill, err)
-		if s.Input.GasLimit == 0 {
-			s.Input.GasLimit = receipt.GasUsed
-		}
-
-		return txsToFill <= s.NumberOfTxsPerBlock
+		estimatedCongestion := float64(s.NumberOfTxsPerBlock) * float64(receipt.GasUsed) / float64(gasLimit)
+		s.lggr.Infof("emitted payload size: %d that results in %d gas used. If we send %d transactions, congestions will be %.2f", payloadSize, receipt.GasUsed, s.NumberOfTxsPerBlock, estimatedCongestion)
+		return uint64(s.NumberOfTxsPerBlock)*receipt.GasUsed <= gasLimit
 	})
 
-	return result * step, nil
+	payloadSize = maxPayloadSize - i*step
+	s.lggr.Infof("Using payload of size %d to fill gas limit: %d with %d txs", payloadSize, gasLimit, s.NumberOfTxsPerBlock)
+
+	return payloadSize, nil
 }
 
 func (s *Simulator) estimateGasLimit(ctx context.Context) (uint64, error) {
