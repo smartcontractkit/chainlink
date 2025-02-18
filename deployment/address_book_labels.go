@@ -65,3 +65,7 @@ func (ls LabelSet) Equal(other LabelSet) bool {
 	}
 	return true
 }
+
+func (ls LabelSet) IsEmpty() bool {
+	return len(ls) == 0
+}
