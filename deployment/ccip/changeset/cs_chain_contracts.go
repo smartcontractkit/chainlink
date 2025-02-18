@@ -59,6 +59,7 @@ var (
 	_ deployment.ChangeSet[UpdateDynamicConfigOffRampConfig] = UpdateDynamicConfigOffRampChangeset
 	_ deployment.ChangeSet[UpdateFeeQuoterPricesConfig]      = UpdateFeeQuoterPricesChangeset
 	_ deployment.ChangeSet[UpdateNonceManagerConfig]         = UpdateNonceManagersChangeset
+	_ deployment.ChangeSet[ApplyFeeTokensUpdatesConfig]      = ApplyFeeTokensUpdatesFeeQuoterChangeset
 )
 
 type UpdateNonceManagerConfig struct {
@@ -1652,4 +1653,58 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 		NetworkFeeUSDCents:                1,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
+}
+
+type ApplyFeeTokensUpdatesConfig struct {
+	UpdatesByChain map[uint64]ApplyFeeTokensUpdatesConfigPerChain
+	MCMSConfig     *MCMSConfig
+}
+
+type ApplyFeeTokensUpdatesConfigPerChain struct {
+	TokensToRemove []TokenSymbol
+	TokensToAdd    []TokenSymbol
+}
+
+func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error {
+	state, err := LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	for chainSel, updates := range cfg.UpdatesByChain {
+		if _, ok := state.Chains[chainSel]; !ok {
+			return fmt.Errorf("chain %d not found in onchain state", chainSel)
+		}
+		chainState := state.Chains[chainSel]
+		if chainState.FeeQuoter == nil {
+			return fmt.Errorf("missing fee quoter for chain %d", chainSel)
+		}
+		tokenAddresses, err := chainState.TokenAddressBySymbol()
+		if err != nil {
+			return fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
+		}
+		for _, token := range updates.TokensToRemove {
+			if _, ok := tokenAddresses[token]; !ok {
+				return fmt.Errorf("token %s not found in state for chain %d", token, chainSel)
+			}
+		}
+		for _, token := range updates.TokensToAdd {
+			if _, ok := tokenAddresses[token]; ok {
+				return fmt.Errorf("token %s not found for in state chain %d", token, chainSel)
+			}
+		}
+		if err := commoncs.ValidateOwnership(
+			e.GetContext(),
+			cfg.MCMSConfig != nil,
+			e.Chains[chainSel].DeployerKey.From,
+			state.Chains[chainSel].Timelock.Address(),
+			state.Chains[chainSel].FeeQuoter,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg ApplyFeeTokensUpdatesConfig) (deployment.ChangesetOutput, error) {
+
 }

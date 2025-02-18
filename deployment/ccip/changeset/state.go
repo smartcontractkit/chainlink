@@ -163,6 +163,29 @@ type CCIPChainState struct {
 	RMN            *rmn_contract.RMNContract
 }
 
+func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
+	tokenAddresses := make(map[TokenSymbol]common.Address)
+	for symbol, token := range c.ERC20Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.ERC677Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.BurnMintTokens677 {
+		tokenAddresses[symbol] = token.Address()
+	}
+	var err error
+	tokenAddresses[LinkSymbol], err = c.LinkTokenAddress()
+	if err != nil {
+		return nil, err
+	}
+	if c.Weth9 == nil {
+		return nil, errors.New("no WETH contract found in the state")
+	}
+	tokenAddresses[WethSymbol] = c.Weth9.Address()
+	return tokenAddresses, nil
+}
+
 func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	if c.LinkToken != nil {
 		return c.LinkToken.Address(), nil
