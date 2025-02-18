@@ -162,7 +162,7 @@ type OpEnv struct {
 // - Reporter holds previous reports of executed operations. The user of the function should be reponsible of the reports exposed to this function
 // - The function will look up on the Reporter previous reports for previous executions. If match, it will return the op report
 // Could be expanded to accept middlewares to support default logging, tracing, etc.
-// TODO: We might want to split the caching into a separate function destined to be used only by sequences. Can get messy if ExecuteOp is used outside Sequences
+// TODO: We might want to split the previois reporte check into a separate function destined to be used only by sequences. Can get messy if ExecuteOp is used outside Sequences (ExecuteOpWithRetry or similar)
 func ExecuteOp[I, O, D any](
 	env OpEnv,
 	operation *Operation[I, O, D],

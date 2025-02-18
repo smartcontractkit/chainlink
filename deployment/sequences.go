@@ -8,6 +8,8 @@ import (
 	"github.com/pkg/errors"
 )
 
+// Ideally the handler receives an ExecuteSeq and ExecuteOp functions with the env loaded (reporter, etc) as param instead of the whole OpEnv
+// Difficult to get it while keeping generics
 type SeqHandler[I, O, D any] func(env OpEnv, deps D, input I) (output O, err error)
 
 type Sequence[I, O, D any] struct {
@@ -27,7 +29,6 @@ func NewSequence[I, O, D any](version string, description string, handler SeqHan
 }
 
 func NewSequenceReport[I, O, D any](sequence Sequence[I, O, D], input I, output O, err error, steps ...uuid.UUID) Report[I, O, D] {
-	// TODO: Must can panic
 	return Report[I, O, D]{
 		ID:        uuid.New(),
 		Def:       sequence.def,
@@ -39,14 +40,20 @@ func NewSequenceReport[I, O, D any](sequence Sequence[I, O, D], input I, output 
 	}
 }
 
+// The cache reporter wraps the original reporter and for every operation execution, it caches the report internally
+// The cache is passed down to the operation executions that are part of the sequence. Operations can only access reports within the sequence
 type cacheReporter struct {
 	reporter IReporter
 	cache    map[string]ReportAny
 }
 
-// TODO: Check if this could be an issue with recursive sequence calls
 func newCacheReporter(reporter IReporter, prevReports ...ReportAny) IReporter {
 	cache := make(map[string]ReportAny)
+	// if previous reporter is of cacheReporter type, we reuse its cache here too. This is for cases of sequences using another sequences
+	if c, ok := reporter.(cacheReporter); ok {
+		cache = c.cache
+	}
+
 	for _, r := range prevReports {
 		if r.ID == uuid.Nil {
 			continue
@@ -103,11 +110,15 @@ func (r cacheReporter) GetReport(id uuid.UUID) (ReportAny, error) {
 	return ReportAny{}, errors.New("report not found")
 }
 
-// TODO: Docs
+// Main function to execute sequences.
 func ExecuteSeq[I, O, D any](env OpEnv, sequence Sequence[I, O, D], deps D, input I, reportId ...uuid.UUID) Report[I, O, D] {
 	var prevReport ReportAny
+	var err error
 	if len(reportId) == 1 {
-		prevReport, _ = env.Reporter.GetReport(reportId[0])
+		prevReport, err = env.Reporter.GetReport(reportId[0])
+		if err != nil {
+			env.Log.Errorw("Failed to retrieve report for retry", "id", reportId[0], "error", err)
+		}
 	}
 
 	// We intercept the reporter to cache the reports and limit report access to operations. If resuming, we cache the previous reports

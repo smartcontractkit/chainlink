@@ -1,7 +1,6 @@
 package deployment
 
 import (
-	"fmt"
 	"strconv"
 	"testing"
 
@@ -127,7 +126,7 @@ type SeqInput2 struct {
 }
 
 // We define a new sequence that uses the previous sequence
-var seq2 = NewSequence("V1", "Adds five numbers in sequence using the previous sequence", func(env OpEnv, deps SeqDeps, input SeqInput2) (output int, err error) {
+var seq2 = NewSequence("V1", "Adds five numbers in sequence using the another sequence", func(env OpEnv, deps SeqDeps, input SeqInput2) (output int, err error) {
 	// Add first two numbers
 	opDeps := OpDeps{
 		Operation: deps.Operation,
@@ -147,7 +146,6 @@ var seq2 = NewSequence("V1", "Adds five numbers in sequence using the previous s
 })
 
 func TestSequenceComposition(t *testing.T) {
-
 	deps := SeqDeps{
 		Operation: func(a, b int) (int, error) { return a + b, nil },
 	}
@@ -200,25 +198,22 @@ func TestSequenceCompositionRetry(t *testing.T) {
 		Reporter: NewMemoryReporter([]ReportAny{}),
 	}
 
-	fmt.Println("EXECUTING SEQUENCE")
 	// Execute the sequence
 	report := ExecuteSeq(env, *seq2, deps, SeqInput2{A: 1, B: 2, C: 3, D: 4, E: 5})
-
 	// Check the report
 	require.Error(t, report.Err)
 	require.Equal(t, 3, len(report.SubOps))
+	require.Equal(t, 4, len(env.Reporter.GetReports()))
 
-	fmt.Println("EXECUTING SEQUENCE AGAIN")
 	// Retry the sequence
 	report = ExecuteSeq(env, *seq2, deps, SeqInput2{A: 1, B: 2, C: 3, D: 4, E: 5}, report.ID)
-
 	// Check the report
 	require.NoError(t, report.Err)
 	require.Equal(t, 12, report.Output)
 	// The total number of subops (1 seq (3 ops inside) and 1 op)
 	require.Equal(t, 5, len(report.SubOps))
 
-	// The total number of reports (2 sequences + (3 + 1) ops)
+	// The total number of reports (sq1(4) + seq2(5) = 9; seq2(2 seqs + (3 + 1 ops))
 	reports := env.Reporter.GetReports()
-	require.Equal(t, 6, len(reports))
+	require.Equal(t, 9, len(reports))
 }
