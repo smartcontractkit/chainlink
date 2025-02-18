@@ -4,12 +4,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	deployment_ethereum "github.com/smartcontractkit/chainlink/deployment/ethereum/extension"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 )
 
 type DeployChainInput struct {
@@ -172,7 +172,6 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 		offramp.OffRampDynamicConfig{
 			FeeQuoter:                               deployFeeQuoterRep.Output.Address,
 			PermissionLessExecutionThresholdSeconds: input.OffRampParams.PermissionLessExecutionThresholdSeconds,
-			IsRMNVerificationDisabled:               input.OffRampParams.IsRMNVerificationDisabled,
 		},
 		[]offramp.OffRampSourceChainConfigArgs{},
 	}
@@ -209,7 +208,7 @@ var DeployChain = func(env deployment.Environment, input DeployChainInput) (depl
 	// TV should come from the operation output
 	ab.Save(input.ChainID, deployRMNRemoteRep.Output.Address.String(), deployment.TypeAndVersion{
 		Type:    "RMNRemote",
-		Version: deployment.Version1_6_0_dev,
+		Version: deployment.Version1_6_0,
 	})
 
 	return deployment.ChangesetOutput{
