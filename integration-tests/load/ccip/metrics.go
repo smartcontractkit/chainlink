@@ -19,6 +19,13 @@ const (
 	ErrLokiPush   = "failed to push metrics to Loki"
 )
 
+type LokiMetric struct {
+	TransmitTime   uint64 `json:"transmit_time"`
+	SequenceNumber uint64 `json:"sequence_number"`
+	CommitDuration uint64 `json:"commit_duration"`
+	ExecDuration   uint64 `json:"exec_duration"`
+}
+
 // MetricsManager is used for maintaining state of different sequence numbers
 // Once we've received all expected timestamps, it pushes the metrics to Loki
 type MetricManager struct {
@@ -85,6 +92,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					// don't return here, we still want to push metrics to loki
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   timestamps[transmitted],
 					ExecDuration:   execDuration,
 					CommitDuration: commitDuration,
 					SequenceNumber: srcDstSeqNum.seqNum,
@@ -116,6 +124,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   state.timestamps[transmitted],
 					ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
 					CommitDuration: state.timestamps[committed] - state.timestamps[transmitted],
 					SequenceNumber: data.seqNum,

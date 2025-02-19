@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 	"math"
 	"slices"
 	"sync"
@@ -43,16 +44,85 @@ var (
 	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
 )
 
-// todo: Have a different struct for commit/exec?
-type LokiMetric struct {
-	SequenceNumber uint64 `json:"sequence_number"`
-	CommitDuration uint64 `json:"commit_duration"`
-	ExecDuration   uint64 `json:"exec_duration"`
-}
-
 type finalSeqNrReport struct {
 	sourceChainSelector uint64
 	expectedSeqNrRange  ccipocr3.SeqNumRange
+}
+
+func subscribeTransmitEvents(
+	ctx context.Context,
+	lggr logger.Logger,
+	onRamp onramp.OnRampInterface,
+	startBlock *uint64,
+	srcChainSel uint64,
+	loadFinished chan struct{},
+	client deployment.OnchainClient,
+	errChan chan error,
+	wg *sync.WaitGroup,
+	metricPipe chan messageData,
+) {
+	defer wg.Done()
+	lggr.Infow("starting transmit event subscriber for ",
+		"srcChain", srcChainSel,
+		"startblock", startBlock,
+	)
+
+	sink := make(chan *onramp.OnRampCCIPMessageSent)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return onRamp.WatchCCIPMessageSent(&bind.WatchOpts{
+			Context: ctx,
+			Start:   startBlock,
+		}, sink, nil, nil)
+	})
+	defer subscription.Unsubscribe()
+
+	endChannel := make(chan struct{})
+
+	for {
+		select {
+		case subErr := <-subscription.Err():
+			errChan <- subErr
+			return
+		case event := <-sink:
+			lggr.Debugw("received transmit event for",
+				"srcChain", srcChainSel,
+				"destChain", event.DestChainSelector,
+				"sequenceNumber", event.SequenceNumber)
+
+			blockNum := event.Raw.BlockNumber
+			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
+			if err != nil {
+				errChan <- err
+			}
+			data := messageData{
+				eventType: transmitted,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    srcChainSel,
+					dst:    event.DestChainSelector,
+					seqNum: event.SequenceNumber,
+				},
+				timestamp: header.Time,
+			}
+			metricPipe <- data
+		case <-ctx.Done():
+			lggr.Errorw("received context cancel signal for transmit watcher",
+				"srcChain", srcChainSel)
+			errChan <- errors.New("timed out waiting for transmits")
+			return
+		case <-loadFinished:
+			lggr.Infow("load finished, waiting before stopping transmit watcher",
+				"srcChain", srcChainSel)
+			go func() {
+				time.Sleep(tickerDuration)
+				close(endChannel)
+			}()
+		case <-endChannel:
+			lggr.Infow("stopping transmit watcher",
+				"srcChain", srcChainSel)
+			return
+		}
+
+	}
 }
 
 func subscribeCommitEvents(
