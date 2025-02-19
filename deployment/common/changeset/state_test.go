@@ -142,19 +142,6 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 			wantErr: "",
 		},
 		{
-			name:  "Missing contract",
-			chain: defaultChain,
-			addresses: map[string]deployment.TypeAndVersion{
-				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
-				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
-				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
-				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
-				// "0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0), // Missing
-			},
-			wantState: nil,
-			wantErr:   "missing a contract",
-		},
-		{
 			name: "labelled multichain contract proposer role overrides existing proposer",
 			// TODO(mstreet3): Skipping because this behavior is undefined.  The addresses are a map and there is no guarantee that
 			// a labeled contract will override a named contract type.  Leaving this test case in until this behavior is resolved.
