@@ -104,7 +104,7 @@ func initMCM(
 
 func initializeMCM(e deployment.Environment, chain deployment.SolChain, mcmProgram solana.PublicKey, multisigID state.PDASeed) error {
 	var mcmConfig mcmBindings.MultisigConfig
-	err := chain.GetAccountDataBorshInto(e.GetContext(), GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
+	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetMCMConfigPDA(mcmProgram, multisigID), &mcmConfig)
 	if err == nil {
 		e.Logger.Infow("MCM already initialized, skipping initialization", "chain", chain.String())
 		return nil
@@ -128,13 +128,13 @@ func initializeMCM(e deployment.Environment, chain deployment.SolChain, mcmProgr
 	instruction, err := mcmBindings.NewInitializeInstruction(
 		chain.Selector,
 		multisigID,
-		GetMCMConfigPDA(mcmProgram, multisigID),
+		state.GetMCMConfigPDA(mcmProgram, multisigID),
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		mcmProgram,
 		programData.Address,
-		GetMCMRootMetadataPDA(mcmProgram, multisigID),
-		GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
+		state.GetMCMRootMetadataPDA(mcmProgram, multisigID),
+		state.GetMCMExpiringRootAndOpCountPDA(mcmProgram, multisigID),
 	).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)

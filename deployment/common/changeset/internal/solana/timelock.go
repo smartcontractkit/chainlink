@@ -102,7 +102,7 @@ func initializeTimelock(
 	}
 
 	var timelockConfig timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(e.GetContext(), GetTimelockConfigPDA(timelockProgram, timelockID),
+	err := chain.GetAccountDataBorshInto(e.GetContext(), state.GetTimelockConfigPDA(timelockProgram, timelockID),
 		&timelockConfig)
 	if err == nil {
 		e.Logger.Infow("Timelock already initialized, skipping initialization", "chain", chain.String())
@@ -127,7 +127,7 @@ func initializeTimelock(
 	instruction, err := timelockBindings.NewInitializeInstruction(
 		timelockID,
 		minDelay.Uint64(),
-		GetTimelockConfigPDA(timelockProgram, timelockID),
+		state.GetTimelockConfigPDA(timelockProgram, timelockID),
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		timelockProgram,
@@ -152,8 +152,8 @@ func initializeTimelock(
 
 func transferOwnershipTimelock(chain deployment.SolChain, programID solana.PublicKey, seed state.PDASeed) error {
 	// transfer timelock ownership to itself
-	timelockConfigPDA := GetTimelockConfigPDA(programID, seed)
-	timelockSignerPDA := GetTimelockSignerPDA(programID, seed)
+	timelockConfigPDA := state.GetTimelockConfigPDA(programID, seed)
+	timelockSignerPDA := state.GetTimelockSignerPDA(programID, seed)
 
 	instructionBuilder := timelockBindings.NewTransferOwnershipInstruction([32]uint8(seed),
 		timelockSignerPDA, timelockConfigPDA, chain.DeployerKey.PublicKey())

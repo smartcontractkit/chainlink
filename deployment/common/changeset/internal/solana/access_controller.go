@@ -12,6 +12,7 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -82,13 +83,12 @@ func initAccessController(
 	}
 	log.Infow("initialized access controller", "account", account.PublicKey())
 
-	address := state.EncodeAddressWithAccount(programID, account.PublicKey())
-	err = addressBook.Save(chain.Selector, address, typeAndVersion)
+	err = addressBook.Save(chain.Selector, account.PublicKey().String(), typeAndVersion)
 	if err != nil {
 		return fmt.Errorf("failed to save address: %w", err)
 	}
 
-	err = chainState.SetState(contractType, programID, state.PDASeed(account.PublicKey()))
+	err = chainState.SetState(contractType, account.PublicKey(), state.PDASeed{})
 	if err != nil {
 		return fmt.Errorf("failed to save onchain state: %w", err)
 	}
@@ -100,7 +100,7 @@ func initAccessController(
 const accessControllerAccountSize = uint64(8 + 32 + 32 + ((32 * 64) + 8))
 
 func initializeAccessController(
-	e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey, account solana.PrivateKey,
+	e deployment.Environment, chain deployment.SolChain, programID solana.PublicKey, roleAccount solana.PrivateKey,
 ) error {
 	rentExemption, err := chain.Client.GetMinimumBalanceForRentExemption(e.GetContext(),
 		accessControllerAccountSize, rpc.CommitmentConfirmed)
@@ -109,13 +109,13 @@ func initializeAccessController(
 	}
 
 	createAccountInstruction, err := system.NewCreateAccountInstruction(rentExemption, accessControllerAccountSize,
-		programID, chain.DeployerKey.PublicKey(), account.PublicKey()).ValidateAndBuild()
+		programID, chain.DeployerKey.PublicKey(), roleAccount.PublicKey()).ValidateAndBuild()
 	if err != nil {
 		return fmt.Errorf("failed to create CreateAccount instruction: %w", err)
 	}
 
 	initializeInstruction, err := accessControllerBindings.NewInitializeInstruction(
-		account.PublicKey(),
+		roleAccount.PublicKey(),
 		chain.DeployerKey.PublicKey(),
 	).ValidateAndBuild()
 	if err != nil {
@@ -123,24 +123,24 @@ func initializeAccessController(
 	}
 
 	instructions := []solana.Instruction{createAccountInstruction, initializeInstruction}
-	err = chain.Confirm(instructions, solanaUtils.AddSigners(account))
+	err = chain.Confirm(instructions, solanaUtils.AddSigners(roleAccount))
 	if err != nil {
 		return fmt.Errorf("failed to confirm CreateAccount and InitializeAccessController instructions: %w", err)
 	}
 
 	var data accessControllerBindings.AccessController
-	err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, account.PublicKey(), rpc.CommitmentConfirmed, &data)
+	err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, roleAccount.PublicKey(), rpc.CommitmentConfirmed, &data)
 	if err != nil {
-		return fmt.Errorf("failed to read access controller account: %w", err)
+		return fmt.Errorf("failed to read access controller roleAccount: %w", err)
 	}
 
 	return nil
 }
 
 func setupRoles(chainState *state.MCMSWithTimelockStateSolana, chain deployment.SolChain) error {
-	proposerPDA := GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
-	cancellerPDA := GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
-	bypasserPDA := GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
+	proposerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
+	cancellerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.CancellerMcmSeed)
+	bypasserPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.BypasserMcmSeed)
 
 	err := addAccess(chain, chainState, timelockBindings.Proposer_Role, proposerPDA)
 	if err != nil {
@@ -169,7 +169,7 @@ func addAccess(
 	chain deployment.SolChain, chainState *state.MCMSWithTimelockStateSolana,
 	role timelockBindings.Role, accounts ...solana.PublicKey,
 ) error {
-	timelockConfigPDA := GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 
 	instructionBuilder := timelockBindings.NewBatchAddAccessInstruction([32]uint8(chainState.TimelockSeed), role,
 		timelockConfigPDA, chainState.AccessControllerProgram, chainState.RoleAccount(role), chain.DeployerKey.PublicKey())

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -82,6 +83,10 @@ func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock com
 }
 
 // TODO: SOLANA_CCIP
-func ValidateOwnershipSolana(ctx context.Context, mcms bool, deployerKey, timelock, ccipRouter solana.PublicKey) error {
+func ValidateOwnershipSolana(
+	ctx context.Context, mcms bool, deployerKey, timelock solana.PublicKey, timelockSeed state.PDASeed,
+	ccipRouter solana.PublicKey,
+) error {
+	// TODO: implement
 	return nil
 }

@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -1057,11 +1058,9 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state C
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			sourceChain := state.Chains[source]
-			// Source chain must have the onramp deployed.
-			// Note this also validates the specified source selector.
-			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", source)
+
+			if err := state.ValidateRamp(source, OnRamp); err != nil {
+				return err
 			}
 		}
 	}
@@ -1095,13 +1094,22 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			} else {
 				router = state.Chains[chainSel].Router.Address()
 			}
-			onRamp := state.Chains[source].OnRamp
+			sourceChainFamily, _ := chain_selectors.GetSelectorFamily(source)
+
+			onRampBytes := []byte{}
+			// can ignore err as validation checks for nil addresses
+			if sourceChainFamily == chain_selectors.FamilyEVM {
+				onRampBytes, _ = state.Chains[source].OnRampBytes()
+			} else if sourceChainFamily == chain_selectors.FamilySolana {
+				onRampBytes, _ = state.SolChains[source].OnRampBytes()
+			}
+
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
 				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
 				// TODO: how would this work when the onRamp is nonEVM?
-				OnRamp:                    common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				OnRamp:                    common.LeftPadBytes(onRampBytes, 32),
 				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}
@@ -1198,11 +1206,8 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			sourceChain := state.Chains[source]
-			// Source chain must have the onramp deployed.
-			// Note this also validates the specified source selector.
-			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", source)
+			if err := state.ValidateRamp(source, OnRamp); err != nil {
+				return err
 			}
 		}
 		for destination := range update.OnRampUpdates {
@@ -1213,7 +1218,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			if err := state.ValidateOffRamp(destination); err != nil {
+			if err := state.ValidateRamp(destination, OffRamp); err != nil {
 				return err
 			}
 		}
@@ -1358,13 +1363,23 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 	}
 	switch family {
 	case chain_selectors.FamilySolana:
+		chain, ok := e.SolChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
 		chainState, ok := state.SolChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
-
-		// TODO: introduce interface when MCMS is ready
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return err
+		}
+		mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		if err != nil {
+			return fmt.Errorf("error loading MCMS state for chain %d: %w", chainSelector, err)
+		}
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), mcmState.TimelockProgram, mcmState.TimelockSeed, chainState.Router); err != nil {
 			return err
 		}
 	case chain_selectors.FamilyEVM:

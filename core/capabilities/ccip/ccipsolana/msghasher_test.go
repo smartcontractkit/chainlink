@@ -82,9 +82,6 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver.Bytes(),
 			Amount:            tokenAmount,
-			DestExecDataDecoded: map[string]any{
-				"destGasAmount": uint32(10),
-			},
 		}
 	}
 
@@ -128,15 +125,6 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		FeeToken:       []byte{},
 		FeeTokenAmount: cciptypes.NewBigIntFromInt64(0),
 		ExtraArgs:      buf.Bytes(),
-		ExtraArgsDecoded: map[string]any{
-			"ComputeUnits":            computeUnit,
-			"AccountIsWritableBitmap": bitmap,
-			"Accounts": [][32]byte{
-				[32]byte(config.CcipLogicReceiver.Bytes()),
-				[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
-				[32]byte(solana.SystemProgramID.Bytes()),
-			},
-		},
 	}
 
 	msgAccounts := []solana.PublicKey{

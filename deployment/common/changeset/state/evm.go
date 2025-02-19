@@ -94,6 +94,8 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 	proposer := deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
 	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
 	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+	// the same contract can have different roles
+	multichain := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 
 	// Convert map keys to a slice
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
@@ -136,7 +138,23 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 				return nil, err
 			}
 			state.CancellerMcm = mcms
+		case tvStr.Type == multichain.Type && tvStr.Version.String() == multichain.Version.String():
+			// the same contract can have different roles so we use the labels to determine which role it is
+			mcms, err := bindings.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return nil, err
+			}
+			if tvStr.Labels.Contains(types.ProposerRole.String()) {
+				state.ProposerMcm = mcms
+			}
+			if tvStr.Labels.Contains(types.BypasserRole.String()) {
+				state.BypasserMcm = mcms
+			}
+			if tvStr.Labels.Contains(types.CancellerRole.String()) {
+				state.CancellerMcm = mcms
+			}
 		}
+
 	}
 	return &state, nil
 }

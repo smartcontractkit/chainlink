@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
@@ -337,7 +339,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 
 type ConfigureOCR3Resp struct {
 	OCR2OracleConfig
-	Ops *timelock.BatchChainOperation
+	Ops *mcmstypes.BatchOperation
 }
 
 type ConfigureOCR3Config struct {
@@ -544,9 +546,10 @@ type RegisterNodesRequest struct {
 	Nops                  []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
 	UseMCMS               bool
 }
+
 type RegisterNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
-	Ops            *timelock.BatchChainOperation
+	Ops            *mcmstypes.BatchOperation
 }
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
@@ -679,8 +682,9 @@ type AddNodesResponse struct {
 	// It may be empty if no nodes were added
 	AddedNodes []capabilities_registry.CapabilitiesRegistryNodeParams
 	// Ops is only populated if UseMCMS is true
-	Ops *timelock.BatchChainOperation
+	Ops *mcmstypes.BatchOperation
 }
+
 type AddNodesRequest struct {
 	RegistryChain        deployment.Chain
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
@@ -771,23 +775,19 @@ func getNodesToRegister(
 }
 
 // addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
-func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChainSel uint64) (*timelock.BatchChainOperation, error) {
+func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChainSel uint64) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddNodes(deployment.SimTransactOpts(), params)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
 	}
 
-	return &timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(regChainSel),
-		Batch: []mcms.Operation{
-			{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			},
-		},
-	}, nil
+	ops, err := proposalutils.BatchOperationForChain(regChainSel, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	return &ops, nil
 }
 
 type DONToRegister struct {
@@ -808,7 +808,7 @@ type RegisterDonsRequest struct {
 
 type RegisterDonsResponse struct {
 	DonInfos map[string]capabilities_registry.CapabilitiesRegistryDONInfo
-	Ops      *timelock.BatchChainOperation
+	Ops      *mcmstypes.BatchOperation
 }
 
 func sortedHash(p2pids [][32]byte) string {
@@ -844,7 +844,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
-	mcmsOps := make([]mcms.Operation, 0)
+	transactions := make([]mcmstypes.Transaction, 0)
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -905,12 +905,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 
 		if req.UseMCMS {
 			lggr.Debugw("adding mcms op for DON", "don", don.Name)
-			op := mcms.Operation{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
+			transaction, txErr := proposalutils.TransactionForChain(req.RegistryChainSelector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+			if txErr != nil {
+				return nil, fmt.Errorf("failed to create transaction for chain %d: %w", req.RegistryChainSelector, txErr)
 			}
-			mcmsOps = append(mcmsOps, op)
+			transactions = append(transactions, transaction)
 			continue
 		}
 
@@ -923,11 +922,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 
 	if req.UseMCMS {
-		if len(mcmsOps) > 0 {
+		if len(transactions) > 0 {
 			return &RegisterDonsResponse{
-				Ops: &timelock.BatchChainOperation{
-					ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
-					Batch:           mcmsOps,
+				Ops: &mcmstypes.BatchOperation{
+					ChainSelector: mcmstypes.ChainSelector(registryChain.Selector),
+					Transactions:  transactions,
 				},
 			}, nil
 		}

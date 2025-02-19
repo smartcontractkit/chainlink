@@ -63,7 +63,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
 			changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
-				TokenPubkey:   tokenAddress,
+				TokenPubkey:   tokenAddress.String(),
 				TokenProgram:  deployment.SPL2022Tokens,
 				AmountToAddress: map[string]uint64{
 					deployerKey.String():    uint64(1000),
@@ -86,13 +86,11 @@ func TestSolanaTokenOps(t *testing.T) {
 	// test if minting was done correctly
 	outDec, outVal, err := solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, deployerATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
-	t.Logf("outDec: %d, outVal: %d", outDec, outVal)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 
 	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, testUserATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
-	t.Logf("outDec: %d, outVal: %d", outDec, outVal)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 }

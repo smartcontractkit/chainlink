@@ -22,6 +22,7 @@ var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenFo
 var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
 var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
+var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
 
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name

@@ -19,6 +19,7 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -32,7 +33,7 @@ type TimelockExecutionContracts struct {
 
 // NewTimelockExecutionContracts creates a new TimelockExecutionContracts struct.
 // If there are multiple timelocks or call proxy on the chain, an error is returned.
-// If there is a missing timelocks or call proxy on the chain, an error is returned.
+// Used by CLD'S cli
 func NewTimelockExecutionContracts(env deployment.Environment, chainSelector uint64) (*TimelockExecutionContracts, error) {
 	addrTypeVer, err := env.ExistingAddresses.AddressesForChain(chainSelector)
 	if err != nil {

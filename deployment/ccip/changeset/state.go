@@ -98,16 +98,17 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken             deployment.ContractType = "BurnMintToken"
-	ERC20Token                deployment.ContractType = "ERC20Token"
-	ERC677Token               deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                 deployment.ContractType = "USDCToken"
-	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
+	BurnMintToken                  deployment.ContractType = "BurnMintToken"
+	ERC20Token                     deployment.ContractType = "ERC20Token"
+	ERC677Token                    deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                      deployment.ContractType = "USDCToken"
+	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -135,6 +136,7 @@ type CCIPChainState struct {
 	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	USDCTokenPools             map[semver.Version]*usdc_token_pool.USDCTokenPool
 	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
@@ -149,7 +151,6 @@ type CCIPChainState struct {
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
 	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
-	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
@@ -171,6 +172,13 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 		return c.StaticLinkToken.Address(), nil
 	}
 	return common.Address{}, errors.New("no link token found in the state")
+}
+
+func (c CCIPChainState) OnRampBytes() ([]byte, error) {
+	if c.OnRamp != nil {
+		return c.OnRamp.Address().Bytes(), nil
+	}
+	return nil, errors.New("no onramp found in the state")
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -621,12 +629,24 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
 				USDCSymbol: ut,
 			}
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.USDCTokenPool = utp
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
+		case deployment.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
 		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -812,7 +832,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
+func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
@@ -823,19 +843,37 @@ func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		if chainState.OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist on chain %d", chainSelector)
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp == nil {
+				return fmt.Errorf("offramp contract does not exist on evm chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.OnRamp == nil {
+				return fmt.Errorf("onramp contract does not exist on evm chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
 		}
+
 	case chain_selectors.FamilySolana:
 		chainState, exists := s.SolChains[chainSelector]
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		if chainState.Router.IsZero() {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("CCIP router contract does not exist on chain %d", chainSelector)
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp.IsZero() {
+				return fmt.Errorf("offramp contract does not exist on solana chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.Router.IsZero() {
+				return fmt.Errorf("router contract does not exist on solana chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
 		}
+
 	default:
 		return fmt.Errorf("unknown chain family %s", family)
 	}

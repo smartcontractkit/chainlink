@@ -7,9 +7,9 @@ import (
 	"io"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -92,24 +92,33 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 			return out, fmt.Errorf("failed to get contract sets: %w", err)
 		}
 		contracts := r.ContractSets[cfg.ChainSel]
-		timelocksPerChain := map[uint64]common.Address{
-			cfg.ChainSel: contracts.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			cfg.ChainSel: contracts.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.ChainSel: contracts.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			cfg.ChainSel: contracts.ProposerMcm.Address().Hex(),
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		inspector, err := proposalutils.McmsInspectorForChain(env, cfg.ChainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		inspectorPerChain := map[uint64]sdk.Inspector{
+			cfg.ChainSel: inspector,
+		}
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env.GetContext(),
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*resp.Ops},
+			inspectorPerChain,
+			[]mcmstypes.BatchOperation{*resp.Ops},
 			"proposal to set OCR3 config",
 			cfg.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 	return out, nil
 }

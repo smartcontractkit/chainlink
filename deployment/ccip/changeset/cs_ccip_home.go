@@ -127,13 +127,13 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state C
 		if !ok {
 			return fmt.Errorf("chain %d does not exist in state but provided in USDCCCTPObserverConfig", sel)
 		}
-		if onchainState.USDCTokenPool == nil {
-			return fmt.Errorf("chain %d does not have USDC token pool deployed", sel)
+		if onchainState.USDCTokenPools == nil || onchainState.USDCTokenPools[deployment.Version1_5_1] == nil {
+			return fmt.Errorf("chain %d does not have USDC token pool deployed with version %s", sel, deployment.Version1_5_1)
 		}
-		if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPool.Address() {
+		if common.HexToAddress(token.SourcePoolAddress) != onchainState.USDCTokenPools[deployment.Version1_5_1].Address() {
 			return fmt.Errorf("chain %d has USDC token pool deployed at %s, "+
 				"but SourcePoolAddress %s is provided in USDCCCTPObserverConfig",
-				sel, onchainState.USDCTokenPool.Address().String(), token.SourcePoolAddress)
+				sel, onchainState.USDCTokenPools[deployment.Version1_5_1].Address().String(), token.SourcePoolAddress)
 		}
 	}
 	return nil
@@ -307,7 +307,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			if err := state.ValidateOffRamp(chainSelector); err != nil {
+			if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
 				return nil, err
 			}
 
@@ -461,7 +461,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if err := state.ValidateOffRamp(chainSelector); err != nil {
+		if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
 			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
