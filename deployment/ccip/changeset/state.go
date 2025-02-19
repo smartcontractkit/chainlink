@@ -413,6 +413,7 @@ func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if err != nil {
 			return dCfg.PermissionLessExecutionThresholdSeconds, fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
 		}
+		return dCfg.PermissionLessExecutionThresholdSeconds, nil
 	case chain_selectors.FamilySolana:
 		c, ok := s.SolChains[selector]
 		if !ok {
@@ -431,6 +432,7 @@ func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		if err != nil {
 			return 0, fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
 		}
+		// #nosec G115
 		return uint32(offRampConfig.EnableManualExecutionAfter), nil
 
 	}

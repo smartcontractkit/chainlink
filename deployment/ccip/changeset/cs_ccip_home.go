@@ -246,7 +246,7 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
 				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
 				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThresholdSeconds),
+				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
 				BatchingStrategyID:        globals.BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
