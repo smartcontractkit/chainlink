@@ -55,7 +55,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.6.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.0
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.24
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10
