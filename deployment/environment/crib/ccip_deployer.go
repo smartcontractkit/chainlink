@@ -407,6 +407,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	rateLimitPerChain := make(changeset.RateLimiterPerChain)
 	mu := sync.Mutex{}
 	for src := range e.Chains {
+		src := src
 		eg.Go(func() error {
 			onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
 			pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
