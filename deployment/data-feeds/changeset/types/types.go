@@ -92,3 +92,9 @@ type MigrationConfig struct {
 	InputFS          embed.FS
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 }
+
+type AcceptOwnershipConfig struct {
+	ContractAddress common.Address
+	ChainSelector   uint64
+	McmsConfig      *MCMSConfig
+}
