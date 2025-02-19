@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
@@ -88,7 +89,7 @@ func Test_AddCapabilities(t *testing.T) {
 		ops, err := internal.AddCapabilities(lggr, registry, chain, capabilities, useMCMS)
 		require.NoError(t, err)
 		require.NotNil(t, ops)
-		require.Len(t, ops.Batch, 1)
+		require.Len(t, ops.Transactions, 1)
 	})
 
 	t.Run("does nothing if no capabilities", func(t *testing.T) {
@@ -284,7 +285,7 @@ func Test_RegisterNodes(t *testing.T) {
 				require.NoError(t, err)
 				if tc.useMCMS {
 					require.NotNil(t, resp.Ops)
-					require.Len(t, resp.Ops.Batch, tc.want.nOps)
+					require.Len(t, resp.Ops.Transactions, tc.want.nOps)
 				} else {
 					assertNodesExist(t, registry, tc.want.nodes...)
 				}
@@ -419,7 +420,7 @@ func Test_RegisterDons(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
-		require.Len(t, resp.Ops.Batch, 1)
+		require.Len(t, resp.Ops.Transactions, 1)
 	})
 
 	t.Run("no new dons to add results in no mcms ops", func(t *testing.T) {
@@ -551,7 +552,7 @@ func Test_RegisterDons(t *testing.T) {
 		})
 		require.NoError(t, err)
 		require.NotNil(t, resp.Ops)
-		require.Len(t, resp.Ops.Batch, 2)
+		require.Len(t, resp.Ops.Transactions, 2)
 	})
 }
 

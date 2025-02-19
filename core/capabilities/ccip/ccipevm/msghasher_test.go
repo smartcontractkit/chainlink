@@ -303,8 +303,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 					ExtraData: cciptypes.Bytes(hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000012")),
 					Amount:    cciptypes.NewBigInt(big.NewInt(100000000000000000)),
 					// dest exec data always abi-encoded
-					DestExecData:        cciptypes.Bytes(hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000001e848")),
-					DestExecDataDecoded: map[string]any{},
+					DestExecData: cciptypes.Bytes(hexutil.MustDecode("0x000000000000000000000000000000000000000000000000000000000001e848")),
 				},
 			}
 
