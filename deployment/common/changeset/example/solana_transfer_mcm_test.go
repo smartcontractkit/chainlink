@@ -246,5 +246,4 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 	t.Logf("Account: %s, Balance: %d", cfgAmounts.To, balance.Value)
 
 	require.Equal(t, cfgAmounts.Amount, balance.Value)
-
 }
