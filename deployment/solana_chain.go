@@ -30,7 +30,7 @@ var (
 	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
 	SPL2022Tokens               = "SPL2022Tokens"
 	SPLTokens                   = "SPLTokens"
-	EnableExecutionAfter        = int64(globals.PermissionLessExecutionThreshold * time.Second) // 30min
+	EnableExecutionAfter        = int64(globals.PermissionLessExecutionThreshold.Seconds())
 )
 
 // SolChain represents a Solana chain.
