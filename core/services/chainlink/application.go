@@ -400,7 +400,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 
 	var (
 		pipelineORM    = pipeline.NewORM(opts.DS, globalLogger, cfg.JobPipeline().MaxSuccessfulRuns())
-		bridgeORM      = bridges.NewCache((bridges.NewORM(opts.DS), globalLogger, bridges.DefaultUpsertInterval )) // This bridge cache will be shared between the pipeline runner and the bridge mutations.
+		bridgeORM      = bridges.NewCache((bridges.NewORM(opts.DS)), globalLogger, bridges.DefaultUpsertInterval ) // This bridge cache will be shared between the pipeline runner and the bridge mutations.
 		mercuryORM     = mercury.NewORM(opts.DS)
 		pipelineRunner = pipeline.NewRunner(pipelineORM, bridgeORM, cfg.JobPipeline(), cfg.WebServer(), legacyEVMChains, keyStore.Eth(), keyStore.VRF(), globalLogger, restrictedHTTPClient, unrestrictedHTTPClient)
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
