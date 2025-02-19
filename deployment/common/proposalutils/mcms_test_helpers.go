@@ -2,6 +2,7 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -182,7 +183,7 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 }
 
 // ExecuteMCMSProposalV2 - Executes an MCMS proposal on a chain. For timelock proposal, use ExecuteMCMSTimelockProposalV2 instead.
-func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) {
+func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) error {
 	t.Log("Executing proposal")
 
 	encoders, err := proposal.GetEncoders()
@@ -226,7 +227,9 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 	for chainSelector := range executorsMap {
 		t.Logf("[ExecuteMCMSProposalV2] Setting root on chain %d...", chainSelector)
 		root, err := executable.SetRoot(env.GetContext(), chainSelector)
-		require.NoError(t, deployment.MaybeDataErr(err), "[ExecuteMCMSProposalV2] SetRoot failed")
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSProposalV2] SetRoot failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 		require.NoError(t, err)
@@ -237,7 +240,9 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 			evmTransaction := root.RawTransaction.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] SetRoot EVM tx hash: %s", evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
 
@@ -245,7 +250,9 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 	for i, op := range proposal.Operations {
 		t.Logf("[ExecuteMCMSProposalV2] Executing operation index=%d on chain %d...", i, uint64(op.ChainSelector))
 		result, err := executable.Execute(env.GetContext(), i)
-		require.NoError(t, err)
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSProposalV2] Execute failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -255,14 +262,18 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 			evmTransaction := result.RawTransaction.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] Operation %d EVM tx hash: %s", i, evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
+
+	return nil
 }
 
 // ExecuteMCMSTimelockProposalV2 - Includes an option to set callProxy to execute the calls through a proxy.
 // If the callProxy is not set, the calls will be executed directly to the timelock.
-func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) {
+func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) error {
 	t.Log("Executing timelock proposal")
 
 	// build a "chainSelector => executor" map
@@ -296,7 +307,9 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 	var tx = mcmstypes.TransactionResult{}
 	for i, op := range timelockProposal.Operations {
 		tx, err = timelockExecutable.Execute(env.GetContext(), i, opts...)
-		require.NoError(t, err)
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -306,9 +319,13 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 			chain := env.Chains[uint64(op.ChainSelector)]
 			evmTransaction := tx.RawTransaction.(*gethtypes.Transaction)
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
+
+	return nil
 }
 
 func SingleGroupTimelockConfig(t *testing.T) commontypes.MCMSWithTimelockConfig {

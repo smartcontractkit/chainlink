@@ -7,6 +7,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 
@@ -98,16 +100,17 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken             deployment.ContractType = "BurnMintToken"
-	ERC20Token                deployment.ContractType = "ERC20Token"
-	ERC677Token               deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                 deployment.ContractType = "USDCToken"
-	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
+	BurnMintToken                  deployment.ContractType = "BurnMintToken"
+	ERC20Token                     deployment.ContractType = "ERC20Token"
+	ERC677Token                    deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                      deployment.ContractType = "USDCToken"
+	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -135,6 +138,7 @@ type CCIPChainState struct {
 	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	USDCTokenPools             map[semver.Version]*usdc_token_pool.USDCTokenPool
 	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
@@ -149,7 +153,6 @@ type CCIPChainState struct {
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
 	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
-	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
@@ -390,6 +393,52 @@ type CCIPOnChainState struct {
 	AptosChains map[uint64]AptosCCIPChainState
 }
 
+func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return 0, err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
+		c, ok := s.Chains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d not found in the state", selector)
+		}
+		offRamp := c.OffRamp
+		if offRamp == nil {
+			return 0, fmt.Errorf("offramp not found in the state for chain %d", selector)
+		}
+		dCfg, err := offRamp.GetDynamicConfig(&bind.CallOpts{
+			Context: ctx,
+		})
+		if err != nil {
+			return dCfg.PermissionLessExecutionThresholdSeconds, fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
+		}
+		return dCfg.PermissionLessExecutionThresholdSeconds, nil
+	case chain_selectors.FamilySolana:
+		c, ok := s.SolChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d not found in the state", selector)
+		}
+		chain, ok := env.SolChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("solana chain %d not found in the environment", selector)
+		}
+		if c.OffRamp.IsZero() {
+			return 0, fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", selector)
+		}
+		var offRampConfig solOffRamp.Config
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(c.OffRamp)
+		err := chain.GetAccountDataBorshInto(context.Background(), offRampConfigPDA, &offRampConfig)
+		if err != nil {
+			return 0, fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
+		}
+		// #nosec G115
+		return uint32(offRampConfig.EnableManualExecutionAfter), nil
+	}
+	return 0, fmt.Errorf("unsupported chain family %s", family)
+}
+
 func (s CCIPOnChainState) Validate() error {
 	for sel, chain := range s.Chains {
 		// cannot have static link and link together
@@ -460,6 +509,12 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if chainInfo.ChainName == "" {
 			name = strconv.FormatUint(chainSelector, 10)
 		}
+		chainView.ChainSelector = chainSelector
+		id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
+		}
+		chainView.ChainID = id
 		m[name] = chainView
 	}
 	return m, nil
@@ -628,12 +683,24 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
 				USDCSymbol: ut,
 			}
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.USDCTokenPool = utp
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
+		case deployment.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
 		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {

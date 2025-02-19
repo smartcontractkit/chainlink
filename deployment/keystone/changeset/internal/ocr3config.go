@@ -13,15 +13,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kocr3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
@@ -301,7 +300,7 @@ func (r configureOCR3Request) generateOCR3Config() (OCR2OracleConfig, error) {
 
 type configureOCR3Response struct {
 	ocrConfig OCR2OracleConfig
-	ops       *timelock.BatchChainOperation
+	ops       *mcmstypes.BatchOperation
 }
 
 func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, error) {
@@ -334,7 +333,7 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 		return nil, fmt.Errorf("failed to call SetConfig for OCR3 contract %s using mcms: %T: %w", req.contract.Address().String(), req.useMCMS, err)
 	}
 
-	var ops *timelock.BatchChainOperation
+	var ops mcmstypes.BatchOperation
 	if !req.useMCMS {
 		_, err = req.chain.Confirm(tx)
 		if err != nil {
@@ -342,17 +341,11 @@ func configureOCR3contract(req configureOCR3Request) (*configureOCR3Response, er
 			return nil, fmt.Errorf("failed to confirm SetConfig for OCR3 contract %s: %w", req.contract.Address().String(), err)
 		}
 	} else {
-		ops = &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(req.chain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    req.contract.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
+		ops, err = proposalutils.BatchOperationForChain(req.chain.Selector, req.contract.Address().Hex(), tx.Data(), big.NewInt(0), string(OCR3Capability), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create batch operation: %w", err)
 		}
 	}
 
-	return &configureOCR3Response{ocrConfig, ops}, nil
+	return &configureOCR3Response{ocrConfig, &ops}, nil
 }
