@@ -20,11 +20,14 @@ import (
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 )
 
 var (
 	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
 	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
+	EnableExecutionAfter        = int64(globals.PermissionLessExecutionThreshold.Seconds())
 )
 
 const (
@@ -33,7 +36,6 @@ const (
 	SolDefaultCommitment = rpc.CommitmentConfirmed
 	SPL2022Tokens        = "SPL2022Tokens"
 	SPLTokens            = "SPLTokens"
-	EnableExecutionAfter = int64(1800) // 30min
 )
 
 // SolChain represents a Solana chain.

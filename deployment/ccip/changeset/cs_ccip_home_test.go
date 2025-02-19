@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
@@ -247,7 +249,62 @@ func Test_SetCandidate(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
+
 			tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
+				},
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+					changeset.SetCandidateChangesetConfig{
+						SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+							HomeChainSelector: tenv.HomeChainSel,
+							FeedChainSelector: tenv.FeedChainSel,
+							MCMS:              mcmsConfig,
+						},
+						PluginInfo: []changeset.SetCandidatePluginInfo{
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
+									dest: changeset.DeriveCCIPOCRParams(
+										changeset.WithDefaultCommitOffChainConfig(
+											tenv.FeedChainSel,
+											tokenConfig.GetTokenInfo(logger.TestLogger(t),
+												state.Chains[dest].LinkToken.Address(),
+												state.Chains[dest].Weth9.Address())),
+									),
+								},
+								PluginType: types.PluginTypeCCIPCommit,
+							},
+							{
+								OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
+									dest: changeset.DeriveCCIPOCRParams(
+										changeset.WithDefaultExecuteOffChainConfig(nil),
+										// change the default config to make MessageVisibilityInterval != PermissionLessExecutionThresholdSeconds
+										changeset.WithOCRParamOverride(func(params *changeset.CCIPOCRParams) {
+											dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
+												Context: ctx,
+											})
+											require.NoError(t, err)
+											params.ExecuteOffChainConfig.MessageVisibilityInterval =
+												*config.MustNewDuration(
+													time.Duration(dCfg.PermissionLessExecutionThresholdSeconds + uint32(time.Second)))
+										}),
+									),
+								},
+								PluginType: types.PluginTypeCCIPExec,
+							},
+						},
+					},
+				),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "does not match the permissionlessExecutionThresholdSeconds in dynamic config")
+
+			// now set the correct config
 			_, err = commonchangeset.Apply(t, tenv.Env,
 				map[uint64]*proposalutils.TimelockExecutionContracts{
 					tenv.HomeChainSel: {
@@ -289,7 +346,6 @@ func Test_SetCandidate(t *testing.T) {
 				),
 			)
 			require.NoError(t, err)
-
 			// after setting a new candidate on both plugins, the candidate config digest
 			// should be nonzero.
 			candidateDigestCommitAfter, err := ccipHome.GetCandidateDigest(&bind.CallOpts{

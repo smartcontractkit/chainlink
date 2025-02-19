@@ -50,7 +50,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 
 			csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
 			require.NoError(t, err)
-			require.Empty(t, csOut.Proposals)
+			require.Empty(t, csOut.MCMSTimelockProposals)
 			require.Nil(t, csOut.AddressBook)
 
 			validateCapabilityAppends(t, te, newCapabilities)
@@ -78,9 +78,9 @@ func TestAppendNodeCapabilities(t *testing.T) {
 
 		csOut, err := changeset.AppendNodeCapabilities(te.Env, &cfg)
 		require.NoError(t, err)
-		require.Len(t, csOut.Proposals, 1)
-		require.Len(t, csOut.Proposals[0].Transactions, 1)
-		require.Len(t, csOut.Proposals[0].Transactions[0].Batch, 2) // add capabilities, update nodes
+		require.Len(t, csOut.MCMSTimelockProposals, 1)
+		require.Len(t, csOut.MCMSTimelockProposals[0].Operations, 1)
+		require.Len(t, csOut.MCMSTimelockProposals[0].Operations[0].Transactions, 2) // add capabilities, update nodes
 		require.Nil(t, csOut.AddressBook)
 
 		// now apply the changeset such that the proposal is signed and execed

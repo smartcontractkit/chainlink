@@ -25,7 +25,7 @@ type MessageHasherV1 struct {
 	extraDataCodec common.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec cciptypes.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec common.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,
