@@ -12,7 +12,9 @@ import (
 
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	//ocrtypes "github.com/smartcontractkit/offchain-reporting/lib/offchainreporting2/types"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/structpb"
 
@@ -22,6 +24,7 @@ import (
 )
 
 var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
+var _ ocr3types.ComparableOnchainKeyring[[]byte] = (*OCR3OnchainKeyringAdapter)(nil)
 
 type OCR3OnchainKeyringAdapter struct {
 	o ocrtypes.OnchainKeyring
@@ -33,6 +36,10 @@ func NewOCR3OnchainKeyringAdapter(o ocrtypes.OnchainKeyring) *OCR3OnchainKeyring
 
 func (k *OCR3OnchainKeyringAdapter) PublicKey() ocrtypes.OnchainPublicKey {
 	return k.o.PublicKey()
+}
+
+func (k *OCR3OnchainKeyringAdapter) Equal(other ocrtypes.OnchainPublicKey) bool {
+	return k.o.PublicKey().Equal(other)
 }
 
 func (k *OCR3OnchainKeyringAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
@@ -86,7 +93,7 @@ func (c *OCR3ContractTransmitterAdapter) FromAccount(ctx context.Context) (ocrty
 	return c.ct.FromAccount(ctx)
 }
 
-var _ ocr3types.OnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
+var _ ocr3types.ComparableOnchainKeyring[[]byte] = (*OCR3OnchainKeyringMultiChainAdapter)(nil)
 
 func MarshalMultichainKeyBundle(ost map[string]ocr2key.KeyBundle) (ocrtypes.OnchainPublicKey, error) {
 	pubKeys := map[string]ocrtypes.OnchainPublicKey{}
@@ -166,23 +173,35 @@ func UnmarshalMultichainPublicKey(d []byte) (map[string]ocrtypes.OnchainPublicKe
 
 type OCR3OnchainKeyringMultiChainAdapter struct {
 	keyBundles map[string]ocr2key.KeyBundle
-	publicKey  ocrtypes.OnchainPublicKey
-	lggr       logger.Logger
+	encoded    []byte //ocrtypes.OnchainPublicKey
+	//publicKeys map[string]ocrtypes.OnchainPublicKey
+	lggr logger.Logger
 }
 
 func NewOCR3OnchainKeyringMultiChainAdapter(ost map[string]ocr2key.KeyBundle, lggr logger.Logger) (*OCR3OnchainKeyringMultiChainAdapter, error) {
 	if len(ost) == 0 {
 		return nil, errors.New("no key bundles provided")
 	}
-	publicKey, err := MarshalMultichainKeyBundle(ost)
+
+	encoded, err := MarshalMultichainKeyBundle(ost)
 	if err != nil {
 		return nil, err
 	}
-	return &OCR3OnchainKeyringMultiChainAdapter{ost, publicKey, lggr}, nil
+
+	return &OCR3OnchainKeyringMultiChainAdapter{ost, encoded, lggr}, nil
 }
 
-func (a *OCR3OnchainKeyringMultiChainAdapter) PublicKey() ocrtypes.OnchainPublicKey {
-	return a.publicKey
+func (a *OCR3OnchainKeyringMultiChainAdapter) Bytes() []byte {
+	return a.encoded
+}
+
+func (a *OCR3OnchainKeyringMultiChainAdapter) Equal(other ocrtypes.OnchainPublicKey) bool {
+	for _, kb := range a.keyBundles {
+		if !kb.PublicKey().Equal(other) {
+			return false
+		}
+	}
+	return true
 }
 
 func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) (string, ocr2key.KeyBundle, error) {

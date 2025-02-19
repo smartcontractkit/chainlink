@@ -783,7 +783,7 @@ func (d *Delegate) newServicesGenericPlugin(
 		if ocr3Provider, ok := provider.(types.OCR3ContractTransmitter); ok {
 			contractTransmitter = ocr3Provider.OCR3ContractTransmitter()
 		}
-		var onchainKeyringAdapter ocr3types.OnchainKeyring[[]byte]
+		var onchainKeyringAdapter ocr3types.ComparableOnchainKeyring[[]byte] //ocr3types.OnchainKeyring[[]byte]
 		if onchainSigningStrategy.IsMultiChain() {
 			// We are extracting the config beforehand
 			keyBundles := map[string]ocr2key.KeyBundle{}
@@ -816,7 +816,7 @@ func (d *Delegate) newServicesGenericPlugin(
 			MonitoringEndpoint:           oracleEndpoint,
 			OffchainConfigDigester:       provider.OffchainConfigDigester(),
 			OffchainKeyring:              kb,
-			OnchainKeyring:               onchainKeyringAdapter,
+			ComparableOnchainKeyring:     onchainKeyringAdapter,
 			MetricsRegisterer:            prometheus.WrapRegistererWith(map[string]string{"job_name": jb.Name.ValueOrZero()}, prometheus.DefaultRegisterer),
 		}
 		oracleArgs.ReportingPluginFactory = plugin

@@ -146,7 +146,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 
 	sig, err := adapter.Sign(configDigest, seqNr, r)
 	require.NoError(t, err)
-	assert.True(t, adapter.Verify(adapter.PublicKey(), configDigest, seqNr, r, sig))
+	assert.True(t, adapter.Verify(adapter.Bytes(), configDigest, seqNr, r, sig))
 
 	// aptos signature
 	info, err = structpb.NewStruct(map[string]any{
@@ -163,7 +163,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter(t *testing.T) {
 
 	sig, err = adapter.Sign(configDigest, seqNr, r)
 	require.NoError(t, err)
-	assert.True(t, adapter.Verify(adapter.PublicKey(), configDigest, seqNr, r, sig))
+	assert.True(t, adapter.Verify(adapter.Bytes(), configDigest, seqNr, r, sig))
 
 	// no bundles
 	_, err = ocrcommon.NewOCR3OnchainKeyringMultiChainAdapter(map[string]ocr2key.KeyBundle{}, logger.TestLogger(t))
@@ -206,7 +206,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKe
 
 	sig, err := firstNodeAdapter.Sign(configDigest, seqNr, r)
 	require.NoError(t, err)
-	assert.True(t, secondNodeAdapter.Verify(firstNodeAdapter.PublicKey(), configDigest, seqNr, r, sig))
+	assert.True(t, secondNodeAdapter.Verify(firstNodeAdapter.Bytes(), configDigest, seqNr, r, sig))
 
 	// aptos signature
 	info, err = structpb.NewStruct(map[string]any{
@@ -223,7 +223,7 @@ func TestNewOCR3OnchainKeyringMultiChainAdapter_VerifyFromDifferentNodesPublicKe
 
 	sig, err = secondNodeAdapter.Sign(configDigest, seqNr, r)
 	require.NoError(t, err)
-	assert.True(t, firstNodeAdapter.Verify(secondNodeAdapter.PublicKey(), configDigest, seqNr, r, sig))
+	assert.True(t, firstNodeAdapter.Verify(secondNodeAdapter.Bytes(), configDigest, seqNr, r, sig))
 }
 
 var _ ocrtypes.ContractTransmitter = (*fakeContractTransmitter)(nil)
