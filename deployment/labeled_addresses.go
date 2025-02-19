@@ -41,13 +41,3 @@ func (la LabeledAddresses) And(labels ...string) LabeledAddresses {
 
 	return filtered
 }
-
-// Contains returns true if the map contains the given TypeAndVersion.
-func (la LabeledAddresses) Contains(tv TypeAndVersion) bool {
-	for _, v := range la {
-		if v.Equal(tv) {
-			return true
-		}
-	}
-	return false
-}

@@ -320,23 +320,32 @@ func tvKey(tv TypeAndVersion) typeVersionKey {
 // Returns true if every value in the bundle is found once, false otherwise.
 func EnsureDeduped(addrs map[string]TypeAndVersion, bundle []TypeAndVersion) (bool, error) {
 	var (
-		counts = make(map[typeVersionKey]int)
-		la     = LabeledAddresses(addrs)
+		grouped = toTypeAndVersionMap(addrs)
+		found   = make([]TypeAndVersion, 0)
 	)
-
-	// Count how many times each TypeAndVersion from the bundle is found
-	for _, wantTV := range bundle {
-		if la.Contains(wantTV) {
-			wantKey := tvKey(wantTV)
-			if counts[wantKey]++; counts[wantKey] > 1 {
-				return false, fmt.Errorf("found more than one instance of contract %s v%s (labels=%s)",
-					wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
-			}
+	for _, btv := range bundle {
+		key := tvKey(btv)
+		matched, ok := grouped[key]
+		if ok {
+			found = append(found, btv)
+		}
+		if len(matched) > 1 {
+			return false, fmt.Errorf("found more than one instance of contract %s v%s (labels=%s)",
+				key.Type, key.Version, key.Labels)
 		}
 	}
 
 	// Indicate if each TypeAndVersion in the bundle is found at least once
-	return len(counts) == len(bundle), nil
+	return len(found) == len(bundle), nil
+}
+
+// toTypeAndVersionMap groups contract addresses by unique TypeAndVersion.
+func toTypeAndVersionMap(addrs map[string]TypeAndVersion) map[typeVersionKey][]string {
+	tvkMap := make(map[typeVersionKey][]string)
+	for k, v := range addrs {
+		tvkMap[tvKey(v)] = append(tvkMap[tvKey(v)], k)
+	}
+	return tvkMap
 }
 
 // AddLabel adds a string to the LabelSet in the TypeAndVersion.
