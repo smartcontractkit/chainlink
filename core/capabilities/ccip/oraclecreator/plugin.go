@@ -64,7 +64,6 @@ var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:  ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec: ccipevm.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraArgsCodec:     extraDataCodec,
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
@@ -75,7 +74,6 @@ var plugins = map[string]plugin{
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
 		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraArgsCodec:     extraDataCodec,
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
@@ -93,7 +91,6 @@ const (
 type plugin struct {
 	CommitPluginCodec   cciptypes.CommitPluginCodec
 	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	ExtraArgsCodec      ccipcommon.ExtraDataCodec
 	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
 	TokenDataEncoder    cciptypes.TokenDataEncoder
 	GasEstimateProvider cciptypes.EstimateProvider
@@ -307,6 +304,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		return nil, nil, fmt.Errorf("unsupported chain %v", chainFamily)
 	}
 	messageHasher := plugin.MessageHasher(i.lggr.Named(chainFamily).Named("MessageHasherV1"))
+	addressCodec := ccipcommon.NewAddressCodec(
+		ccipcommon.NewAddressCodecParams(
+			ccipevm.AddressCodec{},
+			ccipsolana.AddressCodec{},
+		),
+	)
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
@@ -335,6 +338,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
 				CommitCodec:       plugin.CommitPluginCodec,
 				MsgHasher:         messageHasher,
+				AddrCodec:         addressCodec,
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
 				ContractReaders:   contractReaders,
@@ -357,6 +361,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
 				ExecCodec:        plugin.ExecutePluginCodec,
 				MsgHasher:        messageHasher,
+				AddrCodec:        addressCodec,
 				HomeChainReader:  i.homeChainReader,
 				TokenDataEncoder: plugin.TokenDataEncoder,
 				EstimateProvider: plugin.GasEstimateProvider,

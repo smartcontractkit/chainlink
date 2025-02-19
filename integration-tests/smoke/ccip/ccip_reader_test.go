@@ -15,6 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -283,6 +286,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	addrCodec := ccipcommon.NewAddressCodec(ccipcommon.NewAddressCodecParams(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}))
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
 		ctx,
 		lggr,
@@ -292,6 +296,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		nil,
 		chainD,
 		rmnRemoteAddr.Bytes(),
+		addrCodec,
 	)
 
 	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
@@ -405,7 +410,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-
+	addrCodec := ccipcommon.NewAddressCodec(ccipcommon.NewAddressCodecParams(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}))
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
 		ctx,
 		lggr,
@@ -415,6 +420,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		nil,
 		chainD,
 		addr.Bytes(),
+		addrCodec,
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1541,7 +1547,8 @@ func testSetupRealContracts(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil)
+	addrCodec := ccipcommon.NewAddressCodec(ccipcommon.NewAddressCodecParams(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}))
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, addrCodec)
 
 	return reader
 }
@@ -1656,7 +1663,8 @@ func testSetup(
 		contractReaders[chain] = cr
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil)
+	addrCodec := ccipcommon.NewAddressCodec(ccipcommon.NewAddressCodecParams(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}))
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, addrCodec)
 
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
