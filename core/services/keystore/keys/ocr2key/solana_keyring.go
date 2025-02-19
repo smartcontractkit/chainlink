@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/binary"
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/crypto/sha3"
 )
 
 var _ ocrtypes.OnchainKeyring = &solanaKeyring{}
@@ -53,10 +55,13 @@ func (skr *solanaKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrty
 
 func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
 	rawReportContext := RawReportContext3(digest, seqNr)
-	sigData := crypto.Keccak256(r)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	return crypto.Keccak256(sigData)
+	h := sha3.NewLegacyKeccak256()
+	reportLen := uint16(len(r)) //nolint:gosec // max U16 larger than solana transaction size
+	binary.Write(h, binary.LittleEndian, reportLen)
+	h.Write(r)
+	h.Write(rawReportContext[0][:])
+	h.Write(rawReportContext[1][:])
+	return h.Sum(nil)
 }
 
 func (skr *solanaKeyring) signBlob(b []byte) (sig []byte, err error) {
