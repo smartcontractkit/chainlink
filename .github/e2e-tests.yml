@@ -951,6 +951,19 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ && go test smoke/job_distributor_test.go -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-jd-evm-simulated
 
+  - id: chaos/congestion/simulator_test.go:*
+    path: chaos/congestion/simulator_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Merge Queue E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests/ && go test chaos/congestion/simulator_test.go -timeout 10m -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-congestion-simulation-evm-simulated
+    test_env_vars:
+      CTF_CONFIGS: "env-ci.toml"
+
   # END: Other tests
 
   # START: CCIPv1.6 tests

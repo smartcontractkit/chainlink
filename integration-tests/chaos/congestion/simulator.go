@@ -32,8 +32,8 @@ const (
 )
 
 type Phase struct {
-	Duration   time.Duration `toml:"duration"`
-	Congestion float64       `toml:"congestion"`
+	Duration   uint64  `toml:"duration"` // in seconds
+	Congestion float64 `toml:"congestion"`
 }
 
 // Input - defines configuration for chain congestion simulation.
@@ -44,13 +44,13 @@ type Phase struct {
 // Delays between full cycles are defined by InitialDelay and Period. During this time simulation does not produce any transactions and
 // base fee might fluctuate according EIP-1559 spec depending on Anvil configuration.
 type Input struct {
-	Enabled           bool          `toml:"enabled"`
-	InitialDelay      time.Duration `toml:"initial_delay"` // defines delay before the first surge
-	Period            time.Duration `toml:"period"`        // defines delay between surges
-	RampUp            Phase         `toml:"ramp_up"`
-	Plateau           Phase         `toml:"plateau"`
-	CoolDown          Phase         `toml:"cool_down"`
-	TargetFeesPercent float64       `toml:"target_fees_percent"` // e.g. 100 - fees remain constant; 200 - fees will double at peak.
+	Enabled             bool    `toml:"enabled"`
+	InitialDelay        uint64  `toml:"initial_delay"` // defines delay before the first surge in seconds
+	Period              uint64  `toml:"period"`        // defines delay between surges in seconds
+	RampUp              Phase   `toml:"ramp_up"`
+	Plateau             Phase   `toml:"plateau"`
+	CoolDown            Phase   `toml:"cool_down"`
+	FeesIncreasePercent float64 `toml:"fees_increase_percent"` // e.g. 0 - fees remain constant; 100 - fees are increased by 100%
 
 	// following values are optional and calculated automatically
 	NumberOfTxsPerBlock  int    `toml:"number_of_txs_per_block"`  // defines number of transaction to be produced to fill a block (default: defaultTxPerBlock)
@@ -92,6 +92,9 @@ type Simulator struct {
 	expectedCurrentTip        atomic.Uint64
 	expectedCurrentBaseFee    atomic.Uint64
 	expectedCurrentCongestion atomic.Value
+	phase                     atomic.Value
+
+	observationsHandler func(chainState)
 }
 
 func NewSimulator(t *testing.T, input Input, client *seth.Client, anvilClient AnvilClient, lggr logger.SugaredLogger) (*Simulator, error) {
@@ -111,6 +114,7 @@ func NewSimulator(t *testing.T, input Input, client *seth.Client, anvilClient An
 		client:      client,
 		anvilClient: anvilClient,
 	}
+	s.phase.Store(phaseInactive)
 
 	s.Service, s.eng = services.Config{
 		Name:  "CongestionSimulator",
@@ -120,12 +124,29 @@ func NewSimulator(t *testing.T, input Input, client *seth.Client, anvilClient An
 	t.Cleanup(func() {
 		_ = s.Close()
 	})
+
 	return s, nil
 }
 
+type phaseName int
+
+const (
+	phaseInactive phaseName = iota
+	phaseRampUp
+	phasePlateau
+	phaseCoolDown
+)
+
+type chainState struct {
+	PhaseName           phaseName
+	Congestion          float64
+	TipDeltaPercent     float64
+	BaseFeeDeltaPercent float64
+}
+
 func (s *Simulator) start(ctx context.Context) error {
-	if s.Input.Enabled {
-		s.lggr.Infow("Congestion simulator is not enabled")
+	if !s.Input.Enabled {
+		s.lggr.Infow("Congestion simulator is not enabled - won't run")
 		return nil
 	}
 	s.expectedCurrentCongestion.Store(float64(0))
@@ -138,6 +159,7 @@ func (s *Simulator) start(ctx context.Context) error {
 		}
 
 		s.InitialBaseFeePerGas = header.BaseFee.Uint64()
+		s.lggr.Debugf("InitialBaseFeePerGas was not provided using: %d", s.InitialBaseFeePerGas)
 	}
 
 	s.expectedCurrentBaseFee.Store(s.InitialBaseFeePerGas)
@@ -166,12 +188,14 @@ func (s *Simulator) start(ctx context.Context) error {
 		s.Input.GasLimit = gasLimit
 	}
 
-	ticker := services.TickerConfig{Initial: s.InitialDelay}.NewTicker(s.Period)
+	ticker := services.TickerConfig{Initial: time.Second * time.Duration(s.InitialDelay)}.NewTicker(time.Second * time.Duration(s.Period))
 	s.eng.GoTick(ticker, func(ctx context.Context) {
 		s.runTick(ctx)
 		ticker.Reset() // ensure that each iteration is delayed by s.Period
 	})
-
+	s.eng.Go(func(ctx context.Context) {
+		s.listenHeadsUntilCanceled(ctx, s.reportObservationOnNewHead)
+	})
 	return nil
 }
 
@@ -182,37 +206,44 @@ func (s *Simulator) startTransactionProducer(ctx context.Context, wg *sync.WaitG
 	for i := range numberOfSenders {
 		go s.runSender(ctx, wg, i, work)
 	}
-	txsToSend := 0
-	go s.listenHeadsUntilCanceled(ctx, wg, func(ctx context.Context, head *types.Header) error {
-		congestion := float64(head.GasUsed) / float64(head.GasLimit)
-		congestionTarget := s.expectedCurrentCongestion.Load().(float64)
-		if txsToSend < numberOfSenders && congestion < congestionTarget*0.95 {
-			txsToSend++
-		} else if txsToSend > 0 && congestion > congestionTarget*1.05 {
-			txsToSend--
-		}
 
-		s.lggr.Infof("Sending %d transactions; current congestion: %.2f target: %.2f", txsToSend, congestion, congestionTarget)
-		for range txsToSend {
-			select {
-			case work <- struct{}{}:
-			case <-ctx.Done():
-				return nil
+	txsToSend := numberOfSenders / 2
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		s.listenHeadsUntilCanceled(ctx, func(ctx context.Context, head *types.Header) error {
+			congestion := float64(head.GasUsed) / float64(head.GasLimit)
+			congestionTarget := s.expectedCurrentCongestion.Load().(float64)
+			if txsToSend < numberOfSenders && congestion < congestionTarget*0.95 {
+				txsToSend++
+			} else if txsToSend > 0 && congestion > congestionTarget*1.05 {
+				txsToSend--
 			}
-		}
-		return nil
-	})
+
+			s.lggr.Infof("Sending %d transactions; current congestion: %.2f target: %.2f", txsToSend, congestion, congestionTarget)
+			for range txsToSend {
+				select {
+				case work <- struct{}{}:
+				case <-ctx.Done():
+					return nil
+				}
+			}
+			return nil
+		})
+	}()
 }
 
 func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
 	s.lggr.Debugf("Starting ramp up phase")
+	s.phase.Store(phaseRampUp)
 	s.updateCurrentFees(0)
 	s.handleVolatilePhase(ctx, s.RampUp, true)
 
 	s.lggr.Debugf("Starting plateue phase")
+	s.phase.Store(phasePlateau)
 	s.expectedCurrentCongestion.Store(s.Plateau.Congestion)
-	timer := time.NewTimer(s.Plateau.Duration)
+	timer := time.NewTimer(time.Second * time.Duration(s.Plateau.Duration))
 	defer timer.Stop()
 	select {
 	case <-timer.C:
@@ -222,13 +253,16 @@ func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) 
 	}
 
 	s.lggr.Debugf("Starting cooldown phase")
+	s.phase.Store(phaseCoolDown)
 	s.handleVolatilePhase(ctx, s.CoolDown, false)
+
+	s.phase.Store(phaseInactive)
 }
 
 func (s *Simulator) handleVolatilePhase(ctx context.Context, phase Phase, isIncrease bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
-	phaseTimer := time.NewTimer(phase.Duration)
+	phaseTimer := time.NewTimer(time.Second * time.Duration(phase.Duration))
 	defer phaseTimer.Stop()
 	phaseStart := time.Now()
 	s.expectedCurrentCongestion.Store(phase.Congestion)
@@ -242,7 +276,7 @@ phaseLoop:
 			return
 		}
 
-		elapsedRatio := float64(time.Since(phaseStart)) / float64(phase.Duration)
+		elapsedRatio := min(float64(time.Since(phaseStart))/float64(time.Duration(phase.Duration)*time.Second), 1)
 		if !isIncrease {
 			// count backwards. If 0.1 of cooldown phase has passed, we should be at the same price point as if 0.9 of ramp up phase has passed
 			elapsedRatio = 1 - elapsedRatio
@@ -257,27 +291,28 @@ phaseLoop:
 	}
 }
 
-// updateCurrentFees - sets fees according to expected distance from target. If targetDistanceRatio = 1, current fees s.TargetFeesPercent compared to initial.
+// updateCurrentFees - sets fees according to expected distance from target. If targetDistanceRatio = 1, current fees s.FeesIncreasePercent compared to initial.
 func (s *Simulator) updateCurrentFees(targetDistanceRatio float64) {
-	deltaPercent := s.TargetFeesPercent * targetDistanceRatio
-	baseFee := uint64(float64(s.InitialBaseFeePerGas) * (1 + deltaPercent/100))
+	targetPercent := s.FeesIncreasePercent * targetDistanceRatio
+	baseFee := uint64(float64(s.InitialBaseFeePerGas) * (1 + targetPercent/100))
+	s.lggr.Debugf("Updating fees to %d according to distance %.2f", baseFee, targetDistanceRatio)
 	s.expectedCurrentBaseFee.Store(baseFee)
-	tip := uint64(float64(s.InitialTipPerGas) * (1 + deltaPercent/100))
+	tip := uint64(float64(s.InitialTipPerGas) * (1 + targetPercent/100))
 	s.expectedCurrentTip.Store(tip)
 }
 
 func (s *Simulator) runTick(ctx context.Context) {
 	var wg sync.WaitGroup
-	ctx, cancel := context.WithTimeout(ctx, s.RampUp.Duration+s.Plateau.Duration+s.CoolDown.Duration)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*time.Duration(s.RampUp.Duration+s.Plateau.Duration+s.CoolDown.Duration))
 	defer cancel()
 	wg.Add(1)
 	go s.runPhaseController(ctx, &wg)
-	wg.Add(1)
 	s.startTransactionProducer(ctx, &wg)
 	wg.Add(1)
-	go s.listenHeadsUntilCanceled(ctx, &wg, s.updateBaseFee)
-	wg.Add(1)
-	go s.listenHeadsUntilCanceled(ctx, &wg, s.reportObservation)
+	go func() {
+		defer wg.Done()
+		s.listenHeadsUntilCanceled(ctx, s.updateBaseFee)
+	}()
 	wg.Wait()
 }
 
@@ -309,7 +344,7 @@ func (s *Simulator) runSender(ctx context.Context, wg *sync.WaitGroup, key int, 
 	}
 }
 
-func (s *Simulator) reportObservation(ctx context.Context, header *types.Header) error {
+func (s *Simulator) reportObservationOnNewHead(ctx context.Context, header *types.Header) error {
 	congestion := float64(header.GasUsed) / float64(header.GasLimit)
 	baseFeePercent := float64(header.BaseFee.Uint64()) / float64(s.Input.InitialBaseFeePerGas) * 100
 	block, err := s.client.Client.BlockByNumber(ctx, header.Number)
@@ -318,7 +353,17 @@ func (s *Simulator) reportObservation(ctx context.Context, header *types.Header)
 	}
 	tipPercent := float64(s.avgTip(block).Uint64()) / float64(s.InitialTipPerGas) * 100
 
-	s.lggr.Infof("Congestion simulation report: congestion %.2f; tipPercent %.2f%%, baseFeePercent %.2f%%; block %d; txs %d; ", congestion, tipPercent, baseFeePercent, header.Number.Uint64(), block.Transactions().Len())
+	state := chainState{
+		PhaseName:           s.phase.Load().(phaseName),
+		Congestion:          congestion,
+		TipDeltaPercent:     tipPercent - 100,
+		BaseFeeDeltaPercent: baseFeePercent - 100,
+	}
+	if s.observationsHandler != nil {
+		s.observationsHandler(state)
+	}
+
+	s.lggr.Debugw("New chain state report", "chainState", state)
 	return nil
 }
 
@@ -334,8 +379,7 @@ func (s *Simulator) avgTip(block *types.Block) *big.Int {
 	return big.NewInt(0).Div(total, big.NewInt(int64(block.Transactions().Len())))
 }
 
-func (s *Simulator) listenHeadsUntilCanceled(ctx context.Context, wg *sync.WaitGroup, onNewBlock func(ctx context.Context, head *types.Header) error) {
-	defer wg.Done()
+func (s *Simulator) listenHeadsUntilCanceled(ctx context.Context, onNewBlock func(ctx context.Context, head *types.Header) error) {
 	for {
 		err := s.listenHeads(ctx, onNewBlock)
 		if err != nil {

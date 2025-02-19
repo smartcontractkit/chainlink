@@ -1,0 +1,47 @@
+[blockchain_a]
+type = "anvil"
+docker_cmd_params = ["--block-time=1"]
+
+[congestion]
+enabled = true
+fees_increase_percent = 100 # fees are doubled from the initial values
+period = 20
+
+[congestion.ramp_up]
+duration = 60
+congestion = 1
+
+[congestion.plateau]
+duration = 60
+congestion = 0.6
+
+[congestion.cool_down]
+duration = 60
+congestion = 0.4
+
+
+
+[Seth]
+ephemeral_addresses_number = 50
+root_key_funds_buffer = 1000 # 1000 ethers
+
+[Seth.network]
+name = "Anvil"
+transaction_timeout = "30s"
+transfer_gas_fee = 21_000
+gas_limit = 8_000_000
+gas_price = 1_000_000_000
+eip_1559_dynamic_fees = true
+gas_fee_cap = 15_000_000_000
+gas_tip_cap = 5_000_000_000
+private_keys_secret = ["59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"]
+
+[Seth.nonce_manager]
+# rate-limiting of key syncs, to prevent spamming the node with nonce calls
+key_sync_rate_limit_per_sec = 10
+# how long to wait for a key sync to complete before giving up
+key_sync_timeout = "100s"
+# how long to wait before retrying a key sync
+key_sync_retry_delay = "1s"
+# how many times to retry a key sync before giving up
+key_sync_retries = 10
