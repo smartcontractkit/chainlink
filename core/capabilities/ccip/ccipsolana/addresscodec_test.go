@@ -49,10 +49,8 @@ func TestPublicKeyFromBytes(t *testing.T) {
 			require.NoError(t, err)
 
 			if test.isErr {
-				require.Panics(t, func() {
-					_, err := codec.AddressBytesToString(bytes)
-					require.Error(t, err)
-				})
+				_, err := codec.AddressBytesToString(bytes)
+				require.Error(t, err)
 			} else {
 				actual, err := codec.AddressBytesToString(bytes)
 				require.NoError(t, err)
