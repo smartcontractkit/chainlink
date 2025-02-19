@@ -59,7 +59,7 @@ func (c *Cache) FindBridge(ctx context.Context, name BridgeName) (BridgeType, er
 	c.eng.Debugw("FindBridge Cache: querying bridge in cache/db", "bridgeName", name)
 
     if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
-        c.eng.Debugw("FindBridge Cache: found bridge in cache", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+        c.eng.Debugw("FindBridge Cache: found bridge in cache", "bridgeName", bridgeType.(BridgeType).Name, "url", bridgeType.(BridgeType).URL)
         return bridgeType.(BridgeType), nil
     }
 
@@ -153,9 +153,9 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 	// Update the cache with the new value
 	c.bridgeTypesCache.Store(bt.Name, *bt)
 	if bridgeType, ok := c.bridgeTypesCache.Load(bt.Name); ok {
-		c.eng.Debugw("UpdateBridgeType: Cache values updated", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+		c.eng.Debugw("UpdateBridgeType: Cache values updated", "bridgeName", bridgeType.(BridgeType).Name, "url", bridgeType.(BridgeType).URL)
 } else {
-		c.eng.Debugw("UpdateBridgeType: No cached value found", "bridgeName", name) // https://grafana.ops.prod.cldev.sh/goto/QK86NAcNg?orgId=1
+		c.eng.Debugw("UpdateBridgeType: No cached value found", "bridgeName", bt.Name) // https://grafana.ops.prod.cldev.sh/goto/QK86NAcNg?orgId=1
 }
 
 	return nil
@@ -164,7 +164,7 @@ func (c *Cache) UpdateBridgeType(ctx context.Context, bt *BridgeType, btr *Bridg
 func (c *Cache) InvalidateCache( name BridgeName){
 	
 	if bridgeType, ok := c.bridgeTypesCache.Load(name); ok {
-		c.eng.Debugw("InvalidateCache: Cache values to be deleted", "bridgeName", name, "url", bridgeType.(BridgeType).URL)
+		c.eng.Debugw("InvalidateCache: Cache values to be deleted", "bridgeName", bridgeType.(BridgeType).Name, "url", bridgeType.(BridgeType).URL)
 } else {
 		c.eng.Debugw("InvalidateCache: No cached value found", "bridgeName", name) // https://grafana.ops.prod.cldev.sh/goto/QK86NAcNg?orgId=1
 }
