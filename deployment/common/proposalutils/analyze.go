@@ -11,11 +11,13 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-const INDENT = "    "
+const Indent = "    "
+const DoubleIndent = Indent + Indent
 
 var (
 	_                  Analyzer = BytesAndAddressAnalyzer
@@ -46,9 +48,17 @@ func ContextGet[T any](ctx *ArgumentContext, key string) (T, error) {
 	}
 	ctxElem, ok := ctxElemRaw.(T)
 	if !ok {
-		return *new(T), fmt.Errorf("context element %s type mismatch (expected: %T, was: %T)", key, ctxElem, *new(T))
+		return *new(T), fmt.Errorf("context element %s type mismatch (expected: %T, was: %T)", key, ctxElem, ctxElemRaw)
 	}
 	return ctxElem, nil
+}
+
+func NewArgumentContext(addresses deployment.AddressesByChain) *ArgumentContext {
+	return &ArgumentContext{
+		Ctx: map[string]interface{}{
+			"AddressesByChain": addresses,
+		},
+	}
 }
 
 type NamedArgument struct {
@@ -69,7 +79,7 @@ func (a ArrayArgument) Describe(context *ArgumentContext) string {
 	elementsDescribed := make([]string, 0, len(a.Elements))
 	for _, arg := range a.Elements {
 		argDescribed := arg.Describe(context)
-		indented = indented || strings.Contains(argDescribed, INDENT)
+		indented = indented || strings.Contains(argDescribed, Indent)
 		elementsDescribed = append(elementsDescribed, argDescribed)
 	}
 	description := strings.Builder{}
@@ -138,7 +148,7 @@ type ChainSelectorArgument struct {
 }
 
 func (c ChainSelectorArgument) Describe(_ *ArgumentContext) string {
-	chainName, err := GetChainNameFromSelector(c.Value)
+	chainName, err := GetChainNameBySelector(c.Value)
 	if err != nil {
 		return fmt.Sprintf("%d (unknown)", c.Value)
 	}
@@ -164,7 +174,7 @@ func (a AddressArgument) Describe(ctx *ArgumentContext) string {
 		return description
 	}
 	for chainSel, addresses := range addresses {
-		chainName, err := GetChainNameFromSelector(chainSel)
+		chainName, err := GetChainNameBySelector(chainSel)
 		if err != nil {
 			chainName = strconv.FormatUint(chainSel, 10)
 		}
@@ -219,31 +229,31 @@ func NewTxCallDecoder(extraAnalyzers []Analyzer) *TxCallDecoder {
 	return &TxCallDecoder{Analyzers: analyzers}
 }
 
-func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (DecodedCall, error) {
+func (p *TxCallDecoder) Analyze(address string, abi *abi.ABI, data []byte) (*DecodedCall, error) {
 	methodID, methodData := data[:4], data[4:]
 	method, err := abi.MethodById(methodID)
 	if err != nil {
-		return DecodedCall{}, err
+		return nil, err
 	}
 	outs := make(map[string]interface{})
 	err = method.Outputs.UnpackIntoMap(outs, methodData)
 	if err != nil {
-		return DecodedCall{}, err
+		return nil, err
 	}
 	args := make(map[string]interface{})
 	err = method.Inputs.UnpackIntoMap(args, methodData)
 	if err != nil {
-		return DecodedCall{}, err
+		return nil, err
 	}
 	return p.analyzeMethodCall(address, method, args, outs)
 }
 
-func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (DecodedCall, error) {
+func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, args map[string]interface{}, outs map[string]interface{}) (*DecodedCall, error) {
 	inputs := make([]NamedArgument, len(method.Inputs))
 	for i, input := range method.Inputs {
 		arg, ok := args[input.Name]
 		if !ok {
-			return DecodedCall{}, fmt.Errorf("missing argument '%s'", input.Name)
+			return nil, fmt.Errorf("missing argument '%s'", input.Name)
 		}
 		inputs[i] = NamedArgument{
 			Name:  input.Name,
@@ -254,14 +264,14 @@ func (p *TxCallDecoder) analyzeMethodCall(address string, method *abi.Method, ar
 	for i, output := range method.Outputs {
 		out, ok := outs[output.Name]
 		if !ok {
-			return DecodedCall{}, fmt.Errorf("missing output '%s'", output.Name)
+			return nil, fmt.Errorf("missing output '%s'", output.Name)
 		}
 		outputs[i] = NamedArgument{
 			Name:  output.Name,
 			Value: p.analyzeArg(output.Name, &output.Type, out),
 		}
 	}
-	return DecodedCall{
+	return &DecodedCall{
 		Address: address,
 		Method:  method.String(),
 		Inputs:  inputs,
@@ -347,7 +357,7 @@ func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal interface{},
 }
 
 func IndentString(s string) string {
-	return IndentStringWith(s, INDENT)
+	return IndentStringWith(s, Indent)
 }
 
 func IndentStringWith(s string, indent string) string {
@@ -363,7 +373,7 @@ func IndentStringWith(s string, indent string) string {
 	return result.String()
 }
 
-func GetChainNameFromSelector(selector uint64) (string, error) {
+func GetChainNameBySelector(selector uint64) (string, error) {
 	chainID, err := chain_selectors.GetChainIDFromSelector(selector)
 	if err != nil {
 		return "", err
@@ -377,4 +387,40 @@ func GetChainNameFromSelector(selector uint64) (string, error) {
 		return "", err
 	}
 	return chainInfo.ChainName, nil
+}
+
+func DescribeProposal(proposal *mcmslib.Proposal, describedOperations []string) string {
+	var describedProposal strings.Builder
+	for opIdx, opDesc := range describedOperations {
+		chainSelector := uint64(proposal.Operations[opIdx].ChainSelector)
+		chainName, err := GetChainNameBySelector(chainSelector)
+		if err != nil {
+			chainName = "unknown"
+		}
+		describedProposal.WriteString("Operation #" + strconv.Itoa(opIdx))
+		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
+		describedProposal.WriteString(IndentString(opDesc))
+		describedProposal.WriteString("\n")
+	}
+	return describedProposal.String()
+}
+
+func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatches [][]string) string {
+	var describedProposal strings.Builder
+	for batchIdx, describedOperations := range describedBatches {
+		chainSelector := uint64(proposal.Operations[batchIdx].ChainSelector)
+		chainName, err := GetChainNameBySelector(chainSelector)
+		if err != nil {
+			chainName = "unknown"
+		}
+		describedProposal.WriteString(fmt.Sprintf("Batch #%v\n", batchIdx))
+		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
+		for opIdx, opDesc := range describedOperations {
+			describedProposal.WriteString(IndentString("Operation #" + strconv.Itoa(opIdx)))
+			describedProposal.WriteString("\n")
+			describedProposal.WriteString(IndentStringWith(opDesc, DoubleIndent))
+			describedProposal.WriteString("\n")
+		}
+	}
+	return describedProposal.String()
 }

@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -45,18 +47,25 @@ type DeployerGroup struct {
 	state             CCIPOnChainState
 	mcmConfig         *MCMSConfig
 	deploymentContext *DeploymentContext
+	txDecoder         *proposalutils.TxCallDecoder
+	describeContext   *proposalutils.ArgumentContext
+}
+
+type DescribedTransaction struct {
+	Tx          *types.Transaction
+	Description string
 }
 
 type DeploymentContext struct {
 	description    string
-	transactions   map[uint64][]*types.Transaction
+	transactions   map[uint64][]DescribedTransaction
 	previousConfig *DeploymentContext
 }
 
 func NewDeploymentContext(description string) *DeploymentContext {
 	return &DeploymentContext{
 		description:    description,
-		transactions:   make(map[uint64][]*types.Transaction),
+		transactions:   make(map[uint64][]DescribedTransaction),
 		previousConfig: nil,
 	}
 }
@@ -64,7 +73,7 @@ func NewDeploymentContext(description string) *DeploymentContext {
 func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	return &DeploymentContext{
 		description:    description,
-		transactions:   make(map[uint64][]*types.Transaction),
+		transactions:   make(map[uint64][]DescribedTransaction),
 		previousConfig: d,
 	}
 }
@@ -74,9 +83,11 @@ type DeployerGroupWithContext interface {
 }
 
 type deployerGroupBuilder struct {
-	e         deployment.Environment
-	state     CCIPOnChainState
-	mcmConfig *MCMSConfig
+	e               deployment.Environment
+	state           CCIPOnChainState
+	mcmConfig       *MCMSConfig
+	txDecoder       *proposalutils.TxCallDecoder
+	describeContext *proposalutils.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -84,6 +95,8 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 		e:                 d.e,
 		mcmConfig:         d.mcmConfig,
 		state:             d.state,
+		txDecoder:         d.txDecoder,
+		describeContext:   d.describeContext,
 		deploymentContext: NewDeploymentContext(description),
 	}
 }
@@ -101,10 +114,13 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
 func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) DeployerGroupWithContext {
+	addresses, _ := e.ExistingAddresses.Addresses()
 	return &deployerGroupBuilder{
-		e:         e,
-		mcmConfig: mcmConfig,
-		state:     state,
+		e:               e,
+		mcmConfig:       mcmConfig,
+		state:           state,
+		txDecoder:       proposalutils.NewTxCallDecoder(nil),
+		describeContext: proposalutils.NewArgumentContext(addresses),
 	}
 }
 
@@ -113,6 +129,8 @@ func (d *DeployerGroup) WithDeploymentContext(description string) *DeployerGroup
 		e:                 d.e,
 		mcmConfig:         d.mcmConfig,
 		state:             d.state,
+		txDecoder:         d.txDecoder,
+		describeContext:   d.describeContext,
 		deploymentContext: d.deploymentContext.Fork(description),
 	}
 }
@@ -160,7 +178,6 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 		}
 		startingNonce = new(big.Int).SetUint64(nonce)
 	}
-
 	dc := d.deploymentContext
 	sim.Signer = func(a common.Address, t *types.Transaction) (*types.Transaction, error) {
 		txCount, err := d.getTransactionCount(chain)
@@ -174,7 +191,23 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 		if err != nil {
 			return nil, err
 		}
-		dc.transactions[chain] = append(dc.transactions[chain], tx)
+		var description string
+		if abiStr, ok := d.state.Chains[chain].ABIByAddress[tx.To().Hex()]; ok {
+			_abi, err := abi.JSON(strings.NewReader(abiStr))
+			if err != nil {
+				d.e.Logger.Errorw("could not load ABI",
+					"chain", chain, "address", tx.To().Hex(), "error", err)
+			} else {
+				decodedCall, err := d.txDecoder.Analyze(tx.To().String(), &_abi, tx.Data())
+				if err != nil {
+					d.e.Logger.Errorw("could not analyze transaction",
+						"chain", chain, "address", tx.To().Hex(), "nonce", currentNonce, "error", err)
+				} else {
+					description = decodedCall.Describe(d.describeContext)
+				}
+			}
+		}
+		dc.transactions[chain] = append(dc.transactions[chain], DescribedTransaction{Tx: tx, Description: description})
 		// Update the nonce to consider the transactions that have been sent
 		sim.Nonce = big.NewInt(0).Add(currentNonce, big.NewInt(1))
 		return tx, nil
@@ -191,8 +224,8 @@ func (d *DeployerGroup) getContextChainInOrder() []*DeploymentContext {
 	return contexts
 }
 
-func (d *DeployerGroup) getTransactions() map[uint64][]*types.Transaction {
-	transactions := make(map[uint64][]*types.Transaction)
+func (d *DeployerGroup) getTransactions() map[uint64][]DescribedTransaction {
+	transactions := make(map[uint64][]DescribedTransaction)
 	for _, c := range d.getContextChainInOrder() {
 		for k, v := range c.transactions {
 			transactions[k] = append(transactions[k], v...)
@@ -217,22 +250,27 @@ func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
 func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
 	proposals := make([]mcmslib.TimelockProposal, 0)
+	describedProposals := make([]string, 0)
 	for _, dc := range contexts {
 		batches := make([]mcmstypes.BatchOperation, 0)
+		describedBatches := make([][]string, 0)
 		for selector, txs := range dc.transactions {
 			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
+			describedTxs := make([]string, len(txs))
 			for i, tx := range txs {
 				var err error
-				mcmTransactions[i], err = proposalutils.TransactionForChain(selector, tx.To().Hex(), tx.Data(), tx.Value(), "", []string{})
+				mcmTransactions[i], err = proposalutils.TransactionForChain(selector, tx.Tx.To().Hex(), tx.Tx.Data(), tx.Tx.Value(), "", []string{})
 				if err != nil {
 					return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
 				}
+				describedTxs[i] = tx.Description
 			}
 
 			batches = append(batches, mcmstypes.BatchOperation{
 				ChainSelector: mcmstypes.ChainSelector(selector),
 				Transactions:  mcmTransactions,
 			})
+			describedBatches = append(describedBatches, describedTxs)
 		}
 
 		if len(batches) == 0 {
@@ -259,6 +297,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
 		}
+		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
@@ -274,9 +313,13 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		}
 
 		proposals = append(proposals, *proposal)
+		describedProposals = append(describedProposals, describedProposal)
 	}
 
-	return deployment.ChangesetOutput{MCMSTimelockProposals: proposals}, nil
+	return deployment.ChangesetOutput{
+		MCMSTimelockProposals:      proposals,
+		DescribedTimelockProposals: describedProposals,
+	}, nil
 }
 
 func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
@@ -298,12 +341,12 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 			selector, txs := selector, txs
 			g.Go(func() error {
 				for _, tx := range txs {
-					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx)
+					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx.Tx)
 					if err != nil {
 						return fmt.Errorf("failed to send transaction: %w", err)
 					}
 					// TODO how to pass abi here to decode error reason
-					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx, err)
+					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx.Tx, err)
 					if err != nil {
 						return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 					}
