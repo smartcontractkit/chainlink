@@ -43,6 +43,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, pri
 			},
 		},
 		ChainSpecificName: chainSpecificName,
+		ArgsTransform: "CCIPCommit",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				getCommonAddressLookupTableConfig(offrampProgramAddress),
@@ -115,7 +116,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			},
 		},
 		ChainSpecificName: "execute",
-		ArgsTransform:     "CCIP",
+		ArgsTransform:     "CCIPExecute",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				{
