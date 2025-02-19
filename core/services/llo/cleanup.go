@@ -118,36 +118,9 @@ func (t *transmissionReaper) reap(ctx context.Context, batchSize int, reapType s
 		var res sql.Result
 		switch reapType {
 		case "stale":
-			res, err = t.ds.ExecContext(ctx, `
-DELETE FROM llo_mercury_transmit_queue AS q
-USING (
-    SELECT transmission_hash 
-    FROM llo_mercury_transmit_queue
-    WHERE inserted_at < NOW() - ($1 * INTERVAL '1 MICROSECOND')
-    ORDER BY inserted_at ASC
-    LIMIT $2
-) AS to_delete
-WHERE q.transmission_hash = to_delete.transmission_hash;
-            `, t.maxAge.Microseconds(), batchSize)
+			res, err = t.reapStale(ctx, batchSize)
 		case "orphaned":
-			res, err = t.ds.ExecContext(ctx, `
-WITH activeDonIds AS (
-    SELECT DISTINCT cast(relay_config->>'lloDonID' as bigint) as don_id
-	FROM ocr2_oracle_specs
-	WHERE 
-		relay_config->>'lloDonID' IS NOT NULL
-		AND relay_config->>'lloDonID' <> ''
-)
-DELETE FROM llo_mercury_transmit_queue as q
-USING (
-    SELECT transmission_hash 
-    FROM llo_mercury_transmit_queue
-    WHERE don_id NOT IN (SELECT don_id FROM activeDonIds)
-    ORDER BY inserted_at ASC
-    LIMIT $1
-) AS to_delete
-WHERE q.transmission_hash = to_delete.transmission_hash;
-            `, batchSize)
+			res, err = t.reapOrphaned(ctx, batchSize)
 		default:
 			return 0, fmt.Errorf("transmissionReaper: unknown reap type: %s", reapType)
 		}
@@ -167,4 +140,39 @@ WHERE q.transmission_hash = to_delete.transmission_hash;
 		rowsDeleted += rowsAffected
 	}
 	return rowsDeleted, nil
+}
+
+func (t *transmissionReaper) reapStale(ctx context.Context, batchSize int) (sql.Result, error) {
+	return t.ds.ExecContext(ctx, `
+DELETE FROM llo_mercury_transmit_queue AS q
+USING (
+    SELECT transmission_hash 
+    FROM llo_mercury_transmit_queue
+    WHERE inserted_at < NOW() - ($1 * INTERVAL '1 MICROSECOND')
+    ORDER BY inserted_at ASC
+    LIMIT $2
+) AS to_delete
+WHERE q.transmission_hash = to_delete.transmission_hash;
+`, t.maxAge.Microseconds(), batchSize)
+}
+
+func (t *transmissionReaper) reapOrphaned(ctx context.Context, batchSize int) (sql.Result, error) {
+	return t.ds.ExecContext(ctx, `
+WITH activeDonIds AS (
+    SELECT DISTINCT cast(relay_config->>'lloDonID' as bigint) as don_id
+	FROM ocr2_oracle_specs
+	WHERE 
+		relay_config->>'lloDonID' IS NOT NULL
+		AND relay_config->>'lloDonID' <> ''
+)
+DELETE FROM llo_mercury_transmit_queue as q
+USING (
+    SELECT transmission_hash 
+    FROM llo_mercury_transmit_queue
+    WHERE don_id NOT IN (SELECT don_id FROM activeDonIds)
+    ORDER BY inserted_at ASC
+    LIMIT $1
+) AS to_delete
+WHERE q.transmission_hash = to_delete.transmission_hash;
+`, batchSize)
 }
