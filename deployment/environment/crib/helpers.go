@@ -30,7 +30,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
 					return err
 				}
-				addr := common.HexToAddress(n.AccountAddr[chainID])
+				addr := common.HexToAddress(n.AccountAddr[string(chainID)])
 				transmittersStr = append(transmittersStr, addr)
 			}
 			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
