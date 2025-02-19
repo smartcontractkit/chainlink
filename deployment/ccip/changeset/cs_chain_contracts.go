@@ -17,7 +17,6 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
-	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -1750,7 +1749,6 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 	proposers := make(map[uint64]string)
 	inspectorPerChain := map[uint64]sdk.Inspector{}
 	for chainSel, updates := range cfg.UpdatesByChain {
-		chain := e.Chains[chainSel]
 		txOpts := e.Chains[chainSel].DeployerKey
 		if cfg.MCMSConfig != nil {
 			txOpts = deployment.SimTransactOpts()
@@ -1777,14 +1775,18 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 				return deployment.ChangesetOutput{}, err
 			}
 			op, err := proposalutils.BatchOperationForChain(
-				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), cfg.MCMSConfig.MCMSType.String(), nil)
+				chainSel, fq.Address().String(), tx.Data(), big.NewInt(0), FeeQuoter.String(), nil)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error creating batch operation for chain %d: %w", chainSel, err)
 			}
 			batches = append(batches, op)
 			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().String()
 			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().String()
-			inspectorPerChain[chainSel] = evm.NewInspector(chain.Client)
+			inspector, err := proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			inspectorPerChain[chainSel] = inspector
 		}
 	}
 	if cfg.MCMSConfig == nil {

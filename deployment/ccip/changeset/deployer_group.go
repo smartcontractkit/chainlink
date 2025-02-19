@@ -18,25 +18,24 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	deploymenttypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // MCMSConfig defines timelock duration.
 type MCMSConfig struct {
-	MinDelay time.Duration
-	MCMSType deployment.ContractType
+	MinDelay   time.Duration
+	MCMSAction timelock.TimelockOperation
 }
 
 func (mcmsConfig *MCMSConfig) Validate() error {
 	// to make it backwards compatible with the old MCMSConfig , if MCMSType is not set, default to ProposerManyChainMultisig
 	// TODO remove this after all the usages are updated to reflect canceller and bypasser with new mcmslib
-	if mcmsConfig.MCMSType == "" {
-		mcmsConfig.MCMSType = deploymenttypes.ProposerManyChainMultisig
+	if mcmsConfig.MCMSAction == "" {
+		mcmsConfig.MCMSAction = timelock.Schedule
 	}
-	if mcmsConfig.MCMSType != deploymenttypes.ProposerManyChainMultisig &&
-		mcmsConfig.MCMSType != deploymenttypes.BypasserManyChainMultisig &&
-		mcmsConfig.MCMSType != deploymenttypes.CancellerManyChainMultisig {
-		return fmt.Errorf("invalid MCMS type %s", mcmsConfig.MCMSType)
+	if mcmsConfig.MCMSAction != timelock.Schedule &&
+		mcmsConfig.MCMSAction != timelock.Cancel &&
+		mcmsConfig.MCMSAction != timelock.Bypass {
+		return fmt.Errorf("invalid MCMS type %s", mcmsConfig.MCMSAction)
 	}
 	return nil
 }

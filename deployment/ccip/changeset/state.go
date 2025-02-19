@@ -7,6 +7,7 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -974,13 +975,13 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}
-		if mcmsCfg.MCMSType == commontypes.ProposerManyChainMultisig && chainState.ProposerMcm == nil {
+		if mcmsCfg.MCMSAction == timelock.Schedule && chainState.ProposerMcm == nil {
 			return fmt.Errorf("missing proposerMcm on %s", chain)
 		}
-		if mcmsCfg.MCMSType == commontypes.CancellerManyChainMultisig && chainState.CancellerMcm == nil {
+		if mcmsCfg.MCMSAction == timelock.Cancel && chainState.CancellerMcm == nil {
 			return fmt.Errorf("missing cancellerMcm on %s", chain)
 		}
-		if mcmsCfg.MCMSType == commontypes.BypasserManyChainMultisig && chainState.BypasserMcm == nil {
+		if mcmsCfg.MCMSAction == timelock.Bypass && chainState.BypasserMcm == nil {
 			return fmt.Errorf("missing bypasserMcm on %s", chain)
 		}
 	}

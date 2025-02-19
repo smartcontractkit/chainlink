@@ -19,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -964,7 +963,6 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 			if tc.mcmsEnabled {
 				mcmsConfig = &changeset.MCMSConfig{
 					MinDelay: 0,
-					MCMSType: commontypes.ProposerManyChainMultisig,
 				}
 			}
 
