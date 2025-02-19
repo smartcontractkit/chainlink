@@ -460,6 +460,12 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if chainInfo.ChainName == "" {
 			name = strconv.FormatUint(chainSelector, 10)
 		}
+		chainView.ChainSelector = chainSelector
+		id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain id from selector %d: %v", chainSelector, err)
+		}
+		chainView.ChainID = id
 		m[name] = chainView
 	}
 	return m, nil

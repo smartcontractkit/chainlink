@@ -66,6 +66,37 @@ func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, e
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
+func validateExecOffchainConfig(c *pluginconfig.ExecuteOffchainConfig, selector uint64, state CCIPOnChainState) error {
+	if err := c.Validate(); err != nil {
+		return fmt.Errorf("invalid execute off-chain config: %w", err)
+	}
+	// get offRamp
+	if err := state.ValidateRamp(selector, OffRamp); err != nil {
+		return fmt.Errorf("validate offRamp: %w", err)
+	}
+	offRamp := state.Chains[selector].OffRamp
+	// get permissionlessExecutionThresholdSeconds
+	dCfg, err := offRamp.GetDynamicConfig(nil)
+	if err != nil {
+		return fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
+	}
+	if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != dCfg.PermissionLessExecutionThresholdSeconds {
+		return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
+			c.MessageVisibilityInterval.Duration(), dCfg.PermissionLessExecutionThresholdSeconds, selector)
+	}
+	for _, observerConfig := range c.TokenDataObservers {
+		switch observerConfig.Type {
+		case pluginconfig.USDCCCTPHandlerType:
+			if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
+				return fmt.Errorf("invalid USDC config: %w", err)
+			}
+		default:
+			return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
+		}
+	}
+	return nil
+}
+
 func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
@@ -160,18 +191,8 @@ func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIP
 		}
 	}
 	if c.ExecuteOffChainConfig != nil {
-		if err := c.ExecuteOffChainConfig.Validate(); err != nil {
+		if err := validateExecOffchainConfig(c.ExecuteOffChainConfig, selector, state); err != nil {
 			return fmt.Errorf("invalid execute off-chain config: %w", err)
-		}
-		for _, observerConfig := range c.ExecuteOffChainConfig.TokenDataObservers {
-			switch observerConfig.Type {
-			case pluginconfig.USDCCCTPHandlerType:
-				if err := validateUSDCConfig(observerConfig.USDCCCTPObserverConfig, state); err != nil {
-					return fmt.Errorf("invalid USDC config: %w", err)
-				}
-			default:
-				return fmt.Errorf("unknown token observer config type: %s", observerConfig.Type)
-			}
 		}
 	}
 	return nil
