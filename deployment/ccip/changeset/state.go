@@ -434,7 +434,6 @@ func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx con
 		}
 		// #nosec G115
 		return uint32(offRampConfig.EnableManualExecutionAfter), nil
-
 	}
 	return 0, fmt.Errorf("unsupported chain family %s", family)
 }
