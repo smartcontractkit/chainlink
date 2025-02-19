@@ -1,5 +1,6 @@
 package deployment
 
+// LabeledAddresses is an alias to a map whose keys are contract addresses
 type LabeledAddresses map[string]TypeAndVersion
 
 // And filters the LabeledAddresses to only include those entries that contain all
@@ -39,4 +40,14 @@ func (la LabeledAddresses) And(labels ...string) LabeledAddresses {
 	}
 
 	return filtered
+}
+
+// Contains returns true if the map contains the given TypeAndVersion.
+func (la LabeledAddresses) Contains(tv TypeAndVersion) bool {
+	for _, v := range la {
+		if v.Equal(tv) {
+			return true
+		}
+	}
+	return false
 }

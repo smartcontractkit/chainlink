@@ -103,7 +103,15 @@ func MaybeLoadMCMSWithTimelockChainState(
 
 		// the same contract can have different roles
 		multichain = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		// Convert map keys to a slice
+		wantTypes = []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
 	)
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
+	}
 
 	for address, tv := range addresses {
 		switch {
@@ -200,7 +208,7 @@ func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]d
 	wantTypes := []deployment.TypeAndVersion{linkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
@@ -236,7 +244,7 @@ func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]
 	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}

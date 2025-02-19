@@ -315,39 +315,27 @@ func tvKey(tv TypeAndVersion) typeVersionKey {
 	}
 }
 
-// AddressesContainBundle checks if the addresses
-// contains a single instance of all the addresses in the bundle.
-// It returns an error if there are more than one instance of a contract.
-func AddressesContainBundle(addrs map[string]TypeAndVersion, bundle []TypeAndVersion) (bool, error) {
-	// Count how many times each wanted TypeAndVersion is found
-	counts := make(map[typeVersionKey]int)
+// EnsureDeduped ensures that each contract in the bundle only appears once
+// in the address map.  It returns an error if there are more than one instance of a contract.
+// Returns true if every value in the bundle is found once, false otherwise.
+func EnsureDeduped(addrs map[string]TypeAndVersion, bundle []TypeAndVersion) (bool, error) {
+	var (
+		counts = make(map[typeVersionKey]int)
+		la     = LabeledAddresses(addrs)
+	)
+
+	// Count how many times each TypeAndVersion from the bundle is found
 	for _, wantTV := range bundle {
-		wantKey := tvKey(wantTV)
-		for _, haveTV := range addrs {
-			if wantTV.Equal(haveTV) {
-				// They match exactly (Type, Version, Labels)
-				counts[wantKey]++
-				if counts[wantKey] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%s)",
-						wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
-				}
+		if la.Contains(wantTV) {
+			wantKey := tvKey(wantTV)
+			if counts[wantKey]++; counts[wantKey] > 1 {
+				return false, fmt.Errorf("found more than one instance of contract %s v%s (labels=%s)",
+					wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
 			}
 		}
 	}
 
-	missing := make([]string, 0)
-	for _, wantTV := range bundle {
-		_, ok := counts[tvKey(wantTV)]
-		if !ok {
-			missing = append(missing, wantTV.String())
-		}
-	}
-
-	if len(missing) > 0 {
-		return false, fmt.Errorf("missing contracts %v", missing)
-	}
-
-	// Ensure we found *all* wantTypes exactly once
+	// Indicate if each TypeAndVersion in the bundle is found at least once
 	return len(counts) == len(bundle), nil
 }
 

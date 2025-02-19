@@ -336,7 +336,7 @@ func TestAddressesContainBundle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotResult, gotErr := AddressesContainBundle(tt.addrs, tt.wantTypes)
+			gotResult, gotErr := EnsureDeduped(tt.addrs, tt.wantTypes)
 
 			if tt.wantErr {
 				require.Error(t, gotErr, "expected an error but got none")

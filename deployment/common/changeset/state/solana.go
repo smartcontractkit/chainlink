@@ -192,6 +192,19 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 	cancellerAccessControllerAccount := deployment.NewTypeAndVersion(types.CancellerAccessControllerAccount, deployment.Version1_0_0)
 	bypasserAccessControllerAccount := deployment.NewTypeAndVersion(types.BypasserAccessControllerAccount, deployment.Version1_0_0)
 
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{
+		mcmProgram, timelockProgram, accessControllerProgram, proposerMCM, cancellerMCM, bypasserMCM, timelock,
+		proposerAccessControllerAccount, executorAccessControllerAccount, cancellerAccessControllerAccount,
+		bypasserAccessControllerAccount,
+	}
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
+	if err != nil {
+		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
+	}
+
 	for address, tvStr := range addresses {
 		switch {
 		case tvStr.Type == timelockProgram.Type && tvStr.Version.String() == timelockProgram.Version.String():
