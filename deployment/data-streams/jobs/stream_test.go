@@ -1,84 +1,78 @@
 package jobs
 
 import (
-	"fmt"
-	"strings"
+	"errors"
 	"testing"
-	"text/template"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
 
-func TestLLOSpec_MarshalTOML(t *testing.T) {
+func TestStreamJobSpec_Median_MarshalTOML(t *testing.T) {
 	testCases := []struct {
 		name       string
-		spec       LLOSpec
-		obs        ObservationSource
+		spec       StreamJobSpec
+		obs        MedianObservationSource
 		wantSubstr []string
 	}{
 		{
 			name: "multiple datasources with valid paths",
-			spec: LLOSpec{
+			spec: StreamJobSpec{
 				Base: Base{
-					Name:          "ETH/USD-Test",
+					Name:          "BTC/USD-Test",
 					Type:          "stream",
 					SchemaVersion: 1,
 					ExternalJobID: uuid.New(),
 				},
-				StreamID: "1000000001",
+				StreamID: "1000",
 			},
-			obs: ObservationSource{
-				Datasources: []Datasource{
-					{
-						BridgeName: "coinmetrics",
-						ReqData:    `{"data":{"endpoint":"cryptolwba","from":"ETH","to":"USD"}}`,
+			obs: MedianObservationSource{
+				BaseObservationSource: BaseObservationSource{
+					Datasources: []Datasource{
+						{
+							BridgeName: "bridge1",
+							ReqData:    `{"data":{"endpoint":"test1"}}`,
+						},
+						{
+							BridgeName: "bridge2",
+							ReqData:    `{"data":{"endpoint":"test2"}}`,
+						},
 					},
-					{
-						BridgeName: "ncfx",
-						ReqData:    `{"data":{"endpoint":"cryptolwba","from":"ETH","to":"USD"}}`,
+					AllowedFaults: 2,
+					Benchmark: ReportFieldLLO{
+						ResultPath: "data,median",
 					},
-				},
-				AllowedFaults: 2,
-				Benchmark: ReportField{
-					ResultPath: "data,mid",
-				},
-				Bid: ReportField{
-					ResultPath: "data,bid",
-				},
-				Ask: ReportField{
-					ResultPath: "data,ask",
 				},
 			},
 			wantSubstr: []string{
-				`bridge-coinmetrics`,
-				`bridge-ncfx`,
-				`allowedFaults=2`,
-				`path=\"data,mid\"`,
-				`path=\"data,bid\"`,
-				`path=\"data,ask\"`,
+				"bridge-bridge1",
+				"bridge-bridge2",
+				"allowedFaults=2",
+				`data,median`,
 			},
 		},
 		{
 			name: "empty datasource list",
-			spec: LLOSpec{
+			spec: StreamJobSpec{
 				Base: Base{
-					Name:          "Empty-Test",
+					Name:          "Empty-Median-Test",
 					Type:          "stream",
 					SchemaVersion: 1,
 					ExternalJobID: uuid.New(),
 				},
-				StreamID: "2000000002",
+				StreamID: "2000",
 			},
-			obs: ObservationSource{
-				Datasources:   []Datasource{},
-				AllowedFaults: 1,
-				Benchmark:     ReportField{ResultPath: "data,benchmark"},
-				Bid:           ReportField{ResultPath: "data,bid"},
-				Ask:           ReportField{ResultPath: "data,ask"},
+			obs: MedianObservationSource{
+				BaseObservationSource: BaseObservationSource{
+					Datasources:   []Datasource{},
+					AllowedFaults: 1,
+					Benchmark: ReportFieldLLO{
+						ResultPath: "data,empty",
+					},
+				},
 			},
 			wantSubstr: []string{
-				`allowedFaults=1`,
+				"allowedFaults=1",
 			},
 		},
 	}
@@ -87,34 +81,137 @@ func TestLLOSpec_MarshalTOML(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			err := tc.spec.SetObservationSource(tc.obs)
 			require.NoError(t, err)
+
 			tomlBytes, err := tc.spec.MarshalTOML()
 			require.NoError(t, err)
+
 			result := string(tomlBytes)
 			for _, substr := range tc.wantSubstr {
-				require.True(t, strings.Contains(result, substr),
+				require.Contains(t, result, substr,
 					"result %q does not contain expected substring %q", result, substr)
 			}
 		})
 	}
 }
 
-func TestLLOSpec_Error(t *testing.T) {
-	originalTmpl := observationTmpl
-	defer func() {
-		observationTmpl = originalTmpl
-	}()
-
-	faultyTmpl := template.Must(template.New("faulty").
-		Funcs(template.FuncMap{
-			"error": func(msg string) (string, error) {
-				return "", fmt.Errorf("%s", msg)
+func TestStreamJobSpec_Quote_MarshalTOML(t *testing.T) {
+	testCases := []struct {
+		name       string
+		spec       StreamJobSpec
+		obs        QuoteObservationSource
+		wantSubstr []string
+	}{
+		{
+			name: "multiple datasources with valid paths",
+			spec: StreamJobSpec{
+				Base: Base{
+					Name:          "BTC/USD-Quote",
+					Type:          "stream",
+					SchemaVersion: 1,
+					ExternalJobID: uuid.New(),
+				},
+				StreamID: "3000",
 			},
-		}).
-		Parse(`{{ error "forced error" }}`))
-	observationTmpl = faultyTmpl
+			obs: QuoteObservationSource{
+				BaseObservationSource: BaseObservationSource{
+					Datasources: []Datasource{
+						{
+							BridgeName: "bridge1",
+							ReqData:    `{"data":{"endpoint":"quote1"}}`,
+						},
+						{
+							BridgeName: "bridge2",
+							ReqData:    `{"data":{"endpoint":"quote2"}}`,
+						},
+					},
+					AllowedFaults: 3,
+					Benchmark: ReportFieldLLO{
+						ResultPath: "data,benchmark",
+					},
+				},
+				Bid: ReportFieldLLO{
+					ResultPath: "data,bid",
+				},
+				Ask: ReportFieldLLO{
+					ResultPath: "data,ask",
+				},
+			},
+			wantSubstr: []string{
+				"bridge-bridge1",
+				"bridge-bridge2",
+				"allowedFaults=3",
+				`data,benchmark`,
+				`data,bid`,
+				`data,ask`,
+			},
+		},
+		{
+			name: "empty datasource list",
+			spec: StreamJobSpec{
+				Base: Base{
+					Name:          "Empty-Quote-Test",
+					Type:          "stream",
+					SchemaVersion: 1,
+					ExternalJobID: uuid.New(),
+				},
+				StreamID: "4000",
+			},
+			obs: QuoteObservationSource{
+				BaseObservationSource: BaseObservationSource{
+					Datasources:   []Datasource{},
+					AllowedFaults: 1,
+					Benchmark: ReportFieldLLO{
+						ResultPath: "data,empty",
+					},
+				},
+				Bid: ReportFieldLLO{
+					ResultPath: "data,emptyBid",
+				},
+				Ask: ReportFieldLLO{
+					ResultPath: "data,emptyAsk",
+				},
+			},
+			wantSubstr: []string{
+				"allowedFaults=1",
+			},
+		},
+	}
 
-	spec := LLOSpec{}
-	obs := ObservationSource{}
-	_, err := spec.buildObservationSource(obs)
-	require.Error(t, err, "expected error from faulty template execution")
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tc.spec.SetObservationSource(tc.obs)
+			require.NoError(t, err)
+
+			tomlBytes, err := tc.spec.MarshalTOML()
+			require.NoError(t, err)
+
+			result := string(tomlBytes)
+			for _, substr := range tc.wantSubstr {
+				require.Contains(t, result, substr,
+					"result %q does not contain expected substring %q", result, substr)
+			}
+		})
+	}
+}
+
+type errorPipeline struct{}
+
+func (e errorPipeline) Render() (string, error) {
+	return "", errors.New("forced error")
+}
+
+func TestStreamJobSpec_SetObservationSource_Error(t *testing.T) {
+	spec := StreamJobSpec{
+		Base: Base{
+			Name:          "Error-Test",
+			Type:          "stream",
+			SchemaVersion: 1,
+			ExternalJobID: uuid.New(),
+		},
+		StreamID: "5000",
+	}
+
+	err := spec.SetObservationSource(errorPipeline{})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "forced error")
 }

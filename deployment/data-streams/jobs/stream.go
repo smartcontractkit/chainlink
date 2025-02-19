@@ -1,9 +1,6 @@
 package jobs
 
 import (
-	"bytes"
-	"text/template"
-
 	"github.com/pelletier/go-toml/v2"
 )
 
@@ -12,27 +9,51 @@ type Datasource struct {
 	ReqData    string
 }
 
-type ReportField struct {
+type ReportFieldLLO struct {
 	ResultPath string
 }
 
-type ObservationSource struct {
-	Datasources   []Datasource
-	AllowedFaults int
-	Benchmark     ReportField
-	Bid           ReportField
-	Ask           ReportField
+type Pipeline interface {
+	Render() (string, error)
 }
 
-type LLOSpec struct {
+type BaseObservationSource struct {
+	Datasources   []Datasource
+	AllowedFaults int
+	Benchmark     ReportFieldLLO
+}
+
+type QuoteObservationSource struct {
+	BaseObservationSource
+	Bid ReportFieldLLO
+	Ask ReportFieldLLO
+}
+
+type MedianObservationSource struct {
+	BaseObservationSource
+}
+
+func renderObservationTemplate(fname string, obs any) (string, error) {
+	return renderTemplate(fname, obs)
+}
+
+func (src QuoteObservationSource) Render() (string, error) {
+	return renderObservationTemplate("osrc_mercury_v1_quote.go.tmpl", src)
+}
+
+func (src MedianObservationSource) Render() (string, error) {
+	return renderObservationTemplate("osrc_mercury_v1_median.go.tmpl", src)
+}
+
+type StreamJobSpec struct {
 	Base
 
 	StreamID          string `toml:"streamID"`
 	ObservationSource string `toml:"observationSource,multiline,omitempty"`
 }
 
-func (s *LLOSpec) SetObservationSource(obs ObservationSource) error {
-	rendered, err := s.buildObservationSource(obs)
+func (s *StreamJobSpec) SetObservationSource(obs Pipeline) error {
+	rendered, err := obs.Render()
 	if err != nil {
 		return err
 	}
@@ -40,54 +61,6 @@ func (s *LLOSpec) SetObservationSource(obs ObservationSource) error {
 	return nil
 }
 
-func (s *LLOSpec) buildObservationSource(obs ObservationSource) (string, error) {
-	var buf bytes.Buffer
-	if err := observationTmpl.Execute(&buf, obs); err != nil {
-		return "", err
-	}
-	return buf.String(), nil
-}
-
-func (s *LLOSpec) MarshalTOML() ([]byte, error) {
+func (s *StreamJobSpec) MarshalTOML() ([]byte, error) {
 	return toml.Marshal(s)
 }
-
-var funcMap = template.FuncMap{
-	"inc": func(i int) int {
-		return i + 1
-	},
-}
-
-var pipelineTemplate = `{{range $i, $a := .Datasources}}
-{{- $srcNum := inc $i -}}
-// data source {{$srcNum}}
-ds{{$srcNum}}_payload [type=bridge name="bridge-{{$a.BridgeName}}" timeout="50s" requestData={{$a.ReqData}}];
-
-ds{{$srcNum}}_benchmark [type=jsonparse path="{{$.Benchmark.ResultPath}}"];
-ds{{$srcNum}}_bid [type=jsonparse path="{{$.Bid.ResultPath}}"];
-ds{{$srcNum}}_ask [type=jsonparse path="{{$.Ask.ResultPath}}"];
-{{end -}}
-
-{{range $i, $a := .Datasources}}
-{{- $srcNum := inc $i -}}
-ds{{$srcNum}}_payload -> ds{{$srcNum}}_benchmark -> benchmark_price;
-{{end -}}
-benchmark_price [type=median allowedFaults={{.AllowedFaults}} index=0];
-
-{{range $i, $a := .Datasources}}
-{{- $srcNum := inc $i -}}
-ds{{$srcNum}}_payload -> ds{{$srcNum}}_bid -> bid_price;
-{{end -}}
-bid_price [type=median allowedFaults={{.AllowedFaults}} index=1];
-
-{{range $i, $a := .Datasources}}
-{{- $srcNum := inc $i -}}
-ds{{$srcNum}}_payload -> ds{{$srcNum}}_ask -> ask_price;
-{{end -}}
-ask_price [type=median allowedFaults={{.AllowedFaults}} index=2];
-`
-
-var observationTmpl = template.Must(template.New("observationSource").
-	Funcs(funcMap).
-	Parse(pipelineTemplate),
-)
