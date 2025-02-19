@@ -831,6 +831,84 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	}
 }
 
+func TestCCIPReader_GetContractAddress(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	sb, auth := setupSimulatedBackendAndAuth(t)
+
+	s := testSetup(ctx, t, testSetupParams{
+		ReaderChain:        chainS1,
+		DestChain:          chainD,
+		OnChainSeqNums:     nil,
+		Cfg:                evmconfig.DestReaderConfig,
+		BindTester:         true,
+		ContractNameToBind: consts.ContractNameOffRamp,
+		SimulatedBackend:   sb,
+		Auth:               auth,
+		UseHeavyDB:         false,
+	})
+
+	t.Run("success - single bound address", func(t *testing.T) {
+		myContractName := consts.ContractNameOffRamp
+		myAddress := s.contractAddr
+
+		err := s.extendedCR.Bind(ctx, []types.BoundContract{
+			{
+				Address: myAddress.String(),
+				Name:    myContractName,
+			},
+		})
+		require.NoError(t, err)
+
+		gotBytes, err := s.reader.GetContractAddress(myContractName, chainS1)
+		require.NoError(t, err)
+
+		require.Equal(t, myAddress.Bytes(), gotBytes, "expected the bound contract address to match")
+	})
+
+	t.Run("error - no bindings found", func(t *testing.T) {
+
+		_, err := s.reader.GetContractAddress("UnboundContract", chainS1)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "expected one binding for the UnboundContract contract, got 0")
+	})
+
+	t.Run("success - multiple bindings, return override binding", func(t *testing.T) {
+
+		myContractName := consts.ContractNameOffRamp
+		addr1 := s.contractAddr
+		addr2, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(auth, sb.Client())
+		require.NoError(t, err)
+		sb.Commit()
+
+		err = s.extendedCR.Bind(ctx, []types.BoundContract{
+			{
+				Address: addr1.String(),
+				Name:    myContractName,
+			},
+			{
+				Address: addr2.String(),
+				Name:    myContractName,
+			},
+		})
+		require.NoError(t, err)
+
+		gotBytes, err := s.reader.GetContractAddress(myContractName, chainS1)
+		require.NoError(t, err)
+
+		require.Equal(t, addr2.Bytes(), gotBytes, "expected the bound contract override address to match")
+
+	})
+
+	t.Run("error - chain not supported", func(t *testing.T) {
+		// Suppose chainS2 is not set up in this test environment (no contract reader).
+		// The call should fail with "contract reader not found for chain".
+		_, err := s.reader.GetContractAddress("TestContract", chainS2)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "contract reader not found for chain 2")
+	})
+}
+
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
@@ -1551,7 +1629,7 @@ func testSetup(
 	t testing.TB,
 	params testSetupParams,
 ) *testSetupData {
-	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(params.Auth, params.SimulatedBackend.Client())
+	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(params.Auth, params.SimulatedBackend.Client()) // This contract is deployed on which chain? Looks like the
 	assert.NoError(t, err)
 	params.SimulatedBackend.Commit()
 
@@ -1600,7 +1678,7 @@ func testSetup(
 		assert.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg) //Chain Reader service is started for ReaderChain
 	require.NoError(t, err)
 
 	extendedCr := contractreader.NewExtendedContractReader(cr)
