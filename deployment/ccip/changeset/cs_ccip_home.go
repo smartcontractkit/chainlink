@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -67,7 +66,7 @@ func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, e
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
-func validateExecOffchainConfig(c *pluginconfig.ExecuteOffchainConfig, selector uint64, state CCIPOnChainState) error {
+func validateExecOffchainConfig(e deployment.Environment, c *pluginconfig.ExecuteOffchainConfig, selector uint64, state CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid execute off-chain config: %w", err)
 	}
@@ -75,22 +74,13 @@ func validateExecOffchainConfig(c *pluginconfig.ExecuteOffchainConfig, selector 
 	if err := state.ValidateRamp(selector, OffRamp); err != nil {
 		return fmt.Errorf("validate offRamp: %w", err)
 	}
-	// TODO how can it be validated for solana?
-	family, err := chain_selectors.GetSelectorFamily(selector)
+	permissionLessExecutionThresholdSeconds, err := state.OffRampPermissionLessExecutionThresholdSeconds(e.GetContext(), e, selector)
 	if err != nil {
-		return err
+		return fmt.Errorf("fetch permissionLessExecutionThresholdSeconds: %w", err)
 	}
-	if family == chain_selectors.FamilyEVM {
-		offRamp := state.Chains[selector].OffRamp
-		// get permissionlessExecutionThresholdSeconds
-		dCfg, err := offRamp.GetDynamicConfig(nil)
-		if err != nil {
-			return fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
-		}
-		if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != dCfg.PermissionLessExecutionThresholdSeconds {
-			return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
-				c.MessageVisibilityInterval.Duration(), dCfg.PermissionLessExecutionThresholdSeconds, selector)
-		}
+	if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != permissionLessExecutionThresholdSeconds {
+		return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
+			c.MessageVisibilityInterval.Duration(), permissionLessExecutionThresholdSeconds, selector)
 	}
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
@@ -186,7 +176,7 @@ type CCIPOCRParams struct {
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
 }
 
-func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -199,7 +189,7 @@ func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIP
 		}
 	}
 	if c.ExecuteOffChainConfig != nil {
-		if err := validateExecOffchainConfig(c.ExecuteOffChainConfig, selector, state); err != nil {
+		if err := validateExecOffchainConfig(e, c.ExecuteOffChainConfig, selector, state); err != nil {
 			return fmt.Errorf("invalid execute off-chain config: %w", err)
 		}
 	}
@@ -256,7 +246,7 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
 				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
 				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(globals.FirstBlockAge),
+				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThresholdSeconds),
 				BatchingStrategyID:        globals.BatchingStrategyID,
 				TokenDataObservers:        tokenDataObservers,
 			}
@@ -478,7 +468,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state CCIPOnChainState, homeChain uint64, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -518,7 +508,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if err := decodedChainConfig.Validate(); err != nil {
 			return fmt.Errorf("invalid chain config: %w", err)
 		}
-		err = params.Validate(chainSelector, feedChain, state)
+		err = params.Validate(e, chainSelector, feedChain, state)
 		if err != nil {
 			return fmt.Errorf("invalid ccip ocr params: %w", err)
 		}
@@ -587,7 +577,7 @@ func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment,
 		return err
 	}
 
-	if err := a.PluginInfo.Validate(state, a.HomeChainSelector, a.FeedChainSelector); err != nil {
+	if err := a.PluginInfo.Validate(e, state, a.HomeChainSelector, a.FeedChainSelector); err != nil {
 		return fmt.Errorf("validate plugin info %s: %w", a.PluginInfo.String(), err)
 	}
 	for chainSelector := range a.PluginInfo.OCRConfigPerRemoteChainSelector {
@@ -786,7 +776,7 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CC
 
 	chainToDonIDs := make(map[uint64]uint32)
 	for _, plugin := range s.PluginInfo {
-		if err := plugin.Validate(state, s.HomeChainSelector, s.FeedChainSelector); err != nil {
+		if err := plugin.Validate(e, state, s.HomeChainSelector, s.FeedChainSelector); err != nil {
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {

@@ -285,7 +285,9 @@ func Test_SetCandidate(t *testing.T) {
 										changeset.WithDefaultExecuteOffChainConfig(nil),
 										// change the default config to make MessageVisibilityInterval != PermissionLessExecutionThresholdSeconds
 										changeset.WithOCRParamOverride(func(params *changeset.CCIPOCRParams) {
-											dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(nil)
+											dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
+												Context: ctx,
+											})
 											require.NoError(t, err)
 											params.ExecuteOffChainConfig.MessageVisibilityInterval =
 												*config.MustNewDuration(

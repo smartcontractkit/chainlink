@@ -151,7 +151,7 @@ func (c OffRampParams) Validate(ignoreGasForCallExactCheck bool) error {
 func DefaultOffRampParams() OffRampParams {
 	return OffRampParams{
 		GasForCallExactCheck:                    uint16(5000),
-		PermissionLessExecutionThresholdSeconds: uint32(globals.FirstBlockAge.Seconds()),
+		PermissionLessExecutionThresholdSeconds: uint32(globals.PermissionLessExecutionThresholdSeconds.Seconds()),
 	}
 }
 
