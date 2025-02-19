@@ -58,6 +58,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	}
 
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
@@ -111,7 +115,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		),
 	)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
-	t.Logf("addresses: %v", addresses)
 	require.NoError(t, err)
 	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
 	require.NoError(t, err)
@@ -126,7 +129,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	upgradeAuthority := timelockSignerPDA
 
-	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally so we have to change where we build
 	buildCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(cs_solana.BuildSolanaChangeset),
@@ -230,7 +232,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		},
 	)
 	if ci {
-		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			deployCs,
 			feeAggregatorCs,
