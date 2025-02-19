@@ -107,11 +107,6 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		var transactions []types.Transaction
 
 		for _, ix := range ixs {
-			for _, acc := range ix.Accounts() {
-				if acc.PublicKey == timelockSignerPDA {
-					acc.IsSigner = false
-				}
-			}
 			solanaTx, err := mcmssolanasdk.NewTransactionFromInstruction(ix, "SystemProgram", []string{})
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
