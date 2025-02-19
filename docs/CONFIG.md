@@ -1962,7 +1962,7 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 ## Mercury.Transmitter
 ```toml
 [Mercury.Transmitter]
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 TransmitQueueMaxSize = 250_000 # Default
 TransmitTimeout = "5s" # Default
 TransmitConcurrency = 100 # Default
@@ -1973,7 +1973,7 @@ Mercury.Transmitter controls settings for the mercury transmitter
 
 ### Protocol
 ```toml
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 ```
 Protocol is the protocol to use for the transmitter.
 

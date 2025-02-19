@@ -292,7 +292,7 @@ LatestReportDeadline = '5s'
 CertFile = ''
 
 [Mercury.Transmitter]
-Protocol = 'wsrpc'
+Protocol = 'grpc'
 TransmitQueueMaxSize = 250000
 TransmitTimeout = '5s'
 TransmitConcurrency = 100

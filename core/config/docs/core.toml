@@ -709,7 +709,7 @@ CertFile = "/path/to/client/certs.pem" # Example
 # Options are either:
 # - "wsrpc" for the legacy websocket protocol
 # - "grpc" for the gRPC protocol
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 # TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 # per OCR instance. If the queue is full, the transmitter will start dropping
 # the oldest messages in order to make space.
