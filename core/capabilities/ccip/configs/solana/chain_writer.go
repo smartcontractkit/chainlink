@@ -1,7 +1,6 @@
 package solana
 
 import (
-	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -28,8 +27,7 @@ const (
 	merkleRoot                    = "Info.MerkleRoots.MerkleRoot"
 )
 
-func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, destChainSelector uint64, priceOnly bool) chainwriter.MethodConfig {
-	destChainSelectorBytes := binary.LittleEndian.AppendUint64([]byte{}, destChainSelector)
+func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, priceOnly bool) chainwriter.MethodConfig {
 	chainSpecificName := "commit"
 	if priceOnly {
 		chainSpecificName = "commitPriceOnly"
@@ -50,12 +48,12 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, des
 				getCommonAddressLookupTableConfig(offrampProgramAddress),
 			},
 		},
-		Accounts:        buildCommitAccountsList(fromAddress, offrampProgramAddress, destChainSelectorBytes, priceOnly),
+		Accounts:        buildCommitAccountsList(fromAddress, offrampProgramAddress, priceOnly),
 		DebugIDLocation: "",
 	}
 }
 
-func buildCommitAccountsList(fromAddress, offrampProgramAddress string, destChainSelectorBytes []byte, priceOnly bool) []chainwriter.Lookup {
+func buildCommitAccountsList(fromAddress, offrampProgramAddress string, priceOnly bool) []chainwriter.Lookup {
 	accounts := []chainwriter.Lookup{}
 	accounts = append(accounts,
 		getOfframpAccountConfig(offrampProgramAddress),
@@ -100,7 +98,7 @@ func buildCommitAccountsList(fromAddress, offrampProgramAddress string, destChai
 		getFeeQuoterConfigLookup(offrampProgramAddress),
 		getGlobalStateConfig(offrampProgramAddress),
 		getBillingTokenConfig(offrampProgramAddress),
-		getChainConfigGasPriceConfig(offrampProgramAddress, destChainSelectorBytes),
+		getChainConfigGasPriceConfig(offrampProgramAddress),
 	)
 	return accounts
 }
@@ -307,7 +305,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 	}
 }
 
-func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string, destChainSelector uint64) (chainwriter.ChainWriterConfig, error) {
+func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string) (chainwriter.ChainWriterConfig, error) {
 	// check fromAddress
 	pk, err := solana.PublicKeyFromBase58(fromAddress)
 	if err != nil {
@@ -333,8 +331,8 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 			ccipconsts.ContractNameOffRamp: {
 				Methods: map[string]chainwriter.MethodConfig{
 					ccipconsts.MethodExecute:         getExecuteMethodConfig(fromAddress, offrampProgramAddress),
-					ccipconsts.MethodCommit:          getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector, false),
-					ccipconsts.MethodCommitPriceOnly: getCommitMethodConfig(fromAddress, offrampProgramAddress, destChainSelector, true),
+					ccipconsts.MethodCommit:          getCommitMethodConfig(fromAddress, offrampProgramAddress, false),
+					ccipconsts.MethodCommitPriceOnly: getCommitMethodConfig(fromAddress, offrampProgramAddress, true),
 				},
 				IDL: ccipOfframpIDL,
 			},
@@ -484,7 +482,7 @@ func getGlobalStateConfig(offrampProgramAddress string) chainwriter.Lookup {
 				{Static: []byte("state")},
 			},
 			IsSigner:   false,
-			IsWritable: false,
+			IsWritable: true,
 		},
 		Optional: true,
 	}
@@ -500,23 +498,23 @@ func getBillingTokenConfig(offrampProgramAddress string) chainwriter.Lookup {
 				{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.TokenPrices.TokenID"}}},
 			},
 			IsSigner:   false,
-			IsWritable: false,
+			IsWritable: true,
 		},
 		Optional: true,
 	}
 }
 
-func getChainConfigGasPriceConfig(offrampProgramAddress string, destChainSelector []byte) chainwriter.Lookup {
+func getChainConfigGasPriceConfig(offrampProgramAddress string) chainwriter.Lookup {
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
 			Name:      "ChainConfigGasPrice",
 			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("dest_chain")},
-				{Static: destChainSelector},
+				{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.GasPriceUpdates.ChainSel"}}},
 			},
 			IsSigner:   false,
-			IsWritable: false,
+			IsWritable: true,
 		},
 		Optional: true,
 	}
