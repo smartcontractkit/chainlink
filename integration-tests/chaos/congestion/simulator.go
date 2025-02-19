@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -71,7 +70,7 @@ func (i *Input) defaults() {
 }
 
 type AnvilClient interface {
-	AnvilSetNextBlockBaseFeePerGas(params []interface{}) error
+	AnvilSetNextBlockBaseFeePerGas(gas *big.Int) error
 }
 
 // Simulator - produces transactions to generate specified congestion and manipulates fees according to configuration.
@@ -317,7 +316,7 @@ func (s *Simulator) runTick(ctx context.Context) {
 }
 
 func (s *Simulator) updateBaseFee(_ context.Context, _ *types.Header) error {
-	err := s.anvilClient.AnvilSetNextBlockBaseFeePerGas([]interface{}{strconv.FormatUint(s.expectedCurrentBaseFee.Load(), 10)})
+	err := s.anvilClient.AnvilSetNextBlockBaseFeePerGas(big.NewInt(0).SetUint64(s.expectedCurrentBaseFee.Load()))
 	if err != nil {
 		return fmt.Errorf("failed to set next block base fee per gas: %w", err)
 	}
