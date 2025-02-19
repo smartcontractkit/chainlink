@@ -138,18 +138,20 @@ func MaybeLoadMCMSWithTimelockChainState(
 			}
 			state.CancellerMcm = mcms
 		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
-			// the same contract can have different roles so we use the labels to determine which role it is
+			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
+			// field.  If a specifically typed contract already occupies the field, then this
+			// contract will be ignored.
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
-			if tv.Labels.Contains(types.ProposerRole.String()) {
+			if tv.Labels.Contains(types.ProposerRole.String()) && state.ProposerMcm == nil {
 				state.ProposerMcm = mcms
 			}
-			if tv.Labels.Contains(types.BypasserRole.String()) {
+			if tv.Labels.Contains(types.BypasserRole.String()) && state.BypasserMcm == nil {
 				state.BypasserMcm = mcms
 			}
-			if tv.Labels.Contains(types.CancellerRole.String()) {
+			if tv.Labels.Contains(types.CancellerRole.String()) && state.CancellerMcm == nil {
 				state.CancellerMcm = mcms
 			}
 		}
