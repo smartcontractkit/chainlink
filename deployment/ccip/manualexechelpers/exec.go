@@ -18,6 +18,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
+// 14 days is the default lookback but it can be overridden.
+const DefaultLookback = 14 * 24 * time.Hour
+
 var (
 	blockTimeSecondsPerChain = map[uint64]uint64{
 		// arb
