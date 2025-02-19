@@ -3,7 +3,6 @@ package example
 import (
 	"errors"
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
@@ -108,20 +107,12 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		var transactions []types.Transaction
 
 		for _, ix := range ixs {
-			data, err := ix.Data()
-			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get instruction data: %w", err)
-			}
 			for _, acc := range ix.Accounts() {
 				if acc.PublicKey == timelockSignerPDA {
 					acc.IsSigner = false
 				}
 			}
-			solanaTx, err := mcmssolanasdk.NewTransaction(
-				solana.SystemProgramID.String(),
-				data,
-				big.NewInt(0),
-				ix.Accounts(), "SystemProgram", []string{})
+			solanaTx, err := mcmssolanasdk.NewTransactionFromInstruction(ix, "SystemProgram", []string{})
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
