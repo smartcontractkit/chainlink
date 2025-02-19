@@ -563,7 +563,7 @@ func getChainConfigGasPriceConfig(offrampProgramAddress string) chainwriter.Look
 			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("dest_chain")},
-				{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.GasPriceUpdates.ChainSel"}}},
+				{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.GasPrices.ChainSel"}}},
 			},
 			IsSigner:   false,
 			IsWritable: true,
