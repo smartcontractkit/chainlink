@@ -463,7 +463,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		chainView.ChainSelector = chainSelector
 		id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain id from selector %d: %v", chainSelector, err)
+			return nil, fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 		}
 		chainView.ChainID = id
 		m[name] = chainView
