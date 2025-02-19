@@ -383,7 +383,7 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
 		}
 		upgradeTx, err := mcmsSolana.NewTransaction(
-			feeQuoterAddress.String(),
+			solana.BPFLoaderUpgradeableProgramID.String(),
 			upgradeData,
 			big.NewInt(0),         // e.g. value
 			upgradeIxn.Accounts(), // pass along needed accounts
@@ -398,7 +398,7 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to extract close data: %w", err)
 		}
 		closeTx, err := mcmsSolana.NewTransaction(
-			bufferProgram.String(),
+			solana.BPFLoaderUpgradeableProgramID.String(),
 			closeData,
 			big.NewInt(0),        // e.g. value
 			closeIxn.Accounts(),  // pass along needed accounts
@@ -458,7 +458,7 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
 		}
 		upgradeTx, err := mcmsSolana.NewTransaction(
-			ccipRouterProgram.String(),
+			solana.BPFLoaderUpgradeableProgramID.String(),
 			upgradeData,
 			big.NewInt(0),         // e.g. value
 			upgradeIxn.Accounts(), // pass along needed accounts
@@ -473,7 +473,7 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to extract close data: %w", err)
 		}
 		closeTx, err := mcmsSolana.NewTransaction(
-			bufferProgram.String(),
+			solana.BPFLoaderUpgradeableProgramID.String(),
 			closeData,
 			big.NewInt(0),       // e.g. value
 			closeIxn.Accounts(), // pass along needed accounts
@@ -538,7 +538,7 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to extract price updater data: %w", err)
 		}
 		priceUpdaterTx, err := mcmsSolana.NewTransaction(
-			offRampAddress.String(),
+			feeQuoterAddress.String(),
 			priceUpdaterData,
 			big.NewInt(0),             // e.g. value
 			priceUpdaterix.Accounts(), // pass along needed accounts
@@ -788,7 +788,7 @@ func generateUpgradeIxn(
 		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
 		solana.NewAccountMeta(solana.SysVarRentPubkey, false, false),  // System program
 		solana.NewAccountMeta(solana.SysVarClockPubkey, false, false), // System program
-		solana.NewAccountMeta(upgradeAuthority, false, false),          // Current upgrade authority (signer)
+		solana.NewAccountMeta(upgradeAuthority, false, false),         // Current upgrade authority (signer)
 	}
 
 	instruction := solana.NewInstruction(
@@ -809,7 +809,7 @@ func generateCloseBufferIxn(
 ) (solana.Instruction, error) {
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(bufferAddress, true, false),
-		solana.NewAccountMeta(recipient, false, false),
+		solana.NewAccountMeta(recipient, true, false),
 		solana.NewAccountMeta(upgradeAuthority, false, false),
 	}
 
