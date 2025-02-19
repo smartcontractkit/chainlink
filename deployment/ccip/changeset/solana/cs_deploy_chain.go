@@ -788,7 +788,7 @@ func generateUpgradeIxn(
 		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
 		solana.NewAccountMeta(solana.SysVarRentPubkey, false, false),  // System program
 		solana.NewAccountMeta(solana.SysVarClockPubkey, false, false), // System program
-		solana.NewAccountMeta(upgradeAuthority, false, true),          // Current upgrade authority (signer)
+		solana.NewAccountMeta(upgradeAuthority, false, false),          // Current upgrade authority (signer)
 	}
 
 	instruction := solana.NewInstruction(
@@ -810,7 +810,7 @@ func generateCloseBufferIxn(
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(bufferAddress, true, false),
 		solana.NewAccountMeta(recipient, false, false),
-		solana.NewAccountMeta(upgradeAuthority, false, true),
+		solana.NewAccountMeta(upgradeAuthority, false, false),
 	}
 
 	instruction := solana.NewInstruction(

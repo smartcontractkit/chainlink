@@ -123,7 +123,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		100, e.SolChains[solChainSelectors[0]].Client)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
-	upgradeAuthority := e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey()
+	upgradeAuthority := timelockSignerPDA
 
 	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally so we have to change where we build
