@@ -614,7 +614,7 @@ func createChainWriter(
 		if len(offrampAddress) == solana.PublicKeyLength {
 			offrampProgramAddress = solana.PublicKeyFromBytes(offrampAddress)
 		}
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0], destChainSelector); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampProgramAddress.String(), transmitter[0]); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {
