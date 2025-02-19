@@ -24,6 +24,7 @@ import (
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
@@ -273,7 +274,7 @@ func manuallyExecute(
 					{},
 				},
 				Proofs:        proof.Hashes,
-				ProofFlagBits: boolsToBitFlags(proof.SourceFlags),
+				ProofFlagBits: ccipevm.BoolsToBitFlags(proof.SourceFlags),
 			},
 		},
 		[][]offramp.OffRampGasLimitOverride{
@@ -352,15 +353,4 @@ func getMessageHash(
 	require.Equal(t, msgID, iter.Event.MessageId)
 
 	return iter.Event.MessageHash
-}
-
-// boolsToBitFlags transforms a list of boolean flags to a *big.Int encoded number.
-func boolsToBitFlags(bools []bool) *big.Int {
-	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(bools); i++ {
-		if bools[i] {
-			encodedFlags.SetBit(encodedFlags, i, 1)
-		}
-	}
-	return encodedFlags
 }
