@@ -1,20 +1,22 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
+
+	mcmslib "github.com/smartcontractkit/mcms"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	mcmslib "github.com/smartcontractkit/mcms"
 )
 
 var _ deployment.ChangeSet[types.AcceptOwnershipConfig] = AcceptOwnershipChangeset
 
 func AcceptOwnershipChangeset(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
 	if c.McmsConfig == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("mcms config is required")
+		return deployment.ChangesetOutput{}, errors.New("mcms config is required")
 	}
 
 	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
