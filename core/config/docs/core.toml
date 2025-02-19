@@ -716,7 +716,7 @@ Protocol = "wsrpc" # Default
 #
 # This is useful if mercury server goes offline and the nop needs to buffer
 # transmissions.
-TransmitQueueMaxSize = 100_000 # Default
+TransmitQueueMaxSize = 250_000 # Default
 # TransmitTimeout controls how long the transmitter will wait for a response
 # when sending a message to the mercury server, before aborting and considering
 # the transmission to be failed.
