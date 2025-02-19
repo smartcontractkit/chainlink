@@ -177,6 +177,29 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 			},
 			wantErr: "unable to check MCMS contracts",
 		},
+		{
+			name:  "NOK_multiple generic MCMS contracts with same label",
+			chain: defaultChain,
+			addresses: map[string]deployment.TypeAndVersion{
+				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+
+				"0x789": deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": func() deployment.TypeAndVersion {
+					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+					tv.Labels.Add(types.ProposerRole.String())
+					return tv
+				}(),
+				"0xbbb": func() deployment.TypeAndVersion {
+					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+					tv.Labels.Add(types.ProposerRole.String())
+					return tv
+				}(),
+			},
+			wantErr: "unable to check MCMS contracts",
+		},
 	}
 
 	for _, tt := range tests {

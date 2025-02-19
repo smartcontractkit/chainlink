@@ -102,10 +102,19 @@ func MaybeLoadMCMSWithTimelockChainState(
 		bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
 		// the same contract can have different roles
-		multichain = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		// Convert map keys to a slice
-		wantTypes = []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
+		multichain    = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		proposerMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		bypasserMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		cancellerMCMS = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 	)
+
+	// Convert map keys to a slice
+	proposerMCMS.Labels.Add(types.ProposerRole.String())
+	bypasserMCMS.Labels.Add(types.BypasserRole.String())
+	cancellerMCMS.Labels.Add(types.CancellerRole.String())
+	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
+		proposerMCMS, bypasserMCMS, cancellerMCMS,
+	}
 
 	// Ensure we either have the bundle or not.
 	_, err := deployment.EnsureDeduped(addresses, wantTypes)
