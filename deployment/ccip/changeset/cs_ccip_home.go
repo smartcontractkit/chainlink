@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -74,15 +75,22 @@ func validateExecOffchainConfig(c *pluginconfig.ExecuteOffchainConfig, selector 
 	if err := state.ValidateRamp(selector, OffRamp); err != nil {
 		return fmt.Errorf("validate offRamp: %w", err)
 	}
-	offRamp := state.Chains[selector].OffRamp
-	// get permissionlessExecutionThresholdSeconds
-	dCfg, err := offRamp.GetDynamicConfig(nil)
+	// TODO how can it be validated for solana?
+	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
-		return fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
+		return err
 	}
-	if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != dCfg.PermissionLessExecutionThresholdSeconds {
-		return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
-			c.MessageVisibilityInterval.Duration(), dCfg.PermissionLessExecutionThresholdSeconds, selector)
+	if family == chain_selectors.FamilyEVM {
+		offRamp := state.Chains[selector].OffRamp
+		// get permissionlessExecutionThresholdSeconds
+		dCfg, err := offRamp.GetDynamicConfig(nil)
+		if err != nil {
+			return fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
+		}
+		if uint32(c.MessageVisibilityInterval.Duration().Seconds()) != dCfg.PermissionLessExecutionThresholdSeconds {
+			return fmt.Errorf("MessageVisibilityInterval=%s does not match the permissionlessExecutionThresholdSeconds in dynamic config =%d for chain %d",
+				c.MessageVisibilityInterval.Duration(), dCfg.PermissionLessExecutionThresholdSeconds, selector)
+		}
 	}
 	for _, observerConfig := range c.TokenDataObservers {
 		switch observerConfig.Type {
