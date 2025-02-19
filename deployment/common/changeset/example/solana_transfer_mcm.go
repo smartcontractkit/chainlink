@@ -45,11 +45,11 @@ func (f TransferFromTimelock) VerifyPreconditions(e deployment.Environment, conf
 		if amountCfg.To.IsZero() {
 			return errors.New("destination address is empty")
 		}
-		addreses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
 		if err != nil {
 			return fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addreses)
+		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addresses)
 		if err != nil {
 			return fmt.Errorf("failed to load MCMS state: %w", err)
 		}
@@ -117,7 +117,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 					acc.IsSigner = false
 				}
 			}
-			solanTx, err := mcmssolanasdk.NewTransaction(
+			solanaTx, err := mcmssolanasdk.NewTransaction(
 				solana.SystemProgramID.String(),
 				data,
 				big.NewInt(0),
@@ -125,7 +125,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 			}
-			transactions = append(transactions, solanTx)
+			transactions = append(transactions, solanaTx)
 		}
 		batches = append(batches, types.BatchOperation{
 			ChainSelector: types.ChainSelector(chainSelector),

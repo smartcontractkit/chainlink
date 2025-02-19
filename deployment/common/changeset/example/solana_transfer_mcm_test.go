@@ -27,7 +27,6 @@ import (
 func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:     1,
 		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -59,6 +58,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
 	validSolChainSelector := validEnv.AllChainSelectorsSolana()[0]
 	receiverKey := solana.NewWallet().PublicKey()
+	cs := example.TransferFromTimelock{}
 	timelockID := mcmsSolana.ContractAddress(
 		solana.NewWallet().PublicKey(),
 		[32]byte{'t', 'e', 's', 't'},
@@ -72,9 +72,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 	// Create an environment that simulates a chain where the MCMS contracts have not been deployed,
 	// e.g. missing the required addresses so that the state loader returns empty seeds.
 	noTimelockEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
 		SolChains: 1,
-		Nodes:     1,
 	})
 	noTimelockEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
 	err = noTimelockEnv.ExistingAddresses.Save(chainselectors.SOLANA_DEVNET.Selector, "dummy", deployment.TypeAndVersion{
@@ -85,9 +83,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 
 	// Create an environment with a Solana chain that has an invalid (zero) underlying chain.
 	invalidSolChainEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
-		Chains:    0,
 		SolChains: 0,
-		Nodes:     1,
 	})
 	invalidSolChainEnv.SolChains[validSolChainSelector] = deployment.SolChain{}
 
@@ -194,10 +190,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 		},
 	}
 
-	cs := example.TransferFromTimelock{}
-
 	for _, tt := range tests {
-		tt := tt // capture range variable
 		t.Run(tt.name, func(t *testing.T) {
 			err := cs.VerifyPreconditions(tt.env, tt.config)
 			if tt.expectedError == "" {
