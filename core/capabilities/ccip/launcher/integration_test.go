@@ -7,14 +7,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	it "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccip_integration_tests/integrationhelpers"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"

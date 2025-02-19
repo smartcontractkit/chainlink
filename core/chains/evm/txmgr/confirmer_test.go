@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
@@ -32,14 +31,16 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
 	ksmocks "github.com/smartcontractkit/chainlink-integrations/evm/keystore/mocks"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
@@ -117,7 +118,7 @@ func TestEthConfirmer_Lifecycle(t *testing.T) {
 	feeEstimator := gas.NewEvmFeeEstimator(lggr, newEst, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), confirmerConfig{}, ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
 	ctx := tests.Context(t)
 
@@ -726,7 +727,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-		ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+		ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 		// Create confirmer with necessary state
 		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), confirmerConfig{}, kst, txBuilder, lggr, stuckTxDetector, ht)
 		servicetest.Run(t, ec)
@@ -775,7 +776,7 @@ func TestEthConfirmer_RebroadcastWhereNecessary_WithConnectivityCheck(t *testing
 		addresses := []gethCommon.Address{fromAddress}
 		kst.On("EnabledAddressesForChain", mock.Anything, &cltest.FixtureChainID).Return(addresses, nil).Maybe()
 		stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), ccfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-		ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+		ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 		ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmFeeConfig(ccfg.EVM().GasEstimator()), ccfg.EVM().Transactions(), confirmerConfig{}, kst, txBuilder, lggr, stuckTxDetector, ht)
 		servicetest.Run(t, ec)
 		currentHead := int64(30)
@@ -1705,7 +1706,7 @@ func TestEthConfirmer_ProcessStuckTransactions(t *testing.T) {
 	ge := evmcfg.EVM().GasEstimator()
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ethKeyStore, feeEstimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), evmcfg.EVM().Transactions().AutoPurge(), feeEstimator, txStore, ethClient)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmFeeConfig(ge), evmcfg.EVM().Transactions(), confirmerConfig{}, ethKeyStore, txBuilder, lggr, stuckTxDetector, ht)
 	fn := func(ctx context.Context, id uuid.UUID, result interface{}, err error) error {
 		require.ErrorContains(t, err, client.TerminallyStuckMsg)
@@ -1782,7 +1783,7 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	}, ge.EIP1559DynamicFees(), ge, ethClient)
 	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), ge, ks, estimator)
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, testutils.FixtureChainID, "", assets.NewWei(assets.NewEth(100).ToInt()), config.EVM().Transactions().AutoPurge(), estimator, txStore, ethClient)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 	ec := txmgr.NewEvmConfirmer(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmFeeConfig(ge), config.EVM().Transactions(), confirmerConfig{}, ks, txBuilder, lggr, stuckTxDetector, ht)
 	ec.SetResumeCallback(fn)
 	servicetest.Run(t, ec)

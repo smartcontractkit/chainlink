@@ -8,22 +8,24 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/burn_with_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/log_message_data_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/log_message_data_receiver"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc677"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -43,19 +45,21 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_remote"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -94,16 +98,17 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken             deployment.ContractType = "BurnMintToken"
-	ERC20Token                deployment.ContractType = "ERC20Token"
-	ERC677Token               deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                 deployment.ContractType = "USDCToken"
-	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
+	BurnMintToken                  deployment.ContractType = "BurnMintToken"
+	ERC20Token                     deployment.ContractType = "ERC20Token"
+	ERC677Token                    deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                      deployment.ContractType = "USDCToken"
+	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -131,6 +136,7 @@ type CCIPChainState struct {
 	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	USDCTokenPools             map[semver.Version]*usdc_token_pool.USDCTokenPool
 	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
@@ -145,7 +151,6 @@ type CCIPChainState struct {
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
 	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
-	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
@@ -167,6 +172,13 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 		return c.StaticLinkToken.Address(), nil
 	}
 	return common.Address{}, errors.New("no link token found in the state")
+}
+
+func (c CCIPChainState) OnRampBytes() ([]byte, error) {
+	if c.OnRamp != nil {
+		return c.OnRamp.Address().Bytes(), nil
+	}
+	return nil, errors.New("no onramp found in the state")
 }
 
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
@@ -374,8 +386,9 @@ type CCIPOnChainState struct {
 	// Populated go bindings for the appropriate version for all contracts.
 	// We would hold 2 versions of each contract here. Once we upgrade we can phase out the old one.
 	// When generating bindings, make sure the package name corresponds to the version.
-	Chains    map[uint64]CCIPChainState
-	SolChains map[uint64]SolCCIPChainState
+	Chains      map[uint64]CCIPChainState
+	SolChains   map[uint64]SolCCIPChainState
+	AptosChains map[uint64]AptosCCIPChainState
 }
 
 func (s CCIPOnChainState) Validate() error {
@@ -536,13 +549,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.CapabilityRegistry = cr
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
 			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.OnRamp = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
 			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -554,13 +567,13 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.RMNProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
 			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
 			state.RMNRemote = rmnRemote
-		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
 			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -572,7 +585,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.Weth9 = weth9
-		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
 			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -602,7 +615,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.TestRouter = r
-		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
 			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -616,12 +629,24 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
 				USDCSymbol: ut,
 			}
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
 			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.USDCTokenPool = utp
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
+		case deployment.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
 		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
 			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -634,7 +659,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 				return state, err
 			}
 			state.MockUSDCTokenMessenger = utm
-		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0_dev).String():
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
 			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
@@ -807,7 +832,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
+func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
@@ -818,19 +843,37 @@ func (s CCIPOnChainState) ValidateOffRamp(chainSelector uint64) error {
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		if chainState.OffRamp == nil {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("OffRamp contract does not exist on chain %d", chainSelector)
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp == nil {
+				return fmt.Errorf("offramp contract does not exist on evm chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.OnRamp == nil {
+				return fmt.Errorf("onramp contract does not exist on evm chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
 		}
+
 	case chain_selectors.FamilySolana:
 		chainState, exists := s.SolChains[chainSelector]
 		if !exists {
 			return fmt.Errorf("chain %d does not exist", chainSelector)
 		}
-		if chainState.Router.IsZero() {
-			// should not be possible, but a defensive check.
-			return fmt.Errorf("CCIP router contract does not exist on chain %d", chainSelector)
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp.IsZero() {
+				return fmt.Errorf("offramp contract does not exist on solana chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.Router.IsZero() {
+				return fmt.Errorf("router contract does not exist on solana chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
 		}
+
 	default:
 		return fmt.Errorf("unknown chain family %s", family)
 	}

@@ -239,3 +239,6 @@ Gas_FulfillRequest_Success:test_FulfillRequest_Success_MinimumGas() (gas: 199381
 Gas_FundSubscription:test_FundSubscription_Gas() (gas: 35545)
 Gas_SendRequest:test_SendRequest_MaximumGas() (gas: 981365)
 Gas_SendRequest:test_SendRequest_MinimumGas() (gas: 178588)
+ZKSyncFunctionsRouter__Callback:test__callback_PubdataUsage_IsZero() (gas: 45769)
+ZKSyncFunctionsRouter__Callback:test__callback_ReturnDataTruncation() (gas: 584931)
+ZKSyncFunctionsRouter__Callback:test__callback_Success() (gas: 40113)

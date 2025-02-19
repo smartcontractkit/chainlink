@@ -68,7 +68,6 @@ func AddBillingToken(e deployment.Environment, cfg BillingTokenConfig) (deployme
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	// verified
 	tokenprogramID, _ := GetTokenProgramID(cfg.TokenProgramName)
-	// TODO: add this to offramp address lookup table
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
 
 	// addressing errcheck in the next PR

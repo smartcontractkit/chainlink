@@ -145,9 +145,9 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 # Deployment tooling
 /deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/deployment-automation
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling
+/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

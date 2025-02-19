@@ -64,6 +64,20 @@ func (cs ContractSet) View() (view.KeystoneChainView, error) {
 		}
 		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
 	}
+
+	// Process the workflow registry and print if WorkflowRegistryError errors.
+	if cs.WorkflowRegistry != nil {
+		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+		for _, err := range wrErrs {
+			var wre *common_v1_0.WorkflowRegistryError
+			if !errors.As(err, &wre) {
+				return view.KeystoneChainView{}, err
+			}
+			fmt.Println("WorkflowRegistry error:", err)
+		}
+		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+	}
+
 	return out, nil
 }
 

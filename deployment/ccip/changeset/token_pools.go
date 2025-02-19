@@ -9,10 +9,11 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
@@ -20,10 +21,12 @@ import (
 var currentTokenPoolVersion semver.Version = deployment.Version1_5_1
 
 var tokenPoolTypes map[deployment.ContractType]struct{} = map[deployment.ContractType]struct{}{
-	BurnMintTokenPool:         struct{}{},
-	BurnWithFromMintTokenPool: struct{}{},
-	BurnFromMintTokenPool:     struct{}{},
-	LockReleaseTokenPool:      struct{}{},
+	BurnMintTokenPool:              struct{}{},
+	BurnWithFromMintTokenPool:      struct{}{},
+	BurnFromMintTokenPool:          struct{}{},
+	LockReleaseTokenPool:           struct{}{},
+	USDCTokenPool:                  struct{}{},
+	HybridLockReleaseUSDCTokenPool: struct{}{},
 }
 
 var tokenPoolVersions map[semver.Version]struct{} = map[semver.Version]struct{}{
@@ -180,6 +183,14 @@ func getTokenPoolAddressFromSymbolTypeAndVersion(
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
 			}
+		}
+	case USDCTokenPool:
+		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
+			return tokenPool.Address(), true
+		}
+	case HybridLockReleaseUSDCTokenPool:
+		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
+			return tokenPool.Address(), true
 		}
 	}
 

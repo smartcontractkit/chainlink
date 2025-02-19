@@ -9,7 +9,7 @@
     "func-named-parameters": "off",
     "immutable-vars-naming": "off",
     "no-inline-assembly": "off",
-    "contract-name-camelcase": "off",
+    "contract-name-capwords": "off",
     "one-contract-per-file": "off",
     "avoid-low-level-calls": "off",
     "reentrancy": "off",

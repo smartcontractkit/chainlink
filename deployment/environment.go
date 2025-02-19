@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -101,6 +102,7 @@ type Environment struct {
 	ExistingAddresses AddressBook
 	Chains            map[uint64]Chain
 	SolChains         map[uint64]SolChain
+	AptosChains       map[uint64]AptosChain
 	NodeIDs           []string
 	Offchain          OffchainClient
 	GetContext        func() context.Context
@@ -245,6 +247,15 @@ type OCRConfig struct {
 	KeyBundleID               string
 }
 
+func (ocrCfg OCRConfig) JDOCR2KeyBundle() *nodev1.OCR2Config_OCRKeyBundle {
+	return &nodev1.OCR2Config_OCRKeyBundle{
+		OffchainPublicKey:     hex.EncodeToString(ocrCfg.OffchainPublicKey[:]),
+		OnchainSigningAddress: hex.EncodeToString(ocrCfg.OnchainPublicKey),
+		ConfigPublicKey:       hex.EncodeToString(ocrCfg.ConfigEncryptionPublicKey[:]),
+		BundleId:              ocrCfg.KeyBundleID,
+	}
+}
+
 // Nodes includes is a group CL nodes.
 type Nodes []Node
 
@@ -275,13 +286,24 @@ func (n Nodes) DefaultF() uint8 {
 	return uint8(len(n) / 3)
 }
 
+func (n Nodes) IDs() []string {
+	var ids []string
+	for _, node := range n {
+		ids = append(ids, node.NodeID)
+	}
+	return ids
+}
+
 func (n Nodes) BootstrapLocators() []string {
 	bootstrapMp := make(map[string]struct{})
 	for _, node := range n {
 		if node.IsBootstrap {
-			bootstrapMp[fmt.Sprintf("%s@%s",
-				// p2p_12D3... -> 12D3...
-				node.PeerID.String()[4:], node.MultiAddr)] = struct{}{}
+			key := node.MultiAddr
+			// compatibility with legacy code. unclear what code path is setting half baked node.MultiAddr
+			if !isValidMultiAddr(key) {
+				key = fmt.Sprintf("%s@%s", strings.TrimPrefix(node.PeerID.String(), "p2p_"), node.MultiAddr)
+			}
+			bootstrapMp[key] = struct{}{}
 		}
 	}
 	var locators []string
@@ -289,6 +311,21 @@ func (n Nodes) BootstrapLocators() []string {
 		locators = append(locators, b)
 	}
 	return locators
+}
+
+func isValidMultiAddr(s string) bool {
+	// Define the regular expression pattern
+	pattern := `^(.+)@(.+):(\d+)$`
+
+	// Compile the regular expression
+	re := regexp.MustCompile(pattern)
+	matches := re.FindStringSubmatch(s)
+	if len(matches) != 4 { // 4 because the entire match + 3 submatches
+		return false
+	}
+
+	_, err := p2pkey.MakePeerID("p2p_" + matches[1])
+	return err == nil
 }
 
 type Node struct {
@@ -343,12 +380,7 @@ func (n Node) ChainConfigs() ([]*nodev1.ChainConfig, error) {
 			Chain: c,
 			// only have ocr2 in Node
 			Ocr2Config: &nodev1.OCR2Config{
-				OcrKeyBundle: &nodev1.OCR2Config_OCRKeyBundle{
-					OffchainPublicKey:     hex.EncodeToString(ocrCfg.OffchainPublicKey[:]),
-					OnchainSigningAddress: hex.EncodeToString(ocrCfg.OnchainPublicKey),
-					ConfigPublicKey:       hex.EncodeToString(ocrCfg.ConfigEncryptionPublicKey[:]),
-					BundleId:              ocrCfg.KeyBundleID,
-				},
+				OcrKeyBundle: ocrCfg.JDOCR2KeyBundle(),
 				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
 					PeerId: n.PeerID.String(),
 					// note: we don't have the public key in the OCRConfig struct
@@ -377,8 +409,16 @@ type NodeChainConfigsLister interface {
 	ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNodeChainConfigsRequest, opts ...grpc.CallOption) (*nodev1.ListNodeChainConfigsResponse, error)
 }
 
+var ErrMissingNodeMetadata = errors.New("missing node metadata")
+
 // Gathers all the node info through JD required to be able to set
 // OCR config for example. nodeIDs can be JD IDs or PeerIDs
+//
+// It is optimistic execution and will attempt to return an element for all
+// nodes in the input list that exists in JD
+//
+// If some subset of nodes cannot have all their metadata returned, the error with be
+// [ErrMissingNodeMetadata] and the caller can choose to handle or continue.
 func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	if len(nodeIDs) == 0 {
 		return nil, nil
@@ -412,6 +452,8 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 	}
 
 	var nodes []Node
+	onlyMissingEVMChain := true
+	var xerr error
 	for _, node := range nodesFromJD.GetNodes() {
 		// TODO: Filter should accept multiple nodes
 		nodeChainConfigs, err := oc.ListNodeChainConfigs(context.Background(), &nodev1.ListNodeChainConfigsRequest{Filter: &nodev1.ListNodeChainConfigsRequest_Filter{
@@ -422,20 +464,35 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to create deployment node from JD metadata: %w", err)
+			xerr = errors.Join(xerr, err)
+			if !errors.Is(err, ErrMissingEVMChain) {
+				onlyMissingEVMChain = false
+			}
 		}
-
 		nodes = append(nodes, *n)
 	}
-
-	return nodes, nil
+	if xerr != nil && onlyMissingEVMChain {
+		xerr = errors.Join(ErrMissingNodeMetadata, xerr)
+	}
+	return nodes, xerr
 }
 
+var ErrMissingEVMChain = errors.New("no EVM chain found")
+
+// NewNodeFromJD creates a Node from a JD Node. Populating all the fields requires an enabled
+// EVM chain and OCR2 config. If this does not exist, the Node will be returned with
+// the minimal fields populated and return a [ErrMissingEVMChain] error.
 func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*Node, error) {
 	// the protobuf does not map well to the domain model
 	// we have to infer the p2p key, bootstrap and multiaddr from some chain config
 	// arbitrarily pick the first EVM chain config
 	// we use EVM because the home or registry chain is always EVM
+	emptyNode := &Node{
+		NodeID:         jdNode.Id,
+		Name:           jdNode.Name,
+		CSAKey:         jdNode.PublicKey,
+		SelToOCRConfig: make(map[chain_selectors.ChainDetails]OCRConfig),
+	}
 	var goldenConfig *nodev1.ChainConfig
 	for _, chainConfig := range chainConfigs {
 		if chainConfig.Chain.Type == nodev1.ChainType_CHAIN_TYPE_EVM {
@@ -444,15 +501,15 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		}
 	}
 	if goldenConfig == nil {
-		return nil, errors.New("no EVM chain config found")
+		return emptyNode, fmt.Errorf("node '%s', id '%s', csa '%s': %w", jdNode.Name, jdNode.Id, jdNode.PublicKey, ErrMissingEVMChain)
 	}
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	bootstrap := goldenConfig.Ocr2Config.IsBootstrap
 	if !bootstrap { // no ocr config on bootstrap
 		var err error
-		selToOCRConfig, err = chainConfigsToOCRConfig(chainConfigs)
+		selToOCRConfig, err = ChainConfigsToOCRConfig(chainConfigs)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get chain to ocr config: %w", err)
+			return emptyNode, fmt.Errorf("failed to get chain to ocr config: %w", err)
 		}
 	}
 	return &Node{
@@ -468,7 +525,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 	}, nil
 }
 
-func chainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
+func ChainConfigsToOCRConfig(chainConfigs []*nodev1.ChainConfig) (map[chain_selectors.ChainDetails]OCRConfig, error) {
 	selToOCRConfig := make(map[chain_selectors.ChainDetails]OCRConfig)
 	for _, chainConfig := range chainConfigs {
 		b := common.Hex2Bytes(chainConfig.Ocr2Config.OcrKeyBundle.OffchainPublicKey)

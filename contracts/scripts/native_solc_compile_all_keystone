@@ -33,3 +33,4 @@ compileContract keystone/CapabilitiesRegistry.sol
 compileContract keystone/KeystoneForwarder.sol
 compileContract keystone/OCR3Capability.sol
 compileContract keystone/KeystoneFeedsConsumer.sol
+compileContract keystone/BalanceReader.sol

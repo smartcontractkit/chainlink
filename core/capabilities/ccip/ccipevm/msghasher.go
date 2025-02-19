@@ -2,11 +2,15 @@ package ccipevm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/big"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -14,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 )
 
 var (
@@ -38,14 +42,16 @@ var (
 
 // MessageHasherV1 implements the MessageHasher interface.
 // Compatible with:
-// - "OnRamp 1.6.0-dev"
+// - "OnRamp 1.6.0"
 type MessageHasherV1 struct {
-	lggr logger.Logger
+	lggr           logger.Logger
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec ccipcommon.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
-		lggr: lggr,
+		lggr:           lggr,
+		extraDataCodec: extraDataCodec,
 	}
 }
 
@@ -154,9 +160,15 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	// TODO: we assume that extra args is always abi-encoded for now, but we need
 	// to decode according to source chain selector family. We should add a family
 	// lookup API to the chain-selectors library.
-	gasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+
+	decodedExtraArgsMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("decode extra args: %w", err)
+		return [32]byte{}, err
+	}
+
+	gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("decode extra args to get gas limit: %w", err)
 	}
 
 	lggr.Debugw("decoded msg gas limit", "gasLimit", gasLimit)
@@ -240,6 +252,45 @@ func abiDecodeAddress(data []byte) (common.Address, error) {
 
 	val := *abi.ConvertType(raw[0], new(common.Address)).(*common.Address)
 	return val, nil
+}
+
+func parseExtraDataMap(input map[string]any) (*big.Int, error) {
+	var outputGas *big.Int
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "gaslimit":
+			// Expect [][32]byte
+			if val, ok := fieldValue.(*big.Int); ok {
+				outputGas = val
+				return outputGas, nil
+			} else {
+				return nil, fmt.Errorf("unexpected type for gas limit: %T", fieldValue)
+			}
+		default:
+			// no error here, as we only need the keys to gasLimit, other keys can be skipped without like AllowOutOfOrderExecution	etc.
+		}
+	}
+	return outputGas, errors.New("gas limit not found in extra data map")
+}
+
+func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
+	// Iterate through the expected fields in the struct
+	for fieldName, fieldValue := range input {
+		lowercase := strings.ToLower(fieldName)
+		switch lowercase {
+		case "destgasamount":
+			// Expect uint32
+			if val, ok := fieldValue.(uint32); ok {
+				return val, nil
+			} else {
+				return 0, errors.New("invalid type for destgasamount, expected uint32")
+			}
+		default:
+		}
+	}
+
+	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
 }
 
 // Interface compliance check

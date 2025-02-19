@@ -19,7 +19,7 @@ jobs:
       is-pre-release: ${{ steps.release-tag-check.outputs.is-pre-release }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Check git tag type
@@ -43,16 +43,6 @@ jobs:
       - name: Check release tag
         id: release-tag-check
         uses: smartcontractkit/.github/actions/release-tag-check@c5c4a8186da4218cff6cac8184e47dd3dec69ba3 # release-tag-check@0.1.0
-      - name: Fail if CCIP release has wrong version
-        if: ${{ steps.check-git-tag-type.outputs.git-tag-type == 'ccip' }}
-        run: |
-          version=$(jq -r '.version' ./package.json)
-          echo "Package version: $version"
-          echo "Git tag type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}"
-          if [[ $version != *"-ccip"* ]]; then
-            echo "Error: Version '$version' does not match required CCIP format."
-            exit 1
-          fi
       - name: Check for VERSION file bump on tags
         # Avoids checking VERSION file bump on forks or from CCIP releases.
         if: ${{ github.repository == 'smartcontractkit/chainlink' && steps.check-git-tag-type.outputs.git-tag-type == 'core' }}
@@ -78,7 +68,7 @@ jobs:
       docker-image-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -113,7 +103,7 @@ jobs:
     environment: build-publish
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Notify Slack
@@ -159,7 +149,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 

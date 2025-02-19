@@ -19,8 +19,8 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2plus"
@@ -252,7 +252,7 @@ func (lsn *listenerV2) GetStartingResponseCountsV2(ctx context.Context) (respCou
 	return respCounts, nil
 }
 
-func (lsn *listenerV2) setLatestHead(head logpoller.LogPollerBlock) {
+func (lsn *listenerV2) setLatestHead(head logpoller.Block) {
 	lsn.latestHeadMu.Lock()
 	defer lsn.latestHeadMu.Unlock()
 	num := uint64(head.BlockNumber)

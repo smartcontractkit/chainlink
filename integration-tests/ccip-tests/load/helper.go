@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testconfig"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 )
 
 type ChaosConfig struct {

@@ -9,8 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
@@ -22,8 +22,8 @@ func ConfigureUSDCTokenPools(
 ) (*burn_mint_erc677.BurnMintERC677, *burn_mint_erc677.BurnMintERC677, error) {
 	srcToken := state.Chains[src].BurnMintTokens677[changeset.USDCSymbol]
 	dstToken := state.Chains[dst].BurnMintTokens677[changeset.USDCSymbol]
-	srcPool := state.Chains[src].USDCTokenPool
-	dstPool := state.Chains[dst].USDCTokenPool
+	srcPool := state.Chains[src].USDCTokenPools[deployment.Version1_5_1]
+	dstPool := state.Chains[dst].USDCTokenPools[deployment.Version1_5_1]
 
 	args := []struct {
 		sourceChain deployment.Chain

@@ -27,10 +27,11 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -46,7 +47,7 @@ func TestFinalizer_MarkTxFinalized(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	h99 := &types.Head{
 		Hash:   utils.NewHash(),
@@ -260,7 +261,7 @@ func TestFinalizer_ResumePendingRuns(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := uint32(1)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	grandParentHead := &types.Head{
 		Number: 8,
@@ -463,7 +464,7 @@ func TestFinalizer_FetchAndStoreReceipts(t *testing.T) {
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
 	rpcBatchSize := config.EVM().RPCDefaultBatchSize()
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -901,7 +902,7 @@ func TestFinalizer_FetchAndStoreReceipts_batching(t *testing.T) {
 	ctx := tests.Context(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -1013,7 +1014,7 @@ func TestFinalizer_FetchAndStoreReceipts_HandlesNonFwdTxsWithForwardingEnabled(t
 	ctx := tests.Context(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),
@@ -1070,7 +1071,7 @@ func TestFinalizer_ProcessOldTxsWithoutReceipts(t *testing.T) {
 	ctx := tests.Context(t)
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	txmClient := txmgr.NewEvmTxmClient(ethClient, nil)
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, true, 0)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, true, 0)
 
 	latestFinalizedHead := &types.Head{
 		Hash:   utils.NewHash(),

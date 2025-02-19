@@ -54,4 +54,6 @@ contract SiloedLockReleaseTokenPool_lockOrBurn is SiloedLockReleaseTokenPoolSetu
 
     assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(DEST_CHAIN_SELECTOR), AMOUNT);
   }
+
+  // Reverts
 }

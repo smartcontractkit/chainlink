@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
@@ -30,8 +30,8 @@ type mockLogPoller struct {
 	limitAndSort query.LimitAndSort
 }
 
-func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
-	return logpoller.LogPollerBlock{BlockNumber: m.latestBlock}, nil
+func (m *mockLogPoller) LatestBlock(ctx context.Context) (logpoller.Block, error) {
+	return logpoller.Block{BlockNumber: m.latestBlock}, nil
 }
 func (m *mockLogPoller) RegisterFilter(ctx context.Context, filter logpoller.Filter) error {
 	return nil

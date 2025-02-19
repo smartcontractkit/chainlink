@@ -9,6 +9,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
@@ -102,8 +103,9 @@ func initializeRouter(
 	externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 
 	instruction, err := solRouter.NewInitializeInstruction(
-		chain.Selector,     // chain selector
-		solana.PublicKey{}, // fee aggregator (TODO: changeset to set the fee aggregator)
+		chain.Selector, // chain selector
+		// this is where the fee aggregator address would go (but have written a separate changeset to set that)
+		solana.PublicKey{},
 		feeQuoterAddress,
 		linkTokenAddress, // link token mint
 		routerConfigPDA,
@@ -136,14 +138,12 @@ func initializeFeeQuoter(
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
 	}
-	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 
 	instruction, err := solFeeQuoter.NewInitializeInstruction(
 		linkTokenAddress,
 		deployment.SolDefaultMaxFeeJuelsPerMsg,
 		ccipRouterProgram,
-		offRampBillingSignerPDA,
 		feeQuoterConfigPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -151,10 +151,21 @@ func initializeFeeQuoter(
 		programData.Address,
 	).ValidateAndBuild()
 
+	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
+	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
+
+	priceUpdaterix, err := solFeeQuoter.NewAddPriceUpdaterInstruction(
+		offRampBillingSignerPDA,
+		fqAllowedPriceUpdaterOfframpPDA,
+		feeQuoterConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+	if err := chain.Confirm([]solana.Instruction{instruction, priceUpdaterix}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized fee quoter", "chain", chain.String())
@@ -179,10 +190,7 @@ func intializeOffRamp(
 	offRampExternalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(offRampAddress)
 	offRampTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(offRampAddress)
 
-	instruction, err := solOffRamp.NewInitializeInstruction(
-		chain.Selector,
-		deployment.EnableExecutionAfter,
-		offRampConfigPDA,
+	initIx, err := solOffRamp.NewInitializeInstruction(
 		offRampReferenceAddressesPDA,
 		ccipRouterProgram,
 		feeQuoterAddress,
@@ -199,7 +207,21 @@ func intializeOffRamp(
 	if err != nil {
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+
+	initConfigIx, err := solOffRamp.NewInitializeConfigInstruction(
+		chain.Selector,
+		deployment.EnableExecutionAfter,
+		offRampConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		offRampAddress,
+		programData.Address,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{initIx, initConfigIx}); err != nil {
 		return fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
@@ -360,7 +382,7 @@ func deployChainContractsSolana(
 	if chainState.TokenPool.IsZero() {
 		// TODO: there should be two token pools deployed one of each type (lock/burn)
 		// separate token pools are not ready yet
-		programID, err := chain.DeployProgram(e.Logger, "token_pool")
+		programID, err := chain.DeployProgram(e.Logger, "test_token_pool")
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -407,4 +429,74 @@ func deployChainContractsSolana(
 	}
 
 	return nil
+}
+
+type SetFeeAggregatorConfig struct {
+	ChainSelector uint64
+	FeeAggregator string
+}
+
+func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
+	state, err := cs.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+
+	if err := validateRouterConfig(chain, chainState); err != nil {
+		return err
+	}
+
+	// Validate fee aggregator address is valid
+	if _, err := solana.PublicKeyFromBase58(cfg.FeeAggregator); err != nil {
+		return fmt.Errorf("invalid fee aggregator address: %w", err)
+	}
+
+	if chainState.FeeAggregator.Equals(solana.MustPublicKeyFromBase58(cfg.FeeAggregator)) {
+		return fmt.Errorf("fee aggregator %s is already set on chain %d", cfg.FeeAggregator, cfg.ChainSelector)
+	}
+
+	return nil
+}
+
+func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, _ := cs.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+
+	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+
+	solRouter.SetProgramID(chainState.Router)
+	instruction, err := solRouter.NewUpdateFeeAggregatorInstruction(
+		feeAggregatorPubKey,
+		routerConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	newAddresses := deployment.NewMemoryAddressBook()
+	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(changeset.FeeAggregator, deployment.Version1_0_0))
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
+	}
+
+	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
+	return deployment.ChangesetOutput{
+		AddressBook: newAddresses,
+	}, nil
 }

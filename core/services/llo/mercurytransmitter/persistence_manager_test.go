@@ -97,7 +97,7 @@ func TestPersistenceManagerAsyncDelete(t *testing.T) {
 
 	// Wait for next poll.
 	observedLogs.TakeAll()
-	testutils.WaitForLogMessage(t, observedLogs, "Deleted queued transmit requests")
+	testutils.WaitForLogMessage(t, observedLogs, "Flushed delete queue")
 
 	result, err := pm.Load(ctx)
 	require.NoError(t, err)

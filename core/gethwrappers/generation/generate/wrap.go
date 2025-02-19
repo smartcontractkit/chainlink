@@ -12,5 +12,10 @@ func main() {
 	className := os.Args[3]
 	pkgName := os.Args[4]
 
-	genwrapper.GenWrapper(abiPath, binPath, className, pkgName)
+	var outDirSuffix string
+	if len(os.Args) >= 6 {
+		outDirSuffix = os.Args[5]
+	}
+
+	genwrapper.GenWrapper(abiPath, binPath, className, pkgName, outDirSuffix)
 }

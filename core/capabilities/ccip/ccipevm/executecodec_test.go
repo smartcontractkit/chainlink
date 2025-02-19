@@ -2,6 +2,7 @@ package ccipevm
 
 import (
 	"encoding/base64"
+	"math/big"
 	"math/rand"
 	"testing"
 
@@ -10,21 +11,26 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/message_hasher"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/report_codec"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/report_codec"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
-var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.ExecutePluginReport {
+var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uint64, gasLimit *big.Int, destGasAmount uint32) cciptypes.ExecutePluginReport {
 	const numChainReports = 10
 	const msgsPerReport = 10
 	const numTokensPerMsg = 3
@@ -38,7 +44,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 
 			tokenAmounts := make([]cciptypes.RampTokenAmount, numTokensPerMsg)
 			for z := 0; z < numTokensPerMsg; z++ {
-				encodedDestExecData, err2 := abiEncodeUint32(rand.Uint32())
+				encodedDestExecData, err2 := abiEncodeUint32(destGasAmount)
 				require.NoError(t, err2)
 
 				tokenAmounts[z] = cciptypes.RampTokenAmount{
@@ -51,7 +57,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 			}
 
 			extraArgs, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{
-				GasLimit: utils.RandUint256(),
+				GasLimit: gasLimit,
 			})
 			assert.NoError(t, err)
 
@@ -81,7 +87,7 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 		}
 
 		chainReports[i] = cciptypes.ExecutePluginReportSingleChain{
-			SourceChainSelector: cciptypes.ChainSelector(rand.Uint64()),
+			SourceChainSelector: cciptypes.ChainSelector(chainSelector),
 			Messages:            reportMessages,
 			OffchainTokenData:   tokenData,
 			Proofs:              []cciptypes.Bytes32{utils.RandomBytes32(), utils.RandomBytes32()},
@@ -94,16 +100,41 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData) cciptypes.Execute
 
 func TestExecutePluginCodecV1(t *testing.T) {
 	d := testSetup(t)
+	ctx := testutils.Context(t)
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	destGasAmount := rand.Uint32()
+	gasLimit := utils.RandUint256()
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destgasamount": destGasAmount,
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"gasLimit":                utils.RandUint256(),
+		"accountIsWritableBitmap": gasLimit,
+	}, nil)
 
 	testCases := []struct {
-		name   string
-		report func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport
-		expErr bool
+		name          string
+		report        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport
+		expErr        bool
+		chainSelector uint64
+		destGasAmount uint32
+		gasLimit      *big.Int
 	}{
 		{
-			name:   "base report",
-			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
-			expErr: false,
+			name:          "base report",
+			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			expErr:        false,
+			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			gasLimit:      gasLimit,
+			destGasAmount: destGasAmount,
+		},
+		{
+			name:          "base report",
+			report:        func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport { return report },
+			expErr:        false,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+			gasLimit:      gasLimit,
+			destGasAmount: destGasAmount,
 		},
 		{
 			name: "reports have empty msgs",
@@ -112,7 +143,10 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				report.ChainReports[4].Messages = []cciptypes.Message{}
 				return report
 			},
-			expErr: false,
+			expErr:        false,
+			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			gasLimit:      gasLimit,
+			destGasAmount: destGasAmount,
 		},
 		{
 			name: "reports have empty offchain token data",
@@ -121,14 +155,15 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				report.ChainReports[4].OffchainTokenData[1] = [][]byte{}
 				return report
 			},
-			expErr: false,
+			expErr:        false,
+			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			gasLimit:      gasLimit,
+			destGasAmount: destGasAmount,
 		},
 	}
 
-	ctx := testutils.Context(t)
-
 	// Deploy the contract
-	transactor := testutils.MustNewSimTransactor(t)
+	transactor := evmtestutils.MustNewSimTransactor(t)
 	simulatedBackend := backends.NewSimulatedBackend(core.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},
 	}, 30e6)
@@ -140,8 +175,8 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1()
-			report := tc.report(randomExecuteReport(t, d))
+			codec := NewExecutePluginCodecV1(mockExtraDataCodec)
+			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
 			if tc.expErr {
 				assert.Error(t, err)
@@ -182,6 +217,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
+	ExtraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 
@@ -200,7 +236,7 @@ func Test_DecodeReport(t *testing.T) {
 
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
 
-	codec := NewExecutePluginCodecV1()
+	codec := NewExecutePluginCodecV1(ExtraDataCodec)
 	decoded, err := codec.Decode(tests.Context(t), rawReport)
 	require.NoError(t, err)
 

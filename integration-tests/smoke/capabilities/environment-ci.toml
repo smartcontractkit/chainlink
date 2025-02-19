@@ -18,11 +18,11 @@
     prices = [182.9]
 
 [workflow_config]
-	don_id = 1
 	workflow_name = "abcdefgasd"
 
   use_cre_cli = true
   should_compile_new_workflow = false
+  workflow_folder_location = "not-needed-here"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
@@ -34,16 +34,20 @@
     # since that's the OS of our CI runners.
     config_url = "https://gist.githubusercontent.com/Tofel/49308be74a7cc95bb50e4ab4f35fb49a/raw/aa893cc3412d66df214e1ad0af3d8b3533f796c2/config.json3083467369"
 
-[nodeset]
+[[nodesets]]
   nodes = 5
   override_mode = "each"
+  http_port_range_start = 10100
+  name = "workflow"
 
-[nodeset.db]
-  image = "postgres:15.6"
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodesets.node_specs.node]
       image = "replace-me"
       user_config_overrides = """
       [Feature]
@@ -58,11 +62,11 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       image = "replace-me"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -76,11 +80,11 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       image = "replace-me"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -94,11 +98,11 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       image = "replace-me"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -112,11 +116,11 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodesets.node_specs.node]
+      image = "replace-me"
       capabilities = ["./amd64_cron"]
-      image = "replace-me0"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

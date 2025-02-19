@@ -36,10 +36,10 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.NoError(t, err)
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -48,10 +48,10 @@ func TestInvalidOCR3Params(t *testing.T) {
 					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector: e.HomeChainSel,
 				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
 					chain1: {
@@ -60,8 +60,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 					},
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -76,6 +76,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	// make DeltaRound greater than DeltaProgress
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
 	_, err = internal.BuildOCR3ConfigForCCIPHome(
+		state.Chains[e.HomeChainSel].CCIPHome,
 		e.Env.OCRSecrets,
 		state.Chains[chain1].OffRamp.Address().Bytes(),
 		chain1,
@@ -150,15 +151,16 @@ func Test_PromoteCandidate(t *testing.T) {
 				}
 			}
 			// promotes zero digest on commit and ensure exec is not affected
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-					Config: changeset.PromoteCandidateChangesetConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.PromoteCandidateChangeset),
+					changeset.PromoteCandidateChangesetConfig{
 						HomeChainSelector: tenv.HomeChainSel,
 						PluginInfo: []changeset.PromoteCandidatePluginInfo{
 							{
@@ -169,8 +171,8 @@ func Test_PromoteCandidate(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// after promoting the zero digest, active digest should also be zero
@@ -246,15 +248,16 @@ func Test_SetCandidate(t *testing.T) {
 				}
 			}
 			tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-					Config: changeset.SetCandidateChangesetConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+					changeset.SetCandidateChangesetConfig{
 						SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
@@ -283,8 +286,8 @@ func Test_SetCandidate(t *testing.T) {
 							},
 						},
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// after setting a new candidate on both plugins, the candidate config digest
@@ -363,15 +366,16 @@ func Test_RevokeCandidate(t *testing.T) {
 				}
 			}
 			tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-					Config: changeset.SetCandidateChangesetConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+					changeset.SetCandidateChangesetConfig{
 						SetCandidateConfigBase: changeset.SetCandidateConfigBase{
 							HomeChainSelector: tenv.HomeChainSel,
 							FeedChainSelector: tenv.FeedChainSel,
@@ -400,8 +404,8 @@ func Test_RevokeCandidate(t *testing.T) {
 							},
 						},
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// after setting a new candidate on both plugins, the candidate config digest
@@ -421,31 +425,32 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NotEqual(t, candidateDigestExecBefore, candidateDigestExecAfter)
 
 			// next we can revoke candidate - this should set the candidate digest back to zero
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.RevokeCandidateChangeset),
-					Config: changeset.RevokeCandidateChangesetConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.RevokeCandidateChangeset),
+					changeset.RevokeCandidateChangesetConfig{
 						HomeChainSelector:   tenv.HomeChainSel,
 						RemoteChainSelector: dest,
 						PluginType:          types.PluginTypeCCIPCommit,
 						MCMS:                mcmsConfig,
 					},
-				},
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.RevokeCandidateChangeset),
-					Config: changeset.RevokeCandidateChangesetConfig{
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.RevokeCandidateChangeset),
+					changeset.RevokeCandidateChangesetConfig{
 						HomeChainSelector:   tenv.HomeChainSel,
 						RemoteChainSelector: dest,
 						PluginType:          types.PluginTypeCCIPExec,
 						MCMS:                mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// after revoking the candidate, the candidate digest should be zero
@@ -471,25 +476,26 @@ func transferToTimelock(
 	source,
 	dest uint64) {
 	// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-	_, err := commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-		source: {
-			Timelock:  state.Chains[source].Timelock,
-			CallProxy: state.Chains[source].CallProxy,
+	_, err := commonchangeset.Apply(t, tenv.Env,
+		map[uint64]*proposalutils.TimelockExecutionContracts{
+			source: {
+				Timelock:  state.Chains[source].Timelock,
+				CallProxy: state.Chains[source].CallProxy,
+			},
+			dest: {
+				Timelock:  state.Chains[dest].Timelock,
+				CallProxy: state.Chains[dest].CallProxy,
+			},
+			tenv.HomeChainSel: {
+				Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+				CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			},
 		},
-		dest: {
-			Timelock:  state.Chains[dest].Timelock,
-			CallProxy: state.Chains[dest].CallProxy,
-		},
-		tenv.HomeChainSel: {
-			Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-			CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-		},
-	}, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config:    testhelpers.GenTestTransferOwnershipConfig(tenv, []uint64{source, dest}, state),
-		},
-	})
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			testhelpers.GenTestTransferOwnershipConfig(tenv, []uint64{source, dest}, state),
+		),
+	)
 	require.NoError(t, err)
 	testhelpers.AssertTimelockOwnership(t, tenv, []uint64{source, dest}, state)
 }
@@ -534,22 +540,23 @@ func Test_UpdateChainConfigs(t *testing.T) {
 					MinDelay: 0,
 				}
 			}
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-					Config: changeset.UpdateChainConfigConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateChainConfigChangeset),
+					changeset.UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{otherChain},
 						RemoteChainAdds:    make(map[uint64]changeset.ChainConfig),
 						MCMS:               mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			// other chain should be gone
@@ -558,15 +565,16 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			assert.Zero(t, chainConfigAfter.FChain)
 
 			// Lets add it back now.
-			_, err = commonchangeset.ApplyChangesets(t, tenv.Env, map[uint64]*proposalutils.TimelockExecutionContracts{
-				tenv.HomeChainSel: {
-					Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-					CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+			_, err = commonchangeset.Apply(t, tenv.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					tenv.HomeChainSel: {
+						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+					},
 				},
-			}, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-					Config: changeset.UpdateChainConfigConfig{
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateChainConfigChangeset),
+					changeset.UpdateChainConfigConfig{
 						HomeChainSelector:  tenv.HomeChainSel,
 						RemoteChainRemoves: []uint64{},
 						RemoteChainAdds: map[uint64]changeset.ChainConfig{
@@ -582,8 +590,8 @@ func Test_UpdateChainConfigs(t *testing.T) {
 						},
 						MCMS: mcmsConfig,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
 			chainConfigAfter2, err := ccipHome.GetChainConfig(nil, otherChain)

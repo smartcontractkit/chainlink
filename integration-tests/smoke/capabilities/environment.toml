@@ -18,7 +18,6 @@
     prices = [182.9, 162.71, 172.02]
 
 [workflow_config]
-	don_id = 1
 	workflow_name = "abcdefgasd"
 
   use_cre_cli = true
@@ -33,16 +32,20 @@
     binary_url = "https://gist.githubusercontent.com/Tofel/a91a240f16bb64bd1be44c93a38e6703/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
     config_url = "https://gist.githubusercontent.com/Tofel/27c96141aac0c6eac832660c2abea6d4/raw/c8a3776ac34d484b81374bec01926619e1f54757/config.json2739136466"
 
-[nodeset]
+[[nodesets]]
   nodes = 5
   override_mode = "each"
+  http_port_range_start = 10100
+  name = "workflow"
 
-[nodeset.db]
-  image = "postgres:15.6"
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
@@ -58,12 +61,12 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -77,12 +80,12 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -96,12 +99,12 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -115,12 +118,12 @@
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodeset.node_specs]]
+  [[nodesets.node_specs]]
 
-    [nodeset.node_specs.node]
-      capabilities = ["./amd64_cron"]
+    [nodesets.node_specs.node]
       docker_ctx = "../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
