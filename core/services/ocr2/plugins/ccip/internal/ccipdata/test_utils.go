@@ -10,12 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 // NewSimulation returns a client and a simulated backend.
 func NewSimulation(t testing.TB) (*bind.TransactOpts, *client.SimulatedBackendClient) {
-	user := testutils.MustNewSimTransactor(t)
+	user := evmtestutils.MustNewSimTransactor(t)
 	simulatedBackend := simulated.NewBackend(types.GenesisAlloc{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(3), big.NewInt(1e18)),

@@ -233,31 +233,31 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			contractsByChain := make(map[uint64][]common.Address)
 			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
 
-			_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-					Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+					commonchangeset.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
 						MinDelay:         0,
 					},
-				},
-			})
+				),
+			)
 			require.NoError(t, err)
 
-			_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(dummyDeployerGroupGrantMintChangeset),
-					Config:    tc.cfg,
-				},
-			})
+			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintChangeset),
+					tc.cfg,
+				),
+			)
 			require.NoError(t, err)
 
-			_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-				{
-					Changeset: commonchangeset.WrapChangeSet(dummyDeployerGroupMintChangeset),
-					Config:    tc.cfg,
-				},
-			})
+			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(dummyDeployerGroupMintChangeset),
+					tc.cfg,
+				),
+			)
 			require.NoError(t, err)
 
 			state, err = changeset.LoadOnchainState(e.Env)
@@ -310,23 +310,23 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 		contractsByChain[chain] = []common.Address{state.Chains[chain].LinkToken.Address()}
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
-			Config:    tc,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
+			tc,
+		),
+	)
 	require.NoError(t, err)
 
 	cs, err := dummyDeployerGroupMintMultiDeploymentContextChangeset(e.Env, tc)
@@ -370,31 +370,31 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 		contractsByChain[chain] = []common.Address{state.Chains[chain].LinkToken.Address()}
 	}
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
-			Config:    cfg,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(dummyDeployerGroupGrantMintMultiChainChangeset),
+			cfg,
+		),
+	)
 	require.NoError(t, err)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
-			Config:    cfg,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(dummyDeployerGroupMintMultiDeploymentContextChangeset),
+			cfg,
+		),
+	)
 	require.NoError(t, err)
 
 	state, err = changeset.LoadOnchainState(e.Env)

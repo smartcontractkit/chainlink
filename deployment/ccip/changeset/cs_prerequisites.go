@@ -12,18 +12,19 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool_1_5_1"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
@@ -451,7 +452,7 @@ func deployUSDC(
 	router common.Address,
 ) (
 	*burn_mint_erc677.BurnMintERC677,
-	*usdc_token_pool_1_5_1.USDCTokenPool,
+	*usdc_token_pool.USDCTokenPool,
 	*mock_usdc_token_messenger.MockE2EUSDCTokenMessenger,
 	*mock_usdc_token_transmitter.MockE2EUSDCTransmitter,
 	error,
@@ -533,8 +534,8 @@ func deployUSDC(
 	}
 
 	tokenPool, err := deployment.DeployContract(lggr, chain, addresses,
-		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool_1_5_1.USDCTokenPool] {
-			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool_1_5_1.DeployUSDCTokenPool(
+		func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
+			tokenPoolAddress, tx, tokenPoolContract, err2 := usdc_token_pool.DeployUSDCTokenPool(
 				chain.DeployerKey,
 				chain.Client,
 				messenger.Address,
@@ -543,7 +544,7 @@ func deployUSDC(
 				rmnProxy,
 				router,
 			)
-			return deployment.ContractDeploy[*usdc_token_pool_1_5_1.USDCTokenPool]{
+			return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,

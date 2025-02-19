@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -31,31 +32,41 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 		return deployment.ChangesetOutput{}, err
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
+	deployGrp := errgroup.Group{}
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain)
 		if err != nil {
 			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 		}
+		var deployFn func() error
 		switch family {
 		case chainsel.FamilyEVM:
 			// Deploy EVM LINK token
-			_, err := deployLinkTokenContractEVM(
-				e.Logger, e.Chains[chain], newAddresses,
-			)
-			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			deployFn = func() error {
+				_, err := deployLinkTokenContractEVM(
+					e.Logger, e.Chains[chain], newAddresses,
+				)
+				return err
 			}
 		case chainsel.FamilySolana:
 			// Deploy Solana LINK token
-			err := deployLinkTokenContractSolana(
-				e.Logger, e.SolChains[chain], newAddresses,
-			)
-			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			deployFn = func() error {
+				err := deployLinkTokenContractSolana(
+					e.Logger, e.SolChains[chain], newAddresses,
+				)
+				return err
 			}
 		}
+		deployGrp.Go(func() error {
+			err := deployFn()
+			if err != nil {
+				e.Logger.Errorw("Failed to deploy link token", "chain", chain, "err", err)
+				return fmt.Errorf("failed to deploy link token for chain %d: %w", chain, err)
+			}
+			return nil
+		})
 	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+	return deployment.ChangesetOutput{AddressBook: newAddresses}, deployGrp.Wait()
 }
 
 // DeployStaticLinkToken deploys a static link token contract to the chain identified by the ChainSelector.

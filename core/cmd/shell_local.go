@@ -2,43 +2,28 @@ package cmd
 
 import (
 	"context"
-	crand "crypto/rand"
-	"database/sql"
 	"fmt"
 	"log"
 	"math"
 	"math/big"
 	"net/http"
-	"net/url"
 	"os"
-	"os/exec"
-	"path"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/fatih/color"
-	"github.com/jmoiron/sqlx"
-	"github.com/kylelemons/godebug/diff"
-	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"github.com/urfave/cli"
-	"go.uber.org/multierr"
 	"golang.org/x/sync/errgroup"
 	"gopkg.in/guregu/null.v4"
-
-	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
-	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,11 +32,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/shutdown"
 	"github.com/smartcontractkit/chainlink/v2/core/static"
+	"github.com/smartcontractkit/chainlink/v2/core/store"
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webPresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/internal/testdb"
 )
 
 var ErrProfileTooLong = errors.New("requested profile duration too large")
@@ -769,37 +754,19 @@ func (s *Shell) ctx() context.Context {
 func (s *Shell) ResetDatabase(c *cli.Context) error {
 	ctx := s.ctx()
 	cfg := s.Config.Database()
-	parsed := cfg.URL()
-	if parsed.String() == "" {
+	u := cfg.URL()
+	if u.String() == "" {
 		return s.errorOut(errDBURLMissing)
 	}
-
 	dangerMode := c.Bool("dangerWillRobinson")
-	force := c.Bool("force")
-	dbname := parsed.Path[1:]
+	dbname := u.Path[1:]
 	if !dangerMode && !strings.HasSuffix(dbname, "_test") {
 		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you REALLY want to reset this database, pass in the -dangerWillRobinson option", dbname))
 	}
-	lggr := s.Logger
-	lggr.Infof("Resetting database: %#v", parsed.String())
-	lggr.Debugf("Dropping and recreating database: %#v", parsed.String())
-	if err := dropAndCreateDB(parsed, force); err != nil {
-		return s.errorOut(err)
-	}
-	lggr.Debugf("Migrating database: %#v", parsed.String())
-	if err := migrateDB(ctx, cfg); err != nil {
-		return s.errorOut(err)
-	}
-	schema, err := dumpSchema(parsed)
-	if err != nil {
-		return s.errorOut(err)
-	}
-	lggr.Debugf("Testing rollback and re-migrate for database: %#v", parsed.String())
-	var baseVersionID int64 = 54
-	if err := downAndUpDB(ctx, cfg, baseVersionID); err != nil {
-		return s.errorOut(err)
-	}
-	if err := checkSchema(parsed, schema); err != nil {
+
+	force := c.Bool("force")
+
+	if err := store.ResetDatabase(ctx, s.Logger, cfg, force); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -814,122 +781,8 @@ func (s *Shell) PrepareTestDatabase(c *cli.Context) error {
 
 	// Creating pristine DB copy to speed up FullTestDB
 	dbUrl := cfg.Database().URL()
-	db, err := sqlx.Open(pgcommon.DriverPostgres, dbUrl.String())
-	if err != nil {
-		return s.errorOut(err)
-	}
-	defer db.Close()
-	templateDB := strings.Trim(dbUrl.Path, "/")
-	if err = dropAndCreatePristineDB(db, templateDB); err != nil {
-		return s.errorOut(err)
-	}
-
 	userOnly := c.Bool("user-only")
-	fixturePath := "../store/fixtures/fixtures.sql"
-	if userOnly {
-		fixturePath = "../store/fixtures/users_only_fixture.sql"
-	}
-	if err = insertFixtures(dbUrl, fixturePath); err != nil {
-		return s.errorOut(err)
-	}
-	if err = dropDanglingTestDBs(s.Logger, db); err != nil {
-		return s.errorOut(err)
-	}
-	return s.errorOut(randomizeTestDBSequences(db))
-}
-
-func dropDanglingTestDBs(lggr logger.Logger, db *sqlx.DB) (err error) {
-	// Drop all old dangling databases
-	var dbs []string
-	if err = db.Select(&dbs, `SELECT datname FROM pg_database WHERE datistemplate = false;`); err != nil {
-		return err
-	}
-
-	// dropping database is very slow in postgres so we parallelise it here
-	nWorkers := 25
-	ch := make(chan string)
-	var wg sync.WaitGroup
-	wg.Add(nWorkers)
-	errCh := make(chan error, len(dbs))
-	for i := 0; i < nWorkers; i++ {
-		go func() {
-			defer wg.Done()
-			for dbname := range ch {
-				lggr.Infof("Dropping old, dangling test database: %q", dbname)
-				gerr := cutils.JustError(db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS %s`, dbname)))
-				errCh <- gerr
-			}
-		}()
-	}
-	for _, dbname := range dbs {
-		if strings.HasPrefix(dbname, testdb.TestDBNamePrefix) && !strings.HasSuffix(dbname, "_pristine") {
-			ch <- dbname
-		}
-	}
-	close(ch)
-	wg.Wait()
-	close(errCh)
-	for gerr := range errCh {
-		err = multierr.Append(err, gerr)
-	}
-	return
-}
-
-type failedToRandomizeTestDBSequencesError struct{}
-
-func (m *failedToRandomizeTestDBSequencesError) Error() string {
-	return "failed to randomize test db sequences"
-}
-
-// randomizeTestDBSequences randomizes sequenced table columns sequence
-// This is necessary as to avoid false positives in some test cases.
-func randomizeTestDBSequences(db *sqlx.DB) error {
-	// not ideal to hard code this, but also not safe to do it programmatically :(
-	schemas := pq.Array([]string{"public", "evm"})
-	seqRows, err := db.Query(`SELECT sequence_schema, sequence_name, minimum_value FROM information_schema.sequences WHERE sequence_schema IN ($1)`, schemas)
-	if err != nil {
-		return fmt.Errorf("%s: error fetching sequences: %s", failedToRandomizeTestDBSequencesError{}, err)
-	}
-
-	defer seqRows.Close()
-	for seqRows.Next() {
-		var sequenceSchema, sequenceName string
-		var minimumSequenceValue int64
-		if err = seqRows.Scan(&sequenceSchema, &sequenceName, &minimumSequenceValue); err != nil {
-			return fmt.Errorf("%s: failed scanning sequence rows: %s", failedToRandomizeTestDBSequencesError{}, err)
-		}
-
-		if sequenceName == "goose_migrations_id_seq" || sequenceName == "configurations_id_seq" {
-			continue
-		}
-
-		var randNum *big.Int
-		randNum, err = crand.Int(crand.Reader, ubig.NewI(10000).ToInt())
-		if err != nil {
-			return fmt.Errorf("%s: failed to generate random number", failedToRandomizeTestDBSequencesError{})
-		}
-		randNum.Add(randNum, big.NewInt(minimumSequenceValue))
-
-		if _, err = db.Exec(fmt.Sprintf("ALTER SEQUENCE %s.%s RESTART WITH %d", sequenceSchema, sequenceName, randNum)); err != nil {
-			return fmt.Errorf("%s: failed to alter and restart %s sequence: %w", failedToRandomizeTestDBSequencesError{}, sequenceName, err)
-		}
-	}
-
-	if err = seqRows.Err(); err != nil {
-		return fmt.Errorf("%s: failed to iterate through sequences: %w", failedToRandomizeTestDBSequencesError{}, err)
-	}
-
-	return nil
-}
-
-// PrepareTestDatabaseUserOnly calls ResetDatabase then loads only user fixtures required for local
-// testing against testnets. Does not include fake chain fixtures.
-func (s *Shell) PrepareTestDatabaseUserOnly(c *cli.Context) error {
-	if err := s.ResetDatabase(c); err != nil {
-		return s.errorOut(err)
-	}
-	cfg := s.Config
-	if err := insertFixtures(cfg.Database().URL(), "../store/fixtures/users_only_fixtures.sql"); err != nil {
+	if err := store.PrepareTestDB(s.Logger, dbUrl, userOnly); err != nil {
 		return s.errorOut(err)
 	}
 	return nil
@@ -944,7 +797,7 @@ func (s *Shell) MigrateDatabase(_ *cli.Context) error {
 		return s.errorOut(errDBURLMissing)
 	}
 
-	err := migrate.SetMigrationENVVars(s.Config)
+	err := migrate.SetMigrationENVVars(s.Config.EVMConfigs())
 	if err != nil {
 		return err
 	}
@@ -969,7 +822,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 		version = null.IntFrom(numVersion)
 	}
 
-	db, err := newConnection(ctx, s.Config.Database())
+	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -984,7 +837,7 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 // VersionDatabase displays the current database version.
 func (s *Shell) VersionDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
-	db, err := newConnection(ctx, s.Config.Database())
+	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1001,7 +854,7 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 // StatusDatabase displays the database migration status
 func (s *Shell) StatusDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
-	db, err := newConnection(ctx, s.Config.Database())
+	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1018,7 +871,7 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 	if !c.Args().Present() {
 		return s.errorOut(errors.New("You must specify a migration name"))
 	}
-	db, err := newConnection(ctx, s.Config.Database())
+	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1048,7 +901,7 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 		return s.errorOut(fmt.Errorf("cannot reset database named `%s`. This command can only be run against databases with a name that ends in `_test`, to prevent accidental data loss. If you really want to delete chain specific data from this database, pass in the --danger option", dbname))
 	}
 
-	db, err := newConnection(ctx, cfg)
+	db, err := store.NewConnection(ctx, cfg)
 	if err != nil {
 		return s.errorOut(errors.Wrap(err, "error connecting to the database"))
 	}
@@ -1091,69 +944,8 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 	return nil
 }
 
-type dbConfig interface {
-	DefaultIdleInTxSessionTimeout() time.Duration
-	DefaultLockTimeout() time.Duration
-	MaxOpenConns() int
-	MaxIdleConns() int
-	URL() url.URL
-	DriverName() string
-}
-
-func newConnection(ctx context.Context, cfg dbConfig) (*sqlx.DB, error) {
-	parsed := cfg.URL()
-	if parsed.String() == "" {
-		return nil, errDBURLMissing
-	}
-	return pg.NewConnection(ctx, parsed.String(), cfg.DriverName(), cfg)
-}
-
-func dropAndCreateDB(parsed url.URL, force bool) (err error) {
-	// Cannot drop the database if we are connected to it, so we must connect
-	// to a different one. template1 should be present on all postgres installations
-	dbname := parsed.Path[1:]
-	parsed.Path = "/template1"
-	db, err := sql.Open(pgcommon.DriverPostgres, parsed.String())
-	if err != nil {
-		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
-	}
-	defer func() {
-		if cerr := db.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-	if force {
-		// supports pg < 13. https://stackoverflow.com/questions/17449420/postgresql-unable-to-drop-database-because-of-some-auto-connections-to-db
-		_, err = db.Exec(fmt.Sprintf("SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '%s';", dbname))
-		if err != nil {
-			return fmt.Errorf("unable to terminate connections to postgres database: %v", err)
-		}
-	}
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, dbname))
-	if err != nil {
-		return fmt.Errorf("unable to drop postgres database: %v", err)
-	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s"`, dbname))
-	if err != nil {
-		return fmt.Errorf("unable to create postgres database: %v", err)
-	}
-	return nil
-}
-
-func dropAndCreatePristineDB(db *sqlx.DB, template string) (err error) {
-	_, err = db.Exec(fmt.Sprintf(`DROP DATABASE IF EXISTS "%s"`, testdb.PristineDBName))
-	if err != nil {
-		return fmt.Errorf("unable to drop postgres database: %v", err)
-	}
-	_, err = db.Exec(fmt.Sprintf(`CREATE DATABASE "%s" WITH TEMPLATE "%s"`, testdb.PristineDBName, template))
-	if err != nil {
-		return fmt.Errorf("unable to create postgres database: %v", err)
-	}
-	return nil
-}
-
-func migrateDB(ctx context.Context, config dbConfig) error {
-	db, err := newConnection(ctx, config)
+func migrateDB(ctx context.Context, config store.Config) error {
+	db, err := store.NewConnection(ctx, config)
 	if err != nil {
 		return fmt.Errorf("failed to initialize orm: %v", err)
 	}
@@ -1162,77 +954,6 @@ func migrateDB(ctx context.Context, config dbConfig) error {
 		return fmt.Errorf("migrateDB failed: %v", err)
 	}
 	return db.Close()
-}
-
-func downAndUpDB(ctx context.Context, cfg dbConfig, baseVersionID int64) error {
-	db, err := newConnection(ctx, cfg)
-	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
-	}
-	if err = migrate.Rollback(ctx, db.DB, null.IntFrom(baseVersionID)); err != nil {
-		return fmt.Errorf("test rollback failed: %v", err)
-	}
-	if err = migrate.Migrate(ctx, db.DB); err != nil {
-		return fmt.Errorf("second migrateDB failed: %v", err)
-	}
-	return db.Close()
-}
-
-func dumpSchema(dbURL url.URL) (string, error) {
-	args := []string{
-		dbURL.String(),
-		"--schema-only",
-	}
-	cmd := exec.Command(
-		"pg_dump", args...,
-	)
-
-	schema, err := cmd.Output()
-	if err != nil {
-		var ee *exec.ExitError
-		if errors.As(err, &ee) {
-			return "", fmt.Errorf("failed to dump schema: %v\n%s", err, string(ee.Stderr))
-		}
-		return "", fmt.Errorf("failed to dump schema: %v", err)
-	}
-	return string(schema), nil
-}
-
-func checkSchema(dbURL url.URL, prevSchema string) error {
-	newSchema, err := dumpSchema(dbURL)
-	if err != nil {
-		return err
-	}
-	df := diff.Diff(prevSchema, newSchema)
-	if len(df) > 0 {
-		fmt.Println(df)
-		return errors.New("schema pre- and post- rollback does not match (ctrl+f for '+' or '-' to find the changed lines)")
-	}
-	return nil
-}
-
-func insertFixtures(dbURL url.URL, pathToFixtures string) (err error) {
-	db, err := sql.Open(pgcommon.DriverPostgres, dbURL.String())
-	if err != nil {
-		return fmt.Errorf("unable to open postgres database for creating test db: %+v", err)
-	}
-	defer func() {
-		if cerr := db.Close(); cerr != nil {
-			err = multierr.Append(err, cerr)
-		}
-	}()
-
-	_, filename, _, ok := runtime.Caller(1)
-	if !ok {
-		return errors.New("could not get runtime.Caller(1)")
-	}
-	filepath := path.Join(path.Dir(filename), pathToFixtures)
-	fixturesSQL, err := os.ReadFile(filepath)
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(string(fixturesSQL))
-	return err
 }
 
 // RemoveBlocks - removes blocks after the specified blocks number

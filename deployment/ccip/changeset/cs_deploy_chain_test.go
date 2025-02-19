@@ -29,10 +29,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = proposalutils.SingleGroupTimelockConfig(t)
+		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
 		contractParams[chain] = changeset.ChainContractParams{
 			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
 			OffRampParams:   changeset.DefaultOffRampParams(),
@@ -45,10 +45,10 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 		})
 	}
 
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -57,29 +57,29 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 					"NodeOperator": p2pIds,
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    evmSelectors,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    cfg,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			evmSelectors,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cfg,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
+			changeset.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// load onchain state

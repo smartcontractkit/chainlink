@@ -25,7 +25,7 @@ const (
 	// FlushDeletesFrequency controls how often we wake up to check if there
 	// are records in the delete queue, and if so, attempt to drain the queue
 	// and delete them all.
-	FlushDeletesFrequency = 1 * time.Second
+	FlushDeletesFrequency = 15 * time.Second
 
 	// PruneFrequency controls how often we wake up to check to see if the
 	// transmissions table has exceeded its allowed size, and if so, truncate
@@ -35,9 +35,6 @@ const (
 	// PruneBatchSize is the max number of transmission records to delete in
 	// one query when pruning the table.
 	PruneBatchSize = 10_000
-	// PruneRetryFrequency is the frequency at which we retry a failed prune
-	// operation.
-	PruneRetryFrequency = 5 * time.Second
 
 	// OvertimeDeleteTimeout is the maximum time we will spend trying to delete
 	// queued transmissions after exit signal before giving up and logging an
@@ -74,21 +71,27 @@ type persistenceManager struct {
 	maxTransmitQueueSize  int
 	flushDeletesFrequency time.Duration
 	pruneFrequency        time.Duration
+	maxAge                time.Duration
 
 	transmitQueueDeleteErrorCount prometheus.Counter
 }
 
-func NewPersistenceManager(lggr logger.Logger, orm ORM, serverURL string, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency time.Duration) *persistenceManager {
+func NewPersistenceManager(lggr logger.Logger, orm ORM, serverURL string, maxTransmitQueueSize int, flushDeletesFrequency, pruneFrequency, maxAge time.Duration) *persistenceManager {
 	return &persistenceManager{
-		orm:                           orm,
-		donID:                         orm.DonID(),
-		lggr:                          logger.Sugared(lggr).Named("LLOPersistenceManager"),
-		serverURL:                     serverURL,
-		stopCh:                        make(services.StopChan),
-		maxTransmitQueueSize:          maxTransmitQueueSize,
-		flushDeletesFrequency:         flushDeletesFrequency,
-		pruneFrequency:                pruneFrequency,
-		transmitQueueDeleteErrorCount: promTransmitQueueDeleteErrorCount.WithLabelValues(strconv.Itoa(int(orm.DonID())), serverURL),
+		logger.Sugared(lggr).Named("LLOPersistenceManager"),
+		orm,
+		serverURL,
+		orm.DonID(),
+		services.StateMachine{},
+		make(services.StopChan),
+		sync.WaitGroup{},
+		sync.Mutex{},
+		nil,
+		maxTransmitQueueSize,
+		flushDeletesFrequency,
+		pruneFrequency,
+		maxAge,
+		promTransmitQueueDeleteErrorCount.WithLabelValues(strconv.Itoa(int(orm.DonID())), serverURL),
 	}
 }
 
@@ -118,7 +121,7 @@ func (pm *persistenceManager) AsyncDelete(hash [32]byte) {
 }
 
 func (pm *persistenceManager) Load(ctx context.Context) ([]*Transmission, error) {
-	return pm.orm.Get(ctx, pm.serverURL, pm.maxTransmitQueueSize)
+	return pm.orm.Get(ctx, pm.serverURL, pm.maxTransmitQueueSize, pm.maxAge)
 }
 
 func (pm *persistenceManager) runFlushDeletesLoop() {
@@ -130,9 +133,9 @@ func (pm *persistenceManager) runFlushDeletesLoop() {
 	ticker := services.TickerConfig{
 		// Don't prune right away, wait some time for the application to settle
 		// down first
-		Initial:   services.DefaultJitter.Apply(pm.pruneFrequency),
+		Initial:   services.DefaultJitter.Apply(pm.flushDeletesFrequency),
 		JitterPct: services.DefaultJitter,
-	}.NewTicker(pm.pruneFrequency)
+	}.NewTicker(pm.flushDeletesFrequency)
 	defer ticker.Stop()
 	for {
 		select {
@@ -193,7 +196,7 @@ func (pm *persistenceManager) deleteTransmissions(ctx context.Context, hashes []
 			break
 		}
 	}
-	pm.lggr.Debugw("Deleted queued transmit requests", "nDeleted", len(hashes))
+	pm.lggr.Debugw("Flushed delete queue", "nDeleted", len(hashes))
 }
 
 func (pm *persistenceManager) runPruneLoop() {
@@ -217,21 +220,13 @@ func (pm *persistenceManager) runPruneLoop() {
 			}
 			return
 		case <-ticker.C:
-			for {
-				n, err := pm.orm.Prune(ctx, pm.serverURL, pm.maxTransmitQueueSize, PruneBatchSize)
-				if err == nil {
-					if n > 0 {
-						pm.lggr.Debugw("Pruned transmit requests table", "nDeleted", n)
-					}
-					break
-				}
+			n, err := pm.orm.Prune(ctx, pm.serverURL, pm.maxTransmitQueueSize, PruneBatchSize)
+			if err != nil {
 				pm.lggr.Errorw("Failed to prune transmit requests table", "err", err)
-				select {
-				case <-time.After(PruneRetryFrequency):
-					continue
-				case <-ctx.Done():
-					return
-				}
+				continue
+			}
+			if n > 0 {
+				pm.lggr.Debugw("Pruned transmit requests table", "nDeleted", n)
 			}
 		}
 	}

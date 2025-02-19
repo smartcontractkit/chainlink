@@ -8,8 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 )
 
 const (
@@ -18,7 +18,8 @@ const (
 	V1_2_0 = "1.2.0"
 	V1_4_0 = "1.4.0"
 	V1_5_0 = "1.5.0"
-	V1_6_0 = "1.6.0-dev"
+	//nolint:revive // was like this before
+	V1_6_0 = "1.6.0"
 )
 
 const (

@@ -18,30 +18,33 @@ import (
 	"golang.org/x/exp/rand"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_lbtc_token_pool"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_lbtc_token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool_1_4_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool_1_5_1"
+	commit_store_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store"
+	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/token_pool"
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	lock_release_token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/lock_release_token_pool"
+	token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/token_pool"
+	usdc_token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
@@ -404,7 +407,7 @@ func (l *LinkToken) Transfer(to string, amount *big.Int) error {
 type LatestPool struct {
 	PoolInterface   *token_pool.TokenPool
 	LockReleasePool *lock_release_token_pool.LockReleaseTokenPool
-	USDCPool        *usdc_token_pool_1_5_1.USDCTokenPool
+	USDCPool        *usdc_token_pool.USDCTokenPool
 	MockLBTCPool    *mock_lbtc_token_pool.MockLBTCTokenPool
 }
 
@@ -429,7 +432,7 @@ func (w TokenPoolWrapper) SetRebalancer(opts *bind.TransactOpts, from common.Add
 	return nil, fmt.Errorf("no pool found to set rebalancer")
 }
 
-func (w TokenPoolWrapper) SetUSDCDomains(opts *bind.TransactOpts, updates []usdc_token_pool_1_5_1.USDCTokenPoolDomainUpdate) (*types.Transaction, error) {
+func (w TokenPoolWrapper) SetUSDCDomains(opts *bind.TransactOpts, updates []usdc_token_pool.USDCTokenPoolDomainUpdate) (*types.Transaction, error) {
 	if w.Latest != nil && w.Latest.USDCPool != nil {
 		return w.Latest.USDCPool.SetDomains(opts, updates)
 	}
@@ -694,7 +697,7 @@ func (pool *TokenPool) SyncUSDCDomain(destTokenTransmitter *TokenTransmitter, de
 		Str("Allowed Caller", destPoolAddr.Hex()).
 		Str("Dest Chain Selector", fmt.Sprintf("%d", destChainSelector)).
 		Msg("Syncing USDC Domain")
-	tx, err := pool.Instance.SetUSDCDomains(opts, []usdc_token_pool_1_5_1.USDCTokenPoolDomainUpdate{
+	tx, err := pool.Instance.SetUSDCDomains(opts, []usdc_token_pool.USDCTokenPoolDomainUpdate{
 		{
 			AllowedCaller:     allowedCallerBytes,
 			DomainIdentifier:  domain,

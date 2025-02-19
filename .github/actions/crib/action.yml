@@ -112,7 +112,7 @@ runs:
         aws-role-duration-seconds: "1800"
 
     - name: Deploy and validate CRIB Environment for Core
-      uses: smartcontractkit/.github/actions/crib-deploy-environment@265e28cc322771651688493303785323e3482b15 # crib-deploy-environment@8.2.1
+      uses: smartcontractkit/.github/actions/crib-deploy-environment@9e5e6b9d746287641f80af9decf42a0791056e5b # crib-deploy-environment@8.5.2
       id: deploy-crib
       with:
         github-token: ${{ steps.token.outputs.access-token }}

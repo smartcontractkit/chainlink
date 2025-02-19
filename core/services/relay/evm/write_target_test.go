@@ -16,11 +16,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/common/headtracker/mocks"
+
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
@@ -117,7 +118,7 @@ func TestEvmWrite(t *testing.T) {
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
 
-	ht := mocks.NewTracker[*evmtypes.Head, common.Hash](t)
+	ht := headstest.NewTracker[*evmtypes.Head, common.Hash](t)
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 

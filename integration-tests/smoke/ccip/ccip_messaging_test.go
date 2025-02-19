@@ -4,12 +4,16 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"sync"
+	"sync/atomic"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
@@ -18,22 +22,40 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 func Test_CCIPMessaging(t *testing.T) {
+	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
+	chains := []chainsel.Chain{
+		chainsel.GETH_TESTNET,  // source
+		chainsel.TEST_90000001, // dest
+	}
+	var chainIDs = []uint64{
+		chains[0].EvmChainID,
+		chains[1].EvmChainID,
+	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithChainIDs(chainIDs),
+		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
+			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
+		})),
+	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	require.Len(t, allChainSelectors, 2)
-	sourceChain := allChainSelectors[0]
-	destChain := allChainSelectors[1]
+	sourceChain := chains[0].Selector
+	destChain := chains[1].Selector
+	require.Contains(t, allChainSelectors, sourceChain)
+	require.Contains(t, allChainSelectors, destChain)
 	t.Log("All chain selectors:", allChainSelectors,
 		", home chain selector:", e.HomeChainSel,
 		", feed chain selector:", e.FeedChainSel,
@@ -60,6 +82,15 @@ func Test_CCIPMessaging(t *testing.T) {
 		)
 	)
 
+	monitorCtx, monitorCancel := context.WithCancel(ctx)
+	ms := &monitorState{}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitorReExecutions(monitorCtx, t, state, destChain, ms)
+	}()
+
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(
 			mt.TestCase{
@@ -70,6 +101,11 @@ func Test_CCIPMessaging(t *testing.T) {
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+
+					},
+				},
 			},
 		)
 	})
@@ -135,6 +171,48 @@ func Test_CCIPMessaging(t *testing.T) {
 		t.Logf("successfully manually executed message %x",
 			out.MsgSentEvent.Message.Header.MessageId)
 	})
+
+	monitorCancel()
+	wg.Wait()
+	// there should be no re-executions.
+	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
+}
+
+type monitorState struct {
+	reExecutionsObserved atomic.Int32
+}
+
+func (s *monitorState) incReExecutions() {
+	s.reExecutionsObserved.Add(1)
+}
+
+func monitorReExecutions(
+	ctx context.Context,
+	t *testing.T,
+	state changeset.CCIPOnChainState,
+	destChain uint64,
+	ss *monitorState,
+) {
+	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
+	sub, err := state.Chains[destChain].OffRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+		Start: nil,
+	}, sink)
+	if err != nil {
+		t.Fatalf("failed to subscribe to already executed msg stream: %s", err.Error())
+	}
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-sub.Err():
+			t.Fatalf("subscription error: %s", subErr.Error())
+		case ev := <-sink:
+			t.Logf("received an already executed event for seq nr %d and source chain %d",
+				ev.SequenceNumber, ev.SourceChainSelector)
+			ss.incReExecutions()
+		}
+	}
 }
 
 func manuallyExecute(
@@ -228,11 +306,19 @@ func getMerkleRoot(
 	})
 	require.NoError(t, err)
 	for iter.Next() {
-		for _, mr := range iter.Event.MerkleRoots {
+		for _, mr := range iter.Event.BlessedMerkleRoots {
 			if mr.MinSeqNr >= seqNr || mr.MaxSeqNr <= seqNr {
 				return mr.MerkleRoot
 			}
 		}
+		// todo: dedup
+		// ------------------------------
+		for _, mr := range iter.Event.UnblessedMerkleRoots {
+			if mr.MinSeqNr >= seqNr || mr.MaxSeqNr <= seqNr {
+				return mr.MerkleRoot
+			}
+		}
+		// ------------------------------
 	}
 	require.Fail(
 		t,

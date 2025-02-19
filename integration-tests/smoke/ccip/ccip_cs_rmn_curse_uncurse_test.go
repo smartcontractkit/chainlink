@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -187,15 +188,15 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 	contractsByChain[e.HomeChainSel] = append(contractsByChain[e.HomeChainSel], state.Chains[e.HomeChainSel].RMNHome.Address())
 
 	// This is required because RMN Contracts is initially owned by the deployer
-	_, err := commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config: commonchangeset.TransferToMCMSWithTimelockConfig{
+	_, err := commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
 				MinDelay:         0,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 }
 
@@ -221,22 +222,22 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	transferRMNContractToMCMS(t, &e, state, timelocksPerChain)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.RMNCurseChangeset),
-			Config:    config,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.RMNCurseChangeset),
+			config,
+		),
+	)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.RMNUncurseChangeset),
-			Config:    config,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.RMNUncurseChangeset),
+			config,
+		),
+	)
 	require.NoError(t, err)
 
 	verifyNoActiveCurseOnAllChains(t, &e)
@@ -351,12 +352,12 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 
 	transferRMNContractToMCMS(t, &e, state, timelocksPerChain)
 
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelocksPerChain, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.RMNCurseChangeset),
-			Config:    config,
-		},
-	})
+	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.RMNCurseChangeset),
+			config,
+		),
+	)
 	require.NoError(t, err)
 
 	verifyTestCaseAssertions(t, &e, tc, mapIDToSelector)

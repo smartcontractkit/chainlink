@@ -9,7 +9,10 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -25,7 +28,20 @@ import (
 
 func TestMessageHasher_Any2Solana(t *testing.T) {
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createAny2SolanaMessages(t)
-	msgHasher := NewMessageHasherV1(logger.Test(t))
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"AccountIsWritableBitmap": uint64(10),
+		"Accounts": [][32]byte{
+			[32]byte(config.CcipLogicReceiver.Bytes()),
+			[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
+			[32]byte(solana.SystemProgramID.Bytes()),
+		},
+	}, nil)
+	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
@@ -66,9 +82,6 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver.Bytes(),
 			Amount:            tokenAmount,
-			DestExecDataDecoded: map[string]any{
-				"destGasAmount": uint32(10),
-			},
 		}
 	}
 
@@ -112,15 +125,6 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		FeeToken:       []byte{},
 		FeeTokenAmount: cciptypes.NewBigIntFromInt64(0),
 		ExtraArgs:      buf.Bytes(),
-		ExtraArgsDecoded: map[string]any{
-			"ComputeUnits":            computeUnit,
-			"AccountIsWritableBitmap": bitmap,
-			"Accounts": [][32]byte{
-				[32]byte(config.CcipLogicReceiver.Bytes()),
-				[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
-				[32]byte(solana.SystemProgramID.Bytes()),
-			},
-		},
 	}
 
 	msgAccounts := []solana.PublicKey{

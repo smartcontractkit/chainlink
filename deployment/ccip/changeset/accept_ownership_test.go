@@ -6,6 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -39,13 +40,13 @@ func Test_NewAcceptOwnershipChangeset(t *testing.T) {
 	require.NoError(t, err)
 
 	// compose the transfer ownership and accept ownership changesets
-	_, err = commonchangeset.ApplyChangesets(t, e.Env, timelockContracts, []commonchangeset.ChangesetApplication{
+	_, err = commonchangeset.Apply(t, e.Env, timelockContracts,
 		// note this doesn't have proposals.
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-			Config:    testhelpers.GenTestTransferOwnershipConfig(e, allChains, state),
-		},
-	})
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+			testhelpers.GenTestTransferOwnershipConfig(e, allChains, state),
+		),
+	)
 	require.NoError(t, err)
 
 	testhelpers.AssertTimelockOwnership(t, e, allChains, state)

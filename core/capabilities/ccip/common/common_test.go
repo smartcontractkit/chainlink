@@ -9,9 +9,9 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	capcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 )
 
 func Test_HashedCapabilityId(t *testing.T) {

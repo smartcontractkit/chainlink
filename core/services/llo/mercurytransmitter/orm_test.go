@@ -2,6 +2,7 @@ package mercurytransmitter
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -33,29 +34,29 @@ func TestORM(t *testing.T) {
 		err := orm.Insert(ctx, transmissions)
 		require.NoError(t, err)
 		// Get limits
-		result, err := orm.Get(ctx, sURL, 0)
+		result, err := orm.Get(ctx, sURL, 0, 0)
 		require.NoError(t, err)
 		assert.Empty(t, result)
 
 		// Get limits
-		result, err = orm.Get(ctx, sURL, 1)
+		result, err = orm.Get(ctx, sURL, 1, 0)
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 		assert.Equal(t, transmissions[len(transmissions)-1], result[0])
 
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 
 		assert.ElementsMatch(t, transmissions, result)
 
-		result, err = orm.Get(ctx, "other server url", 100)
+		result, err = orm.Get(ctx, "other server url", 100, 0)
 		require.NoError(t, err)
 		assert.Empty(t, result)
 		// Delete
 		err = orm.Delete(ctx, [][32]byte{transmissions[0].Hash()})
 		require.NoError(t, err)
 
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 
 		require.Len(t, result, n-1)
@@ -65,7 +66,7 @@ func TestORM(t *testing.T) {
 		err = orm.Delete(ctx, [][32]byte{transmissions[1].Hash()})
 		require.NoError(t, err)
 
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 		require.Len(t, result, n-2)
 		// Prune
@@ -77,7 +78,7 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(n-1), d)
 
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 		assert.Equal(t, transmissions[len(transmissions)-1], result[0])
@@ -86,7 +87,7 @@ func TestORM(t *testing.T) {
 		d, err = orm.Prune(ctx, sURL, 1, n/3)
 		require.NoError(t, err)
 		assert.Zero(t, d)
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 		require.Len(t, result, 1)
 		assert.Equal(t, transmissions[len(transmissions)-1], result[0])
@@ -95,7 +96,7 @@ func TestORM(t *testing.T) {
 		d, err = orm.Prune(ctx, sURL, 0, 1)
 		require.NoError(t, err)
 		assert.Equal(t, int64(1), d)
-		result, err = orm.Get(ctx, sURL, 100)
+		result, err = orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 		require.Empty(t, result)
 	})
@@ -118,9 +119,30 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int64(57), d)
 
-		result, err := orm.Get(ctx, sURL, 100)
+		result, err := orm.Get(ctx, sURL, 100, 0)
 		require.NoError(t, err)
 		require.Len(t, result, 43)
 		assert.Equal(t, uint64(9), result[0].SeqNr)
+	})
+
+	t.Run("Get respects maxAge argument and does not retrieve records older than this", func(t *testing.T) {
+		donID := uint32(101)
+		orm := NewORM(db, donID)
+
+		transmissions := makeSampleTransmissions(10, sURL)
+		err := orm.Insert(ctx, transmissions)
+		require.NoError(t, err)
+
+		pgtest.MustExec(t, db, `UPDATE llo_mercury_transmit_queue SET inserted_at = NOW() - INTERVAL '1 year' WHERE seq_nr < 5`)
+
+		// Get with maxAge = 0 should return all records
+		result, err := orm.Get(ctx, sURL, 100, 0)
+		require.NoError(t, err)
+		require.Len(t, result, 10)
+
+		// Get with maxAge = 1 month should return only the records with seq_nr >= 5
+		result, err = orm.Get(ctx, sURL, 100, 30*24*time.Hour)
+		require.NoError(t, err)
+		require.Len(t, result, 5)
 	})
 }

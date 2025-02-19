@@ -31,6 +31,10 @@ gomod: ## Ensure chainlink's go dependencies are installed.
 gomodtidy: gomods ## Run go mod tidy on all modules.
 	gomods tidy
 
+.PHONY: tidy
+tidy: gomodtidy ## Tidy all modules and add to git.
+	git add '**go.*'
+
 .PHONY: docs
 docs: ## Install and run pkgsite to view Go docs
 	go install golang.org/x/pkgsite/cmd/pkgsite@latest
@@ -138,15 +142,15 @@ setup-testdb: ## Setup the test database.
 
 .PHONY: testdb
 testdb: ## Prepares the test database.
-	go run . local db preparetest
+	go run ./core/store/cmd/preparetest
 
 .PHONY: testdb-force
 testdb-force: ## Prepares the test database, drops any pesky user connections that stand in the the way.
-	go run . local db preparetest --force
+	go run ./core/store/cmd/preparetest --force
 
 .PHONY: testdb-user-only
 testdb-user-only: ## Prepares the test database with user only.
-	go run . local db preparetest --user-only
+	go run ./core/store/cmd/preparetest --user-only
 
 .PHONY: gomods
 gomods: ## Install gomods
@@ -199,8 +203,8 @@ modgraph:
 test-short: ## Run 'go test -short' and suppress uninteresting output
 	go test -short ./... | grep -v "\[no test files\]" | grep -v "\(cached\)"
 
-.PHONY: run_flakeguard_validate_tests
-run_flakeguard_validate_tests:
+.PHONY: run_flakeguard_validate_unit_tests
+run_flakeguard_validate_unit_tests:
 	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
 	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
 	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
@@ -210,6 +214,20 @@ run_flakeguard_validate_tests:
 	   -f testRepeatCount="$${REPS}" \
 	   -f runTestsWithRace="true" \
 	   -f testRunner="$${RUNNER}"
+
+.PHONY: run_flakeguard_validate_e2e_tests
+run_flakeguard_validate_e2e_tests:
+	@read -p "Enter test ids (e.g., smoke/forwarders_ocr2_test.go:*,smoke/vrf_test.go:*): " TEST_IDS; \
+	 read -p "Enter the number of times to run the tests (default: 5): " REPS; \
+	 read -p "Enter the chainlink version (default: develop): " CHAINLINK_VERSION; \
+	 read -p "Enter the branch name to run the workflow (default: develop): " BRANCH; \
+	 REPS=$${REPS:-5}; \
+	 CHAINLINK_VERSION=$${CHAINLINK_VERSION:-develop}; \
+	 BRANCH=$${BRANCH:-develop}; \
+	 gh workflow run run-selected-e2e-tests.yml --ref "$${BRANCH}" \
+	   -f chainlink_version="$${CHAINLINK_VERSION}" \
+	   -f test_ids="$${TEST_IDS}" \
+	   -f extraArgs='{ "flakeguard_enable": "true", "flakeguard_run_count": "'$$REPS'" }'
 
 help:
 	@echo ""

@@ -16,7 +16,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Detect readonly solidity file changes
@@ -30,7 +30,7 @@ jobs:
       changes: ${{ steps.ch.outputs.changes }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Detect changes
@@ -51,7 +51,7 @@ jobs:
       release-version-ccip: ${{ steps.release-tag-check-ccip.outputs.release-version }}
       pre-release-version-ccip: ${{ steps.release-tag-check-ccip.outputs.pre-release-version }}
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Check release tag (core)
@@ -97,7 +97,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Setup NodeJS
@@ -113,13 +113,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           path: chainlink
 
       - name: Checkout diff-so-fancy
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: so-fancy/diff-so-fancy
@@ -172,7 +172,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Setup NodeJS
@@ -194,7 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Setup NodeJS
@@ -210,12 +210,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Version package.json
         working-directory: contracts
@@ -256,12 +259,15 @@ jobs:
       contents: write
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
 
       - name: Validate version
         working-directory: contracts

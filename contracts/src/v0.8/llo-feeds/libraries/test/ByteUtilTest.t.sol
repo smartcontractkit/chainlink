@@ -87,6 +87,7 @@ contract ByteUtilTest is Test {
     assertEq(result, type(uint32).max << 24);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint256WithNotEnoughBytes() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -95,6 +96,7 @@ contract ByteUtilTest is Test {
     B_128._readUint256(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint192WithNotEnoughBytes() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -103,6 +105,7 @@ contract ByteUtilTest is Test {
     B_128._readUint192(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint32WithNotEnoughBytes() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -111,6 +114,7 @@ contract ByteUtilTest is Test {
     B_16._readUint32(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint256WithEmptyArray() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -119,6 +123,7 @@ contract ByteUtilTest is Test {
     B_EMPTY._readUint256(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint192WithEmptyArray() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -127,6 +132,7 @@ contract ByteUtilTest is Test {
     B_EMPTY._readUint192(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readUint32WithEmptyArray() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -135,6 +141,7 @@ contract ByteUtilTest is Test {
     B_EMPTY._readUint32(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readAddress() public pure {
     //read the first 20 bytes
     address result = B_512._readAddress(0);
@@ -143,6 +150,7 @@ contract ByteUtilTest is Test {
     assertEq(result, address(type(uint160).max));
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readZeroAddress() public pure {
     //read the first 32 bytes after the first word
     address result = B_512._readAddress(32);
@@ -151,6 +159,7 @@ contract ByteUtilTest is Test {
     assertEq(result, address(type(uint160).min));
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readAddressMultiWord() public pure {
     //read the first 20 bytes after byte 13
     address result = B_512._readAddress(13);
@@ -159,6 +168,7 @@ contract ByteUtilTest is Test {
     assertEq(result, address(type(uint160).max << 8));
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readAddressWithNotEnoughBytes() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);
@@ -167,6 +177,7 @@ contract ByteUtilTest is Test {
     B_128._readAddress(0);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test_readAddressWithEmptyArray() public {
     //should revert if there's not enough bytes
     vm.expectRevert(MALFORMED_ERROR_SELECTOR);

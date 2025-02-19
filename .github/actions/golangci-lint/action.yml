@@ -27,7 +27,7 @@ runs:
   using: composite
   steps:
     - name: Checkout repo (full)
-      uses: actions/checkout@v4.2.1
+      uses: actions/checkout@v4
       # Only do a full checkout on merge_groups
       if: github.event_name == 'merge_group'
       with:
@@ -35,7 +35,7 @@ runs:
         fetch-depth: 0
 
     - name: Checkout repo
-      uses: actions/checkout@v4.2.1
+      uses: actions/checkout@v4
       if: github.event_name != 'merge_group'
       with:
         persist-credentials: false
@@ -89,7 +89,7 @@ runs:
       run: |
         go_directory=${{ steps.set-working-directory.outputs.golangci-lint-working-directory }}
         echo "Validating if directory name '$go_directory' is empty or has slashes"
-        
+
         if [[ $go_directory == *\/* ]]; then
             suffix=$(echo "$go_directory" | sed 's:\/$::' | tr '/' '-')
             echo "Directory name with slashes '$go_directory' updated to a valid artifact suffix '$suffix'"
@@ -106,7 +106,7 @@ runs:
     - name: Store Golangci-lint report artifact
       if: always()
       id: upload-artifact
-      uses: actions/upload-artifact@v4.4.3
+      uses: actions/upload-artifact@v4
       with:
         # Use a unique suffix for each lint report artifact to avoid duplication errors
         name: golangci-lint-report-${{ steps.suffix.outputs.suffix }}

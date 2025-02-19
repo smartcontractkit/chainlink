@@ -103,9 +103,10 @@ var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
 	Protocol() config.MercuryTransmitterProtocol
+	ReaperMaxAge() commonconfig.Duration
+	TransmitConcurrency() uint32
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
-	TransmitConcurrency() uint32
 }
 
 type transmitter struct {

@@ -33,9 +33,6 @@ const (
 	// TransmissionReaperBatchSize is the number of transmissions to delete in a
 	// single batch.
 	TransmissionReaperBatchSize = 10_000
-	// TransmissionReaperRetryFrequency is the frequency at which the reaper
-	// will retry if it fails to delete stale transmissions.
-	TransmissionReaperRetryFrequency = 5 * time.Second
 	// OvertimeDeleteTimeout is the maximum time we will spend trying to reap
 	// after exit signal before giving up and logging an error.
 	OvertimeDeleteTimeout = 2 * time.Second
@@ -97,27 +94,20 @@ func (t *transmissionReaper) runLoop(ctx context.Context) {
 			cancel()
 			return
 		case <-ticker.C:
-			for {
-				// TODO: Could also automatically reap orphaned transmissions
-				// that don't have a job with a matching DON ID (from job
-				// deletion)
-				//
-				// https://smartcontract-it.atlassian.net/browse/MERC-6807
-				n, err := t.reapStale(ctx, TransmissionReaperBatchSize)
-				if err == nil {
-					if n > 0 {
-						t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
-					}
-					break
-				}
-
+			// TODO: Could also automatically reap orphaned transmissions
+			// that don't have a job with a matching DON ID (from job
+			// deletion)
+			//
+			// https://smartcontract-it.atlassian.net/browse/MERC-6807
+			// TODO: Should also reap other LLO garbage that can be left
+			// behind e.g. channel definitions etc
+			n, err := t.reapStale(ctx, TransmissionReaperBatchSize)
+			if err != nil {
 				t.lggr.Errorw("Failed to reap", "err", err)
-				select {
-				case <-ctx.Done():
-					return
-				case <-time.After(TransmissionReaperRetryFrequency):
-					continue
-				}
+				continue
+			}
+			if n > 0 {
+				t.lggr.Infow("Reaped stale transmissions", "nDeleted", n)
 			}
 		}
 	}

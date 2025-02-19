@@ -12,7 +12,6 @@ import {IVRFCoordinatorV2PlusMigration} from "../interfaces/IVRFCoordinatorV2Plu
 // solhint-disable-next-line no-unused-import
 import {IVRFCoordinatorV2Plus, IVRFSubscriptionV2Plus} from "../interfaces/IVRFCoordinatorV2Plus.sol";
 
-// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorTestV2_5 is VRFOld, SubscriptionAPI, IVRFCoordinatorV2Plus {
   /// @dev should always be available
   // solhint-disable-next-line chainlink-solidity/prefix-immutable-variables-with-i

@@ -21,11 +21,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
@@ -56,7 +58,7 @@ func commitAndGetBlockTs(ec *client.SimulatedBackendClient) uint64 {
 }
 
 func newSim(t *testing.T) (*bind.TransactOpts, *client.SimulatedBackendClient) {
-	user := testutils.MustNewSimTransactor(t)
+	user := evmtestutils.MustNewSimTransactor(t)
 	sim := simulated.NewBackend(map[common.Address]types.Account{
 		user.From: {
 			Balance: big.NewInt(0).Mul(big.NewInt(10), big.NewInt(1e18)),
@@ -75,10 +77,10 @@ func setupPriceRegistryReaderTH(t *testing.T) priceRegReaderTH {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	headTracker := headtracker.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	headTracker := headstest.NewSimulatedHeadTracker(ec, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	if lpOpts.PollPeriod == 0 {
 		lpOpts.PollPeriod = 1 * time.Hour
 	}
@@ -260,7 +262,7 @@ func TestNewPriceRegistryReader(t *testing.T) {
 			expectedErr:    "",
 		},
 		{
-			typeAndVersion: "PriceRegistry 1.6.0-dev",
+			typeAndVersion: "PriceRegistry 1.6.0",
 			expectedErr:    "",
 		},
 		{

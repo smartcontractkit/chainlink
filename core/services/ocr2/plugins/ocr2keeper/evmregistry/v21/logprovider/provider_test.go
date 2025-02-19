@@ -8,15 +8,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
-
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -247,7 +246,7 @@ func TestLogEventProvider_ReadLogs(t *testing.T) {
 	mp.On("ReplayAsync", mock.Anything).Return()
 	mp.On("HasFilter", mock.Anything).Return(false)
 	mp.On("UnregisterFilter", mock.Anything, mock.Anything).Return(nil)
-	mp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: int64(1)}, nil)
+	mp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: int64(1)}, nil)
 	mp.On("LogsWithSigs", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return([]logpoller.Log{
 		{
 			BlockNumber: 1,

@@ -9,7 +9,8 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 

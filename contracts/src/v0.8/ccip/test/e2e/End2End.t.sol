@@ -111,13 +111,15 @@ contract E2E is OnRampSetup, OffRampSetup {
       sourceChainSelector: SOURCE_CHAIN_SELECTOR,
       isEnabled: true,
       // Must match OnRamp address
-      onRamp: abi.encode(address(s_onRamp))
+      onRamp: abi.encode(address(s_onRamp)),
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR + 1,
       isEnabled: true,
-      onRamp: abi.encode(address(s_onRamp2))
+      onRamp: abi.encode(address(s_onRamp2)),
+      isRMNVerificationDisabled: false
     });
 
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
@@ -185,8 +187,12 @@ contract E2E is OnRampSetup, OffRampSetup {
         merkleRoot: merkleRoots[1]
       });
 
-      OffRamp.CommitReport memory report =
-        OffRamp.CommitReport({priceUpdates: _getEmptyPriceUpdates(), merkleRoots: roots, rmnSignatures: rmnSignatures});
+      OffRamp.CommitReport memory report = OffRamp.CommitReport({
+        priceUpdates: _getEmptyPriceUpdates(),
+        blessedMerkleRoots: roots,
+        unblessedMerkleRoots: new Internal.MerkleRoot[](0),
+        rmnSignatures: rmnSignatures
+      });
 
       vm.resumeGasMetering();
       _commit(report, ++s_latestSequenceNumber);

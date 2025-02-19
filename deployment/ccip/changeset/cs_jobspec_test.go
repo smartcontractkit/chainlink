@@ -19,10 +19,10 @@ func TestJobSpecChangeset(t *testing.T) {
 	e := tenv.Env
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
+			changeset.DeployHomeChainConfig{
 				HomeChainSel:     tenv.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -31,8 +31,8 @@ func TestJobSpecChangeset(t *testing.T) {
 					testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	output, err := changeset.CCIPCapabilityJobspecChangeset(e, nil)
 	require.NoError(t, err)

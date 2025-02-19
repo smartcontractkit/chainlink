@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/fatih/color"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -39,7 +38,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	if err != nil {
 		wd = "<directory containing this test>"
 	}
-	require.Equal(t, versions.GethVersion, gethParams.Version,
+	require.Equal(t, versions.GethVersion, GethVersion,
 		color.HiRedString(utils.BoxOutput("please re-run `go generate %s` and commit the"+
 			"changes", wd)))
 

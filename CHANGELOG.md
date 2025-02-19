@@ -1,6 +1,6 @@
 # Changelog Chainlink Core
 
-## 2.20.0 - UNRELEASED
+## 2.20.0 - 2025-01-30
 
 ### Minor Changes
 
@@ -47,6 +47,8 @@
 - [#15714](https://github.com/smartcontractkit/chainlink/pull/15714) [`e706d72ab3`](https://github.com/smartcontractkit/chainlink/commit/e706d72ab3a6cf0e718555224ef671fc30b52dbe) - Added the `EVM.Transactions.Enabled` config to enable or disable the transaction manager. #added
 
 - [#15899](https://github.com/smartcontractkit/chainlink/pull/15899) [`796357b17c`](https://github.com/smartcontractkit/chainlink/commit/796357b17ca875ba80e157fc08b0da5db4ed1644) - #updated feat:create tron chain config on operator ui
+
+- [#16019](https://github.com/smartcontractkit/chainlink/pull/16019) [`c75092086f`](https://github.com/smartcontractkit/chainlink/commit/c75092086f790d273abb08f18f1b03f7934e30dc) - Bump to start the next version
 
 ### Patch Changes
 
