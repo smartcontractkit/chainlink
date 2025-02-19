@@ -63,6 +63,7 @@ func UpdateAllowedDons(env deployment.Environment, req *UpdateAllowedDonsRequest
 			Address:     registry.Address(),
 			ChainSel:    req.RegistryChainSel,
 			ContractSet: &cs,
+			Env:         env,
 		}
 	} else {
 		s = &simpleTransaction{
