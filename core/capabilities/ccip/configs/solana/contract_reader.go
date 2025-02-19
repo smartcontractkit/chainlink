@@ -53,6 +53,17 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameOffRamp: {
 				IDL: offRampIDL,
 				Reads: map[string]config.ReadDefinition{
+					consts.EventNameCommitReportAccepted: {
+						ChainSpecificName: "CommitReportAccepted",
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{},
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.RenameModifierConfig{Fields: map[string]string{"MerkleRoot": "UnblessedMerkleRoots"}},
+							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"UnblessedMerkleRoots": &locationFirst}},
+						},
+					},
 					consts.MethodNameOffRampLatestConfigDetails: {
 						ChainSpecificName: "Config",
 						ReadType:          config.Account,
