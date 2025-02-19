@@ -121,7 +121,7 @@ func NewRunner(
 
 	r := &runner{
 		orm:                    orm,
-		btORM:                  bridges.NewCache(btORM, lggr, bridges.DefaultUpsertInterval),
+		btORM:                  btORM,
 		config:                 cfg,
 		bridgeConfig:           bridgeCfg,
 		legacyEVMChains:        legacyChains,
