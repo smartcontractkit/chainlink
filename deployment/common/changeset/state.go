@@ -103,20 +103,7 @@ func MaybeLoadMCMSWithTimelockChainState(
 
 		// the same contract can have different roles
 		multichain = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-
-		// Convert map keys to a slice
-		wantTypes = []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
 	)
-
-	// Ensure the addresses contains the bundle of wanted contract types
-	ok, err := deployment.AddressesContainBundle(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
-	}
-
-	if !ok {
-		return nil, fmt.Errorf("missing a contract from bundle on chain %s", chain.Name())
-	}
 
 	for address, tv := range addresses {
 		switch {
