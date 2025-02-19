@@ -23,7 +23,9 @@ import (
 )
 
 const (
-	EVMChainType = "EVM"
+	EVMChainType    = "EVM"
+	SolanaChainType = "SOLANA"
+	AptosChainType  = "APTOS"
 )
 
 type CribRPCs struct {
@@ -42,6 +44,19 @@ type ChainConfig struct {
 	Users       []*bind.TransactOpts // map of addresses to their transact opts to interact with the chain as users
 }
 
+func (c *ChainConfig) parsedBigIntChainID() (*big.Int, error) {
+	if c.ChainType == SolanaChainType {
+		return nil, fmt.Errorf("chain type %s is not supported due to not numeric chain ID", c.ChainType)
+	}
+
+	chainID, err := strconv.ParseUint(c.ChainID, 10, 64)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse chain ID: %w", err)
+	}
+
+	return new(big.Int).SetUint64(chainID), nil
+}
+
 func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 	if pvtkeys == nil {
 		// if no private keys are provided, set deployer key as the user
@@ -58,11 +73,11 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
 
-		chainID, err := strconv.ParseUint(c.ChainID, 10, 64)
+		parsedChainID, err := c.parsedBigIntChainID()
 		if err != nil {
 			return fmt.Errorf("failed to parse chain ID: %w", err)
 		}
-		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(chainID))
+		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, parsedChainID)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -78,7 +93,13 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
+
+		parsedChainID, err := c.parsedBigIntChainID()
+		if err != nil {
+			return fmt.Errorf("failed to parse chain ID: %w", err)
+		}
+		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, parsedChainID)
+
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -94,7 +115,13 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
 	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
-	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), new(big.Int).SetUint64(c.ChainID))
+
+	parsedChainID, err := c.parsedBigIntChainID()
+	if err != nil {
+		return fmt.Errorf("failed to parse chain ID: %w", err)
+	}
+
+	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), parsedChainID)
 	if err != nil {
 		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
 	}
@@ -108,10 +135,20 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	for _, chainCfg := range configs {
 		chainCfg := chainCfg
 		g.Go(func() error {
-			selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
-			if err != nil {
-				return fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)
+			if chainCfg.ChainType != EVMChainType {
+				return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 			}
+
+			chainID, err := strconv.ParseUint(chainCfg.ChainID, 10, 64)
+			if err != nil {
+				return fmt.Errorf("failed to parse chain ID: %w", err)
+			}
+
+			selector, err := chainselectors.SelectorFromChainId(chainID)
+			if err != nil {
+				return fmt.Errorf("failed to get selector from chain id %d: %w", chainID, err)
+			}
+
 			// TODO : better client handling
 			var ec *ethclient.Client
 			for _, rpc := range chainCfg.WSRPCs {

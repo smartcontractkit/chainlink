@@ -213,7 +213,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 	for _, chain := range chains {
 		var account string
 		switch chain.ChainType {
-		case "EVM":
+		case EVMChainType:
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
@@ -226,7 +226,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
-		case "APTOS", "SOLANA":
+		case AptosChainType, SolanaChainType:
 			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
