@@ -17,7 +17,7 @@ port = 8171
 prices = [182.9, 162.71, 172.02]
 
 [workflow_config] #TODO @george-dorin: Remove!
-workflow_name = "ccipopt002"
+workflow_name = "test-workflow-with-mock"
 
 use_cre_cli = true
 should_compile_new_workflow = false

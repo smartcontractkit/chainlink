@@ -43,10 +43,11 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 )
 
+// estKeystoneWithOCR3WorkflowAndMockCapabilities purpose of this test to belong running so we can collect performance metrics, as such, it does not have a success criteria
 func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	testLogger := framework.L
 
-	// Load test configuration√
+	// Load test configuration
 	in, err := framework.Load[TestConfig](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateInputsAndEnvVars(t, in)
@@ -84,7 +85,7 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	donTopology := buildDONTopology(t, in, dons, nodeOutputs)
 	workflowDONID := mustOneDONTopologyWithFlag(t, donTopology, WorkflowDON).ID
 
-	//Swap OCR2 Keys
+	//Get OCR2 Keys
 	ocr2Keys := make([]ocr2key.KeyBundle, 0)
 	for _, don := range donTopology {
 		if hasFlag(don.Flags, CapabilitiesDON) {
@@ -159,9 +160,9 @@ func TestKeystoneWithOCR3WorkflowAndMockCapabilities(t *testing.T) {
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 	mocksClient := newCapProxyClient()
 	require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
-	
-	//testLogger.Info().Msg("Hooking into mock executable capabilities")
-	//require.NoError(t, mocksClient.HookExecutables(testLogger))
+
+	testLogger.Info().Msg("Hooking into mock executable capabilities")
+	require.NoError(t, mocksClient.HookExecutables(testLogger))
 
 	testLogger.Info().Msg("Waiting for feed to update...")
 	startTime := time.Now()
@@ -218,7 +219,7 @@ forwardingAllowed = false
 workflowID = "2ab944834c5b3e58aa71e4a4a29d6382b613f833302550277cbc3f5cc2be5226"
 workflow = """
 name: cciparb003
-owner: '0x13e99569ce0ff981ac4e496e362a4bff8eb65265'
+owner: '%s'
 triggers:
  - id: streams-trigger@1.1.0
    config:
@@ -267,7 +268,7 @@ targets:
 
 """
 workflowOwner = "%s"
-`, sc.MustGetRootKeyAddress().Hex())
+`, sc.MustGetRootKeyAddress().Hex(), sc.MustGetRootKeyAddress().Hex())
 	errCh := make(chan error, len(nodes))
 
 	var wg sync.WaitGroup
@@ -276,15 +277,13 @@ workflowOwner = "%s"
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			//This will also accept the job
-			//TODO @george-dorin: Change the ProposeJob method so it does not approve workflow jobs
 			_, err := ctfEnv.Offchain.ProposeJob(context.Background(), &job2.ProposeJobRequest{
 				NodeId: n.NodeID,
 				Spec:   workflowJobSpec,
 				Labels: nil,
 			})
 
-			// Workflows get auto approved
+			// Workflows get auto approved so we should see an error
 			require.ErrorContains(t, err, "cannot approve an approved spec")
 		}()
 	}
@@ -293,7 +292,7 @@ workflowOwner = "%s"
 	close(errCh)
 
 	for err := range errCh {
-		require.NoError(t, err, "job creation/acception failed")
+		require.NoError(t, err, "job creation/acceptation failed")
 	}
 
 	return

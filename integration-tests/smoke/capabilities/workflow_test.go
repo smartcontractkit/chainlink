@@ -1130,8 +1130,8 @@ func configureNodes(t *testing.T, testLogger zerolog.Logger, in *TestConfig, don
 	ctfEnv = reinitialiseJDClients(t, ctfEnv, jdOutput, nodeOutputs...)
 
 	for _, donTopology := range donTopologies {
-		ips, ports := extraAllowedPortsAndIps(t, testLogger, in, donTopology.NodeOutput.Output)
-		createJobs(t, ctfEnv, donTopology.DON, donTopology.NodeOutput, bc, ocr3CapabilityAddress, donTopology.ID, donTopology.Flags, ports, ips)
+		//ips, ports := extraAllowedPortsAndIps(t, testLogger, in, donTopology.NodeOutput.Output)
+		createJobs(t, ctfEnv, donTopology.DON, donTopology.NodeOutput, bc, ocr3CapabilityAddress, donTopology.ID, donTopology.Flags, []int{}, []string{})
 	}
 
 	return donTopologies, ctfEnv
@@ -1207,13 +1207,26 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				Address = '%s'
 				NetworkID = 'evm'
 				ChainID = '%s'
-			`,
+
+				[Capabilities.GatewayConnector]
+				DonID = "%s"
+				ChainIDForNodeKey = "%s"
+				NodeAddress = '%s'
+
+				[[Capabilities.GatewayConnector.Gateways]]
+				Id = "por_gateway"
+				URL = "%s"
+`,
 		donBootstrapNodePeerId,
 		bc.ChainID,
 		bc.Nodes[0].DockerInternalWSUrl,
 		bc.Nodes[0].DockerInternalHTTPUrl,
 		capRegAddr,
 		bc.ChainID,
+		strconv.FormatUint(uint64(donID), 10),
+		bc.ChainID,
+		don.Nodes[0].AccountAddr[chainIDUint64],
+		fmt.Sprintf("ws://%s:5003/node", donBootstrapNodeAddress),
 	)
 
 	// configure Don2Don peering capability for workflow DON's bootstrap node, but not for other DON's bootstrap nodes
@@ -1225,8 +1238,8 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 				ListenAddresses = ['0.0.0.0:6690']
 				DefaultBootstrappers = ['%s@%s:6690']
 				`,
-			peeringData.GlobalBootstraperPeerId,
-			"localhost", // bootstrap node should always point to itself as the bootstrapper
+			donBootstrapNodePeerId,
+			donBootstrapNodeAddress, // bootstrap node should always point to itself as the bootstrapper
 		)
 	}
 
@@ -1309,7 +1322,7 @@ func configureDON(t *testing.T, don *devenv.DON, nodeInput *CapabilitiesAwareNod
 
 		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
 		// it's also required by custom compute, which can only run on workflow DON nodes
-		if hasFlag(flags, WorkflowDON) || hasFlag(flags, CustomComputeCapability) {
+		if hasFlag(flags, WorkflowDON) || hasFlag(flags, CustomComputeCapability) || hasFlag(flags, CapabilitiesDON) {
 			// assuming for now that gateway always used port 5003 and /node path
 			gatewayAddress := fmt.Sprintf("ws://%s:5003/node", donBootstrapNodeAddress)
 			gatewayConfig := fmt.Sprintf(`
@@ -1788,7 +1801,6 @@ func configureContracts(t *testing.T, ctfEnv *deployment.Environment, donTopolog
 					Config:     &capabilitiespb.CapabilityConfig{},
 				})
 			}
-
 		}
 
 		donPeerIds := make([]string, len(donTopology.DON.Nodes)-1)
