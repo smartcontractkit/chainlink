@@ -111,6 +111,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		),
 	)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	t.Logf("addresses: %v", addresses)
 	require.NoError(t, err)
 	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
 	require.NoError(t, err)
