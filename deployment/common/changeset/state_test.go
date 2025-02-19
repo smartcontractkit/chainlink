@@ -70,6 +70,50 @@ func TestMaybeLoadMCMSWithTimelockChainState(t *testing.T) {
 			wantErr: "",
 		},
 		{
+			name:  "OK_labelled multichain contract is selected if only option",
+			chain: defaultChain,
+			addresses: map[string]deployment.TypeAndVersion{
+				"0x123": deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0),
+				"0x456": deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0),
+				"0xabc": deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0),
+				"0xdef": deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0),
+				"0xaaa": func() deployment.TypeAndVersion {
+					tv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+					tv.Labels.Add(types.ProposerRole.String())
+					return tv
+				}(),
+			},
+			wantState: &MCMSWithTimelockState{
+				MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{
+					Timelock: func() *owner_helpers.RBACTimelock {
+						tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress("0x123"), nil)
+						require.NoError(t, err)
+						return tl
+					}(),
+					CallProxy: func() *owner_helpers.CallProxy {
+						cp, err := owner_helpers.NewCallProxy(common.HexToAddress("0x456"), nil)
+						require.NoError(t, err)
+						return cp
+					}(),
+					CancellerMcm: func() *owner_helpers.ManyChainMultiSig {
+						mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress("0xabc"), nil)
+						require.NoError(t, err)
+						return mcms
+					}(),
+					BypasserMcm: func() *owner_helpers.ManyChainMultiSig {
+						mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress("0xdef"), nil)
+						require.NoError(t, err)
+						return mcms
+					}(),
+					ProposerMcm: func() *owner_helpers.ManyChainMultiSig {
+						mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress("0xaaa"), nil)
+						require.NoError(t, err)
+						return mcms
+					}(),
+				},
+			},
+		},
+		{
 			// A ManyChainMultiSig contract can be labeled or it can be typed.  A typed contract should be selected
 			// over a labeled contract.
 			name:  "OK_labelled multichain contract has lower selection precedence",
