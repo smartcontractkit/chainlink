@@ -3,10 +3,11 @@ package solana
 import (
 	"fmt"
 
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 )
 
 func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs.MCMSConfig) error {

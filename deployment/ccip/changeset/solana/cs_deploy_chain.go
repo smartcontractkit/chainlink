@@ -390,6 +390,9 @@ func deployChainContractsSolana(
 			string(cs.FeeQuoter),  // some string identifying the target
 			[]string{},            // any relevant metadata
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		}
 		closeData, err := closeIxn.Data()
 		if err != nil {
 			return ixns, fmt.Errorf("failed to extract close data: %w", err)
@@ -402,6 +405,9 @@ func deployChainContractsSolana(
 			string(cs.FeeQuoter), // some string identifying the target
 			[]string{},           // any relevant metadata
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
+		}
 		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
@@ -459,6 +465,9 @@ func deployChainContractsSolana(
 			string(cs.Router),     // some string identifying the target
 			[]string{},            // any relevant metadata
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		}
 		closeData, err := closeIxn.Data()
 		if err != nil {
 			return ixns, fmt.Errorf("failed to extract close data: %w", err)
@@ -471,6 +480,9 @@ func deployChainContractsSolana(
 			string(cs.Router),   // some string identifying the target
 			[]string{},          // any relevant metadata
 		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
+		}
 		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
