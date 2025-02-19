@@ -185,7 +185,7 @@ func NewIntegrationEnvironment(t *testing.T, opts ...testhelpers.TestOps) (testh
 			deployedEnv := testhelpers.NewEnvironmentWithJobsAndContracts(t, dockerEnv)
 			l := logging.GetTestLogger(t)
 			require.NotNil(t, dockerEnv.testEnv, "empty docker environment")
-			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks))
+			config := GenerateTestRMNConfig(t, testCfg.NumOfRMNNodes, deployedEnv, MustNetworksToRPCMap(dockerEnv.testEnv.EVMNetworks), testCfg.RMNConfDepth)
 			require.NotNil(t, dockerEnv.devEnvTestCfg.CCIP)
 			rmnCluster, err := devenv.NewRMNCluster(
 				t, l,
@@ -250,7 +250,7 @@ func MustCCIPNameToRMNName(a string) string {
 	return v
 }
 
-func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string) map[string]devenv.RMNConfig {
+func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.DeployedEnv, rpcMap map[uint64]string, confDepth int) map[string]devenv.RMNConfig {
 	// Find the bootstrappers.
 	nodes, err := deployment.NodeInfo(tenv.Env.NodeIDs, tenv.Env.Offchain)
 	require.NoError(t, err)
@@ -271,7 +271,7 @@ func GenerateTestRMNConfig(t *testing.T, nRMNNodes int, tenv testhelpers.Deploye
 			Stability: devenv.Stability{
 				Type:              "ConfirmationDepth",
 				SoftConfirmations: 0,
-				HardConfirmations: 0,
+				HardConfirmations: confDepth,
 			},
 		})
 		remoteChains = append(remoteChains, devenv.RemoteChains{

@@ -64,6 +64,7 @@ type TestConfigs struct {
 	OCRConfigOverride          func(*changeset.CCIPOCRParams)
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
+	RMNConfDepth               int
 	LinkPrice                  *big.Int
 	WethPrice                  *big.Int
 	BlockTime                  time.Duration
@@ -138,6 +139,12 @@ func WithExtraConfigTomls(extraTomls []string) TestOps {
 func WithBlockTime(blockTime time.Duration) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.BlockTime = blockTime
+	}
+}
+
+func WithRMNConfDepth(depth int) TestOps {
+	return func(testCfg *TestConfigs) {
+		testCfg.RMNConfDepth = depth
 	}
 }
 
