@@ -157,7 +157,7 @@ func Test_OrphanedTransmissionReaper(t *testing.T) {
 			updated_at, relay, relay_config, plugin_config, plugin_type, onchain_signing_strategy, allow_no_bootstrappers
 		) VALUES ('0x','{}', 0, NOW(), NOW(), 'evm', '{"chainID": 421614, "lloDonID": 2}', '{"donID": 2}', 'llo', '{}', FALSE);`)
 
-	//add transmissions from a DON not present in ocr2 specs
+	// add transmissions from a DON not present in ocr2 specs
 	transmissions := makeSampleTransmissions(n)
 	torm := mercurytransmitter.NewORM(ds, 1)
 	err := torm.Insert(testutils.Context(t), transmissions)
