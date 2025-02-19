@@ -43,7 +43,7 @@ func getCommitMethodConfig(fromAddress string, offrampProgramAddress string, pri
 			},
 		},
 		ChainSpecificName: chainSpecificName,
-		ArgsTransform: "CCIPCommit",
+		ArgsTransform:     "CCIPCommit",
 		LookupTables: chainwriter.LookupTables{
 			DerivedLookupTables: []chainwriter.DerivedLookupTable{
 				getCommonAddressLookupTableConfig(offrampProgramAddress),
