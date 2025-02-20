@@ -5,18 +5,18 @@ docker_cmd_params = ["--block-time=1"]
 [congestion]
 enabled = true
 fees_increase_percent = 100 # fees are doubled from the initial values
-period = 20
+period = 10
 
 [congestion.ramp_up]
-duration = 60
+duration = 30
 congestion = 1
 
 [congestion.plateau]
-duration = 60
+duration = 30
 congestion = 0.6
 
 [congestion.cool_down]
-duration = 60
+duration = 30
 congestion = 0.4
 
 

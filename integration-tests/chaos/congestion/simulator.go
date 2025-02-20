@@ -2,6 +2,7 @@ package congestion
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sort"
@@ -31,7 +32,7 @@ const (
 )
 
 type Phase struct {
-	Duration   uint64  `toml:"duration"` // in seconds
+	Duration   int64   `toml:"duration"` // in seconds
 	Congestion float64 `toml:"congestion"`
 }
 
@@ -44,8 +45,8 @@ type Phase struct {
 // base fee might fluctuate according EIP-1559 spec depending on Anvil configuration.
 type Input struct {
 	Enabled             bool    `toml:"enabled"`
-	InitialDelay        uint64  `toml:"initial_delay"` // defines delay before the first surge in seconds
-	Period              uint64  `toml:"period"`        // defines delay between surges in seconds
+	InitialDelay        int64   `toml:"initial_delay"` // defines delay before the first surge in seconds
+	Period              int64   `toml:"period"`        // defines delay between surges in seconds
 	RampUp              Phase   `toml:"ramp_up"`
 	Plateau             Phase   `toml:"plateau"`
 	CoolDown            Phase   `toml:"cool_down"`
@@ -104,7 +105,7 @@ func NewSimulator(t *testing.T, input Input, client *seth.Client, anvilClient An
 	}
 
 	if input.RampUp.Duration == 0 && input.Plateau.Duration == 0 && input.CoolDown.Duration == 0 {
-		return nil, fmt.Errorf("expected at least one phase to have a positive duration")
+		return nil, errors.New("expected at least one phase to have a positive duration")
 	}
 
 	s := &Simulator{
@@ -154,7 +155,7 @@ func (s *Simulator) start(ctx context.Context) error {
 	if s.InitialBaseFeePerGas == 0 {
 		header, err := s.client.Client.HeaderByNumber(ctx, nil)
 		if err != nil {
-			return fmt.Errorf("failed to get header by number to capture inital base fee: %v", err)
+			return fmt.Errorf("failed to get header by number to capture initial base fee: %w", err)
 		}
 
 		s.InitialBaseFeePerGas = header.BaseFee.Uint64()
@@ -167,13 +168,13 @@ func (s *Simulator) start(ctx context.Context) error {
 	var err error
 	s.emitter, err = contracts.DeployLogEmitterContract(logging.GetTestLogger(s.t), s.client)
 	if err != nil {
-		return fmt.Errorf("failed to create emitter contract: %v", err)
+		return fmt.Errorf("failed to create emitter contract: %w", err)
 	}
 
 	if s.Input.PayloadSize == nil {
 		payloadSize, err := s.estimatePayloadSizeToFillBlock(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to estimate payload size to fill block: %v", err)
+			return fmt.Errorf("failed to estimate payload size to fill block: %w", err)
 		}
 		s.Input.PayloadSize = &payloadSize
 	}
@@ -182,7 +183,7 @@ func (s *Simulator) start(ctx context.Context) error {
 	if s.Input.GasLimit == 0 {
 		gasLimit, err := s.estimateTxGasLimit(ctx)
 		if err != nil {
-			return fmt.Errorf("failed to estimate gas limit: %v", err)
+			return fmt.Errorf("failed to estimate gas limit: %w", err)
 		}
 		s.Input.GasLimit = gasLimit
 	}
@@ -396,14 +397,14 @@ func (s *Simulator) listenHeads(ctx context.Context, oneNewHead func(ctx context
 	heads := make(chan *types.Header)
 	sub, err := s.client.Client.SubscribeNewHead(ctx, heads)
 	if err != nil {
-		return fmt.Errorf("failed to subscribe to new heads: %v", err)
+		return fmt.Errorf("failed to subscribe to new heads: %w", err)
 	}
 	defer sub.Unsubscribe()
 	for {
 		select {
 		case head, ok := <-heads:
 			if !ok {
-				return fmt.Errorf("heads channel closed unexpectedly")
+				return errors.New("heads channel closed unexpectedly")
 			}
 			err = oneNewHead(ctx, head)
 			if err != nil {
@@ -415,7 +416,7 @@ func (s *Simulator) listenHeads(ctx context.Context, oneNewHead func(ctx context
 		case <-ctx.Done():
 			return ctx.Err()
 		case err := <-sub.Err():
-			return fmt.Errorf("subscription error: %v", err)
+			return fmt.Errorf("subscription error: %w", err)
 		}
 	}
 }
@@ -433,11 +434,12 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 	}
 
 	gasLimit := block.GasLimit()
-	maxPayloadSize := int(gasLimit / 8 / uint64(s.NumberOfTxsPerBlock)) // assume that LogDataGas is 8
+	const gasPerLogData = 8
 	const step = 100
+	maxSearchArea := int(gasLimit/gasPerLogData/step) / s.NumberOfTxsPerBlock // nolint:gosec // disable G115
 	// Find the largest payload that won't overflow gas limit if we send NumberOfTxsPerBlock txs
-	i := sort.Search(maxPayloadSize/step, func(i int) bool {
-		payloadSize := maxPayloadSize - i*step
+	i := sort.Search(maxSearchArea, func(i int) bool {
+		payloadSize = (maxSearchArea - i) * step
 		var tx *types.Transaction
 		tx, err = s.emitter.EmitLogString(string(make([]byte, payloadSize)))
 		if err != nil {
@@ -454,7 +456,7 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 		return uint64(s.NumberOfTxsPerBlock)*receipt.GasUsed <= gasLimit
 	})
 
-	payloadSize = maxPayloadSize - i*step
+	payloadSize = (maxSearchArea - i) * step
 	s.lggr.Infof("Using payload of size %d to fill gas limit: %d with %d txs", payloadSize, gasLimit, s.NumberOfTxsPerBlock)
 
 	return payloadSize, nil

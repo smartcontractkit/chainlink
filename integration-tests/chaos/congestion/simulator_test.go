@@ -47,7 +47,7 @@ func TestSimulator(t *testing.T) {
 	err = sim.Start(tests.Context(t))
 	require.NoError(t, err)
 	// wait for 2 minutes to collect observations through all phases
-	time.Sleep(time.Minute * 20)
+	time.Sleep(time.Minute * 2)
 	require.NoError(t, sim.Close())
 	require.Len(t, observations, 4, "expected all 4 phases to be observed")
 	requireCongestionWeakEqual(t, "inactive", observations[phaseInactive], 0) // during inactivity of simulation fees might fluctuate according to eip1559, so we can't check them
@@ -87,7 +87,7 @@ func requireValueInRange(t *testing.T, name string, observations []chainState, e
 }
 
 func sanitizeValues(t *testing.T, observations []chainState, extract func(state chainState) float64) []float64 {
-	var vals []float64
+	vals := make([]float64, 0, len(observations))
 	for _, obs := range observations {
 		vals = append(vals, extract(obs))
 	}
