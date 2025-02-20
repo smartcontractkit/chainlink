@@ -535,7 +535,12 @@ func Test_toTypeAndVersionMap(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got := toTypeAndVersionMap(tt.addrs)
-			assert.Equal(t, tt.want, got)
+			require.Equal(t, len(tt.want), len(got))
+			for k, gotAddresses := range got {
+				wantAddresses, ok := tt.want[k]
+				require.True(t, ok)
+				require.ElementsMatch(t, wantAddresses, gotAddresses)
+			}
 		})
 	}
 }
