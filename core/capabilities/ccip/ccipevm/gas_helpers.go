@@ -23,8 +23,7 @@ const (
 		30_000*3 // supportsInterface of ERC165Checker library performs 3 static-calls of 30k gas each
 	PerTokenOverheadGas = TokenAdminRegistryPoolLookupGas +
 		SupportsInterfaceCheck +
-		200_000 + // releaseOrMint using callWithExactGas
-		50_000 // transfer using callWithExactGas
+		200_000 // releaseOrMint using callWithExactGas
 	RateLimiterOverheadGas = 2_100 + // COLD_SLOAD_COST for accessing token bucket
 		5_000 // SSTORE_RESET_GAS for updating & decreasing token bucket
 	ConstantMessagePartBytes            = 10 * 32 // A message consists of 10 abi encoded fields 32B each (after encoding)
@@ -106,8 +105,7 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		adminRegistryOverhead = TokenAdminRegistryWarmupCost
 	}
 
-	return DestGasOverhead +
-		messageGasLimit.Uint64() +
+	return messageGasLimit.Uint64() +
 		messageCallDataGas +
 		ExecutionStateProcessingOverheadGas +
 		SupportsInterfaceCheck +
