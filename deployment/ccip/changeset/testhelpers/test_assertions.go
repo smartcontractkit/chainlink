@@ -222,7 +222,7 @@ func ConfirmCommitForAllWithExpectedSeqNums(
 					t,
 					srcChain,
 					e.SolChains[dstChain],
-					state.SolChains[dstChain].Router,
+					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					ccipocr3.SeqNumRange{
 						ccipocr3.SeqNum(expectedSeqNum),
@@ -332,7 +332,7 @@ func ConfirmMultipleCommits(
 					t,
 					srcChain,
 					env.SolChains[destChain],
-					state.SolChains[destChain].Router,
+					state.SolChains[destChain].OffRamp,
 					startSlot,
 					seqRange,
 					enforceSingleCommit,
@@ -522,7 +522,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 	t *testing.T,
 	srcSelector uint64,
 	dest deployment.SolChain,
-	routerAddress solana.PublicKey,
+	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
@@ -531,7 +531,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, routerAddress, "CommitReportAccepted", startSlot, done)
+	sink := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -621,7 +621,7 @@ func ConfirmExecWithSeqNrsForAll(
 					t,
 					srcChain,
 					e.SolChains[dstChain],
-					state.SolChains[dstChain].Router,
+					state.SolChains[dstChain].OffRamp,
 					startSlot,
 					seqRange,
 				)
@@ -727,7 +727,7 @@ func ConfirmExecWithSeqNrsSol(
 	t *testing.T,
 	srcSelector uint64,
 	dest deployment.SolChain,
-	routerAddress solana.PublicKey,
+	offrampAddress solana.PublicKey,
 	startSlot uint64,
 	expectedSeqNrs []uint64,
 ) (executionStates map[uint64]int, err error) {
@@ -742,7 +742,7 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, routerAddress, "ExecutionStateChanged", startSlot, done)
+	sink := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -754,7 +754,7 @@ func ConfirmExecWithSeqNrsSol(
 			_, found := seqNrsToWatch[execEvent.SequenceNumber]
 			if found && execEvent.SourceChainSelector == srcSelector {
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
-					execEvent.State.String(), dest.Selector, routerAddress.String(), srcSelector, execEvent.SequenceNumber)
+					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {
@@ -763,7 +763,7 @@ func ConfirmExecWithSeqNrsSol(
 			}
 		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
-				dest.Selector, routerAddress.String(), srcSelector, expectedSeqNrs)
+				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)
 		}
 	}
 }
