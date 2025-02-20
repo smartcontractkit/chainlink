@@ -541,9 +541,12 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 	for {
 		select {
 		case commitEvent := <-sink:
+			// if merkle root is zero, it only contains price updates
+			if commitEvent.Report.MerkleRoot == [32]uint8{} {
+				t.Logf("Skipping CommitReportAccepted with only price updates")
+				continue
+			}
 			require.Equal(t, srcSelector, commitEvent.Report.SourceChainSelector)
-
-			// TODO: commitEvent.Report.MerkleRoot ? do we need to recursive call?
 
 			// TODO: this logic is duplicated with verifyCommitReport, share
 			mr := commitEvent.Report
