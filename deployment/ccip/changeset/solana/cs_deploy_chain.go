@@ -895,7 +895,7 @@ func generateExtendIxn(
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
 	}
 	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
-	if bufferSize < programSize {
+	if bufferSize <= programSize {
 		return nil, fmt.Errorf("buffer account size %d is less than program account size %d", bufferSize, programSize)
 	}
 	extraBytes := bufferSize - programSize
@@ -904,6 +904,7 @@ func generateExtendIxn(
 	}
 	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
+	//nolint:gosec // G115 we check for overflow above
 	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes))
 
 	keys := solana.AccountMetaSlice{
