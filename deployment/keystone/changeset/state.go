@@ -109,6 +109,15 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
 	}
 
+	if cs.Forwarder != nil {
+		fwrView, fwrErr := GenerateForwarderView(cs.Forwarder)
+		if fwrErr != nil {
+			allErrs = errors.Join(allErrs, fwrErr)
+			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+		}
+		out.Forwarders[cs.Forwarder.Address().String()] = fwrView
+	}
+
 	return out, allErrs
 }
 

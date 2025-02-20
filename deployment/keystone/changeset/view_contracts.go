@@ -15,6 +15,7 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
@@ -26,6 +27,7 @@ type KeystoneChainView struct {
 	// OCRContracts is a map of OCR3 contract addresses to their configuration view
 	OCRContracts     map[string]OCR3ConfigView                   `json:"ocrContracts,omitempty"`
 	WorkflowRegistry map[string]common_v1_0.WorkflowRegistryView `json:"workflowRegistry,omitempty"`
+	Forwarders       map[string]ForwarderView                    `json:"forwarders,omitempty"`
 }
 
 type OCR3ConfigView struct {
@@ -37,7 +39,17 @@ type OCR3ConfigView struct {
 	OffchainConfig        OracleConfig        `json:"offchainConfig"`
 }
 
-var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
+type ForwarderView struct {
+	DonId         uint32   `json:"donId"`
+	ConfigVersion uint32   `json:"configVersion"`
+	F             uint8    `json:"f"`
+	Signers       []string `json:"signers"`
+}
+
+var (
+	ErrOCR3NotConfigured      = errors.New("OCR3 not configured")
+	ErrForwarderNotConfigured = errors.New("forwarder not configured")
+)
 
 func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
 	details, err := ocr3Cap.LatestConfigDetails(nil)
@@ -135,6 +147,39 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}, nil
 }
 
+func GenerateForwarderView(f *forwarder.KeystoneForwarder) (ForwarderView, error) {
+	// TODO: how to get the info needed to fill this call params?
+	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
+		Start:   0,
+		End:     nil,
+		Context: nil,
+	}, nil, nil)
+	if err != nil {
+		return ForwarderView{}, err
+	}
+	var configSet *forwarder.KeystoneForwarderConfigSet
+	for configIterator.Next() {
+		// We wait for the iterator to receive an event
+		if configIterator.Event == nil {
+			return ForwarderView{}, ErrForwarderNotConfigured
+		}
+		configSet = configIterator.Event
+	}
+	if configSet == nil {
+		return ForwarderView{}, ErrForwarderNotConfigured
+	}
+	var readableSigners []string
+	for _, s := range configSet.Signers {
+		readableSigners = append(readableSigners, s.String())
+	}
+	return ForwarderView{
+		DonId:         configSet.DonId,
+		ConfigVersion: configSet.ConfigVersion,
+		F:             configSet.F,
+		Signers:       readableSigners,
+	}, nil
+}
+
 func millisecondsToUint32(dur time.Duration) uint32 {
 	ms := dur.Milliseconds()
 	if ms > int64(math.MaxUint32) {
@@ -149,6 +194,7 @@ func NewKeystoneChainView() KeystoneChainView {
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		OCRContracts:       make(map[string]OCR3ConfigView),
 		WorkflowRegistry:   make(map[string]common_v1_0.WorkflowRegistryView),
+		Forwarders:         make(map[string]ForwarderView),
 	}
 }
 
