@@ -79,6 +79,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment
 type DeployUSDCTokenPoolContractsConfig struct {
 	// USDCPools defines the per-chain configuration of each new USDC pool.
 	USDCPools map[uint64]DeployUSDCTokenPoolInput
+	IsTestRouter bool
 }
 
 func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment) error {
@@ -101,6 +102,9 @@ func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment)
 		}
 		if chainState.Router == nil {
 			return fmt.Errorf("missing router on %s", chain)
+		}
+		if c.IsTestRouter && chainState.TestRouter == nil {
+			return fmt.Errorf("missing test router on %s", chain)
 		}
 		if chainState.RMNProxy == nil {
 			return fmt.Errorf("missing rmnProxy on %s", chain)
@@ -125,15 +129,19 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
+
 	for chainSelector, poolConfig := range c.USDCPools {
 		chain := env.Chains[chainSelector]
 		chainState := state.Chains[chainSelector]
-
+		router := chainState.Router
+		if c.IsTestRouter {
+			router = chainState.TestRouter
+		}
 		_, err := deployment.DeployContract(env.Logger, chain, newAddresses,
 			func(chain deployment.Chain) deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool] {
 				poolAddress, tx, usdcTokenPool, err := usdc_token_pool.DeployUSDCTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenMessenger, poolConfig.TokenAddress,
-					poolConfig.AllowList, chainState.RMNProxy.Address(), chainState.Router.Address(),
+					poolConfig.AllowList, chainState.RMNProxy.Address(), router.Address(),
 				)
 				return deployment.ContractDeploy[*usdc_token_pool.USDCTokenPool]{
 					Address:  poolAddress,
