@@ -4,6 +4,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math"
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
@@ -36,7 +37,6 @@ const (
 	OffRampProgramName   = "ccip_offramp"
 	FeeQuoterProgramName = "fee_quoter"
 	TokenPoolProgramName = "test_token_pool"
-	ReceiverProgramName  = "test_ccip_receiver"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
@@ -788,7 +788,6 @@ func DeployAndMaybeSaveToAddressBook(
 		OffRampProgramName:   changeset.OffRamp,
 		FeeQuoterProgramName: changeset.FeeQuoter,
 		TokenPoolProgramName: changeset.TokenPool,
-		ReceiverProgramName:  changeset.Receiver,
 	}
 	programType, ok := programNameToType[programName]
 	if !ok {
@@ -897,9 +896,12 @@ func generateExtendIxn(
 	}
 	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
 	if bufferSize < programSize {
-		return nil, fmt.Errorf("buffer account size is less than program account size")
+		return nil, fmt.Errorf("buffer account size %d is less than program account size %d", bufferSize, programSize)
 	}
 	extraBytes := bufferSize - programSize
+	if extraBytes > math.MaxUint32 {
+		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
+	}
 	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes))
