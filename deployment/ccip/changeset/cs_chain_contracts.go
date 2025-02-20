@@ -1813,6 +1813,9 @@ func (cfg ApplyFeeTokensUpdatesConfig) Validate(e deployment.Environment) error 
 	return nil
 }
 
+// ApplyFeeTokensUpdatesFeeQuoterChangeset applies the token updates to the fee quoter to add or remove fee tokens.
+// If MCMSConfig is provided, it will create a proposal to apply the changes assuming the fee quoter is owned by the timelock.
+// If MCMSConfig is nil, it will apply the changes directly using the deployer key for each chain.
 func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg ApplyFeeTokensUpdatesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1942,6 +1945,10 @@ func (cfg UpdateTokenPriceFeedsConfig) Validate(e deployment.Environment) error 
 	return nil
 }
 
+// UpdateTokenPriceFeedsFeeQuoterChangeset applies the token price feed updates to the fee quoter.
+// Before applying the changeset, ensure that the environment state/addressbook is up to date with latest token and price feed addresses.
+// If MCMS is provided, it will create a proposal to apply the changes assuming the fee quoter is owned by the timelock.
+// If MCMS is nil, it will apply the changes directly using the deployer key for each chain.
 func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg UpdateTokenPriceFeedsConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -2083,6 +2090,9 @@ type PremiumMultiplierWeiPerEthUpdatesConfigPerChain struct {
 	PremiumMultiplierWeiPerEth uint64
 }
 
+// ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset applies the premium multiplier updates for mentioned tokens to the fee quoter.
+// If MCMS is provided, it will create a proposal to apply the changes assuming the fee quoter is owned by the timelock.
+// If MCMS is nil, it will apply the changes directly using the deployer key for each chain.
 func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Environment, cfg PremiumMultiplierWeiPerEthUpdatesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -2243,6 +2253,12 @@ type TokenTransferFeeConfigRemoveArg struct {
 	Token     TokenSymbol
 }
 
+// ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset applies the token transfer fee config updates for provided tokens to the fee quoter.
+// If TokenTransferFeeConfigRemoveArgs is provided, it will remove the token transfer fee config for the provided tokens and dest chains.
+// If TokenTransferFeeConfigArgs is provided, it will update the token transfer fee config for the provided tokens and dest chains.
+// Use this changeset whenever there is a need to update custom token transfer fee config for a chain, dest chain and token.
+// If MCMS is provided, it will create a proposal to apply the changes assuming the fee quoter is owned by the timelock.
+// If MCMS is nil, it will apply the changes directly using the deployer key for each chain.
 func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environment, cfg ApplyTokenTransferFeeConfigUpdatesConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err

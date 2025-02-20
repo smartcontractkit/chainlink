@@ -36,6 +36,8 @@ const (
 	// ======================================
 
 	// ========= Onchain conts =========
+	// CCIPLockOrBurnV1RetBytes Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
+	// Reference: https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/libraries/Pool.sol#L17
 	CCIPLockOrBurnV1RetBytes = 32
 	// ======================================
 )
