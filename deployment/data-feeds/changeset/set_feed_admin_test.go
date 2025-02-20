@@ -8,6 +8,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -51,4 +55,29 @@ func TestSetCacheAdmin(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+
+	// With MCMS
+	newAb, err := commonChangesets.DeployMCMSWithTimelockV2(env, map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+	})
+	require.NoError(t, err)
+
+	err = ab.AddressBook.Merge(newAb.AddressBook)
+	addresses, err = ab.AddressBook.Addresses()
+	require.NoError(t, err)
+
+	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
+
+	resp, err = changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
+		ChainSelector: chainSelector,
+		CacheAddress:  common.HexToAddress(cacheAddress),
+		AdminAddress:  common.HexToAddress("0x123"),
+		IsAdmin:       true,
+		McmsConfig: &types.MCMSConfig{
+			MinDelay: 1,
+		},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, resp)
+	require.Len(t, resp.MCMSTimelockProposals, 1)
 }

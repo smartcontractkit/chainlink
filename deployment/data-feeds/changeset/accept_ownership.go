@@ -14,6 +14,7 @@ import (
 
 var _ deployment.ChangeSet[types.AcceptOwnershipConfig] = AcceptOwnershipChangeset
 
+// AcceptOwnershipChangeset is a changeset that will create a proposal to accept the ownership of a contract
 func AcceptOwnershipChangeset(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
 	if c.McmsConfig == nil {
 		return deployment.ChangesetOutput{}, errors.New("mcms config is required")
