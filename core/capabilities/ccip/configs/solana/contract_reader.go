@@ -239,6 +239,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								Name: "Token",
 								Type: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
 							}}},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{FieldName: "Config.UsdPerToken"},
+						},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "DestChain",
