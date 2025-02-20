@@ -168,7 +168,7 @@ func Test_CCIPMessaging(t *testing.T) {
 			sourceChain,
 			destChain,
 			[]int64{
-				int64(out.MsgSentEvent.Message.Header.SequenceNumber),
+				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
 			},
 			24*time.Hour,
 			true, // reExecuteIfFailed
