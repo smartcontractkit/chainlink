@@ -40,7 +40,7 @@ func TestSimulator(t *testing.T) {
 	lggr, _ := logger.TestObserved(t, zapcore.DebugLevel)
 	sim, err := NewSimulator(t, *cfg.Congestion, client, anvilClient, logger.Sugared(lggr))
 	require.NoError(t, err)
-	observations := map[phaseName][]chainState{}
+	observations := map[phaseType][]chainState{}
 	sim.observationsHandler = func(state chainState) {
 		observations[state.PhaseName] = append(observations[state.PhaseName], state) // handle is not called concurrently
 	}
@@ -50,7 +50,7 @@ func TestSimulator(t *testing.T) {
 	time.Sleep(time.Minute * 2)
 	require.NoError(t, sim.Close())
 	require.Len(t, observations, 4, "expected all 4 phases to be observed")
-	requireCongestionWeakEqual(t, "inactive", observations[phaseInactive], 0) // during inactivity of simulation fees might fluctuate according to eip1559, so we can't check them
+	requireCongestionWeakEqual(t, "inactive", observations[phaseInactive], 0) // during inactivity of simulation fees might fluctuate according to eip1559, so lets only check congestion
 	requirePhaseObservations(t, "rampUp", observations[phaseRampUp], cfg.Congestion.RampUp.Congestion, 0, cfg.Congestion.FeesIncreasePercent)
 	requirePhaseObservations(t, "plateau", observations[phasePlateau], cfg.Congestion.Plateau.Congestion, cfg.Congestion.FeesIncreasePercent, cfg.Congestion.FeesIncreasePercent)
 	requirePhaseObservations(t, "cool down", observations[phaseCoolDown], cfg.Congestion.CoolDown.Congestion, 0, cfg.Congestion.FeesIncreasePercent)

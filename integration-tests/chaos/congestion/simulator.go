@@ -32,16 +32,20 @@ const (
 )
 
 type Phase struct {
-	Duration   int64   `toml:"duration"` // in seconds
+	Duration int64 `toml:"duration"` // in seconds
+	// Congestion defines how much of the block's gas limit will be used (1 - full block, 0 - empty).
+	// Transactions that were not produced by simulation are also taken into account.
+	// So, if you define 0.5 congestion and the tested application consumes 0.25 of the block gas limit,
+	// the simulator will produce transactions to fill the remaining 0.25.
 	Congestion float64 `toml:"congestion"`
 }
 
 // Input - defines configuration for chain congestion simulation.
 // Simulation has three phases:
-// RampUp - period when fees are gradually increased until reach FeesTargetPercent. Congestion is maintained at RampUp.Congestion level.
-// Plateau - fees maintained at FeesTargetPercent, congestion - Plateau.Congestion
-// CoolDown - fees gradually are decreased to the initial values.
-// Delays between full cycles are defined by InitialDelay and Period. During this time simulation does not produce any transactions and
+// RampUp - period when fees are gradually increased by FeesIncreasePercent. Congestion is maintained at RampUp.Congestion level.
+// Plateau - fees are maintained at increased level, congestion - Plateau.Congestion
+// CoolDown - fees are gradually decreased to the initial values.
+// InitialDelay and Period define delays between full cycles. During this time simulation does not produce any transactions and
 // base fee might fluctuate according EIP-1559 spec depending on Anvil configuration.
 type Input struct {
 	Enabled             bool    `toml:"enabled"`
@@ -55,8 +59,8 @@ type Input struct {
 	// following values are optional and calculated automatically
 	NumberOfTxsPerBlock  int    `toml:"number_of_txs_per_block"`  // defines number of transaction to be produced to fill a block (default: defaultTxPerBlock)
 	PayloadSize          *int   `toml:"payload_size"`             // defines payload size that allows NumberOfTxsPerBlock transactions to fully fill a block. (Calculated automatically)
-	GasLimit             uint64 `toml:"gas_limit"`                // calculated automatically if not specified
-	InitialBaseFeePerGas uint64 `toml:"initial_base_fee_per_gas"` // defaults to base fee of a block fetched on the start, if not specified
+	GasLimit             uint64 `toml:"gas_limit"`                // if not specified, default to the gas limit of a block fetched during startup
+	InitialBaseFeePerGas uint64 `toml:"initial_base_fee_per_gas"` // if not specified, defaults to base fee of a block fetched on the start
 	InitialTipPerGas     uint64 `toml:"initial_tip_per_gas"`      // defines initial tip (default: defaultTip)
 }
 
@@ -74,7 +78,7 @@ type AnvilClient interface {
 	AnvilSetNextBlockBaseFeePerGas(gas *big.Int) error
 }
 
-// Simulator - produces transactions to generate specified congestion and manipulates fees according to configuration.
+// Simulator - produces transactions to generate specified congestion and manipulates fees.
 // Refer to Input for more details.
 type Simulator struct {
 	services.Service
@@ -128,17 +132,17 @@ func NewSimulator(t *testing.T, input Input, client *seth.Client, anvilClient An
 	return s, nil
 }
 
-type phaseName int
+type phaseType int
 
 const (
-	phaseInactive phaseName = iota
+	phaseInactive phaseType = iota
 	phaseRampUp
 	phasePlateau
 	phaseCoolDown
 )
 
 type chainState struct {
-	PhaseName           phaseName
+	PhaseName           phaseType
 	Congestion          float64
 	TipDeltaPercent     float64
 	BaseFeeDeltaPercent float64
@@ -193,6 +197,7 @@ func (s *Simulator) start(ctx context.Context) error {
 		s.runTick(ctx)
 		ticker.Reset() // ensure that each iteration is delayed by s.Period
 	})
+	// report observations
 	s.eng.Go(func(ctx context.Context) {
 		s.listenHeadsUntilCanceled(ctx, s.reportObservationOnNewHead)
 	})
@@ -220,7 +225,7 @@ func (s *Simulator) startTransactionProducer(ctx context.Context, wg *sync.WaitG
 				txsToSend--
 			}
 
-			s.lggr.Infof("Sending %d transactions; current congestion: %.2f target: %.2f", txsToSend, congestion, congestionTarget)
+			s.lggr.Debugf("Sending %d transactions; current congestion: %.2f target: %.2f", txsToSend, congestion, congestionTarget)
 			for range txsToSend {
 				select {
 				case work <- struct{}{}:
@@ -235,12 +240,12 @@ func (s *Simulator) startTransactionProducer(ctx context.Context, wg *sync.WaitG
 
 func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) {
 	defer wg.Done()
-	s.lggr.Debugf("Starting ramp up phase")
+	s.lggr.Info("Starting ramp up phase")
 	s.phase.Store(phaseRampUp)
 	s.updateCurrentFees(0)
 	s.handleVolatilePhase(ctx, s.RampUp, true)
 
-	s.lggr.Debugf("Starting plateue phase")
+	s.lggr.Info("Starting plateau phase")
 	s.phase.Store(phasePlateau)
 	s.expectedCurrentCongestion.Store(s.Plateau.Congestion)
 	timer := time.NewTimer(time.Second * time.Duration(s.Plateau.Duration))
@@ -252,10 +257,11 @@ func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) 
 		return
 	}
 
-	s.lggr.Debugf("Starting cooldown phase")
+	s.lggr.Info("Starting cooldown phase")
 	s.phase.Store(phaseCoolDown)
 	s.handleVolatilePhase(ctx, s.CoolDown, false)
 
+	s.lggr.Info("Finished iteration")
 	s.phase.Store(phaseInactive)
 }
 
@@ -295,10 +301,10 @@ phaseLoop:
 func (s *Simulator) updateCurrentFees(targetDistanceRatio float64) {
 	targetPercent := s.FeesIncreasePercent * targetDistanceRatio
 	baseFee := uint64(float64(s.InitialBaseFeePerGas) * (1 + targetPercent/100))
-	s.lggr.Debugf("Updating fees to %d according to distance %.2f", baseFee, targetDistanceRatio)
 	s.expectedCurrentBaseFee.Store(baseFee)
 	tip := uint64(float64(s.InitialTipPerGas) * (1 + targetPercent/100))
 	s.expectedCurrentTip.Store(tip)
+	s.lggr.Debugf("Updating fees to %d according to distance %.2f", baseFee, targetDistanceRatio)
 }
 
 func (s *Simulator) runTick(ctx context.Context) {
@@ -354,7 +360,7 @@ func (s *Simulator) reportObservationOnNewHead(ctx context.Context, header *type
 	tipPercent := float64(s.avgTip(block).Uint64()) / float64(s.InitialTipPerGas) * 100
 
 	state := chainState{
-		PhaseName:           s.phase.Load().(phaseName),
+		PhaseName:           s.phase.Load().(phaseType),
 		Congestion:          congestion,
 		TipDeltaPercent:     tipPercent - 100,
 		BaseFeeDeltaPercent: baseFeePercent - 100,
