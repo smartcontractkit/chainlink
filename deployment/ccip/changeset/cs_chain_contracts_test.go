@@ -1271,7 +1271,7 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 							dest: {
 								TokenTransferFeeConfigArgs: []changeset.TokenTransferFeeConfigArg{
 									{
-										DestChain: dest,
+										DestChain: source,
 										TokenTransferFeeConfigPerToken: map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
 											changeset.LinkSymbol: {
 												MinFeeUSDCents:    1,

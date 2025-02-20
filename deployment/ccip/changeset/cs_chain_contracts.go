@@ -2105,6 +2105,9 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Enviro
 			return fmt.Errorf("error getting token addresses for chain %d: %w", chainSel, err)
 		}
 		for _, update := range updates.TokenTransferFeeConfigArgs {
+			if update.DestChain == chainSel {
+				return fmt.Errorf("dest chain %d cannot be the same as source chain %d", update.DestChain, chainSel)
+			}
 			for token, feeConfig := range update.TokenTransferFeeConfigPerToken {
 				if _, ok := tokenAddresses[token]; !ok {
 					return fmt.Errorf("token %s not found in state for chain %d", token, chainSel)
@@ -2121,6 +2124,9 @@ func (cfg ApplyTokenTransferFeeConfigUpdatesConfig) Validate(e deployment.Enviro
 			}
 		}
 		for _, remove := range updates.TokenTransferFeeConfigRemoveArgs {
+			if remove.DestChain == chainSel {
+				return fmt.Errorf("dest chain %d cannot be the same as source chain %d", remove.DestChain, chainSel)
+			}
 			if _, ok := tokenAddresses[remove.Token]; !ok {
 				return fmt.Errorf("token %s not found in state for chain %d", remove.Token, chainSel)
 			}
