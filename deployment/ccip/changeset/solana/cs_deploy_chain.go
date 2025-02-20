@@ -368,7 +368,7 @@ func deployChainContractsSolana(
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
-		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
+		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
