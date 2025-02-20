@@ -529,7 +529,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 		)
 	} else {
 		commitChangeset = commonchangeset.Configure(
-			// Add the exec OCR instances for the new chains
+			// Update commit OCR instances for existing chains
 			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
 			changeset.SetCandidateChangesetConfig{
 				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
