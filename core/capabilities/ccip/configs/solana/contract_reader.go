@@ -60,7 +60,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							PollingFilter: &config.PollingFilter{},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,
-								OnChainPath:  consts.EventAttributeSourceChain,
+								OnChainPath:  "SourceChainSelector",
 							},
 							IndexedField1: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSequenceNumber,
