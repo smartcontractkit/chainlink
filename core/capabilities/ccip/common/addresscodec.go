@@ -8,11 +8,13 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses
 type ChainSpecificAddressCodec interface {
 	AddressBytesToString([]byte) (string, error)
 	AddressStringToBytes(string) ([]byte, error)
 }
 
+// AddressCodec is a struct that holds the chain specific address codecs
 type AddressCodec struct {
 	EVMAddressCodec    ChainSpecificAddressCodec
 	SolanaAddressCodec ChainSpecificAddressCodec
@@ -40,6 +42,7 @@ func NewAddressCodec(params AddressCodecParams) AddressCodec {
 	}
 }
 
+// AddressBytesToString converts an address from bytes to string
 func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
@@ -58,6 +61,7 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 	}
 }
 
+// AddressStringToBytes converts an address from string to bytes
 func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {

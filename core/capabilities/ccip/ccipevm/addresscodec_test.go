@@ -37,3 +37,19 @@ func TestInvalidAddressStringToBytes(t *testing.T) {
 	_, err := addressCodec.AddressStringToBytes(addr)
 	require.Error(t, err)
 }
+
+func TestValidEVMAddress(t *testing.T) {
+	addressCodec := AddressCodec{}
+	addr := []byte{0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef}
+	want := "0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"
+	got, err := addressCodec.AddressBytesToString(addr)
+	require.NoError(t, err)
+	require.Equal(t, want, got)
+}
+
+func TestInvalidHexString(t *testing.T) {
+	addressCodec := AddressCodec{}
+	addr := "0xZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZZ"
+	_, err := addressCodec.AddressStringToBytes(addr)
+	require.Error(t, err)
+}
