@@ -10,8 +10,11 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -37,9 +40,9 @@ func SetupTwoChainEnvironmentWithTokens(
 	selectors := e.AllChainSelectors()
 
 	addressBook := deployment.NewMemoryAddressBook()
-	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
+	prereqCfg := make([]v1_6.DeployPrerequisiteConfigPerChain, len(selectors))
 	for i, selector := range selectors {
-		prereqCfg[i] = changeset.DeployPrerequisiteConfigPerChain{
+		prereqCfg[i] = v1_6.DeployPrerequisiteConfigPerChain{
 			ChainSelector: selector,
 		}
 	}
@@ -78,8 +81,8 @@ func SetupTwoChainEnvironmentWithTokens(
 	// Deploy MCMS setup & prerequisite contracts
 	e, err := commoncs.Apply(t, e, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
-			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
+			deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
+			v1_6.DeployPrerequisiteConfig{Configs: prereqCfg},
 		),
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
@@ -140,15 +143,15 @@ func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts 
 func DeployTestTokenPools(
 	t *testing.T,
 	e deployment.Environment,
-	newPools map[uint64]changeset.DeployTokenPoolInput,
+	newPools map[uint64]v1_5_1.DeployTokenPoolInput,
 	transferToTimelock bool,
 ) deployment.Environment {
 	selectors := e.AllChainSelectors()
 
 	e, err := commonchangeset.Apply(t, e, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			changeset.DeployTokenPoolContractsConfig{
+			deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,
 				NewPools:    newPools,
 			},

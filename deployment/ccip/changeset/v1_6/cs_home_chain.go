@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"bytes"
@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -90,7 +91,7 @@ func (c DeployHomeChainConfig) Validate() error {
 // and returns a deployment.ContractDeploy struct with the address and contract instance.
 func deployCapReg(
 	lggr logger.Logger,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
 ) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
@@ -100,7 +101,7 @@ func deployCapReg(
 		if cr != nil {
 			lggr.Infow("Found CapabilitiesRegistry in chain state", "address", cr.Address().String())
 			return &deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0),
+				Address: cr.Address(), Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0),
 			}, nil
 		}
 	}
@@ -111,7 +112,7 @@ func deployCapReg(
 				chain.Client,
 			)
 			return deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry]{
-				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
+				Address: crAddr, Contract: cr, Tv: deployment.NewTypeAndVersion(changeset.CapabilitiesRegistry, deployment.Version1_0_0), Tx: tx, Err: err2,
 			}
 		})
 	if err != nil {
@@ -132,7 +133,7 @@ func deployHomeChain(
 	nodeP2PIDsPerNodeOpAdmin map[string][][32]byte,
 ) (*deployment.ContractDeploy[*capabilities_registry.CapabilitiesRegistry], error) {
 	// load existing state
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -157,7 +158,7 @@ func deployHomeChain(
 					capReg.Address,
 				)
 				return deployment.ContractDeploy[*ccip_home.CCIPHome]{
-					Address: ccAddr, Tv: deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
+					Address: ccAddr, Tv: deployment.NewTypeAndVersion(changeset.CCIPHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: cc,
 				}
 			})
 		if err != nil {
@@ -178,7 +179,7 @@ func deployHomeChain(
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*rmn_home.RMNHome]{
-					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
+					Address: rmnAddr, Tv: deployment.NewTypeAndVersion(changeset.RMNHome, deployment.Version1_6_0), Tx: tx, Err: err2, Contract: rmn,
 				}
 			},
 		)
@@ -444,10 +445,10 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *MCMSConfig
+	MCMS         *changeset.MCMSConfig
 }
 
-func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
+func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
 	if err := deployment.IsValidChainSelector(c.HomeChainSel); err != nil {
 		return fmt.Errorf("home chain selector must be set %w", err)
 	}
@@ -471,7 +472,7 @@ func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
 // TODO: Could likely be moved to common, but needs
 // a common state struct first.
 func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

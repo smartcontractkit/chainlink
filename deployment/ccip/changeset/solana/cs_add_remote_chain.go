@@ -18,6 +18,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -42,7 +43,7 @@ type RemoteChainConfigSolana struct {
 }
 
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -84,7 +85,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		if remote == routerConfigAccount.SvmChainSelector {
 			return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
-		if err := state.ValidateRamp(remote, cs.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, changeset.OnRamp); err != nil {
 			return err
 		}
 		routerDestChainPDA, err := solState.FindDestChainStatePDA(remote, chainState.Router)
@@ -106,7 +107,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 		return deployment.ChangesetOutput{}, err
 	}
 
-	s, err := cs.LoadOnchainState(e)
+	s, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -121,7 +122,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 
 func doAddRemoteChainToSolana(
 	e deployment.Environment,
-	s cs.CCIPOnChainState,
+	s changeset.CCIPOnChainState,
 	chainSel uint64,
 	updates map[uint64]RemoteChainConfigSolana,
 	ab deployment.AddressBook) error {

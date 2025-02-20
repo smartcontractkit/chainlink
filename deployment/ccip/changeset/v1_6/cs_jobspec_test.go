@@ -1,4 +1,4 @@
-package changeset_test
+package v1_6_test
 
 import (
 	"testing"
@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	ccip "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
 )
@@ -21,8 +21,8 @@ func TestJobSpecChangeset(t *testing.T) {
 	require.NoError(t, err)
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
-			changeset.DeployHomeChainConfig{
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     tenv.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -34,7 +34,7 @@ func TestJobSpecChangeset(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-	output, err := changeset.CCIPCapabilityJobspecChangeset(e, nil)
+	output, err := v1_6.CCIPCapabilityJobspecChangeset(e, nil)
 	require.NoError(t, err)
 	require.NotEmpty(t, output.Jobs)
 	nodeIDs := make(map[string]struct{})
@@ -56,7 +56,7 @@ func TestJobSpecChangesetIdempotent(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// we call the changeset again to ensure that it doesn't return any new job specs
 	// as the job specs are already created in the first call
-	output, err := changeset.CCIPCapabilityJobspecChangeset(e.Env, nil)
+	output, err := v1_6.CCIPCapabilityJobspecChangeset(e.Env, nil)
 	require.NoError(t, err)
 	require.Empty(t, output.Jobs)
 }

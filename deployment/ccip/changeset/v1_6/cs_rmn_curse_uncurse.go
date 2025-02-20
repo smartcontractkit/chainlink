@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"encoding/binary"
@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
@@ -31,13 +32,13 @@ type RMNCurseAction struct {
 type CurseAction func(e deployment.Environment) []RMNCurseAction
 
 type RMNCurseConfig struct {
-	MCMS         *MCMSConfig
+	MCMS         *changeset.MCMSConfig
 	CurseActions []CurseAction
 	Reason       string
 }
 
 func (c RMNCurseConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
@@ -215,12 +216,12 @@ func RMNCurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployment
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
+	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to curse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction
@@ -286,12 +287,12 @@ func RMNUncurseChangeset(e deployment.Environment, cfg RMNCurseConfig) (deployme
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
+	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("proposal to uncurse RMNs: " + cfg.Reason)
 
 	// Generate curse actions
 	var curseActions []RMNCurseAction

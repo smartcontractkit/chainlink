@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"errors"
@@ -14,6 +14,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
@@ -154,8 +155,8 @@ func DefaultOffRampParams() OffRampParams {
 	}
 }
 
-func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState CCIPOnChainState) error {
-	existingState, err := LoadOnchainState(e)
+func ValidateHomeChainState(e deployment.Environment, homeChainSel uint64, existingState changeset.CCIPOnChainState) error {
+	existingState, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
@@ -202,7 +203,7 @@ func deployChainContractsForChains(
 	ab deployment.AddressBook,
 	homeChainSel uint64,
 	contractParamsPerChain map[uint64]ChainContractParams) error {
-	existingState, err := LoadOnchainState(e)
+	existingState, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
@@ -256,7 +257,7 @@ func deployChainContractsForChains(
 
 func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, ab deployment.AddressBook, rmnHome *rmn_home.RMNHome, contractParams ChainContractParams) error {
 	// check for existing contracts
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return err
@@ -314,7 +315,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					rmnLegacyAddr,
 				)
 				return deployment.ContractDeploy[*rmn_remote.RMNRemote]{
-					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0), Err: err2,
+					Address: rmnRemoteAddr, Contract: rmnRemote, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -354,7 +355,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					RMNProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
-					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0), Err: err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.TestRouter, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -375,7 +376,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]common.Address{}, // Need to add onRamp after
 				)
 				return deployment.ContractDeploy[*nonce_manager.NonceManager]{
-					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0), Err: err2,
+					Address: nonceManagerAddr, Contract: nonceManager, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.NonceManager, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -415,7 +416,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					contractParams.FeeQuoterParams.DestChainConfigArgs,
 				)
 				return deployment.ContractDeploy[*fee_quoter.FeeQuoter]{
-					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0), Err: err2,
+					Address: prAddr, Contract: pr, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -446,7 +447,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]onramp.OnRampDestChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*onramp.OnRamp]{
-					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0), Err: err2,
+					Address: onRampAddr, Contract: onRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.OnRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -479,7 +480,7 @@ func deployChainContractsEVM(e deployment.Environment, chain deployment.Chain, a
 					[]offramp.OffRampSourceChainConfigArgs{},
 				)
 				return deployment.ContractDeploy[*offramp.OffRamp]{
-					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0), Err: err2,
+					Address: offRampAddr, Contract: offRamp, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {

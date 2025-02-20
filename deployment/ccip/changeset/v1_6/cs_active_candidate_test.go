@@ -1,4 +1,4 @@
-package changeset_test
+package v1_6_test
 
 import (
 	"math/big"
@@ -9,9 +9,11 @@ import (
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -44,9 +46,9 @@ func Test_ActiveCandidate(t *testing.T) {
 	sourceState := state.Chains[source]
 	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					source: {
 						dest: {
 							IsEnabled:        true,
@@ -57,9 +59,9 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					source: {
 						TokenPrices: map[common.Address]*big.Int{
 							sourceState.LinkToken.Address(): testhelpers.DefaultLinkPrice,
@@ -73,19 +75,19 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			changeset.UpdateFeeQuoterDestsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					source: {
-						dest: changeset.DefaultFeeQuoterDestChainConfig(true),
+						dest: v1_6.DefaultFeeQuoterDestChainConfig(true),
 					},
 				},
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 					dest: {
 						source: {
 							IsEnabled:                 true,
@@ -96,9 +98,9 @@ func Test_ActiveCandidate(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					source: {
 						OnRampUpdates: map[uint64]bool{
@@ -195,21 +197,21 @@ func Test_ActiveCandidate(t *testing.T) {
 	tokenConfig := changeset.NewTestTokenConfig(state.Chains[tenv.FeedChainSel].USDFeeds)
 	_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
-			changeset.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			v1_6.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
 					MCMS: &changeset.MCMSConfig{
 						MinDelay: 0,
 					},
 				},
-				PluginInfo: []changeset.SetCandidatePluginInfo{
+				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
-						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
-							dest: changeset.DeriveCCIPOCRParams(
-								changeset.WithDefaultCommitOffChainConfig(tenv.FeedChainSel,
+						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+							dest: v1_6.DeriveCCIPOCRParams(
+								v1_6.WithDefaultCommitOffChainConfig(tenv.FeedChainSel,
 									tokenConfig.GetTokenInfo(logger.TestLogger(t),
 										state.Chains[dest].LinkToken.Address(),
 										state.Chains[dest].Weth9.Address())),
@@ -219,9 +221,9 @@ func Test_ActiveCandidate(t *testing.T) {
 					},
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
-						OCRConfigPerRemoteChainSelector: map[uint64]changeset.CCIPOCRParams{
-							dest: changeset.DeriveCCIPOCRParams(
-								changeset.WithDefaultExecuteOffChainConfig(nil),
+						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
+							dest: v1_6.DeriveCCIPOCRParams(
+								v1_6.WithDefaultExecuteOffChainConfig(nil),
 							),
 						},
 						PluginType: types.PluginTypeCCIPExec,

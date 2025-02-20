@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"bytes"
@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
@@ -31,10 +33,10 @@ var (
 
 type SetRMNRemoteOnRMNProxyConfig struct {
 	ChainSelectors []uint64
-	MCMSConfig     *MCMSConfig
+	MCMSConfig     *changeset.MCMSConfig
 }
 
-func (c SetRMNRemoteOnRMNProxyConfig) Validate(state CCIPOnChainState) error {
+func (c SetRMNRemoteOnRMNProxyConfig) Validate(state changeset.CCIPOnChainState) error {
 	for _, chain := range c.ChainSelectors {
 		err := deployment.IsValidChainSelector(chain)
 		if err != nil {
@@ -55,7 +57,7 @@ func (c SetRMNRemoteOnRMNProxyConfig) Validate(state CCIPOnChainState) error {
 }
 
 func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteOnRMNProxyConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -112,7 +114,7 @@ func SetRMNRemoteOnRMNProxyChangeset(e deployment.Environment, cfg SetRMNRemoteO
 	}, nil
 }
 
-func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain, chainState CCIPChainState, mcmsEnabled bool) (mcms.Operation, error) {
+func setRMNRemoteOnRMNProxyOp(txOpts *bind.TransactOpts, chain deployment.Chain, chainState changeset.CCIPChainState, mcmsEnabled bool) (mcms.Operation, error) {
 	rmnProxy := chainState.RMNProxy
 	rmnRemoteAddr := chainState.RMNRemote.Address()
 	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
@@ -161,7 +163,7 @@ func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
 	}
 }
 
-func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *changeset.MCMSConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.Chains[chain].DeployerKey
 	}
@@ -174,10 +176,10 @@ type SetRMNHomeCandidateConfig struct {
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
-	MCMSConfig        *MCMSConfig
+	MCMSConfig        *changeset.MCMSConfig
 }
 
-func (c SetRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
+func (c SetRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.HomeChainSelector)
 	if err != nil {
 		return err
@@ -280,10 +282,10 @@ func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
-	MCMSConfig        *MCMSConfig
+	MCMSConfig        *changeset.MCMSConfig
 }
 
-func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
+func (c PromoteRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.HomeChainSelector)
 	if err != nil {
 		return err
@@ -318,7 +320,7 @@ func (c PromoteRMNHomeCandidateConfig) Validate(state CCIPOnChainState) error {
 // DynamicConfig contains the list of source chains with their chain selectors, f value and the bitmap of the nodes that are oberver for each source chain
 // The bitmap is a 256 bit array where each bit represents a node. If the bit matching the index of the node in the static config is set it means that the node is an observer
 func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -368,9 +370,9 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 		},
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
+	timelocksPerChain := changeset.BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := BuildProposerPerChain(e, state)
+	proposerMCMSes := changeset.BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -390,7 +392,7 @@ func SetRMNHomeCandidateConfigChangeset(e deployment.Environment, config SetRMNH
 }
 
 func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config PromoteRMNHomeCandidateConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -451,9 +453,9 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 		},
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
+	timelocksPerChain := changeset.BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := BuildProposerPerChain(e, state)
+	proposerMCMSes := changeset.BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,
@@ -472,7 +474,7 @@ func PromoteRMNHomeCandidateConfigChangeset(e deployment.Environment, config Pro
 	}, nil
 }
 
-func BuildRMNRemotePerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*rmn_remote.RMNRemote {
+func BuildRMNRemotePerChain(e deployment.Environment, state changeset.CCIPOnChainState) map[uint64]*rmn_remote.RMNRemote {
 	timelocksPerChain := make(map[uint64]*rmn_remote.RMNRemote)
 	for _, chain := range e.Chains {
 		timelocksPerChain[chain.Selector] = state.Chains[chain.Selector].RMNRemote
@@ -488,7 +490,7 @@ type RMNRemoteConfig struct {
 type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
 	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
-	MCMSConfig        *MCMSConfig
+	MCMSConfig        *changeset.MCMSConfig
 }
 
 func (c SetRMNRemoteConfig) Validate() error {
@@ -521,7 +523,7 @@ type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	ActiveDigest      [32]byte
-	MCMS              *MCMSConfig
+	MCMS              *changeset.MCMSConfig
 }
 
 func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error {
@@ -530,7 +532,7 @@ func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error 
 		return err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -562,12 +564,12 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("set RMNHome dynamic config")
+	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("set RMNHome dynamic config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
@@ -596,7 +598,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
 	CandidateDigest   [32]byte
-	MCMS              *MCMSConfig
+	MCMS              *changeset.MCMSConfig
 }
 
 func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
@@ -605,7 +607,7 @@ func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -633,12 +635,12 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("revoke candidate config")
+	deployerGroup := changeset.NewDeployerGroup(e, state, cfg.MCMS).WithDeploymentContext("revoke candidate config")
 
 	chain, exists := e.Chains[cfg.HomeChainSelector]
 	if !exists {
@@ -664,7 +666,7 @@ func RevokeRMNHomeCandidateConfigChangeset(e deployment.Environment, cfg RevokeC
 }
 
 func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -749,9 +751,9 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	timelocksPerChain := BuildTimelockAddressPerChain(e, state)
+	timelocksPerChain := changeset.BuildTimelockAddressPerChain(e, state)
 
-	proposerMCMSes := BuildProposerPerChain(e, state)
+	proposerMCMSes := changeset.BuildProposerPerChain(e, state)
 
 	prop, err := proposalutils.BuildProposalFromBatches(
 		timelocksPerChain,

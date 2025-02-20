@@ -1,4 +1,4 @@
-package changeset
+package v1_5_1
 
 import (
 	"context"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
@@ -40,7 +41,7 @@ type DeployTokenPoolInput struct {
 	AcceptLiquidity *bool
 }
 
-func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state CCIPChainState, tokenSymbol TokenSymbol) error {
+func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, tokenSymbol changeset.TokenSymbol) error {
 	// Ensure that required fields are populated
 	if i.TokenAddress == utils.ZeroAddress {
 		return errors.New("token address must be defined")
@@ -50,7 +51,7 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 	}
 
 	// Validate that the type is known
-	if _, ok := tokenPoolTypes[i.Type]; !ok {
+	if _, ok := changeset.TokenPoolTypes[i.Type]; !ok {
 		return fmt.Errorf("requested token pool type %s is unknown", i.Type)
 	}
 
@@ -77,17 +78,17 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 	}
 
 	// Validate acceptLiquidity based on requested pool type
-	if i.Type == LockReleaseTokenPool && i.AcceptLiquidity == nil {
+	if i.Type == changeset.LockReleaseTokenPool && i.AcceptLiquidity == nil {
 		return errors.New("accept liquidity must be defined for lock release pools")
 	}
-	if i.Type != LockReleaseTokenPool && i.AcceptLiquidity != nil {
+	if i.Type != changeset.LockReleaseTokenPool && i.AcceptLiquidity != nil {
 		return errors.New("accept liquidity must be nil for burn mint pools")
 	}
 
 	// We should check if a token pool with this type, version, and symbol already exists
-	_, ok := getTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, currentTokenPoolVersion)
+	_, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, i.Type, changeset.CurrentTokenPoolVersion)
 	if ok {
-		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, currentTokenPoolVersion, tokenSymbol, chain)
+		return fmt.Errorf("token pool with type %s and version %s already exists for %s on %s", i.Type, changeset.CurrentTokenPoolVersion, tokenSymbol, chain)
 	}
 
 	return nil
@@ -96,7 +97,7 @@ func (i DeployTokenPoolInput) Validate(ctx context.Context, chain deployment.Cha
 // DeployTokenPoolContractsConfig defines the token pool contracts that need to be deployed on each chain.
 type DeployTokenPoolContractsConfig struct {
 	// Symbol is the symbol of the token for which we are deploying a pool.
-	TokenSymbol TokenSymbol
+	TokenSymbol changeset.TokenSymbol
 	// NewPools defines the per-chain configuration of each new pool
 	NewPools map[uint64]DeployTokenPoolInput
 	// IsTestRouter indicates whether or not the test router should be used.
@@ -105,11 +106,11 @@ type DeployTokenPoolContractsConfig struct {
 
 func (c DeployTokenPoolContractsConfig) Validate(env deployment.Environment) error {
 	// Ensure that required fields are populated
-	if c.TokenSymbol == TokenSymbol("") {
+	if c.TokenSymbol == changeset.TokenSymbol("") {
 		return errors.New("token symbol must be defined")
 	}
 
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -153,7 +154,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
 
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -177,7 +178,7 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 func deployTokenPool(
 	logger logger.Logger,
 	chain deployment.Chain,
-	chainState CCIPChainState,
+	chainState changeset.CCIPChainState,
 	addressBook deployment.AddressBook,
 	poolConfig DeployTokenPoolInput,
 	isTestRouter bool,
@@ -194,22 +195,22 @@ func deployTokenPool(
 			var tx *types.Transaction
 			var err error
 			switch poolConfig.Type {
-			case BurnMintTokenPool:
+			case changeset.BurnMintTokenPool:
 				tpAddr, tx, _, err = burn_mint_token_pool.DeployBurnMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case BurnWithFromMintTokenPool:
+			case changeset.BurnWithFromMintTokenPool:
 				tpAddr, tx, _, err = burn_with_from_mint_token_pool.DeployBurnWithFromMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case BurnFromMintTokenPool:
+			case changeset.BurnFromMintTokenPool:
 				tpAddr, tx, _, err = burn_from_mint_token_pool.DeployBurnFromMintTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), router.Address(),
 				)
-			case LockReleaseTokenPool:
+			case changeset.LockReleaseTokenPool:
 				tpAddr, tx, _, err = lock_release_token_pool.DeployLockReleaseTokenPool(
 					chain.DeployerKey, chain.Client, poolConfig.TokenAddress, poolConfig.LocalTokenDecimals,
 					poolConfig.AllowList, rmnProxy.Address(), *poolConfig.AcceptLiquidity, router.Address(),
@@ -222,7 +223,7 @@ func deployTokenPool(
 			return deployment.ContractDeploy[*token_pool.TokenPool]{
 				Address:  tpAddr,
 				Contract: tp,
-				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, currentTokenPoolVersion),
+				Tv:       deployment.NewTypeAndVersion(poolConfig.Type, changeset.CurrentTokenPoolVersion),
 				Tx:       tx,
 				Err:      err,
 			}

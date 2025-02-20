@@ -1,4 +1,4 @@
-package changeset
+package v1_5_1
 
 import (
 	"fmt"
@@ -6,16 +6,17 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
-var _ deployment.ChangeSet[TokenAdminRegistryChangesetConfig] = SetPoolChangeset
+var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = SetPoolChangeset
 
 func validateSetPool(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,
 	sender common.Address,
 	externalAdmin common.Address,
-	symbol TokenSymbol,
+	symbol changeset.TokenSymbol,
 	chain deployment.Chain,
 ) error {
 	// We must be the administrator
@@ -26,16 +27,16 @@ func validateSetPool(
 }
 
 // SetPoolChangeset sets pools for tokens on the token admin registry.
-func SetPoolChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (deployment.ChangesetOutput, error) {
+func SetPoolChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(env, false, validateSetPool); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("set pool for tokens on token admin registries")
+	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("set pool for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]

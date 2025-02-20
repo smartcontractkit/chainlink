@@ -1,4 +1,4 @@
-package changeset_test
+package v1_6_test
 
 import (
 	"testing"
@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -29,7 +30,7 @@ func TestDeployHomeChain(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	homeChainCfg := changeset.DeployHomeChainConfig{
+	homeChainCfg := v1_6.DeployHomeChainConfig{
 		HomeChainSel:     homeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -38,7 +39,7 @@ func TestDeployHomeChain(t *testing.T) {
 			"NodeOperator": p2pIds,
 		},
 	}
-	output, err := changeset.DeployHomeChainChangeset(e, homeChainCfg)
+	output, err := v1_6.DeployHomeChainChangeset(e, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.ExistingAddresses.Merge(output.AddressBook))
 	state, err := changeset.LoadOnchainState(e)
@@ -67,7 +68,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	homeChainCfg := changeset.DeployHomeChainConfig{
+	homeChainCfg := v1_6.DeployHomeChainConfig{
 		HomeChainSel:     e.HomeChainSel,
 		RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 		RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -77,7 +78,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 		},
 	}
 	// apply the changeset once again to ensure idempotency
-	output, err := changeset.DeployHomeChainChangeset(e.Env, homeChainCfg)
+	output, err := v1_6.DeployHomeChainChangeset(e.Env, homeChainCfg)
 	require.NoError(t, err)
 	require.NoError(t, e.Env.ExistingAddresses.Merge(output.AddressBook))
 	_, err = changeset.LoadOnchainState(e.Env)
@@ -91,12 +92,12 @@ func TestRemoveDonsValidate(t *testing.T) {
 	homeChain := s.Chains[e.HomeChainSel]
 	var tt = []struct {
 		name      string
-		config    changeset.RemoveDONsConfig
+		config    v1_6.RemoveDONsConfig
 		expectErr bool
 	}{
 		{
 			name: "invalid home",
-			config: changeset.RemoveDONsConfig{
+			config: v1_6.RemoveDONsConfig{
 				HomeChainSel: 0,
 				DonIDs:       []uint32{1},
 			},
@@ -104,7 +105,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "invalid dons",
-			config: changeset.RemoveDONsConfig{
+			config: v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{1377},
 			},
@@ -112,7 +113,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "no dons",
-			config: changeset.RemoveDONsConfig{
+			config: v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{},
 			},
@@ -120,7 +121,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 		},
 		{
 			name: "success",
-			config: changeset.RemoveDONsConfig{
+			config: v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{1},
 			},
@@ -150,8 +151,8 @@ func TestRemoveDons(t *testing.T) {
 	require.NoError(t, err)
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.RemoveDONs),
-			changeset.RemoveDONsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
 			},
@@ -182,8 +183,8 @@ func TestRemoveDons(t *testing.T) {
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.RemoveDONs),
-			changeset.RemoveDONsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.RemoveDONs),
+			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
 				MCMS:         &changeset.MCMSConfig{MinDelay: 0},

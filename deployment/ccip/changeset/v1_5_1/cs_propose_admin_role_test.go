@@ -1,4 +1,4 @@
-package changeset_test
+package v1_5_1_test
 
 import (
 	"testing"
@@ -7,9 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -19,7 +21,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 
 	e, selectorA, _, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
-	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
 			Type:               changeset.BurnMintTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
@@ -34,11 +36,11 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 	// We want an administrator to exist to force failure in the last test
 	e, err := commonchangeset.Apply(t, e, timelockContracts,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+			deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 			changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    changeset.BurnMintTokenPool,
 							Version: deployment.Version1_5_1,
@@ -48,11 +50,11 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.AcceptAdminRoleChangeset),
+			deployment.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
 			changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    changeset.BurnMintTokenPool,
 							Version: deployment.Version1_5_1,
@@ -73,7 +75,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Msg: "Chain selector is invalid",
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					0: map[changeset.TokenSymbol]changeset.TokenPoolInfo{},
+					0: {},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
@@ -82,7 +84,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Msg: "Chain selector doesn't exist in environment",
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					5009297550715157269: map[changeset.TokenSymbol]changeset.TokenPoolInfo{},
+					5009297550715157269: {},
 				},
 			},
 			ErrStr: "does not exist in environment",
@@ -91,7 +93,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Msg: "Ownership validation failure",
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{},
+					selectorA: {},
 				},
 			},
 			ErrStr: "token admin registry failed ownership validation",
@@ -101,7 +103,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    "InvalidType",
 							Version: deployment.Version1_5_1,
@@ -116,7 +118,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    changeset.BurnMintTokenPool,
 							Version: deployment.Version1_0_0,
@@ -131,7 +133,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 			Config: changeset.TokenAdminRegistryChangesetConfig{
 				MCMS: mcmsConfig,
 				Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-					selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+					selectorA: {
 						testhelpers.TestTokenSymbol: {
 							Type:    changeset.BurnMintTokenPool,
 							Version: deployment.Version1_5_1,
@@ -147,7 +149,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 		t.Run(test.Msg, func(t *testing.T) {
 			_, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					test.Config,
 				),
 			)
@@ -167,7 +169,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 		t.Run(msg, func(t *testing.T) {
 			e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
-			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 				selectorA: {
 					Type:               changeset.BurnMintTokenPool,
 					TokenAddress:       tokens[selectorA].Address,
@@ -188,17 +190,17 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-							selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+							selectorA: {
 								testhelpers.TestTokenSymbol: {
 									Type:    changeset.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
 								},
 							},
-							selectorB: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+							selectorB: {
 								testhelpers.TestTokenSymbol: {
 									Type:    changeset.BurnMintTokenPool,
 									Version: deployment.Version1_5_1,
@@ -241,7 +243,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 			externalAdminA := utils.RandomAddress()
 			externalAdminB := utils.RandomAddress()
 
-			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+			e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 				selectorA: {
 					Type:               changeset.BurnMintTokenPool,
 					TokenAddress:       tokens[selectorA].Address,
@@ -262,18 +264,18 @@ func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
 
 			_, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+					deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 					changeset.TokenAdminRegistryChangesetConfig{
 						MCMS: mcmsConfig,
 						Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-							selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+							selectorA: {
 								testhelpers.TestTokenSymbol: {
 									Type:          changeset.BurnMintTokenPool,
 									Version:       deployment.Version1_5_1,
 									ExternalAdmin: externalAdminA,
 								},
 							},
-							selectorB: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+							selectorB: {
 								testhelpers.TestTokenSymbol: {
 									Type:          changeset.BurnMintTokenPool,
 									Version:       deployment.Version1_5_1,

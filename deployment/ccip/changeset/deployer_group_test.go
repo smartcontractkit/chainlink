@@ -225,13 +225,13 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			tc.cfg.MCMS = &changeset.MCMSConfig{
 				MinDelay: 0,
 			}
-			state, err := changeset.LoadOnchainState(e.Env)
+			currentState, err := changeset.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+			timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, currentState)
 
 			contractsByChain := make(map[uint64][]common.Address)
-			contractsByChain[e.HomeChainSel] = []common.Address{state.Chains[e.HomeChainSel].LinkToken.Address()}
+			contractsByChain[e.HomeChainSel] = []common.Address{currentState.Chains[e.HomeChainSel].LinkToken.Address()}
 
 			_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 				commonchangeset.Configure(
@@ -260,10 +260,10 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			)
 			require.NoError(t, err)
 
-			state, err = changeset.LoadOnchainState(e.Env)
+			currentState, err = changeset.LoadOnchainState(e.Env)
 			require.NoError(t, err)
 
-			token := state.Chains[e.HomeChainSel].LinkToken
+			token := currentState.Chains[e.HomeChainSel].LinkToken
 
 			amount, err := token.BalanceOf(nil, tc.cfg.address)
 			require.NoError(t, err)
@@ -360,14 +360,14 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
-	state, err := changeset.LoadOnchainState(e.Env)
+	currentState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, state)
+	timelocksPerChain := changeset.BuildTimelockPerChain(e.Env, currentState)
 
 	contractsByChain := make(map[uint64][]common.Address)
 	for _, chain := range e.Env.AllChainSelectors() {
-		contractsByChain[chain] = []common.Address{state.Chains[chain].LinkToken.Address()}
+		contractsByChain[chain] = []common.Address{currentState.Chains[chain].LinkToken.Address()}
 	}
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
@@ -397,10 +397,10 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	state, err = changeset.LoadOnchainState(e.Env)
+	currentState, err = changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
-	token := state.Chains[e.HomeChainSel].LinkToken
+	token := currentState.Chains[e.HomeChainSel].LinkToken
 
 	amount, err := token.BalanceOf(nil, cfg.address)
 	require.NoError(t, err)

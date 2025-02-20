@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"bytes"
@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
@@ -64,7 +65,7 @@ var (
 
 type UpdateNonceManagerConfig struct {
 	UpdatesByChain map[uint64]NonceManagerUpdate // source -> dest -> update
-	MCMS           *MCMSConfig
+	MCMS           *changeset.MCMSConfig
 }
 
 type NonceManagerUpdate struct {
@@ -84,7 +85,7 @@ type PreviousRampCfg struct {
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -139,7 +140,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
+	s, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -257,17 +258,17 @@ type UpdateOnRampDestsConfig struct {
 
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
 func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -310,7 +311,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
+	s, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -393,12 +394,12 @@ type UpdateOnRampDynamicConfig struct {
 	UpdatesByChain map[uint64]OnRampDynamicConfigUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
-func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	for chainSel, config := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -415,7 +416,7 @@ func (cfg UpdateOnRampDynamicConfig) Validate(e deployment.Environment, state CC
 }
 
 func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRampDynamicConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -498,16 +499,16 @@ type UpdateOnRampAllowListConfig struct {
 	UpdatesByChain map[uint64]map[uint64]OnRampAllowListUpdate
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
 func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) error {
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for srcSel, updates := range cfg.UpdatesByChain {
-		if err := ValidateChain(env, state, srcSel, cfg.MCMS != nil); err != nil {
+		if err := changeset.ValidateChain(env, state, srcSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		onRamp := state.Chains[srcSel].OnRamp
@@ -535,7 +536,7 @@ func (cfg UpdateOnRampAllowListConfig) Validate(env deployment.Environment) erro
 			}
 		}
 		for destSel, update := range updates {
-			if err := ValidateChain(env, state, srcSel, false); err != nil {
+			if err := changeset.ValidateChain(env, state, srcSel, false); err != nil {
 				return err
 			}
 			if len(update.AddedAllowlistedSenders) > 0 && !update.AllowListEnabled {
@@ -555,7 +556,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	onchain, err := LoadOnchainState(e)
+	onchain, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -645,12 +646,12 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 
 type WithdrawOnRampFeeTokensConfig struct {
 	FeeTokensByChain map[uint64][]common.Address
-	MCMS             *MCMSConfig
+	MCMS             *changeset.MCMSConfig
 }
 
-func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, state.Chains[chainSel].Timelock.Address(), state.Chains[chainSel].OnRamp); err != nil {
@@ -684,7 +685,7 @@ func (cfg WithdrawOnRampFeeTokensConfig) Validate(e deployment.Environment, stat
 }
 
 func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRampFeeTokensConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -740,7 +741,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 
 type UpdateFeeQuoterPricesConfig struct {
 	PricesByChain map[uint64]FeeQuoterPriceUpdatePerSource // source -> PriceDetails
-	MCMS          *MCMSConfig
+	MCMS          *changeset.MCMSConfig
 }
 
 type FeeQuoterPriceUpdatePerSource struct {
@@ -749,7 +750,7 @@ type FeeQuoterPriceUpdatePerSource struct {
 }
 
 func (cfg UpdateFeeQuoterPricesConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -827,7 +828,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
+	s, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -904,11 +905,11 @@ type UpdateFeeQuoterDestsConfig struct {
 	UpdatesByChain map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
 func (cfg UpdateFeeQuoterDestsConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -952,7 +953,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	s, err := LoadOnchainState(e)
+	s, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1026,10 +1027,10 @@ type UpdateOffRampSourcesConfig struct {
 	// UpdatesByChain is a mapping from dest chain -> source chain -> source chain
 	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
-	MCMS           *MCMSConfig
+	MCMS           *changeset.MCMSConfig
 }
 
-func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, updates := range cfg.UpdatesByChain {
 		chainState, ok := state.Chains[chainSel]
@@ -1059,7 +1060,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state C
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
 
-			if err := state.ValidateRamp(source, OnRamp); err != nil {
+			if err := state.ValidateRamp(source, changeset.OnRamp); err != nil {
 				return err
 			}
 		}
@@ -1069,7 +1070,7 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state C
 
 // UpdateOffRampSourcesChangeset updates the offramp sources for each offramp.
 func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSourcesConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1166,13 +1167,13 @@ type UpdateRouterRampsConfig struct {
 	// on all chains. Disallow mixing test router/non-test router per chain for simplicity.
 	TestRouter     bool
 	UpdatesByChain map[uint64]RouterUpdates
-	MCMS           *MCMSConfig
+	MCMS           *changeset.MCMSConfig
 }
 
-func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	supportedChains := state.SupportedChains()
 	for chainSel, update := range cfg.UpdatesByChain {
-		if err := ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
+		if err := changeset.ValidateChain(e, state, chainSel, cfg.MCMS != nil); err != nil {
 			return err
 		}
 		chainState, ok := state.Chains[chainSel]
@@ -1206,7 +1207,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			if err := state.ValidateRamp(source, OnRamp); err != nil {
+			if err := state.ValidateRamp(source, changeset.OnRamp); err != nil {
 				return err
 			}
 		}
@@ -1218,7 +1219,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			if err := state.ValidateRamp(destination, OffRamp); err != nil {
+			if err := state.ValidateRamp(destination, changeset.OffRamp); err != nil {
 				return err
 			}
 		}
@@ -1234,7 +1235,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 // on all chains to support the new chain through the test router first. Once tested,
 // Enable the new destination on the real router.
 func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1334,14 +1335,14 @@ type SetOCR3OffRampConfig struct {
 	HomeChainSel       uint64
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
-	MCMS               *MCMSConfig
+	MCMS               *changeset.MCMSConfig
 }
 
-func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	if _, ok := state.Chains[c.HomeChainSel]; !ok {
 		return fmt.Errorf("home chain %d not found in onchain state", c.HomeChainSel)
 	}
-	if err := ValidateChain(e, state, c.HomeChainSel, c.MCMS != nil); err != nil {
+	if err := changeset.ValidateChain(e, state, c.HomeChainSel, c.MCMS != nil); err != nil {
 		return err
 	}
 	if c.CCIPHomeConfigType != globals.ConfigTypeActive &&
@@ -1356,7 +1357,7 @@ func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state CCIPOnCha
 	return nil
 }
 
-func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *CCIPOnChainState, chainSelector uint64) error {
+func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, state *changeset.CCIPOnChainState, chainSelector uint64) error {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return err
@@ -1403,7 +1404,7 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
 func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1483,11 +1484,11 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 
 type UpdateDynamicConfigOffRampConfig struct {
 	Updates map[uint64]OffRampParams
-	MCMS    *MCMSConfig
+	MCMS    *changeset.MCMSConfig
 }
 
 func (cfg UpdateDynamicConfigOffRampConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -1532,7 +1533,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

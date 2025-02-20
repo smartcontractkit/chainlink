@@ -1,4 +1,4 @@
-package changeset
+package v1_5_1
 
 import (
 	"fmt"
@@ -8,16 +8,17 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
-var _ deployment.ChangeSet[TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
+var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
 
 func validateProposeAdminRole(
 	config token_admin_registry.TokenAdminRegistryTokenConfig,
 	sender common.Address,
 	externalAdmin common.Address,
-	symbol TokenSymbol,
+	symbol changeset.TokenSymbol,
 	chain deployment.Chain,
 ) error {
 	// To propose ourselves as admin of the token, two things must be true.
@@ -31,16 +32,16 @@ func validateProposeAdminRole(
 }
 
 // ProposeAdminRoleChangeset proposes admin rights for tokens on the token admin registry.
-func ProposeAdminRoleChangeset(env deployment.Environment, c TokenAdminRegistryChangesetConfig) (deployment.ChangesetOutput, error) {
+func ProposeAdminRoleChangeset(env deployment.Environment, c changeset.TokenAdminRegistryChangesetConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(env, true, validateProposeAdminRole); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid TokenAdminRegistryChangesetConfig: %w", err)
 	}
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
+	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext("propose admin role for tokens on token admin registries")
 
 	for chainSelector, tokenSymbolToPoolInfo := range c.Pools {
 		chain := env.Chains[chainSelector]

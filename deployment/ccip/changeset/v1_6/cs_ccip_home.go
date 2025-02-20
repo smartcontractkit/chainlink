@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"bytes"
@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -66,7 +67,7 @@ func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, e
 	return "", 0, fmt.Errorf("token %s not found in available tokens", address)
 }
 
-func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
+func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
@@ -105,7 +106,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 				symbol, token.String(), tokenConfig.Decimals, decimal)
 		}
 		feedChainState := state.Chains[feedChainSel]
-		aggregatorInState := feedChainState.USDFeeds[TokenSymbol(symbol)]
+		aggregatorInState := feedChainState.USDFeeds[changeset.TokenSymbol(symbol)]
 		if aggregatorAddr == (common.Address{}) {
 			return fmt.Errorf("token %s -address %s has no aggregator in provided token config", symbol, token.String())
 		}
@@ -121,7 +122,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 	return nil
 }
 
-func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state CCIPOnChainState) error {
+func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state changeset.CCIPOnChainState) error {
 	for sel, token := range usdcConfig.Tokens {
 		onchainState, ok := state.Chains[uint64(sel)]
 		if !ok {
@@ -147,7 +148,7 @@ type CCIPOCRParams struct {
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
 }
 
-func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state CCIPOnChainState) error {
+func (c CCIPOCRParams) Validate(selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
 	}
@@ -278,11 +279,11 @@ type PromoteCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +308,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 				return nil, fmt.Errorf("don chain selector invalid: %w", err)
 			}
-			if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
+			if err := state.ValidateRamp(chainSelector, changeset.OffRamp); err != nil {
 				return nil, err
 			}
 
@@ -371,7 +372,7 @@ func PromoteCandidateChangeset(
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -449,7 +450,7 @@ func (p SetCandidatePluginInfo) String() string {
 	return fmt.Sprintf("PluginType: %s, Chains: %v", p.PluginType.String(), allchains)
 }
 
-func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint64, feedChain uint64) error {
+func (p SetCandidatePluginInfo) Validate(state changeset.CCIPOnChainState, homeChain uint64, feedChain uint64) error {
 	if p.PluginType != types.PluginTypeCCIPCommit &&
 		p.PluginType != types.PluginTypeCCIPExec {
 		return errors.New("PluginType must be set to either CCIPCommit or CCIPExec")
@@ -461,7 +462,7 @@ func (p SetCandidatePluginInfo) Validate(state CCIPOnChainState, homeChain uint6
 		if err := deployment.IsValidChainSelector(chainSelector); err != nil {
 			return fmt.Errorf("don chain selector invalid: %w", err)
 		}
-		if err := state.ValidateRamp(chainSelector, OffRamp); err != nil {
+		if err := state.ValidateRamp(chainSelector, changeset.OffRamp); err != nil {
 			return err
 		}
 		if p.PluginType == types.PluginTypeCCIPCommit && params.CommitOffChainConfig == nil {
@@ -507,10 +508,10 @@ type SetCandidateConfigBase struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
-func (s SetCandidateConfigBase) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	if err := deployment.IsValidChainSelector(s.HomeChainSelector); err != nil {
 		return fmt.Errorf("home chain selector invalid: %w", err)
 	}
@@ -553,7 +554,7 @@ type AddDonAndSetCandidateChangesetConfig struct {
 	PluginInfo SetCandidatePluginInfo
 }
 
-func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) error {
+func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
 	if err := a.SetCandidateConfigBase.Validate(e, state); err != nil {
 		return err
 	}
@@ -596,7 +597,7 @@ func AddDonAndSetCandidateChangeset(
 	e deployment.Environment,
 	cfg AddDonAndSetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -749,7 +750,7 @@ type SetCandidateChangesetConfig struct {
 	PluginInfo []SetCandidatePluginInfo
 }
 
-func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (map[uint64]uint32, error) {
+func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
 	err := s.SetCandidateConfigBase.Validate(e, state)
 	if err != nil {
 		return nil, err
@@ -785,7 +786,7 @@ func SetCandidateChangeset(
 	e deployment.Environment,
 	cfg SetCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1041,10 +1042,10 @@ type RevokeCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 }
 
-func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state CCIPOnChainState) (donID uint32, err error) {
+func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (donID uint32, err error) {
 	if err := deployment.IsValidChainSelector(r.HomeChainSelector); err != nil {
 		return 0, fmt.Errorf("home chain selector invalid: %w", err)
 	}
@@ -1094,7 +1095,7 @@ func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state
 }
 
 func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChangesetConfig) (deployment.ChangesetOutput, error) {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -1228,11 +1229,11 @@ type UpdateChainConfigConfig struct {
 	HomeChainSelector  uint64
 	RemoteChainRemoves []uint64
 	RemoteChainAdds    map[uint64]ChainConfig
-	MCMS               *MCMSConfig
+	MCMS               *changeset.MCMSConfig
 }
 
 func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return err
 	}
@@ -1281,7 +1282,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
-	state, err := LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

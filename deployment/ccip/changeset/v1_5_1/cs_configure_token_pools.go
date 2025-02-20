@@ -1,4 +1,4 @@
-package changeset
+package v1_5_1
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -71,19 +72,19 @@ type TokenPoolConfig struct {
 	Version semver.Version
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state CCIPChainState, useMcms bool, tokenSymbol TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
 	// Ensure that the inputted type is known
-	if _, ok := tokenPoolTypes[c.Type]; !ok {
+	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
 	}
 
 	// Ensure that the inputted version is known
-	if _, ok := tokenPoolVersions[c.Version]; !ok {
+	if _, ok := changeset.TokenPoolVersions[c.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
-	tokenPoolAddress, ok := getTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, c.Type, c.Version)
+	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, c.Type, c.Version)
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
@@ -108,18 +109,18 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *MCMSConfig
+	MCMS *changeset.MCMSConfig
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
-	TokenSymbol TokenSymbol
+	TokenSymbol changeset.TokenSymbol
 }
 
 func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) error {
 	if c.TokenSymbol == "" {
 		return errors.New("token symbol must be defined")
 	}
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -175,12 +176,12 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 	if err := c.Validate(env); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid ConfigureTokenPoolContractsConfig: %w", err)
 	}
-	state, err := LoadOnchainState(env)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	deployerGroup := NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
+	deployerGroup := changeset.NewDeployerGroup(env, state, c.MCMS).WithDeploymentContext(fmt.Sprintf("configure %s token pools", c.TokenSymbol))
 
 	for chainSelector := range c.PoolUpdates {
 		chain := env.Chains[chainSelector]
@@ -204,7 +205,7 @@ func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
 	chains map[uint64]deployment.Chain,
-	state CCIPOnChainState,
+	state changeset.CCIPOnChainState,
 	config ConfigureTokenPoolContractsConfig,
 	chainSelector uint64,
 ) error {
@@ -307,13 +308,13 @@ func configureTokenPool(
 // getTokenStateFromPool fetches the token config from the registry given the pool address
 func getTokenStateFromPool(
 	ctx context.Context,
-	symbol TokenSymbol,
+	symbol changeset.TokenSymbol,
 	poolType deployment.ContractType,
 	version semver.Version,
 	chain deployment.Chain,
-	state CCIPChainState,
+	state changeset.CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, token_admin_registry.TokenAdminRegistryTokenConfig, error) {
-	tokenPoolAddress, ok := getTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)
+	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, poolType, version)
 	if !ok {
 		return nil, utils.ZeroAddress, token_admin_registry.TokenAdminRegistryTokenConfig{}, fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), symbol, poolType, version)
 	}

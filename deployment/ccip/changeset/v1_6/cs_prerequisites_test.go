@@ -1,4 +1,4 @@
-package changeset_test
+package v1_6_test
 
 import (
 	"testing"
@@ -7,6 +7,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -20,14 +21,14 @@ func TestDeployPrerequisites(t *testing.T) {
 		Nodes:      4,
 	})
 	newChain := e.AllChainSelectors()[0]
-	cfg := changeset.DeployPrerequisiteConfig{
-		Configs: []changeset.DeployPrerequisiteConfigPerChain{
+	cfg := v1_6.DeployPrerequisiteConfig{
+		Configs: []v1_6.DeployPrerequisiteConfigPerChain{
 			{
 				ChainSelector: newChain,
 			},
 		},
 	}
-	output, err := changeset.DeployPrerequisitesChangeset(e, cfg)
+	output, err := v1_6.DeployPrerequisitesChangeset(e, cfg)
 	require.NoError(t, err)
 	err = e.ExistingAddresses.Merge(output.AddressBook)
 	require.NoError(t, err)

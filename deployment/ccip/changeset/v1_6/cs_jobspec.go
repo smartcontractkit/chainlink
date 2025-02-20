@@ -1,4 +1,4 @@
-package changeset
+package v1_6
 
 import (
 	"bytes"

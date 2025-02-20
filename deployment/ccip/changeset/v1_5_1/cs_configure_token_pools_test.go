@@ -1,4 +1,4 @@
-package changeset_test
+package v1_5_1_test
 
 import (
 	"bytes"
@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
@@ -22,8 +23,8 @@ import (
 )
 
 // createSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
-func createSymmetricRateLimits(rate int64, capacity int64) changeset.RateLimiterConfig {
-	return changeset.RateLimiterConfig{
+func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
+	return v1_5_1.RateLimiterConfig{
 		Inbound: token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
@@ -128,7 +129,7 @@ func TestValidateRemoteChains(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.ErrStr, func(t *testing.T) {
-			remoteChains := changeset.RateLimiterPerChain{
+			remoteChains := v1_5_1.RateLimiterPerChain{
 				1: {
 					Inbound: token_pool.RateLimiterConfig{
 						IsEnabled: test.IsEnabled,
@@ -155,7 +156,7 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 
 	e, selectorA, _, tokens, _ := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), true)
 
-	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+	e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 		selectorA: {
 			Type:               changeset.BurnMintTokenPool,
 			TokenAddress:       tokens[selectorA].Address,
@@ -168,25 +169,25 @@ func TestValidateTokenPoolConfig(t *testing.T) {
 
 	tests := []struct {
 		UseMcms         bool
-		TokenPoolConfig changeset.TokenPoolConfig
+		TokenPoolConfig v1_5_1.TokenPoolConfig
 		ErrStr          string
 		Msg             string
 	}{
 		{
 			Msg:             "Pool type is invalid",
-			TokenPoolConfig: changeset.TokenPoolConfig{},
+			TokenPoolConfig: v1_5_1.TokenPoolConfig{},
 			ErrStr:          "is not a known token pool type",
 		},
 		{
 			Msg: "Pool version is invalid",
-			TokenPoolConfig: changeset.TokenPoolConfig{
+			TokenPoolConfig: v1_5_1.TokenPoolConfig{
 				Type: changeset.BurnMintTokenPool,
 			},
 			ErrStr: "is not a known token pool version",
 		},
 		{
 			Msg: "Pool is not owned by required address",
-			TokenPoolConfig: changeset.TokenPoolConfig{
+			TokenPoolConfig: v1_5_1.TokenPoolConfig{
 				Type:    changeset.BurnMintTokenPool,
 				Version: deployment.Version1_5_1,
 			},
@@ -213,43 +214,43 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 
 	tests := []struct {
 		TokenSymbol changeset.TokenSymbol
-		Input       changeset.ConfigureTokenPoolContractsConfig
+		Input       v1_5_1.ConfigureTokenPoolContractsConfig
 		ErrStr      string
 		Msg         string
 	}{
 		{
 			Msg:    "Token symbol is missing",
-			Input:  changeset.ConfigureTokenPoolContractsConfig{},
+			Input:  v1_5_1.ConfigureTokenPoolContractsConfig{},
 			ErrStr: "token symbol must be defined",
 		},
 		{
 			Msg: "Chain selector is invalid",
-			Input: changeset.ConfigureTokenPoolContractsConfig{
+			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
-				PoolUpdates: map[uint64]changeset.TokenPoolConfig{
-					0: changeset.TokenPoolConfig{},
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					0: v1_5_1.TokenPoolConfig{},
 				},
 			},
 			ErrStr: "failed to validate chain selector 0",
 		},
 		{
 			Msg: "Chain selector doesn't exist in environment",
-			Input: changeset.ConfigureTokenPoolContractsConfig{
+			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
-				PoolUpdates: map[uint64]changeset.TokenPoolConfig{
-					5009297550715157269: changeset.TokenPoolConfig{},
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					5009297550715157269: v1_5_1.TokenPoolConfig{},
 				},
 			},
 			ErrStr: "does not exist in environment",
 		},
 		{
 			Msg: "Corresponding pool update missing",
-			Input: changeset.ConfigureTokenPoolContractsConfig{
+			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
-				PoolUpdates: map[uint64]changeset.TokenPoolConfig{
-					e.AllChainSelectors()[0]: changeset.TokenPoolConfig{
-						ChainUpdates: changeset.RateLimiterPerChain{
-							e.AllChainSelectors()[1]: changeset.RateLimiterConfig{},
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					e.AllChainSelectors()[0]: v1_5_1.TokenPoolConfig{
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							e.AllChainSelectors()[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
 				},
@@ -275,17 +276,17 @@ func TestValidateConfigureTokenPoolContractsConfig(t *testing.T) {
 		*/
 		{
 			Msg: "Token admin registry is missing",
-			Input: changeset.ConfigureTokenPoolContractsConfig{
+			Input: v1_5_1.ConfigureTokenPoolContractsConfig{
 				TokenSymbol: testhelpers.TestTokenSymbol,
-				PoolUpdates: map[uint64]changeset.TokenPoolConfig{
-					e.AllChainSelectors()[0]: changeset.TokenPoolConfig{
-						ChainUpdates: changeset.RateLimiterPerChain{
-							e.AllChainSelectors()[1]: changeset.RateLimiterConfig{},
+				PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
+					e.AllChainSelectors()[0]: v1_5_1.TokenPoolConfig{
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							e.AllChainSelectors()[1]: v1_5_1.RateLimiterConfig{},
 						},
 					},
-					e.AllChainSelectors()[1]: changeset.TokenPoolConfig{
-						ChainUpdates: changeset.RateLimiterPerChain{
-							e.AllChainSelectors()[0]: changeset.RateLimiterConfig{},
+					e.AllChainSelectors()[1]: v1_5_1.TokenPoolConfig{
+						ChainUpdates: v1_5_1.RateLimiterPerChain{
+							e.AllChainSelectors()[0]: v1_5_1.RateLimiterConfig{},
 						},
 					},
 				},
@@ -306,15 +307,15 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	t.Parallel()
 
 	type regPass struct {
-		SelectorA2B changeset.RateLimiterConfig
-		SelectorB2A changeset.RateLimiterConfig
+		SelectorA2B v1_5_1.RateLimiterConfig
+		SelectorB2A v1_5_1.RateLimiterConfig
 	}
 
 	type updatePass struct {
 		UpdatePoolOnA bool
 		UpdatePoolOnB bool
-		SelectorA2B   changeset.RateLimiterConfig
-		SelectorB2A   changeset.RateLimiterConfig
+		SelectorA2B   v1_5_1.RateLimiterConfig
+		SelectorB2A   v1_5_1.RateLimiterConfig
 	}
 
 	type tokenPools struct {
@@ -382,7 +383,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 			t.Run(test.Msg, func(t *testing.T) {
 				e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
-				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 					selectorA: {
 						Type:               changeset.BurnMintTokenPool,
 						TokenAddress:       tokens[selectorA].Address,
@@ -395,7 +396,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					},
 				}, mcmsConfig != nil)
 
-				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]changeset.DeployTokenPoolInput{
+				e = testhelpers.DeployTestTokenPools(t, e, map[uint64]v1_5_1.DeployTokenPoolInput{
 					selectorA: {
 						Type:               changeset.LockReleaseTokenPool,
 						TokenAddress:       tokens[selectorA].Address,
@@ -442,22 +443,22 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					// Configure & set the active pools on the registry
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							changeset.ConfigureTokenPoolContractsConfig{
+							deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+							v1_5_1.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
-								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
+								PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
 									selectorA: {
 										Type:    changeset.LockReleaseTokenPool,
 										Version: deployment.Version1_5_1,
-										ChainUpdates: changeset.RateLimiterPerChain{
+										ChainUpdates: v1_5_1.RateLimiterPerChain{
 											selectorB: test.RegistrationPass.SelectorA2B,
 										},
 									},
 									selectorB: {
 										Type:    changeset.LockReleaseTokenPool,
 										Version: deployment.Version1_5_1,
-										ChainUpdates: changeset.RateLimiterPerChain{
+										ChainUpdates: v1_5_1.RateLimiterPerChain{
 											selectorA: test.RegistrationPass.SelectorB2A,
 										},
 									},
@@ -465,17 +466,17 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.ProposeAdminRoleChangeset),
+							deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorA: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
 										},
 									},
-									selectorB: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorB: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
@@ -485,17 +486,17 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.AcceptAdminRoleChangeset),
+							deployment.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorA: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
 										},
 									},
-									selectorB: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorB: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
@@ -505,17 +506,17 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 							},
 						),
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.SetPoolChangeset),
+							deployment.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
 							changeset.TokenAdminRegistryChangesetConfig{
 								MCMS: mcmsConfig,
 								Pools: map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo{
-									selectorA: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorA: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
 										},
 									},
-									selectorB: map[changeset.TokenSymbol]changeset.TokenPoolInfo{
+									selectorB: {
 										testhelpers.TestTokenSymbol: {
 											Type:    changeset.LockReleaseTokenPool,
 											Version: deployment.Version1_5_1,
@@ -529,7 +530,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 
 					for _, selector := range e.AllChainSelectors() {
 						var remoteChainSelector uint64
-						var rateLimiterConfig changeset.RateLimiterConfig
+						var rateLimiterConfig v1_5_1.RateLimiterConfig
 						switch selector {
 						case selectorA:
 							remoteChainSelector = selectorB
@@ -565,22 +566,22 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 					}
 					e, err = commonchangeset.Apply(t, e, timelockContracts,
 						commonchangeset.Configure(
-							deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-							changeset.ConfigureTokenPoolContractsConfig{
+							deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+							v1_5_1.ConfigureTokenPoolContractsConfig{
 								TokenSymbol: testhelpers.TestTokenSymbol,
 								MCMS:        mcmsConfig,
-								PoolUpdates: map[uint64]changeset.TokenPoolConfig{
+								PoolUpdates: map[uint64]v1_5_1.TokenPoolConfig{
 									selectorA: {
 										Type:    aType,
 										Version: deployment.Version1_5_1,
-										ChainUpdates: changeset.RateLimiterPerChain{
+										ChainUpdates: v1_5_1.RateLimiterPerChain{
 											selectorB: test.UpdatePass.SelectorA2B,
 										},
 									},
 									selectorB: {
 										Type:    bType,
 										Version: deployment.Version1_5_1,
-										ChainUpdates: changeset.RateLimiterPerChain{
+										ChainUpdates: v1_5_1.RateLimiterPerChain{
 											selectorA: test.UpdatePass.SelectorB2A,
 										},
 									},
@@ -594,7 +595,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 						var updatePool bool
 						var updateRemotePool bool
 						var remoteChainSelector uint64
-						var rateLimiterConfig changeset.RateLimiterConfig
+						var rateLimiterConfig v1_5_1.RateLimiterConfig
 						switch selector {
 						case selectorA:
 							remoteChainSelector = selectorB
