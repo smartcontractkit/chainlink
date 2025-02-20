@@ -25,6 +25,11 @@ const DefaultLookback = 14 * 24 * time.Hour
 
 var (
 	blockTimeSecondsPerChain = map[uint64]uint64{
+		// simchains
+		chainsel.GETH_TESTNET.Selector:  1,
+		chainsel.GETH_DEVNET_2.Selector: 1,
+		chainsel.GETH_DEVNET_3.Selector: 1,
+
 		// arb
 		chainsel.ETHEREUM_MAINNET_ARBITRUM_1.Selector:         1,
 		chainsel.ETHEREUM_TESTNET_SEPOLIA_ARBITRUM_1.Selector: 1,
@@ -66,7 +71,13 @@ func getStartBlock(srcChainSel uint64, currentHead uint64, lookbackDuration time
 	if blockTimeSeconds == 0 {
 		blockTimeSeconds = defaultBlockTimeSeconds
 	}
-	start := currentHead - uint64(lookbackDuration.Seconds())/blockTimeSeconds
+
+	toSub := uint64(lookbackDuration.Seconds()) / blockTimeSeconds
+	if toSub > currentHead {
+		return 1 // start from genesis - might happen for simchains.
+	}
+
+	start := currentHead - toSub
 	return start
 }
 
@@ -207,6 +218,7 @@ func manuallyExecuteSingle(
 	destChainSel uint64,
 	msgSeqNr uint64,
 	lookbackDuration time.Duration,
+	reExecuteIfFailed bool,
 ) error {
 	onRampAddress := state.Chains[srcChainSel].OnRamp.Address()
 
@@ -218,7 +230,7 @@ func manuallyExecuteSingle(
 	}
 
 	if execState == testhelpers.EXECUTION_STATE_SUCCESS ||
-		execState == testhelpers.EXECUTION_STATE_FAILURE {
+		(execState == testhelpers.EXECUTION_STATE_FAILURE && !reExecuteIfFailed) {
 		lggr.Debugw("message already executed", "execState", execState)
 		return nil
 	}
@@ -339,6 +351,7 @@ func ManuallyExecuteAll(
 	destChainSel uint64,
 	msgSeqNrs []int64,
 	lookbackDuration time.Duration,
+	reExecuteIfFailed bool,
 ) error {
 	for _, seqNr := range msgSeqNrs {
 		err := manuallyExecuteSingle(
@@ -349,7 +362,9 @@ func ManuallyExecuteAll(
 			srcChainSel,
 			destChainSel,
 			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
-			lookbackDuration)
+			lookbackDuration,
+			reExecuteIfFailed,
+		)
 		if err != nil {
 			return err
 		}
