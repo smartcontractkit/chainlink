@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -904,4 +905,426 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "OCR3 config FRoleDON is lower than chainConfig FChain")
+}
+
+func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.Chains)
+			// deploy a new token
+			ab := deployment.NewMemoryAddressBook()
+			for _, selector := range allChains {
+				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
+					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+							tenv.Env.Chains[selector].DeployerKey,
+							tenv.Env.Chains[selector].Client,
+							string(testhelpers.TestTokenSymbol),
+							string(testhelpers.TestTokenSymbol),
+							testhelpers.LocalTokenDecimals,
+							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+						)
+						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+							Address:  tokenAddress,
+							Contract: token,
+							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tx:       tx,
+							Err:      err,
+						}
+					},
+				)
+				require.NoError(t, err)
+			}
+			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			source := allChains[0]
+			dest := allChains[1]
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyFeeTokensUpdatesFeeQuoterChangeset),
+					changeset.ApplyFeeTokensUpdatesConfig{
+						UpdatesByChain: map[uint64]changeset.ApplyFeeTokensUpdatesConfigPerChain{
+							source: {
+								TokensToAdd:    []changeset.TokenSymbol{testhelpers.TestTokenSymbol},
+								TokensToRemove: []changeset.TokenSymbol{changeset.LinkSymbol},
+							},
+						},
+						MCMSConfig: mcmsConfig,
+					},
+				),
+			)
+			require.NoError(t, err)
+			// Assert the fee quoter configuration is as we expect.
+			feeTokens, err := state.Chains[source].FeeQuoter.GetFeeTokens(nil)
+			require.NoError(t, err)
+			tokenAddresses, err := state.Chains[source].TokenAddressBySymbol()
+			require.NoError(t, err)
+			require.Contains(t, feeTokens, tokenAddresses[testhelpers.TestTokenSymbol])
+			require.NotContains(t, feeTokens, tokenAddresses[changeset.LinkSymbol])
+		})
+	}
+}
+
+func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+
+			// try to update PremiumMultiplierWeiPerEth for a token that does not exist
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
+					changeset.PremiumMultiplierWeiPerEthUpdatesConfig{
+						Updates: map[uint64][]changeset.PremiumMultiplierWeiPerEthUpdatesConfigPerChain{
+							source: {
+								{
+									Token:                      testhelpers.TestTokenSymbol,
+									PremiumMultiplierWeiPerEth: 1e18,
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "token TEST not found in state for chain")
+			// deploy test new token
+			ab := deployment.NewMemoryAddressBook()
+			for _, selector := range allChains {
+				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
+					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+							tenv.Env.Chains[selector].DeployerKey,
+							tenv.Env.Chains[selector].Client,
+							string(testhelpers.TestTokenSymbol),
+							string(testhelpers.TestTokenSymbol),
+							testhelpers.LocalTokenDecimals,
+							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+						)
+						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+							Address:  tokenAddress,
+							Contract: token,
+							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+							Tx:       tx,
+							Err:      err,
+						}
+					},
+				)
+				require.NoError(t, err)
+			}
+			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			state, err = changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			// now try to apply the changeset for TEST token
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset),
+					changeset.PremiumMultiplierWeiPerEthUpdatesConfig{
+						Updates: map[uint64][]changeset.PremiumMultiplierWeiPerEthUpdatesConfigPerChain{
+							source: {
+								{
+									Token:                      testhelpers.TestTokenSymbol,
+									PremiumMultiplierWeiPerEth: 1e18,
+								},
+							},
+							dest: {
+								{
+									Token:                      testhelpers.TestTokenSymbol,
+									PremiumMultiplierWeiPerEth: 1e18,
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.NoError(t, err)
+			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
+			require.NoError(t, err)
+			config, err := state.Chains[source].FeeQuoter.GetPremiumMultiplierWeiPerEth(&bind.CallOpts{
+				Context: testcontext.Get(t),
+			}, tokenAddress[testhelpers.TestTokenSymbol])
+			require.NoError(t, err)
+			require.Equal(t, uint64(1e18), config)
+		})
+	}
+}
+
+func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+			// deploy a new token
+			ab := deployment.NewMemoryAddressBook()
+			_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+						tenv.Env.Chains[source].DeployerKey,
+						tenv.Env.Chains[source].Client,
+						string(testhelpers.TestTokenSymbol),
+						string(testhelpers.TestTokenSymbol),
+						testhelpers.LocalTokenDecimals,
+						big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+					)
+					return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						Address:  tokenAddress,
+						Contract: token,
+						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tx:       tx,
+						Err:      err,
+					}
+				},
+			)
+			require.NoError(t, err)
+			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+
+			// try to update price feed for this it will fail as there is no price feed deployed for this token
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateTokenPriceFeedsFeeQuoterChangeset),
+					changeset.UpdateTokenPriceFeedsConfig{
+						Updates: map[uint64][]changeset.UpdateTokenPriceFeedsConfigPerChain{
+							source: {
+								{
+									SourceToken: testhelpers.TestTokenSymbol,
+									IsEnabled:   true,
+								},
+							},
+						},
+						FeedChainSelector: tenv.FeedChainSel,
+						MCMS:              mcmsConfig,
+					}),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "price feed for token TEST not found in state for chain")
+			// now try to apply the changeset for link token, there is already a price feed deployed for link token
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateTokenPriceFeedsFeeQuoterChangeset),
+					changeset.UpdateTokenPriceFeedsConfig{
+						Updates: map[uint64][]changeset.UpdateTokenPriceFeedsConfigPerChain{
+							source: {
+								{
+									SourceToken: changeset.LinkSymbol,
+									IsEnabled:   true,
+								},
+							},
+							dest: {
+								{
+									SourceToken: changeset.LinkSymbol,
+									IsEnabled:   true,
+								},
+							},
+						},
+						FeedChainSelector: tenv.FeedChainSel,
+						MCMS:              mcmsConfig,
+					}),
+			)
+			require.NoError(t, err)
+			tokenAddress, err := state.Chains[source].TokenAddressBySymbol()
+			require.NoError(t, err)
+			tokenDetails, err := state.Chains[source].TokenDetailsBySymbol()
+			require.NoError(t, err)
+			decimals, err := tokenDetails[changeset.LinkSymbol].Decimals(&bind.CallOpts{Context: testcontext.Get(t)})
+			require.NoError(t, err)
+			config, err := state.Chains[source].FeeQuoter.GetTokenPriceFeedConfig(&bind.CallOpts{
+				Context: testcontext.Get(t),
+			}, tokenAddress[changeset.LinkSymbol])
+			require.NoError(t, err)
+			require.True(t, config.IsEnabled)
+			require.Equal(t, state.Chains[tenv.FeedChainSel].USDFeeds[changeset.LinkSymbol].Address(), config.DataFeedAddress)
+			require.Equal(t, decimals, config.TokenDecimals)
+		})
+	}
+}
+
+func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tenv, _ := testhelpers.NewMemoryEnvironment(t)
+			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
+			state, err := changeset.LoadOnchainState(tenv.Env)
+			require.NoError(t, err)
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				transferToTimelock(t, tenv, state, source, dest)
+			}
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+					changeset.ApplyTokenTransferFeeConfigUpdatesConfig{
+						UpdatesByChain: map[uint64]changeset.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+							source: {
+								TokenTransferFeeConfigRemoveArgs: []changeset.TokenTransferFeeConfigRemoveArg{
+									{
+										DestChain: dest,
+										Token:     changeset.LinkSymbol,
+									},
+								},
+							},
+							dest: {
+								TokenTransferFeeConfigArgs: []changeset.TokenTransferFeeConfigArg{
+									{
+										DestChain: source,
+										TokenTransferFeeConfigPerToken: map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+											changeset.LinkSymbol: {
+												MinFeeUSDCents:    1,
+												MaxFeeUSDCents:    1,
+												DeciBps:           1,
+												DestGasOverhead:   1,
+												DestBytesOverhead: 1,
+												IsEnabled:         true,
+											},
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), "min fee must be less than max fee for token")
+			_, err = commonchangeset.Apply(t, tenv.Env, tenv.TimelockContracts(t),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+					changeset.ApplyTokenTransferFeeConfigUpdatesConfig{
+						UpdatesByChain: map[uint64]changeset.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+							source: {
+								TokenTransferFeeConfigRemoveArgs: []changeset.TokenTransferFeeConfigRemoveArg{
+									{
+										DestChain: dest,
+										Token:     changeset.LinkSymbol,
+									},
+								},
+							},
+							dest: {
+								TokenTransferFeeConfigArgs: []changeset.TokenTransferFeeConfigArg{
+									{
+										DestChain: source,
+										TokenTransferFeeConfigPerToken: map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{
+											changeset.LinkSymbol: {
+												MinFeeUSDCents:    1,
+												MaxFeeUSDCents:    2,
+												DeciBps:           1,
+												DestGasOverhead:   1,
+												DestBytesOverhead: 64,
+												IsEnabled:         true,
+											},
+										},
+									},
+								},
+							},
+						},
+						MCMS: mcmsConfig,
+					}),
+			)
+			require.NoError(t, err)
+		})
+	}
 }

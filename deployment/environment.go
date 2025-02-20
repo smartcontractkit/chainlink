@@ -332,6 +332,7 @@ type Node struct {
 	NodeID         string
 	Name           string
 	CSAKey         string
+	WorkflowKey    string
 	SelToOCRConfig map[chain_selectors.ChainDetails]OCRConfig
 	PeerID         p2pkey.PeerID
 	IsBootstrap    bool
@@ -491,6 +492,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		NodeID:         jdNode.Id,
 		Name:           jdNode.Name,
 		CSAKey:         jdNode.PublicKey,
+		WorkflowKey:    jdNode.GetWorkflowKey(),
 		SelToOCRConfig: make(map[chain_selectors.ChainDetails]OCRConfig),
 	}
 	var goldenConfig *nodev1.ChainConfig
@@ -516,6 +518,7 @@ func NewNodeFromJD(jdNode *nodev1.Node, chainConfigs []*nodev1.ChainConfig) (*No
 		NodeID:         jdNode.Id,
 		Name:           jdNode.Name,
 		CSAKey:         jdNode.PublicKey,
+		WorkflowKey:    jdNode.GetWorkflowKey(),
 		SelToOCRConfig: selToOCRConfig,
 		IsBootstrap:    bootstrap,
 		PeerID:         MustPeerIDFromString(goldenConfig.Ocr2Config.P2PKeyBundle.PeerId),

@@ -14,6 +14,7 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
@@ -150,7 +151,7 @@ func (c OffRampParams) Validate(ignoreGasForCallExactCheck bool) error {
 func DefaultOffRampParams() OffRampParams {
 	return OffRampParams{
 		GasForCallExactCheck:                    uint16(5000),
-		PermissionLessExecutionThresholdSeconds: uint32(24 * 60 * 60),
+		PermissionLessExecutionThresholdSeconds: uint32(globals.PermissionLessExecutionThreshold.Seconds()),
 	}
 }
 
