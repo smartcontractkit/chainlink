@@ -129,8 +129,8 @@ func TestUpdateDon(t *testing.T) {
 							tc.checkErr(t, useMCMS, err)
 							return
 						}
-						require.NotNil(t, csOut.Proposals) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
-						require.Len(t, csOut.Proposals, 1) //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+						require.NotNil(t, csOut.MCMSTimelockProposals)
+						require.Len(t, csOut.MCMSTimelockProposals, 1)
 						applyErr := applyProposal(t, te, commonchangeset.Configure(
 							deployment.CreateLegacyChangeSet(changeset.UpdateDon),
 							&cfg,

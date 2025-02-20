@@ -63,7 +63,7 @@ func TestAddCapabilities(t *testing.T) {
 		}
 		csOut, err := changeset.AddCapabilities(te.Env, req)
 		require.NoError(t, err)
-		require.Len(t, csOut.Proposals, 1)
+		require.Len(t, csOut.MCMSTimelockProposals, 1)
 		require.Nil(t, csOut.AddressBook)
 
 		// now apply the changeset such that the proposal is signed and execed

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -158,14 +159,21 @@ func DeployTokenPoolContractsChangeset(env deployment.Environment, c DeployToken
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	for chainSelector, poolConfig := range c.NewPools {
-		chain := env.Chains[chainSelector]
-		chainState := state.Chains[chainSelector]
+	deployGrp := errgroup.Group{}
 
-		_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %s: %w", c.TokenSymbol, chain.String(), err)
-		}
+	for chainSelector, poolConfig := range c.NewPools {
+		chainSelector, poolConfig := chainSelector, poolConfig
+		deployGrp.Go(func() error {
+			chain := env.Chains[chainSelector]
+			chainState := state.Chains[chainSelector]
+			_, err := deployTokenPool(env.Logger, chain, chainState, newAddresses, poolConfig, c.IsTestRouter)
+			return err
+		})
+	}
+
+	if err := deployGrp.Wait(); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy %s token pool on %w",
+			c.TokenSymbol, err)
 	}
 
 	return deployment.ChangesetOutput{
