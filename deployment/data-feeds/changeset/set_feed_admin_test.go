@@ -63,6 +63,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	require.NoError(t, err)
 
 	err = ab.AddressBook.Merge(newAb.AddressBook)
+	require.NoError(t, err)
 	addresses, err = ab.AddressBook.Addresses()
 	require.NoError(t, err)
 

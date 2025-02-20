@@ -76,6 +76,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	require.NoError(t, err)
 
 	err = ab.AddressBook.Merge(newAb.AddressBook)
+	require.NoError(t, err)
 	addresses, err = ab.AddressBook.Addresses()
 	require.NoError(t, err)
 
@@ -93,5 +94,4 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, resp.MCMSTimelockProposals, 1)
-
 }
