@@ -330,6 +330,13 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
+	commitFound := make(chan struct{})
+	go func() {
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+			sentEvent.Message.SequenceNumber)
+		commitFound <- struct{}{}
+	}()
+
 	_, err = deployment.CreateLegacyChangeSet(changeset.RMNUncurseChangeset).Apply(e.Env, changeset.RMNCurseConfig{
 		CurseActions: []changeset.CurseAction{changeset.CurseChain(e.Env.AllChainSelectors()[0])},
 		Reason:       "Uncurse test",
@@ -342,8 +349,12 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		require.Empty(t, subjects)
 	}
 
-	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
-		sentEvent.Message.SequenceNumber)
+	select {
+	case <-commitFound:
+		return
+	case <-time.After(30 * time.Second):
+		t.Fatal("timed out waiting for commit")
+	}
 }
 
 // TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
