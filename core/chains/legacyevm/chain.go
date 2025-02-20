@@ -308,6 +308,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 	// if chainselector is specified in the config append it to the newChainSel object
 	if cfg.EVM().ChainSelector() != nil {
 		// Create a chainInfo config
+		// TODO: if chainselector is present in release and present in override always use the one in release
 		newChain := chainselectors.Chain{
 			EvmChainID: cfg.EVM().ChainID().Uint64(),
 			Selector:   cfg.EVM().ChainSelector().Uint64(),
