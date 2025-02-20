@@ -40,7 +40,7 @@ type OCR3ConfigView struct {
 }
 
 type ForwarderView struct {
-	DonId         uint32   `json:"donId"`
+	DonID         uint32   `json:"donId"`
 	ConfigVersion uint32   `json:"configVersion"`
 	F             uint8    `json:"f"`
 	Signers       []string `json:"signers"`
@@ -173,7 +173,7 @@ func GenerateForwarderView(f *forwarder.KeystoneForwarder) (ForwarderView, error
 		readableSigners = append(readableSigners, s.String())
 	}
 	return ForwarderView{
-		DonId:         configSet.DonId,
+		DonID:         configSet.DonId,
 		ConfigVersion: configSet.ConfigVersion,
 		F:             configSet.F,
 		Signers:       readableSigners,
