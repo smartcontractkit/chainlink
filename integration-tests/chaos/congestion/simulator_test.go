@@ -80,10 +80,10 @@ func requireCongestionWeakEqual(t *testing.T, name string, observations []chainS
 	require.LessOrEqual(t, avg, target*1.05, "%s avg congestion is not within expected range %v", name, vals)
 }
 
-func requireValueInRange(t *testing.T, name string, observations []chainState, extract func(state chainState) float64, min, max float64) {
+func requireValueInRange(t *testing.T, name string, observations []chainState, extract func(state chainState) float64, minV, maxV float64) {
 	vals := sanitizeValues(t, observations, extract)
-	require.GreaterOrEqual(t, vals[0], min, "%s is not within expected range", name)
-	require.LessOrEqual(t, vals[len(vals)-1], max, "%s is not within expected range", name)
+	require.GreaterOrEqual(t, vals[0], minV, "%s is not within expected range", name)
+	require.LessOrEqual(t, vals[len(vals)-1], maxV, "%s is not within expected range", name)
 }
 
 func sanitizeValues(t *testing.T, observations []chainState, extract func(state chainState) float64) []float64 {

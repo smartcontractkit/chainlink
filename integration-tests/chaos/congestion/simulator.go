@@ -436,7 +436,8 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 	gasLimit := block.GasLimit()
 	const gasPerLogData = 8
 	const step = 100
-	maxSearchArea := int(gasLimit/gasPerLogData/step) / s.NumberOfTxsPerBlock // nolint:gosec // disable G115
+	//nolint:gosec // disable G115
+	maxSearchArea := int(gasLimit/gasPerLogData/step) / s.NumberOfTxsPerBlock
 	// Find the largest payload that won't overflow gas limit if we send NumberOfTxsPerBlock txs
 	i := sort.Search(maxSearchArea, func(i int) bool {
 		payloadSize = (maxSearchArea - i) * step
@@ -453,6 +454,7 @@ func (s *Simulator) estimatePayloadSizeToFillBlock(ctx context.Context) (payload
 
 		estimatedCongestion := float64(s.NumberOfTxsPerBlock) * float64(receipt.GasUsed) / float64(gasLimit)
 		s.lggr.Infof("emitted payload size: %d that results in %d gas used. If we send %d transactions, congestions will be %.2f", payloadSize, receipt.GasUsed, s.NumberOfTxsPerBlock, estimatedCongestion)
+		//nolint:gosec // disable G115
 		return uint64(s.NumberOfTxsPerBlock)*receipt.GasUsed <= gasLimit
 	})
 
