@@ -39,7 +39,7 @@ func TestRMN_IncorrectSig(t *testing.T) {
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",
 		waitForExec:              true,
-		passIfNoCommitAfter:      30 * time.Second,
+		passIfNoCommitAfter:      15 * time.Second,
 		homeChainConfig: homeChainConfig{
 			f: map[int]int{chain0: 1, chain1: 1},
 		},

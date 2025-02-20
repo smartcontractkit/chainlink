@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -21,7 +20,6 @@ func TestRegisterNodesWithJD(t *testing.T) {
 	nodeP2pKey := e.NodeIDs[0]
 
 	jobClient, ok := e.Offchain.(*memory.JobClient)
-
 	require.True(t, ok, "expected Offchain to be of type *memory.JobClient")
 	require.Lenf(t, jobClient.Nodes, 1, "expected exactly 1 node")
 	require.Emptyf(t, jobClient.RegisteredNodes, "no registered nodes expected")
@@ -34,10 +32,10 @@ func TestRegisterNodesWithJD(t *testing.T) {
 			RegisterNodesInput{
 				EnvLabel:    "test-env",
 				ProductName: "test-product",
-				DONs: DONConfigMap{
-					"don1": {
+				DONsList: []DONConfig{
+					{
 						Name: "don1",
-						Nodes: []NodeCfg{
+						BootstrapNodes: []NodeCfg{
 							{Name: "node1", CSAKey: csaKey},
 						},
 					},
@@ -55,11 +53,14 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 		cfg := RegisterNodesInput{
 			EnvLabel:    "test-env",
 			ProductName: "test-product",
-			DONs: DONConfigMap{
-				"don1": {
+			DONsList: []DONConfig{
+				{
 					Name: "MyDON",
 					Nodes: []NodeCfg{
-						{Name: "node1", CSAKey: "0xabc", IsBootstrap: false},
+						{Name: "node1", CSAKey: "0xabc"},
+					},
+					BootstrapNodes: []NodeCfg{
+						{Name: "bootstrap1", CSAKey: "0xdef"},
 					},
 				},
 			},
@@ -70,12 +71,16 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 
 	t.Run("missing product name", func(t *testing.T) {
 		cfg := RegisterNodesInput{
-			EnvLabel: "test-env",
-			DONs: DONConfigMap{
-				"don2": {
+			EnvLabel:    "test-env",
+			ProductName: "",
+			DONsList: []DONConfig{
+				{
 					Name: "AnotherDON",
 					Nodes: []NodeCfg{
 						{Name: "node1", CSAKey: "0xdef"},
+					},
+					BootstrapNodes: []NodeCfg{
+						{Name: "node2", CSAKey: "0xabc"},
 					},
 				},
 			},
@@ -88,16 +93,36 @@ func TestRegisterNodesInput_Validate(t *testing.T) {
 		cfg := RegisterNodesInput{
 			EnvLabel:    "test-env",
 			ProductName: "test-product",
-			DONs: DONConfigMap{
-				"don3": {
+			DONsList: []DONConfig{
+				{
 					Name: "EmptyCSA",
 					Nodes: []NodeCfg{
-						{Name: "node1", CSAKey: "", IsBootstrap: true},
+						{Name: "node1", CSAKey: ""},
+					},
+					BootstrapNodes: []NodeCfg{
+						{Name: "bootstrap1", CSAKey: ""},
 					},
 				},
 			},
 		}
 		err := cfg.Validate()
 		require.Error(t, err, "expected an error when CSAKey is empty")
+	})
+
+	t.Run("missing BootstrapNode", func(t *testing.T) {
+		cfg := RegisterNodesInput{
+			EnvLabel:    "test-env",
+			ProductName: "test-product",
+			DONsList: []DONConfig{
+				{
+					Name: "EmptyCSA",
+					Nodes: []NodeCfg{
+						{Name: "node1", CSAKey: "0xaaa"},
+					},
+				},
+			},
+		}
+		err := cfg.Validate()
+		require.Error(t, err, "expected an error when BooststrapNodes is empty")
 	})
 }

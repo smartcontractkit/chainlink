@@ -65,6 +65,7 @@ type MCMSWithTimelockConfigV2 struct {
 	Bypasser         mcmstypes.Config
 	Proposer         mcmstypes.Config
 	TimelockMinDelay *big.Int
+	Label            *string
 }
 
 type OCRParameters struct {

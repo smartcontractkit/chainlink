@@ -19,13 +19,13 @@ on:
       extraArgs:
         required: false
         type: string
-        default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "3" }'
+        default: '{ "flakeguard_enable": "true", "flakeguard_run_count": "5" }'
         description: 'JSON of extra arguments for the workflow.'     
 
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@59ca3330cde92af5974cfb5ca2504e67fcf19db3
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@244b17ef5c6ddad3cc841ba90117304216d031f5
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/e2e-tests.yml
@@ -33,7 +33,7 @@ jobs:
       slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
-      extraArgs: ${{ inputs.extraArgs }}
+      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
@@ -57,3 +57,5 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}

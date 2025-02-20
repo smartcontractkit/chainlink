@@ -74,7 +74,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@59ca3330cde92af5974cfb5ca2504e67fcf19db3
+    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@244b17ef5c6ddad3cc841ba90117304216d031f5
     with:
       workflow_name: Run CCIP Integration Tests For PR
       test_path: .github/integration-in-memory-tests.yml

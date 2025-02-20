@@ -1,4 +1,4 @@
-GETH_VERSION: 1.14.11
+GETH_VERSION: 1.15.0
 balance_reader: ../../../contracts/solc/v0.8.24/BalanceReader/BalanceReader.abi ../../../contracts/solc/v0.8.24/BalanceReader/BalanceReader.bin 8824fe0d750f400e5dc8c5fd367bd0d8b335ea24500c38323bdec987e8ac4827
 capabilities_registry: ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.abi ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.bin 07e0115065e833b29352017fe808dd149952b0b7fe73d0af87020966d2ece57c
 feeds_consumer: ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.abi ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.bin 6ac5b12eff3b022a35c3c40d5ed0285bf9bfec0e3669a4b12307332a216048ca
