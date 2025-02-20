@@ -1,14 +1,14 @@
 # CCIP rarely runs these anymore. Leaving for now, but can likely be removed in the future.
 name: CCIP Load Test
 on:
-  push:
-    paths:
-      - '**/*ccip*'
-      - '**/*ccip*/**'
-    branches:
-      - develop
-    tags:
-      - '*'
+#   push:
+#     paths:
+#       - '**/*ccip*'
+#       - '**/*ccip*/**'
+#     branches:
+#       - develop
+#     tags:
+#       - '*'
   workflow_dispatch:
     inputs:
       test_config_override_path:
