@@ -485,12 +485,14 @@ func SolEventEmitter[T any](
 						// Skip any signatures that are before the starting slot
 						continue
 					}
+					v := uint64(0) // v0 = latest, supports address table lookups
 					tx, err := client.GetTransaction(
 						ctx,
 						txSig.Signature,
 						&solrpc.GetTransactionOpts{
-							Commitment: solrpc.CommitmentConfirmed,
-							Encoding:   solana.EncodingBase64,
+							Commitment:                     solrpc.CommitmentConfirmed,
+							Encoding:                       solana.EncodingBase64,
+							MaxSupportedTransactionVersion: &v,
 						},
 					)
 					require.NoError(t, err)
