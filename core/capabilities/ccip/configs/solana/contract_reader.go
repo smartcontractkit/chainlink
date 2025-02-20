@@ -53,6 +53,25 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameOffRamp: {
 				IDL: offRampIDL,
 				Reads: map[string]config.ReadDefinition{
+					consts.EventNameExecutionStateChanged: {
+						ChainSpecificName: consts.EventNameExecutionStateChanged,
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{},
+							IndexedField0: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSourceChain,
+								OnChainPath:  consts.EventAttributeSourceChain,
+							},
+							IndexedField1: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSequenceNumber,
+								OnChainPath:  consts.EventAttributeSequenceNumber,
+							},
+							IndexedField2: &config.IndexedField{
+								OffChainPath: consts.EventAttributeState,
+								OnChainPath:  consts.EventAttributeState,
+							},
+						},
+					},
 					consts.EventNameCommitReportAccepted: {
 						ChainSpecificName: "CommitReportAccepted",
 						ReadType:          config.Event,
