@@ -45,13 +45,7 @@ var (
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
-type tokenInfo interface {
-	Address() common.Address
-	Symbol(opts *bind.CallOpts) (string, error)
-	Decimals(opts *bind.CallOpts) (uint8, error)
-}
-
-func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, error) {
+func findTokenInfo(tokens []TokenDetails, address common.Address) (string, uint8, error) {
 	for _, token := range tokens {
 		if token.Address() == address {
 			tokenSymbol, err := token.Symbol(nil)
@@ -109,7 +103,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 
 		aggregatorAddr := common.HexToAddress(string(tokenConfig.AggregatorAddress))
 		token := common.HexToAddress(tokenUnknownAddr.String())
-		tokenInfos := make([]tokenInfo, 0)
+		tokenInfos := make([]TokenDetails, 0)
 		onchainState := state.Chains[selector]
 		for _, tk := range onchainState.BurnMintTokens677 {
 			tokenInfos = append(tokenInfos, tk)
@@ -120,7 +114,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		var linkTokenInfo tokenInfo
+		var linkTokenInfo TokenDetails
 		linkTokenInfo = onchainState.LinkToken
 		if onchainState.LinkToken == nil {
 			linkTokenInfo = onchainState.StaticLinkToken

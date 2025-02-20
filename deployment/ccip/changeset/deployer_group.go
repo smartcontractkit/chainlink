@@ -7,6 +7,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -21,7 +22,22 @@ import (
 
 // MCMSConfig defines timelock duration.
 type MCMSConfig struct {
-	MinDelay time.Duration
+	MinDelay   time.Duration
+	MCMSAction timelock.TimelockOperation
+}
+
+func (mcmsConfig *MCMSConfig) Validate() error {
+	// to make it backwards compatible with the old MCMSConfig , if MCMSAction is not set, default to timelock.Schedule
+	// TODO remove this after all the usages are updated to reflect canceller and bypasser with new mcmslib
+	if mcmsConfig.MCMSAction == "" {
+		mcmsConfig.MCMSAction = timelock.Schedule
+	}
+	if mcmsConfig.MCMSAction != timelock.Schedule &&
+		mcmsConfig.MCMSAction != timelock.Cancel &&
+		mcmsConfig.MCMSAction != timelock.Bypass {
+		return fmt.Errorf("invalid MCMS type %s", mcmsConfig.MCMSAction)
+	}
+	return nil
 }
 
 type DeployerGroup struct {
