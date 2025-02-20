@@ -2,6 +2,16 @@ module github.com/smartcontractkit/chainlink/v2
 
 go 1.23.3
 
+<<<<<<< HEAD
+=======
+toolchain go1.23.4
+
+replace (
+	github.com/smartcontractkit/chain-selectors v1.0.40 => ../chain-selectors
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406 => ../chainlink-integrations/evm
+)
+
+>>>>>>> e574ef01a7 (cs no release draft)
 require (
 	github.com/Depado/ginprom v1.8.0
 	github.com/Masterminds/semver/v3 v3.3.0
@@ -83,7 +93,11 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.1
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
+=======
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250211093128-285968896406
+>>>>>>> e574ef01a7 (cs no release draft)
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250213203720-e15b1333a14a
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298

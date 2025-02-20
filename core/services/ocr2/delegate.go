@@ -17,6 +17,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
@@ -378,6 +379,10 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 		if err != nil {
 			return err
 		}
+
+		// Usage
+		selector := chain.ChainSelectorObj()[chain.ID().Uint64()].Selector
+
 		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
 			// Cleanup is optimistic. Don't return error here, as we don't want
 			// to block job deletion

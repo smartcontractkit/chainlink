@@ -8,14 +8,12 @@ import (
 	"strconv"
 
 	gotoml "github.com/pelletier/go-toml/v2"
-	"go.uber.org/multierr"
-
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
@@ -31,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"go.uber.org/multierr"
 )
 
 type Chain interface {
@@ -39,6 +38,7 @@ type Chain interface {
 	ID() *big.Int
 	Client() client.Client
 	Config() config.ChainScopedConfig
+	ChainSelectorObj() []chainselectors.Chain
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() heads.Broadcaster
 	TxManager() txmgr.TxManager
@@ -103,6 +103,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 type chain struct {
 	services.StateMachine
 	id              *big.Int
+	csobj           []chainselectors.Chain
 	cfg             *config.ChainScoped
 	client          client.Client
 	txm             txmgr.TxManager
@@ -303,8 +304,22 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 
 	headBroadcaster.Subscribe(logBroadcaster)
 
+	var csobj []chainselectors.Chain
+	// if chainselector is specified in the config append it to the newChainSel object
+	if cfg.EVM().ChainSelector() != nil {
+		// Create a chainInfo config
+		newChain := chainselectors.Chain{
+			EvmChainID: cfg.EVM().ChainID().Uint64(),
+			Selector:   cfg.EVM().ChainSelector().Uint64(),
+			Name:       cfg.EVM().ChainName(),
+		}
+
+		csobj = chainselectors.NewChainSelectorsObj(newChain)
+	}
+
 	return &chain{
 		id:              chainID,
+		csobj:           csobj,
 		cfg:             cfg,
 		client:          cl,
 		txm:             txm,
@@ -480,14 +495,15 @@ func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken 
 	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
-func (c *chain) ID() *big.Int                           { return c.id }
-func (c *chain) Client() client.Client                  { return c.client }
-func (c *chain) Config() config.ChainScopedConfig       { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster        { return c.logBroadcaster }
-func (c *chain) LogPoller() logpoller.LogPoller         { return c.logPoller }
-func (c *chain) HeadBroadcaster() heads.Broadcaster     { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager             { return c.txm }
-func (c *chain) HeadTracker() heads.Tracker             { return c.headTracker }
-func (c *chain) Logger() logger.Logger                  { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor { return c.balanceMonitor }
-func (c *chain) GasEstimator() gas.EvmFeeEstimator      { return c.gasEstimator }
+func (c *chain) ID() *big.Int                             { return c.id }
+func (c *chain) Client() client.Client                    { return c.client }
+func (c *chain) Config() config.ChainScopedConfig         { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
+func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
+func (c *chain) Logger() logger.Logger                    { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
+func (c *chain) ChainSelectorObj() []chainselectors.Chain { return c.csobj }
