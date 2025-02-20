@@ -27,7 +27,7 @@ type MCMSConfig struct {
 }
 
 func (mcmsConfig *MCMSConfig) Validate() error {
-	// to make it backwards compatible with the old MCMSConfig , if MCMSType is not set, default to ProposerManyChainMultisig
+	// to make it backwards compatible with the old MCMSConfig , if MCMSAction is not set, default to timelock.Schedule
 	// TODO remove this after all the usages are updated to reflect canceller and bypasser with new mcmslib
 	if mcmsConfig.MCMSAction == "" {
 		mcmsConfig.MCMSAction = timelock.Schedule

@@ -34,4 +34,8 @@ const (
 	DAGasPriceDeviationPPB                  = 0
 	OptimisticConfirmations                 = 1
 	// ======================================
+
+	// ========= Onchain conts =========
+	CCIPLockOrBurnV1RetBytes = 32
+	// ======================================
 )
