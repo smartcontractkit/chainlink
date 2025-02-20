@@ -39,7 +39,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -132,7 +132,7 @@ jobs:
         modules: ${{ fromJson(needs.filter.outputs.affected-modules) }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
       - name: Golang Lint (${{ matrix.modules }})
@@ -200,7 +200,7 @@ jobs:
       actions: read
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -277,7 +277,10 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
-        run: ./tools/bin/${{ matrix.type.cmd }} ./...
+        run: |
+          # See: https://github.com/golang/go/issues/69179
+          GODEBUG=goindex=0
+          ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Print Races
         id: print-races
@@ -308,7 +311,7 @@ jobs:
 
       - name: Store logs artifacts
         if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_logs
           path: |
@@ -341,7 +344,7 @@ jobs:
     if: ${{  needs.filter.outputs.should-run-ci-core == 'true' }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
 
       - name: Setup Go
         uses: ./.github/actions/setup-go
@@ -356,7 +359,7 @@ jobs:
 
       - name: Store test report artifacts
         if: ${{ always() }}
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v4
         with:
           name: go_core_scripts_tests_logs
           path: |
@@ -371,13 +374,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0 # fetches all history for all tags and branches to provide more metadata for sonar reports
 
       - name: Download all workflow artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
 
       - name: Check and Set SonarQube Report Paths
         shell: bash
@@ -474,7 +477,7 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4.2.1
+      - uses: actions/checkout@v4
         with:
           persist-credentials: false
           fetch-depth: 0

@@ -2,10 +2,10 @@ package changeset
 
 import (
 	"errors"
-	"fmt"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/rs/zerolog/log"
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -19,6 +19,7 @@ var (
 	Receiver                  deployment.ContractType = "Receiver"
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
 	WSOL                      deployment.ContractType = "WSOL"
+	FeeAggregator             deployment.ContractType = "FeeAggregator"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -27,12 +28,11 @@ var (
 	TokenPoolLookupTable deployment.ContractType = "TokenPoolLookupTable"
 )
 
-// SolChainState holds a Go binding for all the currently deployed CCIP programs
-// on a chain. If a binding is nil, it means here is no such contract on the chain.
+// SolCCIPChainState holds public keys for all the currently deployed CCIP programs
+// on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
 	LinkToken                 solana.PublicKey
 	Router                    solana.PublicKey
-	Timelock                  solana.PublicKey
 	OfframpAddressLookupTable solana.PublicKey
 	Receiver                  solana.PublicKey // for tests only
 	SPL2022Tokens             []solana.PublicKey
@@ -40,6 +40,8 @@ type SolCCIPChainState struct {
 	WSOL                      solana.PublicKey
 	FeeQuoter                 solana.PublicKey
 	OffRamp                   solana.PublicKey
+	FeeAggregator             solana.PublicKey
+
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
@@ -153,10 +155,21 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.OffRampStatePDA = offRampStatePDA
+		case FeeAggregator:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.FeeAggregator = pub
 		default:
-			return state, fmt.Errorf("unknown contract %s", tvStr)
+			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
+			continue
 		}
 	}
 	state.WSOL = solana.SolMint
 	return state, nil
+}
+
+func (c SolCCIPChainState) OnRampBytes() ([]byte, error) {
+	if !c.Router.IsZero() {
+		return c.Router.Bytes(), nil
+	}
+	return nil, errors.New("no onramp found in the state")
 }

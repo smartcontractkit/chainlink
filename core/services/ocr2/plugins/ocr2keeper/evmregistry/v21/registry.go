@@ -27,8 +27,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
@@ -405,7 +405,7 @@ func (r *EvmRegistry) refreshLogTriggerUpkeepsBatch(ctx context.Context, logTrig
 
 func (r *EvmRegistry) pollUpkeepStateLogs(ctx context.Context) error {
 	var latest int64
-	var end logpoller.LogPollerBlock
+	var end logpoller.Block
 	var err error
 
 	if end, err = r.poller.LatestBlock(ctx); err != nil {

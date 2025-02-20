@@ -11,13 +11,14 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -75,8 +76,11 @@ type NonceManagerUpdate struct {
 type PreviousRampCfg struct {
 	RemoteChainSelector uint64
 	OverrideExisting    bool
-	EnableOnRamp        bool
-	EnableOffRamp       bool
+	// Set these only if the prevOnRamp or prevOffRamp addresses are not required to be in nonce manager.
+	// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+	// it will not be possible to update the previous ramps later unless OverrideExisting is set to true.
+	AllowEmptyOnRamp  bool // If true, the prevOnRamp address can be 0x0.
+	AllowEmptyOffRamp bool // If true, the prevOffRamp address can be 0x0.
 }
 
 func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
@@ -106,21 +110,24 @@ func (cfg UpdateNonceManagerConfig) Validate(e deployment.Environment) error {
 			if _, ok := state.Chains[prevRamp.RemoteChainSelector]; !ok {
 				return fmt.Errorf("dest chain %d not found in onchain state for chain %d", prevRamp.RemoteChainSelector, sourceSel)
 			}
-			if !prevRamp.EnableOnRamp && !prevRamp.EnableOffRamp {
-				return errors.New("must specify either onramp or offramp")
-			}
-			if prevRamp.EnableOnRamp {
-				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil {
-					return fmt.Errorf("no previous onramp for source chain %d", sourceSel)
-				} else if prevOnRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d", sourceSel, prevRamp.RemoteChainSelector)
+			// If one of the onRamp or OffRamp is set with non-zero address and other is set with zero address,
+			// it will not be possible to update the previous ramps later.
+			// Allow blank onRamp or offRamp only if AllowEmptyOnRamp or AllowEmptyOffRamp is set to true.
+			// see https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/NonceManager.sol#L139-L142
+			if !prevRamp.AllowEmptyOnRamp {
+				if prevOnRamp := state.Chains[sourceSel].EVM2EVMOnRamp; prevOnRamp == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOnRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous onramp for source chain %d and dest chain %d, "+
+						"If you want to set zero address for onRamp, set AllowEmptyOnRamp to true", sourceSel, prevRamp.RemoteChainSelector)
 				}
 			}
-			if prevRamp.EnableOffRamp {
-				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil {
-					return fmt.Errorf("missing previous offramps for chain %d", sourceSel)
-				} else if prevOffRamp[prevRamp.RemoteChainSelector] == nil {
-					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d", prevRamp.RemoteChainSelector, sourceSel)
+			if !prevRamp.AllowEmptyOffRamp {
+				if prevOffRamp := state.Chains[sourceSel].EVM2EVMOffRamp; prevOffRamp == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector] == nil ||
+					prevOffRamp[prevRamp.RemoteChainSelector].Address() == (common.Address{}) {
+					return fmt.Errorf("no previous offramp for source chain %d and dest chain %d"+
+						"If you want to set zero address for offRamp, set AllowEmptyOffRamp to true", prevRamp.RemoteChainSelector, sourceSel)
 				}
 			}
 		}
@@ -136,9 +143,12 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		if cfg.MCMS != nil {
@@ -166,10 +176,10 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			previousRampsArgs := make([]nonce_manager.NonceManagerPreviousRampsArgs, 0)
 			for _, prevRamp := range updates.PreviousRampsArgs {
 				var onRamp, offRamp common.Address
-				if prevRamp.EnableOnRamp {
+				if !prevRamp.AllowEmptyOnRamp {
 					onRamp = s.Chains[chainSel].EVM2EVMOnRamp[prevRamp.RemoteChainSelector].Address()
 				}
-				if prevRamp.EnableOffRamp {
+				if !prevRamp.AllowEmptyOffRamp {
 					offRamp = s.Chains[chainSel].EVM2EVMOffRamp[prevRamp.RemoteChainSelector].Address()
 				}
 				previousRampsArgs = append(previousRampsArgs, nonce_manager.NonceManagerPreviousRampsArgs{
@@ -193,39 +203,51 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 			}
 		}
 		if cfg.MCMS != nil {
-			ops := make([]mcms.Operation, 0)
+			mcmsTransactions := make([]mcmstypes.Transaction, 0)
 			if authTx != nil {
-				ops = append(ops, mcms.Operation{
-					To:    nm.Address(),
-					Data:  authTx.Data(),
-					Value: big.NewInt(0),
-				})
+				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), authTx.Data(), big.NewInt(0),
+					string(NonceManager), []string{})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
+				}
+
+				mcmsTransactions = append(mcmsTransactions, mcmsTx)
 			}
 			if prevRampsTx != nil {
-				ops = append(ops, mcms.Operation{
-					To:    nm.Address(),
-					Data:  prevRampsTx.Data(),
-					Value: big.NewInt(0),
-				})
+				mcmsTx, err := proposalutils.TransactionForChain(chainSel, nm.Address().Hex(), prevRampsTx.Data(), big.NewInt(0),
+					string(NonceManager), []string{})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction for chain %d: %w", chainSel, err)
+				}
+
+				mcmsTransactions = append(mcmsTransactions, mcmsTx)
 			}
-			if len(ops) == 0 {
+			if len(mcmsTransactions) == 0 {
 				return deployment.ChangesetOutput{}, errors.New("no operations to batch")
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch:           ops,
+
+			batches = append(batches, mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(chainSel),
+				Transactions:  mcmsTransactions,
 			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update nonce manager for previous ramps and authorized callers",
 		cfg.MCMS.MinDelay,
@@ -233,9 +255,8 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type OnRampDestinationUpdate struct {
@@ -307,9 +328,12 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -343,26 +367,31 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OnRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	p, err := proposalutils.BuildProposalFromBatches(
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update onramp destinations",
 		cfg.MCMS.MinDelay,
@@ -370,9 +399,8 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type OnRampDynamicConfigUpdate struct {
@@ -415,9 +443,12 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOps := e.Chains[chainSel].DeployerKey
 		if cfg.MCMS != nil {
@@ -451,33 +482,35 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OnRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	proposal, err := proposalutils.BuildProposalFromBatches(
-		timelocks, proposers, batches,
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(), timelocks, proposers, inspectors, batches,
 		"update onramp dynamic config",
 		cfg.MCMS.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
-	}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type OnRampAllowListUpdate struct {
@@ -552,9 +585,12 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for srcSel, updates := range cfg.UpdatesByChain {
 		txOps := e.Chains[srcSel].DeployerKey
 		if cfg.MCMS != nil {
@@ -604,26 +640,31 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(srcSel),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address()
-			proposers[srcSel] = onchain.Chains[srcSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(srcSel, onRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OnRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[srcSel] = onchain.Chains[srcSel].Timelock.Address().Hex()
+			proposers[srcSel] = onchain.Chains[srcSel].ProposerMcm.Address().Hex()
+			inspectors[srcSel], err = proposalutils.McmsInspectorForChain(e, srcSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", srcSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	proposal, err := proposalutils.BuildProposalFromBatches(
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"update onramp allowlist",
 		cfg.MCMS.MinDelay,
@@ -631,9 +672,8 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
-	}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type WithdrawOnRampFeeTokensConfig struct {
@@ -684,9 +724,12 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, feeTokens := range cfg.FeeTokensByChain {
 		txOps := e.Chains[chainSel].DeployerKey
 		onRamp := state.Chains[chainSel].OnRamp
@@ -699,26 +742,31 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    onRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, onRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OnRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	proposal, err := proposalutils.BuildProposalFromBatches(
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"withdraw onramp fee tokens",
 		cfg.MCMS.MinDelay,
@@ -726,9 +774,8 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
-	}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type UpdateFeeQuoterPricesConfig struct {
@@ -824,9 +871,12 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, initialPrice := range cfg.PricesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		if cfg.MCMS != nil {
@@ -859,27 +909,31 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("error updating prices for chain %s: %w", e.Chains[chainSel].String(), err)
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    fq.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(FeeQuoter), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update fq prices",
 		cfg.MCMS.MinDelay,
@@ -887,9 +941,8 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type UpdateFeeQuoterDestsConfig struct {
@@ -949,9 +1002,12 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -975,27 +1031,30 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 				return deployment.ChangesetOutput{}, err
 			}
 		} else {
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    fq.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = s.Chains[chainSel].ProposerMcm
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, fq.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(FeeQuoter), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = s.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = s.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update fq destinations",
 		cfg.MCMS.MinDelay,
@@ -1003,9 +1062,8 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type OffRampSourceUpdate struct {
@@ -1051,11 +1109,9 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state C
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			sourceChain := state.Chains[source]
-			// Source chain must have the onramp deployed.
-			// Note this also validates the specified source selector.
-			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", source)
+
+			if err := state.ValidateRamp(source, OnRamp); err != nil {
+				return err
 			}
 		}
 	}
@@ -1071,9 +1127,12 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, updates := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -1089,13 +1148,22 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			} else {
 				router = state.Chains[chainSel].Router.Address()
 			}
-			onRamp := state.Chains[source].OnRamp
+			sourceChainFamily, _ := chain_selectors.GetSelectorFamily(source)
+
+			onRampBytes := []byte{}
+			// can ignore err as validation checks for nil addresses
+			if sourceChainFamily == chain_selectors.FamilyEVM {
+				onRampBytes, _ = state.Chains[source].OnRampBytes()
+			} else if sourceChainFamily == chain_selectors.FamilySolana {
+				onRampBytes, _ = state.SolChains[source].OnRampBytes()
+			}
+
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
 				SourceChainSelector: source,
 				Router:              router,
 				IsEnabled:           update.IsEnabled,
 				// TODO: how would this work when the onRamp is nonEVM?
-				OnRamp:                    common.LeftPadBytes(onRamp.Address().Bytes(), 32),
+				OnRamp:                    common.LeftPadBytes(onRampBytes, 32),
 				IsRMNVerificationDisabled: update.IsRMNVerificationDisabled,
 			})
 		}
@@ -1109,27 +1177,31 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OffRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update offramp sources",
 		cfg.MCMS.MinDelay,
@@ -1137,9 +1209,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type RouterUpdates struct {
@@ -1192,11 +1263,8 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if source == chainSel {
 				return fmt.Errorf("cannot update offramp source to the same chain %d", source)
 			}
-			sourceChain := state.Chains[source]
-			// Source chain must have the onramp deployed.
-			// Note this also validates the specified source selector.
-			if sourceChain.OnRamp == nil {
-				return fmt.Errorf("missing onramp for source %d", source)
+			if err := state.ValidateRamp(source, OnRamp); err != nil {
+				return err
 			}
 		}
 		for destination := range update.OnRampUpdates {
@@ -1207,7 +1275,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state CCIP
 			if destination == chainSel {
 				return fmt.Errorf("cannot update onRamp dest to the same chain %d", destination)
 			}
-			if err := state.ValidateOffRamp(destination); err != nil {
+			if err := state.ValidateRamp(destination, OffRamp); err != nil {
 				return err
 			}
 		}
@@ -1230,9 +1298,12 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, update := range cfg.UpdatesByChain {
 		txOpts := e.Chains[chainSel].DeployerKey
 		txOpts.Context = e.GetContext()
@@ -1286,27 +1357,31 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    routerC.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, routerC.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(Router), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update router offramps",
 		cfg.MCMS.MinDelay,
@@ -1314,9 +1389,8 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type SetOCR3OffRampConfig struct {
@@ -1352,13 +1426,23 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 	}
 	switch family {
 	case chain_selectors.FamilySolana:
+		chain, ok := e.SolChains[chainSelector]
+		if !ok {
+			return fmt.Errorf("chain %d not found in environment", chainSelector)
+		}
 		chainState, ok := state.SolChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
-
-		// TODO: introduce interface when MCMS is ready
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), chainState.Timelock, chainState.Router); err != nil {
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return err
+		}
+		mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		if err != nil {
+			return fmt.Errorf("error loading MCMS state for chain %d: %w", chainSelector, err)
+		}
+		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), mcmState.TimelockProgram, mcmState.TimelockSeed, chainState.Router); err != nil {
 			return err
 		}
 	case chain_selectors.FamilyEVM:
@@ -1389,9 +1473,12 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if err := cfg.Validate(e, state); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
@@ -1427,26 +1514,31 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(remote),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[remote] = state.Chains[remote].Timelock.Address()
-			proposers[remote] = state.Chains[remote].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(remote, offRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OffRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[remote] = state.Chains[remote].Timelock.Address().Hex()
+			proposers[remote] = state.Chains[remote].ProposerMcm.Address().Hex()
+			inspectors[remote], err = proposalutils.McmsInspectorForChain(e, remote)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", remote, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	p, err := proposalutils.BuildProposalFromBatches(
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update OCR3 config",
 		cfg.MCMS.MinDelay,
@@ -1454,10 +1546,9 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	e.Logger.Info("Proposing OCR3 config update for", cfg.RemoteChainSels)
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 type UpdateDynamicConfigOffRampConfig struct {
@@ -1515,9 +1606,12 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	var batches []timelock.BatchChainOperation
-	timelocks := make(map[uint64]common.Address)
-	proposers := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	batches := []mcmstypes.BatchOperation{}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for chainSel, params := range cfg.Updates {
 		chain := e.Chains[chainSel]
 		txOpts := e.Chains[chainSel].DeployerKey
@@ -1540,38 +1634,41 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    offRamp.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			})
-			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address()
-			proposers[chainSel] = state.Chains[chainSel].ProposerMcm
+
+			batchOperation, err := proposalutils.BatchOperationForChain(chainSel, offRamp.Address().Hex(), tx.Data(),
+				big.NewInt(0), string(OffRamp), []string{})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			batches = append(batches, batchOperation)
+
+			timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+			proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+			inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", chainSel, err)
+			}
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	p, err := proposalutils.BuildProposalFromBatches(
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
 		timelocks,
 		proposers,
+		inspectors,
 		batches,
 		"Update offramp dynamic config",
 		cfg.MCMS.MinDelay,
 	)
-
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	e.Logger.Infow("Proposing offramp dynamic config update", "config", cfg.Updates)
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 func isOCR3ConfigSetOnOffRamp(

@@ -261,10 +261,6 @@ func (c RawConfig) NodeNames() []string {
 }
 
 func (c RawConfig) SetDefaults() {
-	if e, ok := c["Enabled"].(bool); ok && e {
-		// already enabled by default so drop it
-		delete(c, "Enabled")
-	}
 }
 
 // TOMLString returns a TOML encoded string.

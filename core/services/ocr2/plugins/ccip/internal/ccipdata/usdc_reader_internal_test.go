@@ -18,9 +18,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -153,7 +153,7 @@ func TestFilters(t *testing.T) {
 			PollPeriod:               1 * time.Hour,
 			FinalityDepth:            1,
 			BackfillBatchSize:        1,
-			RpcBatchSize:             1,
+			RPCBatchSize:             1,
 			KeepFinalizedBlocksDepth: 100,
 		}
 		headTracker := headstest.NewSimulatedHeadTracker(esc, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)

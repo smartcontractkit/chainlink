@@ -23,8 +23,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	gasMocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -107,8 +107,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("abcdef"),
 						},
@@ -131,8 +131,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0x5bff03de234fe771ac0d685f9ee0fb0b757ea02ec9e6f10e8e2ee806db1b6b83"),
 						},
@@ -155,8 +155,8 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 				WorkID:   "work",
 			},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
 						},
@@ -213,11 +213,11 @@ func TestRegistry_VerifyCheckBlock(t *testing.T) {
 
 type mockLogPoller struct {
 	logpoller.LogPoller
-	GetBlocksRangeFn func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error)
+	GetBlocksRangeFn func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error)
 	IndexedLogsFn    func(ctx context.Context, eventSig common.Hash, address common.Address, topicIndex int, topicValues []common.Hash, confs evmtypes.Confirmations) ([]logpoller.Log, error)
 }
 
-func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
+func (p *mockLogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
 	return p.GetBlocksRangeFn(ctx, numbers)
 }
 
@@ -484,8 +484,8 @@ func TestRegistry_CheckUpkeeps(t *testing.T) {
 			},
 			receipts: map[string]*evmtypes.Receipt{},
 			poller: &mockLogPoller{
-				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
-					return []logpoller.LogPollerBlock{
+				GetBlocksRangeFn: func(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
+					return []logpoller.Block{
 						{
 							BlockHash: common.HexToHash("0xcba5cf9e2bb32373c76015384e1098912d9510a72481c78057fcb088209167de"),
 						},

@@ -23,11 +23,11 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 )
@@ -64,7 +64,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
@@ -125,7 +125,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
@@ -190,7 +190,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            2,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	ht := headstest.NewSimulatedHeadTracker(evmClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)

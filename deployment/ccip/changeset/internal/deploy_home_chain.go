@@ -14,9 +14,12 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
+
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -139,6 +142,10 @@ func BuildSetOCR3ConfigArgs(
 	destSelector uint64,
 	configType globals.ConfigType,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
+	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
+	if err != nil {
+		return nil, fmt.Errorf("error getting chain config for chain selector %d it must be set before OCR3Config set up: %w", destSelector, err)
+	}
 	var offrampOCR3Configs []offramp.MultiOCR3BaseOCRConfigArgs
 	for _, pluginType := range []types.PluginType{types.PluginTypeCCIPCommit, types.PluginTypeCCIPExec} {
 		ocrConfig, err2 := ccipHome.GetAllConfigs(&bind.CallOpts{
@@ -165,6 +172,9 @@ func BuildSetOCR3ConfigArgs(
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, chainCfg); err != nil {
+			return nil, err
+		}
 
 		var signerAddresses []common.Address
 		var transmitterAddresses []common.Address
@@ -183,6 +193,63 @@ func BuildSetOCR3ConfigArgs(
 		})
 	}
 	return offrampOCR3Configs, nil
+}
+
+func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig ccip_home.CCIPHomeChainConfig) error {
+	// chainConfigs must be set before OCR3 configs due to the added fChain == F validation
+	if chainConfig.FChain == 0 || bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
+		return fmt.Errorf("chain config is not set for chain selector %d", chainSel)
+	}
+	for _, reader := range chainConfig.Readers {
+		if bytes.IsEmpty(reader[:]) {
+			return fmt.Errorf("reader is empty, chain selector %d", chainSel)
+		}
+	}
+	// FRoleDON >= fChain is a requirement
+	if configForOCR3.FRoleDON < chainConfig.FChain {
+		return fmt.Errorf("OCR3 config FRoleDON is lower than chainConfig FChain, chain %d", chainSel)
+	}
+
+	if len(configForOCR3.Nodes) < 3*int(chainConfig.FChain)+1 {
+		return fmt.Errorf("number of nodes %d is less than 3 * fChain + 1 %d", len(configForOCR3.Nodes), 3*int(chainConfig.FChain)+1)
+	}
+	// check if there is any zero byte address
+	// The reason for this is that the MultiOCR3Base disallows zero addresses and duplicates
+	if bytes.IsEmpty(configForOCR3.OfframpAddress) {
+		return fmt.Errorf("zero address found in offramp address,  chain %d", chainSel)
+	}
+	if bytes.IsEmpty(configForOCR3.RmnHomeAddress) {
+		return fmt.Errorf("zero address found in rmn home address,  chain %d", chainSel)
+	}
+	mapSignerKey := make(map[string]struct{})
+	mapTransmitterKey := make(map[string]struct{})
+	for _, node := range configForOCR3.Nodes {
+		if bytes.IsEmpty(node.SignerKey) {
+			return fmt.Errorf("zero address found in signer key, chain %d", chainSel)
+		}
+		if bytes.IsEmpty(node.TransmitterKey) {
+			return fmt.Errorf("zero address found in transmitter key,  chain %d", chainSel)
+		}
+		if bytes.IsEmpty(node.P2pId[:]) {
+			return fmt.Errorf("empty p2p id, chain %d", chainSel)
+		}
+		// Signer and transmitter duplication must be checked
+		if _, ok := mapSignerKey[hexutil.Encode(node.SignerKey)]; ok {
+			return fmt.Errorf("duplicate signer key found, chain %d", chainSel)
+		}
+		if _, ok := mapTransmitterKey[hexutil.Encode(node.TransmitterKey)]; ok {
+			return fmt.Errorf("duplicate transmitter key found, chain %d", chainSel)
+		}
+		mapSignerKey[hexutil.Encode(node.SignerKey)] = struct{}{}
+		mapTransmitterKey[hexutil.Encode(node.TransmitterKey)] = struct{}{}
+	}
+	//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+	minTransmitterReq := 3*int(chainConfig.FChain) + 1
+	if len(configForOCR3.Nodes) < minTransmitterReq {
+		return fmt.Errorf("no of transmitters %d is less than 3 * fChain + 1 %d, chain %d",
+			len(configForOCR3.Nodes), minTransmitterReq, chainSel)
+	}
+	return nil
 }
 
 // https://github.com/smartcontractkit/chainlink-ccip/blob/bdbfcc588847d70817333487a9883e94c39a332e/chains/solana/gobindings/ccip_router/SetOcrConfig.go#L23
@@ -246,6 +313,7 @@ func BuildSetOCR3ConfigArgsSolana(
 }
 
 func BuildOCR3ConfigForCCIPHome(
+	ccipHome *ccip_home.CCIPHome,
 	ocrSecrets deployment.OCRSecrets,
 	offRampAddress []byte,
 	destSelector uint64,
@@ -255,6 +323,10 @@ func BuildOCR3ConfigForCCIPHome(
 	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
+	chainConfig, err := ccipHome.GetChainConfig(nil, destSelector)
+	if err != nil {
+		return nil, fmt.Errorf("can't get chain config for %d: %w", destSelector, err)
+	}
 	p2pIDs := nodes.PeerIDs()
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -291,36 +363,12 @@ func BuildOCR3ConfigForCCIPHome(
 			if commitOffchainCfg == nil {
 				return nil, errors.New("commitOffchainCfg is nil")
 			}
-			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency:  commitOffchainCfg.RemoteGasPriceBatchWriteFrequency,
-				TokenPriceBatchWriteFrequency:      commitOffchainCfg.TokenPriceBatchWriteFrequency,
-				PriceFeedChainSelector:             commitOffchainCfg.PriceFeedChainSelector,
-				TokenInfo:                          commitOffchainCfg.TokenInfo,
-				NewMsgScanBatchSize:                commitOffchainCfg.NewMsgScanBatchSize,
-				MaxReportTransmissionCheckAttempts: commitOffchainCfg.MaxReportTransmissionCheckAttempts,
-				MaxMerkleTreeSize:                  commitOffchainCfg.MaxMerkleTreeSize,
-				SignObservationPrefix:              commitOffchainCfg.SignObservationPrefix,
-				RMNEnabled:                         commitOffchainCfg.RMNEnabled,
-				RMNSignaturesTimeout:               commitOffchainCfg.RMNSignaturesTimeout,
-				MerkleRootAsyncObserverSyncFreq:    commitOffchainCfg.MerkleRootAsyncObserverSyncFreq,
-				MerkleRootAsyncObserverSyncTimeout: commitOffchainCfg.MerkleRootAsyncObserverSyncTimeout,
-				InflightPriceCheckRetries:          commitOffchainCfg.InflightPriceCheckRetries,
-				TransmissionDelayMultiplier:        commitOffchainCfg.TransmissionDelayMultiplier,
-				FeeInfo:                            commitOffchainCfg.FeeInfo,
-			})
+			encodedOffchainConfig, err2 = pluginconfig.EncodeCommitOffchainConfig(*commitOffchainCfg)
 		} else {
 			if execOffchainCfg == nil {
 				return nil, errors.New("execOffchainCfg is nil")
 			}
-			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(pluginconfig.ExecuteOffchainConfig{
-				BatchGasLimit:             execOffchainCfg.BatchGasLimit,
-				RelativeBoostPerWaitHour:  execOffchainCfg.RelativeBoostPerWaitHour,
-				MessageVisibilityInterval: execOffchainCfg.MessageVisibilityInterval,
-				InflightCacheExpiry:       execOffchainCfg.InflightCacheExpiry,
-				RootSnoozeTime:            execOffchainCfg.RootSnoozeTime,
-				BatchingStrategyID:        execOffchainCfg.BatchingStrategyID,
-				TokenDataObservers:        execOffchainCfg.TokenDataObservers,
-			})
+			encodedOffchainConfig, err2 = pluginconfig.EncodeExecuteOffchainConfig(*execOffchainCfg)
 		}
 		if err2 != nil {
 			return nil, err2
@@ -399,6 +447,9 @@ func BuildOCR3ConfigForCCIPHome(
 			Nodes:                 ocrNodes,
 			OffchainConfig:        offchainConfig,
 			RmnHomeAddress:        rmnHomeAddress.Bytes(),
+		}
+		if err := validateOCR3Config(destSelector, ocr3Configs[pluginType], chainConfig); err != nil {
+			return nil, fmt.Errorf("failed to validate ocr3 config: %w", err)
 		}
 	}
 
