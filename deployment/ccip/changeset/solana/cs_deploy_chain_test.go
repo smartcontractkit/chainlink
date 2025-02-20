@@ -256,7 +256,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 	} else {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			buildCs,
+			//buildCs,
 			deployCs,
 			feeAggregatorCs,
 			upgradeAuthorityCs,

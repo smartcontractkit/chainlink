@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"math/big"
@@ -20,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	solBinary "github.com/gagliardetto/binary"
+	"github.com/gagliardetto/solana-go/rpc"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -34,6 +36,7 @@ const (
 	OffRampProgramName   = "ccip_offramp"
 	FeeQuoterProgramName = "fee_quoter"
 	TokenPoolProgramName = "test_token_pool"
+	ReceiverProgramName  = "test_ccip_receiver"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
@@ -174,6 +177,20 @@ func solProgramData(e deployment.Environment, chain deployment.SolChain, program
 		return programData, fmt.Errorf("failed to unmarshal program data: %w", err)
 	}
 	return programData, nil
+}
+
+func solProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
+		Commitment: deployment.SolDefaultCommitment,
+	})
+	if err != nil {
+		return 0, fmt.Errorf("failed to get account info: %w", err)
+	}
+	if accountInfo == nil {
+		return 0, fmt.Errorf("program account not found: %w", err)
+	}
+	programBytes := len(accountInfo.Value.Data.GetBinary())
+	return programBytes, nil
 }
 
 func initializeRouter(
@@ -341,6 +358,39 @@ func deployChainContractsSolana(
 		return ixns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
+	// fee quoter updated in place
+	receiverAddress, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ReceiverProgramName, deployment.Version1_0_0, false)
+	if err != nil {
+		return ixns, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_1_0, true)
+	if err != nil {
+		return ixns, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	_, err = generateExtendIxn(
+		&e,
+		chain,
+		receiverAddress,
+		bufferProgram,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
+	}
+	upgradeIxn, err := generateUpgradeIxn(
+		&e,
+		receiverAddress,
+		bufferProgram,
+		chain.DeployerKey.PublicKey(),
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{upgradeIxn}); err != nil {
+		return ixns, fmt.Errorf("failed to confirm upgrade instruction: %w", err)
+	}
+
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
@@ -351,12 +401,22 @@ func deployChainContractsSolana(
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
-		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
+		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+		extendIxn, err := generateExtendIxn(
+			&e,
+			chain,
+			chainState.FeeQuoter,
+			bufferProgram,
+			config.UpgradeConfig.SpillAddress,
+		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
 		}
 		upgradeIxn, err := generateUpgradeIxn(
 			&e,
@@ -407,6 +467,24 @@ func deployChainContractsSolana(
 		)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
+		}
+		if extendIxn != nil {
+			extendData, err := extendIxn.Data()
+			if err != nil {
+				return ixns, fmt.Errorf("failed to extract extend data: %w", err)
+			}
+			extendTx, err := mcmsSolana.NewTransaction(
+				solana.BPFLoaderUpgradeableProgramID.String(),
+				extendData,
+				big.NewInt(0),        // e.g. value
+				extendIxn.Accounts(), // pass along needed accounts
+				string(cs.FeeQuoter), // some string identifying the target
+				[]string{},           // any relevant metadata
+			)
+			if err != nil {
+				return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
+			}
+			ixns = append(ixns, extendTx)
 		}
 		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
@@ -715,6 +793,7 @@ func DeployAndMaybeSaveToAddressBook(
 		OffRampProgramName:   changeset.OffRamp,
 		FeeQuoterProgramName: changeset.FeeQuoter,
 		TokenPoolProgramName: changeset.TokenPool,
+		ReceiverProgramName:  changeset.Receiver,
 	}
 	programType, ok := programNameToType[programName]
 	if !ok {
@@ -799,6 +878,55 @@ func generateUpgradeIxn(
 	)
 
 	return instruction, nil
+}
+
+func generateExtendIxn(
+	e *deployment.Environment,
+	chain deployment.SolChain,
+	programID solana.PublicKey,
+	bufferAddress solana.PublicKey,
+	payer solana.PublicKey,
+) (*solana.GenericInstruction, error) {
+	// Derive the program data address
+	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+
+	programSize, err := solProgramSize(e, chain, programID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get program size: %w", err)
+	}
+	e.Logger.Debugw("Program account size", "programSize", programSize)
+
+	bufferSize, err := solProgramSize(e, chain, bufferAddress)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get buffer size: %w", err)
+	}
+	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
+	if bufferSize < programSize {
+		return nil, fmt.Errorf("buffer account size is less than program account size")
+	}
+	extraBytes := bufferSize - programSize
+	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
+	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes))
+
+	keys := solana.AccountMetaSlice{
+		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
+		solana.NewAccountMeta(programID, true, false),               // Program account (writable)
+		solana.NewAccountMeta(solana.SystemProgramID, false, false), // System program
+		solana.NewAccountMeta(payer, true, false),                   // Payer for rent
+	}
+
+	ixn := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		data,
+	)
+
+	if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
+		return nil, fmt.Errorf("failed to confirm extend instruction: %w", err)
+	}
+
+	return ixn, nil
 }
 
 func generateCloseBufferIxn(
