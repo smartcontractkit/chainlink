@@ -20,6 +20,7 @@ type NopView struct {
 	OCRKeys      map[string]OCRKeyView `json:"ocrKeys"`
 	PayeeAddress string                `json:"payeeAddress"`
 	CSAKey       string                `json:"csaKey"`
+	WorkflowKey  string                `json:"workflowKey"`
 	IsConnected  bool                  `json:"isConnected"`
 	IsEnabled    bool                  `json:"isEnabled"`
 	Labels       []LabelView           `json:"labels"`
@@ -74,6 +75,7 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 			OCRKeys:      make(map[string]OCRKeyView),
 			PayeeAddress: node.AdminAddr,
 			CSAKey:       nodeDetails.Node.PublicKey,
+			WorkflowKey:  nodeDetails.Node.GetWorkflowKey(),
 			IsConnected:  nodeDetails.Node.IsConnected,
 			IsEnabled:    nodeDetails.Node.IsEnabled,
 			Labels:       labels,
