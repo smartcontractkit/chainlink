@@ -216,7 +216,7 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 	}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
