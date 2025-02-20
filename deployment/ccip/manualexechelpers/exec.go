@@ -2,6 +2,7 @@ package manualexechelpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -126,7 +127,7 @@ func getCommitRootAcceptedEvent(
 
 	lggr.Debugw("didn't find commit root", "countMerkleRoots", countMerkleRoots, "countNoRoots", countNoRoots)
 
-	return offramp.InternalMerkleRoot{}, fmt.Errorf("commit root not found")
+	return offramp.InternalMerkleRoot{}, errors.New("commit root not found")
 }
 
 func getCCIPMessageSentEvents(
@@ -339,7 +340,15 @@ func ManuallyExecuteAll(
 	lookbackDuration time.Duration,
 ) error {
 	for _, seqNr := range msgSeqNrs {
-		err := manuallyExecuteSingle(ctx, lggr, state, env, srcChainSel, destChainSel, uint64(seqNr), lookbackDuration)
+		err := manuallyExecuteSingle(
+			ctx,
+			lggr,
+			state,
+			env,
+			srcChainSel,
+			destChainSel,
+			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
+			lookbackDuration)
 		if err != nil {
 			return err
 		}
@@ -358,7 +367,11 @@ func CheckAlreadyExecuted(
 	msgSeqNrs []int64,
 ) error {
 	for _, seqNr := range msgSeqNrs {
-		execState, err := state.Chains[destChainSel].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, srcChainSel, uint64(seqNr))
+		execState, err := state.Chains[destChainSel].OffRamp.GetExecutionState(
+			&bind.CallOpts{Context: ctx},
+			srcChainSel,
+			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
+		)
 		if err != nil {
 			return fmt.Errorf("failed to get execution state: %w", err)
 		}
