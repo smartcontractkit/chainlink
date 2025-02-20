@@ -2,18 +2,20 @@ package crib
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	chainsel "github.com/smartcontractkit/chain-selectors"
-	"golang.org/x/sync/errgroup"
 
 	"math/big"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"golang.org/x/sync/errgroup"
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
@@ -30,7 +32,7 @@ func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env 
 					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
 					return err
 				}
-				addr := common.HexToAddress(n.AccountAddr[string(chainID)])
+				addr := common.HexToAddress(n.AccountAddr[fmt.Sprint(chainID)])
 				transmittersStr = append(transmittersStr, addr)
 			}
 			return SendFundsToAccounts(env.GetContext(), lggr, chain, transmittersStr, fundingAmount, sel)
