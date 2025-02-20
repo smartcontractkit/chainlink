@@ -155,7 +155,7 @@ func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chai
 	// Get the block number where the contract was deployed, so we can filter events from that block.
 	var deploymentBlockNumber uint64
 	for blockNumber := uint64(0); ; blockNumber++ {
-		code, err := chain.Client.CodeAt(ctx, f.Address(), big.NewInt(int64(blockNumber)))
+		code, err := chain.Client.CodeAt(ctx, f.Address(), new(big.Int).SetUint64(blockNumber))
 		if err != nil {
 			return ForwarderView{}, err
 		}
