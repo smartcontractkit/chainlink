@@ -14,7 +14,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -78,6 +77,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	defer close(errChan)
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
+	loadFinished := make(chan struct{})
 
 	mm := NewMetricsManager(t, env.Logger)
 	go mm.Start(ctx)
@@ -137,7 +137,21 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
-		wg.Add(2)
+		wg.Add(3)
+		go subscribeTransmitEvents(
+			ctx,
+			lggr,
+			state.Chains[cs].OnRamp,
+			otherChains,
+			&block,
+			cs,
+			loadFinished,
+			env.Chains[cs].Client,
+			errChan,
+			&wg,
+			mm.InputChan,
+			finalSeqNrCommitChannels,
+			finalSeqNrExecChannels)
 		go subscribeCommitEvents(
 			ctx,
 			lggr,
@@ -190,28 +204,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	_, err = p.Run(true)
 	require.NoError(t, err)
-
-	for _, gun := range gunMap {
-		for csPair, seqNums := range gun.seqNums {
-			lggr.Debugw("pushing finalized sequence numbers for ",
-				"chainSelector", gun.chainSelector,
-				"sourceChainSelector", csPair.SourceChainSelector,
-				"seqNums", seqNums)
-			finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-				sourceChainSelector: csPair.SourceChainSelector,
-				expectedSeqNrRange: ccipocr3.SeqNumRange{
-					ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
-				},
-			}
-
-			finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
-				sourceChainSelector: csPair.SourceChainSelector,
-				expectedSeqNrRange: ccipocr3.SeqNumRange{
-					ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
-				},
-			}
-		}
-	}
+	close(loadFinished)
 
 	// after load is finished, wait for a "timeout duration" before considering that messages are timed out
 	timeout := userOverrides.GetTimeoutDuration()

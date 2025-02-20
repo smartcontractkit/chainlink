@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"go.uber.org/atomic"
 	"math"
 	"slices"
 	"sync"
@@ -53,6 +55,7 @@ func subscribeTransmitEvents(
 	ctx context.Context,
 	lggr logger.Logger,
 	onRamp onramp.OnRampInterface,
+	otherChains []uint64,
 	startBlock *uint64,
 	srcChainSel uint64,
 	loadFinished chan struct{},
@@ -60,12 +63,25 @@ func subscribeTransmitEvents(
 	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
+	finalSeqNrCommitChannels map[uint64]chan finalSeqNrReport,
+	finalSeqNrExecChannels map[uint64]chan finalSeqNrReport,
 ) {
 	defer wg.Done()
 	lggr.Infow("starting transmit event subscriber for ",
 		"srcChain", srcChainSel,
 		"startblock", startBlock,
 	)
+
+	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
+	for _, cs := range otherChains {
+		seqNums[testhelpers.SourceDestPair{
+			SourceChainSelector: srcChainSel,
+			DestChainSelector:   cs,
+		}] = SeqNumRange{
+			Start: atomic.NewUint64(math.MaxUint64),
+			End:   atomic.NewUint64(0),
+		}
+	}
 
 	sink := make(chan *onramp.OnRampCCIPMessageSent)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
@@ -104,6 +120,20 @@ func subscribeTransmitEvents(
 				timestamp: header.Time,
 			}
 			metricPipe <- data
+
+			csPair := testhelpers.SourceDestPair{
+				SourceChainSelector: srcChainSel,
+				DestChainSelector:   event.DestChainSelector,
+			}
+			// always store the lowest seen number as the start seq num
+			if event.SequenceNumber < seqNums[csPair].Start.Load() {
+				seqNums[csPair].Start.Store(event.SequenceNumber)
+			}
+
+			// always store the greatest sequence number we have seen as the maximum
+			if event.SequenceNumber > seqNums[csPair].End.Load() {
+				seqNums[csPair].End.Store(event.SequenceNumber)
+			}
 		case <-ctx.Done():
 			lggr.Errorw("received context cancel signal for transmit watcher",
 				"srcChain", srcChainSel)
@@ -117,8 +147,28 @@ func subscribeTransmitEvents(
 				close(endChannel)
 			}()
 		case <-endChannel:
-			lggr.Infow("stopping transmit watcher",
+			lggr.Infow("sending finalized seqNums and stopping transmit watcher",
 				"srcChain", srcChainSel)
+
+			for csPair, seqNums := range seqNums {
+				lggr.Debugw("pushing finalized sequence numbers for ",
+					"srcChainSelector", srcChainSel,
+					"destChainSelector", csPair.DestChainSelector,
+					"seqNums", seqNums)
+				finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
+					sourceChainSelector: csPair.SourceChainSelector,
+					expectedSeqNrRange: ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+					},
+				}
+
+				finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
+					sourceChainSelector: csPair.SourceChainSelector,
+					expectedSeqNrRange: ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+					},
+				}
+			}
 			return
 		}
 
