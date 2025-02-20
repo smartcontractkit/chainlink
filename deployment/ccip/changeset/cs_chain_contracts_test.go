@@ -1121,35 +1121,34 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tenv, _ := testhelpers.NewMemoryEnvironment(t)
 			allChains := maps.Keys(tenv.Env.Chains)
+			source := allChains[0]
+			dest := allChains[1]
 			// deploy a new token
 			ab := deployment.NewMemoryAddressBook()
-			for _, selector := range allChains {
-				_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[selector], ab,
-					func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
-						tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
-							tenv.Env.Chains[selector].DeployerKey,
-							tenv.Env.Chains[selector].Client,
-							string(testhelpers.TestTokenSymbol),
-							string(testhelpers.TestTokenSymbol),
-							testhelpers.LocalTokenDecimals,
-							big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
-						)
-						return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
-							Address:  tokenAddress,
-							Contract: token,
-							Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
-							Tx:       tx,
-							Err:      err,
-						}
-					},
-				)
-				require.NoError(t, err)
-			}
+			_, err := deployment.DeployContract(tenv.Env.Logger, tenv.Env.Chains[source], ab,
+				func(chain deployment.Chain) deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677] {
+					tokenAddress, tx, token, err := burn_mint_erc677.DeployBurnMintERC677(
+						tenv.Env.Chains[source].DeployerKey,
+						tenv.Env.Chains[source].Client,
+						string(testhelpers.TestTokenSymbol),
+						string(testhelpers.TestTokenSymbol),
+						testhelpers.LocalTokenDecimals,
+						big.NewInt(0).Mul(big.NewInt(1e9), big.NewInt(1e18)),
+					)
+					return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
+						Address:  tokenAddress,
+						Contract: token,
+						Tv:       deployment.NewTypeAndVersion(changeset.BurnMintToken, deployment.Version1_0_0),
+						Tx:       tx,
+						Err:      err,
+					}
+				},
+			)
+			require.NoError(t, err)
 			require.NoError(t, tenv.Env.ExistingAddresses.Merge(ab))
 			state, err := changeset.LoadOnchainState(tenv.Env)
 			require.NoError(t, err)
-			source := allChains[0]
-			dest := allChains[1]
+
 			if tc.mcmsEnabled {
 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
 				transferToTimelock(t, tenv, state, source, dest)
