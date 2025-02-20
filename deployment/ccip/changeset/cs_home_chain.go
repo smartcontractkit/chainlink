@@ -10,9 +10,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -468,8 +469,7 @@ func (c RemoveDONsConfig) Validate(homeChain CCIPChainState) error {
 }
 
 // RemoveDONs removes DONs from the CapabilitiesRegistry contract.
-// TODO: Could likely be moved to common, but needs
-// a common state struct first.
+// TODO: Could likely be moved to common, but needs a common state struct first.
 func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.ChangesetOutput, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
@@ -500,33 +500,31 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		e.Logger.Infof("Removed dons using deployer key tx %s", tx.Hash().String())
 		return deployment.ChangesetOutput{}, nil
 	}
-	p, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSel: homeChainState.Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSel: homeChainState.ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{
-			{
-				ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSel),
-				Batch: []mcms.Operation{
-					{
-						To:    homeChainState.CapabilityRegistry.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
-			},
-		},
+
+	batchOperation, err := proposalutils.BatchOperationForChain(cfg.HomeChainSel,
+		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
+		string(CapabilitiesRegistry), []string{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
+	}
+
+	timelocks := map[uint64]string{cfg.HomeChainSel: homeChainState.Timelock.Address().Hex()}
+	proposerMcms := map[uint64]string{cfg.HomeChainSel: homeChainState.ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSel: mcmsevmsdk.NewInspector(homeChain.Client)}
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposerMcms,
+		inspectors,
+		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove DONs",
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	e.Logger.Infof("Created proposal to remove dons")
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
