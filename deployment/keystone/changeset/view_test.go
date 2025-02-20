@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -16,31 +17,33 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 )
 
-var oracleConfig = changeset.OracleConfig{
-	DeltaProgressMillis:               30000,
-	DeltaResendMillis:                 5000,
-	DeltaInitialMillis:                5000,
-	DeltaRoundMillis:                  2000,
-	DeltaGraceMillis:                  500,
-	DeltaCertifiedCommitRequestMillis: 1000,
-	DeltaStageMillis:                  30000,
-	MaxRoundsPerEpoch:                 10,
-	TransmissionSchedule:              []int{},
-	MaxDurationQueryMillis:            1000,
-	MaxDurationObservationMillis:      1000,
-	MaxDurationShouldAcceptMillis:     1000,
-	MaxDurationShouldTransmitMillis:   1000,
-	MaxFaultyOracles:                  1,
-	MaxQueryLengthBytes:               1000000,
-	MaxObservationLengthBytes:         1000000,
-	MaxReportLengthBytes:              1000000,
-	MaxOutcomeLengthBytes:             1000000,
-	MaxReportCount:                    20,
-	MaxBatchSize:                      1000,
-	OutcomePruningThreshold:           3600,
-	UniqueReports:                     true,
-	RequestTimeout:                    30 * time.Second,
-}
+var (
+	oracleConfig = changeset.OracleConfig{
+		DeltaProgressMillis:               30000,
+		DeltaResendMillis:                 5000,
+		DeltaInitialMillis:                5000,
+		DeltaRoundMillis:                  2000,
+		DeltaGraceMillis:                  500,
+		DeltaCertifiedCommitRequestMillis: 1000,
+		DeltaStageMillis:                  30000,
+		MaxRoundsPerEpoch:                 10,
+		TransmissionSchedule:              []int{},
+		MaxDurationQueryMillis:            1000,
+		MaxDurationObservationMillis:      1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
+		MaxFaultyOracles:                  1,
+		MaxQueryLengthBytes:               1000000,
+		MaxObservationLengthBytes:         1000000,
+		MaxReportLengthBytes:              1000000,
+		MaxOutcomeLengthBytes:             1000000,
+		MaxReportCount:                    20,
+		MaxBatchSize:                      1000,
+		OutcomePruningThreshold:           3600,
+		UniqueReports:                     true,
+		RequestTimeout:                    30 * time.Second,
+	}
+)
 
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
@@ -56,11 +59,19 @@ func TestKeystoneView(t *testing.T) {
 	addrs, err := env.Env.ExistingAddresses.AddressesForChain(registryChain)
 	require.NoError(t, err)
 
-	var newOCR3Addr string
+	var newOCR3Addr, newForwarderAddr string
 	for addr, tv := range addrs {
-		if tv.Type == internal.OCR3Capability {
-			newOCR3Addr = addr
+		if newForwarderAddr != "" && newOCR3Addr != "" {
 			break
+		}
+		switch tv.Type {
+		case internal.KeystoneForwarder:
+			newForwarderAddr = addr
+			continue
+		case internal.OCR3Capability:
+			newOCR3Addr = addr
+		default:
+			continue
 		}
 	}
 
@@ -98,6 +109,14 @@ func TestKeystoneView(t *testing.T) {
 		viewOCR3Config, ok := viewChain.OCRContracts[newOCR3Addr]
 		require.True(t, ok)
 		require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
+		viewForwarder, ok := viewChain.Forwarders[newForwarderAddr]
+		require.True(t, ok)
+		require.Equal(t, uint32(1), viewForwarder.DonID)
+		require.Equal(t, uint8(1), viewForwarder.F)
+		require.Equal(t, uint32(1), viewForwarder.ConfigVersion)
+		require.Len(t, viewForwarder.Signers, 4)
+
+		fmt.Printf("%+v\n", outView.Chains[chainName].Forwarders)
 	})
 
 	t.Run("fails to generate a view of the keystone state with OCR3 not configured", func(t *testing.T) {

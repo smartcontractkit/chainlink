@@ -68,8 +68,8 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best effort and logs errors
-func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
+// It is best-effort and logs errors
+func (cs ContractSet) View(lggr logger.Logger, chain deployment.Chain) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
@@ -110,7 +110,7 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 	}
 
 	if cs.Forwarder != nil {
-		fwrView, fwrErr := GenerateForwarderView(cs.Forwarder)
+		fwrView, fwrErr := GenerateForwarderView(cs.Forwarder, chain)
 		if fwrErr != nil {
 			allErrs = errors.Join(allErrs, fwrErr)
 			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)

@@ -1,10 +1,12 @@
 package changeset
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"math"
+	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,6 +17,7 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -147,27 +150,48 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}, nil
 }
 
-func GenerateForwarderView(f *forwarder.KeystoneForwarder) (ForwarderView, error) {
-	// TODO: how to get the info needed to fill this call params?
+func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chain) (ForwarderView, error) {
+	ctx := context.Background()
+	// Get the block number where the contract was deployed, so we can filter events from that block.
+	var deploymentBlockNumber uint64
+	for blockNumber := uint64(0); ; blockNumber++ {
+		code, err := chain.Client.CodeAt(ctx, f.Address(), big.NewInt(int64(blockNumber)))
+		if err != nil {
+			return ForwarderView{}, err
+		}
+		if len(code) > 0 {
+			deploymentBlockNumber = blockNumber
+			break
+		}
+	}
+
 	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
-		Start:   0,
+		// We could've just called `FilterConfigSet()` without specifying the start block,
+		// but it appears to be less efficient as it fetches all the events from the contract.
+		Start:   deploymentBlockNumber,
 		End:     nil,
-		Context: nil,
+		Context: ctx,
 	}, nil, nil)
 	if err != nil {
 		return ForwarderView{}, err
 	}
+
 	var configSet *forwarder.KeystoneForwarderConfigSet
 	for configIterator.Next() {
 		// We wait for the iterator to receive an event
 		if configIterator.Event == nil {
-			return ForwarderView{}, ErrForwarderNotConfigured
+			// Since we are going from the contract deployment block
+			// to the latest block, we can't just return an error here
+			// as we might not have reached the latest block yet
+			// which may contain the config event.
+			continue
 		}
 		configSet = configIterator.Event
 	}
 	if configSet == nil {
 		return ForwarderView{}, ErrForwarderNotConfigured
 	}
+
 	var readableSigners []string
 	for _, s := range configSet.Signers {
 		readableSigners = append(readableSigners, s.String())
