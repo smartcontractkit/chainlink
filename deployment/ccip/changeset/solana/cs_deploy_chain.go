@@ -358,39 +358,6 @@ func deployChainContractsSolana(
 		return ixns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
-	// fee quoter updated in place
-	receiverAddress, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, ReceiverProgramName, deployment.Version1_0_0, false)
-	if err != nil {
-		return ixns, fmt.Errorf("failed to deploy program: %w", err)
-	}
-	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_1_0, true)
-	if err != nil {
-		return ixns, fmt.Errorf("failed to deploy program: %w", err)
-	}
-	_, err = generateExtendIxn(
-		&e,
-		chain,
-		receiverAddress,
-		bufferProgram,
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
-	}
-	upgradeIxn, err := generateUpgradeIxn(
-		&e,
-		receiverAddress,
-		bufferProgram,
-		chain.DeployerKey.PublicKey(),
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
-	}
-	if err := chain.Confirm([]solana.Instruction{upgradeIxn}); err != nil {
-		return ixns, fmt.Errorf("failed to confirm upgrade instruction: %w", err)
-	}
-
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
@@ -521,6 +488,16 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
 		}
+		extendIxn, err := generateExtendIxn(
+			&e,
+			chain,
+			chainState.Router,
+			bufferProgram,
+			config.UpgradeConfig.SpillAddress,
+		)
+		if err != nil {
+			return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
+		}
 		closeIxn, err := generateCloseBufferIxn(
 			&e,
 			bufferProgram,
@@ -560,6 +537,24 @@ func deployChainContractsSolana(
 		)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
+		}
+		if extendIxn != nil {
+			extendData, err := extendIxn.Data()
+			if err != nil {
+				return ixns, fmt.Errorf("failed to extract extend data: %w", err)
+			}
+			extendTx, err := mcmsSolana.NewTransaction(
+				solana.BPFLoaderUpgradeableProgramID.String(),
+				extendData,
+				big.NewInt(0),        // e.g. value
+				extendIxn.Accounts(), // pass along needed accounts
+				string(cs.Router),    // some string identifying the target
+				[]string{},           // any relevant metadata
+			)
+			if err != nil {
+				return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
+			}
+			ixns = append(ixns, extendTx)
 		}
 		ixns = append(ixns, upgradeTx, closeTx)
 	} else {
@@ -921,10 +916,6 @@ func generateExtendIxn(
 		keys,
 		data,
 	)
-
-	if err := chain.Confirm([]solana.Instruction{ixn}); err != nil {
-		return nil, fmt.Errorf("failed to confirm extend instruction: %w", err)
-	}
 
 	return ixn, nil
 }
