@@ -8,15 +8,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -249,11 +250,11 @@ func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
 
 func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
-	proposals := make([]mcmslib.TimelockProposal, 0)
-	describedProposals := make([]string, 0)
+	proposals := make([]mcmslib.TimelockProposal, 0, len(contexts))
+	describedProposals := make([]string, 0, len(contexts))
 	for _, dc := range contexts {
-		batches := make([]mcmstypes.BatchOperation, 0)
-		describedBatches := make([][]string, 0)
+		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
+		describedBatches := make([][]string, 0, len(dc.transactions))
 		for selector, txs := range dc.transactions {
 			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
 			describedTxs := make([]string, len(txs))

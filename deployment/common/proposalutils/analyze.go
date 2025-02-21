@@ -87,7 +87,7 @@ func (a ArrayArgument) Describe(context *ArgumentContext) string {
 		// Write each element in new line + indentation
 		description.WriteString("[\n")
 		for i, elem := range elementsDescribed {
-			description.WriteString(IndentString(elem))
+			description.WriteString(indentString(elem))
 			if i < len(a.Elements)-1 {
 				description.WriteString(",\n")
 			}
@@ -117,7 +117,7 @@ func (s StructArgument) Describe(context *ArgumentContext) string {
 		// Pretty format struct with indentation
 		description.WriteString("{\n")
 		for _, arg := range s.Fields {
-			description.WriteString(IndentString(arg.Describe(context)))
+			description.WriteString(indentString(arg.Describe(context)))
 			description.WriteString("\n")
 		}
 		description.WriteString("}")
@@ -199,11 +199,11 @@ func (d *DecodedCall) Describe(context *ArgumentContext) string {
 	description.WriteString(fmt.Sprintf("Method: %s\n", d.Method))
 	describedInputs := d.describeArguments(d.Inputs, context)
 	if len(describedInputs) > 0 {
-		description.WriteString(fmt.Sprintf("Inputs:\n%s\n", IndentString(describedInputs)))
+		description.WriteString(fmt.Sprintf("Inputs:\n%s\n", indentString(describedInputs)))
 	}
 	describedOutputs := d.describeArguments(d.Outputs, context)
 	if len(describedOutputs) > 0 {
-		description.WriteString(fmt.Sprintf("Outputs:\n%s\n", IndentString(describedOutputs)))
+		description.WriteString(fmt.Sprintf("Outputs:\n%s\n", indentString(describedOutputs)))
 	}
 	return description.String()
 }
@@ -356,11 +356,11 @@ func ChainSelectorAnalyzer(argName string, argAbi *abi.Type, argVal interface{},
 	return nil
 }
 
-func IndentString(s string) string {
-	return IndentStringWith(s, Indent)
+func indentString(s string) string {
+	return indentStringWith(s, Indent)
 }
 
-func IndentStringWith(s string, indent string) string {
+func indentStringWith(s string, indent string) string {
 	result := &strings.Builder{}
 	components := strings.Split(s, "\n")
 	for i, component := range components {
@@ -399,7 +399,7 @@ func DescribeProposal(proposal *mcmslib.Proposal, describedOperations []string) 
 		}
 		describedProposal.WriteString("Operation #" + strconv.Itoa(opIdx))
 		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
-		describedProposal.WriteString(IndentString(opDesc))
+		describedProposal.WriteString(indentString(opDesc))
 		describedProposal.WriteString("\n")
 	}
 	return describedProposal.String()
@@ -416,9 +416,9 @@ func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatch
 		describedProposal.WriteString(fmt.Sprintf("Batch #%v\n", batchIdx))
 		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
 		for opIdx, opDesc := range describedOperations {
-			describedProposal.WriteString(IndentString("Operation #" + strconv.Itoa(opIdx)))
+			describedProposal.WriteString(indentString("Operation #" + strconv.Itoa(opIdx)))
 			describedProposal.WriteString("\n")
-			describedProposal.WriteString(IndentStringWith(opDesc, DoubleIndent))
+			describedProposal.WriteString(indentStringWith(opDesc, DoubleIndent))
 			describedProposal.WriteString("\n")
 		}
 	}
