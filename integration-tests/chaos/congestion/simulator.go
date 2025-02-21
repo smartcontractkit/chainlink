@@ -212,16 +212,20 @@ func (s *Simulator) startTransactionProducer(ctx context.Context, wg *sync.WaitG
 		go s.runSender(ctx, wg, i, work)
 	}
 
-	txsToSend := numberOfSenders / 2
+	// estimate initial number of transactions we should send.
+	txsToSend := int(float64(s.NumberOfTxsPerBlock) * s.RampUp.Congestion)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		s.listenHeadsUntilCanceled(ctx, func(ctx context.Context, head *types.Header) error {
 			congestion := float64(head.GasUsed) / float64(head.GasLimit)
 			congestionTarget := s.expectedCurrentCongestion.Load().(float64)
-			if txsToSend < numberOfSenders && congestion < congestionTarget*0.95 {
+			// take into account rounding error
+			const acceptableError = 0.01
+			minTarget, maxTarget := congestionTarget*(1-acceptableError), congestionTarget*(1+acceptableError)
+			if txsToSend < numberOfSenders && congestion < minTarget {
 				txsToSend++
-			} else if txsToSend > 0 && congestion > congestionTarget*1.05 {
+			} else if txsToSend > 0 && congestion > maxTarget {
 				txsToSend--
 			}
 
@@ -242,8 +246,8 @@ func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) 
 	defer wg.Done()
 	s.lggr.Info("Starting ramp up phase")
 	s.phase.Store(phaseRampUp)
-	s.updateCurrentFees(0)
-	s.handleVolatilePhase(ctx, s.RampUp, true)
+	s.setFeesAsPercentageOfInitial(100) // set fees to initial values
+	s.handleDynamicPhase(ctx, s.RampUp, true)
 
 	s.lggr.Info("Starting plateau phase")
 	s.phase.Store(phasePlateau)
@@ -259,13 +263,15 @@ func (s *Simulator) runPhaseController(ctx context.Context, wg *sync.WaitGroup) 
 
 	s.lggr.Info("Starting cooldown phase")
 	s.phase.Store(phaseCoolDown)
-	s.handleVolatilePhase(ctx, s.CoolDown, false)
+	s.handleDynamicPhase(ctx, s.CoolDown, false)
 
 	s.lggr.Info("Finished iteration")
 	s.phase.Store(phaseInactive)
 }
 
-func (s *Simulator) handleVolatilePhase(ctx context.Context, phase Phase, isIncrease bool) {
+// handleDynamicPhase - gradually increases fees if isIncreasing = true over the phase's duration,
+// otherwise decreasing them back to the configured values.
+func (s *Simulator) handleDynamicPhase(ctx context.Context, phase Phase, increaseFees bool) {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 	phaseTimer := time.NewTimer(time.Second * time.Duration(phase.Duration))
@@ -283,28 +289,26 @@ phaseLoop:
 		}
 
 		elapsedRatio := min(float64(time.Since(phaseStart))/float64(time.Duration(phase.Duration)*time.Second), 1)
-		if !isIncrease {
+		if !increaseFees {
 			// count backwards. If 0.1 of cooldown phase has passed, we should be at the same price point as if 0.9 of ramp up phase has passed
 			elapsedRatio = 1 - elapsedRatio
 		}
-		s.updateCurrentFees(elapsedRatio)
+		s.setFeesAsPercentageOfInitial(100 + s.FeesIncreasePercent*elapsedRatio)
 	}
 
-	if isIncrease {
-		s.updateCurrentFees(1)
+	// phase has passed, ensure that we are at the right point
+	if increaseFees {
+		s.setFeesAsPercentageOfInitial(100 + s.FeesIncreasePercent) // by the end of rump up phase, we should reach peak
 	} else {
-		s.updateCurrentFees(0)
+		s.setFeesAsPercentageOfInitial(100) // by the end of cooldown phase, we should return to initial fees.
 	}
 }
 
-// updateCurrentFees - sets fees according to expected distance from target. If targetDistanceRatio = 1, current fees s.FeesIncreasePercent compared to initial.
-func (s *Simulator) updateCurrentFees(targetDistanceRatio float64) {
-	targetPercent := s.FeesIncreasePercent * targetDistanceRatio
-	baseFee := uint64(float64(s.InitialBaseFeePerGas) * (1 + targetPercent/100))
+func (s *Simulator) setFeesAsPercentageOfInitial(percent float64) {
+	baseFee := uint64(float64(s.InitialBaseFeePerGas) * percent / 100)
 	s.expectedCurrentBaseFee.Store(baseFee)
-	tip := uint64(float64(s.InitialTipPerGas) * (1 + targetPercent/100))
+	tip := uint64(float64(s.InitialTipPerGas) * percent / 100)
 	s.expectedCurrentTip.Store(tip)
-	s.lggr.Debugf("Updating fees to %d according to distance %.2f", baseFee, targetDistanceRatio)
 }
 
 func (s *Simulator) runTick(ctx context.Context) {
@@ -385,17 +389,17 @@ func (s *Simulator) avgTip(block *types.Block) *big.Int {
 	return big.NewInt(0).Div(total, big.NewInt(int64(block.Transactions().Len())))
 }
 
-func (s *Simulator) listenHeadsUntilCanceled(ctx context.Context, onNewBlock func(ctx context.Context, head *types.Header) error) {
+func (s *Simulator) listenHeadsUntilCanceled(ctx context.Context, onNewHead func(ctx context.Context, head *types.Header) error) {
 	for {
-		err := s.listenHeads(ctx, onNewBlock)
+		err := s.listenHeads(ctx, onNewHead)
 		if err != nil {
 			if ctx.Err() != nil {
 				return
 			}
 
-			s.lggr.Errorw("failed to run onNewBlock", "error", err)
+			s.lggr.Errorw("failed to run onNewHead", "error", err)
+			time.Sleep(backoffPeriodOnError)
 		}
-		time.Sleep(backoffPeriodOnError)
 	}
 }
 
