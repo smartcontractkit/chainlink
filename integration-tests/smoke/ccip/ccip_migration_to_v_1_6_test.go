@@ -15,10 +15,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	v1_5testhelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
@@ -189,8 +191,8 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
 			// as we have already transferred ownership for RMNProxy to MCMS, it needs to be done via MCMS proposal
-			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			changeset.SetRMNRemoteOnRMNProxyConfig{
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: e.Env.AllChainSelectors(),
 				MCMSConfig: &changeset.MCMSConfig{
 					MinDelay: 0,
@@ -198,12 +200,12 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateNonceManagersChangeset),
-			changeset.UpdateNonceManagerConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateNonceManagersChangeset),
+			v1_6.UpdateNonceManagerConfig{
 				// we only have lanes between src1 --> dest
-				UpdatesByChain: map[uint64]changeset.NonceManagerUpdate{
+				UpdatesByChain: map[uint64]v1_6.NonceManagerUpdate{
 					src1: {
-						PreviousRampsArgs: []changeset.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: dest,
 								AllowEmptyOffRamp:   true,
@@ -211,7 +213,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 						},
 					},
 					src2: {
-						PreviousRampsArgs: []changeset.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: dest,
 								AllowEmptyOffRamp:   true,
@@ -219,7 +221,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 						},
 					},
 					dest: {
-						PreviousRampsArgs: []changeset.PreviousRampCfg{
+						PreviousRampsArgs: []v1_6.PreviousRampCfg{
 							{
 								RemoteChainSelector: src1,
 								AllowEmptyOnRamp:    true,
@@ -287,9 +289,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	// now that the 1.6 lane is working, we can enable the real router
 	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					src1: {
 						dest: {
 							IsEnabled:        true,
@@ -301,9 +303,9 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 					dest: {
 						src1: {
 							IsEnabled:                 true,
@@ -316,13 +318,13 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			// this needs to be MCMS proposal as the router contract is owned by MCMS
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter: false,
 				MCMS: &changeset.MCMSConfig{
 					MinDelay: 0,
 				},
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					src1: {
 						OnRampUpdates: map[uint64]bool{

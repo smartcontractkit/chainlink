@@ -16,8 +16,8 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -42,7 +42,7 @@ const (
 var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
 
 type DeployChainContractsConfigSolana struct {
-	DeployChainContractsConfig changeset.DeployChainContractsConfig
+	DeployChainContractsConfig v1_6.DeployChainContractsConfig
 	UpgradeConfig              UpgradeConfigSolana
 	NewUpgradeAuthority        *solana.PublicKey // if set, sets router and fee quoter upgrade authority
 }
@@ -79,13 +79,13 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	existingState, err := changeset.LoadOnchainState(e)
+	existingState, err := cs.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
-	err = changeset.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -345,7 +345,7 @@ func deployChainContractsSolana(
 ) ([]mcmsTypes.Transaction, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	ixns := make([]mcmsTypes.Transaction, 0)
-	state, err := changeset.LoadOnchainStateSolana(e)
+	state, err := cs.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return ixns, err
@@ -578,12 +578,12 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
-		tv := deployment.NewTypeAndVersion(changeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
+		tv := deployment.NewTypeAndVersion(cs.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		offRampAddress = changeset.FindSolanaAddress(tv, existingAddresses)
+		offRampAddress = cs.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
 			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewOffRampVersion, false)
@@ -745,7 +745,7 @@ func deployChainContractsSolana(
 	}
 
 	if len(lookupTableKeys) > 0 {
-		addressLookupTable, err := changeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
+		addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 		}
@@ -784,10 +784,10 @@ func DeployAndMaybeSaveToAddressBook(
 	address := solana.MustPublicKeyFromBase58(programID)
 
 	programNameToType := map[string]deployment.ContractType{
-		RouterProgramName:    changeset.Router,
-		OffRampProgramName:   changeset.OffRamp,
-		FeeQuoterProgramName: changeset.FeeQuoter,
-		TokenPoolProgramName: changeset.TokenPool,
+		RouterProgramName:    cs.Router,
+		OffRampProgramName:   cs.OffRamp,
+		FeeQuoterProgramName: cs.FeeQuoter,
+		TokenPoolProgramName: cs.TokenPool,
 	}
 	programType, ok := programNameToType[programName]
 	if !ok {
@@ -1005,7 +1005,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(changeset.FeeAggregator, deployment.Version1_0_0))
+	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(cs.FeeAggregator, deployment.Version1_0_0))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
 	}
