@@ -297,11 +297,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{
-									"LinkTokenMint": "LinkToken",
-								},
-							},
+							&codec.PropertyExtractorConfig{FieldName: "LinkTokenMint"},
 						},
 					},
 				},
@@ -513,11 +509,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{
-									"LinkTokenMint": "LinkToken",
-								},
-							},
+							&codec.PropertyExtractorConfig{FieldName: "LinkTokenMint"},
 						},
 					},
 				},
