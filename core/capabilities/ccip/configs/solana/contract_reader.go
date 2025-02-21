@@ -84,17 +84,17 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						},
 					},
 					consts.MethodNameOffRampLatestConfigDetails: {
-						ChainSpecificName: "Config",
-						ReadType:          config.Account,
-						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("config")},
+						ChainSpecificName:   "Config",
+						ReadType:            config.Account,
+						PDADefinition:       solanacodec.PDATypeDef{Prefix: []byte("config")},
 						OutputModifications: codec.ModifiersConfig{
 							// TODO why does Solana have two of these in an array, but EVM has one
-							&codec.WrapperModifierConfig{
-								Fields: map[string]string{"Ocr3": "OcrConfig"},
-							},
-							&codec.PropertyExtractorConfig{FieldName: "Ocr3"},
-							&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
-							&codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
+							// &codec.WrapperModifierConfig{
+							// 	Fields: map[string]string{"Ocr3": "OcrConfig"},
+							// },
+							// &codec.PropertyExtractorConfig{FieldName: "Ocr3"},
+							// &codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
+							// &codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
 						},
 					},
 					consts.MethodNameGetLatestPriceSequenceNumber: {
