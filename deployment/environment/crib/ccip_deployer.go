@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"golang.org/x/sync/errgroup"
+	"math"
 	"math/big"
 	"sync"
 
@@ -267,15 +268,22 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]changeset.ChainContractParams)
 
+	numNodes := len(nodeInfo.NonBootstraps().PeerIDs())
+	// Number of nodes is 3f+1
+	fChain := numNodes / 3
+
+	// Add bounds checking
+	if fChain > math.MaxUint8 {
+		return *e, fmt.Errorf("number of nodes too large: f value %d exceeds uint8 max", fChain)
+	}
+
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			// Number of nodes is 3f+1
-			//nolint:G115 // it's okay
-			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			FChain:  uint8(fChain),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
