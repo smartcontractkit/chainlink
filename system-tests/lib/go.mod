@@ -3,8 +3,8 @@ module github.com/smartcontractkit/chainlink/system-tests/lib
 go 1.23.3
 
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250206093113-4e72c05bdba6
-	github.com/smartcontractkit/chainlink/v2 v2.19.0-ccip1.5.16-alpha.0.0.20250206093113-4e72c05bdba6
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
 // Make sure we're working with the latest chainlink libs

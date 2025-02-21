@@ -14,9 +14,9 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221161645-4c8b48da7f04
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250211210516-c98bb1ee1bd8
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221161645-4c8b48da7f04
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
 require (
