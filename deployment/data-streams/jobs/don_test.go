@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/AlekSi/pointer"
 	"github.com/google/uuid"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/stretchr/testify/require"
 )
 
@@ -69,9 +69,9 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 				},
 				ContractID:                        "contract-123",
 				TransmitterID:                     "tx-123",
-				ForwardingAllowed:                 pointer.ToBoolOrNil(true),
+				ForwardingAllowed:                 pointer.To(true),
 				P2PV2Bootstrappers:                []string{"bootstrap1", "bootstrap2"},
-				OCRKeyBundleID:                    pointer.ToStringOrNil("ocr-bundle-123"),
+				OCRKeyBundleID:                    pointer.To("ocr-bundle-123"),
 				MaxTaskDuration:                   10 * time.Second,
 				ContractConfigTrackerPollInterval: 1 * time.Minute,
 				Relay:                             "testrelay",
