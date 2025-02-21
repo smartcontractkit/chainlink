@@ -70,7 +70,7 @@ func ConfigureContracts(ctx context.Context, lggr logger.Logger, req ConfigureCo
 		return nil, fmt.Errorf("invalid request: %w", err)
 	}
 
-	contractSetsResp, err := getContractSets(lggr, &getContractSetsRequest{
+	contractSetsResp, err := getContractSets(lggr, &GetContractSetsRequest{
 		Chains:      req.Env.Chains,
 		AddressBook: req.Env.ExistingAddresses,
 	})
@@ -150,7 +150,7 @@ func GetRegistryContract(e *deployment.Environment, registryChainSel uint64) (*c
 		return nil, deployment.Chain{}, fmt.Errorf("chain %d not found in environment", registryChainSel)
 	}
 
-	contractSetsResp, err := getContractSets(e.Logger, &getContractSetsRequest{
+	contractSetsResp, err := getContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})
@@ -299,7 +299,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 		return fmt.Errorf("chain %d not found in environment", chainSel)
 	}
 
-	contractSetsResp, err := getContractSets(env.Logger, &getContractSetsRequest{
+	contractSetsResp, err := getContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -363,7 +363,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 	if !ok {
 		return nil, fmt.Errorf("chain %d not found in environment", cfg.ChainSel)
 	}
-	contractSetsResp, err := getContractSets(env.Logger, &getContractSetsRequest{
+	contractSetsResp, err := getContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
