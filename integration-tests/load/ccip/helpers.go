@@ -37,7 +37,7 @@ const (
 	transmitted = iota
 	committed
 	executed
-	tickerDuration      = 30 * time.Second
+	tickerDuration      = 3 * time.Minute
 	SubscriptionTimeout = 1 * time.Minute
 )
 

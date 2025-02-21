@@ -32,7 +32,7 @@ type MetricManager struct {
 	loki      *wasp.LokiClient
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
-	overrides *ccip.LoadConfig
+	testLabel string
 }
 
 type metricState struct {
@@ -55,13 +55,17 @@ func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
+	testLabel := "default"
+	if overrides.TestLabel != nil {
+		testLabel = *overrides.TestLabel
+	}
 
 	return &MetricManager{
 		lggr:      l,
 		loki:      loki,
 		InputChan: make(chan messageData),
 		state:     make(map[srcDstSeqNum]metricState),
-		overrides: overrides,
+		testLabel: testLabel,
 	}
 }
 
@@ -82,7 +86,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					execDuration = timestamps[executed] - timestamps[committed]
 				}
 
-				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, mm.overrides)
+				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, mm.testLabel)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 					// don't return here, we still want to push metrics to loki
@@ -104,7 +108,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 
 			if data.seqNum == 0 {
 				// seqNum of 0 indicates an error. Push nil values to loki
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.overrides)
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
@@ -125,7 +129,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			}
 			// we have all data needed to push to Loki
 			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.overrides)
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
@@ -148,7 +152,7 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 	}
 }
 
-func setLokiLabels(src, dst uint64, overrides *ccip.LoadConfig) (map[string]string, error) {
+func setLokiLabels(src, dst uint64, testLabel string) (map[string]string, error) {
 	srcChainID, err := chainselectors.GetChainIDFromSelector(src)
 	if err != nil {
 		return nil, err
@@ -161,6 +165,6 @@ func setLokiLabels(src, dst uint64, overrides *ccip.LoadConfig) (map[string]stri
 		"sourceEvmChainId": srcChainID,
 		"destEvmChainId":   dstChainID,
 		"testType":         LokiLoadLabel,
-		"testLabel":        *overrides.TestLabel,
+		"testLabel":        testLabel,
 	}, nil
 }
