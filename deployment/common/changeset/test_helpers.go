@@ -179,7 +179,10 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		currentEnv = deployment.Environment{
