@@ -4,18 +4,16 @@ import (
 	"context"
 	"errors"
 	"fmt"
-<<<<<<< HEAD
 	"math/big"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-=======
->>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
+
 	"golang.org/x/sync/errgroup"
-	"math/big"
-	"sync"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 
@@ -346,14 +344,14 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
 	for _, chain := range chainSelectors {
 		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
-			Type:               state.BurnMintTokenPool,
+			Type:               changeset.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
 			AllowList:          []common.Address{},
 			TokenAddress:       state.Chains[chain].LinkToken.Address(),
 		}
 		pools[chain] = map[changeset.TokenSymbol]changeset.TokenPoolInfo{
 			changeset.LinkSymbol: {
-				Type:          state.BurnMintTokenPool,
+				Type:          changeset.BurnMintTokenPool,
 				Version:       deployment.Version1_5_1,
 				ExternalAdmin: e.Chains[chain].DeployerKey.From,
 			},
@@ -409,72 +407,20 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
-<<<<<<< HEAD
-	onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
-	pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
-	feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-	updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
-	updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
-	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
-	for src := range e.Chains {
-		onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
-		pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
-			TokenPrices: map[common.Address]*big.Int{
-				state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
-			},
-			GasPrices: make(map[uint64]*big.Int),
-		}
-		feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-		updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
-		updateRouterChanges[src] = v1_6.RouterUpdates{
-			OffRampUpdates: make(map[uint64]bool),
-			OnRampUpdates:  make(map[uint64]bool),
-		}
-		rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
-
-		for dst := range e.Chains {
-			if src != dst {
-				onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
-					IsEnabled:        true,
-					AllowListEnabled: false,
-				}
-				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
-				feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
-
-				updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
-					IsEnabled:                 true,
-					IsRMNVerificationDisabled: true,
-				}
-
-				updateRouterChanges[src].OffRampUpdates[dst] = true
-				updateRouterChanges[src].OnRampUpdates[dst] = true
-				rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
-					Inbound: token_pool.RateLimiterConfig{
-						IsEnabled: false,
-						Capacity:  big.NewInt(0),
-						Rate:      big.NewInt(0),
-					},
-					Outbound: token_pool.RateLimiterConfig{
-						IsEnabled: false,
-						Capacity:  big.NewInt(0),
-						Rate:      big.NewInt(0),
-					},
-=======
 	eg := errgroup.Group{}
-	poolUpdates := make(map[uint64]changeset.TokenPoolConfig)
-	rateLimitPerChain := make(changeset.RateLimiterPerChain)
+	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
+	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	mu := sync.Mutex{}
 	for src := range e.Chains {
 		src := src
 		eg.Go(func() error {
-			onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
-			pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
+			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources := make(map[uint64]map[uint64]changeset.OffRampSourceUpdate)
-			updateRouterChanges := make(map[uint64]changeset.RouterUpdates)
-			onRampUpdatesByChain[src] = make(map[uint64]changeset.OnRampDestinationUpdate)
-			pricesByChain[src] = changeset.FeeQuoterPriceUpdatePerSource{
+			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
 				TokenPrices: map[common.Address]*big.Int{
 					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
 					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
@@ -482,22 +428,22 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 				GasPrices: make(map[uint64]*big.Int),
 			}
 			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-			updateOffRampSources[src] = make(map[uint64]changeset.OffRampSourceUpdate)
-			updateRouterChanges[src] = changeset.RouterUpdates{
+			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges[src] = v1_6.RouterUpdates{
 				OffRampUpdates: make(map[uint64]bool),
 				OnRampUpdates:  make(map[uint64]bool),
 			}
 
 			for dst := range e.Chains {
 				if src != dst {
-					onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
+					onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
 						IsEnabled:        true,
 						AllowListEnabled: false,
 					}
 					pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
-					feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig(true)
+					feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
 
-					updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
+					updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
 						IsEnabled:                 true,
 						IsRMNVerificationDisabled: true,
 					}
@@ -505,7 +451,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 					updateRouterChanges[src].OffRampUpdates[dst] = true
 					updateRouterChanges[src].OnRampUpdates[dst] = true
 					mu.Lock()
-					rateLimitPerChain[dst] = changeset.RateLimiterConfig{
+					rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
 						Inbound: token_pool.RateLimiterConfig{
 							IsEnabled: false,
 							Capacity:  big.NewInt(0),
@@ -518,60 +464,10 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 						},
 					}
 					mu.Unlock()
->>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
 				}
 			}
-
-<<<<<<< HEAD
-		poolUpdates[src] = v1_5_1.TokenPoolConfig{
-			Type:         state.BurnMintTokenPool,
-			Version:      deployment.Version1_5_1,
-			ChainUpdates: rateLimitPerChain,
-		}
-	}
-
-	return commonchangeset.Apply(nil, *e, nil,
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
-			v1_5_1.ConfigureTokenPoolContractsConfig{
-				TokenSymbol: changeset.LinkSymbol,
-				PoolUpdates: poolUpdates,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-			v1_6.UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampUpdatesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
-			v1_6.UpdateFeeQuoterPricesConfig{
-				PricesByChain: pricesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
-			v1_6.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestsUpdatesByChain,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
-			v1_6.UpdateOffRampSourcesConfig{
-				UpdatesByChain: updateOffRampSources,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
-			v1_6.UpdateRouterRampsConfig{
-				UpdatesByChain: updateRouterChanges,
-			},
-		),
-	)
-=======
 			mu.Lock()
-			poolUpdates[src] = changeset.TokenPoolConfig{
+			poolUpdates[src] = v1_5_1.TokenPoolConfig{
 				Type:         changeset.BurnMintTokenPool,
 				Version:      deployment.Version1_5_1,
 				ChainUpdates: rateLimitPerChain,
@@ -580,32 +476,32 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 
 			_, err := commonchangeset.Apply(nil, *e, nil,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-					changeset.UpdateOnRampDestsConfig{
+					deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+					v1_6.UpdateOnRampDestsConfig{
 						UpdatesByChain: onRampUpdatesByChain,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-					changeset.UpdateFeeQuoterPricesConfig{
+					deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+					v1_6.UpdateFeeQuoterPricesConfig{
 						PricesByChain: pricesByChain,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-					changeset.UpdateFeeQuoterDestsConfig{
+					deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+					v1_6.UpdateFeeQuoterDestsConfig{
 						UpdatesByChain: feeQuoterDestsUpdatesByChain,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
-					changeset.UpdateOffRampSourcesConfig{
+					deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+					v1_6.UpdateOffRampSourcesConfig{
 						UpdatesByChain: updateOffRampSources,
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-					changeset.UpdateRouterRampsConfig{
+					deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+					v1_6.UpdateRouterRampsConfig{
 						UpdatesByChain: updateRouterChanges,
 					},
 				),
@@ -620,15 +516,14 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	}
 
 	_, err = commonchangeset.Apply(nil, *e, nil, commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-		changeset.ConfigureTokenPoolContractsConfig{
+		deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+		v1_5_1.ConfigureTokenPoolContractsConfig{
 			TokenSymbol: changeset.LinkSymbol,
 			PoolUpdates: poolUpdates,
 		},
 	))
 
 	return *e, err
->>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
 }
 
 func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
@@ -659,13 +554,13 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	} else {
 		commitChangeset = commonchangeset.Configure(
 			// Update commit OCR instances for existing chains
-			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
-			changeset.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			v1_6.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: homeChainSel,
 					FeedChainSelector: feedChainSel,
 				},
-				PluginInfo: []changeset.SetCandidatePluginInfo{
+				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
 						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPCommit,
