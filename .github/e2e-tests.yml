@@ -1227,6 +1227,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPTokenPoolRateLimits$
@@ -1345,34 +1346,6 @@ runner-test-matrix:
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
-  - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPS
-    path: integration-tests/ccip-tests/load/ccip_test.go
-    test_env_type: k8s-remote-runner
-    runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run ^TestLoadCCIPStableRPS$ -timeout 70m -count=1 -test.parallel=1 -json
-    test_env_vars:
-      TEST_SUITE: ccip-load
-      E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-    triggers:
-      - E2E CCIP Load Tests
-    test_artifacts_on_failure:
-      - ./integration-tests/load/logs/payload_ccip.json
-
-  # Enable when CCIP-2277 is resolved
-  #
-  # - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPSAfterARMCurseAndUncurse
-  #   path: integration-tests/ccip-tests/load/ccip_test.go
-  #   test_env_type: k8s-remote-runner
-  #   runs_on: ubuntu-latest
-  #   test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run $TestLoadCCIPStableRPSAfterARMCurseAndUncurse$ -timeout 70m -count=1 -test.parallel=1 -json
-  #   test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
-  #   test_env_vars:
-  #     E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-  #   triggers:
-  #     - E2E CCIP Load Tests
-  #   test_artifacts_on_failure:
-  #     - ./integration-tests/load/logs/payload_ccip.json
-
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go
     test_env_type: k8s-remote-runner
@@ -1384,19 +1357,6 @@ runner-test-matrix:
       TEST_SUITE: chaos
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
       TEST_LOG_LEVEL: debug
-
-  - id: ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec
-    path: integration-tests/ccip-tests/load/ccip_test.go
-    test_env_type: k8s-remote-runner
-    runs_on: ubuntu-latest
-    triggers:
-      # Disabled until CCIP-2555 is resolved
-      # - E2E CCIP Chaos Tests
-    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
-    test_env_vars:
-      TEST_SUITE: chaos
-      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
-      TEST_LOG_LEVEL: debug
-      E2E_TEST_GRAFANA_DASHBOARD_URL: /d/6vjVx-1V8/ccip-long-running-tests
+      CHAINLINK_USER_TEAM: CCIP
 
   # END: CCIP tests

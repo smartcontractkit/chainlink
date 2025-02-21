@@ -45,13 +45,7 @@ var (
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
-type tokenInfo interface {
-	Address() common.Address
-	Symbol(opts *bind.CallOpts) (string, error)
-	Decimals(opts *bind.CallOpts) (uint8, error)
-}
-
-func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, error) {
+func findTokenInfo(tokens []TokenDetails, address common.Address) (string, uint8, error) {
 	for _, token := range tokens {
 		if token.Address() == address {
 			tokenSymbol, err := token.Symbol(nil)
@@ -109,7 +103,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 
 		aggregatorAddr := common.HexToAddress(string(tokenConfig.AggregatorAddress))
 		token := common.HexToAddress(tokenUnknownAddr.String())
-		tokenInfos := make([]tokenInfo, 0)
+		tokenInfos := make([]TokenDetails, 0)
 		onchainState := state.Chains[selector]
 		for _, tk := range onchainState.BurnMintTokens677 {
 			tokenInfos = append(tokenInfos, tk)
@@ -120,7 +114,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		var linkTokenInfo tokenInfo
+		var linkTokenInfo TokenDetails
 		linkTokenInfo = onchainState.LinkToken
 		if onchainState.LinkToken == nil {
 			linkTokenInfo = onchainState.StaticLinkToken
@@ -741,17 +735,17 @@ func newDonWithCandidateOp(
 		false, // acceptsWorkflows
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to call AddDON (ptype: %s): %w",
-			types.PluginType(pluginConfig.PluginType).String(), err)
-	}
 
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
+	} else if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to call AddDON (ptype: %s): %w",
+			types.PluginType(pluginConfig.PluginType).String(), err)
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), addDonTx.Data(),
@@ -934,11 +928,8 @@ func setCandidateOnExistingDon(
 		false,
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call UpdateDON in set candidate (don: %d; ptype: %s): %w",
-			donID, types.PluginType(pluginConfig.PluginType).String(), err)
-	}
 
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
@@ -946,6 +937,9 @@ func setCandidateOnExistingDon(
 			return nil, fmt.Errorf("error confirming UpdateDON call in set candidate (don: %d; ptype: %s): %w",
 				donID, types.PluginType(pluginConfig.PluginType).String(), err)
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to call UpdateDON in set candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginConfig.PluginType).String(), err)
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(), big.NewInt(0), string(CapabilitiesRegistry), []string{})
@@ -997,11 +991,8 @@ func promoteCandidateOp(
 		false,
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return mcmstypes.Transaction{}, fmt.Errorf("failed to call UpdateDON in promote candidate (don: %d; ptype: %s): %w",
-			donID, types.PluginType(pluginType).String(), err)
-	}
 
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
@@ -1009,6 +1000,9 @@ func promoteCandidateOp(
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming UpdateDON call in promote candidate (don: %d; ptype: %s): %w",
 				donID, types.PluginType(pluginType).String(), err)
 		}
+	} else if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to call UpdateDON in promote candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginType).String(), err)
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
@@ -1224,11 +1218,8 @@ func revokeCandidateOps(
 		false, // isPublic
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to call UpdateDON in revoke candidate (don: %d; ptype: %s): %w",
-			donID, types.PluginType(pluginType).String(), err)
-	}
 
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
@@ -1237,6 +1228,9 @@ func revokeCandidateOps(
 			return nil, fmt.Errorf("error confirming UpdateDON call in revoke candidate (don: %d; ptype: %s): %w",
 				donID, types.PluginType(pluginType).String(), err)
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to call UpdateDON in revoke candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginType).String(), err)
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),

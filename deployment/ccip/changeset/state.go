@@ -7,6 +7,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -164,6 +166,58 @@ type CCIPChainState struct {
 	MockRMN        *mock_rmn_contract.MockRMNContract
 	PriceRegistry  *price_registry_1_2_0.PriceRegistry
 	RMN            *rmn_contract.RMNContract
+}
+
+func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
+	tokenAddresses := make(map[TokenSymbol]common.Address)
+	for symbol, token := range c.ERC20Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.ERC677Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.BurnMintTokens677 {
+		tokenAddresses[symbol] = token.Address()
+	}
+	var err error
+	tokenAddresses[LinkSymbol], err = c.LinkTokenAddress()
+	if err != nil {
+		return nil, err
+	}
+	if c.Weth9 == nil {
+		return nil, errors.New("no WETH contract found in the state")
+	}
+	tokenAddresses[WethSymbol] = c.Weth9.Address()
+	return tokenAddresses, nil
+}
+
+func (c CCIPChainState) TokenDetailsBySymbol() (map[TokenSymbol]TokenDetails, error) {
+	tokenDetails := make(map[TokenSymbol]TokenDetails)
+	for symbol, token := range c.ERC20Tokens {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.ERC677Tokens {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.BurnMintTokens677 {
+		tokenDetails[symbol] = token
+	}
+	if c.LinkToken != nil {
+		tokenDetails[LinkSymbol] = c.LinkToken
+	}
+	if c.StaticLinkToken != nil {
+		tokenDetails[LinkSymbol] = c.StaticLinkToken
+	}
+
+	if _, ok := tokenDetails[LinkSymbol]; !ok {
+		return nil, errors.New("no LINK contract found in the state")
+	}
+
+	if c.Weth9 == nil {
+		return nil, errors.New("no WETH contract found in the state")
+	}
+	tokenDetails[WethSymbol] = c.Weth9
+	return tokenDetails, nil
 }
 
 func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
@@ -539,6 +593,54 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	return offRampAddress, nil
 }
 
+func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
+		chainState, exists := s.Chains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp == nil {
+				return fmt.Errorf("offramp contract does not exist on evm chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.OnRamp == nil {
+				return fmt.Errorf("onramp contract does not exist on evm chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
+		}
+
+	case chain_selectors.FamilySolana:
+		chainState, exists := s.SolChains[chainSelector]
+		if !exists {
+			return fmt.Errorf("chain %d does not exist", chainSelector)
+		}
+		switch rampType {
+		case OffRamp:
+			if chainState.OffRamp.IsZero() {
+				return fmt.Errorf("offramp contract does not exist on solana chain %d", chainSelector)
+			}
+		case OnRamp:
+			if chainState.Router.IsZero() {
+				return fmt.Errorf("router contract does not exist on solana chain %d", chainSelector)
+			}
+		default:
+			return fmt.Errorf("unknown ramp type %s", rampType)
+		}
+
+	default:
+		return fmt.Errorf("unknown chain family %s", family)
+	}
+	return nil
+}
+
 func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 	solState, err := LoadOnchainStateSolana(e)
 	if err != nil {
@@ -886,55 +988,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
-	family, err := chain_selectors.GetSelectorFamily(chainSelector)
-	if err != nil {
-		return err
-	}
-	switch family {
-	case chain_selectors.FamilyEVM:
-		chainState, exists := s.Chains[chainSelector]
-		if !exists {
-			return fmt.Errorf("chain %d does not exist", chainSelector)
-		}
-		switch rampType {
-		case OffRamp:
-			if chainState.OffRamp == nil {
-				return fmt.Errorf("offramp contract does not exist on evm chain %d", chainSelector)
-			}
-		case OnRamp:
-			if chainState.OnRamp == nil {
-				return fmt.Errorf("onramp contract does not exist on evm chain %d", chainSelector)
-			}
-		default:
-			return fmt.Errorf("unknown ramp type %s", rampType)
-		}
-
-	case chain_selectors.FamilySolana:
-		chainState, exists := s.SolChains[chainSelector]
-		if !exists {
-			return fmt.Errorf("chain %d does not exist", chainSelector)
-		}
-		switch rampType {
-		case OffRamp:
-			if chainState.OffRamp.IsZero() {
-				return fmt.Errorf("offramp contract does not exist on solana chain %d", chainSelector)
-			}
-		case OnRamp:
-			if chainState.Router.IsZero() {
-				return fmt.Errorf("router contract does not exist on solana chain %d", chainSelector)
-			}
-		default:
-			return fmt.Errorf("unknown ramp type %s", rampType)
-		}
-
-	default:
-		return fmt.Errorf("unknown chain family %s", family)
-	}
-	return nil
-}
-
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -947,12 +1001,18 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
-	if checkMcms {
+	if mcmsCfg != nil {
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}
-		if chainState.ProposerMcm == nil {
+		if mcmsCfg.MCMSAction == timelock.Schedule && chainState.ProposerMcm == nil {
 			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSAction == timelock.Cancel && chainState.CancellerMcm == nil {
+			return fmt.Errorf("missing cancellerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSAction == timelock.Bypass && chainState.BypasserMcm == nil {
+			return fmt.Errorf("missing bypasserMcm on %s", chain)
 		}
 	}
 	return nil
