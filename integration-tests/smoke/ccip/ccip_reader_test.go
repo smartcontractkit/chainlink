@@ -914,7 +914,7 @@ func TestCCIPReader_GetContractAddress(t *testing.T) {
 	})
 }
 
-func TestCCIPReader_DiscoverContract(t *testing.T) {
+func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	sb, auth := setupSimulatedBackendAndAuth(t)
@@ -990,7 +990,7 @@ func TestCCIPReader_DiscoverContract(t *testing.T) {
 		headTrackerS1,
 		lpOpts,
 	)
-	assert.NoError(t, lpS1.Start(ctx))
+	require.NoError(t, lpS1.Start(ctx))
 
 	clD := client.NewSimulatedBackendClient(t, sb, big.NewInt(0).SetUint64(uint64(chainD)))
 	headTrackerD := headstest.NewSimulatedHeadTracker(clD, true, 1)
@@ -1002,7 +1002,7 @@ func TestCCIPReader_DiscoverContract(t *testing.T) {
 		headTrackerD,
 		lpOpts,
 	)
-	assert.NoError(t, lpD.Start(ctx))
+	require.NoError(t, lpD.Start(ctx))
 
 	// Starting a chain reader service using merged reader configs for source chain and destination chain
 	crS1, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpS1, headTrackerS1, clS1, evmconfig.SourceReaderConfig)
@@ -1064,6 +1064,7 @@ func TestCCIPReader_DiscoverContract(t *testing.T) {
 	time.Sleep(30 * time.Second)
 
 	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	require.NoError(t, err)
 
 	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
 	require.Equal(t, contractAddresses[consts.ContractNameRouter][chainD], cciptypes.UnknownAddress(destinationChainConfigArgs[0].Router.Bytes()))
