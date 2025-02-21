@@ -4,18 +4,19 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 // AddCapabilities adds the capabilities to the registry
 //
 // It is idempotent. It deduplicates the input capabilities.
-func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*timelock.BatchChainOperation, error) {
+func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, chain deployment.Chain, capabilities []kcr.CapabilitiesRegistryCapability, useMCMS bool) (*mcmstypes.BatchOperation, error) {
 	if len(capabilities) == 0 {
 		return nil, nil
 	}
@@ -43,23 +44,19 @@ func AddCapabilities(lggr logger.Logger, registry *kcr.CapabilitiesRegistry, cha
 	return nil, nil
 }
 
-func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+func addCapabilitiesMCMSProposal(registry *kcr.CapabilitiesRegistry, caps []kcr.CapabilitiesRegistryCapability, regChain deployment.Chain) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddCapabilities(deployment.SimTransactOpts(), caps)
 	if err != nil {
 		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 
-	return &timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
-		Batch: []mcms.Operation{
-			{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			},
-		},
-	}, nil
+	ops, err := proposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	return &ops, nil
 }
 
 // CapabilityID returns a unique id for the capability

@@ -9,7 +9,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	solBinary "github.com/gagliardetto/binary"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
@@ -21,20 +22,20 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
-var _ deployment.ChangeSet[changeset.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
+var _ deployment.ChangeSet[v1_6.DeployChainContractsConfig] = DeployChainContractsChangesetSolana
 
-func DeployChainContractsChangesetSolana(e deployment.Environment, c changeset.DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+func DeployChainContractsChangesetSolana(e deployment.Environment, c v1_6.DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	existingState, err := changeset.LoadOnchainState(e)
+	existingState, err := state2.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
-	err = changeset.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -282,7 +283,7 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
 
-		tv := deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(state2.FeeQuoter, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 
 		feeQuoterAddress = solana.MustPublicKeyFromBase58(programID)
@@ -305,7 +306,7 @@ func deployChainContractsSolana(
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
 
-		tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(state2.Router, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 
 		ccipRouterProgram = solana.MustPublicKeyFromBase58(programID)
@@ -327,7 +328,7 @@ func deployChainContractsSolana(
 		if err != nil {
 			return fmt.Errorf("failed to deploy program: %w", err)
 		}
-		tv := deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
+		tv := deployment.NewTypeAndVersion(state2.OffRamp, deployment.Version1_0_0)
 		e.Logger.Infow("Deployed contract", "Contract", tv.String(), "addr", programID, "chain", chain.String())
 		offRampAddress = solana.MustPublicKeyFromBase58(programID)
 		err = ab.Save(chain.Selector, programID, tv)
@@ -437,7 +438,7 @@ type SetFeeAggregatorConfig struct {
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := state2.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -468,7 +469,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 

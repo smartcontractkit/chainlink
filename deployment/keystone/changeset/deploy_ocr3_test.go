@@ -11,6 +11,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -81,7 +82,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
 		assert.Len(t, got.Transmitters, 4)
-		assert.Nil(t, csOut.Proposals)
+		assert.Nil(t, csOut.MCMSTimelockProposals)
 	})
 
 	t.Run("success multiple OCR3 contracts", func(t *testing.T) {
@@ -146,7 +147,7 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
 		assert.Len(t, got.Transmitters, 4)
-		assert.Nil(t, csOut.Proposals)
+		assert.Nil(t, csOut.MCMSTimelockProposals)
 	})
 
 	t.Run("fails multiple OCR3 contracts but unspecified address", func(t *testing.T) {
@@ -258,8 +259,8 @@ func TestConfigureOCR3(t *testing.T) {
 		require.NoError(t, err)
 		assert.Len(t, got.Signers, 4)
 		assert.Len(t, got.Transmitters, 4)
-		assert.NotNil(t, csOut.Proposals)
-		t.Logf("got: %v", csOut.Proposals[0])
+		assert.NotNil(t, csOut.MCMSTimelockProposals)
+		t.Logf("got: %v", csOut.MCMSTimelockProposals[0])
 
 		contracts := te.ContractSets()[te.RegistrySelector]
 		require.NoError(t, err)

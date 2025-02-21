@@ -12,10 +12,11 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
-var _ deployment.ChangeSet[cs.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
 var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
 var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingToken
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
@@ -44,7 +45,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
 	}
-	state, err := cs.LoadOnchainState(e)
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -68,7 +69,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateRouterConfig(chain deployment.SolChain, chainState changeset.SolCCIPChainState) error {
 	if chainState.Router.IsZero() {
 		return fmt.Errorf("router not found in existing state, deploy the router first for chain %d", chain.Selector)
 	}
@@ -81,7 +82,7 @@ func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainS
 	return nil
 }
 
-func validateFeeQuoterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateFeeQuoterConfig(chain deployment.SolChain, chainState changeset.SolCCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -94,7 +95,7 @@ func validateFeeQuoterConfig(chain deployment.SolChain, chainState cs.SolCCIPCha
 	return nil
 }
 
-func validateOffRampConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateOffRampConfig(chain deployment.SolChain, chainState changeset.SolCCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}
