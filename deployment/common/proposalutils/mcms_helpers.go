@@ -239,7 +239,7 @@ func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[st
 
 	// Convert map keys to a slice
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}

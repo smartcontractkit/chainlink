@@ -3,6 +3,7 @@ package changeset
 import (
 	"math/big"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
@@ -126,4 +127,10 @@ func (tc *TokenConfig) GetTokenInfo(
 	}
 
 	return tokenToAggregate
+}
+
+type TokenDetails interface {
+	Address() common.Address
+	Symbol(opts *bind.CallOpts) (string, error)
+	Decimals(opts *bind.CallOpts) (uint8, error)
 }

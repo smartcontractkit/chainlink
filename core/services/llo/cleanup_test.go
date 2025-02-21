@@ -111,7 +111,7 @@ func Test_Cleanup(t *testing.T) {
 	})
 }
 
-func Test_TransmissionReaper(t *testing.T) {
+func Test_StaleTransmissionReaper(t *testing.T) {
 	ds := pgtest.NewSqlxDB(t)
 	lggr := logger.TestLogger(t)
 	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
@@ -133,13 +133,45 @@ WHERE transmission_hash IN (
 `)
 
 	// test batching
-	d, err := tr.reapStale(ctx, n/3)
+	d, err := tr.reap(ctx, n/3, "stale")
 	require.NoError(t, err)
 	assert.Equal(t, int64(5), d)
 
 	pgtest.MustExec(t, ds, "UPDATE llo_mercury_transmit_queue SET inserted_at = NOW() - INTERVAL '48 hours'")
 
-	d, err = tr.reapStale(ctx, n/3)
+	d, err = tr.reap(ctx, n/3, "stale")
 	require.NoError(t, err)
 	assert.Equal(t, int64(n-5), d)
+}
+
+func Test_OrphanedTransmissionReaper(t *testing.T) {
+	ds := pgtest.NewSqlxDB(t)
+	lggr := logger.TestLogger(t)
+	tr := &transmissionReaper{ds: ds, lggr: lggr, maxAge: 24 * time.Hour}
+	ctx := testutils.Context(t)
+
+	const n = 13
+
+	pgtest.MustExec(t, ds, `
+	INSERT INTO ocr2_oracle_specs (contract_id, p2pv2_bootstrappers, contract_config_confirmations, created_at,
+			updated_at, relay, relay_config, plugin_config, plugin_type, onchain_signing_strategy, allow_no_bootstrappers
+		) VALUES ('0x','{}', 0, NOW(), NOW(), 'evm', '{"chainID": 421614, "lloDonID": 2}', '{"donID": 2}', 'llo', '{}', FALSE);`)
+
+	// add transmissions from a DON not present in ocr2 specs
+	transmissions := makeSampleTransmissions(n)
+	torm := mercurytransmitter.NewORM(ds, 1)
+	err := torm.Insert(testutils.Context(t), transmissions)
+	require.NoError(t, err)
+
+	d, err := tr.reap(ctx, n, "orphaned")
+	require.NoError(t, err)
+	assert.Equal(t, int64(n), d)
+
+	torm2 := mercurytransmitter.NewORM(ds, 2)
+	err = torm2.Insert(testutils.Context(t), transmissions)
+	require.NoError(t, err)
+
+	d, err = tr.reap(ctx, n, "orphaned")
+	require.NoError(t, err)
+	assert.Equal(t, int64(0), d)
 }
