@@ -659,6 +659,10 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 // the signer is the onchain public key
 // the enc is the encryption public key
 func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
+	wfKey, err := hex.DecodeString(n.WorkflowKey)
+	if err != nil || len(wfKey) == 0 || bytes.Equal(wfKey, make([]byte, 32)) {
+		return signer, enc, fmt.Errorf("invalid workflow key (cannot be empty or zero) with error: %w", err)
+	}
 	chainID, err := chainsel.ChainIdFromSelector(chainSel)
 	if err != nil {
 		return signer, enc, fmt.Errorf("error getting chain id for selector %d: %w", chainSel, err)
@@ -673,7 +677,7 @@ func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32
 		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
 	}
 	copy(signer[:], evmCC.OnchainPublicKey)
-	copy(enc[:], evmCC.ConfigEncryptionPublicKey[:])
+	copy(enc[:], wfKey)
 	return signer, enc, nil
 }
 

@@ -4,6 +4,7 @@ import (
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -85,4 +86,42 @@ func TestDecrypt(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, secret, plaintext)
+}
+
+func TestMustNewXXXTestingOnly(t *testing.T) {
+	tests := []struct {
+		name        string
+		k           *big.Int
+		wantSuccess bool
+	}{
+		{
+			name:        "generates valid key from big.Int",
+			k:           big.NewInt(1),
+			wantSuccess: true,
+		},
+		{
+			name:        "panics on nil input",
+			k:           nil,
+			wantSuccess: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if !tt.wantSuccess {
+				require.Panics(t, func() { MustNewXXXTestingOnly(tt.k) })
+				return
+			}
+
+			key := MustNewXXXTestingOnly(tt.k)
+			require.NotNil(t, key.privateKey)
+			require.NotNil(t, key.publicKey)
+
+			// Verify key generation is deterministic
+			if tt.k.Cmp(big.NewInt(1)) != 0 {
+				key1 := MustNewXXXTestingOnly(tt.k)
+				require.Equal(t, key1.PublicKey(), key.PublicKey())
+			}
+		})
+	}
 }

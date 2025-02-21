@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 )
 
 type NodeConfig struct {
@@ -41,6 +42,7 @@ func NewNode(t *testing.T, c NodeConfig) *deployment.Node {
 		Name:           c.Name,
 		PeerID:         p2p.PeerID(),
 		CSAKey:         csakey.MustNewV2XXXTestingOnly(k).ID(),
+		WorkflowKey:    workflowkey.MustNewXXXTestingOnly(k).ID(),
 		AdminAddr:      gethcommon.BigToAddress(k).Hex(),
 		Labels:         labelsConversion(c.Labels),
 		SelToOCRConfig: ocrConfigs,
