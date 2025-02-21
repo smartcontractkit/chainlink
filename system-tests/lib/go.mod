@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250219190937-a4ab077d8707
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221161120-cbe05b00f76d
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.4
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.23
