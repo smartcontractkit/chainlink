@@ -65,7 +65,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 
-	//with MCMS
+	// with MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
 			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),

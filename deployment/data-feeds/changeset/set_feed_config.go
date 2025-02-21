@@ -50,7 +50,7 @@ func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecima
 		return errors.New("dataIDs, descriptions and workflowMetadata must not be empty")
 	}
 	if len(c.DataIDs) != len(c.Descriptions) {
-		return fmt.Errorf("dataIDs and descriptions must have the same length")
+		return errors.New("dataIDs and descriptions must have the same length")
 	}
 
 	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)

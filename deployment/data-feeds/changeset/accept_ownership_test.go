@@ -42,6 +42,7 @@ func TestAcceptOwnership(t *testing.T) {
 			},
 		),
 	)
+	require.NoError(t, err)
 
 	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
 	require.NoError(t, err)
