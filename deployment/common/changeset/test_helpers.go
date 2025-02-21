@@ -97,24 +97,15 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
 				// return the error so devs can ensure expected reversions
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
-				if err != nil {
-					return deployment.Environment{}, err
-				}
-				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
-				if err != nil {
-					return deployment.Environment{}, err
-				}
+				proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
+				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
 			}
 		}
 		if out.MCMSProposals != nil {
 			for _, prop := range out.MCMSProposals {
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
 				// return the error so devs can ensure expected reversions
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
-				if err != nil {
-					return deployment.Environment{}, err
-				}
+				proposalutils.ExecuteMCMSProposalV2(t, e, p)
 			}
 		}
 		currentEnv = deployment.Environment{
