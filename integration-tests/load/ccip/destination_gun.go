@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
 	"time"
 
@@ -187,15 +188,6 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 		m.l.Error("Error encoding receiver address")
 		return router.ClientEVM2AnyMessage{}, err
 	}
-	if (*m.testConfig.MessageTypeWeights)[0] == 100 {
-		return router.ClientEVM2AnyMessage{
-			Receiver:     rcv,
-			Data:         common.Hex2Bytes("0xabcdefabcdef"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		}, nil
-	}
 
 	messages := []router.ClientEVM2AnyMessage{
 		{
@@ -205,30 +197,30 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			FeeToken:     common.HexToAddress("0x0"),
 			ExtraArgs:    nil,
 		},
-		//{
-		//	Receiver: rcv,
-		//	TokenAmounts: []router.ClientEVMTokenAmount{
-		//		{
-		//			Token:  m.state.Chains[src].LinkToken.Address(),
-		//			Amount: big.NewInt(1),
-		//		},
-		//	},
-		//	Data:      common.Hex2Bytes("0xabcdefabcdef"),
-		//	FeeToken:  common.HexToAddress("0x0"),
-		//	ExtraArgs: nil,
-		//},
-		//{
-		//	Receiver: rcv,
-		//	Data:     common.Hex2Bytes("message with token"),
-		//	TokenAmounts: []router.ClientEVMTokenAmount{
-		//		{
-		//			Token:  m.state.Chains[src].LinkToken.Address(),
-		//			Amount: big.NewInt(1),
-		//		},
-		//	},
-		//	FeeToken:  common.HexToAddress("0x0"),
-		//	ExtraArgs: nil,
-		//},
+		{
+			Receiver: rcv,
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  m.state.Chains[src].LinkToken.Address(),
+					Amount: big.NewInt(1),
+				},
+			},
+			Data:      common.Hex2Bytes("0xabcdefabcdef"),
+			FeeToken:  common.HexToAddress("0x0"),
+			ExtraArgs: nil,
+		},
+		{
+			Receiver: rcv,
+			Data:     common.Hex2Bytes("message with token"),
+			TokenAmounts: []router.ClientEVMTokenAmount{
+				{
+					Token:  m.state.Chains[src].LinkToken.Address(),
+					Amount: big.NewInt(1),
+				},
+			},
+			FeeToken:  common.HexToAddress("0x0"),
+			ExtraArgs: nil,
+		},
 	}
 	// Select a random message
 	randomValue := rand.Intn(100)
