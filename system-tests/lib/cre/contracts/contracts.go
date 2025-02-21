@@ -11,6 +11,7 @@ import (
 	"github.com/rs/zerolog"
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -140,13 +141,13 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput) error {
 		TransmissionSchedule:              transmissionSchedule,
 		MaxDurationQueryMillis:            1000,
 		MaxDurationObservationMillis:      1000,
-		MaxDurationAcceptMillis:           1000,
-		MaxDurationTransmitMillis:         1000,
+		MaxDurationShouldAcceptMillis:     1000,
+		MaxDurationShouldTransmitMillis:   1000,
 		MaxFaultyOracles:                  1,
 		MaxQueryLengthBytes:               1000000,
 		MaxObservationLengthBytes:         1000000,
 		MaxReportLengthBytes:              1000000,
-		MaxRequestBatchSize:               1000,
+		MaxBatchSize:                      1000,
 		UniqueReports:                     true,
 	}
 

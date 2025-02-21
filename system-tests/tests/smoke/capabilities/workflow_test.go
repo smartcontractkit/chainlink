@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -230,7 +231,7 @@ type registerPoRWorkflowInput struct {
 	workflowRegistryAddress     common.Address
 	feedConsumerAddress         common.Address
 	capabilitiesRegistryAddress common.Address
-	priceProvider               PriceProvider
+	priceProvider               capabilities.PriceProvider
 	sethClient                  *seth.Client
 	deployerPrivateKey          string
 	blockchain                  *blockchain.Output
@@ -484,7 +485,7 @@ func CreateInfrastructure(
 }
 
 type setupOutput struct {
-	priceProvider        PriceProvider
+	priceProvider        capabilities.PriceProvider
 	feedsConsumerAddress common.Address
 	forwarderAddress     common.Address
 	sethClient           *seth.Client
@@ -492,7 +493,7 @@ type setupOutput struct {
 	donTopology          *keystonetypes.DonTopology
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider capabilities.PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
 	// Universal setup -- START
 	envInput := InfrastructureInput{
 		jdInput:         in.JD,
@@ -564,7 +565,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	// Allow extra IPs and ports for the fake data provider, which is running on host machine and requires explicit whitelisting
 	var extraAllowedIPs []string
 	var extraAllowedPorts []int
-	if _, ok := priceProvider.(*FakePriceProvider); ok {
+	if _, ok := priceProvider.(*capabilities.FakePriceProvider); ok {
 		extraAllowedIPs, extraAllowedPorts, err = extraAllowedPortsAndIps(testLogger, in.Fake.Port, envOutput.donTopology.MetaDons[0].NodeOutput.Output)
 		require.NoError(t, err, "failed to get extra allowed ports and IPs")
 	}
@@ -728,7 +729,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 		}
 	}
 
-	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
+	priceProvider, priceErr := capabilities.NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
 	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
@@ -816,7 +817,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
 		}
 	}
 
-	priceProvider := NewTrueUSDPriceProvider(testLogger)
+	priceProvider := capabilities.NewTrueUSDPriceProvider(testLogger)
 	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
