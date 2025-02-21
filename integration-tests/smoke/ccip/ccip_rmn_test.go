@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
@@ -323,7 +324,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	candidateDigest, err := homeChainState.RMNHome.GetCandidateDigest(&bind.CallOpts{Context: ctx})
 	require.NoError(t, err)
 
-	_, err = changeset.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.SetRMNHomeCandidateConfig{
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNStaticConfig:   staticConfig,
 		RMNDynamicConfig:  dynamicConfig,
@@ -337,7 +338,7 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 	t.Logf("RMNHome candidateDigest after setting new candidate: %x", candidateDigest[:])
 	t.Logf("Promoting RMNHome candidate with candidateDigest: %x", candidateDigest[:])
 
-	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(envWithRMN.Env, v1_6.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		DigestToPromote:   candidateDigest,
 	})
@@ -350,19 +351,19 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		"active digest should be the same as the previously candidate digest after promotion, previous candidate: %x, active: %x",
 		candidateDigest[:], activeDigest[:])
 
-	rmnRemoteConfig := make(map[uint64]changeset.RMNRemoteConfig)
+	rmnRemoteConfig := make(map[uint64]v1_6.RMNRemoteConfig)
 	for _, remoteCfg := range tc.remoteChainsConfig {
 		selector := tc.pf.chainSelectors[remoteCfg.chainIdx]
 		if remoteCfg.f < 0 {
 			t.Fatalf("remoteCfg.f is negative: %d", remoteCfg.f)
 		}
-		rmnRemoteConfig[selector] = changeset.RMNRemoteConfig{
+		rmnRemoteConfig[selector] = v1_6.RMNRemoteConfig{
 			F:       uint64(remoteCfg.f),
 			Signers: tc.alterSigners(t, tc.pf.rmnRemoteSigners),
 		}
 	}
 
-	_, err = changeset.SetRMNRemoteConfigChangeset(envWithRMN.Env, changeset.SetRMNRemoteConfig{
+	_, err = v1_6.SetRMNRemoteConfigChangeset(envWithRMN.Env, v1_6.SetRMNRemoteConfig{
 		HomeChainSelector: envWithRMN.HomeChainSel,
 		RMNRemoteConfigs:  rmnRemoteConfig,
 	})
@@ -738,15 +739,15 @@ func (tc rmnTestCase) callContractsToCurseChains(ctx context.Context, t *testing
 		}
 
 		for _, subjectDescription := range cursedSubjects {
-			curseActions := make([]changeset.CurseAction, 0)
+			curseActions := make([]v1_6.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
+				curseActions = append(curseActions, v1_6.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
+				curseActions = append(curseActions, v1_6.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := v1_6.RMNCurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -770,15 +771,15 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 		cursedSubjects := tc.revokedCursedSubjectsPerChain[remoteCfg.chainIdx]
 
 		for subjectDescription, revokeAfter := range cursedSubjects {
-			curseActions := make([]changeset.CurseAction, 0)
+			curseActions := make([]v1_6.CurseAction, 0)
 
 			if subjectDescription == globalCurse {
-				curseActions = append(curseActions, changeset.CurseGloballyOnlyOnChain(remoteSel))
+				curseActions = append(curseActions, v1_6.CurseGloballyOnlyOnChain(remoteSel))
 			} else {
-				curseActions = append(curseActions, changeset.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
+				curseActions = append(curseActions, v1_6.CurseLaneOnlyOnSource(remoteSel, tc.pf.chainSelectors[subjectDescription]))
 			}
 
-			_, err := changeset.RMNCurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+			_, err := v1_6.RMNCurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 				CurseActions: curseActions,
 				Reason:       "test curse",
 			})
@@ -788,7 +789,7 @@ func (tc rmnTestCase) callContractsToCurseAndRevokeCurse(ctx context.Context, eg
 				<-time.NewTimer(revokeAfter).C
 				t.Logf("revoking curse on subject %d (%d)", subjectDescription, subjectDescription)
 
-				_, err := changeset.RMNUncurseChangeset(envWithRMN.Env, changeset.RMNCurseConfig{
+				_, err := v1_6.RMNUncurseChangeset(envWithRMN.Env, v1_6.RMNCurseConfig{
 					CurseActions: curseActions,
 					Reason:       "test uncurse",
 				})

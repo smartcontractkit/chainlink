@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -18,19 +19,19 @@ import (
 )
 
 var (
-	rmnStaging1 = changeset.RMNNopConfig{
+	rmnStaging1 = v1_6.RMNNopConfig{
 		NodeIndex:           0,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWRXxZq3pd4a3ZGkKj7Nt1SQQrnB8CuvbPnnV9KVeMeWqg"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0xb34944857a42444d1b285d7940d6e06682309e0781e43a69676ee9f85c73c2d1")),
 		EVMOnChainPublicKey: common.HexToAddress("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21"),
 	}
-	rmnStaging2 = changeset.RMNNopConfig{
+	rmnStaging2 = v1_6.RMNNopConfig{
 		NodeIndex:           1,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWEmdxYQFsRbD9aFczF32zA3CcUwuSiWCk2CrmACo4v9RL"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0x68d9f3f274e3985528a923a9bace3d39c55dd778b187b4120b384cc48c892859")),
 		EVMOnChainPublicKey: common.HexToAddress("0x858589216956f482a0f68b282a7050af4cd48ed2"),
 	}
-	rmnStaging3 = changeset.RMNNopConfig{
+	rmnStaging3 = v1_6.RMNNopConfig{
 		NodeIndex:           2,
 		PeerId:              deployment.MustPeerIDFromString("p2p_12D3KooWJS42cNXKJvj6DeZnxEX7aGxhEuap6uNFrz554AbUDw6Q"),
 		OffchainPublicKey:   [32]byte(common.FromHex("0x5af8ee32316a6427f169a45fdc1b3a91a85ac459e3c1cb91c69e1c51f0c1fc21")),
@@ -41,7 +42,7 @@ var (
 type updateRMNConfigTestCase struct {
 	useMCMS bool
 	name    string
-	nops    []changeset.RMNNopConfig
+	nops    []v1_6.RMNNopConfig
 }
 
 func TestUpdateRMNConfig(t *testing.T) {
@@ -50,12 +51,12 @@ func TestUpdateRMNConfig(t *testing.T) {
 		{
 			useMCMS: true,
 			name:    "with MCMS",
-			nops:    []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
+			nops:    []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
 		},
 		{
 			useMCMS: false,
 			name:    "without MCMS",
-			nops:    []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
+			nops:    []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3},
 		},
 	}
 
@@ -73,13 +74,13 @@ func TestSetDynamicConfig(t *testing.T) {
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
-	nops := []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
+	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
 	for _, nop := range nops {
 		nodes = append(nodes, nop.ToRMNHomeNode())
 	}
 
-	setRMNHomeCandidateConfig := changeset.SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          nodes,
@@ -91,24 +92,24 @@ func TestSetDynamicConfig(t *testing.T) {
 		},
 	}
 
-	_, err = changeset.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
 	require.NoError(t, err)
 
 	candidate, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
 
-	promoteCandidateConfig := changeset.PromoteRMNHomeCandidateConfig{
+	promoteCandidateConfig := v1_6.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		DigestToPromote:   candidate,
 	}
 
-	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(e.Env, promoteCandidateConfig)
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(e.Env, promoteCandidateConfig)
 	require.NoError(t, err)
 
 	active, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	setDynamicConfig := changeset.SetRMNHomeDynamicConfigConfig{
+	setDynamicConfig := v1_6.SetRMNHomeDynamicConfigConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
 			SourceChains: []rmn_home.RMNHomeSourceChain{
@@ -122,7 +123,7 @@ func TestSetDynamicConfig(t *testing.T) {
 		ActiveDigest: active,
 	}
 
-	_, err = changeset.SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
+	_, err = v1_6.SetRMNHomeDynamicConfigChangeset(e.Env, setDynamicConfig)
 	require.NoError(t, err)
 
 	dynamicConfig, err := rmnHome.GetConfig(nil, active)
@@ -138,13 +139,13 @@ func TestRevokeConfig(t *testing.T) {
 	require.NoError(t, err)
 	rmnHome := state.Chains[e.HomeChainSel].RMNHome
 
-	nops := []changeset.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
+	nops := []v1_6.RMNNopConfig{rmnStaging1, rmnStaging2, rmnStaging3}
 	nodes := make([]rmn_home.RMNHomeNode, 0, len(nops))
 	for _, nop := range nops {
 		nodes = append(nodes, nop.ToRMNHomeNode())
 	}
 
-	setRMNHomeCandidateConfig := changeset.SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          nodes,
@@ -156,18 +157,18 @@ func TestRevokeConfig(t *testing.T) {
 		},
 	}
 
-	_, err = changeset.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(e.Env, setRMNHomeCandidateConfig)
 	require.NoError(t, err)
 
 	candidate, err := rmnHome.GetCandidateDigest(nil)
 	require.NoError(t, err)
 
-	revokeCandidateConfig := changeset.RevokeCandidateConfig{
+	revokeCandidateConfig := v1_6.RevokeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		CandidateDigest:   candidate,
 	}
 
-	_, err = changeset.RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
+	_, err = v1_6.RevokeRMNHomeCandidateConfigChangeset(e.Env, revokeCandidateConfig)
 	require.NoError(t, err)
 
 	newCandidate, err := rmnHome.GetCandidateDigest(nil)
@@ -224,7 +225,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		nodes = append(nodes, nop.ToRMNHomeNode())
 	}
 
-	setRMNHomeCandidateConfig := changeset.SetRMNHomeCandidateConfig{
+	setRMNHomeCandidateConfig := v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          nodes,
@@ -239,7 +240,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.SetRMNHomeCandidateConfigChangeset),
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNHomeCandidateConfigChangeset),
 			setRMNHomeCandidateConfig,
 		),
 	)
@@ -257,7 +258,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	require.NotEqual(t, previousCandidateDigest, currentCandidateDigest)
 	require.Equal(t, previousActiveDigest, currentActiveDigest)
 
-	promoteConfig := changeset.PromoteRMNHomeCandidateConfig{
+	promoteConfig := v1_6.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: e.HomeChainSel,
 		DigestToPromote:   currentCandidateDigest,
 		MCMSConfig:        mcmsConfig,
@@ -265,7 +266,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.PromoteRMNHomeCandidateConfigChangeset),
+			deployment.CreateLegacyChangeSet(v1_6.PromoteRMNHomeCandidateConfigChangeset),
 			promoteConfig,
 		),
 	)
@@ -281,9 +282,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		signers = append(signers, nop.ToRMNRemoteSigner())
 	}
 
-	remoteConfigs := make(map[uint64]changeset.RMNRemoteConfig, len(e.Env.Chains))
+	remoteConfigs := make(map[uint64]v1_6.RMNRemoteConfig, len(e.Env.Chains))
 	for _, chain := range e.Env.Chains {
-		remoteConfig := changeset.RMNRemoteConfig{
+		remoteConfig := v1_6.RMNRemoteConfig{
 			Signers: signers,
 			F:       0,
 		}
@@ -291,7 +292,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 		remoteConfigs[chain.Selector] = remoteConfig
 	}
 
-	setRemoteConfig := changeset.SetRMNRemoteConfig{
+	setRemoteConfig := v1_6.SetRMNRemoteConfig{
 		HomeChainSelector: e.HomeChainSel,
 		RMNRemoteConfigs:  remoteConfigs,
 		MCMSConfig:        mcmsConfig,
@@ -299,13 +300,13 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 
 	_, err = commonchangeset.Apply(t, e.Env, timelocksPerChain,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteConfigChangeset),
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteConfigChangeset),
 			setRemoteConfig,
 		),
 	)
 
 	require.NoError(t, err)
-	rmnRemotePerChain := changeset.BuildRMNRemotePerChain(e.Env, state)
+	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e.Env, state)
 	for _, rmnRemote := range rmnRemotePerChain {
 		remoteConfigSetEvents, err := rmnRemote.FilterConfigSet(nil, nil)
 		require.NoError(t, err)
@@ -319,7 +320,7 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 }
 
 func buildRMNRemoteAddressPerChain(e deployment.Environment, state changeset.CCIPOnChainState) map[uint64]common.Address {
-	rmnRemotePerChain := changeset.BuildRMNRemotePerChain(e, state)
+	rmnRemotePerChain := v1_6.BuildRMNRemotePerChain(e, state)
 	rmnRemoteAddressPerChain := make(map[uint64]common.Address)
 	for chain, remote := range rmnRemotePerChain {
 		if remote == nil {
@@ -371,15 +372,15 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 		contractsByChain[chain] = []common.Address{rmnProxy.Address()}
 	}
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	allContractParams := make(map[uint64]changeset.ChainContractParams)
+	allContractParams := make(map[uint64]v1_6.ChainContractParams)
 	for _, chain := range allChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
 			CallProxy: state.Chains[chain].CallProxy,
 		}
-		allContractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
+		allContractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
@@ -394,8 +395,8 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
-			changeset.DeployHomeChainConfig{
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     e.HomeChainSel,
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
@@ -406,15 +407,15 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
-			changeset.DeployChainContractsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
 				ContractParamsPerChain: allContractParams,
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			changeset.SetRMNRemoteOnRMNProxyConfig{
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
 				MCMSConfig: &changeset.MCMSConfig{
 					MinDelay: 0,

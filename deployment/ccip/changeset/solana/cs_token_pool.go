@@ -13,7 +13,8 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
 var _ deployment.ChangeSet[TokenPoolConfig] = AddTokenPool
@@ -32,7 +33,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
 		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
@@ -59,7 +60,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		return deployment.ChangesetOutput{}, err
 	}
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	authorityPubKey := solana.MustPublicKeyFromBase58(cfg.Authority)
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
@@ -136,7 +137,7 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	if err := commonValidation(e, cfg.SolChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.SolChainSelector]
 	if chainState.TokenPool.IsZero() {
 		return fmt.Errorf("token pool not found in existing state, deploy token pool for chain %d", cfg.SolChainSelector)
@@ -173,7 +174,7 @@ func SetupTokenPoolForRemoteChain(e deployment.Environment, cfg RemoteChainToken
 	}
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	chain := e.SolChains[cfg.SolChainSelector]
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.SolChainSelector]
 	// verified
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.TokenPool)
@@ -240,7 +241,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
 		return fmt.Errorf("token pool not found in existing state, deploy the token pool first for chain %d", cfg.ChainSelector)
@@ -256,7 +257,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	chain := e.SolChains[cfg.ChainSelector]
 	ctx := e.GetContext()
 	client := chain.Client
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	authorityPrivKey := chain.DeployerKey // assuming the authority is the deployer key
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
@@ -293,7 +294,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to await slot change while extending lookup table: %w", err)
 	}
 	newAddressBook := deployment.NewMemoryAddressBook()
-	tv := deployment.NewTypeAndVersion(cs.TokenPoolLookupTable, deployment.Version1_0_0)
+	tv := deployment.NewTypeAndVersion(changeset.TokenPoolLookupTable, deployment.Version1_0_0)
 	tv.Labels.Add(tokenPubKey.String())
 	if err := newAddressBook.Save(cfg.ChainSelector, table.String(), tv); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save tokenpool address lookup table: %w", err)
@@ -317,7 +318,7 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 	if chainState.TokenPool.IsZero() {
@@ -344,7 +345,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	}
 
 	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := state2.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)

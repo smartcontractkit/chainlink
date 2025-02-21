@@ -21,6 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
@@ -481,9 +482,9 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
 	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					from: {
 						to: {
 							IsEnabled:        true,
@@ -495,9 +496,9 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
 						GasPrices:   gasprice,
@@ -506,8 +507,8 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			changeset.UpdateFeeQuoterDestsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
@@ -516,10 +517,10 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					from: {
 						OnRampUpdates: map[uint64]bool{
@@ -536,9 +537,9 @@ func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64
 func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
 	evmDstChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 					to: {
 						from: {
 							IsEnabled:                 true,
@@ -550,10 +551,10 @@ func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// offramp update on dest chain
 					to: {
 						OffRampUpdates: map[uint64]bool{
@@ -572,9 +573,9 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 	var err error
 	apps := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
-			changeset.UpdateRouterRampsConfig{
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					src: {
 						OnRampUpdates: map[uint64]bool{
@@ -585,19 +586,19 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			changeset.UpdateFeeQuoterDestsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					src: {
-						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
+						dest: v1_6.DefaultFeeQuoterDestChainConfig(false),
 					},
 				},
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					src: {
 						dest: {
 							IsEnabled:        false,
@@ -626,7 +627,7 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 			stateChainFrom.Weth9.Address():     DefaultWethPrice,
 		}
 	}
-	fqCfg := changeset.DefaultFeeQuoterDestChainConfig(true, to)
+	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 	AddLane(
 		t,
 		e,
