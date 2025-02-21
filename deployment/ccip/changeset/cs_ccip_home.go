@@ -10,10 +10,12 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/exp/maps"
+
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -43,13 +45,7 @@ var (
 	_ deployment.ChangeSet[UpdateChainConfigConfig]              = UpdateChainConfigChangeset
 )
 
-type tokenInfo interface {
-	Address() common.Address
-	Symbol(opts *bind.CallOpts) (string, error)
-	Decimals(opts *bind.CallOpts) (uint8, error)
-}
-
-func findTokenInfo(tokens []tokenInfo, address common.Address) (string, uint8, error) {
+func findTokenInfo(tokens []TokenDetails, address common.Address) (string, uint8, error) {
 	for _, token := range tokens {
 		if token.Address() == address {
 			tokenSymbol, err := token.Symbol(nil)
@@ -107,7 +103,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 
 		aggregatorAddr := common.HexToAddress(string(tokenConfig.AggregatorAddress))
 		token := common.HexToAddress(tokenUnknownAddr.String())
-		tokenInfos := make([]tokenInfo, 0)
+		tokenInfos := make([]TokenDetails, 0)
 		onchainState := state.Chains[selector]
 		for _, tk := range onchainState.BurnMintTokens677 {
 			tokenInfos = append(tokenInfos, tk)
@@ -118,7 +114,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		for _, tk := range onchainState.ERC677Tokens {
 			tokenInfos = append(tokenInfos, tk)
 		}
-		var linkTokenInfo tokenInfo
+		var linkTokenInfo TokenDetails
 		linkTokenInfo = onchainState.LinkToken
 		if onchainState.LinkToken == nil {
 			linkTokenInfo = onchainState.StaticLinkToken
@@ -407,7 +403,7 @@ func PromoteCandidateChangeset(
 
 	homeChain := e.Chains[cfg.HomeChainSelector]
 
-	var ops []mcms.Operation
+	var mcmsTxs []mcmstypes.Transaction
 	for _, plugin := range cfg.PluginInfo {
 		for _, donID := range donIDs {
 			promoteCandidateOps, err := promoteCandidateForChainOps(
@@ -422,9 +418,9 @@ func PromoteCandidateChangeset(
 				cfg.MCMS != nil,
 			)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("generating promote candidate ops: %w", err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("generating promote candidate mcms txs: %w", err)
 			}
-			ops = append(ops, promoteCandidateOps)
+			mcmsTxs = append(mcmsTxs, promoteCandidateOps)
 		}
 	}
 
@@ -433,28 +429,25 @@ func PromoteCandidateChangeset(
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	prop, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
-			Batch:           ops,
-		}},
+	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
+	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
 		"promoteCandidate",
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{
-			*prop,
-		},
-	}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 type SetCandidatePluginInfo struct {
@@ -634,7 +627,7 @@ func AddDonAndSetCandidateChangeset(
 	if cfg.MCMS != nil {
 		txOpts = deployment.SimTransactOpts()
 	}
-	var donOps []mcms.Operation
+	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
 		offRampAddress, err := state.GetOffRampAddress(chainSelector)
 		if err != nil {
@@ -679,23 +672,23 @@ func AddDonAndSetCandidateChangeset(
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		donOps = append(donOps, addDonOp)
+		donMcmsTxs = append(donMcmsTxs, addDonOp)
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	prop, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
-			Batch:           donOps,
-		}},
+	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
+	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
 		"addDON on new Chain && setCandidate for plugin "+cfg.PluginInfo.PluginType.String(),
 		cfg.MCMS.MinDelay,
 	)
@@ -703,9 +696,7 @@ func AddDonAndSetCandidateChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*prop},
-	}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 // newDonWithCandidateOp sets the candidate commit config by calling setCandidate on CCIPHome contract through the AddDON call on CapReg contract
@@ -719,7 +710,7 @@ func newDonWithCandidateOp(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	nodes deployment.Nodes,
 	mcmsEnabled bool,
-) (mcms.Operation, error) {
+) (mcmstypes.Transaction, error) {
 	encodedSetCandidateCall, err := internal.CCIPHomeABI.Pack(
 		"setCandidate",
 		donID,
@@ -728,7 +719,7 @@ func newDonWithCandidateOp(
 		[32]byte{},
 	)
 	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("pack set candidate call: %w", err)
+		return mcmstypes.Transaction{}, fmt.Errorf("pack set candidate call: %w", err)
 	}
 
 	addDonTx, err := capReg.AddDON(
@@ -744,22 +735,27 @@ func newDonWithCandidateOp(
 		false, // acceptsWorkflows
 		nodes.DefaultF(),
 	)
+
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, addDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
-			return mcms.Operation{}, fmt.Errorf("error confirming addDon call: %w", err)
+			return mcmstypes.Transaction{}, fmt.Errorf("error confirming addDon call: %w", err)
 		}
-	}
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("could not generate add don tx w/ %s config: %w",
+	} else if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to call AddDON (ptype: %s): %w",
 			types.PluginType(pluginConfig.PluginType).String(), err)
 	}
-	return mcms.Operation{
-		To:    capReg.Address(),
-		Data:  addDonTx.Data(),
-		Value: big.NewInt(0),
-	}, nil
+
+	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), addDonTx.Data(),
+		big.NewInt(0), string(CapabilitiesRegistry), []string{})
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create AddDON mcms tx (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginConfig.PluginType).String(), err)
+	}
+
+	return tx, nil
 }
 
 type SetCandidateChangesetConfig struct {
@@ -823,7 +819,7 @@ func SetCandidateChangeset(
 	if cfg.MCMS != nil {
 		txOpts = deployment.SimTransactOpts()
 	}
-	var setCandidateOps []mcms.Operation
+	var setCandidateMcmsTxs []mcmstypes.Transaction
 	pluginInfos := make([]string, 0)
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
@@ -864,35 +860,32 @@ func SetCandidateChangeset(
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-			setCandidateOps = append(setCandidateOps, setCandidateMCMSOps...)
+			setCandidateMcmsTxs = append(setCandidateMcmsTxs, setCandidateMCMSOps...)
 		}
 	}
 	if cfg.MCMS == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	prop, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
-			Batch:           setCandidateOps,
-		}},
+	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
+	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
 		fmt.Sprintf("SetCandidate for plugin details %v", pluginInfos),
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{
-			*prop,
-		},
-	}, nil
+
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 // setCandidateOnExistingDon calls setCandidate on CCIPHome contract through the UpdateDON call on CapReg contract
@@ -905,7 +898,7 @@ func setCandidateOnExistingDon(
 	donID uint32,
 	pluginConfig ccip_home.CCIPHomeOCR3Config,
 	mcmsEnabled bool,
-) ([]mcms.Operation, error) {
+) ([]mcmstypes.Transaction, error) {
 	if donID == 0 {
 		return nil, errors.New("donID is zero")
 	}
@@ -935,21 +928,27 @@ func setCandidateOnExistingDon(
 		false,
 		nodes.DefaultF(),
 	)
+
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+			return nil, fmt.Errorf("error confirming UpdateDON call in set candidate (don: %d; ptype: %s): %w",
+				donID, types.PluginType(pluginConfig.PluginType).String(), err)
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to call UpdateDON in set candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginConfig.PluginType).String(), err)
 	}
+
+	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(), big.NewInt(0), string(CapabilitiesRegistry), []string{})
 	if err != nil {
-		return nil, fmt.Errorf("update don w/ setCandidate call: %w", err)
+		return nil, fmt.Errorf("failed to create UpdateDON mcms tx in set candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginConfig.PluginType).String(), err)
 	}
-	return []mcms.Operation{{
-		To:    capReg.Address(),
-		Data:  updateDonTx.Data(),
-		Value: big.NewInt(0),
-	}}, nil
+
+	return []mcmstypes.Transaction{tx}, nil
 }
 
 // promoteCandidateOp will create the MCMS Operation for `promoteCandidateAndRevokeActive` directed towards the capabilityRegistry
@@ -962,10 +961,10 @@ func promoteCandidateOp(
 	donID uint32,
 	pluginType uint8,
 	mcmsEnabled bool,
-) (mcms.Operation, error) {
+) (mcmstypes.Transaction, error) {
 	allConfigs, err := ccipHome.GetAllConfigs(nil, donID, pluginType)
 	if err != nil {
-		return mcms.Operation{}, err
+		return mcmstypes.Transaction{}, err
 	}
 
 	encodedPromotionCall, err := internal.CCIPHomeABI.Pack(
@@ -976,7 +975,7 @@ func promoteCandidateOp(
 		allConfigs.ActiveConfig.ConfigDigest,
 	)
 	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("pack promotion call: %w", err)
+		return mcmstypes.Transaction{}, fmt.Errorf("pack promotion call: %w", err)
 	}
 
 	updateDonTx, err := capReg.UpdateDON(
@@ -992,23 +991,28 @@ func promoteCandidateOp(
 		false,
 		nodes.DefaultF(),
 	)
+
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
-			return mcms.Operation{},
-				fmt.Errorf("error confirming updateDon call for donID(%d) and plugin type (%d): %w", donID, pluginType, err)
+			return mcmstypes.Transaction{}, fmt.Errorf("error confirming UpdateDON call in promote candidate (don: %d; ptype: %s): %w",
+				donID, types.PluginType(pluginType).String(), err)
 		}
-	}
-	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("error creating updateDon op for donID(%d) and plugin type (%s): %w",
+	} else if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to call UpdateDON in promote candidate (don: %d; ptype: %s): %w",
 			donID, types.PluginType(pluginType).String(), err)
 	}
-	return mcms.Operation{
-		To:    capReg.Address(),
-		Data:  updateDonTx.Data(),
-		Value: big.NewInt(0),
-	}, nil
+
+	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
+		big.NewInt(0), string(CapabilitiesRegistry), []string{})
+	if err != nil {
+		return mcmstypes.Transaction{}, fmt.Errorf("failed to create UpdateDON mcms tx in promote candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginType).String(), err)
+	}
+
+	return tx, nil
 }
 
 // promoteCandidateForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
@@ -1022,16 +1026,16 @@ func promoteCandidateForChainOps(
 	pluginType cctypes.PluginType,
 	allowEmpty bool,
 	mcmsEnabled bool,
-) (mcms.Operation, error) {
+) (mcmstypes.Transaction, error) {
 	if donID == 0 {
-		return mcms.Operation{}, errors.New("donID is zero")
+		return mcmstypes.Transaction{}, errors.New("donID is zero")
 	}
 	digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
 	if err != nil {
-		return mcms.Operation{}, err
+		return mcmstypes.Transaction{}, err
 	}
 	if digest == [32]byte{} && !allowEmpty {
-		return mcms.Operation{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
+		return mcmstypes.Transaction{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
 	}
 	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
 	updatePluginOp, err := promoteCandidateOp(
@@ -1045,7 +1049,7 @@ func promoteCandidateForChainOps(
 		mcmsEnabled,
 	)
 	if err != nil {
-		return mcms.Operation{}, fmt.Errorf("promote candidate op for plugin %s: %w", pluginType.String(), err)
+		return mcmstypes.Transaction{}, fmt.Errorf("promote candidate op for plugin %s: %w", pluginType.String(), err)
 	}
 	return updatePluginOp, nil
 }
@@ -1151,17 +1155,17 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	prop, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
-			Batch:           ops,
-		}},
+	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
+	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
 		fmt.Sprintf("revokeCandidate for don %d", cfg.RemoteChainSelector),
 		cfg.MCMS.MinDelay,
 	)
@@ -1169,11 +1173,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 		return deployment.ChangesetOutput{}, err
 	}
 
-	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{
-			*prop,
-		},
-	}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 func revokeCandidateOps(
@@ -1185,7 +1185,7 @@ func revokeCandidateOps(
 	donID uint32,
 	pluginType uint8,
 	mcmsEnabled bool,
-) ([]mcms.Operation, error) {
+) ([]mcmstypes.Transaction, error) {
 	if donID == 0 {
 		return nil, errors.New("donID is zero")
 	}
@@ -1218,23 +1218,29 @@ func revokeCandidateOps(
 		false, // isPublic
 		nodes.DefaultF(),
 	)
-	if err != nil {
-		return nil, fmt.Errorf("update don w/ revokeCandidate call: %w", deployment.MaybeDataErr(err))
-	}
+
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(
 			homeChain, updateDonTx,
 			capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
-			return nil, fmt.Errorf("error confirming updateDon call: %w", err)
+			return nil, fmt.Errorf("error confirming UpdateDON call in revoke candidate (don: %d; ptype: %s): %w",
+				donID, types.PluginType(pluginType).String(), err)
 		}
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to call UpdateDON in revoke candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginType).String(), err)
 	}
 
-	return []mcms.Operation{{
-		To:    capReg.Address(),
-		Data:  updateDonTx.Data(),
-		Value: big.NewInt(0),
-	}}, nil
+	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
+		big.NewInt(0), string(CapabilitiesRegistry), []string{})
+	if err != nil {
+		return nil, fmt.Errorf("failed to create UpdateDON mcms tx in revoke candidate (don: %d; ptype: %s): %w",
+			donID, types.PluginType(pluginType).String(), err)
+	}
+
+	return []mcmstypes.Transaction{tx}, nil
 }
 
 type ChainConfig struct {
@@ -1351,33 +1357,30 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	p, err := proposalutils.BuildProposalFromBatches(
-		map[uint64]common.Address{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address(),
-		},
-		map[uint64]*gethwrappers.ManyChainMultiSig{
-			cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm,
-		},
-		[]timelock.BatchChainOperation{{
-			ChainIdentifier: mcms.ChainIdentifier(cfg.HomeChainSelector),
-			Batch: []mcms.Operation{
-				{
-					To:    state.Chains[cfg.HomeChainSelector].CCIPHome.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		}},
+	timelocks := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].Timelock.Address().Hex()}
+	proposers := map[uint64]string{cfg.HomeChainSelector: state.Chains[cfg.HomeChainSelector].ProposerMcm.Address().Hex()}
+	inspectors := map[uint64]mcmssdk.Inspector{cfg.HomeChainSelector: mcmsevmsdk.NewInspector(e.Chains[cfg.HomeChainSelector].Client)}
+	batchOp, err := proposalutils.BatchOperationForChain(cfg.HomeChainSelector, state.Chains[cfg.HomeChainSelector].CCIPHome.Address().Hex(),
+		tx.Data(), big.NewInt(0), string(CCIPHome), []string{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		[]mcmstypes.BatchOperation{batchOp},
 		"Update chain config",
 		cfg.MCMS.MinDelay,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	e.Logger.Infof("Proposed chain config update on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
-	}}, nil
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop}}, nil
 }
 
 func isChainConfigEqual(a, b ccip_home.CCIPHomeChainConfig) bool {

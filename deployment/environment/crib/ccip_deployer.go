@@ -125,7 +125,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	// ----- Part 2 -----
 	lggr.Infow("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, true)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -205,8 +205,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}, nil
 }
 
-// ConfigureCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
-// This sets up OCR on all chains in the envConfig by configuring the CCIP home chain
+// ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
 func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -214,8 +213,8 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}
 	e.ExistingAddresses = ab
 
-	lggr.Infow("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	lggr.Infow("resetting ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, false)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -522,7 +521,7 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	return *e, err
 }
 
-func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
 	for selector := range e.Chains {
@@ -530,8 +529,10 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 			changeset.WithDefaultExecuteOffChainConfig(nil),
 		)
 	}
-	return commonchangeset.Apply(nil, *e, nil,
-		commonchangeset.Configure(
+
+	var commitChangeset commonchangeset.ConfiguredChangeSet
+	if newDons {
+		commitChangeset = commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain
 			deployment.CreateLegacyChangeSet(changeset.AddDonAndSetCandidateChangeset),
 			changeset.AddDonAndSetCandidateChangesetConfig{
@@ -544,7 +545,28 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
-		),
+		)
+	} else {
+		commitChangeset = commonchangeset.Configure(
+			// Update commit OCR instances for existing chains
+			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+			changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: []changeset.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						PluginType:                      types.PluginTypeCCIPCommit,
+					},
+				},
+			},
+		)
+	}
+
+	return commonchangeset.Apply(nil, *e, nil,
+		commitChangeset,
 		commonchangeset.Configure(
 			// Add the exec OCR instances for the new chains
 			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
