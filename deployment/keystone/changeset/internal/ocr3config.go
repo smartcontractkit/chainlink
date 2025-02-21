@@ -279,8 +279,7 @@ func GenerateOCR3Config(cfg OracleConfig, nca []NodeKeys, secrets deployment.OCR
 	}
 
 	// let's keep reqTimeout as nil if it's 0, so we can use the default value within `chainlink-common`.
-	// See: https://github.com/smartcontractkit/chainlink-common/pull/1023/files#diff-dfda85aab0705d57a7fa2b7fba150451a32b6961655d67f79f23da8a3ad57614R73
-	// TODO: update link after PR gets merged
+	// See: https://github.com/smartcontractkit/chainlink-common/blob/main/pkg/capabilities/consensus/ocr3/factory.go#L73
 	var reqTimeout *durationpb.Duration
 	if cfg.RequestTimeout > 0 {
 		reqTimeout = durationpb.New(cfg.RequestTimeout)
