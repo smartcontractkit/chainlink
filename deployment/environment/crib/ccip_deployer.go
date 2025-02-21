@@ -274,7 +274,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 		chainConfigs[chain] = changeset.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			// Number of nodes is 3f+1
-			//nolint:G115
+			//nolint:G115 // it's okay
 			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
