@@ -34,6 +34,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	dockerClient "github.com/docker/docker/client"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -392,9 +393,8 @@ func restartContainersByImage(ctx context.Context, cli *dockerClient.Client, ima
 		if err := cli.ContainerRestart(ctx, c.ID, container.StopOptions{}); err != nil {
 			fmt.Printf("Error restarting container %s: %v\n", c.ID[:10], err)
 			return err
-		} else {
-			fmt.Printf("Container %s restarted successfully\n", c.ID[:10])
 		}
+		fmt.Printf("Container %s restarted successfully\n", c.ID[:10])
 	}
 	return nil
 }
