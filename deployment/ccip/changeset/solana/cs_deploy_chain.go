@@ -884,21 +884,22 @@ func generateExtendIxn(
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
-	programSize, err := solProgramSize(e, chain, programID)
+	programDataSize, err := solProgramSize(e, chain, programDataAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program size: %w", err)
 	}
-	e.Logger.Debugw("Program account size", "programSize", programSize)
+	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
 	bufferSize, err := solProgramSize(e, chain, bufferAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
 	}
 	e.Logger.Debugw("Buffer account size", "bufferSize", bufferSize)
-	if bufferSize <= programSize {
-		return nil, fmt.Errorf("buffer account size %d is less than program account size %d", bufferSize, programSize)
+	if bufferSize <= programDataSize {
+		e.Logger.Debugf("Buffer account size %d is less than program account size %d", bufferSize, programDataSize)
+		return nil, nil
 	}
-	extraBytes := bufferSize - programSize
+	extraBytes := bufferSize - programDataSize
 	if extraBytes > math.MaxUint32 {
 		return nil, fmt.Errorf("extra bytes %d exceeds maximum value %d", extraBytes, math.MaxUint32)
 	}
