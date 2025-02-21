@@ -120,6 +120,21 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								},
 							},
 						},
+						MultiReader: &config.MultiReader{
+							Reads: []config.ReadDefinition{
+								// CCIP expects a NonceManager address, in our case that's the Router
+								{
+									ChainSpecificName: "ReferenceAddresses",
+									ReadType:          config.Account,
+									PDADefinition: solanacodec.PDATypeDef{
+										Prefix: []byte("reference_addresses"),
+									},
+									OutputModifications: codec.ModifiersConfig{
+										&codec.RenameModifierConfig{Fields: map[string]string{"Router": "NonceManager"}},
+									},
+								},
+							},
+						},
 					},
 					consts.MethodNameOffRampGetDynamicConfig: {
 						ChainSpecificName: "Config",
