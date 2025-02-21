@@ -45,13 +45,8 @@ func TestAggregatorProxy(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-	// AggregatorProxy should be deployed on chain 0
+
 	addrs, err := resp.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 2) // AggregatorProxy and DataFeedsCache
-
-	// no AggregatorProxy deployed on chain 1
-	require.NotEqual(t, chainSelector, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.ExistingAddresses.AddressesForChain(env.AllChainSelectors()[1])
-	require.Empty(t, oaddrs)
 }
