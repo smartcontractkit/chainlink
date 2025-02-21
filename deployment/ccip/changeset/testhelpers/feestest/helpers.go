@@ -20,7 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
-// Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
+// NewFeeTokenTestCase creates a new FeeTokenTestCase to test fee token usage scenarios.
 func NewFeeTokenTestCase(
 	t *testing.T,
 	env deployment.Environment,
