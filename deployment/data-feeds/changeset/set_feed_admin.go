@@ -9,14 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.SetFeedAdminConfig] = SetFeedAdminChangeset
+// SetFeedAdminChangeset is a changeset that sets/removes an admin on DataFeedsCache contract.
+// This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
+var SetFeedAdminChangeset = deployment.CreateChangeSet(setFeedAdminLogic, setFeedAdminPrecondition)
 
-func SetFeedAdminChangeset(env deployment.Environment, c types.SetFeedAdminConfig) (deployment.ChangesetOutput, error) {
-	err := ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate cache for chain %w", err)
-	}
-
+func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -45,4 +42,8 @@ func SetFeedAdminChangeset(env deployment.Environment, c types.SetFeedAdminConfi
 	}
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+func setFeedAdminPrecondition(env deployment.Environment, c types.SetFeedAdminConfig) error {
+	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 }

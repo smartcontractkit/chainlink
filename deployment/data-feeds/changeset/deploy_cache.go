@@ -8,16 +8,15 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.DeployConfig] = DeployCacheChangeset
+// DeployCacheChangeset deploys the DataFeedsCache contract to the specified chains
+// Returns a new addressbook with deployed DataFeedsCache contracts
+var DeployCacheChangeset = deployment.CreateChangeSet(deployCacheLogic, deployCachePrecondition)
 
-func DeployCacheChangeset(env deployment.Environment, c types.DeployConfig) (deployment.ChangesetOutput, error) {
+func deployCacheLogic(env deployment.Environment, c types.DeployConfig) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := deployment.NewMemoryAddressBook()
 	for _, chainSelector := range c.ChainsToDeploy {
-		chain, ok := env.Chains[chainSelector]
-		if !ok {
-			return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
-		}
+		chain := env.Chains[chainSelector]
 		cacheResponse, err := DeployCache(chain, c.Labels)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy DataFeedsCache: %w", err)
@@ -31,4 +30,15 @@ func DeployCacheChangeset(env deployment.Environment, c types.DeployConfig) (dep
 	}
 
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func deployCachePrecondition(env deployment.Environment, c types.DeployConfig) error {
+	for _, chainSelector := range c.ChainsToDeploy {
+		_, ok := env.Chains[chainSelector]
+		if !ok {
+			return errors.New("chain not found in environment")
+		}
+	}
+
+	return nil
 }

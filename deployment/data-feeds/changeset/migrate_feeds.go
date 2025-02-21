@@ -10,7 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
-var _ deployment.ChangeSet[types.MigrationConfig] = MigrateFeedsChangeset
+// MigrateFeedsChangeset Migrates feeds to DataFeedsCache contract.
+// 1. It reads the existing Aggregator Proxy contract addresses from the input file and saves them to the address book.
+// 2. It reads the data ids and descriptions from the input file and sets the feed config on the DataFeedsCache contract.
+// Returns a new addressbook with the deployed AggregatorProxy addresses.
+var MigrateFeedsChangeset = deployment.CreateChangeSet(migrateFeedsLogic, migrateFeedsPrecondition)
 
 type MigrationSchema struct {
 	Address        string                    `json:"address"`
@@ -19,25 +23,14 @@ type MigrationSchema struct {
 	Description    string                    `json:"description"`
 }
 
-// MigrateFeedsChangeset Migrates feeds to DataFeedsCache contract.
-// 1. It reads the existing Aggregator Proxy contract addresses from the input file and saves them to the address book.
-// 2. It reads the data ids and descriptions from the input file and sets the feed config on the DataFeedsCache contract.
-func MigrateFeedsChangeset(env deployment.Environment, c types.MigrationConfig) (deployment.ChangesetOutput, error) {
-	err := ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate cache for chain %w", err)
-	}
-
+func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
 	ab := deployment.NewMemoryAddressBook()
 
-	proxies, err := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load addresses input file: %w", err)
-	}
+	proxies, _ := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 
 	dataIDs := make([][16]byte, len(proxies))
 	addresses := make([]common.Address, len(proxies))
@@ -86,4 +79,17 @@ func MigrateFeedsChangeset(env deployment.Environment, c types.MigrationConfig) 
 	}
 
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfig) error {
+	_, err := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
+	if err != nil {
+		return fmt.Errorf("failed to load addresses input file: %w", err)
+	}
+
+	if len(c.WorkflowMetadata) == 0 {
+		return fmt.Errorf("workflow metadata is required")
+	}
+
+	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 }

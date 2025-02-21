@@ -57,9 +57,9 @@ type SetFeedAdminConfig struct {
 }
 
 type ProposeConfirmAggregatorConfig struct {
-	ChainSelector uint64
-	Proxy         common.Address
-	NewAggregator common.Address
+	ChainSelector        uint64
+	ProxyAddress         common.Address
+	NewAggregatorAddress common.Address
 }
 
 type SetFeedDecimalConfig struct {
@@ -72,11 +72,11 @@ type SetFeedDecimalConfig struct {
 }
 
 type UpdateDataIDProxyConfig struct {
-	ChainSelector uint64
-	CacheAddress  common.Address
-	Proxies       []common.Address
-	DataIDs       [][16]byte
-	McmsConfig    *MCMSConfig
+	ChainSelector  uint64
+	CacheAddress   common.Address
+	ProxyAddresses []common.Address
+	DataIDs        [][16]byte
+	McmsConfig     *MCMSConfig
 }
 
 type ImportToAddressbookConfig struct {

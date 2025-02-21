@@ -6,10 +6,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
@@ -24,18 +26,23 @@ func TestDeployCache(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	resp, err := changeset.DeployCacheChangeset(env, types.DeployConfig{
-		ChainsToDeploy: []uint64{chainSelector},
-	})
+	resp, err := commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			changeset.DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+			},
+		),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// DataFeedsCache should be deployed on chain 0
-	addrs, err := resp.AddressBook.AddressesForChain(chainSelector)
+	addrs, err := resp.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
 	require.Len(t, addrs, 1)
 
 	// no DataFeedsCache deployed on chain 1
 	require.NotEqual(t, chainSelector, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	oaddrs, err := resp.ExistingAddresses.AddressesForChain(env.AllChainSelectors()[1])
 	require.Empty(t, oaddrs)
 }

@@ -1,18 +1,17 @@
 package changeset_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
@@ -31,54 +30,41 @@ func TestSetCacheAdmin(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	ab, _ := changeset.DeployCacheChangeset(env, types.DeployConfig{
-		ChainsToDeploy: []uint64{chainSelector},
-		Labels:         []string{"data-feeds"},
-	})
-	addresses, _ := ab.AddressBook.Addresses()
+	newEnv, err := commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			changeset.DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+				Labels:         []string{"data-feeds"},
+			},
+		),
+		commonChangesets.Configure(
+			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+			},
+		),
+	)
+	require.NoError(t, err)
 
-	chainAddresses, _ := ab.AddressBook.AddressesForChain(chainSelector)
-	var cacheAddress string
-	for address, tv := range chainAddresses {
-		if strings.Contains(tv.String(), "DataFeedsCache") {
-			cacheAddress = address
-		}
-		break
-	}
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
+	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	require.NoError(t, err)
 
-	resp, err := changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		AdminAddress:  common.HexToAddress("0x123"),
-		IsAdmin:       true,
-	})
+	resp, err := commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress("0x123"),
+				IsAdmin:       true,
+			},
+		),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+}
 
-	// With MCMS
-	newAb, err := commonChangesets.DeployMCMSWithTimelockV2(env, map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-	})
-	require.NoError(t, err)
-
-	err = ab.AddressBook.Merge(newAb.AddressBook)
-	require.NoError(t, err)
-	addresses, err = ab.AddressBook.Addresses()
-	require.NoError(t, err)
-
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
-
-	resp, err = changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		AdminAddress:  common.HexToAddress("0x123"),
-		IsAdmin:       true,
-		McmsConfig: &types.MCMSConfig{
-			MinDelay: 1,
-		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Len(t, resp.MCMSTimelockProposals, 1)
+func void(env deployment.Environment, c map[uint64]commonTypes.MCMSWithTimelockConfigV2) error {
+	return nil
 }

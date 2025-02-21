@@ -1,13 +1,13 @@
 package changeset_test
 
 import (
-	"embed"
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -18,9 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
-
-//go:embed testdata/*
-var testFS embed.FS
 
 func TestMigrateFeeds(t *testing.T) {
 	t.Parallel()
@@ -33,45 +30,50 @@ func TestMigrateFeeds(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	// Deploy and configure pre-requisite contracts
-	ab, _ := changeset.DeployCacheChangeset(env, types.DeployConfig{
-		ChainsToDeploy: []uint64{chainSelector},
-		Labels:         []string{"data-feeds"},
-	})
-	addresses, _ := ab.AddressBook.Addresses()
-
-	chainAddresses, _ := ab.AddressBook.AddressesForChain(chainSelector)
-	var cacheAddress string
-	for address, tv := range chainAddresses {
-		if strings.Contains(tv.String(), "DataFeedsCache") {
-			cacheAddress = address
-		}
-		break
-	}
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
-
-	_, err := changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
-		IsAdmin:       true,
-	})
-	require.NoError(t, err)
-	// End of pre-requisite contracts
-
-	resp, err := changeset.MigrateFeedsChangeset(env, types.MigrationConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		InputFileName: "testdata/migrate_feeds.json",
-		InputFS:       testFS,
-		WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
-			cache.DataFeedsCacheWorkflowMetadata{
-				AllowedSender:        common.HexToAddress("0x22"),
-				AllowedWorkflowOwner: common.HexToAddress("0x33"),
-				AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+	newEnv, err := commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			changeset.DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+				Labels:         []string{"data-feeds"},
 			},
-		},
-	})
+		),
+	)
+	require.NoError(t, err)
+
+	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	require.NoError(t, err)
+
+	resp, err := commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
+				IsAdmin:       true,
+			},
+		),
+		commonChangesets.Configure(
+			changeset.MigrateFeedsChangeset,
+			types.MigrationConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				InputFileName: "testdata/migrate_feeds.json",
+				InputFS:       testFS,
+				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+					cache.DataFeedsCacheWorkflowMetadata{
+						AllowedSender:        common.HexToAddress("0x22"),
+						AllowedWorkflowOwner: common.HexToAddress("0x33"),
+						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+					},
+				},
+			},
+		),
+	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
+	addresses, err := resp.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+	require.Len(t, addresses, 3) // DataFeedsCache and two migrated proxies
 }

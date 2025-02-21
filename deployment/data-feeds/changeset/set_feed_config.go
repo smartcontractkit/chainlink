@@ -9,14 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.SetFeedDecimalConfig] = SetFeedConfigChangeset
+// SetFeedConfigChangeset is a changeset that sets a feed configuration on DataFeedsCache contract.
+// This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
+var SetFeedConfigChangeset = deployment.CreateChangeSet(setFeedConfigLogic, setFeedConfigPrecondition)
 
-func SetFeedConfigChangeset(env deployment.Environment, c types.SetFeedDecimalConfig) (deployment.ChangesetOutput, error) {
-	err := ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate cache for chain %w", err)
-	}
-
+func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -45,4 +42,15 @@ func SetFeedConfigChangeset(env deployment.Environment, c types.SetFeedDecimalCo
 	}
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecimalConfig) error {
+	if (len(c.DataIDs) == 0) || (len(c.Descriptions) == 0) || (len(c.WorkflowMetadata) == 0) {
+		return fmt.Errorf("dataIDs, descriptions and workflowMetadata must not be empty")
+	}
+	if len(c.DataIDs) != len(c.Descriptions) {
+		return fmt.Errorf("dataIDs and descriptions must have the same length")
+	}
+
+	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 }

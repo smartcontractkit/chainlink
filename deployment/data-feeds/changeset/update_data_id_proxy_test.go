@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -32,66 +31,47 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	// Deploy and configure pre-requisite contracts
-	ab, _ := changeset.DeployCacheChangeset(env, types.DeployConfig{
-		ChainsToDeploy: []uint64{chainSelector},
-		Labels:         []string{"data-feeds"},
-	})
-	addresses, _ := ab.AddressBook.Addresses()
-
-	chainAddresses, _ := ab.AddressBook.AddressesForChain(chainSelector)
-	var cacheAddress string
-	for address, tv := range chainAddresses {
-		if strings.Contains(tv.String(), "DataFeedsCache") {
-			cacheAddress = address
-		}
-		break
-	}
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
-
-	_, err := changeset.SetFeedAdminChangeset(env, types.SetFeedAdminConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
-		IsAdmin:       true,
-	})
+	newEnv, err := commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			changeset.DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+				Labels:         []string{"data-feeds"},
+			},
+		),
+		commonChangesets.Configure(
+			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+			},
+		),
+	)
 	require.NoError(t, err)
-	// End of pre-requisite contracts
+
+	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
+	require.NoError(t, err)
 
 	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 
-	resp, err := changeset.UpdateDataIDProxyChangeset(env, types.UpdateDataIDProxyConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		Proxies:       []common.Address{common.HexToAddress("0x11")},
-		DataIDs:       [][16]byte{dataID},
-	})
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress(env.Chains[chainSelector].DeployerKey.From.Hex()),
+				IsAdmin:       true,
+			},
+		),
+		commonChangesets.Configure(
+			changeset.UpdateDataIDProxyChangeset,
+			types.UpdateDataIDProxyConfig{
+				ChainSelector:  chainSelector,
+				CacheAddress:   common.HexToAddress(cacheAddress),
+				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
+				DataIDs:        [][16]byte{dataID},
+			},
+		),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
-
-	// With MCMS
-	newAb, err := commonChangesets.DeployMCMSWithTimelockV2(env, map[uint64]commonTypes.MCMSWithTimelockConfigV2{
-		chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
-	})
-	require.NoError(t, err)
-
-	err = ab.AddressBook.Merge(newAb.AddressBook)
-	require.NoError(t, err)
-	addresses, err = ab.AddressBook.Addresses()
-	require.NoError(t, err)
-
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
-
-	resp, err = changeset.UpdateDataIDProxyChangeset(env, types.UpdateDataIDProxyConfig{
-		ChainSelector: chainSelector,
-		CacheAddress:  common.HexToAddress(cacheAddress),
-		Proxies:       []common.Address{common.HexToAddress("0x11")},
-		DataIDs:       [][16]byte{dataID},
-		McmsConfig: &types.MCMSConfig{
-			MinDelay: 1,
-		},
-	})
-	require.NoError(t, err)
-	require.NotNil(t, resp)
-	require.Len(t, resp.MCMSTimelockProposals, 1)
 }

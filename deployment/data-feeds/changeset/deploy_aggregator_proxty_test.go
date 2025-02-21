@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -26,26 +26,32 @@ func TestAggregatorProxy(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	ab, _ := DeployCacheChangeset(env, types.DeployConfig{
-		ChainsToDeploy: []uint64{chainSelector},
-		Labels:         []string{"data-feeds"},
-	})
-	addresses, _ := ab.AddressBook.Addresses()
-	env.ExistingAddresses = deployment.NewMemoryAddressBookFromMap(addresses)
+	resp, err := commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+				Labels:         []string{"data-feeds"},
+			},
+		),
+		commonChangesets.Configure(
+			DeployAggregatorProxyChangeset,
+			types.DeployAggregatorProxyConfig{
+				ChainsToDeploy:   []uint64{chainSelector},
+				AccessController: []common.Address{common.HexToAddress("0x")},
+			},
+		),
+	)
 
-	resp, err := DeployAggregatorProxyChangeset(env, types.DeployAggregatorProxyConfig{
-		ChainsToDeploy:   []uint64{chainSelector},
-		AccessController: []common.Address{common.HexToAddress("0x")},
-	})
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	// AggregatorProxy should be deployed on chain 0
-	addrs, err := resp.AddressBook.AddressesForChain(chainSelector)
+	addrs, err := resp.ExistingAddresses.AddressesForChain(chainSelector)
 	require.NoError(t, err)
-	require.Len(t, addrs, 1)
+	require.Len(t, addrs, 2) // AggregatorProxy and DataFeedsCache
 
 	// no AggregatorProxy deployed on chain 1
 	require.NotEqual(t, chainSelector, env.AllChainSelectors()[1])
-	oaddrs, _ := resp.AddressBook.AddressesForChain(env.AllChainSelectors()[1])
+	oaddrs, _ := resp.ExistingAddresses.AddressesForChain(env.AllChainSelectors()[1])
 	require.Empty(t, oaddrs)
 }

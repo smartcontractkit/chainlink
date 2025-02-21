@@ -12,21 +12,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.AcceptOwnershipConfig] = AcceptOwnershipChangeset
+// AcceptOwnershipChangeset is a changeset that will create an MCM proposal to accept the ownership of a contract.
+// Returns an MSM proposal to accept the ownership of a contract. Doesn't return a new addressbook.
+var AcceptOwnershipChangeset = deployment.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
-// AcceptOwnershipChangeset is a changeset that will create a proposal to accept the ownership of a contract
-func AcceptOwnershipChangeset(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
-	if c.McmsConfig == nil {
-		return deployment.ChangesetOutput{}, errors.New("mcms config is required")
-	}
-
-	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not present on the chain %w", err)
-	}
-	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("mcms proposer not present on the chain %w", err)
-	}
-
+func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
 	_, contract, err := commonChangesets.LoadOwnableContract(c.ContractAddress, chain.Client)
@@ -43,5 +33,21 @@ func AcceptOwnershipChangeset(env deployment.Environment, c types.AcceptOwnershi
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
+
 	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+}
+
+func acceptOwnershipPrecondition(env deployment.Environment, c types.AcceptOwnershipConfig) error {
+	if c.McmsConfig == nil {
+		return errors.New("mcms config is required")
+	}
+
+	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
+		return fmt.Errorf("timelock not present on the chain %w", err)
+	}
+	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
+		return fmt.Errorf("mcms proposer not present on the chain %w", err)
+	}
+
+	return nil
 }

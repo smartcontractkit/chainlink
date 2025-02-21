@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
@@ -31,12 +33,15 @@ func TestConfirmAggregator(t *testing.T) {
 	_, err := env.Chains[chainSelector].Confirm(tx)
 	require.NoError(t, err)
 
-	resp, err := changeset.ConfirmAggregatorChangeset(env, types.ProposeConfirmAggregatorConfig{
-		ChainSelector: chainSelector,
-		Proxy:         proxy.Address,
-		NewAggregator: common.HexToAddress("0x123"),
-	})
-
+	_, err = commonChangesets.Apply(t, env, nil,
+		commonChangesets.Configure(
+			changeset.ConfirmAggregatorChangeset,
+			types.ProposeConfirmAggregatorConfig{
+				ChainSelector:        chainSelector,
+				ProxyAddress:         proxy.Address,
+				NewAggregatorAddress: common.HexToAddress("0x123"),
+			},
+		),
+	)
 	require.NoError(t, err)
-	require.NotNil(t, resp)
 }

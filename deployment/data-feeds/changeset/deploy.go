@@ -57,6 +57,7 @@ func DeployAggregatorProxy(chain deployment.Chain, aggregator common.Address, ac
 		return nil, fmt.Errorf("failed to confirm AggregatorProxy: %w", err)
 	}
 
+	// AggregatorProxy contract doesn't implement typeAndVersion interface, so we have to set it manually
 	tvStr := "AggregatorProxy 1.0.0"
 	tv, err := deployment.TypeAndVersionFromString(tvStr)
 	if err != nil {

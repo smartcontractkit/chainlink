@@ -10,17 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.UpdateDataIDProxyConfig] = UpdateDataIDProxyChangeset
+// UpdateDataIDProxyChangeset is a changeset that updates the proxy-dataId mapping on DataFeedsCache contract.
+// This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
+var UpdateDataIDProxyChangeset = deployment.CreateChangeSet(updateDataIDProxyLogic, updateDataIDProxyPrecondition)
 
-func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataIDProxyConfig) (deployment.ChangesetOutput, error) {
-	if len(c.DataIDs) != len(c.Proxies) {
-		return deployment.ChangesetOutput{}, errors.New("dataIds and proxies length mismatch")
-	}
-	err := ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate cache for chain %w", err)
-	}
-
+func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProxyConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -31,7 +25,7 @@ func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataID
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.Proxies, c.DataIDs)
+	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.ProxyAddresses, c.DataIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
@@ -49,4 +43,14 @@ func UpdateDataIDProxyChangeset(env deployment.Environment, c types.UpdateDataID
 	}
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDataIDProxyConfig) error {
+	if len(c.ProxyAddresses) == 0 || len(c.DataIDs) == 0 {
+		return errors.New("empty proxies or dataIds")
+	}
+	if len(c.DataIDs) != len(c.ProxyAddresses) {
+		return errors.New("dataIds and proxies length mismatch")
+	}
+	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 }

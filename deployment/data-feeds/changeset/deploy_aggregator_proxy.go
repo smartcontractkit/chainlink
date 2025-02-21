@@ -10,25 +10,17 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-var _ deployment.ChangeSet[types.DeployAggregatorProxyConfig] = DeployAggregatorProxyChangeset
+// DeployAggregatorProxyChangeset deploys an AggregatorProxy contract on the given chains. It uses the address of DataFeedsCache contract
+// from addressbook to set it in the AggregatorProxy constructor. Returns a new addressbook with deploy AggregatorProxy contract addresses.
+var DeployAggregatorProxyChangeset = deployment.CreateChangeSet(deployAggregatorProxyLogic, deployAggregatorProxyPrecondition)
 
-func DeployAggregatorProxyChangeset(env deployment.Environment, c types.DeployAggregatorProxyConfig) (deployment.ChangesetOutput, error) {
+func deployAggregatorProxyLogic(env deployment.Environment, c types.DeployAggregatorProxyConfig) (deployment.ChangesetOutput, error) {
 	lggr := env.Logger
 	ab := deployment.NewMemoryAddressBook()
-	if len(c.AccessController) != len(c.ChainsToDeploy) {
-		return deployment.ChangesetOutput{}, errors.New("AccessController addresses must be provided for each chain to deploy")
-	}
 
 	for index, chainSelector := range c.ChainsToDeploy {
-		chain, ok := env.Chains[chainSelector]
-		if !ok {
-			return deployment.ChangesetOutput{}, errors.New("chain not found in environment")
-		}
-
-		addressMap, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addessbook for chain %d: %w", chainSelector, err)
-		}
+		chain := env.Chains[chainSelector]
+		addressMap, _ := env.ExistingAddresses.AddressesForChain(chainSelector)
 
 		var dataFeedsCacheAddress string
 		cacheTV := deployment.NewTypeAndVersion(DataFeedsCache, deployment.Version1_0_0)
@@ -40,7 +32,7 @@ func DeployAggregatorProxyChangeset(env deployment.Environment, c types.DeployAg
 		}
 
 		if dataFeedsCacheAddress == "" {
-			return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d: %w", chainSelector, err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract address not found in addressbook for chain %d", chainSelector)
 		}
 
 		proxyResponse, err := DeployAggregatorProxy(chain, common.HexToAddress(dataFeedsCacheAddress), c.AccessController[index], c.Labels)
@@ -56,4 +48,23 @@ func DeployAggregatorProxyChangeset(env deployment.Environment, c types.DeployAg
 		}
 	}
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func deployAggregatorProxyPrecondition(env deployment.Environment, c types.DeployAggregatorProxyConfig) error {
+	if len(c.AccessController) != len(c.ChainsToDeploy) {
+		return errors.New("AccessController addresses must be provided for each chain to deploy")
+	}
+
+	for _, chainSelector := range c.ChainsToDeploy {
+		_, ok := env.Chains[chainSelector]
+		if !ok {
+			return errors.New("chain not found in environment")
+		}
+		_, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to get addessbook for chain %d: %w", chainSelector, err)
+		}
+	}
+
+	return nil
 }

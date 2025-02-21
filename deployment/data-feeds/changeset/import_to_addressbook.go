@@ -8,25 +8,24 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
-var _ deployment.ChangeSet[types.ImportToAddressbookConfig] = ImportToAddressbookChangeset
+// ImportToAddressbookChangeset is a changeset that reads already deployed contract addresses from input file
+// and saves them to the address book. Returns a new addressbook with the imported addresses.
+var ImportToAddressbookChangeset = deployment.CreateChangeSet(importToAddressbookLogic, importToAddressbookPrecondition)
 
-type AddressbookSchema struct {
+type AddressesSchema struct {
 	Address        string                    `json:"address"`
 	TypeAndVersion deployment.TypeAndVersion `json:"typeAndVersion"`
 	Label          string                    `json:"label"`
 }
 
-func ImportToAddressbookChangeset(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
+func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
 
-	addresses, err := shared.LoadJSON[[]*AddressbookSchema](c.InputFileName, c.InputFS)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load addresses input file: %w", err)
-	}
+	addresses, _ := shared.LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 
 	for _, address := range addresses {
 		address.TypeAndVersion.AddLabel(address.Label)
-		err = ab.Save(
+		err := ab.Save(
 			c.ChainSelector,
 			address.Address,
 			address.TypeAndVersion,
@@ -37,4 +36,17 @@ func ImportToAddressbookChangeset(env deployment.Environment, c types.ImportToAd
 	}
 
 	return deployment.ChangesetOutput{AddressBook: ab}, nil
+}
+
+func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
+	if c.InputFileName == "" {
+		return fmt.Errorf("input file name is required")
+	}
+
+	_, err := shared.LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
+	if err != nil {
+		return fmt.Errorf("failed to load addresses input file: %w", err)
+	}
+
+	return nil
 }
