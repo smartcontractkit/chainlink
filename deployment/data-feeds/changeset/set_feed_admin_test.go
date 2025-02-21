@@ -39,7 +39,7 @@ func TestSetCacheAdmin(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -50,6 +50,7 @@ func TestSetCacheAdmin(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
+	// without MCMS
 	resp, err := commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
@@ -63,8 +64,35 @@ func TestSetCacheAdmin(t *testing.T) {
 	)
 	require.NoError(t, err)
 	require.NotNil(t, resp)
-}
 
-func void(env deployment.Environment, c map[uint64]commonTypes.MCMSWithTimelockConfigV2) error {
-	return nil
+	//with MCMS
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			commonChangesets.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: map[uint64][]common.Address{
+					chainSelector: {common.HexToAddress(cacheAddress)},
+				},
+				MinDelay: 0,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	resp, err = commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress("0x123"),
+				IsAdmin:       true,
+				McmsConfig: &types.MCMSConfig{
+					MinDelay: 0,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, resp)
 }

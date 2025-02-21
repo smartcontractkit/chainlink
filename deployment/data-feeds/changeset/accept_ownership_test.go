@@ -19,6 +19,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
+// wrapper around legacy changeset API
+var mcmsDeployChangeset = deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void)
+
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -31,19 +34,24 @@ func TestAcceptOwnership(t *testing.T) {
 	chainSelector := env.AllChainSelectors()[0]
 	chain := env.Chains[chainSelector]
 
-	cache, _ := DeployCache(chain, []string{})
-	tx, _ := cache.Contract.TransferOwnership(chain.DeployerKey, common.HexToAddress("0x123"))
-	_, err := chain.Confirm(tx)
-	require.NoError(t, err)
-
-	_, err = commonChangesets.Apply(t, env, nil,
+	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
-			// wrapper around legacy changeset API
-			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			mcmsDeployChangeset,
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
 		),
+	)
+
+	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	require.NoError(t, err)
+
+	cache, _ := DeployCache(chain, []string{})
+	tx, _ := cache.Contract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timeLockAddress))
+	_, err = chain.Confirm(tx)
+	require.NoError(t, err)
+
+	_, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
 			AcceptOwnershipChangeset,
 			types.AcceptOwnershipConfig{

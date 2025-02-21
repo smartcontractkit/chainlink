@@ -41,7 +41,7 @@ func TestSetFeedConfig(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -54,6 +54,7 @@ func TestSetFeedConfig(t *testing.T) {
 
 	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 
+	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
@@ -77,6 +78,58 @@ func TestSetFeedConfig(t *testing.T) {
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
 						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
 					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// with MCMS
+	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	require.NoError(t, err)
+
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		// Set the admin to the timelock
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress(timeLockAddress),
+				IsAdmin:       true,
+			},
+		),
+		// Transfer cache ownership to MCMS
+		commonChangesets.Configure(
+			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			commonChangesets.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: map[uint64][]common.Address{
+					chainSelector: {common.HexToAddress(cacheAddress)},
+				},
+				MinDelay: 0,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Set the feed config with MCMS
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.SetFeedConfigChangeset,
+			types.SetFeedDecimalConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				DataIDs:       [][16]byte{dataid},
+				Descriptions:  []string{"test2"},
+				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+					cache.DataFeedsCacheWorkflowMetadata{
+						AllowedSender:        common.HexToAddress("0x22"),
+						AllowedWorkflowOwner: common.HexToAddress("0x33"),
+						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+					},
+				},
+				McmsConfig: &types.MCMSConfig{
+					MinDelay: 0,
 				},
 			},
 		),

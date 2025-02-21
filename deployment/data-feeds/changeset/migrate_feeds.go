@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -88,7 +89,7 @@ func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfi
 	}
 
 	if len(c.WorkflowMetadata) == 0 {
-		return fmt.Errorf("workflow metadata is required")
+		return errors.New("workflow metadata is required")
 	}
 
 	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)

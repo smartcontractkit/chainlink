@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -40,7 +41,7 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 
 func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
 	if c.InputFileName == "" {
-		return fmt.Errorf("input file name is required")
+		return errors.New("input file name is required")
 	}
 
 	_, err := shared.LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)

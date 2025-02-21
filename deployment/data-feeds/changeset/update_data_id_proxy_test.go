@@ -40,7 +40,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 			},
 		),
 		commonChangesets.Configure(
-			deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void),
+			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -53,6 +53,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 
 	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 
+	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
@@ -74,4 +75,46 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
+
+	// with MCMS
+	timeLockAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "RBACTimelock")
+	require.NoError(t, err)
+
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		// Set the admin to the timelock
+		commonChangesets.Configure(
+			changeset.SetFeedAdminChangeset,
+			types.SetFeedAdminConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				AdminAddress:  common.HexToAddress(timeLockAddress),
+				IsAdmin:       true,
+			},
+		),
+		// Transfer cache ownership to MCMS
+		commonChangesets.Configure(
+			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			commonChangesets.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: map[uint64][]common.Address{
+					chainSelector: {common.HexToAddress(cacheAddress)},
+				},
+				MinDelay: 0,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		commonChangesets.Configure(
+			changeset.UpdateDataIDProxyChangeset,
+			types.UpdateDataIDProxyConfig{
+				ChainSelector:  chainSelector,
+				CacheAddress:   common.HexToAddress(cacheAddress),
+				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
+				DataIDs:        [][16]byte{dataID},
+			},
+		),
+	)
+	require.NoError(t, err)
+
 }

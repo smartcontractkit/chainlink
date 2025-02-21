@@ -44,5 +44,6 @@ func TestDeployCache(t *testing.T) {
 	// no DataFeedsCache deployed on chain 1
 	require.NotEqual(t, chainSelector, env.AllChainSelectors()[1])
 	oaddrs, err := resp.ExistingAddresses.AddressesForChain(env.AllChainSelectors()[1])
+	require.NoError(t, err)
 	require.Empty(t, oaddrs)
 }

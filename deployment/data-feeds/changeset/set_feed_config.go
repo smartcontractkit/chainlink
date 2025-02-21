@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -46,7 +47,7 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 
 func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecimalConfig) error {
 	if (len(c.DataIDs) == 0) || (len(c.Descriptions) == 0) || (len(c.WorkflowMetadata) == 0) {
-		return fmt.Errorf("dataIDs, descriptions and workflowMetadata must not be empty")
+		return errors.New("dataIDs, descriptions and workflowMetadata must not be empty")
 	}
 	if len(c.DataIDs) != len(c.Descriptions) {
 		return fmt.Errorf("dataIDs and descriptions must have the same length")
