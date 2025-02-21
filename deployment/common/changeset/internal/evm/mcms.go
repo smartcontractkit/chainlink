@@ -13,6 +13,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
+// DeployMCMSOption is a function that modifies a TypeAndVersion before or after deployment.
+type DeployMCMSOption func(*deployment.TypeAndVersion)
+
+// WithLabel is a functional option that sets a label on the TypeAndVersion.
+func WithLabel(label string) DeployMCMSOption {
+	return func(tv *deployment.TypeAndVersion) {
+		tv.AddLabel(label)
+	}
+}
+
 // MCMSWithTimelockEVMDeploy holds a bundle of MCMS contract deploys.
 type MCMSWithTimelockEVMDeploy struct {
 	Canceller *deployment.ContractDeploy[*bindings.ManyChainMultiSig]
@@ -28,6 +38,7 @@ func deployMCMSWithConfigEVM(
 	chain deployment.Chain,
 	ab deployment.AddressBook,
 	mcmConfig mcmsTypes.Config,
+	options ...DeployMCMSOption,
 ) (*deployment.ContractDeploy[*bindings.ManyChainMultiSig], error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups, err := evmMcms.ExtractSetConfigInputs(&mcmConfig)
 	if err != nil {
@@ -40,8 +51,14 @@ func deployMCMSWithConfigEVM(
 				chain.DeployerKey,
 				chain.Client,
 			)
+
+			tv := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+			for _, option := range options {
+				option(&tv)
+			}
+
 			return deployment.ContractDeploy[*bindings.ManyChainMultiSig]{
-				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), Err: err2,
+				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {
@@ -74,15 +91,20 @@ func DeployMCMSWithTimelockContractsEVM(
 	ab deployment.AddressBook,
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*MCMSWithTimelockEVMDeploy, error) {
-	bypasser, err := deployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
+	opts := []DeployMCMSOption{}
+	if config.Label != nil {
+		opts = append(opts, WithLabel(*config.Label))
+	}
+
+	bypasser, err := deployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
 	if err != nil {
 		return nil, err
 	}
-	canceller, err := deployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller)
+	canceller, err := deployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := deployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer)
+	proposer, err := deployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -104,8 +126,14 @@ func DeployMCMSWithTimelockContractsEVM(
 				[]common.Address{canceller.Address, proposer.Address, bypasser.Address}, // cancellers
 				[]common.Address{bypasser.Address},                                      // bypassers
 			)
+
+			tv := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
+			if config.Label != nil {
+				tv.AddLabel(*config.Label)
+			}
+
 			return deployment.ContractDeploy[*bindings.RBACTimelock]{
-				Address: timelock, Contract: cc, Tx: tx2, Tv: deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0), Err: err2,
+				Address: timelock, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {
@@ -120,8 +148,14 @@ func DeployMCMSWithTimelockContractsEVM(
 				chain.Client,
 				timelock.Address,
 			)
+
+			tv := deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)
+			if config.Label != nil {
+				tv.AddLabel(*config.Label)
+			}
+
 			return deployment.ContractDeploy[*bindings.CallProxy]{
-				Address: callProxy, Contract: cc, Tx: tx2, Tv: deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0), Err: err2,
+				Address: callProxy, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {

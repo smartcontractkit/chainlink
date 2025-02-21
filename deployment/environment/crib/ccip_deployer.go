@@ -4,12 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
+<<<<<<< HEAD
 	"math/big"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+=======
+>>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"golang.org/x/sync/errgroup"
+	"math/big"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 
@@ -127,7 +133,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	// ----- Part 2 -----
 	lggr.Infow("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, true)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -207,8 +213,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}, nil
 }
 
-// ConfigureCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
-// This sets up OCR on all chains in the envConfig by configuring the CCIP home chain
+// ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
 func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -216,8 +221,8 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}
 	e.ExistingAddresses = ab
 
-	lggr.Infow("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	lggr.Infow("resetting ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, false)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -404,6 +409,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
+<<<<<<< HEAD
 	onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
 	pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 	feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
@@ -454,10 +460,69 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 						Capacity:  big.NewInt(0),
 						Rate:      big.NewInt(0),
 					},
+=======
+	eg := errgroup.Group{}
+	poolUpdates := make(map[uint64]changeset.TokenPoolConfig)
+	rateLimitPerChain := make(changeset.RateLimiterPerChain)
+	mu := sync.Mutex{}
+	for src := range e.Chains {
+		src := src
+		eg.Go(func() error {
+			onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
+			pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
+			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources := make(map[uint64]map[uint64]changeset.OffRampSourceUpdate)
+			updateRouterChanges := make(map[uint64]changeset.RouterUpdates)
+			onRampUpdatesByChain[src] = make(map[uint64]changeset.OnRampDestinationUpdate)
+			pricesByChain[src] = changeset.FeeQuoterPriceUpdatePerSource{
+				TokenPrices: map[common.Address]*big.Int{
+					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
+				},
+				GasPrices: make(map[uint64]*big.Int),
+			}
+			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources[src] = make(map[uint64]changeset.OffRampSourceUpdate)
+			updateRouterChanges[src] = changeset.RouterUpdates{
+				OffRampUpdates: make(map[uint64]bool),
+				OnRampUpdates:  make(map[uint64]bool),
+			}
+
+			for dst := range e.Chains {
+				if src != dst {
+					onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
+						IsEnabled:        true,
+						AllowListEnabled: false,
+					}
+					pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
+					feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig(true)
+
+					updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
+						IsEnabled:                 true,
+						IsRMNVerificationDisabled: true,
+					}
+
+					updateRouterChanges[src].OffRampUpdates[dst] = true
+					updateRouterChanges[src].OnRampUpdates[dst] = true
+					mu.Lock()
+					rateLimitPerChain[dst] = changeset.RateLimiterConfig{
+						Inbound: token_pool.RateLimiterConfig{
+							IsEnabled: false,
+							Capacity:  big.NewInt(0),
+							Rate:      big.NewInt(0),
+						},
+						Outbound: token_pool.RateLimiterConfig{
+							IsEnabled: false,
+							Capacity:  big.NewInt(0),
+							Rate:      big.NewInt(0),
+						},
+					}
+					mu.Unlock()
+>>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
 				}
 			}
-		}
 
+<<<<<<< HEAD
 		poolUpdates[src] = v1_5_1.TokenPoolConfig{
 			Type:         state.BurnMintTokenPool,
 			Version:      deployment.Version1_5_1,
@@ -504,9 +569,69 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 			},
 		),
 	)
+=======
+			mu.Lock()
+			poolUpdates[src] = changeset.TokenPoolConfig{
+				Type:         changeset.BurnMintTokenPool,
+				Version:      deployment.Version1_5_1,
+				ChainUpdates: rateLimitPerChain,
+			}
+			mu.Unlock()
+
+			_, err := commonchangeset.Apply(nil, *e, nil,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOnRampsDestsChangeset),
+					changeset.UpdateOnRampDestsConfig{
+						UpdatesByChain: onRampUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
+					changeset.UpdateFeeQuoterPricesConfig{
+						PricesByChain: pricesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
+					changeset.UpdateFeeQuoterDestsConfig{
+						UpdatesByChain: feeQuoterDestsUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateOffRampSourcesChangeset),
+					changeset.UpdateOffRampSourcesConfig{
+						UpdatesByChain: updateOffRampSources,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(changeset.UpdateRouterRampsChangeset),
+					changeset.UpdateRouterRampsConfig{
+						UpdatesByChain: updateRouterChanges,
+					},
+				),
+			)
+			return err
+		})
+	}
+
+	err := eg.Wait()
+	if err != nil {
+		return *e, err
+	}
+
+	_, err = commonchangeset.Apply(nil, *e, nil, commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
+		changeset.ConfigureTokenPoolContractsConfig{
+			TokenSymbol: changeset.LinkSymbol,
+			PoolUpdates: poolUpdates,
+		},
+	))
+
+	return *e, err
+>>>>>>> 82fade97ba57a8242abcf0c7d828f6137b17dd76
 }
 
-func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var ocrConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	for selector := range e.Chains {
@@ -514,8 +639,10 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 			v1_6.WithDefaultExecuteOffChainConfig(nil),
 		)
 	}
-	return commonchangeset.Apply(nil, *e, nil,
-		commonchangeset.Configure(
+
+	var commitChangeset commonchangeset.ConfiguredChangeSet
+	if newDons {
+		commitChangeset = commonchangeset.Configure(
 			// Add the DONs and candidate commit OCR instances for the chain
 			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
 			v1_6.AddDonAndSetCandidateChangesetConfig{
@@ -528,7 +655,28 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
-		),
+		)
+	} else {
+		commitChangeset = commonchangeset.Configure(
+			// Update commit OCR instances for existing chains
+			deployment.CreateLegacyChangeSet(changeset.SetCandidateChangeset),
+			changeset.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: []changeset.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						PluginType:                      types.PluginTypeCCIPCommit,
+					},
+				},
+			},
+		)
+	}
+
+	return commonchangeset.Apply(nil, *e, nil,
+		commitChangeset,
 		commonchangeset.Configure(
 			// Add the exec OCR instances for the new chains
 			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
