@@ -1,6 +1,7 @@
 package state
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -10,6 +11,7 @@ import (
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	view "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
 type PDASeed [32]byte
@@ -98,25 +100,25 @@ func (s *MCMSWithTimelockProgramsSolana) SetState(contractType deployment.Contra
 // for use generating views or interactions.
 func (s *MCMSWithTimelockProgramsSolana) Validate() error {
 	if s.McmProgram.IsZero() {
-		return errors.New("canceller not found")
+		return errors.New("mcm program not found")
 	}
 	if s.TimelockProgram.IsZero() {
-		return errors.New("timelock not found")
+		return errors.New("timelock program not found")
 	}
 	if s.AccessControllerProgram.IsZero() {
-		return errors.New("timelock not found")
+		return errors.New("access controller program not found")
 	}
 	if s.ProposerAccessControllerAccount.IsZero() {
-		return errors.New("access controller not found")
+		return errors.New("proposer access controller account not found")
 	}
 	if s.ExecutorAccessControllerAccount.IsZero() {
-		return errors.New("access controller not found")
+		return errors.New("executor access controller account not found")
 	}
 	if s.CancellerAccessControllerAccount.IsZero() {
-		return errors.New("access controller not found")
+		return errors.New("canceller access controller account not found")
 	}
 	if s.BypasserAccessControllerAccount.IsZero() {
-		return errors.New("access controller not found")
+		return errors.New("bypasser access controller account not found")
 	}
 	return nil
 }
@@ -134,6 +136,20 @@ func (s *MCMSWithTimelockProgramsSolana) RoleAccount(role timelockBindings.Role)
 	default:
 		return solana.PublicKey{}
 	}
+}
+
+func (s *MCMSWithTimelockProgramsSolana) GenerateView(
+	ctx context.Context, chain deployment.SolChain,
+) (view.MCMSWithTimelockViewSolana, error) {
+	if err := s.Validate(); err != nil {
+		return view.MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to validate state: %w", err)
+	}
+
+	inspector := mcmssolanasdk.NewInspector(chain.Client)
+	timelockInspector := mcmssolanasdk.NewTimelockInspector(chain.Client)
+
+	return view.GenerateMCMSWithTimelockViewSolana(ctx, inspector, timelockInspector, s.McmProgram,
+		s.ProposerMcmSeed, s.CancellerMcmSeed, s.BypasserMcmSeed, s.TimelockProgram, s.TimelockSeed)
 }
 
 // MCMSWithTimelockStateStateSolana holds the Go bindings
@@ -200,7 +216,7 @@ func MaybeLoadMCMSWithTimelockChainStateSolana(chain deployment.SolChain, addres
 	}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
