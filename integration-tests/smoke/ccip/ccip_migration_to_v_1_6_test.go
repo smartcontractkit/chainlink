@@ -2,10 +2,13 @@ package ccip
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 
+	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/filters"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
 
@@ -30,6 +33,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	dockerClient "github.com/docker/docker/client"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
 
@@ -349,12 +353,50 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		require.Empty(t, subjects)
 	}
 
+	// We have to restart all chainlink node because it cache the curse status for 30min
+	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv, dockerClient.WithAPIVersionNegotiation())
+	require.NoError(t, err)
+	err = restartContainersByImage(context.Background(), cli, "chainlink")
+	require.NoError(t, err)
+
 	select {
 	case <-commitFound:
 		return
-	case <-time.After(30 * time.Second):
+	case <-time.After(30 * time.Minute):
 		t.Fatal("timed out waiting for commit")
 	}
+}
+
+func restartContainersByImage(ctx context.Context, cli *dockerClient.Client, imageName string) error {
+	// Create a filter to find containers using the specified image as an ancestor.
+	filterArgs := filters.NewArgs()
+	filterArgs.Add("ancestor", imageName)
+
+	// List all containers (running and stopped) that match the filter.
+	containers, err := cli.ContainerList(ctx, container.ListOptions{
+		All:     true,
+		Filters: filterArgs,
+	})
+	if err != nil {
+		return fmt.Errorf("error listing containers: %w", err)
+	}
+
+	if len(containers) == 0 {
+		fmt.Printf("No containers found for image %s\n", imageName)
+		return nil
+	}
+
+	// Restart each container found.
+	for _, c := range containers {
+		fmt.Printf("Restarting container %s (Image: %s)\n", c.ID[:10], c.Image)
+		if err := cli.ContainerRestart(ctx, c.ID, container.StopOptions{}); err != nil {
+			fmt.Printf("Error restarting container %s: %v\n", c.ID[:10], err)
+			return err
+		} else {
+			fmt.Printf("Container %s restarted successfully\n", c.ID[:10])
+		}
+	}
+	return nil
 }
 
 // TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
