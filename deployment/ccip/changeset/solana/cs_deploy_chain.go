@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -367,8 +368,9 @@ func deployChainContractsSolana(
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
+		feeQuoterAddress = chainState.FeeQuoter
 		// fee quoter updated in place
-		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
+		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
 		if err != nil {
 			return ixns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -385,6 +387,10 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
 		}
+		if err := chain.Confirm([]solana.Instruction{extendIxn}); err != nil {
+			return ixns, fmt.Errorf("failed to confirm extend: %w", err)
+		}
+		time.Sleep(5 * time.Second) // wait for the upgrade to take effect
 		upgradeIxn, err := generateUpgradeIxn(
 			&e,
 			chainState.FeeQuoter,
@@ -395,65 +401,68 @@ func deployChainContractsSolana(
 		if err != nil {
 			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
 		}
-		closeIxn, err := generateCloseBufferIxn(
-			&e,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-			config.UpgradeConfig.UpgradeAuthority,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+		if err := chain.Confirm([]solana.Instruction{upgradeIxn}); err != nil {
+			return ixns, fmt.Errorf("failed to confirm upgradeIxn: %w", err)
 		}
-		feeQuoterAddress = chainState.FeeQuoter
-		upgradeData, err := upgradeIxn.Data()
-		if err != nil {
-			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
-		}
-		upgradeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			upgradeData,
-			big.NewInt(0),         // e.g. value
-			upgradeIxn.Accounts(), // pass along needed accounts
-			string(cs.FeeQuoter),  // some string identifying the target
-			[]string{},            // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
-		}
-		closeData, err := closeIxn.Data()
-		if err != nil {
-			return ixns, fmt.Errorf("failed to extract close data: %w", err)
-		}
-		closeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			closeData,
-			big.NewInt(0),        // e.g. value
-			closeIxn.Accounts(),  // pass along needed accounts
-			string(cs.FeeQuoter), // some string identifying the target
-			[]string{},           // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
-		}
-		if extendIxn != nil {
-			extendData, err := extendIxn.Data()
-			if err != nil {
-				return ixns, fmt.Errorf("failed to extract extend data: %w", err)
-			}
-			extendTx, err := mcmsSolana.NewTransaction(
-				solana.BPFLoaderUpgradeableProgramID.String(),
-				extendData,
-				big.NewInt(0),        // e.g. value
-				extendIxn.Accounts(), // pass along needed accounts
-				string(cs.FeeQuoter), // some string identifying the target
-				[]string{},           // any relevant metadata
-			)
-			if err != nil {
-				return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
-			}
-			ixns = append(ixns, extendTx)
-		}
-		ixns = append(ixns, upgradeTx, closeTx)
+		// closeIxn, err := generateCloseBufferIxn(
+		// 	&e,
+		// 	bufferProgram,
+		// 	config.UpgradeConfig.SpillAddress,
+		// 	config.UpgradeConfig.UpgradeAuthority,
+		// )
+		// if err != nil {
+		// 	return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+		// }
+		
+		// upgradeData, err := upgradeIxn.Data()
+		// if err != nil {
+		// 	return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
+		// }
+		// upgradeTx, err := mcmsSolana.NewTransaction(
+		// 	solana.BPFLoaderUpgradeableProgramID.String(),
+		// 	upgradeData,
+		// 	big.NewInt(0),         // e.g. value
+		// 	upgradeIxn.Accounts(), // pass along needed accounts
+		// 	string(cs.FeeQuoter),  // some string identifying the target
+		// 	[]string{},            // any relevant metadata
+		// )
+		// if err != nil {
+		// 	return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
+		// }
+		// closeData, err := closeIxn.Data()
+		// if err != nil {
+		// 	return ixns, fmt.Errorf("failed to extract close data: %w", err)
+		// }
+		// closeTx, err := mcmsSolana.NewTransaction(
+		// 	solana.BPFLoaderUpgradeableProgramID.String(),
+		// 	closeData,
+		// 	big.NewInt(0),        // e.g. value
+		// 	closeIxn.Accounts(),  // pass along needed accounts
+		// 	string(cs.FeeQuoter), // some string identifying the target
+		// 	[]string{},           // any relevant metadata
+		// )
+		// if err != nil {
+		// 	return ixns, fmt.Errorf("failed to create close transaction: %w", err)
+		// }
+		// if extendIxn != nil {
+		// 	extendData, err := extendIxn.Data()
+		// 	if err != nil {
+		// 		return ixns, fmt.Errorf("failed to extract extend data: %w", err)
+		// 	}
+		// 	extendTx, err := mcmsSolana.NewTransaction(
+		// 		solana.BPFLoaderUpgradeableProgramID.String(),
+		// 		extendData,
+		// 		big.NewInt(0),        // e.g. value
+		// 		extendIxn.Accounts(), // pass along needed accounts
+		// 		string(cs.FeeQuoter), // some string identifying the target
+		// 		[]string{},           // any relevant metadata
+		// 	)
+		// 	if err != nil {
+		// 		return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
+		// 	}
+		// 	ixns = append(ixns, extendTx)
+		// }
+		// ixns = append(ixns, upgradeTx, closeTx)
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -906,7 +915,7 @@ func generateExtendIxn(
 	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	//nolint:gosec // G115 we check for overflow above
-	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes + 1024)) // add some padding
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes)) // add some padding
 
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
