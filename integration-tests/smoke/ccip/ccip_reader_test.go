@@ -723,7 +723,7 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	//env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
+	// env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
 	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
@@ -867,14 +867,12 @@ func TestCCIPReader_GetContractAddress(t *testing.T) {
 	})
 
 	t.Run("error - no bindings found", func(t *testing.T) {
-
 		_, err := s.reader.GetContractAddress("UnboundContract", chainS1)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "expected one binding for the UnboundContract contract, got 0")
 	})
 
 	t.Run("success - multiple bindings, return override binding", func(t *testing.T) {
-
 		myContractName := consts.ContractNameOffRamp
 		addr1 := s.contractAddr
 		addr2, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(auth, sb.Client())
@@ -897,7 +895,6 @@ func TestCCIPReader_GetContractAddress(t *testing.T) {
 		require.NoError(t, err)
 
 		require.Equal(t, addr2.Bytes(), gotBytes, "expected the bound contract override address to match")
-
 	})
 
 	t.Run("error - chain not supported", func(t *testing.T) {
@@ -1107,7 +1104,7 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		ctx,
 		t,
 		chain1,
-		//evmconfig.DestReaderConfig,
+		// evmconfig.DestReaderConfig,
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
@@ -1839,7 +1836,7 @@ func testSetup(
 		assert.Equal(t, seqNum, cciptypes.SeqNum(scc.MinSeqNr))
 	}
 
-	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg) //Chain Reader service is started for ReaderChain
+	cr, err := evm.NewChainReaderService(ctx, lggr, lp, headTracker, cl, params.Cfg)
 	require.NoError(t, err)
 
 	extendedCr := contractreader.NewExtendedContractReader(cr)
