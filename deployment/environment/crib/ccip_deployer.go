@@ -270,11 +270,11 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
-	prereqCfgs := make([]v1_6.DeployPrerequisiteConfigPerChain, 0)
+	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	contractParams := make(map[uint64]v1_6.ChainContractParams)
 
 	for _, chain := range chainSelectors {
-		prereqCfgs = append(prereqCfgs, v1_6.DeployPrerequisiteConfigPerChain{
+		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 		chainConfigs[chain] = v1_6.ChainConfig{
@@ -304,8 +304,8 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 			chainSelectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
-			v1_6.DeployPrerequisiteConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
 		),

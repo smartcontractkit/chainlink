@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	v1_5changeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
@@ -27,7 +26,7 @@ import (
 func TestE2ELegacy(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
-		testhelpers.WithPrerequisiteDeploymentOnly(&v1_6.V1_5DeploymentConfig{
+		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 			RMNConfig: &rmn_contract.RMNConfig{
 				BlessWeightThreshold: 2,

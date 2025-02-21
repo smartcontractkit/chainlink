@@ -710,7 +710,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 	e, tenv := testhelpers.NewMemoryEnvironment(
 		t,
-		testhelpers.WithPrerequisiteDeploymentOnly(&v1_6.V1_5DeploymentConfig{
+		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
 			PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 			RMNConfig: &rmn_contract.RMNConfig{
 				BlessWeightThreshold: 2,

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -42,9 +43,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
-	prereqCfg := make([]v1_6.DeployPrerequisiteConfigPerChain, 0)
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, v1_6.DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
@@ -80,8 +81,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			cfg,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
-			v1_6.DeployPrerequisiteConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		),

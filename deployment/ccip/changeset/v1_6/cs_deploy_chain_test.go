@@ -39,9 +39,9 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
-	prereqCfg := make([]v1_6.DeployPrerequisiteConfigPerChain, 0)
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, v1_6.DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
 	}
@@ -68,8 +68,8 @@ func TestDeployChainContractsChangeset(t *testing.T) {
 			cfg,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
-			v1_6.DeployPrerequisiteConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		),

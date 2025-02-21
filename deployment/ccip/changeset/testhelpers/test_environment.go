@@ -50,7 +50,7 @@ type TestConfigs struct {
 	// TODO: This should be CreateContracts so the booleans make sense?
 	CreateJobAndContracts      bool
 	PrerequisiteDeploymentOnly bool
-	V1_5Cfg                    v1_6.V1_5DeploymentConfig
+	V1_5Cfg                    changeset.V1_5DeploymentConfig
 	Chains                     int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	SolChains                  int      // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
 	ChainIDs                   []uint64 // only used in memory mode, for docker mode, this is determined by the integration-test config toml input
@@ -136,7 +136,7 @@ func WithStaticLink() TestOps {
 	}
 }
 
-func WithPrerequisiteDeploymentOnly(v1_5Cfg *v1_6.V1_5DeploymentConfig) TestOps {
+func WithPrerequisiteDeploymentOnly(v1_5Cfg *changeset.V1_5DeploymentConfig) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.PrerequisiteDeploymentOnly = true
 		if v1_5Cfg != nil {
@@ -424,21 +424,21 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
-	prereqCfg := make([]v1_6.DeployPrerequisiteConfigPerChain, 0)
+	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, chain := range evmChains {
-		var opts []v1_6.PrerequisiteOpt
+		var opts []changeset.PrerequisiteOpt
 		if tc != nil {
 			if tc.IsUSDC {
-				opts = append(opts, v1_6.WithUSDCEnabled())
+				opts = append(opts, changeset.WithUSDCEnabled())
 			}
 			if tc.IsMultiCall3 {
-				opts = append(opts, v1_6.WithMultiCall3Enabled())
+				opts = append(opts, changeset.WithMultiCall3Enabled())
 			}
 		}
-		if tc.V1_5Cfg != (v1_6.V1_5DeploymentConfig{}) {
-			opts = append(opts, v1_6.WithLegacyDeploymentEnabled(tc.V1_5Cfg))
+		if tc.V1_5Cfg != (changeset.V1_5DeploymentConfig{}) {
+			opts = append(opts, changeset.WithLegacyDeploymentEnabled(tc.V1_5Cfg))
 		}
-		prereqCfg = append(prereqCfg, v1_6.DeployPrerequisiteConfigPerChain{
+		prereqCfg = append(prereqCfg, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 			Opts:          opts,
 		})
@@ -456,8 +456,8 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	e.Env, err = commonchangeset.Apply(t, e.Env, nil,
 		deployLinkApp,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
-			v1_6.DeployPrerequisiteConfig{
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfg,
 			},
 		),

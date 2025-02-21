@@ -48,7 +48,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
-			&v1_6.V1_5DeploymentConfig{
+			&changeset.V1_5DeploymentConfig{
 				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
 				RMNConfig: &rmn_contract.RMNConfig{
 					BlessWeightThreshold: 2,

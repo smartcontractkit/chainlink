@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -243,17 +242,17 @@ func TestDeployUSDCTokenPoolContracts(t *testing.T) {
 			selectors := e.AllChainSelectors()
 
 			addressBook := deployment.NewMemoryAddressBook()
-			prereqCfg := make([]v1_6.DeployPrerequisiteConfigPerChain, len(selectors))
+			prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, len(selectors))
 			for i, selector := range selectors {
-				prereqCfg[i] = v1_6.DeployPrerequisiteConfigPerChain{
+				prereqCfg[i] = changeset.DeployPrerequisiteConfigPerChain{
 					ChainSelector: selector,
 				}
 			}
 
 			e, err := commoncs.Apply(t, e, nil,
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.DeployPrerequisitesChangeset),
-					v1_6.DeployPrerequisiteConfig{
+					deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+					changeset.DeployPrerequisiteConfig{
 						Configs: prereqCfg,
 					},
 				),

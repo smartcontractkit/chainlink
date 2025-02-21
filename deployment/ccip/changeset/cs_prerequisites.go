@@ -1,4 +1,4 @@
-package v1_6
+package changeset
 
 import (
 	"fmt"
@@ -12,7 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -77,8 +76,8 @@ type DeployPrerequisiteConfigPerChain struct {
 	ChainSelector uint64
 	Opts          []PrerequisiteOpt
 	// TODO handle tokens and feeds in prerequisite config
-	Tokens map[changeset.TokenSymbol]common.Address
-	Feeds  map[changeset.TokenSymbol]common.Address
+	Tokens map[TokenSymbol]common.Address
+	Feeds  map[TokenSymbol]common.Address
 }
 
 func (c DeployPrerequisiteConfig) Validate() error {
@@ -118,7 +117,7 @@ func WithLegacyDeploymentEnabled(cfg V1_5DeploymentConfig) PrerequisiteOpt {
 }
 
 func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.AddressBook, cfg DeployPrerequisiteConfig) error {
-	state, err := changeset.LoadOnchainState(e)
+	state, err := LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err")
 		return err
@@ -140,7 +139,7 @@ func deployPrerequisiteChainContracts(e deployment.Environment, ab deployment.Ad
 
 // deployPrerequisiteContracts deploys the contracts that can be ported from previous CCIP version to the new one.
 // This is only required for staging and test environments where the contracts are not already deployed.
-func deployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state changeset.CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
+func deployPrerequisiteContracts(e deployment.Environment, ab deployment.AddressBook, state CCIPOnChainState, chain deployment.Chain, opts ...PrerequisiteOpt) error {
 	deployOpts := &DeployPrerequisiteContractsOpts{}
 	for _, opt := range opts {
 		if opt != nil {
@@ -176,7 +175,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 						*deployOpts.LegacyDeploymentCfg.RMNConfig,
 					)
 					return deployment.ContractDeploy[*rmn_contract.RMNContract]{
-						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.RMN, deployment.Version1_5_0), Err: err2,
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
 					}
 				})
 			if err != nil {
@@ -197,7 +196,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 						chain.Client,
 					)
 					return deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract]{
-						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.MockRMN, deployment.Version1_0_0), Err: err2,
+						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0), Err: err2,
 					}
 				})
 			if err != nil {
@@ -219,7 +218,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					rmnAddr,
 				)
 				return deployment.ContractDeploy[*rmn_proxy_contract.RMNProxy]{
-					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.ARMProxy, deployment.Version1_0_0), Err: err2,
+					Address: rmnProxyAddr, Contract: rmnProxy2, Tx: tx2, Tv: deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -268,7 +267,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.DeployerKey,
 					chain.Client)
 				return deployment.ContractDeploy[*token_admin_registry.TokenAdminRegistry]{
-					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
+					Address: tokenAdminRegistryAddr, Contract: tokenAdminRegistry, Tx: tx2, Tv: deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -287,7 +286,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_5_0), Err: err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -325,7 +324,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*weth9.WETH9]{
-					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0), Err: err2,
+					Address: weth9Addr, Contract: weth9c, Tx: tx2, Tv: deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -349,7 +348,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					rmnProxy.Address(),
 				)
 				return deployment.ContractDeploy[*router.Router]{
-					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0), Err: err2,
+					Address: routerAddr, Contract: routerC, Tx: tx2, Tv: deployment.NewTypeAndVersion(Router, deployment.Version1_2_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -369,7 +368,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 				)
 				return deployment.ContractDeploy[*multicall3.Multicall3]{
-					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: deployment.NewTypeAndVersion(changeset.Multicall3, deployment.Version1_0_0), Err: err2,
+					Address: multicall3Addr, Contract: multicall3Wrapper, Tx: tx2, Tv: deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -403,7 +402,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					false,
 				)
 				return deployment.ContractDeploy[*maybe_revert_message_receiver.MaybeRevertMessageReceiver]{
-					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: deployment.NewTypeAndVersion(changeset.CCIPReceiver, deployment.Version1_0_0), Err: err2,
+					Address: receiverAddr, Contract: receiver, Tx: tx, Tv: deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -431,7 +430,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					)
 					return deployment.ContractDeploy[*price_registry_1_2_0.PriceRegistry]{
 						Address: priceRegAddr, Contract: priceRegAddrC, Tx: tx2,
-						Tv: deployment.NewTypeAndVersion(changeset.PriceRegistry, deployment.Version1_2_0), Err: err2,
+						Tv: deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0), Err: err2,
 					}
 				})
 			if err != nil {
@@ -463,16 +462,16 @@ func deployUSDC(
 			tokenAddress, tx, tokenContract, err2 := burn_mint_erc677.DeployBurnMintERC677(
 				chain.DeployerKey,
 				chain.Client,
-				changeset.USDCName,
-				string(changeset.USDCSymbol),
-				changeset.UsdcDecimals,
+				USDCName,
+				string(USDCSymbol),
+				UsdcDecimals,
 				big.NewInt(0),
 			)
 			return deployment.ContractDeploy[*burn_mint_erc677.BurnMintERC677]{
 				Address:  tokenAddress,
 				Contract: tokenContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCToken, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -504,7 +503,7 @@ func deployUSDC(
 				Address:  transmitterAddress,
 				Contract: transmitterContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCMockTransmitter, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -525,7 +524,7 @@ func deployUSDC(
 				Address:  messengerAddress,
 				Contract: messengerContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenMessenger, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0),
 				Err:      err2,
 			}
 		})
@@ -549,7 +548,7 @@ func deployUSDC(
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(changeset.USDCTokenPool, deployment.Version1_5_1),
+				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1),
 				Err:      err2,
 			}
 		})
