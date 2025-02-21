@@ -8,14 +8,56 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestDonJobSpec_MarshalTOML(t *testing.T) {
-	trueVal := true
-	ocrKeyBundle := "ocr-bundle-123"
+const donSpecTOML1 = `name = 'Test-DON'
+type = 'don'
+schemaVersion = 1
+externalJobID = '00000000-0000-0000-0000-000000000000'
+contractID = 'contract-123'
+transmitterID = 'tx-123'
+forwardingAllowed = true
+p2pv2Bootstrappers = ['bootstrap1', 'bootstrap2']
+ocrKeyBundleID = 'ocr-bundle-123'
+maxTaskDuration = 10000000000
+contractConfigTrackerPollInterval = 60000000000
+relay = 'testrelay'
+pluginType = 'testplugin'
 
+[relayConfig]
+chainID = 'chain'
+fromBlock = 100
+lloConfigMode = 'mode'
+lloDonID = 200
+
+[pluginConfig]
+channelDefinitionsContractAddress = '0xabc'
+channelDefinitionsContractFromBlock = 50
+donID = 300
+servers = {server1 = 'http://localhost'}
+`
+
+const donSpecTOML2 = `name = 'Empty-DON-Test'
+type = 'don'
+schemaVersion = 1
+externalJobID = '00000000-0000-0000-0000-000000000000'
+contractID = 'contract-empty'
+
+[relayConfig]
+chainID = ''
+
+[pluginConfig]
+channelDefinitionsContractAddress = ''
+channelDefinitionsContractFromBlock = 0
+donID = 0
+servers = {}
+`
+
+func TestDonJobSpec_MarshalTOML(t *testing.T) {
+	ocrKeyBundle := "ocr-bundle-123"
+	trueVal := true
 	testCases := []struct {
-		name       string
-		spec       DonJobSpec
-		wantSubstr []string
+		name string
+		spec DonJobSpec
+		want string
 	}{
 		{
 			name: "with fields populated",
@@ -24,7 +66,7 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 					Name:          "Test-DON",
 					Type:          "don",
 					SchemaVersion: 1,
-					ExternalJobID: uuid.New(),
+					ExternalJobID: uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 				},
 				ContractID:                        "contract-123",
 				TransmitterID:                     "tx-123",
@@ -48,39 +90,7 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 					Servers:                             map[string]string{"server1": "http://localhost"},
 				},
 			},
-			wantSubstr: []string{
-				"contractID",
-				"contract-123",
-				"transmitterID",
-				"tx-123",
-				"p2pv2Bootstrappers",
-				"bootstrap1",
-				"ocrKeyBundleID",
-				"ocr-bundle-123",
-				"maxTaskDuration",
-				"contractConfigTrackerPollInterval",
-				"relay",
-				"testrelay",
-				"pluginType",
-				"testplugin",
-				"chainID",
-				"chain",
-				"fromBlock",
-				"100",
-				"lloConfigMode",
-				"mode",
-				"lloDonID",
-				"200",
-				"channelDefinitionsContractAddress",
-				"0xabc",
-				"channelDefinitionsContractFromBlock",
-				"50",
-				"donID",
-				"300",
-				"servers",
-				"server1",
-				"http://localhost",
-			},
+			want: donSpecTOML1,
 		},
 		{
 			name: "empty minimal fields",
@@ -89,7 +99,7 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 					Name:          "Empty-DON-Test",
 					Type:          "don",
 					SchemaVersion: 1,
-					ExternalJobID: uuid.New(),
+					ExternalJobID: uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 				},
 				ContractID:  "contract-empty",
 				RelayConfig: RelayConfigDon{},
@@ -97,10 +107,7 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 					Servers: map[string]string{},
 				},
 			},
-			wantSubstr: []string{
-				"contractID",
-				"contract-empty",
-			},
+			want: donSpecTOML2,
 		},
 	}
 
@@ -108,11 +115,8 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			tomlBytes, err := tc.spec.MarshalTOML()
 			require.NoError(t, err)
-
-			result := string(tomlBytes)
-			for _, substr := range tc.wantSubstr {
-				require.Contains(t, result, substr, "result %q does not contain expected substring %q", result, substr)
-			}
+			got := string(tomlBytes)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }
