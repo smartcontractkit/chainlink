@@ -123,14 +123,15 @@ func setRMNRemoteOnRMNProxyOp(
 	rmnProxy := chainState.RMNProxy
 	rmnRemoteAddr := chainState.RMNRemote.Address()
 	setRMNTx, err := rmnProxy.SetARM(txOpts, rmnRemoteAddr)
-	if err != nil {
-		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
-	}
+
+	// note: error check is handled below
 	if !mcmsEnabled {
 		_, err = deployment.ConfirmIfNoErrorWithABI(chain, setRMNTx, rmn_proxy_contract.RMNProxyABI, err)
 		if err != nil {
 			return mcmstypes.BatchOperation{}, fmt.Errorf("failed to confirm tx to set RMNRemote on RMNProxy  for chain %s: %w", chain.String(), deployment.MaybeDataErr(err))
 		}
+	} else if err != nil {
+		return mcmstypes.BatchOperation{}, fmt.Errorf("failed to build call data/transaction to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
 	}
 
 	batchOperation, err := proposalutils.BatchOperationForChain(chain.Selector, rmnProxy.Address().Hex(),
