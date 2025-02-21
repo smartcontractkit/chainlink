@@ -1031,7 +1031,8 @@ func TestCCIPReader_DiscoverContract(t *testing.T) {
 
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, logger.TestLogger(t), contractReaders, contractWriters, chainD, offRampDestAddr.Bytes())
+	addrCodec := ccipcommon.NewAddressCodec(ccipcommon.NewAddressCodecParams(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}))
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, logger.TestLogger(t), contractReaders, contractWriters, chainD, offRampDestAddr.Bytes(), addrCodec)
 
 	t.Cleanup(func() {
 		assert.NoError(t, crS1.Close())
