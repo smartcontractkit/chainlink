@@ -1042,7 +1042,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	})
 	//--------------------------------Setup done--------------------------------//
 
-	// Call the contract for test
+	// Call the ccip chain reader with DiscoverContracts for test
 	contractAddresses, err := reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
 
