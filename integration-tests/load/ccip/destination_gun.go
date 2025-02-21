@@ -8,6 +8,7 @@ import (
 	"math/big"
 	"math/rand"
 
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -18,7 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
