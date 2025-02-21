@@ -10,6 +10,7 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250128231431-9279badae2f0
 
 require (
+	github.com/AlekSi/pointer v1.1.0
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.0
 	github.com/aptos-labs/aptos-go-sdk v1.5.0

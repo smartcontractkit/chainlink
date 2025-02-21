@@ -4,6 +4,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/AlekSi/pointer"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 )
@@ -52,8 +53,6 @@ servers = {}
 `
 
 func TestDonJobSpec_MarshalTOML(t *testing.T) {
-	ocrKeyBundle := "ocr-bundle-123"
-	trueVal := true
 	testCases := []struct {
 		name string
 		spec DonJobSpec
@@ -70,9 +69,9 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 				},
 				ContractID:                        "contract-123",
 				TransmitterID:                     "tx-123",
-				ForwardingAllowed:                 &trueVal,
+				ForwardingAllowed:                 pointer.ToBoolOrNil(true),
 				P2PV2Bootstrappers:                []string{"bootstrap1", "bootstrap2"},
-				OCRKeyBundleID:                    &ocrKeyBundle,
+				OCRKeyBundleID:                    pointer.ToStringOrNil("ocr-bundle-123"),
 				MaxTaskDuration:                   10 * time.Second,
 				ContractConfigTrackerPollInterval: 1 * time.Minute,
 				Relay:                             "testrelay",
