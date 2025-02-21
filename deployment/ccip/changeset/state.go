@@ -255,7 +255,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for version, tokenPool := range c.USDCTokenPools {
 		if version == deployment.Version1_5_1 {
-			tokenPoolView, err := v1_5_1.GenerateUSDCTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate usdc token pool view for %s", tokenPool.Address().String())
 			}
