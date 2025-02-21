@@ -909,6 +909,174 @@ func TestCCIPReader_GetContractAddress(t *testing.T) {
 	})
 }
 
+func TestCCIPReader_DiscoverContract(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	sb, auth := setupSimulatedBackendAndAuth(t)
+
+	//--------------------------------Setup--------------------------------//
+	onRampS1StaticConfig := onramp.OnRampStaticConfig{
+		ChainSelector:      uint64(chainS1),
+		RmnRemote:          utils.RandomAddress(),
+		NonceManager:       utils.RandomAddress(),
+		TokenAdminRegistry: utils.RandomAddress(),
+	}
+
+	onRampS1DynamicConfig := onramp.OnRampDynamicConfig{
+		FeeQuoter:              utils.RandomAddress(),
+		ReentrancyGuardEntered: false,
+		MessageInterceptor:     utils.ZeroAddress,
+		FeeAggregator:          utils.RandomAddress(),
+		AllowlistAdmin:         utils.RandomAddress(),
+	}
+
+	destinationChainConfigArgs := []onramp.OnRampDestChainConfigArgs{
+		{
+			DestChainSelector: uint64(chainD),
+			Router:            utils.RandomAddress(),
+			AllowlistEnabled:  false,
+		},
+	}
+	onRampS1Addr, _, _, err := onramp.DeployOnRamp(auth, sb.Client(), onRampS1StaticConfig, onRampS1DynamicConfig, destinationChainConfigArgs)
+	require.NoError(t, err)
+	sb.Commit()
+
+	offRampDStaticConfig := offramp.OffRampStaticConfig{
+		ChainSelector:        uint64(chainD),
+		GasForCallExactCheck: 0,
+		RmnRemote:            utils.RandomAddress(),
+		TokenAdminRegistry:   utils.RandomAddress(),
+		NonceManager:         utils.RandomAddress(),
+	}
+
+	offRampDDynamicConfig := offramp.OffRampDynamicConfig{
+		FeeQuoter:                               utils.RandomAddress(),
+		PermissionLessExecutionThresholdSeconds: 1,
+		MessageInterceptor:                      utils.ZeroAddress,
+	}
+
+	offRampDSourceChainConfigArgs := []offramp.OffRampSourceChainConfigArgs{
+		{
+			Router:                    destinationChainConfigArgs[0].Router,
+			SourceChainSelector:       onRampS1StaticConfig.ChainSelector,
+			IsEnabled:                 true,
+			IsRMNVerificationDisabled: true,
+			OnRamp:                    common.LeftPadBytes(onRampS1Addr.Bytes(), 32),
+		},
+	}
+	offRampDestAddr, _, _, err := offramp.DeployOffRamp(auth, sb.Client(), offRampDStaticConfig, offRampDDynamicConfig, offRampDSourceChainConfigArgs)
+	require.NoError(t, err)
+	sb.Commit()
+
+	clS1 := client.NewSimulatedBackendClient(t, sb, big.NewInt(0).SetUint64(uint64(chainS1)))
+	headTrackerS1 := headstest.NewSimulatedHeadTracker(clS1, true, 1)
+	ormS1 := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainS1)), pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	lpOpts := logpoller.Opts{
+		PollPeriod:               time.Millisecond,
+		FinalityDepth:            0,
+		BackfillBatchSize:        10,
+		RPCBatchSize:             10,
+		KeepFinalizedBlocksDepth: 100000,
+	}
+	lpS1 := logpoller.NewLogPoller(
+		ormS1,
+		clS1,
+		logger.TestLogger(t),
+		headTrackerS1,
+		lpOpts,
+	)
+	assert.NoError(t, lpS1.Start(ctx))
+
+	clD := client.NewSimulatedBackendClient(t, sb, big.NewInt(0).SetUint64(uint64(chainD)))
+	headTrackerD := headstest.NewSimulatedHeadTracker(clD, true, 1)
+	ormD := logpoller.NewORM(big.NewInt(0).SetUint64(uint64(chainD)), pgtest.NewSqlxDB(t), logger.TestLogger(t))
+	lpD := logpoller.NewLogPoller(
+		ormD,
+		clD,
+		logger.TestLogger(t),
+		headTrackerD,
+		lpOpts,
+	)
+	assert.NoError(t, lpD.Start(ctx))
+
+	// Starting a chain reader service using merged reader configs for source chain and destination chain
+	crS1, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpS1, headTrackerS1, clS1, evmconfig.SourceReaderConfig)
+	require.NoError(t, err)
+	extendedCrS1 := contractreader.NewExtendedContractReader(crS1)
+
+	crD, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpD, headTrackerD, clD, evmconfig.DestReaderConfig)
+	require.NoError(t, err)
+	extendedCrD := contractreader.NewExtendedContractReader(crD)
+	err = extendedCrD.Bind(ctx, []types.BoundContract{
+		{
+			Address: offRampDestAddr.String(),
+			Name:    consts.ContractNameOffRamp,
+		},
+	})
+	require.NoError(t, err)
+
+	err = crS1.Start(ctx)
+	require.NoError(t, err)
+	err = crD.Start(ctx)
+	require.NoError(t, err)
+
+	contractReaders := map[cciptypes.ChainSelector]contractreader.Extended{}
+	contractReaders[chainS1] = extendedCrS1
+	contractReaders[chainD] = extendedCrD
+
+	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
+
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, logger.TestLogger(t), contractReaders, contractWriters, chainD, offRampDestAddr.Bytes())
+
+	t.Cleanup(func() {
+		assert.NoError(t, crS1.Close())
+		assert.NoError(t, lpS1.Close())
+		assert.NoError(t, crD.Close())
+		assert.NoError(t, lpD.Close())
+	})
+	//--------------------------------Setup done--------------------------------//
+
+	// Call the contract for test
+	contractAddresses, err := reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+	require.NoError(t, err)
+
+	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
+	require.Equal(t, contractAddresses[consts.ContractNameRouter][chainD], cciptypes.UnknownAddress(destinationChainConfigArgs[0].Router.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameRMNRemote][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.RmnRemote.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameNonceManager][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.NonceManager.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
+
+	// print contract addresses
+	for contractName, chainToAddress := range contractAddresses {
+		for chain, addr := range chainToAddress {
+			t.Logf("Contract %s address before sync on chain %d: %s", contractName, chain, addr.String())
+		}
+	}
+
+	// Now Sync the CCIP Reader's S1 chain contract reader with OnRamp binding
+	onRampContractMapping := make(ccipreaderpkg.ContractAddresses)
+	onRampContractMapping[consts.ContractNameOnRamp] = make(map[cciptypes.ChainSelector]cciptypes.UnknownAddress)
+	onRampContractMapping[consts.ContractNameOnRamp][chainS1] = onRampS1Addr.Bytes()
+
+	err = reader.Sync(ctx, onRampContractMapping)
+	require.NoError(t, err)
+
+	// Wait for the config poller to refresh in defaultRefreshPeriod = 30 seconds
+	time.Sleep(30 * time.Second)
+
+	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+
+	require.Equal(t, contractAddresses[consts.ContractNameOnRamp][chainS1], cciptypes.UnknownAddress(common.LeftPadBytes(onRampS1Addr.Bytes(), 32)))
+	require.Equal(t, contractAddresses[consts.ContractNameRouter][chainD], cciptypes.UnknownAddress(destinationChainConfigArgs[0].Router.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameRMNRemote][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.RmnRemote.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameNonceManager][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.NonceManager.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
+
+	// Now it has also discovered the destination router address stored in source chain and the source chain FeeQuoter address
+	require.Equal(t, contractAddresses[consts.ContractNameRouter][chainS1], cciptypes.UnknownAddress(destinationChainConfigArgs[0].Router.Bytes()))
+	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainS1], cciptypes.UnknownAddress(onRampS1DynamicConfig.FeeQuoter.Bytes()))
+}
+
 func Test_GetChainFeePriceUpdates(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
