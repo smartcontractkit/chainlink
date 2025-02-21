@@ -906,7 +906,7 @@ func generateExtendIxn(
 	//https://github.com/solana-labs/solana/blob/7700cb3128c1f19820de67b81aa45d18f73d2ac0/sdk/program/src/loader_upgradeable_instruction.rs#L146
 	data := binary.LittleEndian.AppendUint32([]byte{}, 6) // 4-byte Extend instruction identifier
 	//nolint:gosec // G115 we check for overflow above
-	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes + 1024)) // add some padding
+	data = binary.LittleEndian.AppendUint32(data, uint32(extraBytes)) // add some padding
 
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
