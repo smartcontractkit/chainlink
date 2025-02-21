@@ -104,7 +104,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   0,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             672_992,
+			want:             322_992,
 		},
 		{
 			name:             "maxGasOverheadGas 2",
@@ -113,7 +113,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV1(200_000),
 			tokenGasOverhead: 10,
-			want:             1_028_518,
+			want:             628_518,
 		},
 		{
 			name:             "v2 extra args",
@@ -122,7 +122,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			numberOfTokens:   1,
 			extraArgs:        makeExtraArgsV2(200_000, true),
 			tokenGasOverhead: 10,
-			want:             1_028_518,
+			want:             628_518,
 		},
 	}
 
