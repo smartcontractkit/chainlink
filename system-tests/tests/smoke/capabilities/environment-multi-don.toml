@@ -7,34 +7,23 @@
   # change to your version
   image = "jd-test-1:latest"
 
-[price_provider]
-  # without 0x prefix!
-  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
-  # used only if [data_source_config.fake] is not present
-  # url = "api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD"
-
-  [price_provider.fake]
-    port = 8171
-    prices = [182.9, 162.71, 172.02]
-
 [workflow_config]
-	workflow_name = "abcdefgasd"
+  workflow_name = "abcdefgasd"
+  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = true
-  workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
+  should_compile_new_workflow = false
+  # workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
   cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/b6e7afd05de86ba0444d85894f58857b/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/cdd80b48ef6c6faf44c10a6673043a4a/raw/871c0b69c032edb4c1371fe896c10b973a93eb06/config.json1025406406"
+    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    config_url = "https://gist.githubusercontent.com/Tofel/a261990c5b177fe58f304a52d0998e51/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json2891974493"
 
 [[nodesets]]
-  capabilities = ["cron", "custom-compute", "ocr3"]
-  don_type = "workflow"
   nodes = 5
   override_mode = "each"
   http_port_range_start = 10100
@@ -48,8 +37,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -66,8 +56,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -85,8 +76,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -104,8 +96,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -123,8 +116,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -140,9 +134,7 @@
       """
 
 [[nodesets]]
-  don_type = "capabilities"
-  capabilities = ["write-evm"]
-  nodes = 5
+  nodes = 3
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
@@ -155,8 +147,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -173,8 +166,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -191,44 +185,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

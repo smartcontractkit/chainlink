@@ -221,10 +221,7 @@ func CCIPSendRequest(
 	}
 
 	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
-	}
-	blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
+	blockNum, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.SourceChain], tx, router.RouterABI, err)
 	if err != nil {
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}

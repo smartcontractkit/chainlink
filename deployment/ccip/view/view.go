@@ -13,6 +13,8 @@ import (
 )
 
 type ChainView struct {
+	ChainSelector uint64 `json:"chainSelector,omitempty"`
+	ChainID       string `json:"chainID,omitempty"`
 	// v1.0
 	RMNProxy map[string]v1_0.RMNProxyView `json:"rmnProxy,omitempty"`
 	// v1.2

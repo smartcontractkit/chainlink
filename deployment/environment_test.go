@@ -339,6 +339,7 @@ func Test_isValidMultiAddr(t *testing.T) {
 	}
 }
 func TestNewNodeFromJD(t *testing.T) {
+	wk := "node-workflow-key"
 	type args struct {
 		jdNode       *nodev1.Node
 		chainConfigs []*nodev1.ChainConfig
@@ -353,9 +354,10 @@ func TestNewNodeFromJD(t *testing.T) {
 			name: "ok",
 			args: args{
 				jdNode: &nodev1.Node{
-					Id:        "node-id1",
-					Name:      "node1",
-					PublicKey: "node-pub-key",
+					Id:          "node-id1",
+					Name:        "node1",
+					PublicKey:   "node-pub-key",
+					WorkflowKey: &wk,
 				},
 				chainConfigs: []*nodev1.ChainConfig{
 					{
@@ -380,9 +382,10 @@ func TestNewNodeFromJD(t *testing.T) {
 				},
 			},
 			want: &Node{
-				NodeID: "node-id1",
-				Name:   "node1",
-				CSAKey: "node-pub-key",
+				NodeID:      "node-id1",
+				Name:        "node1",
+				CSAKey:      "node-pub-key",
+				WorkflowKey: "node-workflow-key",
 				SelToOCRConfig: map[chain_selectors.ChainDetails]OCRConfig{
 					{
 						ChainSelector: chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.Selector,
@@ -449,6 +452,7 @@ func TestNewNodeFromJD(t *testing.T) {
 			assert.Equal(t, tt.want.PeerID, got.PeerID)
 			assert.Equal(t, tt.want.CSAKey, got.CSAKey)
 			assert.Equal(t, tt.want.NodeID, got.NodeID)
+			assert.Equal(t, tt.want.WorkflowKey, got.WorkflowKey)
 			assert.Equal(t, tt.want.Name, got.Name)
 			for k, v := range tt.want.SelToOCRConfig {
 				assert.Equal(t, v, got.SelToOCRConfig[k])
