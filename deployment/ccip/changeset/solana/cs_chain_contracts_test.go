@@ -15,9 +15,11 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -38,9 +40,9 @@ func TestAddRemoteChain(t *testing.T) {
 
 	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeset.UpdateOnRampsDestsChangeset),
-			ccipChangeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]ccipChangeset.OnRampDestinationUpdate{
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					evmChain: {
 						solChain: {
 							IsEnabled:        true,

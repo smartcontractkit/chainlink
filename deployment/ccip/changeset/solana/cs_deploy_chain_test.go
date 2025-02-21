@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -34,12 +35,12 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
 	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	contractParams := make(map[uint64]changeset.ChainContractParams)
+	contractParams := make(map[uint64]v1_6.ChainContractParams)
 	for _, chain := range e.AllChainSelectors() {
 		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
+		contractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
 	prereqCfg := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
@@ -55,8 +56,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployHomeChainChangeset),
-			changeset.DeployHomeChainConfig{
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
 				HomeChainSel:     homeChainSel,
 				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
 				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
@@ -86,20 +87,20 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployChainContractsChangeset),
-			changeset.DeployChainContractsConfig{
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
-			changeset.DeployChainContractsConfig{
+			v1_6.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]changeset.ChainContractParams{
+				ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
 					solChainSelectors[0]: {
-						FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-						OffRampParams:   changeset.DefaultOffRampParams(),
+						FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+						OffRampParams:   v1_6.DefaultOffRampParams(),
 					},
 				},
 			},

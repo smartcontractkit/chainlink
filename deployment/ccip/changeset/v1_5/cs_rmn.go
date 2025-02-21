@@ -134,10 +134,8 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 			txOpts = deployment.SimTransactOpts()
 		}
 		tx, err := RMN.OwnerRemoveThenAddPermaBlessedCommitStores(txOpts, removes, adds)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
 
+		// note: error check is handled below
 		if c.MCMSConfig == nil {
 			_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChain], tx, rmn_contract.RMNContractABI, err)
 			if err != nil {
@@ -145,6 +143,8 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 			}
 			env.Logger.Infof("PermaBlessed commit stores on chain %d removed %v, added %v", destChain, removes, adds)
 			continue
+		} else if err != nil {
+			return deployment.ChangesetOutput{}, err
 		}
 
 		timelocks[destChain] = destState.Timelock.Address().Hex()

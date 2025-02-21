@@ -77,7 +77,7 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
@@ -175,7 +175,7 @@ func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]d
 	wantTypes := []deployment.TypeAndVersion{linkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
@@ -211,7 +211,7 @@ func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]
 	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}
