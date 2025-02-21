@@ -35,6 +35,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
@@ -592,6 +593,7 @@ func TestCCIPReader_ExecutedMessages(t *testing.T) {
 			ctx,
 			chainS1,
 			cciptypes.NewSeqNumRange(14, 15),
+			primitives.Unconfirmed,
 		)
 		require.NoError(t, err)
 		return len(executedMsgs) == 2
@@ -1207,6 +1209,7 @@ func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum,
 			ctx,
 			chainS1,
 			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+			primitives.Unconfirmed,
 		)
 		require.NoError(b, err)
 		require.Len(b, executedRanges, expectedRangeLen)
