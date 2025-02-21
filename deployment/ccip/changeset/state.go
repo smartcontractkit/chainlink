@@ -260,8 +260,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 				return chainView, errors.Wrapf(err, "failed to generate usdc token pool view for %s", tokenPool.Address().String())
 			}
 			chainView.USDCTokenPool = helpers.AddValueToNestedMap(chainView.USDCTokenPool, tokenPool.Address().Hex(), version.String(), tokenPoolView)
+		} else {
+			return chainView, errors.New("unsupported USDCTokenPool version")
 		}
-		return chainView, errors.New("unsupported USDCTokenPool version")
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
