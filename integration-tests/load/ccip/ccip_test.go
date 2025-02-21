@@ -73,13 +73,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	state, err := ccipchangeset.LoadOnchainState(*env)
 	require.NoError(t, err)
 
-	errChan := make(chan error)
-	defer close(errChan)
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
 	loadFinished := make(chan struct{})
 
-	mm := NewMetricsManager(t, env.Logger)
+	mm := NewMetricsManager(t, env.Logger, userOverrides)
 	go mm.Start(ctx)
 
 	// gunMap holds a destinationGun for every enabled destination chain
@@ -103,7 +101,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			loadFinished,
 			env.Chains[cs].Client,
-			errChan,
 			&wg,
 			mm.InputChan,
 			finalSeqNrCommitChannels,
@@ -166,7 +163,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrCommitChannels[cs],
-			errChan,
 			&wg,
 			mm.InputChan)
 		go subscribeExecutionEvents(
@@ -178,7 +174,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrExecChannels[cs],
-			errChan,
 			&wg,
 			mm.InputChan)
 	}

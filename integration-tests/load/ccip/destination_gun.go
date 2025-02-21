@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 	"math/rand"
 	"time"
 
@@ -124,9 +123,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			"err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
-	z := big.NewInt(0)
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		acc.Value = z
+		acc.Value = fee
 		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",

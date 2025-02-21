@@ -2,9 +2,8 @@ package ccip
 
 import (
 	"context"
-	"strconv"
-
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -33,11 +32,11 @@ type MetricManager struct {
 	loki      *wasp.LokiClient
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
+	overrides *ccip.LoadConfig
 }
 
 type metricState struct {
 	timestamps [3]uint64
-	round      int
 }
 
 type srcDstSeqNum struct {
@@ -50,10 +49,9 @@ type messageData struct {
 	eventType int
 	srcDstSeqNum
 	timestamp uint64
-	round     int
 }
 
-func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
+func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig) *MetricManager {
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
@@ -63,10 +61,12 @@ func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
 		loki:      loki,
 		InputChan: make(chan messageData),
 		state:     make(map[srcDstSeqNum]metricState),
+		overrides: overrides,
 	}
 }
 
 func (mm *MetricManager) Start(ctx context.Context) {
+	defer close(mm.InputChan)
 	for {
 		select {
 		case <-ctx.Done():
@@ -82,7 +82,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					execDuration = timestamps[executed] - timestamps[committed]
 				}
 
-				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, metricState.round)
+				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, mm.overrides)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 					// don't return here, we still want to push metrics to loki
@@ -94,7 +94,6 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					SequenceNumber: srcDstSeqNum.seqNum,
 				})
 			}
-			close(mm.InputChan)
 			return
 		case data := <-mm.InputChan:
 			if _, ok := mm.state[data.srcDstSeqNum]; !ok {
@@ -105,7 +104,7 @@ func (mm *MetricManager) Start(ctx context.Context) {
 
 			if data.seqNum == 0 {
 				// seqNum of 0 indicates an error. Push nil values to loki
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.overrides)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
@@ -119,16 +118,14 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			}
 			state := mm.state[data.srcDstSeqNum]
 			state.timestamps[data.eventType] = data.timestamp
-			if data.eventType == transmitted && data.round != -1 {
-				state.round = data.round
-			}
+
 			mm.state[data.srcDstSeqNum] = state
 			if data.eventType == executed {
-				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "round", state.round, "timestamps", state.timestamps)
+				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "timestamps", state.timestamps)
 			}
 			// we have all data needed to push to Loki
 			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.overrides)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
@@ -151,7 +148,7 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 	}
 }
 
-func setLokiLabels(src, dst uint64, round int) (map[string]string, error) {
+func setLokiLabels(src, dst uint64, overrides *ccip.LoadConfig) (map[string]string, error) {
 	srcChainID, err := chainselectors.GetChainIDFromSelector(src)
 	if err != nil {
 		return nil, err
@@ -163,7 +160,7 @@ func setLokiLabels(src, dst uint64, round int) (map[string]string, error) {
 	return map[string]string{
 		"sourceEvmChainId": srcChainID,
 		"destEvmChainId":   dstChainID,
-		"roundNum":         strconv.Itoa(round),
 		"testType":         LokiLoadLabel,
+		"testLabel":        *overrides.TestLabel,
 	}, nil
 }

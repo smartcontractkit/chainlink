@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
@@ -60,7 +59,6 @@ func subscribeTransmitEvents(
 	srcChainSel uint64,
 	loadFinished chan struct{},
 	client deployment.OnchainClient,
-	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 	finalSeqNrCommitChannels map[uint64]chan finalSeqNrReport,
@@ -111,8 +109,7 @@ func subscribeTransmitEvents(
 
 	for {
 		select {
-		case subErr := <-subscription.Err():
-			errChan <- subErr
+		case <-subscription.Err():
 			return
 		case event := <-sink:
 			lggr.Debugw("received transmit event for",
@@ -123,7 +120,7 @@ func subscribeTransmitEvents(
 			blockNum := event.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
-				errChan <- err
+				lggr.Errorw("error getting header by number")
 			}
 			data := messageData{
 				eventType: transmitted,
@@ -152,7 +149,6 @@ func subscribeTransmitEvents(
 		case <-ctx.Done():
 			lggr.Errorw("received context cancel signal for transmit watcher",
 				"srcChain", srcChainSel)
-			errChan <- errors.New("timed out waiting for transmits")
 			return
 		case <-endChannel:
 			for csPair, seqNums := range seqNums {
@@ -189,11 +185,11 @@ func subscribeCommitEvents(
 	chainSelector uint64,
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
-	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 ) {
 	defer wg.Done()
+	defer close(finalSeqNrs)
 
 	lggr.Infow("starting commit event subscriber for ",
 		"destChain", chainSelector,
@@ -221,8 +217,7 @@ func subscribeCommitEvents(
 
 	for {
 		select {
-		case subErr := <-subscription.Err():
-			errChan <- subErr
+		case <-subscription.Err():
 			return
 		case report := <-sink:
 			if len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots) > 0 {
@@ -238,7 +233,7 @@ func subscribeCommitEvents(
 						blockNum := report.Raw.BlockNumber
 						header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 						if err != nil {
-							errChan <- err
+							lggr.Errorw("error getting header by number")
 						}
 						data := messageData{
 							eventType: committed,
@@ -259,7 +254,6 @@ func subscribeCommitEvents(
 				"destChain", chainSelector,
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange)
-			errChan <- errors.New("timed out waiting for commit report")
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
@@ -318,11 +312,11 @@ func subscribeExecutionEvents(
 	chainSelector uint64,
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
-	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 ) {
 	defer wg.Done()
+	defer close(finalSeqNrs)
 
 	lggr.Infow("starting execution event subscriber for ",
 		"destChain", chainSelector,
@@ -352,7 +346,6 @@ func subscribeExecutionEvents(
 		case subErr := <-subscription.Err():
 			lggr.Errorw("error in execution subscription",
 				"err", subErr)
-			errChan <- subErr
 			return
 		case event := <-sink:
 			lggr.Debugw("received execution event for",
@@ -364,7 +357,7 @@ func subscribeExecutionEvents(
 			blockNum := event.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
-				errChan <- err
+				lggr.Errorw("error getting header by number")
 			}
 			data := messageData{
 				eventType: executed,
@@ -385,7 +378,6 @@ func subscribeExecutionEvents(
 				"expectedSeqNumbers", expectedRange,
 				"seenMessages", seenMessages,
 				"completedSrcChains", completedSrcChains)
-			errChan <- errors.New("timed out waiting for execution event")
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:
