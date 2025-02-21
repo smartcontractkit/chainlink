@@ -78,7 +78,7 @@ func (i DeployUSDCTokenPoolInput) Validate(ctx context.Context, chain deployment
 // DeployUSDCTokenPoolContractsConfig defines the USDC token pool contracts that need to be deployed on each chain.
 type DeployUSDCTokenPoolContractsConfig struct {
 	// USDCPools defines the per-chain configuration of each new USDC pool.
-	USDCPools map[uint64]DeployUSDCTokenPoolInput
+	USDCPools    map[uint64]DeployUSDCTokenPoolInput
 	IsTestRouter bool
 }
 
@@ -128,7 +128,6 @@ func DeployUSDCTokenPoolContractsChangeset(env deployment.Environment, c DeployU
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-
 
 	for chainSelector, poolConfig := range c.USDCPools {
 		chain := env.Chains[chainSelector]
