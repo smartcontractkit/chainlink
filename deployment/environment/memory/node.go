@@ -583,6 +583,12 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 
+	// CCIP requires a non-zero execution fee estimate
+	computeUnitPriceDefault := uint64(100)
+	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
+	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
+	chainConfig.TxRetentionTimeout = txRetentionTimeout
+
 	url, err := config.ParseURL(chain.URL)
 	if err != nil {
 		panic(err)
