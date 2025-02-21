@@ -1798,7 +1798,7 @@ func testSetup(
 	t testing.TB,
 	params testSetupParams,
 ) *testSetupData {
-	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(params.Auth, params.SimulatedBackend.Client()) // This contract is deployed on which chain? Looks like the
+	address, _, _, err := ccip_reader_tester.DeployCCIPReaderTester(params.Auth, params.SimulatedBackend.Client())
 	assert.NoError(t, err)
 	params.SimulatedBackend.Commit()
 
