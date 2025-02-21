@@ -1046,13 +1046,6 @@ func TestCCIPReader_DiscoverContract(t *testing.T) {
 	require.Equal(t, contractAddresses[consts.ContractNameNonceManager][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.NonceManager.Bytes()))
 	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
 
-	// print contract addresses
-	for contractName, chainToAddress := range contractAddresses {
-		for chain, addr := range chainToAddress {
-			t.Logf("Contract %s address before sync on chain %d: %s", contractName, chain, addr.String())
-		}
-	}
-
 	// Now Sync the CCIP Reader's S1 chain contract reader with OnRamp binding
 	onRampContractMapping := make(ccipreaderpkg.ContractAddresses)
 	onRampContractMapping[consts.ContractNameOnRamp] = make(map[cciptypes.ChainSelector]cciptypes.UnknownAddress)
