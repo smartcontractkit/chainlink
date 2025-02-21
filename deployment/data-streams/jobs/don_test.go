@@ -5,8 +5,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 const donSpecTOML1 = `name = 'Test-DON'
