@@ -15,7 +15,7 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // creating potential merge conflicts.
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
-	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250211210516-c98bb1ee1bd8
+	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250221184958-34c2d51a64bc
 	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
@@ -28,7 +28,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250220215921-f69bcbaa0051
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250221121938-dd0db587bff4
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.0
