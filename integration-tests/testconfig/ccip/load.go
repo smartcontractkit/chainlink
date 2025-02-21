@@ -11,12 +11,20 @@ import (
 
 type LoadConfig struct {
 	LoadDuration         *string
+	ChaosMode            int
+	RPCLatency           *string
+	RPCJitter            *string
 	MessageTypeWeights   *[]int
 	RequestFrequency     *string
 	CribEnvDirectory     *string
 	NumDestinationChains *int
 	TimeoutDuration      *string
 }
+
+const (
+	ChaosModeTypeRPCLatency = iota
+	ChaosModeTypeFull
+)
 
 func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	_, err := time.ParseDuration(*l.LoadDuration)
@@ -37,6 +45,16 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {
 	ld, _ := time.ParseDuration(*l.LoadDuration)
+	return ld
+}
+
+func (l *LoadConfig) GetRPCLatency() time.Duration {
+	ld, _ := time.ParseDuration(*l.RPCLatency)
+	return ld
+}
+
+func (l *LoadConfig) GetRPCJitter() time.Duration {
+	ld, _ := time.ParseDuration(*l.RPCJitter)
 	return ld
 }
 

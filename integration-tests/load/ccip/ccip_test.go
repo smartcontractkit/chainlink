@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"context"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"math/big"
 	"sync"
 	"testing"
@@ -78,7 +79,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	defer close(errChan)
 	finalSeqNrCommitChannels := make(map[uint64]chan finalSeqNrReport)
 	finalSeqNrExecChannels := make(map[uint64]chan finalSeqNrReport)
-
 	mm := NewMetricsManager(t, env.Logger)
 	go mm.Start(ctx)
 	defer mm.Stop()
@@ -186,6 +186,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			LokiConfig: wasp.NewEnvLokiConfig(),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
+	}
+
+	switch config.CCIP.Load.ChaosMode {
+	case ccip.ChaosModeTypeRPCLatency:
+		go runRealisticRPCLatencySuite(t, config.CCIP.Load.GetRPCLatency(), config.CCIP.Load.GetRPCJitter())
+	case ccip.ChaosModeTypeFull:
+		go runFullChaosSuite(t)
 	}
 
 	_, err = p.Run(true)
