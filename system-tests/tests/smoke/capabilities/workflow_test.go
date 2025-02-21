@@ -785,9 +785,6 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 		return !hasNextPrice
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
-	testLogger.Error().Msg("failing on purpose")
-	t.FailNow()
-
 	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
