@@ -47,7 +47,7 @@ func (cs ContractSet) getOCR3Contract(addr *common.Address) (*ocr3_capability.OC
 	return getOCR3Contract(cs.OCR3, addr)
 }
 
-func getContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
+func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContractSetsResponse, error) {
 	resp := &GetContractSetsResponse{
 		ContractSets: make(map[uint64]ContractSet),
 	}

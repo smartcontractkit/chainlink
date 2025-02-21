@@ -258,7 +258,7 @@ type RegisteredDonConfig struct {
 
 func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*RegisteredDon, error) {
 	// load the don info from the capabilities registry
-	r, err := getContractSets(env.Logger, &GetContractSetsRequest{
+	r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
