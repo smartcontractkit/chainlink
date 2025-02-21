@@ -66,10 +66,6 @@ func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
 	}
 }
 
-func (mm *MetricManager) Stop() {
-	close(mm.InputChan)
-}
-
 func (mm *MetricManager) Start(ctx context.Context) {
 	for {
 		select {
@@ -99,7 +95,6 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				})
 			}
 			close(mm.InputChan)
-			mm.loki.Stop()
 			return
 		case data := <-mm.InputChan:
 			if _, ok := mm.state[data.srcDstSeqNum]; !ok {
@@ -108,6 +103,20 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				}
 			}
 
+			if data.seqNum == 0 {
+				// seqNum of 0 indicates an error. Push nil values to loki
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
+				if err != nil {
+					mm.lggr.Error("error setting loki labels", "error", err)
+				}
+				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   data.timestamp,
+					ExecDuration:   0,
+					CommitDuration: 0,
+					SequenceNumber: 0,
+				})
+				continue
+			}
 			state := mm.state[data.srcDstSeqNum]
 			state.timestamps[data.eventType] = data.timestamp
 			if data.eventType == transmitted && data.round != -1 {

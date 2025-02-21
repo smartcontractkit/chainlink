@@ -38,7 +38,7 @@ const (
 	transmitted = iota
 	committed
 	executed
-	tickerDuration      = 3 * time.Minute
+	tickerDuration      = 30 * time.Second
 	SubscriptionTimeout = 1 * time.Minute
 )
 
@@ -93,6 +93,21 @@ func subscribeTransmitEvents(
 	defer subscription.Unsubscribe()
 
 	endChannel := make(chan struct{})
+	// wait for load to finish + timeout duration to allow any stragglers to
+	go func() {
+		for {
+			select {
+			case <-loadFinished:
+				lggr.Infow("load finished, waiting before stopping transmit watcher",
+					"srcChain", srcChainSel)
+				go func() {
+					time.Sleep(tickerDuration)
+					close(endChannel)
+				}()
+				return
+			}
+		}
+	}()
 
 	for {
 		select {
@@ -139,17 +154,7 @@ func subscribeTransmitEvents(
 				"srcChain", srcChainSel)
 			errChan <- errors.New("timed out waiting for transmits")
 			return
-		case <-loadFinished:
-			lggr.Infow("load finished, waiting before stopping transmit watcher",
-				"srcChain", srcChainSel)
-			go func() {
-				time.Sleep(tickerDuration)
-				close(endChannel)
-			}()
 		case <-endChannel:
-			lggr.Infow("sending finalized seqNums and stopping transmit watcher",
-				"srcChain", srcChainSel)
-
 			for csPair, seqNums := range seqNums {
 				lggr.Debugw("pushing finalized sequence numbers for ",
 					"srcChainSelector", srcChainSel,

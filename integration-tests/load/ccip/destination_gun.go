@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/big"
 	"math/rand"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -122,8 +124,9 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			"err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
+	z := big.NewInt(0)
 	if msg.FeeToken == common.HexToAddress("0x0") {
-		acc.Value = fee
+		acc.Value = z
 		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
@@ -141,6 +144,20 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			"sourceChain", src,
 			"destchain", m.chainSelector,
 			"err", deployment.MaybeDataErr(err))
+
+		// in the event of an error, still push a metric
+		// sequence numbers start at 1 so using 0 as a sentinel value
+		data := messageData{
+			eventType: transmitted,
+			srcDstSeqNum: srcDstSeqNum{
+				src:    src,
+				dst:    m.chainSelector,
+				seqNum: 0,
+			},
+			timestamp: uint64(time.Now().Unix()),
+		}
+		m.metricPipe <- data
+
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 

@@ -35,13 +35,13 @@ var (
 const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
 // step 1: setup
-// Parse the test config, initialize CRIB with configurations defined
+// Parse the test config
 // step 2: subscribe
-// Create event subscribers on the offramp
+// Create event subscribers in src and dest
 // step 3: load
 // Use wasp to initiate load
 // step 4: teardown
-// Stop the chains, cleanup the environment
+// wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
 	// comment out when executing the test
 	// t.Skip("Skipping test as this test should not be auto triggered")
@@ -81,18 +81,38 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	mm := NewMetricsManager(t, env.Logger)
 	go mm.Start(ctx)
-	defer mm.Stop()
 
 	// gunMap holds a destinationGun for every enabled destination chain
 	gunMap := make(map[uint64]*DestinationGun)
 	p := wasp.NewProfile()
-	// Only create a destination gun if we have decided to send traffic to this chain
-	for ind := range *userOverrides.NumDestinationChains {
-		cs := env.AllChainSelectors()[ind]
+
+	// potential source chains need a subscription
+	for _, cs := range env.AllChainSelectors() {
 		latesthdr, err := env.Chains[cs].Client.HeaderByNumber(ctx, nil)
 		require.NoError(t, err)
 		block := latesthdr.Number.Uint64()
 		startBlocks[cs] = &block
+		other := env.AllChainSelectorsExcluding([]uint64{cs})
+		wg.Add(1)
+		go subscribeTransmitEvents(
+			ctx,
+			lggr,
+			state.Chains[cs].OnRamp,
+			other,
+			startBlocks[cs],
+			cs,
+			loadFinished,
+			env.Chains[cs].Client,
+			errChan,
+			&wg,
+			mm.InputChan,
+			finalSeqNrCommitChannels,
+			finalSeqNrExecChannels)
+	}
+
+	// confirmed dest chains need a subscription
+	for ind := range *userOverrides.NumDestinationChains {
+		cs := env.AllChainSelectors()[ind]
 
 		messageKeys := make(map[uint64]*bind.TransactOpts)
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
@@ -133,31 +153,16 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		otherChains := env.AllChainSelectorsExcluding([]uint64{cs})
 		finalSeqNrCommitChannels[cs] = make(chan finalSeqNrReport)
 		finalSeqNrExecChannels[cs] = make(chan finalSeqNrReport)
 
-		wg.Add(3)
-		go subscribeTransmitEvents(
-			ctx,
-			lggr,
-			state.Chains[cs].OnRamp,
-			otherChains,
-			&block,
-			cs,
-			loadFinished,
-			env.Chains[cs].Client,
-			errChan,
-			&wg,
-			mm.InputChan,
-			finalSeqNrCommitChannels,
-			finalSeqNrExecChannels)
+		wg.Add(2)
 		go subscribeCommitEvents(
 			ctx,
 			lggr,
 			state.Chains[cs].OffRamp,
-			otherChains,
-			&block,
+			other,
+			startBlocks[cs],
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrCommitChannels[cs],
@@ -168,8 +173,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			ctx,
 			lggr,
 			state.Chains[cs].OffRamp,
-			otherChains,
-			&block,
+			other,
+			startBlocks[cs],
 			cs,
 			env.Chains[cs].Client,
 			finalSeqNrExecChannels[cs],
@@ -212,7 +217,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		testTimer := time.NewTimer(timeout)
 		go func() {
 			<-testTimer.C
-			mm.Stop()
 			cancel()
 		}()
 	}
