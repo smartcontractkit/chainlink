@@ -7,7 +7,7 @@
 <br/>
 
 [![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/smartcontractkit/chainlink?style=flat-square)](https://hub.docker.com/r/smartcontract/chainlink/tags)
-[![GitHub license](https://img.shields.io/github/license/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
+[![GitHub license](https://img.shields.io/badge/License-MIT-green.svg)](https://github.com/smartcontractkit/chainlink/blob/master/LICENSE)
 [![GitHub workflow changeset](https://img.shields.io/github/actions/workflow/status/smartcontractkit/chainlink/changeset.yml)](https://github.com/smartcontractkit/chainlink/actions/workflows/changeset.yml?query=workflow%3AChangeset)
 [![GitHub contributors](https://img.shields.io/github/contributors-anon/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/graphs/contributors)
 [![GitHub commit activity](https://img.shields.io/github/commit-activity/y/smartcontractkit/chainlink?style=flat-square)](https://github.com/smartcontractkit/chainlink/commits/master)
