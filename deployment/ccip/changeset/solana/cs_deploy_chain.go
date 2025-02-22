@@ -90,13 +90,11 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	if cfg.MCMS == nil {
 		return errors.New("MCMS config must be set for upgrades")
 	}
-	if cfg.NewFeeQuoterVersion != nil || cfg.NewRouterVersion != nil {
-		if cfg.SpillAddress.IsZero() {
-			return errors.New("spill address must be set for fee quoter and router upgrades")
-		}
-		if cfg.UpgradeAuthority.IsZero() {
-			return errors.New("upgrade authority must be set for fee quoter and router upgrades")
-		}
+	if cfg.SpillAddress.IsZero() {
+		return errors.New("spill address must be set for fee quoter and router upgrades")
+	}
+	if cfg.UpgradeAuthority.IsZero() {
+		return errors.New("upgrade authority must be set for fee quoter and router upgrades")
 	}
 	return ValidateMCMSConfig(e, chainSelector, cfg.MCMS)
 }
@@ -487,7 +485,7 @@ func deployChainContractsSolana(
 			offRampBillingSignerPDA,
 			fqAllowedPriceUpdaterOfframpPDA,
 			feeQuoterConfigPDA,
-			chain.DeployerKey.PublicKey(),
+			config.UpgradeConfig.UpgradeAuthority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
