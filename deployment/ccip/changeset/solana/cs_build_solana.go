@@ -115,7 +115,7 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 
 		// Replace declare_id!("..."); with the new key
 		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
-		err = os.WriteFile(fullPath, []byte(updatedContent), 0644)
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
 		}
