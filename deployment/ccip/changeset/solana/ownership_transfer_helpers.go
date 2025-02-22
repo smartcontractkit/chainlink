@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -83,7 +83,7 @@ func transferAndWrapAcceptOwnership(
 
 // transferOwnershipRouter transfers ownership of the router to the timelock.
 func transferOwnershipRouter(
-	ccipState changeset.CCIPOnChainState,
+	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -130,7 +130,7 @@ func transferOwnershipRouter(
 		routerConfigPDA,   // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		changeset.Router,
+		state2.Router,
 	)
 
 	if err != nil {
@@ -143,7 +143,7 @@ func transferOwnershipRouter(
 
 // transferOwnershipFeeQuoter transfers ownership of the fee quoter to the timelock.
 func transferOwnershipFeeQuoter(
-	ccipState changeset.CCIPOnChainState,
+	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -190,7 +190,7 @@ func transferOwnershipFeeQuoter(
 		feeQuoterConfigPDA, // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		changeset.FeeQuoter,
+		state2.FeeQuoter,
 	)
 
 	if err != nil {
@@ -203,7 +203,7 @@ func transferOwnershipFeeQuoter(
 
 // transferOwnershipOffRamp transfers ownership of the offRamp to the timelock.
 func transferOwnershipOffRamp(
-	ccipState changeset.CCIPOnChainState,
+	ccipState state2.CCIPOnChainState,
 	chainSelector uint64,
 	solChain deployment.SolChain,
 	timelockProgramID solana.PublicKey,
@@ -250,7 +250,7 @@ func transferOwnershipOffRamp(
 		offRampConfigPDA,  // config PDA
 		solChain.DeployerKey.PublicKey(),
 		solChain,
-		changeset.OffRamp,
+		state2.OffRamp,
 	)
 
 	if err != nil {

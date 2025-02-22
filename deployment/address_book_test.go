@@ -244,7 +244,7 @@ func TestAddressBook_ConcurrencyAndDeadlock(t *testing.T) {
 	wg.Wait()
 }
 
-func TestAddressesContainBundle(t *testing.T) {
+func Test_EnsureDeduped(t *testing.T) {
 	t.Parallel()
 
 	// Define some TypeAndVersion values
@@ -336,7 +336,7 @@ func TestAddressesContainBundle(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			gotResult, gotErr := AddressesContainBundle(tt.addrs, tt.wantTypes)
+			gotResult, gotErr := EnsureDeduped(tt.addrs, tt.wantTypes)
 
 			if tt.wantErr {
 				require.Error(t, gotErr, "expected an error but got none")
@@ -487,6 +487,59 @@ func TestTypeAndVersion_AddLabels(t *testing.T) {
 			for _, md := range tt.wantContains {
 				require.True(t, tv.Labels.Contains(md),
 					"expected labels %q was not found in tv.Labels", md)
+			}
+		})
+	}
+}
+
+func Test_toTypeAndVersionMap(t *testing.T) {
+	v100 := semver.MustParse("1.0.0")
+
+	tests := []struct {
+		name  string
+		addrs map[string]TypeAndVersion
+		want  map[typeVersionKey][]string
+	}{
+		{
+			name: "OK_single entry",
+			addrs: map[string]TypeAndVersion{
+				"addr1": {Type: "type1", Version: *v100},
+			},
+			want: map[typeVersionKey][]string{
+				{Type: "type1", Version: "1.0.0", Labels: ""}: {"addr1"},
+			},
+		},
+		{
+			name: "OK_multiple entries same type no labels",
+			addrs: map[string]TypeAndVersion{
+				"addr1": {Type: "type1", Version: *v100},
+				"addr2": {Type: "type1", Version: *v100},
+			},
+			want: map[typeVersionKey][]string{
+				{Type: "type1", Version: "1.0.0", Labels: ""}: {"addr1", "addr2"},
+			},
+		},
+		{
+			name: "OK_multiple entries same type with labels",
+			addrs: map[string]TypeAndVersion{
+				"addr1": {Type: "type1", Version: *v100, Labels: NewLabelSet("test")},
+				"addr2": {Type: "type1", Version: *v100},
+			},
+			want: map[typeVersionKey][]string{
+				{Type: "type1", Version: "1.0.0", Labels: "test"}: {"addr1"},
+				{Type: "type1", Version: "1.0.0", Labels: ""}:     {"addr2"},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := toTypeAndVersionMap(tt.addrs)
+			require.Equal(t, len(tt.want), len(got))
+			for k, gotAddresses := range got {
+				wantAddresses, ok := tt.want[k]
+				require.True(t, ok)
+				require.ElementsMatch(t, wantAddresses, gotAddresses)
 			}
 		})
 	}

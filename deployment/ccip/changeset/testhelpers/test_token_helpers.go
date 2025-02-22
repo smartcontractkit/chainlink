@@ -10,8 +10,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -27,8 +29,8 @@ const (
 )
 
 // CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
-func CreateSymmetricRateLimits(rate int64, capacity int64) changeset.RateLimiterConfig {
-	return changeset.RateLimiterConfig{
+func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
+	return v1_5_1.RateLimiterConfig{
 		Inbound: token_pool.RateLimiterConfig{
 			IsEnabled: rate != 0 || capacity != 0,
 			Rate:      big.NewInt(rate),
@@ -157,15 +159,15 @@ func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts 
 func DeployTestTokenPools(
 	t *testing.T,
 	e deployment.Environment,
-	newPools map[uint64]changeset.DeployTokenPoolInput,
+	newPools map[uint64]v1_5_1.DeployTokenPoolInput,
 	transferToTimelock bool,
 ) deployment.Environment {
 	selectors := e.AllChainSelectors()
 
 	e, err := commonchangeset.Apply(t, e, nil,
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			changeset.DeployTokenPoolContractsConfig{
+			deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,
 				NewPools:    newPools,
 			},
