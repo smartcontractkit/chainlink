@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"math/big"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -153,22 +152,22 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chain) (ForwarderView, error) {
 	ctx := context.Background()
 	// Get the block number where the contract was deployed, so we can filter events from that block.
-	var deploymentBlockNumber uint64
-	for blockNumber := uint64(0); ; blockNumber++ {
-		code, err := chain.Client.CodeAt(ctx, f.Address(), new(big.Int).SetUint64(blockNumber))
-		if err != nil {
-			return ForwarderView{}, err
-		}
-		if len(code) > 0 {
-			deploymentBlockNumber = blockNumber
-			break
-		}
-	}
+	//var deploymentBlockNumber uint64
+	//for blockNumber := uint64(0); ; blockNumber++ {
+	//	code, err := chain.Client.CodeAt(ctx, f.Address(), new(big.Int).SetUint64(blockNumber))
+	//	if err != nil {
+	//		return ForwarderView{}, err
+	//	}
+	//	if len(code) > 0 {
+	//		deploymentBlockNumber = blockNumber
+	//		break
+	//	}
+	//}
 
 	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
 		// We could've just called `FilterConfigSet()` without specifying the start block,
 		// but it appears to be less efficient as it fetches all the events from the contract.
-		Start:   deploymentBlockNumber,
+		Start:   0,
 		End:     nil,
 		Context: ctx,
 	}, nil, nil)
