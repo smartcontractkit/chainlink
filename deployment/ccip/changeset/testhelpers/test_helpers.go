@@ -1618,7 +1618,6 @@ func TransferOwnershipSolana(
 	solChain uint64,
 	needTimelockDeployed bool,
 	transferRouter, transferFeeQuoter, transferOffRamp bool) (solana.PublicKey, solana.PublicKey) {
-
 	var err error
 	if needTimelockDeployed {
 		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{

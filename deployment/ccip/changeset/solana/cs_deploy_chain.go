@@ -369,7 +369,7 @@ func deployChainContractsSolana(
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		feeQuoterAddress = chainState.FeeQuoter
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, *&config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, cs.FeeQuoter)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, cs.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -392,7 +392,7 @@ func deployChainContractsSolana(
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		ccipRouterProgram = chainState.Router
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, *&config.UpgradeConfig.NewRouterVersion, chainState.Router, cs.Router)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, cs.Router)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
