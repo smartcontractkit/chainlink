@@ -118,7 +118,7 @@ func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal
 		_, err := chainsel.SolanaChainIdFromSelector(chainSelector)
 		require.NoError(t, err)
 		chainSel := mcmstypes.ChainSelector(chainSelector)
-		converters[chainSel] = mcmssolanasdk.NewTimelockConverter(chain.Client)
+		converters[chainSel] = mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
 

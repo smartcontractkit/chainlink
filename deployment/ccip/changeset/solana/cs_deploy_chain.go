@@ -136,7 +136,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 
 	if config.UpgradeConfig.MCMS != nil {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelocks,
 			proposers,
 			inspectors,

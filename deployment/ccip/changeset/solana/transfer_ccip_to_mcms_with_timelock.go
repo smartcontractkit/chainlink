@@ -139,6 +139,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
+	//additionalFieldsMetadata := map[uint64]json.RawMessage{}
 	for chainSelector, contractsToTransfer := range cfg.ContractsByChain {
 		solChain := e.SolChains[chainSelector]
 		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
@@ -148,6 +149,11 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			mcmState.TimelockProgram,
 			mcmsSolana.PDASeed(mcmState.TimelockSeed),
 		)
+		//additionalFieldsMetadata[solChain.Selector], err = json.Marshal(mcmsSolana.AdditionalFieldsMetadata{
+		//	ProposerRoleAccessController:  mcmState.ProposerAccessControllerAccount,
+		//	CancellerRoleAccessController: mcmState.CancellerAccessControllerAccount,
+		//	BypasserRoleAccessController:  mcmState.BypasserAccessControllerAccount,
+		//})
 		proposers[solChain.Selector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[solChain.Selector] = mcmsSolana.NewInspector(solChain.Client)
 		if contractsToTransfer.Router {
@@ -203,7 +209,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,

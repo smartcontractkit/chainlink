@@ -436,7 +436,7 @@ func PromoteCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -685,7 +685,7 @@ func AddDonAndSetCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -874,7 +874,7 @@ func SetCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1162,7 +1162,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1368,7 +1368,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,

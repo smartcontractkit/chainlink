@@ -1,19 +1,24 @@
 package proposalutils
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
 	"github.com/smartcontractkit/mcms/sdk"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 const (
@@ -94,10 +99,11 @@ func BuildProposalFromBatches(
 
 // BuildProposalFromBatchesV2 uses the new MCMS library which replaces the implementation in BuildProposalFromBatches.
 func BuildProposalFromBatchesV2(
-	ctx context.Context,
+	e deployment.Environment,
 	timelockAddressPerChain map[uint64]string,
 	proposerAddressPerChain map[uint64]string,
 	inspectorPerChain map[uint64]sdk.Inspector,
+
 	batches []types.BatchOperation,
 	description string,
 	minDelay time.Duration,
@@ -110,17 +116,15 @@ func BuildProposalFromBatchesV2(
 	for _, op := range batches {
 		chains.Add(uint64(op.ChainSelector))
 	}
-
-	mcmsMd, err := buildProposalMetadataV2(ctx, chains.ToSlice(),
-		inspectorPerChain, proposerAddressPerChain)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsPerChainID := make(map[types.ChainSelector]string)
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, proposerAddressPerChain)
+	if err != nil {
+		return nil, err
+	}
+
 	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
 
 	builder := mcmslib.NewTimelockProposalBuilder()
@@ -142,9 +146,20 @@ func BuildProposalFromBatchesV2(
 	}
 	return build, nil
 }
-
+func getSolAccessControllerFromAddress(addresses map[string]deployment.TypeAndVersion, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
+	for addr, tv := range addresses {
+		if tv.Type == tv.Type && tv.Version == tv.Version {
+			pubkey, err := solana.PublicKeyFromBase58(addr)
+			if err != nil {
+				return solana.PublicKey{}, fmt.Errorf("failed to parse address: %w", err)
+			}
+			return pubkey, nil
+		}
+	}
+	return solana.PublicKey{}, fmt.Errorf("address not found")
+}
 func buildProposalMetadataV2(
-	ctx context.Context,
+	env deployment.Environment,
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]sdk.Inspector,
 	proposerMcmsesPerChain map[uint64]string,
@@ -156,14 +171,56 @@ func buildProposalMetadataV2(
 			return nil, fmt.Errorf("missing proposer mcm for chain %d", selector)
 		}
 		chainID := types.ChainSelector(selector)
-		opCount, err := inspectorPerChain[selector].GetOpCount(ctx, proposerMcms)
+		opCount, err := inspectorPerChain[selector].GetOpCount(env.GetContext(), proposerMcms)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get op count for chain %d: %w", selector, err)
 		}
-		metaDataPerChain[chainID] = types.ChainMetadata{
-			StartingOpCount: opCount,
-			MCMAddress:      proposerMcms,
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get family for chain %d: %w", selector, err)
 		}
+		switch family {
+		case chain_selectors.FamilyEVM:
+			metaDataPerChain[chainID] = types.ChainMetadata{
+				StartingOpCount: opCount,
+				MCMAddress:      proposerMcms,
+			}
+		case chain_selectors.FamilySolana:
+			mcmsProgramID, mcmSeed, err := mcmssolanasdk.ParseContractAddress(proposerMcms)
+			if err != nil {
+				return nil, fmt.Errorf("failed to parse solana contract address: %w", err)
+			}
+			// Get access controller from state
+			addresses, err := env.ExistingAddresses.AddressesForChain(selector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
+			}
+			proposerAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.ProposerAccessControllerAccount, deployment.Version1_0_0))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get proposer access controller: %w", err)
+			}
+			cancellerAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.CancellerAccessControllerAccount, deployment.Version1_0_0))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get canceller access controller: %w", err)
+			}
+			bypasserAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.BypasserAccessControllerAccount, deployment.Version1_0_0))
+			if err != nil {
+				return nil, fmt.Errorf("failed to get bypasser access controller: %w", err)
+			}
+			metadata, err := mcmssolanasdk.NewChainMetadata(
+				opCount,
+				mcmsProgramID,
+				mcmSeed,
+				proposerAC,
+				cancellerAC,
+				bypasserAC)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
+			}
+			metaDataPerChain[chainID] = metadata
+
+		}
+
 	}
 	return metaDataPerChain, nil
 }
