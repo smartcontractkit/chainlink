@@ -12,9 +12,14 @@ import (
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -236,4 +241,59 @@ func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deploy
 		}
 	}
 	return solana.PublicKey{}
+}
+
+func ValidateOwnershipSolana(
+	e *deployment.Environment,
+	chain deployment.SolChain,
+	mcms bool,
+	deployerKey solana.PublicKey,
+	programID solana.PublicKey,
+	contractType deployment.ContractType,
+) error {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	config, _, err := solState.FindConfigPDA(programID)
+	if err != nil {
+		return fmt.Errorf("failed to find config PDA: %w", err)
+	}
+	switch contractType {
+	case Router:
+		programData := ccip_router.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for router: %w", err)
+		}
+	case OffRamp:
+		programData := ccip_offramp.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for offramp: %w", err)
+		}
+	case FeeQuoter:
+		programData := fee_quoter.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported contract type: %s", contractType)
+	}
+	return nil
 }

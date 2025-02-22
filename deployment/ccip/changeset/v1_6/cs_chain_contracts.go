@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -1422,24 +1421,12 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 	}
 	switch family {
 	case chain_selectors.FamilySolana:
-		chain, ok := e.SolChains[chainSelector]
-		if !ok {
-			return fmt.Errorf("chain %d not found in environment", chainSelector)
-		}
 		chainState, ok := state.SolChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return err
-		}
-		mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-		if err != nil {
-			return fmt.Errorf("error loading MCMS state for chain %d: %w", chainSelector, err)
-		}
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), mcmState.TimelockProgram, mcmState.TimelockSeed, chainState.Router); err != nil {
-			return err
+		if chainState.OffRamp.IsZero() {
+			return fmt.Errorf("missing OffRamp for chain %d", chainSelector)
 		}
 	case chain_selectors.FamilyEVM:
 		chainState, ok := state.Chains[chainSelector]
