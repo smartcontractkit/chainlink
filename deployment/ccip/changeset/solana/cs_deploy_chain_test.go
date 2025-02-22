@@ -1,7 +1,6 @@
 package solana_test
 
 import (
-	"math/big"
 	"os"
 	"testing"
 	"time"
@@ -22,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -118,68 +116,32 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]commontypes.MCMSWithTimelockConfigV2{
-				solChainSelectors[0]: {
-					Canceller:        proposalutils.SingleGroupMCMSV2(t),
-					Proposer:         proposalutils.SingleGroupMCMSV2(t),
-					Bypasser:         proposalutils.SingleGroupMCMSV2(t),
-					TimelockMinDelay: big.NewInt(0),
+			deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
+			cs_solana.DeployChainContractsConfigSolana{
+				DeployChainContractsConfig: v1_6.DeployChainContractsConfig{
+					HomeChainSelector: homeChainSel,
+					ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
+						solChainSelectors[0]: {
+							FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+							OffRampParams:   v1_6.DefaultOffRampParams(),
+						},
+					},
 				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(cs_solana.SetFeeAggregator),
+			cs_solana.SetFeeAggregatorConfig{
+				ChainSelector: solChainSelectors[0],
+				FeeAggregator: feeAggregatorPubKey.String(),
 			},
 		),
 	})
 	require.NoError(t, err)
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
-	require.NoError(t, err)
-	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
-	require.NoError(t, err)
-
-	// Fund signer PDAs for timelock and mcm
-	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA := commonState.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA := commonState.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
-		100, e.SolChains[solChainSelectors[0]].Client)
-	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
-	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true)
 	upgradeAuthority := timelockSignerPDA
 
-	deployCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
-		cs_solana.DeployChainContractsConfigSolana{
-			DeployChainContractsConfig: v1_6.DeployChainContractsConfig{
-				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]v1_6.ChainContractParams{
-					solChainSelectors[0]: {
-						FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-						OffRampParams:   v1_6.DefaultOffRampParams(),
-					},
-				},
-			},
-		},
-	)
-	// set the fee aggregator address
-	feeAggregatorCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(cs_solana.SetFeeAggregator),
-		cs_solana.SetFeeAggregatorConfig{
-			ChainSelector: solChainSelectors[0],
-			FeeAggregator: feeAggregatorPubKey.String(),
-		},
-	)
-	transferOwnershipCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(cs_solana.TransferCCIPToMCMSWithTimelockSolana),
-		cs_solana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-			MinDelay: 1 * time.Second,
-			ContractsByChain: map[uint64]cs_solana.CCIPContractsToTransfer{
-				solChainSelectors[0]: {
-					Router:    true,
-					FeeQuoter: true,
-					OffRamp:   true,
-				},
-			},
-		},
-	)
 	// make sure idempotency works and setting the upgrade authority
 	upgradeAuthorityCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
@@ -244,10 +206,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	)
 	if ci {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			deployCs,
-			feeAggregatorCs,
 			upgradeAuthorityCs,
-			transferOwnershipCs,
 			buildCs,
 			upgradeCs,
 		})
@@ -268,17 +227,14 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 	} else {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			deployCs,
-			feeAggregatorCs,
 			upgradeAuthorityCs,
 			upgradeCs,
-			transferOwnershipCs,
 		})
 		require.NoError(t, err)
 	}
 	// Verify router and fee quoter upgraded in place
 	// and offramp had 2nd address added
-	addresses, err = e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	numRouters := 0
 	numFeeQuoters := 0
