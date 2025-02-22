@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
 	"time"
 
@@ -151,28 +152,18 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 
 func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chain) (ForwarderView, error) {
 	ctx := context.Background()
-	// Get the block number where the contract was deployed, so we can filter events from that block.
-	//var deploymentBlockNumber uint64
-	//for blockNumber := uint64(0); ; blockNumber++ {
-	//	code, err := chain.Client.CodeAt(ctx, f.Address(), new(big.Int).SetUint64(blockNumber))
-	//	if err != nil {
-	//		return ForwarderView{}, err
-	//	}
-	//	if len(code) > 0 {
-	//		deploymentBlockNumber = blockNumber
-	//		break
-	//	}
-	//}
-
+	// This could be effectively done with 2 other approaches:
+	// 1. Fetching the transaction receipt of the contract deployment, getting the deployment block number,
+	//    and extracting the config from the logs, but we don't have access to the transaction hash needed for this.
+	// 2. Using `CodeAt()` to find the block number in which the contract was created, and use that.
+	//    We would have to go from block number 0 to find it, which in the end is similar what's done here.
 	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
-		// We could've just called `FilterConfigSet()` without specifying the start block,
-		// but it appears to be less efficient as it fetches all the events from the contract.
-		Start:   1,
+		Start:   0,
 		End:     nil,
 		Context: ctx,
 	}, nil, nil)
 	if err != nil {
-		return ForwarderView{}, err
+		return ForwarderView{}, fmt.Errorf("error filtering ConfigSet events: %w", err)
 	}
 
 	var configSet *forwarder.KeystoneForwarderConfigSet
