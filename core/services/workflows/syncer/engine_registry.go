@@ -70,11 +70,15 @@ func (r *EngineRegistry) Close() error {
 	defer r.mu.Unlock()
 	var err error
 	for id, engine := range r.engines {
-		closeErr := engine.Close()
-		if closeErr != nil {
-			err = errors.Join(err, closeErr)
-		}
+		err = errors.Join(err, engine.Close())
 		delete(r.engines, id)
 	}
 	return err
+}
+
+func (r *EngineRegistry) Size() int {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return len(r.engines)
 }

@@ -169,6 +169,7 @@ type eventHandler struct {
 	workflowStore            store.Store
 	capRegistry              core.CapabilitiesRegistry
 	engineRegistry           *EngineRegistry
+	metrics                  workflowRegistryMetricsLabeler
 	emitter                  custmsg.MessageEmitter
 	lastFetchedAtMap         *lastFetchedAtMap
 	clock                    clockwork.Clock
@@ -216,6 +217,12 @@ func NewEventHandler(
 	ratelimiter *ratelimiter.RateLimiter,
 	opts ...func(*eventHandler),
 ) *eventHandler {
+
+	m, err := initMonitoringResources()
+	if err != nil {
+		lggr.Fatalw("Failed to initialize monitoring resources", "err", err)
+	}
+
 	eh := &eventHandler{
 		lggr:                     lggr,
 		orm:                      orm,
@@ -223,6 +230,7 @@ func NewEventHandler(
 		capRegistry:              capRegistry,
 		fetchFn:                  fetchFn,
 		engineRegistry:           NewEngineRegistry(),
+		metrics:                  newWorkflowRegistryMetricsLabeler(m),
 		emitter:                  emitter,
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,
@@ -326,11 +334,17 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
 		)
 
+		metrics := h.metrics.with(
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
+		)
+
 		if _, err := h.forceUpdateSecretsEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle force update secrets event: %v", err), h.lggr)
 			return err
 		}
 
+		metrics.incrementForceUpdateSecretsCounter(ctx)
 		h.lggr.Debugw("handled force update secrets events for URL hash", "urlHash", payload.SecretsURLHash)
 		return nil
 	case WorkflowRegisteredEvent:
@@ -346,11 +360,21 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
+		metrics := h.metrics.with(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
 		if err := h.workflowRegisteredEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow registered event: %v", err), h.lggr)
 			return err
 		}
 
+		metrics.incrementRegisterCounter(ctx)
+
+		// intentionally without workflow specific labels
+		h.metrics.updateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow registration event", "workflowID", wfID)
 		return nil
 	case WorkflowUpdatedEvent:
@@ -366,11 +390,18 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
+		metrics := h.metrics.with(
+			platform.KeyWorkflowID, newWorkflowID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
 		if err := h.workflowUpdatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow updated event: %v", err), h.lggr)
 			return err
 		}
 
+		metrics.incrementUpdateCounter(ctx)
 		h.lggr.Debugw("handled workflow updated event", "workflowID", newWorkflowID)
 		return nil
 	case WorkflowPausedEvent:
@@ -387,10 +418,18 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
+		metrics := h.metrics.with(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
 		if err := h.workflowPausedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow paused event: %v", err), h.lggr)
 			return err
 		}
+
+		metrics.incrementPauseCounter(ctx)
 		h.lggr.Debugw("handled workflow paused event", "workflowID", wfID)
 		return nil
 	case WorkflowActivatedEvent:
@@ -406,11 +445,19 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
+
+		metrics := h.metrics.with(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
 		if err := h.workflowActivatedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow activated event: %v", err), h.lggr)
 			return err
 		}
 
+		metrics.incrementActivateCounter(ctx)
 		h.lggr.Debugw("handled workflow activated event", "workflowID", wfID)
 		return nil
 	case WorkflowDeletedEvent:
@@ -427,11 +474,20 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
+		metrics := h.metrics.with(
+			platform.KeyWorkflowID, wfID,
+			platform.KeyWorkflowName, payload.WorkflowName,
+			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
+		)
+
 		if err := h.workflowDeletedEvent(ctx, payload); err != nil {
 			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle workflow deleted event: %v", err), h.lggr)
 			return err
 		}
 
+		metrics.incrementDeleteCounter(ctx)
+		// intentionally without workflow specific labels
+		h.metrics.updateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow deleted event", "workflowID", wfID)
 		return nil
 	default:
