@@ -79,12 +79,16 @@ type UpgradeConfig struct {
 	// SpillAddress and UpgradeAuthority must be set
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
-	MCMS             *ccipChangeset.MCMSConfig
+	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
+	MCMS *ccipChangeset.MCMSConfig
 }
 
 func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
+	}
+	if cfg.MCMS == nil {
+		return errors.New("MCMS config must be set for upgrades")
 	}
 	if cfg.NewFeeQuoterVersion != nil || cfg.NewRouterVersion != nil {
 		if cfg.SpillAddress.IsZero() {
