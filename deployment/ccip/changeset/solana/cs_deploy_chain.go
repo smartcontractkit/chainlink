@@ -445,7 +445,7 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to build instruction: %w", err)
 		}
-		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), cs.OffRamp)
+		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), cs.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
 		}
