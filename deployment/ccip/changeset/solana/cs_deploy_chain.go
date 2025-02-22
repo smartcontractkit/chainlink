@@ -41,6 +41,16 @@ const (
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
+func getTypeToProgramDeployName() map[deployment.ContractType]string {
+	return map[deployment.ContractType]string{
+		ccipChangeset.Router:               RouterProgramName,
+		ccipChangeset.OffRamp:              OffRampProgramName,
+		ccipChangeset.FeeQuoter:            FeeQuoterProgramName,
+		ccipChangeset.BurnMintTokenPool:    BurnMintTokenPool,
+		ccipChangeset.LockReleaseTokenPool: LockReleaseTokenPool,
+	}
+}
+
 type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
 	ContractParamsPerChain map[uint64]ChainContractParams
@@ -395,7 +405,7 @@ func deployChainContractsSolana(
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
-		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, deployment.Version1_0_0, false)
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -418,7 +428,7 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
-		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, deployment.Version1_0_0, false)
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -446,7 +456,7 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_0_0, false)
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -459,7 +469,7 @@ func deployChainContractsSolana(
 		offRampAddress = ccipChangeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewOffRampVersion, false)
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false)
 			if err != nil {
 				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -560,7 +570,7 @@ func deployChainContractsSolana(
 
 	var burnMintTokenPool solana.PublicKey
 	if chainState.BurnMintTokenPool.IsZero() {
-		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, BurnMintTokenPool, deployment.Version1_0_0, false)
+		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -572,7 +582,7 @@ func deployChainContractsSolana(
 
 	var lockReleaseTokenPool solana.PublicKey
 	if chainState.LockReleaseTokenPool.IsZero() {
-		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, LockReleaseTokenPool, deployment.Version1_0_0, false)
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
@@ -660,7 +670,7 @@ func generateUpgradeTxns(
 	contractType deployment.ContractType,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
-	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *newVersion, true)
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true)
 	if err != nil {
 		return txns, fmt.Errorf("failed to deploy program: %w", err)
 	}
@@ -721,30 +731,20 @@ func DeployAndMaybeSaveToAddressBook(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
-	programName string,
+	contractType deployment.ContractType,
 	version semver.Version,
 	isUpgrade bool) (solana.PublicKey, error) {
+	programName := getTypeToProgramDeployName()[contractType]
 	programID, err := chain.DeployProgram(e.Logger, programName, isUpgrade)
 	if err != nil {
 		return solana.PublicKey{}, fmt.Errorf("failed to deploy program: %w", err)
 	}
 	address := solana.MustPublicKeyFromBase58(programID)
 
-	programNameToType := map[string]deployment.ContractType{
-		RouterProgramName:    ccipChangeset.Router,
-		OffRampProgramName:   ccipChangeset.OffRamp,
-		FeeQuoterProgramName: ccipChangeset.FeeQuoter,
-		BurnMintTokenPool:    ccipChangeset.BurnMintTokenPool,
-		LockReleaseTokenPool: ccipChangeset.LockReleaseTokenPool,
-	}
-	programType, ok := programNameToType[programName]
-	if !ok {
-		return solana.PublicKey{}, fmt.Errorf("unknown program name: %s", programName)
-	}
-	e.Logger.Infow("Deployed program", "Program", programType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
+	e.Logger.Infow("Deployed program", "Program", contractType, "addr", programID, "chain", chain.String(), "isUpgrade", isUpgrade)
 
 	if !isUpgrade {
-		tv := deployment.NewTypeAndVersion(programType, version)
+		tv := deployment.NewTypeAndVersion(contractType, version)
 		err = ab.Save(chain.Selector, programID, tv)
 		if err != nil {
 			return solana.PublicKey{}, fmt.Errorf("failed to save address: %w", err)
