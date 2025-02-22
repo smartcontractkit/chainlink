@@ -167,7 +167,7 @@ func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chai
 	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
 		// We could've just called `FilterConfigSet()` without specifying the start block,
 		// but it appears to be less efficient as it fetches all the events from the contract.
-		Start:   0,
+		Start:   1,
 		End:     nil,
 		Context: ctx,
 	}, nil, nil)
