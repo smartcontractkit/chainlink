@@ -60,11 +60,26 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 	ci := os.Getenv("CI") == "true"
+	// we can't upgrade in place locally so we have to change where we build
+	buildCs := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
+		ccipChangesetSolana.BuildSolanaConfig{
+			ChainSelector:       solChainSelectors[0],
+			GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+			CleanDestinationDir: true,
+		},
+	)
 	if ci {
 		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	} else {
+		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			buildCs,
+		})
+		require.NoError(t, err)
 	}
 
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
@@ -113,7 +128,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				},
 			},
 		),
-	)
+	})
 	require.NoError(t, err)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
@@ -130,16 +145,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	upgradeAuthority := timelockSignerPDA
 
-	// we can't upgrade in place locally so we have to change where we build
-	buildCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
-		ccipChangesetSolana.BuildSolanaConfig{
-			ChainSelector:       solChainSelectors[0],
-			GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
-			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-			CleanDestinationDir: true,
-		},
-	)
 	deployCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 		ccipChangesetSolana.DeployChainContractsConfig{
@@ -251,7 +256,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 	} else {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			buildCs,
 			deployCs,
 			feeAggregatorCs,
 			upgradeAuthorityCs,

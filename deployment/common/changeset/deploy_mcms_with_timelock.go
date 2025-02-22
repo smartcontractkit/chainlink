@@ -84,11 +84,11 @@ func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock com
 func ValidateOwnershipSolanaCommon(mcms bool, deployerKey solana.PublicKey, timelockSignerPDA solana.PublicKey, programOwner solana.PublicKey) error {
 	if !mcms {
 		if deployerKey.String() != programOwner.String() {
-			return fmt.Errorf("deployer key does not match owner")
+			return fmt.Errorf("deployer key %s does not match owner %s", deployerKey.String(), programOwner.String())
 		}
 	} else {
 		if timelockSignerPDA.String() != programOwner.String() {
-			return fmt.Errorf("timelock signer PDA does not match owner")
+			return fmt.Errorf("timelock signer PDA %s does not match owner %s", timelockSignerPDA.String(), programOwner.String())
 		}
 	}
 	return nil
