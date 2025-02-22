@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -446,22 +445,11 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to build instruction: %w", err)
 		}
-		priceUpdaterData, err := priceUpdaterix.Data()
-		if err != nil {
-			return txns, fmt.Errorf("failed to extract price updater data: %w", err)
-		}
-		priceUpdaterTx, err := mcmsSolana.NewTransaction(
-			feeQuoterAddress.String(),
-			priceUpdaterData,
-			big.NewInt(0),             // e.g. value
-			priceUpdaterix.Accounts(), // pass along needed accounts
-			string(cs.OffRamp),        // some string identifying the target
-			[]string{},                // any relevant metadata
-		)
+		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), cs.OffRamp)
 		if err != nil {
 			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
 		}
-		txns = append(txns, priceUpdaterTx)
+		txns = append(txns, *priceUpdaterTx)
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
