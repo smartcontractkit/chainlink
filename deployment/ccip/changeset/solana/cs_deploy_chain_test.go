@@ -234,6 +234,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 			UpgradeConfig: cs_solana.UpgradeConfigSolana{
 				NewOffRampVersion: &deployment.Version1_1_0,
+				MCMS: &cs.MCMSConfig{
+					MinDelay: 1 * time.Second,
+				},
 			},
 		},
 	)
@@ -268,8 +271,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			upgradeCs,
 			transferOwnershipCs,
 		})
+		require.NoError(t, err)
 	}
-	require.NoError(t, err)
 	// Verify router and fee quoter upgraded in place
 	// and offramp had 2nd address added
 	addresses, err = e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
