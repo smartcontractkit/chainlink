@@ -187,6 +187,19 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			NewUpgradeAuthority: &upgradeAuthority,
 		},
 	)
+	transferOwnershipCs := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(cs_solana.TransferCCIPToMCMSWithTimelockSolana),
+		cs_solana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+			MinDelay: 1 * time.Second,
+			ContractsByChain: map[uint64]cs_solana.CCIPContractsToTransfer{
+				solChainSelectors[0]: {
+					Router:    true,
+					FeeQuoter: true,
+					OffRamp:   true,
+				},
+			},
+		},
+	)
 	upgradeCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 		ccipChangesetSolana.DeployChainContractsConfig{
@@ -237,6 +250,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployCs,
 			feeAggregatorCs,
 			upgradeAuthorityCs,
+			transferOwnershipCs,
 		})
 		require.NoError(t, err)
 		state, err := ccipChangeset.LoadOnchainStateSolana(e)
@@ -260,6 +274,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			feeAggregatorCs,
 			upgradeAuthorityCs,
 			upgradeCs,
+			transferOwnershipCs,
 		})
 	}
 	require.NoError(t, err)
