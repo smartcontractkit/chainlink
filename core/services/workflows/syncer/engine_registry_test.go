@@ -142,11 +142,19 @@ func TestEngineRegistry_Close(t *testing.T) {
 }
 
 func TestEngineRegistry_Size(t *testing.T) {
+	// Set up multiple services to test aggregated errors
+	svc1 := &mockService{}
+	svc2 := &mockService{}
+
+	// We want to track Close calls and possibly return different errors
+	svc1.On("Close").Return(nil)
+	svc2.On("Close").Return(nil)
+
 	registry := syncer.NewEngineRegistry()
 	require.Equal(t, 0, registry.Size(), "initial registry should have size 0")
 
-	_ = registry.Add("id1", new(mockService))
-	_ = registry.Add("id2", new(mockService))
+	_ = registry.Add("id1", svc1)
+	_ = registry.Add("id2", svc2)
 	require.Equal(t, 2, registry.Size())
 
 	_, _ = registry.Pop("id1")
