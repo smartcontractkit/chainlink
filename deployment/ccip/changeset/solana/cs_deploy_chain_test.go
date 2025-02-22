@@ -234,6 +234,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			},
 			UpgradeConfig: cs_solana.UpgradeConfigSolana{
 				NewOffRampVersion: &deployment.Version1_1_0,
+				UpgradeAuthority:  upgradeAuthority,
+				SpillAddress:      upgradeAuthority,
 				MCMS: &cs.MCMSConfig{
 					MinDelay: 1 * time.Second,
 				},
@@ -246,15 +248,16 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			feeAggregatorCs,
 			upgradeAuthorityCs,
 			transferOwnershipCs,
+			buildCs,
+			upgradeCs,
 		})
 		require.NoError(t, err)
 		state, err := changeset.LoadOnchainStateSolana(e)
 		require.NoError(t, err)
+		testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 		oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
 		// add a second offramp address
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			buildCs,
-			upgradeCs,
 			offRampCs,
 		})
 		require.NoError(t, err)
