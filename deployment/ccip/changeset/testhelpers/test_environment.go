@@ -577,9 +577,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solana.DeployChainContractsChangesetSolana),
-			v1_6.DeployChainContractsConfig{
-				HomeChainSelector:      e.HomeChainSel,
-				ContractParamsPerChain: solContractParams,
+			solana.DeployChainContractsConfigSolana{
+				DeployChainContractsConfig: v1_6.DeployChainContractsConfig{
+					HomeChainSelector:      e.HomeChainSel,
+					ContractParamsPerChain: solContractParams,
+				},
 			},
 		),
 	}...)
