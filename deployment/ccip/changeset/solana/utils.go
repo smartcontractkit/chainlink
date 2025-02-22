@@ -2,8 +2,11 @@ package solana
 
 import (
 	"fmt"
+	"math/big"
 
+	"github.com/gagliardetto/solana-go"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -32,4 +35,28 @@ func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs
 		}
 	}
 	return nil
+}
+
+func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType deployment.ContractType) (*mcmsTypes.Transaction, error) {
+	data, err := ixn.Data()
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract data: %w", err)
+	}
+	for _, account := range ixn.Accounts() {
+		if account.IsSigner {
+			account.IsSigner = false
+		}
+	}
+	tx, err := mcmsSolana.NewTransaction(
+		programID,
+		data,
+		big.NewInt(0),        // e.g. value
+		ixn.Accounts(),       // pass along needed accounts
+		string(contractType), // some string identifying the target
+		[]string{},           // any relevant metadata
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create transaction: %w", err)
+	}
+	return &tx, nil
 }

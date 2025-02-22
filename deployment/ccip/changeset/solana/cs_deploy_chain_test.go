@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -162,19 +161,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			FeeAggregator: feeAggregatorPubKey.String(),
 		},
 	)
-	transferOwnershipCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solanachangesets.TransferCCIPToMCMSWithTimelockSolana),
-		solanachangesets.TransferCCIPToMCMSWithTimelockSolanaConfig{
-			MinDelay: 1 * time.Second,
-			ContractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
-				solChainSelectors[0]: {
-					Router:    true,
-					FeeQuoter: true,
-					OffRamp:   true,
-				},
-			},
-		},
-	)
 	// make sure idempotency works and setting the upgrade authority
 	upgradeAuthorityCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
@@ -237,7 +223,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployCs,
 			feeAggregatorCs,
 			upgradeAuthorityCs,
-			transferOwnershipCs,
 		})
 		require.NoError(t, err)
 		state, err := changeset.LoadOnchainStateSolana(e)
@@ -293,5 +278,4 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
 }

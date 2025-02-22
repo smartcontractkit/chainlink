@@ -125,7 +125,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 			return deployment.ChangesetOutput{}, err
 		}
-		// create proposals for ixns
+		// create proposals for txns
 		if len(mcmsTxs) > 0 {
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSel),
@@ -134,7 +134,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		}
 	}
 
-	if config.UpgradeConfig.MCMS != nil {
+	if len(batches) > 0 {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
 			e.GetContext(),
 			timelocks,
@@ -344,18 +344,18 @@ func deployChainContractsSolana(
 	config DeployChainContractsConfigSolana,
 ) ([]mcmsTypes.Transaction, error) {
 	// we may need to gather instructions and submit them as part of MCMS
-	ixns := make([]mcmsTypes.Transaction, 0)
+	txns := make([]mcmsTypes.Transaction, 0)
 	state, err := cs.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return ixns, err
+		return txns, err
 	}
 	chainState, chainExists := state.SolChains[chain.Selector]
 	if !chainExists {
-		return ixns, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
+		return txns, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
 	if chainState.LinkToken.IsZero() {
-		return ixns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
+		return txns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
 	// FEE QUOTER DEPLOY
@@ -364,96 +364,16 @@ func deployChainContractsSolana(
 	if chainState.FeeQuoter.IsZero() {
 		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, deployment.Version1_0_0, false)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
-		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *config.UpgradeConfig.NewFeeQuoterVersion, true)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
-		}
-		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
-			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
-		}
-		extendIxn, err := generateExtendIxn(
-			&e,
-			chain,
-			chainState.FeeQuoter,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
-		}
-		upgradeIxn, err := generateUpgradeIxn(
-			&e,
-			chainState.FeeQuoter,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-			config.UpgradeConfig.UpgradeAuthority,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
-		}
-		closeIxn, err := generateCloseBufferIxn(
-			&e,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-			config.UpgradeConfig.UpgradeAuthority,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
-		}
 		feeQuoterAddress = chainState.FeeQuoter
-		upgradeData, err := upgradeIxn.Data()
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, *&config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, cs.FeeQuoter)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		upgradeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			upgradeData,
-			big.NewInt(0),         // e.g. value
-			upgradeIxn.Accounts(), // pass along needed accounts
-			string(cs.FeeQuoter),  // some string identifying the target
-			[]string{},            // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
-		}
-		closeData, err := closeIxn.Data()
-		if err != nil {
-			return ixns, fmt.Errorf("failed to extract close data: %w", err)
-		}
-		closeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			closeData,
-			big.NewInt(0),        // e.g. value
-			closeIxn.Accounts(),  // pass along needed accounts
-			string(cs.FeeQuoter), // some string identifying the target
-			[]string{},           // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
-		}
-		if extendIxn != nil {
-			extendData, err := extendIxn.Data()
-			if err != nil {
-				return ixns, fmt.Errorf("failed to extract extend data: %w", err)
-			}
-			extendTx, err := mcmsSolana.NewTransaction(
-				solana.BPFLoaderUpgradeableProgramID.String(),
-				extendData,
-				big.NewInt(0),        // e.g. value
-				extendIxn.Accounts(), // pass along needed accounts
-				string(cs.FeeQuoter), // some string identifying the target
-				[]string{},           // any relevant metadata
-			)
-			if err != nil {
-				return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
-			}
-			ixns = append(ixns, extendTx)
-		}
-		ixns = append(ixns, upgradeTx, closeTx)
+		txns = append(txns, newTxns...)
 	} else {
 		e.Logger.Infow("Using existing fee quoter", "addr", chainState.FeeQuoter.String())
 		feeQuoterAddress = chainState.FeeQuoter
@@ -467,96 +387,16 @@ func deployChainContractsSolana(
 		// deploy router
 		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, deployment.Version1_0_0, false)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
-		bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, RouterProgramName, *config.UpgradeConfig.NewRouterVersion, true)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
-		}
-		if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
-			return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
-		}
-		upgradeIxn, err := generateUpgradeIxn(
-			&e,
-			chainState.Router,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-			config.UpgradeConfig.UpgradeAuthority,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
-		}
-		extendIxn, err := generateExtendIxn(
-			&e,
-			chain,
-			chainState.Router,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate extend instruction: %w", err)
-		}
-		closeIxn, err := generateCloseBufferIxn(
-			&e,
-			bufferProgram,
-			config.UpgradeConfig.SpillAddress,
-			config.UpgradeConfig.UpgradeAuthority,
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
-		}
 		ccipRouterProgram = chainState.Router
-		upgradeData, err := upgradeIxn.Data()
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, *&config.UpgradeConfig.NewRouterVersion, chainState.Router, cs.Router)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to extract upgrade data: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		upgradeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			upgradeData,
-			big.NewInt(0),         // e.g. value
-			upgradeIxn.Accounts(), // pass along needed accounts
-			string(cs.Router),     // some string identifying the target
-			[]string{},            // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create upgrade transaction: %w", err)
-		}
-		closeData, err := closeIxn.Data()
-		if err != nil {
-			return ixns, fmt.Errorf("failed to extract close data: %w", err)
-		}
-		closeTx, err := mcmsSolana.NewTransaction(
-			solana.BPFLoaderUpgradeableProgramID.String(),
-			closeData,
-			big.NewInt(0),       // e.g. value
-			closeIxn.Accounts(), // pass along needed accounts
-			string(cs.Router),   // some string identifying the target
-			[]string{},          // any relevant metadata
-		)
-		if err != nil {
-			return ixns, fmt.Errorf("failed to create close transaction: %w", err)
-		}
-		if extendIxn != nil {
-			extendData, err := extendIxn.Data()
-			if err != nil {
-				return ixns, fmt.Errorf("failed to extract extend data: %w", err)
-			}
-			extendTx, err := mcmsSolana.NewTransaction(
-				solana.BPFLoaderUpgradeableProgramID.String(),
-				extendData,
-				big.NewInt(0),        // e.g. value
-				extendIxn.Accounts(), // pass along needed accounts
-				string(cs.Router),    // some string identifying the target
-				[]string{},           // any relevant metadata
-			)
-			if err != nil {
-				return ixns, fmt.Errorf("failed to create extend transaction: %w", err)
-			}
-			ixns = append(ixns, extendTx)
-		}
-		ixns = append(ixns, upgradeTx, closeTx)
+		txns = append(txns, newTxns...)
 	} else {
 		e.Logger.Infow("Using existing router", "addr", chainState.Router.String())
 		ccipRouterProgram = chainState.Router
@@ -575,20 +415,20 @@ func deployChainContractsSolana(
 		// deploy offramp
 		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, deployment.Version1_0_0, false)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
 		tv := deployment.NewTypeAndVersion(cs.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to get existing addresses: %w", err)
+			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
 		offRampAddress = cs.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
 			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, OffRampProgramName, *config.UpgradeConfig.NewOffRampVersion, false)
 			if err != nil {
-				return ixns, fmt.Errorf("failed to deploy program: %w", err)
+				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
 		}
 
@@ -604,11 +444,11 @@ func deployChainContractsSolana(
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
-			return ixns, fmt.Errorf("failed to build instruction: %w", err)
+			return txns, fmt.Errorf("failed to build instruction: %w", err)
 		}
 		priceUpdaterData, err := priceUpdaterix.Data()
 		if err != nil {
-			return ixns, fmt.Errorf("failed to extract price updater data: %w", err)
+			return txns, fmt.Errorf("failed to extract price updater data: %w", err)
 		}
 		priceUpdaterTx, err := mcmsSolana.NewTransaction(
 			feeQuoterAddress.String(),
@@ -619,9 +459,9 @@ func deployChainContractsSolana(
 			[]string{},                // any relevant metadata
 		)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to create price updater transaction: %w", err)
+			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
 		}
-		ixns = append(ixns, priceUpdaterTx)
+		txns = append(txns, priceUpdaterTx)
 	} else {
 		e.Logger.Infow("Using existing offramp", "addr", chainState.OffRamp.String())
 		offRampAddress = chainState.OffRamp
@@ -634,7 +474,7 @@ func deployChainContractsSolana(
 	err = chain.GetAccountDataBorshInto(e.GetContext(), feeQuoterConfigPDA, &fqConfig)
 	if err != nil {
 		if err2 := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress); err2 != nil {
-			return ixns, err2
+			return txns, err2
 		}
 	} else {
 		e.Logger.Infow("Fee quoter already initialized, skipping initialization", "chain", chain.String())
@@ -647,7 +487,7 @@ func deployChainContractsSolana(
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
 		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress); err2 != nil {
-			return ixns, err2
+			return txns, err2
 		}
 	} else {
 		e.Logger.Infow("Router already initialized, skipping initialization", "chain", chain.String())
@@ -673,10 +513,10 @@ func deployChainContractsSolana(
 				solana.SPLAssociatedTokenAccountProgramID,
 			})
 		if err2 != nil {
-			return ixns, fmt.Errorf("failed to create address lookup table: %w", err)
+			return txns, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
 		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, table); err2 != nil {
-			return ixns, err2
+			return txns, err2
 		}
 		// Initializing a new offramp means we need a new lookup table and need to fully populate it
 		needFQinLookupTable = true
@@ -703,7 +543,7 @@ func deployChainContractsSolana(
 		// separate token pools are not ready yet
 		tokenPoolProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, TokenPoolProgramName, deployment.Version1_0_0, false)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to deploy program: %w", err)
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 		needTokenPoolinLookupTable = true
 	} else {
@@ -747,11 +587,11 @@ func deployChainContractsSolana(
 	if len(lookupTableKeys) > 0 {
 		addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
 		if err != nil {
-			return ixns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+			return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 		}
 		e.Logger.Debugw("Populating lookup table", "lookupTable", addressLookupTable.String(), "keys", lookupTableKeys)
 		if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey, lookupTableKeys); err != nil {
-			return ixns, fmt.Errorf("failed to extend lookup table: %w", err)
+			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
 	}
 
@@ -760,12 +600,77 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
 		for _, programID := range []solana.PublicKey{ccipRouterProgram, feeQuoterAddress} {
 			if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
-				return ixns, fmt.Errorf("failed to set upgrade authority: %w", err)
+				return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
 			}
 		}
 	}
 
-	return ixns, nil
+	return txns, nil
+}
+
+func generateUpgradeTxns(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	ab deployment.AddressBook,
+	config DeployChainContractsConfigSolana,
+	newVersion *semver.Version,
+	programID solana.PublicKey,
+	contractType deployment.ContractType,
+) ([]mcmsTypes.Transaction, error) {
+	txns := make([]mcmsTypes.Transaction, 0)
+	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, FeeQuoterProgramName, *newVersion, true)
+	if err != nil {
+		return txns, fmt.Errorf("failed to deploy program: %w", err)
+	}
+	if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
+		return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
+	}
+	extendIxn, err := generateExtendIxn(
+		&e,
+		chain,
+		programID,
+		bufferProgram,
+		config.UpgradeConfig.SpillAddress,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate extend instruction: %w", err)
+	}
+	upgradeIxn, err := generateUpgradeIxn(
+		&e,
+		programID,
+		bufferProgram,
+		config.UpgradeConfig.SpillAddress,
+		config.UpgradeConfig.UpgradeAuthority,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate upgrade instruction: %w", err)
+	}
+	closeIxn, err := generateCloseBufferIxn(
+		&e,
+		bufferProgram,
+		config.UpgradeConfig.SpillAddress,
+		config.UpgradeConfig.UpgradeAuthority,
+	)
+	if err != nil {
+		return txns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
+	}
+	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	if err != nil {
+		return txns, fmt.Errorf("failed to create upgrade transaction: %w", err)
+	}
+	closeTx, err := BuildMCMSTxn(closeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+	if err != nil {
+		return txns, fmt.Errorf("failed to create close transaction: %w", err)
+	}
+	if extendIxn != nil {
+		extendTx, err := BuildMCMSTxn(extendIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
+		if err != nil {
+			return txns, fmt.Errorf("failed to create extend transaction: %w", err)
+		}
+		txns = append(txns, *extendTx)
+	}
+	txns = append(txns, *upgradeTx, *closeTx)
+	return txns, nil
 }
 
 // DeployAndMaybeSaveToAddressBook deploys a program to the Solana chain and saves it to the address book
@@ -861,7 +766,7 @@ func generateUpgradeIxn(
 		solana.NewAccountMeta(spillAddress, true, false),              // Spill account (writable)
 		solana.NewAccountMeta(solana.SysVarRentPubkey, false, false),  // System program
 		solana.NewAccountMeta(solana.SysVarClockPubkey, false, false), // System program
-		solana.NewAccountMeta(upgradeAuthority, false, false),         // Current upgrade authority (signer)
+		solana.NewAccountMeta(upgradeAuthority, false, true),          // Current upgrade authority (signer)
 	}
 
 	instruction := solana.NewInstruction(
@@ -912,7 +817,7 @@ func generateExtendIxn(
 		solana.NewAccountMeta(programDataAccount, true, false),      // Program data account (writable)
 		solana.NewAccountMeta(programID, true, false),               // Program account (writable)
 		solana.NewAccountMeta(solana.SystemProgramID, false, false), // System program
-		solana.NewAccountMeta(payer, true, false),                   // Payer for rent
+		solana.NewAccountMeta(payer, true, true),                    // Payer for rent
 	}
 
 	ixn := solana.NewInstruction(
@@ -933,7 +838,7 @@ func generateCloseBufferIxn(
 	keys := solana.AccountMetaSlice{
 		solana.NewAccountMeta(bufferAddress, true, false),
 		solana.NewAccountMeta(recipient, true, false),
-		solana.NewAccountMeta(upgradeAuthority, false, false),
+		solana.NewAccountMeta(upgradeAuthority, false, true),
 	}
 
 	instruction := solana.NewInstruction(
