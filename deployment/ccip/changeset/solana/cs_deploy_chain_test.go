@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -59,26 +60,11 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 	ci := os.Getenv("CI") == "true"
-	// we can't upgrade in place locally so we have to change where we build
-	buildCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(cs_solana.BuildSolanaChangeset),
-		cs_solana.BuildSolanaConfig{
-			ChainSelector:       solChainSelectors[0],
-			GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
-			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-			CleanDestinationDir: true,
-		},
-	)
 	if ci {
 		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
-	} else {
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			buildCs,
-		})
-		require.NoError(t, err)
 	}
 
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
 			v1_6.DeployHomeChainConfig{
@@ -128,8 +114,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				},
 			},
 		),
-	})
-	require.NoError(t, err)
+	)
 	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChainSelectors[0]], addresses)
@@ -145,6 +130,16 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	upgradeAuthority := timelockSignerPDA
 
+	// we can't upgrade in place locally so we have to change where we build
+	buildCs := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(cs_solana.BuildSolanaChangeset),
+		cs_solana.BuildSolanaConfig{
+			ChainSelector:       solChainSelectors[0],
+			GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+			CleanDestinationDir: true,
+		},
+	)
 	deployCs := commonchangeset.Configure(
 		deployment.CreateLegacyChangeSet(cs_solana.DeployChainContractsChangesetSolana),
 		cs_solana.DeployChainContractsConfigSolana{
@@ -168,10 +163,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		},
 	)
 	transferOwnershipCs := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(cs_solana.TransferCCIPToMCMSWithTimelockSolana),
-		cs_solana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+		deployment.CreateLegacyChangeSet(solanachangesets.TransferCCIPToMCMSWithTimelockSolana),
+		solanachangesets.TransferCCIPToMCMSWithTimelockSolanaConfig{
 			MinDelay: 1 * time.Second,
-			ContractsByChain: map[uint64]cs_solana.CCIPContractsToTransfer{
+			ContractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
 				solChainSelectors[0]: {
 					Router:    true,
 					FeeQuoter: true,
@@ -262,11 +257,11 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 	} else {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+			buildCs,
 			deployCs,
 			feeAggregatorCs,
 			upgradeAuthorityCs,
 			upgradeCs,
-			transferOwnershipCs,
 		})
 	}
 	require.NoError(t, err)
@@ -298,4 +293,5 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	require.NoError(t, err)
 	// solana verification
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+
 }
