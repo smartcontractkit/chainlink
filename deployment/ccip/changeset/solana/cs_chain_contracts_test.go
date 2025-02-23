@@ -29,7 +29,6 @@ import (
 
 func TestAddRemoteChain(t *testing.T) {
 	t.Parallel()
-	ctx := testcontext.Get(t)
 	// Default env just has 2 chains with all contracts
 	// deployed but no lanes.
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
@@ -41,7 +40,25 @@ func TestAddRemoteChain(t *testing.T) {
 	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
-	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+	doTestAddRemoteChain(t, tenv.Env, evmChain, solChain, false)
+	doTestAddRemoteChain(t, tenv.Env, evmChain2, solChain, true)
+}
+
+func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint64, solChain uint64, mcms bool) {
+	var mcmsConfig *changeset_solana.MCMSConfigSolana
+	var err error
+	if mcms {
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true)
+		mcmsConfig = &changeset_solana.MCMSConfigSolana{
+			MCMS: &ccipChangeset.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+			RouterOwnedByTimelock:    true,
+			FeeQuoterOwnedByTimelock: true,
+			OffRampOwnedByTimelock:   true,
+		}
+	}
+	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
@@ -73,72 +90,71 @@ func TestAddRemoteChain(t *testing.T) {
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
 							DefaultTokenDestGasOverhead: 5000,
-							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-							// TODO: do a similar test for other chain families
-							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
-							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
 					},
 				},
+				MCMSSolana: mcmsConfig,
 			},
 		),
 	)
 	require.NoError(t, err)
 
-	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
 	var offRampSourceChain solOffRamp.SourceChain
 	offRampEvmSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(evmChain, state.SolChains[solChain].OffRamp)
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.True(t, offRampSourceChain.Config.IsEnabled)
 
 	var destChainStateAccount solRouter.DestChain
 	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 	require.True(t, destChainStateAccount.Config.AllowListEnabled)
 	require.NoError(t, err)
 
 	var destChainFqAccount solFeeQuoter.DestChain
 	fqEvmDestChainPDA, _, _ := solState.FindFqDestChainPDA(evmChain, state.SolChains[solChain].FeeQuoter)
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 	require.True(t, destChainFqAccount.Config.IsEnabled)
 
 	// Disable the chain
 
-	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset_solana.DisableRemoteChain),
 			changeset_solana.DisableRemoteChainConfig{
 				ChainSelector: solChain,
 				RemoteChains:  []uint64{evmChain},
+				MCMSSolana:    mcmsConfig,
 			},
 		),
 	)
 
 	require.NoError(t, err)
 
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	state, err = ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.False(t, offRampSourceChain.Config.IsEnabled)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.True(t, destChainStateAccount.Config.AllowListEnabled)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.False(t, destChainFqAccount.Config.IsEnabled)
 
 	// Re-enable the chain
 
-	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
 			changeset_solana.AddRemoteChainToSolanaConfig{
@@ -156,207 +172,32 @@ func TestAddRemoteChain(t *testing.T) {
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
 							DefaultTokenDestGasOverhead: 5000,
-							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-							// TODO: do a similar test for other chain families
-							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
-							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
 						IsUpdate: true,
 					},
 				},
+				MCMSSolana: mcmsConfig,
 			},
 		),
 	)
 
 	require.NoError(t, err)
 
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	state, err = ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.True(t, offRampSourceChain.Config.IsEnabled)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.False(t, destChainStateAccount.Config.AllowListEnabled)
 
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.True(t, destChainFqAccount.Config.IsEnabled)
-
-	// test with mcms
-
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
-
-	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env,
-		[]commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
-				v1_6.UpdateOnRampDestsConfig{
-					UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
-						evmChain2: {
-							solChain: {
-								IsEnabled:        true,
-								TestRouter:       false,
-								AllowListEnabled: false,
-							},
-						},
-					},
-				},
-			),
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
-				changeset_solana.AddRemoteChainToSolanaConfig{
-					ChainSelector: solChain,
-					UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
-						evmChain2: {
-							EnabledAsSource: true,
-							RouterDestinationConfig: solRouter.DestChainConfig{
-								AllowListEnabled: true,
-							},
-							FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-								IsEnabled:                   true,
-								DefaultTxGasLimit:           200000,
-								MaxPerMsgGasLimit:           3000000,
-								MaxDataBytes:                30000,
-								MaxNumberOfTokensPerMsg:     5,
-								DefaultTokenDestGasOverhead: 5000,
-								// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-								// TODO: do a similar test for other chain families
-								// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
-								ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-							},
-						},
-					},
-					MCMSSolana: &changeset_solana.MCMSConfigSolana{
-						MCMS: &ccipChangeset.MCMSConfig{
-							MinDelay: 1 * time.Second,
-						},
-						RouterOwnedByTimelock:    true,
-						FeeQuoterOwnedByTimelock: true,
-						OffRampOwnedByTimelock:   true,
-					},
-				},
-			),
-		},
-	)
-
-	require.NoError(t, err)
-
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
-	require.NoError(t, err)
-
-	offRampEvmSourceChainPDA, _, _ = solState.FindOfframpSourceChainPDA(evmChain2, state.SolChains[solChain].OffRamp)
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
-	require.NoError(t, err)
-	require.True(t, offRampSourceChain.Config.IsEnabled)
-
-	evmDestChainStatePDA = state.SolChains[solChain].DestChainStatePDAs[evmChain2]
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
-	require.NoError(t, err)
-	require.True(t, destChainStateAccount.Config.AllowListEnabled)
-
-	fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain2, state.SolChains[solChain].FeeQuoter)
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
-	require.NoError(t, err, "failed to get account info")
-	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
-	require.True(t, destChainFqAccount.Config.IsEnabled)
-
-	// Disable the chain
-
-	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset_solana.DisableRemoteChain),
-			changeset_solana.DisableRemoteChainConfig{
-				ChainSelector: solChain,
-				RemoteChains:  []uint64{evmChain2},
-				MCMSSolana: &changeset_solana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
-				},
-			},
-		),
-	)
-
-	require.NoError(t, err)
-
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
-	require.NoError(t, err)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
-	require.NoError(t, err)
-	require.False(t, offRampSourceChain.Config.IsEnabled)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
-	require.NoError(t, err)
-	require.True(t, destChainStateAccount.Config.AllowListEnabled)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
-	require.NoError(t, err, "failed to get account info")
-	require.False(t, destChainFqAccount.Config.IsEnabled)
-
-	// Re-enable the chain
-
-	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
-			changeset_solana.AddRemoteChainToSolanaConfig{
-				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
-					evmChain2: {
-						EnabledAsSource: true,
-						RouterDestinationConfig: solRouter.DestChainConfig{
-							AllowListEnabled: false,
-						},
-						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-							IsEnabled:                   true,
-							DefaultTxGasLimit:           30000,
-							MaxPerMsgGasLimit:           3000000,
-							MaxDataBytes:                30000,
-							MaxNumberOfTokensPerMsg:     5,
-							DefaultTokenDestGasOverhead: 5000,
-							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-							// TODO: do a similar test for other chain families
-							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
-							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-						},
-						IsUpdate: true,
-					},
-				},
-				MCMSSolana: &changeset_solana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
-				},
-			},
-		),
-	)
-
-	require.NoError(t, err)
-
-	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
-	require.NoError(t, err)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
-	require.NoError(t, err)
-	require.True(t, offRampSourceChain.Config.IsEnabled)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
-	require.NoError(t, err)
-	require.False(t, destChainStateAccount.Config.AllowListEnabled)
-
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
-	require.NoError(t, err, "failed to get account info")
-	require.True(t, destChainFqAccount.Config.IsEnabled)
-
 }
 
 func TestDeployCCIPContracts(t *testing.T) {

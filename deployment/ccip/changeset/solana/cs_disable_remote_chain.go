@@ -98,10 +98,9 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ab := deployment.NewMemoryAddressBook()
-	txns, err := doDisableRemoteChain(e, s, cfg, ab)
+	txns, err := doDisableRemoteChain(e, s, cfg)
 	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: ab}, err
+		return deployment.ChangesetOutput{}, err
 	}
 
 	// create proposals for ixns
@@ -137,17 +136,15 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 		}
 		return deployment.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           ab,
 		}, nil
 	}
-	return deployment.ChangesetOutput{AddressBook: ab}, nil
+	return deployment.ChangesetOutput{}, nil
 }
 
 func doDisableRemoteChain(
 	e deployment.Environment,
 	s cs.CCIPOnChainState,
-	cfg DisableRemoteChainConfig,
-	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
+	cfg DisableRemoteChainConfig) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	ixns := make([]solana.Instruction, 0)
 	chainSel := cfg.ChainSelector
