@@ -3,7 +3,9 @@ package usdcreader
 import (
 	"context"
 	"encoding/binary"
+	"encoding/hex"
 	"math/big"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,7 +15,9 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient/simulated"
 	"github.com/jmoiron/sqlx"
+	typepkgmock "github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -57,6 +61,19 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 
 	ts := testSetup(ctx, t, ethereumChain, evmconfig.USDCReaderConfig, finalityDepth, false)
 
+	mokAddrCodec := typepkgmock.NewMockAddressCodec(t)
+	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
+		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
+			return "0x" + hex.EncodeToString(addr)
+		}, nil)
+	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
+		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
+			if err != nil {
+				return nil, err
+			}
+			return addrBytes, nil
+		})
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
 		logger.TestLogger(t),
@@ -67,7 +84,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 		},
 		map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
 			ethereumChain: ts.reader,
-		})
+		}, mokAddrCodec)
 	require.NoError(t, err)
 
 	emitMessageSent(t, ts, ethereumDomainCCTP, avalancheDomainCCTP, 11)
@@ -233,6 +250,20 @@ func Benchmark_MessageHashes(b *testing.B) {
 		{"Large_Dataset", 100_000, 1, 50},
 	}
 
+	mokAddrCodec := typepkgmock.NewMockAddressCodec(b)
+	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
+		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
+			return "0x" + hex.EncodeToString(addr)
+		}, nil)
+	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
+		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
+			if err != nil {
+				return nil, err
+			}
+			return addrBytes, nil
+		})
+
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {
 			ctx := testutils.Context(b)
@@ -253,7 +284,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 				},
 				map[cciptypes.ChainSelector]contractreader.ContractReaderFacade{
 					sourceChain: ts.reader,
-				})
+				}, mokAddrCodec)
 			require.NoError(b, err)
 
 			// Populate the database with the specified number of logs
