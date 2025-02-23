@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -59,4 +60,17 @@ func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType deploym
 		return nil, fmt.Errorf("failed to create transaction: %w", err)
 	}
 	return &tx, nil
+}
+
+func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana.PublicKey, error) {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to load addresses for chain %d: %w", chainSelector, err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[chainSelector], addresses)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to load mcm state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	return timelockSignerPDA, nil
 }

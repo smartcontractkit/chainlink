@@ -61,8 +61,10 @@ func TestAddRemoteChain(t *testing.T) {
 				ChainSelector: solChain,
 				UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
 					evmChain: {
-						EnabledAsSource:         true,
-						RouterDestinationConfig: solRouter.DestChainConfig{},
+						EnabledAsSource: true,
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -88,6 +90,7 @@ func TestAddRemoteChain(t *testing.T) {
 	var destChainStateAccount solRouter.DestChain
 	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.True(t, destChainStateAccount.Config.AllowListEnabled)
 	require.NoError(t, err)
 
 	var destChainFqAccount solFeeQuoter.DestChain
@@ -96,6 +99,53 @@ func TestAddRemoteChain(t *testing.T) {
 	require.NoError(t, err, "failed to get account info")
 	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 	require.True(t, destChainFqAccount.Config.IsEnabled)
+
+	// Update the chain
+
+	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
+			changeset_solana.AddRemoteChainToSolanaConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
+					evmChain: {
+						EnabledAsSource: true,
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: false,
+						},
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   false,
+							DefaultTxGasLimit:           30000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+							// TODO: do a similar test for other chain families
+							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
+							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+						},
+						IsUpdate: true,
+					},
+				},
+			},
+		),
+	)
+
+	require.NoError(t, err)
+
+	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.NoError(t, err)
+	require.False(t, destChainStateAccount.Config.AllowListEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.False(t, destChainFqAccount.Config.IsEnabled)
+
+	// test with mcms
 
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
 
@@ -121,8 +171,10 @@ func TestAddRemoteChain(t *testing.T) {
 					ChainSelector: solChain,
 					UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
 						evmChain2: {
-							EnabledAsSource:         true,
-							RouterDestinationConfig: solRouter.DestChainConfig{},
+							EnabledAsSource: true,
+							RouterDestinationConfig: solRouter.DestChainConfig{
+								AllowListEnabled: true,
+							},
 							FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 								IsEnabled:                   true,
 								DefaultTxGasLimit:           200000,
@@ -156,12 +208,65 @@ func TestAddRemoteChain(t *testing.T) {
 	evmDestChainStatePDA = state.SolChains[solChain].DestChainStatePDAs[evmChain2]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
+	require.True(t, destChainStateAccount.Config.AllowListEnabled)
 
 	fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain2, state.SolChains[solChain].FeeQuoter)
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
 	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 	require.True(t, destChainFqAccount.Config.IsEnabled)
+
+	// Update the chain
+
+	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset_solana.AddRemoteChainToSolana),
+			changeset_solana.AddRemoteChainToSolanaConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
+					evmChain2: {
+						EnabledAsSource: true,
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: false,
+						},
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   false,
+							DefaultTxGasLimit:           30000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+							// TODO: do a similar test for other chain families
+							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
+							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+						},
+						IsUpdate: true,
+					},
+				},
+				MCMS: &ccipChangeset.MCMSConfig{
+					MinDelay: 1 * time.Second,
+				},
+				RouterAuthority:    timelockSignerPDA,
+				FeeQuoterAuthority: timelockSignerPDA,
+				OffRampAuthority:   timelockSignerPDA,
+			},
+		),
+	)
+
+	require.NoError(t, err)
+
+	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.NoError(t, err)
+	require.False(t, destChainStateAccount.Config.AllowListEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.False(t, destChainFqAccount.Config.IsEnabled)
+
 }
 
 func TestDeployCCIPContracts(t *testing.T) {

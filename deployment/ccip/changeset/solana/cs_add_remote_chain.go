@@ -49,6 +49,8 @@ type RemoteChainConfigSolana struct {
 	// destination
 	RouterDestinationConfig    solRouter.DestChainConfig
 	FeeQuoterDestinationConfig solFeeQuoter.DestChainConfig
+	// We have different instructions for add vs update, so we need to know which one to use
+	IsUpdate bool
 }
 
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
@@ -105,10 +107,12 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		if err != nil {
 			return fmt.Errorf("failed to find dest chain state pda for remote chain %d: %w", remote, err)
 		}
-		var destChainStateAccount solRouter.DestChain
-		err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
-		if err == nil {
-			return fmt.Errorf("remote %d is already configured on solana chain %d", remote, cfg.ChainSelector)
+		if !cfg.UpdatesByChain[remote].IsUpdate {
+			var destChainStateAccount solRouter.DestChain
+			err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
+			if err == nil {
+				return fmt.Errorf("remote %d is already configured on solana chain %d", remote, cfg.ChainSelector)
+			}
 		}
 	}
 	return nil
@@ -207,11 +211,13 @@ func doAddRemoteChainToSolana(
 		routerDestChainPDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
 		offRampSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, s.SolChains[chainSel].OffRamp)
 
-		lookUpTableEntries = append(lookUpTableEntries,
-			fqDestChainPDA,
-			routerDestChainPDA,
-			offRampSourceChainPDA,
-		)
+		if !update.IsUpdate {
+			lookUpTableEntries = append(lookUpTableEntries,
+				fqDestChainPDA,
+				routerDestChainPDA,
+				offRampSourceChainPDA,
+			)
+		}
 
 		solRouter.SetProgramID(ccipRouterID)
 		var authority solana.PublicKey
@@ -220,14 +226,27 @@ func doAddRemoteChainToSolana(
 		} else {
 			authority = chain.DeployerKey.PublicKey()
 		}
-		routerIx, err := solRouter.NewAddChainSelectorInstruction(
-			remoteChainSel,
-			update.RouterDestinationConfig,
-			routerDestChainPDA,
-			s.SolChains[chainSel].RouterConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
+		var routerIx solana.Instruction
+		var err error
+		if update.IsUpdate {
+			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
+				remoteChainSel,
+				update.RouterDestinationConfig,
+				routerDestChainPDA,
+				s.SolChains[chainSel].RouterConfigPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+		} else {
+			routerIx, err = solRouter.NewAddChainSelectorInstruction(
+				remoteChainSel,
+				update.RouterDestinationConfig,
+				routerDestChainPDA,
+				s.SolChains[chainSel].RouterConfigPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -247,14 +266,25 @@ func doAddRemoteChainToSolana(
 		} else {
 			authority = chain.DeployerKey.PublicKey()
 		}
-		feeQuoterIx, err := solFeeQuoter.NewAddDestChainInstruction(
-			remoteChainSel,
-			update.FeeQuoterDestinationConfig,
-			s.SolChains[chainSel].FeeQuoterConfigPDA,
-			fqDestChainPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
+		var feeQuoterIx solana.Instruction
+		if update.IsUpdate {
+			feeQuoterIx, err = solFeeQuoter.NewUpdateDestChainConfigInstruction(
+				remoteChainSel,
+				update.FeeQuoterDestinationConfig,
+				s.SolChains[chainSel].FeeQuoterConfigPDA,
+				fqDestChainPDA,
+				authority,
+			).ValidateAndBuild()
+		} else {
+			feeQuoterIx, err = solFeeQuoter.NewAddDestChainInstruction(
+				remoteChainSel,
+				update.FeeQuoterDestinationConfig,
+				s.SolChains[chainSel].FeeQuoterConfigPDA,
+				fqDestChainPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -278,14 +308,25 @@ func doAddRemoteChainToSolana(
 		} else {
 			authority = chain.DeployerKey.PublicKey()
 		}
-		offRampIx, err := solOffRamp.NewAddSourceChainInstruction(
-			remoteChainSel,
-			validSourceChainConfig,
-			offRampSourceChainPDA,
-			s.SolChains[chainSel].OffRampConfigPDA,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
+		var offRampIx solana.Instruction
+		if update.IsUpdate {
+			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
+				remoteChainSel,
+				validSourceChainConfig,
+				offRampSourceChainPDA,
+				s.SolChains[chainSel].OffRampConfigPDA,
+				authority,
+			).ValidateAndBuild()
+		} else {
+			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
+				remoteChainSel,
+				validSourceChainConfig,
+				offRampSourceChainPDA,
+				s.SolChains[chainSel].OffRampConfigPDA,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
@@ -304,36 +345,39 @@ func doAddRemoteChainToSolana(
 				return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		}
+		if !update.IsUpdate {
+			tv := deployment.NewTypeAndVersion(cs.RemoteDest, deployment.Version1_0_0)
+			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
+			tv.AddLabel(remoteChainSelStr)
+			err = ab.Save(chainSel, routerDestChainPDA.String(), tv)
+			if err != nil {
+				return txns, fmt.Errorf("failed to save dest chain state to address book: %w", err)
+			}
 
-		tv := deployment.NewTypeAndVersion(cs.RemoteDest, deployment.Version1_0_0)
-		remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
-		tv.AddLabel(remoteChainSelStr)
-		err = ab.Save(chainSel, routerDestChainPDA.String(), tv)
-		if err != nil {
-			return txns, fmt.Errorf("failed to save dest chain state to address book: %w", err)
-		}
-
-		tv = deployment.NewTypeAndVersion(cs.RemoteSource, deployment.Version1_0_0)
-		tv.AddLabel(remoteChainSelStr)
-		err = ab.Save(chainSel, offRampSourceChainPDA.String(), tv)
-		if err != nil {
-			return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
+			tv = deployment.NewTypeAndVersion(cs.RemoteSource, deployment.Version1_0_0)
+			tv.AddLabel(remoteChainSelStr)
+			err = ab.Save(chainSel, offRampSourceChainPDA.String(), tv)
+			if err != nil {
+				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
+			}
 		}
 	}
 
-	addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
-	if err != nil {
-		return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-	}
+	if len(lookUpTableEntries) > 0 {
+		addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+		}
 
-	if err := solCommonUtil.ExtendLookupTable(
-		e.GetContext(),
-		chain.Client,
-		addressLookupTable,
-		*chain.DeployerKey,
-		lookUpTableEntries,
-	); err != nil {
-		return txns, fmt.Errorf("failed to extend lookup table: %w", err)
+		if err := solCommonUtil.ExtendLookupTable(
+			e.GetContext(),
+			chain.Client,
+			addressLookupTable,
+			*chain.DeployerKey,
+			lookUpTableEntries,
+		); err != nil {
+			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
+		}
 	}
 
 	return txns, nil
