@@ -220,7 +220,6 @@ func ValidateOwnershipSolana(
 	e *deployment.Environment,
 	chain deployment.SolChain,
 	mcms bool,
-	deployerKey solana.PublicKey,
 	programID solana.PublicKey,
 	contractType deployment.ContractType,
 ) error {
@@ -244,7 +243,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for router: %w", err)
 		}
 	case OffRamp:
@@ -253,7 +252,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for offramp: %w", err)
 		}
 	case FeeQuoter:
@@ -262,7 +261,7 @@ func ValidateOwnershipSolana(
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
 		}
-		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
 		}
 	default:

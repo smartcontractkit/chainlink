@@ -8,6 +8,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
@@ -87,6 +88,12 @@ func TestAddRemoteChain(t *testing.T) {
 	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
+	var offRampSourceChain solOffRamp.SourceChain
+	offRampEvmSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(evmChain, state.SolChains[solChain].OffRamp)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.True(t, offRampSourceChain.Config.IsEnabled)
+
 	var destChainStateAccount solRouter.DestChain
 	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
@@ -100,7 +107,36 @@ func TestAddRemoteChain(t *testing.T) {
 	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 	require.True(t, destChainFqAccount.Config.IsEnabled)
 
-	// Update the chain
+	// Disable the chain
+
+	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset_solana.DisableRemoteChain),
+			changeset_solana.DisableRemoteChainConfig{
+				ChainSelector: solChain,
+				RemoteChains:  []uint64{evmChain},
+			},
+		),
+	)
+
+	require.NoError(t, err)
+
+	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.False(t, offRampSourceChain.Config.IsEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.NoError(t, err)
+	require.True(t, destChainStateAccount.Config.AllowListEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.False(t, destChainFqAccount.Config.IsEnabled)
+
+	// Re-enable the chain
 
 	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
 		commonchangeset.Configure(
@@ -114,7 +150,7 @@ func TestAddRemoteChain(t *testing.T) {
 							AllowListEnabled: false,
 						},
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-							IsEnabled:                   false,
+							IsEnabled:                   true,
 							DefaultTxGasLimit:           30000,
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
@@ -137,17 +173,21 @@ func TestAddRemoteChain(t *testing.T) {
 	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.True(t, offRampSourceChain.Config.IsEnabled)
+
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.False(t, destChainStateAccount.Config.AllowListEnabled)
 
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
-	require.False(t, destChainFqAccount.Config.IsEnabled)
+	require.True(t, destChainFqAccount.Config.IsEnabled)
 
 	// test with mcms
 
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
 
 	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env,
 		[]commonchangeset.ConfiguredChangeSet{
@@ -189,12 +229,14 @@ func TestAddRemoteChain(t *testing.T) {
 							},
 						},
 					},
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
+					MCMSSolana: &changeset_solana.MCMSConfigSolana{
+						MCMS: &ccipChangeset.MCMSConfig{
+							MinDelay: 1 * time.Second,
+						},
+						RouterOwnedByTimelock:    true,
+						FeeQuoterOwnedByTimelock: true,
+						OffRampOwnedByTimelock:   true,
 					},
-					RouterAuthority:    timelockSignerPDA,
-					FeeQuoterAuthority: timelockSignerPDA,
-					OffRampAuthority:   timelockSignerPDA,
 				},
 			),
 		},
@@ -204,6 +246,11 @@ func TestAddRemoteChain(t *testing.T) {
 
 	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
+
+	offRampEvmSourceChainPDA, _, _ = solState.FindOfframpSourceChainPDA(evmChain2, state.SolChains[solChain].OffRamp)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.True(t, offRampSourceChain.Config.IsEnabled)
 
 	evmDestChainStatePDA = state.SolChains[solChain].DestChainStatePDAs[evmChain2]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
@@ -216,7 +263,44 @@ func TestAddRemoteChain(t *testing.T) {
 	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
 	require.True(t, destChainFqAccount.Config.IsEnabled)
 
-	// Update the chain
+	// Disable the chain
+
+	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset_solana.DisableRemoteChain),
+			changeset_solana.DisableRemoteChainConfig{
+				ChainSelector: solChain,
+				RemoteChains:  []uint64{evmChain2},
+				MCMSSolana: &changeset_solana.MCMSConfigSolana{
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+					RouterOwnedByTimelock:    true,
+					FeeQuoterOwnedByTimelock: true,
+					OffRampOwnedByTimelock:   true,
+				},
+			},
+		),
+	)
+
+	require.NoError(t, err)
+
+	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.False(t, offRampSourceChain.Config.IsEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.NoError(t, err)
+	require.True(t, destChainStateAccount.Config.AllowListEnabled)
+
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.False(t, destChainFqAccount.Config.IsEnabled)
+
+	// Re-enable the chain
 
 	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
 		commonchangeset.Configure(
@@ -230,7 +314,7 @@ func TestAddRemoteChain(t *testing.T) {
 							AllowListEnabled: false,
 						},
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-							IsEnabled:                   false,
+							IsEnabled:                   true,
 							DefaultTxGasLimit:           30000,
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
@@ -244,12 +328,14 @@ func TestAddRemoteChain(t *testing.T) {
 						IsUpdate: true,
 					},
 				},
-				MCMS: &ccipChangeset.MCMSConfig{
-					MinDelay: 1 * time.Second,
+				MCMSSolana: &changeset_solana.MCMSConfigSolana{
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+					RouterOwnedByTimelock:    true,
+					FeeQuoterOwnedByTimelock: true,
+					OffRampOwnedByTimelock:   true,
 				},
-				RouterAuthority:    timelockSignerPDA,
-				FeeQuoterAuthority: timelockSignerPDA,
-				OffRampAuthority:   timelockSignerPDA,
 			},
 		),
 	)
@@ -259,13 +345,17 @@ func TestAddRemoteChain(t *testing.T) {
 	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, offRampEvmSourceChainPDA, &offRampSourceChain)
+	require.NoError(t, err)
+	require.True(t, offRampSourceChain.Config.IsEnabled)
+
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
 	require.False(t, destChainStateAccount.Config.AllowListEnabled)
 
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
 	require.NoError(t, err, "failed to get account info")
-	require.False(t, destChainFqAccount.Config.IsEnabled)
+	require.True(t, destChainFqAccount.Config.IsEnabled)
 
 }
 

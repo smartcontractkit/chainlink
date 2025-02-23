@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -13,6 +14,19 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
+
+func ValidateMCMSConfigSolana(e deployment.Environment, chainSelector uint64, mcms *MCMSConfigSolana) error {
+	if mcms != nil {
+		if mcms.MCMS == nil {
+			return errors.New("MCMS config is nil")
+		}
+		if !mcms.FeeQuoterOwnedByTimelock && !mcms.RouterOwnedByTimelock && !mcms.OffRampOwnedByTimelock {
+			return errors.New("at least one of the MCMS components must be owned by the timelock")
+		}
+		return ValidateMCMSConfig(e, chainSelector, mcms.MCMS)
+	}
+	return nil
+}
 
 func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs.MCMSConfig) error {
 	if mcms != nil {
