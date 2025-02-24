@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
@@ -30,7 +31,7 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	var tokenPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
+		testhelpers.WithOCRConfigOverride(func(params *v1_6.CCIPOCRParams) {
 			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
 		}))
 	state, err := changeset.LoadOnchainState(e.Env)
