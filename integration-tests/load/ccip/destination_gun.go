@@ -217,7 +217,9 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, ui
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := int(*selectedMsgDetails.DataLengthBytes)
-		message.Data = make([]byte, dataLength)
+		data := make([]byte, dataLength)
+		rand.Read(data)
+		message.Data = data
 	}
 
 	// Set token amounts if it's a token transfer

@@ -1741,7 +1741,7 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      256,
+		MaxDataBytes:                      15_000,
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
 		DefaultTokenFeeUSDCents:           1,
