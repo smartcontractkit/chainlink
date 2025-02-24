@@ -19,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-// wrapper around legacy changeset API
-var mcmsDeployChangeset = deployment.CreateChangeSet(commonChangesets.DeployMCMSWithTimelockV2, void)
-
 func TestAcceptOwnership(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
@@ -36,7 +33,7 @@ func TestAcceptOwnership(t *testing.T) {
 
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
-			mcmsDeployChangeset,
+			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
 				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
 			},
@@ -65,8 +62,4 @@ func TestAcceptOwnership(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
-}
-
-func void(env deployment.Environment, c map[uint64]commonTypes.MCMSWithTimelockConfigV2) error {
-	return nil
 }
