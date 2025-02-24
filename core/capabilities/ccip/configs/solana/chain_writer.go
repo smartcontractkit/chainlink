@@ -339,10 +339,6 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 				},
 				IDL: ccipOfframpIDL,
 			},
-			// Required for the CCIP args transform configured for the execute method which relies on the TokenAdminRegistry stored in the router
-			ccipconsts.ContractNameRouter: {
-				IDL: ccipRouterIDL,
-			},
 		},
 	}
 
