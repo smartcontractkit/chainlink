@@ -1244,13 +1244,13 @@ GlobalBurst is the global burst limit for the dispatcher.
 
 ### PerSenderRPS
 ```toml
-PerSenderRPS = 100 # Default
+PerSenderRPS = 200 # Default
 ```
 PerSenderRPS is the per-sender rate limit for the dispatcher.
 
 ### PerSenderBurst
 ```toml
-PerSenderBurst = 100 # Default
+PerSenderBurst = 200 # Default
 ```
 PerSenderBurst is the per-sender burst limit for the dispatcher.
 
