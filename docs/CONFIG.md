@@ -1225,8 +1225,8 @@ but the host and port must be fully specified and cannot be empty. You can speci
 [Capabilities.RateLimit]
 GlobalRPS = 200 # Default
 GlobalBurst = 200 # Default
-PerSenderRPS = 100 # Default
-PerSenderBurst = 100 # Default
+PerSenderRPS = 200 # Default
+PerSenderBurst = 200 # Default
 ```
 
 
