@@ -6,6 +6,8 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -31,7 +33,12 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposal(env, "proposal to set feed config on a cache", c.ChainSelector, contract.Address().Hex(), tx, c.McmsConfig.MinDelay)
+		proposal, err := BuildMCMProposals(env, "proposal to set feed config on a cache", c.ChainSelector, []ProposalData{
+			{
+				contract: contract.Address().Hex(),
+				tx:       tx,
+			},
+		}, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -51,6 +58,15 @@ func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecima
 	}
 	if len(c.DataIDs) != len(c.Descriptions) {
 		return errors.New("dataIDs and descriptions must have the same length")
+	}
+
+	if c.McmsConfig != nil {
+		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
+			return fmt.Errorf("timelock not present on the chain %w", err)
+		}
+		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
+			return fmt.Errorf("mcms proposer not present on the chain %w", err)
+		}
 	}
 
 	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)

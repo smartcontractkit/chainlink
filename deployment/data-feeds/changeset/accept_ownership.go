@@ -14,6 +14,7 @@ import (
 
 // AcceptOwnershipChangeset is a changeset that will create an MCM proposal to accept the ownership of a contract.
 // Returns an MSM proposal to accept the ownership of a contract. Doesn't return a new addressbook.
+// Once proposal is executed, new owned contract can be imported into the addressbook.
 var AcceptOwnershipChangeset = deployment.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
 func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
@@ -29,7 +30,12 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 	}
 
-	proposal, err := BuildMCMProposal(env, "accept ownership to timelock", c.ChainSelector, c.ContractAddress.Hex(), tx, c.McmsConfig.MinDelay)
+	proposal, err := BuildMCMProposals(env, "accept ownership to timelock", c.ChainSelector, []ProposalData{
+		{
+			contract: c.ContractAddress.Hex(),
+			tx:       tx,
+		},
+	}, c.McmsConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}

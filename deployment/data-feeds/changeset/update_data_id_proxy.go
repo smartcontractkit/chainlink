@@ -6,6 +6,8 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -31,7 +33,12 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposal(env, "proposal to update proxy-dataId mapping on a cache", c.ChainSelector, contract.Address().Hex(), tx, c.McmsConfig.MinDelay)
+		proposal, err := BuildMCMProposals(env, "proposal to update proxy-dataId mapping on a cache", c.ChainSelector, []ProposalData{
+			{
+				contract: contract.Address().Hex(),
+				tx:       tx,
+			},
+		}, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -52,5 +59,15 @@ func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDat
 	if len(c.DataIDs) != len(c.ProxyAddresses) {
 		return errors.New("dataIds and proxies length mismatch")
 	}
+
+	if c.McmsConfig != nil {
+		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
+			return fmt.Errorf("timelock not present on the chain %w", err)
+		}
+		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
+			return fmt.Errorf("mcms proposer not present on the chain %w", err)
+		}
+	}
+
 	return ValidateCacheForChain(env, c.ChainSelector, c.CacheAddress)
 }

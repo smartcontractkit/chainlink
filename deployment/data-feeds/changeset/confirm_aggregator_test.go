@@ -7,6 +7,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -26,20 +30,86 @@ func TestConfirmAggregator(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	cache, _ := changeset.DeployCache(env.Chains[chainSelector], []string{})
-	proxy, _ := changeset.DeployAggregatorProxy(env.Chains[chainSelector], cache.Address, common.HexToAddress("0x"), []string{})
+	//without MCMS
+	newEnv, err := commonChangesets.Apply(t, env, nil,
+		// Deploy cache and aggregator proxy
+		commonChangesets.Configure(
+			changeset.DeployCacheChangeset,
+			types.DeployConfig{
+				ChainsToDeploy: []uint64{chainSelector},
+				Labels:         []string{"data-feeds"},
+			},
+		),
+		commonChangesets.Configure(
+			changeset.DeployAggregatorProxyChangeset,
+			types.DeployAggregatorProxyConfig{
+				ChainsToDeploy:   []uint64{chainSelector},
+				AccessController: []common.Address{common.HexToAddress("0x")},
+			},
+		),
+	)
 
-	tx, _ := proxy.Contract.ProposeAggregator(env.Chains[chainSelector].DeployerKey, common.HexToAddress("0x123"))
-	_, err := env.Chains[chainSelector].Confirm(tx)
+	proxyAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
 	require.NoError(t, err)
 
-	_, err = commonChangesets.Apply(t, env, nil,
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		// Propose and confirm new Aggregator
+		commonChangesets.Configure(
+			changeset.ProposeAggregatorChangeset,
+			types.ProposeConfirmAggregatorConfig{
+				ChainSelector:        chainSelector,
+				ProxyAddress:         common.HexToAddress(proxyAddress),
+				NewAggregatorAddress: common.HexToAddress("0x123"),
+			},
+		),
 		commonChangesets.Configure(
 			changeset.ConfirmAggregatorChangeset,
 			types.ProposeConfirmAggregatorConfig{
 				ChainSelector:        chainSelector,
-				ProxyAddress:         proxy.Address,
+				ProxyAddress:         common.HexToAddress(proxyAddress),
 				NewAggregatorAddress: common.HexToAddress("0x123"),
+			},
+		),
+		commonChangesets.Configure(
+			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
+			map[uint64]commonTypes.MCMSWithTimelockConfigV2{
+				chainSelector: proposalutils.SingleGroupTimelockConfigV2(t),
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// with MCMS
+	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		// propose new Aggregator
+		commonChangesets.Configure(
+			changeset.ProposeAggregatorChangeset,
+			types.ProposeConfirmAggregatorConfig{
+				ChainSelector:        chainSelector,
+				ProxyAddress:         common.HexToAddress(proxyAddress),
+				NewAggregatorAddress: common.HexToAddress("0x124"),
+			},
+		),
+		// transfer proxy ownership to timelock
+		commonChangesets.Configure(
+			deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+			commonChangesets.TransferToMCMSWithTimelockConfig{
+				ContractsByChain: map[uint64][]common.Address{
+					chainSelector: {common.HexToAddress(proxyAddress)},
+				},
+				MinDelay: 0,
+			},
+		),
+		// confirm from timelock
+		commonChangesets.Configure(
+			changeset.ConfirmAggregatorChangeset,
+			types.ProposeConfirmAggregatorConfig{
+				ChainSelector:        chainSelector,
+				ProxyAddress:         common.HexToAddress(proxyAddress),
+				NewAggregatorAddress: common.HexToAddress("0x124"),
+				McmsConfig: &types.MCMSConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)

@@ -60,6 +60,7 @@ type ProposeConfirmAggregatorConfig struct {
 	ChainSelector        uint64
 	ProxyAddress         common.Address
 	NewAggregatorAddress common.Address
+	McmsConfig           *MCMSConfig
 }
 
 type SetFeedDecimalConfig struct {

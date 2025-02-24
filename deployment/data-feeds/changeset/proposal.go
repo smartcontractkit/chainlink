@@ -14,20 +14,28 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
-func BuildMCMProposal(env deployment.Environment, description string, chainSelector uint64, contractAddress string, tx *gethTypes.Transaction, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
+type ProposalData struct {
+	contract string
+	tx       *gethTypes.Transaction
+}
+
+func BuildMCMProposals(env deployment.Environment, description string, chainSelector uint64, pd []ProposalData, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[chainSelector]
 	chainState := state.Chains[chainSelector]
 
+	var transactions []mcmstypes.Transaction
+	for _, proposal := range pd {
+		transactions = append(transactions, mcmstypes.Transaction{
+			To:               proposal.contract,
+			Data:             proposal.tx.Data(),
+			AdditionalFields: json.RawMessage(`{"value": 0}`),
+		})
+	}
+
 	ops := &mcmstypes.BatchOperation{
 		ChainSelector: mcmstypes.ChainSelector(chainSelector),
-		Transactions: []mcmstypes.Transaction{
-			{
-				To:               contractAddress,
-				Data:             tx.Data(),
-				AdditionalFields: json.RawMessage(`{"value": 0}`),
-			},
-		},
+		Transactions:  transactions,
 	}
 
 	timelocksPerChain := map[uint64]string{
