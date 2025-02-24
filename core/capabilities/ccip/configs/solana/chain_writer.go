@@ -155,7 +155,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					},
 				},
 				MintAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}},
-				Optional: true, // ATA lookup is optional if DestTokenAddress is not present in report
+				Optional:    true, // ATA lookup is optional if DestTokenAddress is not present in report
 			},
 		},
 		Accounts: []chainwriter.Lookup{
