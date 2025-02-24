@@ -1927,7 +1927,7 @@ func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
 	// update trigger to mock
 	// triggerCapability wraps a capabilities.TriggerCapability
 	mockedInternalTrigger := newMockRuntimeTrigger(eng.workflow.triggers[0].trigger)
-	mockedInternalTrigger.On("UnregisterTrigger").Return(fmt.Errorf("trigger mock not found"))
+	mockedInternalTrigger.On("UnregisterTrigger").Return(errors.New("trigger mock not found"))
 	eng.workflow.triggers[0].trigger = mockedInternalTrigger
 	eng.workflow.triggers[0].registered = true
 
@@ -1936,7 +1936,7 @@ func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
 }
 
 type mockRuntimeTrigger struct {
-	capabilities.TriggerCapability
+	c capabilities.TriggerCapability
 	*mock.Mock
 }
 
@@ -1945,11 +1945,11 @@ func newMockRuntimeTrigger(t capabilities.TriggerCapability) *mockRuntimeTrigger
 }
 
 func (t mockRuntimeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
-	return t.Info(ctx)
+	return t.c.Info(ctx)
 }
 
 func (t mockRuntimeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
-	return t.RegisterTrigger(ctx, request)
+	return t.c.RegisterTrigger(ctx, request)
 }
 
 func (t mockRuntimeTrigger) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
