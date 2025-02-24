@@ -21,6 +21,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -230,10 +231,14 @@ func (k *KeeperBenchmarkTest) Run() {
 	var startedObservations = atomic.Int32{}
 	var finishedObservations = atomic.Int32{}
 
+	// since Seth can also be using simulated.Backend we need to make sure we are using ethclient.Client
+	sethAsEthClient, ok := k.chainClient.Client.(*ethclient.Client)
+	require.True(k.t, ok, "chainClient (Seth) client should be an ethclient.Client")
+
 	// We create as many channels as listening goroutines (1 per upkeep). In the background we will be fanning out
 	// headers that we get from a single channel connected to EVM node to all upkeep-specific channels.
 	headerCh := make(chan *blockchain.SafeEVMHeader, 10)
-	sub, err := k.chainClient.Client.Client().EthSubscribe(context.Background(), headerCh, "newHeads")
+	sub, err := sethAsEthClient.Client().EthSubscribe(context.Background(), headerCh, "newHeads")
 	require.NoError(k.t, err, "Subscribing to new headers for upkeep observation shouldn't fail")
 
 	totalNumberOfChannels := 0
@@ -279,7 +284,7 @@ func (k *KeeperBenchmarkTest) Run() {
 				// we use infinite loop here on purposes, these nodes can be down for extended periods of time ¯\_(ツ)_/¯
 			RECONNECT:
 				for {
-					sub, err = k.chainClient.Client.Client().EthSubscribe(context.Background(), headerCh, "newHeads")
+					sub, err = sethAsEthClient.Client().EthSubscribe(context.Background(), headerCh, "newHeads")
 					if err == nil {
 						break RECONNECT
 					}
