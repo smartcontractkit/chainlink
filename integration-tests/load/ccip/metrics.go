@@ -2,10 +2,11 @@ package ccip
 
 import (
 	"context"
-	"strconv"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
@@ -19,6 +20,13 @@ const (
 	ErrLokiPush   = "failed to push metrics to Loki"
 )
 
+type LokiMetric struct {
+	TransmitTime   uint64 `json:"transmit_time"`
+	SequenceNumber uint64 `json:"sequence_number"`
+	CommitDuration uint64 `json:"commit_duration"`
+	ExecDuration   uint64 `json:"exec_duration"`
+}
+
 // MetricsManager is used for maintaining state of different sequence numbers
 // Once we've received all expected timestamps, it pushes the metrics to Loki
 type MetricManager struct {
@@ -26,11 +34,11 @@ type MetricManager struct {
 	loki      *wasp.LokiClient
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
+	testLabel string
 }
 
 type metricState struct {
 	timestamps [3]uint64
-	round      int
 }
 
 type srcDstSeqNum struct {
@@ -43,27 +51,28 @@ type messageData struct {
 	eventType int
 	srcDstSeqNum
 	timestamp uint64
-	round     int
 }
 
-func NewMetricsManager(t *testing.T, l logger.Logger) *MetricManager {
+func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig) *MetricManager {
 	// initialize loki using endpoint from user defined env vars
 	loki, err := wasp.NewLokiClient(wasp.NewEnvLokiConfig())
 	require.NoError(t, err)
+	testLabel := "default"
+	if overrides.TestLabel != nil {
+		testLabel = *overrides.TestLabel
+	}
 
 	return &MetricManager{
 		lggr:      l,
 		loki:      loki,
 		InputChan: make(chan messageData),
 		state:     make(map[srcDstSeqNum]metricState),
+		testLabel: testLabel,
 	}
 }
 
-func (mm *MetricManager) Stop() {
-	close(mm.InputChan)
-}
-
 func (mm *MetricManager) Start(ctx context.Context) {
+	defer close(mm.InputChan)
 	for {
 		select {
 		case <-ctx.Done():
@@ -79,19 +88,18 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					execDuration = timestamps[executed] - timestamps[committed]
 				}
 
-				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, metricState.round)
+				lokiLabels, err := setLokiLabels(srcDstSeqNum.src, srcDstSeqNum.dst, mm.testLabel)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 					// don't return here, we still want to push metrics to loki
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   timestamps[transmitted],
 					ExecDuration:   execDuration,
 					CommitDuration: commitDuration,
 					SequenceNumber: srcDstSeqNum.seqNum,
 				})
 			}
-			close(mm.InputChan)
-			mm.loki.Stop()
 			return
 		case data := <-mm.InputChan:
 			if _, ok := mm.state[data.srcDstSeqNum]; !ok {
@@ -100,22 +108,35 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				}
 			}
 
-			state := mm.state[data.srcDstSeqNum]
-			state.timestamps[data.eventType] = data.timestamp
-			if data.eventType == transmitted && data.round != -1 {
-				state.round = data.round
-			}
-			mm.state[data.srcDstSeqNum] = state
-			if data.eventType == executed {
-				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "round", state.round, "timestamps", state.timestamps)
-			}
-			// we have all data needed to push to Loki
-			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.state[data.srcDstSeqNum].round)
+			if data.seqNum == 0 {
+				// seqNum of 0 indicates an error. Push nil values to loki
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
 				if err != nil {
 					mm.lggr.Error("error setting loki labels", "error", err)
 				}
 				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   data.timestamp,
+					ExecDuration:   0,
+					CommitDuration: 0,
+					SequenceNumber: 0,
+				})
+				continue
+			}
+			state := mm.state[data.srcDstSeqNum]
+			state.timestamps[data.eventType] = data.timestamp
+
+			mm.state[data.srcDstSeqNum] = state
+			if data.eventType == executed {
+				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "timestamps", state.timestamps)
+			}
+			// we have all data needed to push to Loki
+			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
+				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
+				if err != nil {
+					mm.lggr.Error("error setting loki labels", "error", err)
+				}
+				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+					TransmitTime:   state.timestamps[transmitted],
 					ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
 					CommitDuration: state.timestamps[committed] - state.timestamps[transmitted],
 					SequenceNumber: data.seqNum,
@@ -133,7 +154,7 @@ func SendMetricsToLoki(l logger.Logger, lc *wasp.LokiClient, updatedLabels map[s
 	}
 }
 
-func setLokiLabels(src, dst uint64, round int) (map[string]string, error) {
+func setLokiLabels(src, dst uint64, testLabel string) (map[string]string, error) {
 	srcChainID, err := chainselectors.GetChainIDFromSelector(src)
 	if err != nil {
 		return nil, err
@@ -145,7 +166,7 @@ func setLokiLabels(src, dst uint64, round int) (map[string]string, error) {
 	return map[string]string{
 		"sourceEvmChainId": srcChainID,
 		"destEvmChainId":   dstChainID,
-		"roundNum":         strconv.Itoa(round),
 		"testType":         LokiLoadLabel,
+		"testLabel":        testLabel,
 	}, nil
 }

@@ -19,6 +19,7 @@ type LoadConfig struct {
 	CribEnvDirectory     *string
 	NumDestinationChains *int
 	TimeoutDuration      *string
+	TestLabel            *string
 }
 
 const (

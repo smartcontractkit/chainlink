@@ -649,18 +649,18 @@ func AddDonAndSetCandidateChangeset(
 			return deployment.ChangesetOutput{}, err
 		}
 
-		latestDon, err := internal.LatestCCIPDON(state.Chains[cfg.HomeChainSelector].CapabilityRegistry)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-
 		pluginOCR3Config, ok := newDONArgs[cfg.PluginInfo.PluginType]
 		if !ok {
 			return deployment.ChangesetOutput{}, fmt.Errorf("missing plugin %s in ocr3Configs",
 				cfg.PluginInfo.PluginType.String())
 		}
 
-		expectedDonID := latestDon.Id + 1
+		expectedDonID, err := state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+			Context: e.GetContext(),
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+		}
 		addDonOp, err := newDonWithCandidateOp(
 			txOpts,
 			e.Chains[cfg.HomeChainSelector],
