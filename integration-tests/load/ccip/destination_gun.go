@@ -4,12 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand"
+	"time"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -35,7 +34,6 @@ type DestinationGun struct {
 	l             logger.Logger
 	env           deployment.Environment
 	state         *ccipchangeset.CCIPOnChainState
-	seqNums       map[testhelpers.SourceDestPair]SeqNumRange
 	roundNum      *atomic.Int32
 	chainSelector uint64
 	receiver      common.Address
@@ -56,21 +54,10 @@ func NewDestinationGun(
 	chainOffset int,
 	metricPipe chan messageData,
 ) (*DestinationGun, error) {
-	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
-	for _, cs := range env.AllChainSelectorsExcluding([]uint64{chainSelector}) {
-		seqNums[testhelpers.SourceDestPair{
-			SourceChainSelector: cs,
-			DestChainSelector:   chainSelector,
-		}] = SeqNumRange{
-			Start: atomic.NewUint64(math.MaxUint64),
-			End:   atomic.NewUint64(0),
-		}
-	}
 	dg := DestinationGun{
 		l:             l,
 		env:           env,
 		state:         state,
-		seqNums:       seqNums,
 		roundNum:      &atomic.Int32{},
 		chainSelector: chainSelector,
 		receiver:      receiver,
@@ -105,7 +92,6 @@ func (m *DestinationGun) Validate() error {
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
-	requestedRound := m.roundNum.Load()
 
 	waspGroup := fmt.Sprintf("%d-%s", m.chainSelector, "messageOnly")
 
@@ -120,11 +106,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 
 	acc := m.messageKeys[src]
-
-	csPair := testhelpers.SourceDestPair{
-		SourceChainSelector: src,
-		DestChainSelector:   m.chainSelector,
-	}
 
 	r := state.Chains[src].Router
 
@@ -147,10 +128,12 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		acc.Value = fee
 		defer func() { acc.Value = nil }()
 	}
+	// todo: remove once CCIP-5143 is implemented
+	acc.GasLimit = *m.testConfig.GasLimit
+	
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
-		"round", requestedRound,
 		"fee", fee,
 		"msg", msg)
 	tx, err := r.CcipSend(
@@ -162,61 +145,27 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			"sourceChain", src,
 			"destchain", m.chainSelector,
 			"err", deployment.MaybeDataErr(err))
+
+		// in the event of an error, still push a metric
+		// sequence numbers start at 1 so using 0 as a sentinel value
+		data := messageData{
+			eventType: transmitted,
+			srcDstSeqNum: srcDstSeqNum{
+				src:    src,
+				dst:    m.chainSelector,
+				seqNum: 0,
+			},
+			timestamp: uint64(time.Now().Unix()),
+		}
+		m.metricPipe <- data
+
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 
-	blockNum, err := m.env.Chains[src].Confirm(tx)
+	_, err = m.env.Chains[src].Confirm(tx)
 	if err != nil {
 		m.l.Errorw("could not confirm tx on source", "tx", tx, "err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-
-	// todo: wasp should not manage confirming the message
-	// instead, we should manage the sequence number atomically (at a higher level)
-	it, err := state.Chains[src].OnRamp.FilterCCIPMessageSent(&bind.FilterOpts{
-		Start:   blockNum,
-		End:     &blockNum,
-		Context: context.Background(),
-	}, []uint64{m.chainSelector}, []uint64{})
-	if err != nil {
-		m.l.Errorw("could not find sent message event on src chain", "src", src, "dst", m.chainSelector, "err", err)
-		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
-	}
-	if !it.Next() {
-		m.l.Errorw("Could not find event")
-		return &wasp.Response{Error: "Could not iterate", Group: waspGroup, Failed: true}
-	}
-
-	m.l.Infow("Transmitted message with",
-		"sourceChain", src,
-		"destChain", m.chainSelector,
-		"sequence number", it.Event.SequenceNumber)
-
-	// push metric to metric manager for eventual distribution to loki
-	blockNum = it.Event.Raw.BlockNumber
-	header, err := m.env.Chains[src].Client.HeaderByNumber(m.env.GetContext(), new(big.Int).SetUint64(blockNum))
-	if err != nil {
-		return &wasp.Response{Error: "Could not get timestamp of block number", Group: waspGroup, Failed: true}
-	}
-	m.metricPipe <- messageData{
-		eventType: transmitted,
-		srcDstSeqNum: srcDstSeqNum{
-			src:    src,
-			dst:    m.chainSelector,
-			seqNum: it.Event.SequenceNumber,
-		},
-		timestamp: header.Time,
-		round:     int(requestedRound),
-	}
-
-	// always store the lowest seen number as the start seq num
-	if it.Event.SequenceNumber < m.seqNums[csPair].Start.Load() {
-		m.seqNums[csPair].Start.Store(it.Event.SequenceNumber)
-	}
-
-	// always store the greatest sequence number we have seen as the maximum
-	if it.Event.SequenceNumber > m.seqNums[csPair].End.Load() {
-		m.seqNums[csPair].End.Store(it.Event.SequenceNumber)
 	}
 
 	return &wasp.Response{Failed: false, Group: waspGroup}
