@@ -6,12 +6,13 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/mcms"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	ata "github.com/gagliardetto/solana-go/programs/associated-token-account"
 

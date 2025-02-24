@@ -57,10 +57,10 @@ func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs
 }
 
 func BuildProposalsForTxns(
-	e deployment.Environment, 
-	chainSelector uint64, 
-	description string, 
-	minDelay time.Duration, 
+	e deployment.Environment,
+	chainSelector uint64,
+	description string,
+	minDelay time.Duration,
 	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
 	timelocks := map[uint64]string{}
 	proposers := map[uint64]string{}
