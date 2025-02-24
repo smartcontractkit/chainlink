@@ -1154,15 +1154,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			} else {
 				router = state.Chains[chainSel].Router.Address()
 			}
-			sourceChainFamily, _ := chain_selectors.GetSelectorFamily(source)
-
-			onRampBytes := []byte{}
 			// can ignore err as validation checks for nil addresses
-			if sourceChainFamily == chain_selectors.FamilyEVM {
-				onRampBytes, _ = state.Chains[source].OnRampBytes()
-			} else if sourceChainFamily == chain_selectors.FamilySolana {
-				onRampBytes, _ = state.SolChains[source].OnRampBytes()
-			}
+			onRampBytes, _ := state.GetOnRampAddressBytes(source)
 
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
 				SourceChainSelector: source,

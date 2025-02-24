@@ -22,11 +22,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
+	solBinary "github.com/gagliardetto/binary"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -245,11 +248,18 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangesetSolana),
-			solanachangesets.DeployChainContractsConfigSolana{
-				DeployChainContractsConfig: v1_6.DeployChainContractsConfig{
-					HomeChainSelector:      homeChainSel,
-					ContractParamsPerChain: contractParams,
+			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
+			solanachangesets.DeployChainContractsConfig{
+				HomeChainSelector: homeChainSel,
+				ContractParamsPerChain: map[uint64]solanachangesets.ChainContractParams{
+					solChain1: {
+						FeeQuoterParams: solanachangesets.FeeQuoterParams{
+							DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+						},
+						OffRampParams: solanachangesets.OffRampParams{
+							EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+						},
+					},
 				},
 			},
 		),
@@ -257,7 +267,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			deployment.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: deployment.SPL2022Tokens,
+				TokenProgramName: changeset.SPL2022Tokens,
 				TokenDecimals:    9,
 			},
 		),
@@ -285,11 +295,10 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
 			solanachangesets.TokenPoolConfig{
-				ChainSelector:    solChain1,
-				TokenPubKey:      tokenAddress.String(),
-				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         test_token_pool.LockAndRelease_PoolType,
-				Authority:        e.SolChains[solChain1].DeployerKey.PublicKey().String(),
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddress.String(),
+				PoolType:      test_token_pool.LockAndRelease_PoolType,
+				Authority:     e.SolChains[solChain1].DeployerKey.PublicKey().String(),
 			},
 		),
 	})
