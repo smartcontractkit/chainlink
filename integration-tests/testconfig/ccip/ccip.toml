@@ -242,17 +242,21 @@ addresses_to_fund = [
 ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
+# We have 3 types of messages: Token, DataWithToken, Data
+# Each message type has a ratio and a destination gas limit
+# The sum of all ratios should be 100
+# Messages that include data MUST have a `DataLengthBytes` field
 MessageDetails = [
     {Ratio = 10, MsgType = "Token", DestGasLimit=700_000},
-    {Ratio = 10, MsgType = "DataWithToken", DataLengthBytes = 1, DestGasLimit=700_000},
-    {Ratio = 10,  MsgType = "Data", DataLengthBytes = 5, DestGasLimit=700_000},
-    {Ratio = 70,  MsgType = "Data", DataLengthBytes = 5, DestGasLimit=700_000},
+    {Ratio = 10, MsgType = "DataWithToken", DataLengthBytes = 1000, DestGasLimit=700_000},
+    {Ratio = 10,  MsgType = "Data", DataLengthBytes = 5_000, DestGasLimit=700_000},
+    {Ratio = 70,  MsgType = "Data", DataLengthBytes = 10_000, DestGasLimit=2500000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "5s"
-LoadDuration = "5h"
+LoadDuration = "3m"
 # destination chain selectors to send messages to
-NumDestinationChains = 8
+NumDestinationChains = 4
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "30m"
