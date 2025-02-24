@@ -30,7 +30,7 @@ func TestConfirmAggregator(t *testing.T) {
 
 	chainSelector := env.AllChainSelectors()[0]
 
-	//without MCMS
+	// without MCMS
 	newEnv, err := commonChangesets.Apply(t, env, nil,
 		// Deploy cache and aggregator proxy
 		commonChangesets.Configure(
@@ -48,6 +48,7 @@ func TestConfirmAggregator(t *testing.T) {
 			},
 		),
 	)
+	require.NoError(t, err)
 
 	proxyAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "AggregatorProxy")
 	require.NoError(t, err)
