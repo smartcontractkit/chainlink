@@ -46,19 +46,55 @@ go test -run ^TestCCIPLoad_RPS$ ./integration-tests/load/ccip -v -timeout $TIMEO
 ### Remote
 Update the `PROVIDER=aws` and `DEVSPACE_NAMESPACE` in crib environment and deploy. Everything else should be the same. 
 
-### Running Chaos Tests
+### Running Chaos Tests (Remote only)
 
-Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required
+#### Realistic RPC Latency
+
+Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required, select chaos mode first
+```
+[Load.CCIP.Load]
+# 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
+ChaosMode = 1
+
+# works only with Load.CCIP.ChaosMode = 0
+RPCLatency = "400ms"
+RPCJitter = "50ms"
+```
+Prefer using `ChaosMode = 1` with `400ms` RPC latency by default
+
+Run the load test
+```
+go test -run ^TestCCIPLoad_RPS$ -v -timeout 12h
+```
+
+#### Full Chaos Suite
+
+Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required, select chaos mode first
+
+```
+[Load.CCIP.Load]
+# 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
+ChaosMode = 2
+```
+
+Then check chaos settings
 ```
 [CCIP.Chaos]
-Namespace = "crib-ccip-chaos"
-ExperimentFullInterval = "3m"
-ExperimentInjectionInterval = "90s"
-SrcChainURL = "$your_crib_src_chain_url"
-DstChainURL = "$your_crib_dst_chain_url"
+# works only with Load.CCIP.ChaosMode = 2
+Namespace = "crib-ccip-chaos-tests"
+# RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
+DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
+WaitBeforeStart = "30s"
+# Chaos experiment total duration (chaos + recovery)
+ExperimentFullInterval = "10m"
+# Chaos time
+ExperimentInjectionInterval = "5m"
+# Src and Dst chain URLs, change it according to your namespace name
+SrcChainURL = "https://crib-ccip-chaos-tests-geth-1337-http.main.stage.cldev.sh"
+DstChainURL = "https://crib-ccip-chaos-tests-geth-2337-http.main.stage.cldev.sh"
 ```
 
-Run your load test, then start the chaos suite
+Run the load test
 ```
-go test -v -timeout 12h -run TestK8sChaos
+go test -run ^TestCCIPLoad_RPS$ -v -timeout 12h
 ```
