@@ -59,7 +59,7 @@ var ocr3Cfg = `
   "MaxReportLengthBytes": 1000000,
   "MaxOutcomeLengthBytes": 1000000,
   "MaxReportCount": 20,
-  "MaxBatchSize": 1000,
+  "MaxBatchSize": 20,
   "OutcomePruningThreshold": 3600,
   "UniqueReports": true,
   "RequestTimeout": "30s",
