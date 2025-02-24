@@ -219,18 +219,6 @@ func doAddRemoteChainToSolana(
 			update.RouterDestinationConfig,
 			routerRemoteStatePDA,
 			s.SolChains[chainSel].RouterConfigPDA,
-			chain.DeployerKey.PublicKey(),
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return fmt.Errorf("failed to generate instructions: %w", err)
-		}
-
-		routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
-			remoteChainSel,
-			offRampID,
-			allowedOffRampRemotePDA,
-			s.SolChains[chainSel].RouterConfigPDA,
 			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -246,6 +234,27 @@ func doAddRemoteChainToSolana(
 		} else {
 			ixns = append(ixns, routerIx)
 		}
+
+		// routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
+		// 	remoteChainSel,
+		// 	offRampID,
+		// 	allowedOffRampRemotePDA,
+		// 	s.SolChains[chainSel].RouterConfigPDA,
+		// 	authority,
+		// 	solana.SystemProgramID,
+		// ).ValidateAndBuild()
+		// if err != nil {
+		// 	return txns, fmt.Errorf("failed to generate instructions: %w", err)
+		// }
+		// if routerUsingMCMS {
+		// 	tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), cs.Router)
+		// 	if err != nil {
+		// 		return txns, fmt.Errorf("failed to create transaction: %w", err)
+		// 	}
+		// 	txns = append(txns, *tx)
+		// } else {
+		// 	ixns = append(ixns, routerIx)
+		// }
 
 		solFeeQuoter.SetProgramID(feeQuoterID)
 		if feeQuoterUsingMCMS {
