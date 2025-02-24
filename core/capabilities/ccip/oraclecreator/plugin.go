@@ -161,12 +161,17 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 	chainSelector := uint64(config.Config.ChainSelector)
-	destChainFamily, err := chainsel.GetSelectorFamily(chainSelector)
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+
+	destChainFamily, err := csobj.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
 	}
 
-	destChainID, err := chainsel.GetChainIDFromSelector(chainSelector)
+	destChainID, err := csobj.GetChainIDFromSelector(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
 	}

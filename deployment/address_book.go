@@ -128,7 +128,12 @@ type AddressBookMap struct {
 
 // Save will save an address for a given chain selector. It will error if there is a conflicting existing address.
 func (m *AddressBookMap) save(chainSelector uint64, address string, typeAndVersion TypeAndVersion) error {
-	family, err := chainsel.GetSelectorFamily(chainSelector)
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return err
+	}
+
+	family, err := csobj.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}
@@ -180,7 +185,12 @@ func (m *AddressBookMap) Addresses() (map[uint64]map[string]TypeAndVersion, erro
 }
 
 func (m *AddressBookMap) AddressesForChain(chainSelector uint64) (map[string]TypeAndVersion, error) {
-	_, err := chainsel.GetChainIDFromSelector(chainSelector)
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = csobj.GetChainIDFromSelector(chainSelector)
 	if err != nil {
 		return nil, errors.Wrapf(ErrInvalidChainSelector, "chain selector %d", chainSelector)
 	}

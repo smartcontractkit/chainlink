@@ -44,7 +44,11 @@ func NewAddressCodec(params AddressCodecParams) AddressCodec {
 
 // AddressBytesToString converts an address from bytes to string
 func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
-	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return "", err
+	}
+	family, err := csobj.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}
@@ -63,7 +67,11 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 
 // AddressStringToBytes converts an address from string to bytes
 func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
-	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+	family, err := csobj.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}

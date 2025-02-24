@@ -56,7 +56,12 @@ func (c RealExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceCha
 		return nil, nil
 	}
 
-	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+
+	family, err := csobj.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
@@ -80,7 +85,12 @@ func (c RealExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes
 		return nil, nil
 	}
 
-	family, err := chainsel.GetSelectorFamily(uint64(sourceChainSelector))
+	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+
+	family, err := csobj.GetSelectorFamily(uint64(sourceChainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", sourceChainSelector, err)
 	}
