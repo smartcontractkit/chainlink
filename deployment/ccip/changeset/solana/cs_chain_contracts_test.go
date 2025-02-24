@@ -78,7 +78,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 			OffRampOwnedByTimelock:   true,
 		}
 	}
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
 			v1_6.UpdateOnRampDestsConfig{
@@ -117,6 +117,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 				MCMSSolana: mcmsConfig,
 			},
 		),
+	},
 	)
 	require.NoError(t, err)
 
@@ -144,7 +145,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 
 	// Disable the chain
 
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DisableRemoteChain),
 			ccipChangesetSolana.DisableRemoteChainConfig{
@@ -153,6 +154,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 				MCMSSolana:    mcmsConfig,
 			},
 		),
+	},
 	)
 
 	require.NoError(t, err)
@@ -174,7 +176,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 
 	// Re-enable the chain
 
-	e, err = commonchangeset.Apply(t, e, nil,
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
 			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
@@ -200,6 +202,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 				MCMSSolana: mcmsConfig,
 			},
 		),
+	},
 	)
 
 	require.NoError(t, err)
