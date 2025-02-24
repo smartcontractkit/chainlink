@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
@@ -119,11 +120,11 @@ func UpdateFeeQuoterForUSDC(
 	}
 	_, err := commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(changeset.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
-			changeset.ApplyTokenTransferFeeConfigUpdatesConfig{
-				UpdatesByChain: map[uint64]changeset.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
+			deployment.CreateLegacyChangeSet(v1_6.ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset),
+			v1_6.ApplyTokenTransferFeeConfigUpdatesConfig{
+				UpdatesByChain: map[uint64]v1_6.ApplyTokenTransferFeeConfigUpdatesConfigPerChain{
 					chain.Selector: {
-						TokenTransferFeeConfigArgs: []changeset.TokenTransferFeeConfigArg{
+						TokenTransferFeeConfigArgs: []v1_6.TokenTransferFeeConfigArg{
 							{
 								DestChain: dstChain,
 								TokenTransferFeeConfigPerToken: map[changeset.TokenSymbol]fee_quoter.FeeQuoterTokenTransferFeeConfig{

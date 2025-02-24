@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	ccipview "github.com/smartcontractkit/chainlink/deployment/ccip/view"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 )
