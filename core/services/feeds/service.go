@@ -1211,10 +1211,10 @@ func (s *service) Start(ctx context.Context) error {
 // Close shuts down the service
 func (s *service) Close() error {
 	return s.StopOnce("FeedsService", func() error {
+		s.syncNodeInfoCancel.callAllAndClear()
+
 		// This blocks until it finishes
 		s.connMgr.Close()
-
-		s.syncNodeInfoCancel.callAllAndClear()
 
 		return nil
 	})
