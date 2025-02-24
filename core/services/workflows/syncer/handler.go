@@ -169,7 +169,8 @@ type eventHandler struct {
 	workflowStore            store.Store
 	capRegistry              core.CapabilitiesRegistry
 	engineRegistry           *EngineRegistry
-	metrics                  workflowRegistryMetricsLabeler
+	registryMetrics          workflowRegistryMetricsLabeler
+	workflowMetrics          workflows.WorkflowMetricLabeler
 	emitter                  custmsg.MessageEmitter
 	lastFetchedAtMap         *lastFetchedAtMap
 	clock                    clockwork.Clock
@@ -211,6 +212,7 @@ func NewEventHandler(
 	fetchFn FetcherFunc,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
+	engineRegistry *EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
@@ -220,7 +222,7 @@ func NewEventHandler(
 
 	m, err := initMonitoringResources()
 	if err != nil {
-		lggr.Fatalw("Failed to initialize monitoring resources", "err", err)
+		lggr.Criticalw("Failed to initialize monitoring resources", "err", err)
 	}
 
 	eh := &eventHandler{
@@ -229,8 +231,8 @@ func NewEventHandler(
 		workflowStore:            workflowStore,
 		capRegistry:              capRegistry,
 		fetchFn:                  fetchFn,
-		engineRegistry:           NewEngineRegistry(),
-		metrics:                  newWorkflowRegistryMetricsLabeler(m),
+		engineRegistry:           engineRegistry,
+		registryMetrics:          newWorkflowRegistryMetricsLabeler(m),
 		emitter:                  emitter,
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,
@@ -334,7 +336,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.Owner),
 		)
@@ -360,7 +362,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
@@ -374,7 +376,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		metrics.incrementRegisterCounter(ctx)
 
 		// intentionally without workflow specific labels
-		h.metrics.updateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
+		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow registration event", "workflowID", wfID)
 		return nil
 	case WorkflowUpdatedEvent:
@@ -390,7 +392,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowID, newWorkflowID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
@@ -418,7 +420,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
@@ -430,6 +432,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		metrics.incrementPauseCounter(ctx)
+
+		// intentionally without workflow specific labels
+		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow paused event", "workflowID", wfID)
 		return nil
 	case WorkflowActivatedEvent:
@@ -446,7 +451,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
@@ -458,6 +463,9 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		metrics.incrementActivateCounter(ctx)
+
+		// intentionally without workflow specific labels
+		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow activated event", "workflowID", wfID)
 		return nil
 	case WorkflowDeletedEvent:
@@ -474,7 +482,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
 		)
 
-		metrics := h.metrics.with(
+		metrics := h.registryMetrics.with(
 			platform.KeyWorkflowID, wfID,
 			platform.KeyWorkflowName, payload.WorkflowName,
 			platform.KeyWorkflowOwner, hex.EncodeToString(payload.WorkflowOwner),
@@ -487,7 +495,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		metrics.incrementDeleteCounter(ctx)
 		// intentionally without workflow specific labels
-		h.metrics.updateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
+		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow deleted event", "workflowID", wfID)
 		return nil
 	default:
@@ -814,7 +822,8 @@ func (h *eventHandler) engineCleanup(wfID string) error {
 	// Remove the engine from the registry
 	e, err := h.engineRegistry.Pop(wfID)
 	if err != nil {
-		return fmt.Errorf("failed to get workflow engine: %w", err)
+		// no engine, nothing to cleanup
+		return nil
 	}
 
 	// Stop the engine

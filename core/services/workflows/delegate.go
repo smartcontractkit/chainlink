@@ -8,6 +8,7 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
@@ -24,6 +25,8 @@ type Delegate struct {
 	logger         logger.Logger
 	store          store.Store
 	ratelimiter    *ratelimiter.RateLimiter
+	engineRegistry *syncer.EngineRegistry
+	metrics        WorkflowMetricLabeler
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -38,11 +41,20 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {}
 
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
-func (d *Delegate) OnDeleteJob(context.Context, job.Job) error { return nil }
+func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
+	_, err := d.engineRegistry.Pop(spec.WorkflowSpec.WorkflowID)
+	if err != nil {
+		d.logger.Errorf("delegate failed to unregister workflow engine for workflow name: %s id: %s: %v", spec.WorkflowSpec.WorkflowName, spec.WorkflowSpec.WorkflowName, err)
+		return nil
+	}
+	d.metrics.UpdateTotalWorkflowsGauge(ctx, int64(d.engineRegistry.Size()))
+	return nil
+}
 
 // ServicesForSpec satisfies the job.Delegate interface.
 func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.ServiceCtx, error) {
 	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, spec.WorkflowSpec.WorkflowID, platform.KeyWorkflowOwner, spec.WorkflowSpec.WorkflowOwner, platform.KeyWorkflowName, spec.WorkflowSpec.WorkflowName)
+
 	sdkSpec, err := spec.WorkflowSpec.SDKSpec(ctx)
 	if err != nil {
 		logCustMsg(ctx, cma, fmt.Sprintf("failed to start workflow engine: failed to get workflow sdk spec: %v", err), d.logger)
@@ -80,6 +92,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 	if err != nil {
 		return nil, err
 	}
+
+	err = d.engineRegistry.Add(spec.WorkflowSpec.WorkflowID, engine)
+	if err != nil {
+		d.logger.Errorf("delegate failed to register workflow engine for workflow name: %s id: %s: %v", cfg.WorkflowName.String(), cfg.WorkflowID, err)
+	}
+	d.metrics.UpdateTotalWorkflowsGauge(ctx, int64(d.engineRegistry.Size()))
 	d.logger.Infow("Creating Workflow Engine for workflow spec", "workflowID", spec.WorkflowSpec.WorkflowID, "workflowOwner", spec.WorkflowSpec.WorkflowOwner, "workflowName", spec.WorkflowSpec.WorkflowName, "jobName", spec.Name)
 	return []job.ServiceCtx{engine}, nil
 }
@@ -99,13 +117,21 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
+	engineRegistry *syncer.EngineRegistry,
 ) *Delegate {
+	metrics, err := initWorkflowMonitoringResources()
+	if err != nil {
+		logger.Criticalw("Failed to initialize workflow monitoring resources", "err", err)
+	}
+
 	return &Delegate{
 		logger:         logger,
 		registry:       registry,
+		engineRegistry: engineRegistry,
 		secretsFetcher: newNoopSecretsFetcher(),
 		store:          store,
 		ratelimiter:    ratelimiter,
+		metrics:        *metrics,
 	}
 }
 

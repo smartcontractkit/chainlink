@@ -9,12 +9,12 @@ import (
 )
 
 func Test_InitMonitoringResources(t *testing.T) {
-	_, err := initMonitoringResources()
+	_, err := initEngineMonitoringResources()
 	require.NoError(t, err)
 }
 
 func Test_WorkflowMetricsLabeler(t *testing.T) {
-	testWorkflowsMetricLabeler := workflowsMetricLabeler{metrics.NewLabeler(), engineMetrics{}}
+	testWorkflowsMetricLabeler := engineMetricLabeler{metrics.NewLabeler(), engineMetrics{}}
 	testWorkflowsMetricLabeler2 := testWorkflowsMetricLabeler.with("foo", "baz")
 	require.EqualValues(t, testWorkflowsMetricLabeler2.Labels["foo"], "baz")
 }

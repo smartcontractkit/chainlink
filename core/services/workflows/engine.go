@@ -13,7 +13,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -104,7 +103,7 @@ type secretsFetcher interface {
 type Engine struct {
 	services.StateMachine
 	cma                  custmsg.MessageEmitter
-	metrics              workflowsMetricLabeler
+	metrics              engineMetricLabeler
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
@@ -1339,7 +1338,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	// - etc.
 
 	// spin up monitoring resources
-	em, err := initMonitoringResources()
+	engineMetrics, err := initEngineMonitoringResources()
 	if err != nil {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
@@ -1358,7 +1357,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	engine = &Engine{
 		cma:            cma,
 		logger:         cfg.Lggr.Named("WorkflowEngine").With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()),
-		metrics:        workflowsMetricLabeler{metrics.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()), *em},
+		metrics:        engineMetrics.with(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String()),
 		registry:       cfg.Registry,
 		workflow:       workflow,
 		secretsFetcher: cfg.SecretsFetcher,

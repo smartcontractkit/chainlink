@@ -20,8 +20,6 @@ type workflowRegistryMetrics struct {
 	pauseCounter              metric.Int64Counter
 	registerCounter           metric.Int64Counter
 	updateCounter             metric.Int64Counter
-
-	totalWorkflows metric.Int64Gauge
 }
 
 func initMonitoringResources() (m *workflowRegistryMetrics, err error) {
@@ -55,11 +53,6 @@ func initMonitoringResources() (m *workflowRegistryMetrics, err error) {
 	m.updateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_update")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing update counter: %w", err)
-	}
-
-	m.totalWorkflows, err = beholder.GetMeter().Int64Gauge("platform_workflow_syncer_total")
-	if err != nil {
-		return nil, fmt.Errorf("error initializing total workflows: %w", err)
 	}
 
 	return m, nil
@@ -111,9 +104,4 @@ func (l workflowRegistryMetricsLabeler) incrementRegisterCounter(ctx context.Con
 func (l workflowRegistryMetricsLabeler) incrementUpdateCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(l.Labels)
 	l.m.updateCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
-func (l workflowRegistryMetricsLabeler) updateTotalWorkflowsGauge(ctx context.Context, val int64) {
-	otelLabels := monutils.KvMapToOtelAttributes(l.Labels)
-	l.m.totalWorkflows.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }

@@ -488,6 +488,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry,
 		workflowORM,
 		creServices.workflowRateLimiter,
+		creServices.engineRegistry,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -720,6 +721,10 @@ type CREServices struct {
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
+	// engineRegistry is exposed so that both the delegate
+	// and syncer paths share an underlying store of Engine
+	// instances
+	engineRegistry *syncer.EngineRegistry
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
 }
@@ -733,6 +738,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 		opts                 = cscfg.CREOpts
 		ds                   = cscfg.DS
 	)
+	var engineRegistry *syncer.EngineRegistry
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
@@ -839,12 +845,14 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
+				engineRegistry = syncer.NewEngineRegistry()
 				eventHandler := syncer.NewEventHandler(
 					lggr,
 					syncer.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
 					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
+					engineRegistry,
 					custmsg.NewLabeler(),
 					clockwork.NewRealClock(),
 					keys[0],
@@ -887,6 +895,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
+		engineRegistry:          engineRegistry,
 		srvs:                    srvcs,
 	}, nil
 }
