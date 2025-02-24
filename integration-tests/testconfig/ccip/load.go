@@ -16,6 +16,8 @@ type LoadConfig struct {
 	CribEnvDirectory     *string
 	NumDestinationChains *int
 	TimeoutDuration      *string
+	TestLabel            *string
+	GasLimit             *uint64
 }
 
 func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
