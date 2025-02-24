@@ -1168,9 +1168,6 @@ func (e *Engine) Close() error {
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
 
-		// deregistering a trigger is done via don2don.
-		// the trigger may be already deregistered by the time this
-		// engine instance is Closed by the syncer.
 		for idx, t := range e.workflow.triggers {
 			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
