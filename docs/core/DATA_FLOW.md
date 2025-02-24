@@ -25,7 +25,7 @@ flowchart
 
 ```mermaid
 ---
-title: Description of the general data flow
+title: Description of the general data flow.
 ---
 flowchart TB
     subgraph core/chains/evm
