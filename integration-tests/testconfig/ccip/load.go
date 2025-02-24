@@ -19,7 +19,6 @@ const (
 
 type LoadConfig struct {
 	LoadDuration         *string
-	MessageTypeWeights   *[]int
 	MessageDetails       *[]MsgDetails
 	RequestFrequency     *string
 	CribEnvDirectory     *string
@@ -39,9 +38,9 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	agg := 0
 	for _, md := range *l.MessageDetails {
 		require.NoError(t, md.Validate())
-		agg += *md.Ratio
+		agg += int(*md.Ratio)
 	}
-	require.Equal(t, 100, agg, "Sum of MessageTypeWeights must be 100")
+	require.Equal(t, 100, agg, "Sum of MessageDetails Ratios must be 100")
 
 	require.GreaterOrEqual(t, *l.NumDestinationChains, 1, "NumDestinationChains must be greater than or equal to 1")
 	require.GreaterOrEqual(t, len(e.Chains), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
@@ -62,10 +61,10 @@ func (l *LoadConfig) GetTimeoutDuration() time.Duration {
 }
 
 type MsgDetails struct {
-	MsgType      *string `toml:",omitempty"`
-	DestGasLimit *int64  `toml:",omitempty"`
-	DataLength   *int64  `toml:",omitempty"`
-	Ratio        *int    `toml:",omitempty"` // Percentage ratio of this message type (0-100)
+	MsgType         *string `toml:",omitempty"`
+	DestGasLimit    *uint64 `toml:",omitempty"`
+	DataLengthBytes *uint64 `toml:",omitempty"`
+	Ratio           *uint   `toml:",omitempty"` // Percentage ratio of this message type (0-100)
 }
 
 func (m *MsgDetails) IsTokenTransfer() bool {
@@ -88,11 +87,36 @@ func (m *MsgDetails) Validate() error {
 		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
 		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
 	}
+
+	if m.DestGasLimit == nil {
+		return fmt.Errorf("dest gas limit should be set")
+	}
+	if *m.DestGasLimit < 0 {
+		return fmt.Errorf("dest gas limit should be greater than 0")
+	}
+
 	if m.Ratio == nil {
 		return fmt.Errorf("ratio should be set")
 	}
 	if *m.Ratio < 0 || *m.Ratio > 100 {
 		return fmt.Errorf("ratio should be between 0 and 100")
+	}
+
+	if pointer.GetString(m.MsgType) == DataAndTokenTransfer {
+		if m.DataLengthBytes == nil {
+			return fmt.Errorf("data length should be set for data and token transfer")
+		}
+		if *m.DataLengthBytes < 0 {
+			return fmt.Errorf("data length should be greater than 0")
+		}
+	}
+	if pointer.GetString(m.MsgType) == DataOnlyTransfer {
+		if m.DataLengthBytes == nil {
+			return fmt.Errorf("data length should be set for data transfer")
+		}
+		if *m.DataLengthBytes < 0 {
+			return fmt.Errorf("data length should be greater than 0")
+		}
 	}
 
 	return nil
