@@ -31,7 +31,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250221121938-dd0db587bff4
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250214202341-4190f2db1c01
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250220215921-f69bcbaa0051
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250214231858-f365e2bdecea
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
@@ -40,7 +40,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298
-	github.com/smartcontractkit/mcms v0.10.0
+	github.com/smartcontractkit/mcms v0.12.0
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.35.0
 	go.uber.org/multierr v1.11.0
