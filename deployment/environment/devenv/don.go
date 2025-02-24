@@ -32,13 +32,14 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	CLConfig    clclient.ChainlinkConfig // config to connect to chainlink node via API
-	P2PPort     string                   // port for P2P communication
-	IsBootstrap bool                     // denotes if the node is a bootstrap node
-	Name        string                   // name of the node, used to identify the node, helpful in logs
-	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
-	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
-	Labels      map[string]string        // labels to use when registering the node with job distributor
+	CLConfig      clclient.ChainlinkConfig // config to connect to chainlink node via API
+	P2PPort       string                   // port for P2P communication
+	IsBootstrap   bool                     // denotes if the node is a bootstrap node
+	Name          string                   // name of the node, used to identify the node, helpful in logs
+	AdminAddr     string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr     string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	Labels        map[string]string        // labels to use when registering the node with job distributor
+	ContainerName string                   // name of Docker container
 }
 
 type DON struct {
@@ -204,6 +205,10 @@ type JDChainConfigInput struct {
 
 func (n *Node) Labels() []*ptypes.Label {
 	return n.labels
+}
+
+func (n *Node) AddLabel(label *ptypes.Label) {
+	n.labels = append(n.labels, label)
 }
 
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.

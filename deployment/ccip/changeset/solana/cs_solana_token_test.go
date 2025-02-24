@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"

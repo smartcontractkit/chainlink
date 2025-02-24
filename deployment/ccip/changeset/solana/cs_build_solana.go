@@ -38,19 +38,32 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 
 // Clone and checkout the specific revision of the repo
 func cloneRepo(e deployment.Environment, revision string) error {
-	// Remove the clone directory if it already exists
-	if _, err := os.Stat(cloneDir); !os.IsNotExist(err) {
-		os.RemoveAll(cloneDir)
-	}
+	// Check if the repository already exists
+	if _, err := os.Stat(filepath.Join(cloneDir, ".git")); err == nil {
+		e.Logger.Debugw("Repository already exists, discarding local changes and updating", "dir", cloneDir)
 
-	e.Logger.Debugw("Cloning repository", "url", repoURL, "revision", revision)
-	_, err := runCommand("git", []string{"clone", repoURL, cloneDir}, ".")
-	if err != nil {
-		return fmt.Errorf("failed to clone repository: %w", err)
+		// Discard any local changes
+		_, err := runCommand("git", []string{"reset", "--hard"}, cloneDir)
+		if err != nil {
+			return fmt.Errorf("failed to discard local changes: %w", err)
+		}
+
+		// Fetch the latest changes from the remote
+		_, err = runCommand("git", []string{"fetch", "origin"}, cloneDir)
+		if err != nil {
+			return fmt.Errorf("failed to fetch origin: %w", err)
+		}
+	} else {
+		// Repository does not exist, clone it
+		e.Logger.Debugw("Cloning repository", "url", repoURL, "revision", revision)
+		_, err := runCommand("git", []string{"clone", repoURL, cloneDir}, ".")
+		if err != nil {
+			return fmt.Errorf("failed to clone repository: %w", err)
+		}
 	}
 
 	e.Logger.Debugw("Checking out revision", "revision", revision)
-	_, err = runCommand("git", []string{"checkout", revision}, cloneDir)
+	_, err := runCommand("git", []string{"checkout", revision}, cloneDir)
 	if err != nil {
 		return fmt.Errorf("failed to checkout revision %s: %w", revision, err)
 	}
@@ -93,7 +106,6 @@ type BuildSolanaConfig struct {
 	ChainSelector        uint64
 	GitCommitSha         string
 	DestinationDir       string
-	IsUpgrade            bool
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 }
@@ -116,11 +128,8 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
 	}
 
-	// Upgrades don't need to generate keys, we upgrade the program in place
-	if !config.IsUpgrade {
-		if err := replaceKeys(e); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
-		}
+	if err := replaceKeys(e); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
 	}
 
 	// Build the project with Anchor

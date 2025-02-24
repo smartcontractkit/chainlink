@@ -1,13 +1,14 @@
+# CCIP rarely runs these anymore. Leaving for now, but can likely be removed in the future.
 name: CCIP Load Test
 on:
-  push:
-    paths:
-      - '**/*ccip*'
-      - '**/*ccip*/**'
-    branches:
-      - develop
-    tags:
-      - '*'
+#   push:
+#     paths:
+#       - '**/*ccip*'
+#       - '**/*ccip*/**'
+#     branches:
+#       - develop
+#     tags:
+#       - '*'
   workflow_dispatch:
     inputs:
       test_config_override_path:
@@ -46,7 +47,7 @@ jobs:
       slack_notification_after_tests_channel_id: '#ccip-testing'
       slack_notification_after_tests_name: CCIP E2E Load Tests
       test_image_suites: ccip-load
-      team: ${{ inputs.team }}
+      team: ${{ inputs.team || 'ccip' }}
       test_secrets_override_key: ${{ github.event.inputs.test_secrets_override_key }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

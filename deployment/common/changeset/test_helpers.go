@@ -161,8 +161,14 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 
 				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
-				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		if out.MCMSProposals != nil {
@@ -173,7 +179,10 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		currentEnv = deployment.Environment{

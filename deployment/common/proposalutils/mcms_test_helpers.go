@@ -4,6 +4,7 @@ import (
 	"crypto/ecdsa"
 	"fmt"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -278,7 +279,8 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 
 	// build a "chainSelector => executor" map
 	executorsMap := map[mcmstypes.ChainSelector]mcmssdk.TimelockExecutor{}
-	for _, op := range timelockProposal.Operations {
+	callProxies := make([]string, len(timelockProposal.Operations))
+	for i, op := range timelockProposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 
@@ -287,10 +289,13 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 			executorsMap[op.ChainSelector] = mcmsevmsdk.NewTimelockExecutor(
 				env.Chains[uint64(op.ChainSelector)].Client,
 				env.Chains[uint64(op.ChainSelector)].DeployerKey)
+			callProxies[i] = findCallProxyAddress(t, env, uint64(op.ChainSelector))
+
 		case chainsel.FamilySolana:
 			executorsMap[op.ChainSelector] = mcmssolanasdk.NewTimelockExecutor(
 				env.SolChains[uint64(op.ChainSelector)].Client,
 				*env.SolChains[uint64(op.ChainSelector)].DeployerKey)
+
 		default:
 			require.FailNow(t, "unsupported chain family")
 		}
@@ -306,7 +311,12 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 	// execute each operation sequentially
 	var tx = mcmstypes.TransactionResult{}
 	for i, op := range timelockProposal.Operations {
-		tx, err = timelockExecutable.Execute(env.GetContext(), i, opts...)
+		opOpts := slices.Clone(opts)
+		if callProxies[i] != "" {
+			opOpts = append(opOpts, mcmslib.WithCallProxy(callProxies[i]))
+		}
+
+		tx, err = timelockExecutable.Execute(env.GetContext(), i, opOpts...)
 		if err != nil {
 			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
 		}
@@ -344,4 +354,18 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 		Proposer:         SingleGroupMCMSV2(t),
 		TimelockMinDelay: big.NewInt(0),
 	}
+}
+
+func findCallProxyAddress(t *testing.T, env deployment.Environment, chainSelector uint64) string {
+	addressesForChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+
+	for address, tvStr := range addressesForChain {
+		if tvStr.Type == commontypes.CallProxy && tvStr.Version == deployment.Version1_0_0 {
+			return address
+		}
+	}
+
+	require.FailNow(t, "unable to find call proxy address")
+	return ""
 }
