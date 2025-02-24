@@ -204,7 +204,11 @@ func TestCCIPLoad_RPS(t *testing.T) {
 
 	_, err = p.Run(true)
 	require.NoError(t, err)
-	close(loadFinished)
+	// wait some duration so that transmits can happen
+	go func() {
+		time.Sleep(tickerDuration)
+		close(loadFinished)
+	}()
 
 	// after load is finished, wait for a "timeout duration" before considering that messages are timed out
 	timeout := userOverrides.GetTimeoutDuration()

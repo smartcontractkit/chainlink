@@ -76,6 +76,7 @@ func subscribeTransmitEvents(
 			SourceChainSelector: srcChainSel,
 			DestChainSelector:   cs,
 		}] = SeqNumRange{
+			// we use the maxuint as a sentinel value here to ensure we always get the lowest possible seqnum
 			Start: atomic.NewUint64(math.MaxUint64),
 			End:   atomic.NewUint64(0),
 		}
@@ -89,23 +90,6 @@ func subscribeTransmitEvents(
 		}, sink, nil, nil)
 	})
 	defer subscription.Unsubscribe()
-
-	endChannel := make(chan struct{})
-	// wait for load to finish + timeout duration to allow any stragglers to
-	go func() {
-		for {
-			select {
-			case <-loadFinished:
-				lggr.Infow("load finished, waiting before stopping transmit watcher",
-					"srcChain", srcChainSel)
-				go func() {
-					time.Sleep(tickerDuration)
-					close(endChannel)
-				}()
-				return
-			}
-		}
-	}()
 
 	for {
 		select {
@@ -150,9 +134,10 @@ func subscribeTransmitEvents(
 			lggr.Errorw("received context cancel signal for transmit watcher",
 				"srcChain", srcChainSel)
 			return
-		case <-endChannel:
+		case <-loadFinished:
+			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
 			for csPair, seqNums := range seqNums {
-				lggr.Debugw("pushing finalized sequence numbers for ",
+				lggr.Infow("pushing finalized sequence numbers for ",
 					"srcChainSelector", srcChainSel,
 					"destChainSelector", csPair.DestChainSelector,
 					"seqNums", seqNums)
