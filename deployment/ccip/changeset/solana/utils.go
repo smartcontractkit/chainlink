@@ -4,14 +4,18 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -50,6 +54,44 @@ func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs
 		}
 	}
 	return nil
+}
+
+func BuildProposalsForTxns(
+	e deployment.Environment, 
+	chainSelector uint64, 
+	description string, 
+	minDelay time.Duration, 
+	txns []mcmsTypes.Transaction) (*mcms.TimelockProposal, error) {
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]sdk.Inspector{}
+	batches := make([]mcmsTypes.BatchOperation, 0)
+	chain := e.SolChains[chainSelector]
+	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSelector)
+	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+
+	timelocks[chainSelector] = mcmsSolana.ContractAddress(
+		mcmState.TimelockProgram,
+		mcmsSolana.PDASeed(mcmState.TimelockSeed),
+	)
+	proposers[chainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+	inspectors[chainSelector] = mcmsSolana.NewInspector(chain.Client)
+	batches = append(batches, mcmsTypes.BatchOperation{
+		ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+		Transactions:  txns,
+	})
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e.GetContext(),
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
+		description,
+		minDelay)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build proposal: %w", err)
+	}
+	return proposal, nil
 }
 
 func BuildMCMSTxn(ixn solana.Instruction, programID string, contractType deployment.ContractType) (*mcmsTypes.Transaction, error) {

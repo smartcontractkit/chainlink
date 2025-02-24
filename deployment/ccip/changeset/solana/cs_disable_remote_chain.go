@@ -8,8 +8,6 @@ import (
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -19,8 +17,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DisableRemoteChainConfig struct {
@@ -105,32 +101,8 @@ func DisableRemoteChain(e deployment.Environment, cfg DisableRemoteChainConfig) 
 
 	// create proposals for ixns
 	if len(txns) > 0 {
-		timelocks := map[uint64]string{}
-		proposers := map[uint64]string{}
-		inspectors := map[uint64]sdk.Inspector{}
-		batches := make([]mcmsTypes.BatchOperation, 0)
-		chain := e.SolChains[cfg.ChainSelector]
-		addresses, _ := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-
-		timelocks[cfg.ChainSelector] = mcmsSolana.ContractAddress(
-			mcmState.TimelockProgram,
-			mcmsSolana.PDASeed(mcmState.TimelockSeed),
-		)
-		proposers[cfg.ChainSelector] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-		inspectors[cfg.ChainSelector] = mcmsSolana.NewInspector(chain.Client)
-		batches = append(batches, mcmsTypes.BatchOperation{
-			ChainSelector: mcmsTypes.ChainSelector(cfg.ChainSelector),
-			Transactions:  txns,
-		})
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
-			timelocks,
-			proposers,
-			inspectors,
-			batches,
-			"proposal to disable remote chains in Solana",
-			cfg.MCMSSolana.MCMS.MinDelay)
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to disable remote chains in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
