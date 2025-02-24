@@ -102,8 +102,8 @@ func (params OCRParameters) Validate() error {
 	if params.DeltaCertifiedCommitRequest <= 0 {
 		return errors.New("deltaCertifiedCommitRequest must be positive")
 	}
-	if params.DeltaStage <= 0 {
-		return errors.New("deltaStage must be positive")
+	if params.DeltaStage < 0 {
+		return errors.New("deltaStage must be positive or 0 for disabled")
 	}
 	if params.Rmax <= 0 {
 		return errors.New("rmax must be positive")

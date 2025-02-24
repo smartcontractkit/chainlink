@@ -222,6 +222,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				MerkleRootAsyncObserverDisabled:    false,
 				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+				ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
+				ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {
