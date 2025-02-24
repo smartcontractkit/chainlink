@@ -70,7 +70,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 			return fmt.Errorf("remote chain %d is not supported", remote)
 		}
 		if remote == routerConfigAccount.SvmChainSelector {
-			return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
+			return fmt.Errorf("cannot disable remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
 		if err := state.ValidateRamp(remote, cs.OnRamp); err != nil {
 			return err
