@@ -12,8 +12,8 @@ replace github.com/smartcontractkit/chainlink/deployment => ../deployment
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250128231431-9279badae2f0
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250128231431-9279badae2f0
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
 require (
@@ -46,8 +46,8 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-automation v0.8.1
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250224171212-5da09ba5a2e6
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250214231858-f365e2bdecea
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250224132459-c57ae4a97dcb
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2

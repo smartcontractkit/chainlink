@@ -23,6 +23,8 @@ import (
 	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
@@ -1628,6 +1630,63 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func TransferOwnershipSolana(
+	t *testing.T,
+	e *deployment.Environment,
+	solChain uint64,
+	needTimelockDeployed bool,
+	transferRouter, transferFeeQuoter, transferOffRamp bool) (solana.PublicKey, solana.PublicKey) {
+	var err error
+	if needTimelockDeployed {
+		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+					solChain: {
+						Canceller:        proposalutils.SingleGroupMCMSV2(t),
+						Proposer:         proposalutils.SingleGroupMCMSV2(t),
+						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						TimelockMinDelay: big.NewInt(0),
+					},
+				},
+			),
+		})
+		require.NoError(t, err)
+	}
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain)
+	require.NoError(t, err)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChain], addresses)
+	require.NoError(t, err)
+
+	// Fund signer PDAs for timelock and mcm
+	// If we don't fund, execute() calls will fail with "no funds" errors.
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
+		100, e.SolChains[solChain].Client)
+	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
+	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
+	// Apply transfer ownership changeset
+	*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
+			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+				MinDelay: 1 * time.Second,
+				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
+					solChain: {
+						Router:    transferRouter,
+						FeeQuoter: transferFeeQuoter,
+						OffRamp:   transferOffRamp,
+					},
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+	return timelockSignerPDA, mcmSignerPDA
 }
 
 func GenTestTransferOwnershipConfig(
