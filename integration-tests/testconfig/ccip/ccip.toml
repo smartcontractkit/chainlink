@@ -242,27 +242,30 @@ addresses_to_fund = [
 ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
-# 0 - rpc latency, 1 - full chaos suite
-ChaosMode = 0
+# 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
+ChaosMode = 1
+# works only with Load.CCIP.ChaosMode = 0
 RPCLatency = "400ms"
 RPCJitter = "50ms"
 # MessageTypeWeights corresponds with [data only, token only, message with token]
 MessageTypeWeights = [100, 0, 0]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "30s"
-LoadDuration = "40m"
+LoadDuration = "10m"
 # destination chain selectors to send messages to
 NumDestinationChains = 2
 # Directory where we receive environment configuration from crib
-CribEnvDirectory = "/Users/fahrenheit/GolandProjects/chainlink/integration-tests/load/ccip/.tmp"
+CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "20m"
 
 [CCIP.Chaos]
+# works only with Load.CCIP.ChaosMode = 2
 Namespace = "crib-ccip-chaos-tests"
 # RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
 DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
 WaitBeforeStart = "30s"
-ExperimentFullInterval = "30m"
-ExperimentInjectionInterval = "29m"
+ExperimentFullInterval = "10m"
+ExperimentInjectionInterval = "5m"
+# change if you name your env differently !
 SrcChainURL = "https://crib-ccip-chaos-tests-geth-1337-http.main.stage.cldev.sh"
 DstChainURL = "https://crib-ccip-chaos-tests-geth-2337-http.main.stage.cldev.sh"

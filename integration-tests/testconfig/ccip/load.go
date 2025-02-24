@@ -22,7 +22,8 @@ type LoadConfig struct {
 }
 
 const (
-	ChaosModeTypeRPCLatency = iota
+	ChaosModeNone = iota
+	ChaosModeTypeRPCLatency
 	ChaosModeTypeFull
 )
 

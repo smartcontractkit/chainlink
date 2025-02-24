@@ -47,11 +47,7 @@ func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.ChaosRunner, *framewo
 	return cfg, cr, gc
 }
 
-func TestCCIPv2Chaos(t *testing.T) {
-	runFullChaosSuite(t)
-}
-
-func runRealisticRPCLatencySuite(t *testing.T, latency, jitter time.Duration) {
+func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration) {
 	cfg, cr, gc := prepareChaos(t)
 
 	testCases := []struct {
@@ -70,7 +66,7 @@ func runRealisticRPCLatencySuite(t *testing.T, latency, jitter time.Duration) {
 						Latency:           latency,
 						Jitter:            jitter,
 						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+						InjectionDuration: testDuration,
 					})
 				require.NoError(t, err)
 			},
@@ -86,7 +82,7 @@ func runRealisticRPCLatencySuite(t *testing.T, latency, jitter time.Duration) {
 		t.Run(testCase.name, func(t *testing.T) {
 			n := time.Now()
 			testCase.run(t)
-			time.Sleep(cfg.GetExperimentInterval())
+			time.Sleep(testDuration)
 			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
 			require.NoError(t, err)
 			testCase.validate(t)
