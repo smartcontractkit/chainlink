@@ -375,13 +375,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 			return err
 		}
 		var chainSelector uint64
-		chainSelector, err = chainselectors.SelectorFromChainId(chain.ID().Uint64())
+		chainDetail, err := chain.ChainSelectorObj().GetChainDetailsByChainIDAndFamily(chain.ID().String(), "EVM")
 		if err != nil {
 			return err
 		}
 
-		// Usage
-		selector := chain.ChainSelectorObj()[chain.ID().Uint64()].Selector
+		chainSelector = chainDetail.ChainSelector
 
 		if err = llo.Cleanup(ctx, lp, pluginCfg.ChannelDefinitionsContractAddress, pluginCfg.DonID, d.ds, chainSelector); err != nil {
 			// Cleanup is optimistic. Don't return error here, as we don't want

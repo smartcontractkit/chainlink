@@ -38,7 +38,7 @@ type Chain interface {
 	ID() *big.Int
 	Client() client.Client
 	Config() config.ChainScopedConfig
-	ChainSelectorObj() []chainselectors.Chain
+	ChainSelectorObj() *chainselectors.ChainSelectorsObj
 	LogBroadcaster() log.Broadcaster
 	HeadBroadcaster() heads.Broadcaster
 	TxManager() txmgr.TxManager
@@ -50,7 +50,6 @@ type Chain interface {
 }
 
 var (
-	_           Chain = &chain{}
 	nilBigInt   *big.Int
 	emptyString string
 )
@@ -103,7 +102,7 @@ func (c *LegacyChains) Get(id string) (Chain, error) {
 type chain struct {
 	services.StateMachine
 	id              *big.Int
-	csobj           []chainselectors.Chain
+	csobj           chainselectors.ChainSelectorsObj
 	cfg             *config.ChainScoped
 	client          client.Client
 	txm             txmgr.TxManager
@@ -304,23 +303,28 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 
 	headBroadcaster.Subscribe(logBroadcaster)
 
-	var csobj []chainselectors.Chain
-	// if chainselector is specified in the config append it to the newChainSel object
+	var csobj *chainselectors.ChainSelectorsObj
+	// // if chainselector is specified in the config append it to the newChainSel object
 	if cfg.EVM().ChainSelector() != nil {
 		// Create a chainInfo config
-		// TODO: if chainselector is present in release and present in override always use the one in release
-		newChain := chainselectors.Chain{
-			EvmChainID: cfg.EVM().ChainID().Uint64(),
-			Selector:   cfg.EVM().ChainSelector().Uint64(),
-			Name:       cfg.EVM().ChainName(),
+		newChain := chainselectors.ChainInfo{
+			Family:  cfg.EVM().ChainFamily(),
+			ChainID: cfg.EVM().ChainID().String(),
+			ChainDetails: chainselectors.ChainDetails{
+				ChainSelector: cfg.EVM().ChainSelector().Uint64(),
+				ChainName:     cfg.EVM().ChainName(),
+			},
 		}
 
-		csobj = chainselectors.NewChainSelectorsObj(newChain)
+		csobj, err = chainselectors.NewChainSelectorsObj(newChain)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &chain{
 		id:              chainID,
-		csobj:           csobj,
+		csobj:           *csobj,
 		cfg:             cfg,
 		client:          cl,
 		txm:             txm,
@@ -496,15 +500,15 @@ func (c *chain) ListNodeStatuses(ctx context.Context, pageSize int32, pageToken 
 	return common.ListNodeStatuses(int(pageSize), pageToken, c.listNodeStatuses)
 }
 
-func (c *chain) ID() *big.Int                             { return c.id }
-func (c *chain) Client() client.Client                    { return c.client }
-func (c *chain) Config() config.ChainScopedConfig         { return c.cfg }
-func (c *chain) LogBroadcaster() log.Broadcaster          { return c.logBroadcaster }
-func (c *chain) LogPoller() logpoller.LogPoller           { return c.logPoller }
-func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster { return c.headBroadcaster }
-func (c *chain) TxManager() txmgr.TxManager               { return c.txm }
-func (c *chain) HeadTracker() httypes.HeadTracker         { return c.headTracker }
-func (c *chain) Logger() logger.Logger                    { return c.logger }
-func (c *chain) BalanceMonitor() monitor.BalanceMonitor   { return c.balanceMonitor }
-func (c *chain) GasEstimator() gas.EvmFeeEstimator        { return c.gasEstimator }
-func (c *chain) ChainSelectorObj() []chainselectors.Chain { return c.csobj }
+func (c *chain) ID() *big.Int                                        { return c.id }
+func (c *chain) Client() client.Client                               { return c.client }
+func (c *chain) Config() config.ChainScopedConfig                    { return c.cfg }
+func (c *chain) LogBroadcaster() log.Broadcaster                     { return c.logBroadcaster }
+func (c *chain) LogPoller() logpoller.LogPoller                      { return c.logPoller }
+func (c *chain) HeadBroadcaster() httypes.HeadBroadcaster            { return c.headBroadcaster }
+func (c *chain) TxManager() txmgr.TxManager                          { return c.txm }
+func (c *chain) HeadTracker() httypes.HeadTracker                    { return c.headTracker }
+func (c *chain) Logger() logger.Logger                               { return c.logger }
+func (c *chain) BalanceMonitor() monitor.BalanceMonitor              { return c.balanceMonitor }
+func (c *chain) GasEstimator() gas.EvmFeeEstimator                   { return c.gasEstimator }
+func (c *chain) ChainSelectorObj() *chainselectors.ChainSelectorsObj { return &c.csobj }
