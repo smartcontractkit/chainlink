@@ -101,12 +101,11 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     emit ConfigSet(address(tokenMessenger));
   }
 
-  /// @notice Burn the token in the pool
-  /// @notice Outgoing messages (burns) do not require any changes since they are routed
-  /// through `i_tokenMessenger.depositForBurnWithCaller` and we will configure the correct allowedCaller
-  ///for each domain and dest token pool version
-  /// @dev emits ITokenMessenger.DepositForBurn
-  /// @dev Assumes caller has validated destinationReceiver
+  /// @notice Burn tokens from the pool to initiate cross-chain transfer.
+  /// @notice Outgoing messages (burn operations) are routed via `i_tokenMessenger.depositForBurnWithCaller`.
+  ///         The allowedCaller is preconfigured per destination domain and token pool version refer Domain struct.
+  /// @dev Emits ITokenMessenger.DepositForBurn event.
+  /// @dev Assumes caller has validated the destinationReceiver.
   function lockOrBurn(
     Pool.LockOrBurnInV1 calldata lockOrBurnIn
   ) public virtual override returns (Pool.LockOrBurnOutV1 memory) {
