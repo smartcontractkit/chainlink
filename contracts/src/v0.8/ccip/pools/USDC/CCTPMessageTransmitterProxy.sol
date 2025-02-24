@@ -11,23 +11,24 @@ import {Ownable2StepMsgSender} from "../../../shared/access/Ownable2StepMsgSende
 /// @dev This contract is responsible for receiving messages from the `IMessageTransmitter` and ensuring only the Token Pool can invoke it.
 contract CCTPMessageTransmitterProxy is Ownable2StepMsgSender {
   /// @notice Error thrown when a function is called by an unauthorized entity.
-  error OnlyCallableByTokenPool();
+  error Unauthorized();
+
+  struct AllowedCallerConfigParam {
+    address caller;
+    bool allowed;
+  }
 
   /// @notice Immutable reference to the `IMessageTransmitter` contract.
-  IMessageTransmitter public immutable i_transmitter;
+  IMessageTransmitter public immutable i_cctpTransmitter;
 
-  /// @notice Address of the Token Pool that is allowed to call `receiveMessage`.
-  address private s_tokenPool;
+  /// @notice Addresses allowed to call `receiveMessage`.
+  mapping(address => bool) private s_allowedCallers;
 
   /// @notice One-time cyclic dependency between TokenPool and MessageTransmitter.
-  /// @dev The deployment sequence is:
-  /// 1. Deploy MessageTransmitter first.
-  /// 2. Deploy the upgraded TokenPool.
-  /// 3. Set the TokenPool address in MessageTransmitter using `updateTokenPool`.
   constructor(
     ITokenMessenger tokenMessenger
   ) {
-    i_transmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
+    i_cctpTransmitter = IMessageTransmitter(tokenMessenger.localMessageTransmitter());
   }
 
   /// @notice Receives a message from the `IMessageTransmitter` contract and validates it.
@@ -38,28 +39,33 @@ contract CCTPMessageTransmitterProxy is Ownable2StepMsgSender {
   function receiveMessage(
     bytes calldata message,
     bytes calldata attestation
-  ) external onlyTokenPool returns (bool success) {
-    return i_transmitter.receiveMessage(message, attestation);
+  ) external onlyAllowedCaller returns (bool success) {
+    return i_cctpTransmitter.receiveMessage(message, attestation);
   }
 
-  /// @notice Retrieves the address of the current Token Pool.
-  /// @return The address of the Token Pool contract.
-  function getTokenPool() external view returns (address) {
-    return s_tokenPool;
-  }
-
-  /// @notice Updates the Token Pool address.
-  /// @dev Can only be called by the contract owner.
-  /// @param _tokenPool The new address of the Token Pool.
-  function updateTokenPool(
-    address _tokenPool
+  /// @notice Configures the allowed callers for the `receiveMessage` function.
+  /// @param params An array of `AllowedCallerConfigParam` structs.
+  function configureAllowedCallers(
+    AllowedCallerConfigParam[] calldata params
   ) external onlyOwner {
-    s_tokenPool = _tokenPool;
+    for (uint256 i = 0; i < params.length; i++) {
+      s_allowedCallers[params[i].caller] = params[i].allowed;
+    }
+  }
+
+  /// @notice Checks if the caller is allowed to call the `receiveMessage` function.
+  /// @return allowed A boolean indicating if the caller is allowed to call the function.
+  function isAllowedCaller(
+    address caller
+  ) external view returns (bool allowed) {
+    return s_allowedCallers[caller];
   }
 
   /// @notice Ensures that only the authorized Token Pool can call certain functions.
-  modifier onlyTokenPool() {
-    if (msg.sender != s_tokenPool) revert OnlyCallableByTokenPool();
+  modifier onlyAllowedCaller() {
+    if (!s_allowedCallers[msg.sender]) {
+      revert Unauthorized();
+    }
     _;
   }
 }

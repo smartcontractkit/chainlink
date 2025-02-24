@@ -33,12 +33,12 @@ contract CCTPMessageTransmitterProxy_receiveMesssage is CCTPMessageTransmitterPr
   }
 
   // Revert cases
-  function test_receiveMesssage_RevertWhen_NotTokenPool() public {
+  function test_receiveMessage_RevertWhen_NotTokenPool() public {
     bytes memory message = bytes("message");
     bytes memory attestation = bytes("attestation");
 
     changePrank(makeAddr("RANDOM"));
-    vm.expectRevert(CCTPMessageTransmitterProxy.OnlyCallableByTokenPool.selector);
+    vm.expectRevert(CCTPMessageTransmitterProxy.Unauthorized.selector);
     s_cctpMessageTransmitterProxy.receiveMessage(message, attestation);
   }
 }

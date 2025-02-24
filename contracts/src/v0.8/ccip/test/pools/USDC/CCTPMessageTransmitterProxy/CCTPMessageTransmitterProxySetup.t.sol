@@ -23,6 +23,10 @@ contract CCTPMessageTransmitterProxySetup is BaseTest {
       abi.encode(s_cctpMessageTransmitter)
     );
     s_cctpMessageTransmitterProxy = new CCTPMessageTransmitterProxy(ITokenMessenger(s_tokenMessenger));
-    s_cctpMessageTransmitterProxy.updateTokenPool(s_usdcTokenPool);
+    CCTPMessageTransmitterProxy.AllowedCallerConfigParam[] memory allowedCallerParams =
+      new CCTPMessageTransmitterProxy.AllowedCallerConfigParam[](1);
+    allowedCallerParams[0] =
+      CCTPMessageTransmitterProxy.AllowedCallerConfigParam({caller: s_usdcTokenPool, allowed: true});
+    s_cctpMessageTransmitterProxy.configureAllowedCallers(allowedCallerParams);
   }
 }
