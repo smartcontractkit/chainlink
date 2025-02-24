@@ -1935,63 +1935,6 @@ func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestEngine_CloseUnregisterFails_Other(t *testing.T) {
-	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t))
-
-	trigger, _ := mockTrigger(t)
-
-	require.NoError(t, reg.Add(ctx, trigger))
-
-	require.NoError(t, reg.Add(ctx, mockConsensus("")))
-
-	target := mockTarget("write_ethereum-testnet-sepolia@1.0.0")
-	require.NoError(t, reg.Add(ctx, target))
-
-	action := newMockCapability(
-		// Create a remote capability so we don't use the local transmission protocol.
-		capabilities.MustNewRemoteCapabilityInfo(
-			"custom-compute@1.0.0",
-			capabilities.CapabilityTypeAction,
-			"a custom compute action with custom config",
-			&capabilities.DON{ID: 1},
-		),
-		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
-			return capabilities.CapabilityResponse{
-				Value: req.Inputs,
-			}, nil
-		},
-	)
-	require.NoError(t, reg.Add(ctx, action))
-
-	eng, testHooks := newTestEngineWithYAMLSpec(
-		t,
-		reg,
-		secretsWorkflow,
-		func(c *Config) {
-			c.SecretsFetcher = &mockFetcher{
-				retval: map[string]string{},
-				retErr: errors.New("failed to fetch secrets XXX"),
-			}
-		},
-	)
-
-	err := eng.Start(ctx)
-	require.NoError(t, err)
-
-	// simulate WorkflowUpdatedEvent that calls tryEngineCleanup
-	<-testHooks.initFailed
-
-	// update trigger to mock
-	// triggerCapability wraps a capabilities.TriggerCapability
-	mockedInternalTrigger := newMockRuntimeTrigger(eng.workflow.triggers[0].trigger)
-	mockedInternalTrigger.On("UnregisterTrigger").Return(fmt.Errorf("random error message"))
-	eng.workflow.triggers[0].trigger = mockedInternalTrigger
-	eng.workflow.triggers[0].registered = true
-	err = eng.Close()
-	require.Error(t, err)
-}
-
 type mockRuntimeTrigger struct {
 	capabilities.TriggerCapability
 	*mock.Mock

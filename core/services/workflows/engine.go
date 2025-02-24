@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"strings"
 	"sync"
 	"time"
 
@@ -1174,8 +1173,8 @@ func (e *Engine) Close() error {
 		// engine instance is Closed by the syncer.
 		for idx, t := range e.workflow.triggers {
 			err := e.deregisterTrigger(ctx, t, idx)
-			if err != nil && !strings.Contains(err.Error(), "not found") {
-				return err
+			if err != nil {
+				e.logger.Errorf("failed to deregister trigger: %v", err)
 			}
 		}
 
