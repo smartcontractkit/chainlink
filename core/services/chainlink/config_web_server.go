@@ -118,6 +118,10 @@ func (w *webServerConfig) LDAP() config.LDAP {
 	return &ldapConfig{c: w.c.LDAP, s: w.s.LDAP}
 }
 
+func (w *webServerConfig) OIDC() config.OIDC {
+	return &oidcConfig{c: w.c.OIDC, s: w.s.OIDC}
+}
+
 func (w *webServerConfig) AuthenticationMethod() string {
 	return *w.c.AuthenticationMethod
 }

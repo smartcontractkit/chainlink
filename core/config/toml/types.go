@@ -608,6 +608,7 @@ type WebServer struct {
 	ListenIP                *net.IP
 
 	LDAP      WebServerLDAP      `toml:",omitempty"`
+	OIDC      WebServerOIDC      `toml:",omitempty"`
 	MFA       WebServerMFA       `toml:",omitempty"`
 	RateLimit WebServerRateLimit `toml:",omitempty"`
 	TLS       WebServerTLS       `toml:",omitempty"`
@@ -849,6 +850,48 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 	}
 	if v := f.ReadOnlyUserPass; v != nil {
 		w.ReadOnlyUserPass = v
+	}
+}
+
+// TODO: harry
+
+type WebServerOIDC struct {
+	ClientID *string
+	// TODO: put in fields from example core/config/docs/core.toml
+	// ServerTLS                   *bool
+	// SessionTimeout              *commonconfig.Duration
+	// QueryTimeout                *commonconfig.Duration
+	// BaseUserAttr                *string
+	// BaseDN                      *string
+	// UsersDN                     *string
+	// GroupsDN                    *string
+	// ActiveAttribute             *string
+	// ActiveAttributeAllowedValue *string
+	// AdminUserGroupCN            *string
+	// EditUserGroupCN             *string
+	// RunUserGroupCN              *string
+	// ReadUserGroupCN             *string
+	// UserApiTokenEnabled         *bool
+	// UserAPITokenDuration        *commonconfig.Duration
+	// UpstreamSyncInterval        *commonconfig.Duration
+	// UpstreamSyncRateLimit       *commonconfig.Duration
+}
+
+// TODO: add getter methods for struct above
+// TDOO
+func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
+	if v := f.ClientID; v != nil {
+		w.ClientID = v
+	}
+}
+
+type WebServerOIDCSecrets struct {
+	ClientSecret *string
+}
+
+func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
+	if v := f.ClientSecret; v != nil {
+			w.ClientSecret = v
 	}
 }
 
