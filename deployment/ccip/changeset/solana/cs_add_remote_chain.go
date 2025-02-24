@@ -20,10 +20,9 @@ import (
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
@@ -49,7 +48,7 @@ type RemoteChainConfigSolana struct {
 }
 
 func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -74,13 +73,13 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	if err := cs.ValidateOwnershipSolana(&e, chain, routerUsingMCMS, chainState.Router, cs.Router); err != nil {
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMCMS, chainState.Router, ccipChangeset.Router); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
-	if err := cs.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, cs.FeeQuoter); err != nil {
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, ccipChangeset.FeeQuoter); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
-	if err := cs.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, cs.OffRamp); err != nil {
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, ccipChangeset.OffRamp); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	var routerConfigAccount solRouter.Config
@@ -95,7 +94,7 @@ func (cfg AddRemoteChainToSolanaConfig) Validate(e deployment.Environment) error
 		if remote == routerConfigAccount.SvmChainSelector {
 			return fmt.Errorf("cannot add remote chain %d with same chain selector as current chain %d", remote, cfg.ChainSelector)
 		}
-		if err := state.ValidateRamp(remote, cs.OnRamp); err != nil {
+		if err := state.ValidateRamp(remote, ccipChangeset.OnRamp); err != nil {
 			return err
 		}
 		routerDestChainPDA, err := solState.FindDestChainStatePDA(remote, chainState.Router)
@@ -119,7 +118,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 		return deployment.ChangesetOutput{}, err
 	}
 
-	s, err := cs.LoadOnchainState(e)
+	s, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -171,7 +170,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 
 func doAddRemoteChainToSolana(
 	e deployment.Environment,
-	s cs.CCIPOnChainState,
+	s ccipChangeset.CCIPOnChainState,
 	cfg AddRemoteChainToSolanaConfig,
 	ab deployment.AddressBook) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
@@ -194,27 +193,21 @@ func doAddRemoteChainToSolana(
 	for remoteChainSel, update := range updates {
 		var onRampBytes [64]byte
 		// already verified, skipping errcheck
-		remoteChainFamily, _ := chainsel.GetSelectorFamily(remoteChainSel)
-		var addressBytes []byte
-		switch remoteChainFamily {
-		case chainsel.FamilySolana:
-			addressBytes, _ = s.SolChains[remoteChainSel].OnRampBytes()
-		case chainsel.FamilyEVM:
-			addressBytes, _ = s.Chains[remoteChainSel].OnRampBytes()
-		}
+		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
 		addressBytes = common.LeftPadBytes(addressBytes, 64)
 		copy(onRampBytes[:], addressBytes)
 
 		// verified while loading state
-		fqDestChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
-		routerDestChainPDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
-		offRampSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, s.SolChains[chainSel].OffRamp)
+		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
+		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
+		offRampRemoteStatePDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, offRampID)
+		allowedOffRampRemotePDA, _ := solState.FindAllowedOfframpPDA(remoteChainSel, offRampID, ccipRouterID)
 
 		if !update.IsUpdate {
 			lookUpTableEntries = append(lookUpTableEntries,
-				fqDestChainPDA,
-				routerDestChainPDA,
-				offRampSourceChainPDA,
+				fqRemoteChainPDA,
+				routerRemoteStatePDA,
+				offRampRemoteStatePDA,
 			)
 		}
 
@@ -231,7 +224,7 @@ func doAddRemoteChainToSolana(
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
 				update.RouterDestinationConfig,
-				routerDestChainPDA,
+				routerRemoteStatePDA,
 				s.SolChains[chainSel].RouterConfigPDA,
 				authority,
 				solana.SystemProgramID,
@@ -240,7 +233,7 @@ func doAddRemoteChainToSolana(
 			routerIx, err = solRouter.NewAddChainSelectorInstruction(
 				remoteChainSel,
 				update.RouterDestinationConfig,
-				routerDestChainPDA,
+				routerRemoteStatePDA,
 				s.SolChains[chainSel].RouterConfigPDA,
 				authority,
 				solana.SystemProgramID,
@@ -250,13 +243,34 @@ func doAddRemoteChainToSolana(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if routerUsingMCMS {
-			tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), cs.Router)
+			tx, err := BuildMCMSTxn(routerIx, ccipRouterID.String(), ccipChangeset.Router)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
 			txns = append(txns, *tx)
 		} else {
 			ixns = append(ixns, routerIx)
+		}
+
+		routerOfframpIx, err := solRouter.NewAddOfframpInstruction(
+			remoteChainSel,
+			offRampID,
+			allowedOffRampRemotePDA,
+			s.SolChains[chainSel].RouterConfigPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		if routerUsingMCMS {
+			tx, err := BuildMCMSTxn(routerOfframpIx, ccipRouterID.String(), ccipChangeset.Router)
+			if err != nil {
+				return txns, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			txns = append(txns, *tx)
+		} else {
+			ixns = append(ixns, routerOfframpIx)
 		}
 
 		solFeeQuoter.SetProgramID(feeQuoterID)
@@ -271,7 +285,7 @@ func doAddRemoteChainToSolana(
 				remoteChainSel,
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
-				fqDestChainPDA,
+				fqRemoteChainPDA,
 				authority,
 			).ValidateAndBuild()
 		} else {
@@ -279,7 +293,7 @@ func doAddRemoteChainToSolana(
 				remoteChainSel,
 				update.FeeQuoterDestinationConfig,
 				s.SolChains[chainSel].FeeQuoterConfigPDA,
-				fqDestChainPDA,
+				fqRemoteChainPDA,
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
@@ -288,7 +302,7 @@ func doAddRemoteChainToSolana(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if feeQuoterUsingMCMS {
-			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), cs.FeeQuoter)
+			tx, err := BuildMCMSTxn(feeQuoterIx, feeQuoterID.String(), ccipChangeset.FeeQuoter)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -312,7 +326,7 @@ func doAddRemoteChainToSolana(
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
-				offRampSourceChainPDA,
+				offRampRemoteStatePDA,
 				s.SolChains[chainSel].OffRampConfigPDA,
 				authority,
 			).ValidateAndBuild()
@@ -320,7 +334,7 @@ func doAddRemoteChainToSolana(
 			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
 				remoteChainSel,
 				validSourceChainConfig,
-				offRampSourceChainPDA,
+				offRampRemoteStatePDA,
 				s.SolChains[chainSel].OffRampConfigPDA,
 				authority,
 				solana.SystemProgramID,
@@ -330,7 +344,7 @@ func doAddRemoteChainToSolana(
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 		if offRampUsingMCMS {
-			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), cs.OffRamp)
+			tx, err := BuildMCMSTxn(offRampIx, offRampID.String(), ccipChangeset.OffRamp)
 			if err != nil {
 				return txns, fmt.Errorf("failed to create transaction: %w", err)
 			}
@@ -345,17 +359,17 @@ func doAddRemoteChainToSolana(
 			}
 		}
 		if !update.IsUpdate {
-			tv := deployment.NewTypeAndVersion(cs.RemoteDest, deployment.Version1_0_0)
+			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
 			tv.AddLabel(remoteChainSelStr)
-			err = ab.Save(chainSel, routerDestChainPDA.String(), tv)
+			err = ab.Save(chainSel, routerRemoteStatePDA.String(), tv)
 			if err != nil {
 				return txns, fmt.Errorf("failed to save dest chain state to address book: %w", err)
 			}
 
-			tv = deployment.NewTypeAndVersion(cs.RemoteSource, deployment.Version1_0_0)
+			tv = deployment.NewTypeAndVersion(ccipChangeset.RemoteSource, deployment.Version1_0_0)
 			tv.AddLabel(remoteChainSelStr)
-			err = ab.Save(chainSel, offRampSourceChainPDA.String(), tv)
+			err = ab.Save(chainSel, offRampRemoteStatePDA.String(), tv)
 			if err != nil {
 				return txns, fmt.Errorf("failed to save source chain state to address book: %w", err)
 			}
@@ -363,7 +377,7 @@ func doAddRemoteChainToSolana(
 	}
 
 	if len(lookUpTableEntries) > 0 {
-		addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
+		addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampID)
 		if err != nil {
 			return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 		}

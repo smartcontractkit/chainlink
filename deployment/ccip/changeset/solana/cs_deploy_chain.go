@@ -15,7 +15,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -35,27 +35,43 @@ const (
 	RouterProgramName    = "ccip_router"
 	OffRampProgramName   = "ccip_offramp"
 	FeeQuoterProgramName = "fee_quoter"
-	TokenPoolProgramName = "test_token_pool"
+	BurnMintTokenPool    = "example_burnmint_token_pool"
+	LockReleaseTokenPool = "example_lockrelease_token_pool"
 )
+
+var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
 	return map[deployment.ContractType]string{
-		cs.Router:    RouterProgramName,
-		cs.OffRamp:   OffRampProgramName,
-		cs.FeeQuoter: FeeQuoterProgramName,
-		cs.TokenPool: TokenPoolProgramName,
+		ccipChangeset.Router:               RouterProgramName,
+		ccipChangeset.OffRamp:              OffRampProgramName,
+		ccipChangeset.FeeQuoter:            FeeQuoterProgramName,
+		ccipChangeset.BurnMintTokenPool:    BurnMintTokenPool,
+		ccipChangeset.LockReleaseTokenPool: LockReleaseTokenPool,
 	}
 }
 
-var _ deployment.ChangeSet[DeployChainContractsConfigSolana] = DeployChainContractsChangesetSolana
-
-type DeployChainContractsConfigSolana struct {
-	DeployChainContractsConfig v1_6.DeployChainContractsConfig
-	UpgradeConfig              UpgradeConfigSolana
-	NewUpgradeAuthority        *solana.PublicKey // if set, sets router and fee quoter upgrade authority
+type DeployChainContractsConfig struct {
+	HomeChainSelector      uint64
+	ContractParamsPerChain map[uint64]ChainContractParams
+	UpgradeConfig          UpgradeConfig
+	NewUpgradeAuthority    *solana.PublicKey // if set, sets router and fee quoter upgrade authority
 }
 
-type UpgradeConfigSolana struct {
+type ChainContractParams struct {
+	FeeQuoterParams FeeQuoterParams
+	OffRampParams   OffRampParams
+}
+
+type FeeQuoterParams struct {
+	DefaultMaxFeeJuelsPerMsg solBinary.Uint128
+	BillingConfig            []solFeeQuoter.BillingTokenConfig
+}
+
+type OffRampParams struct {
+	EnableExecutionAfter int64
+}
+type UpgradeConfig struct {
 	NewFeeQuoterVersion *semver.Version
 	NewRouterVersion    *semver.Version
 	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
@@ -64,10 +80,10 @@ type UpgradeConfigSolana struct {
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
-	MCMS *cs.MCMSConfig
+	MCMS *ccipChangeset.MCMSConfig
 }
 
-func (cfg UpgradeConfigSolana) Validate(e deployment.Environment, chainSelector uint64) error {
+func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
 	if cfg.NewFeeQuoterVersion == nil && cfg.NewRouterVersion == nil && cfg.NewOffRampVersion == nil {
 		return nil
 	}
@@ -83,13 +99,25 @@ func (cfg UpgradeConfigSolana) Validate(e deployment.Environment, chainSelector 
 	return ValidateMCMSConfig(e, chainSelector, cfg.MCMS)
 }
 
-func DeployChainContractsChangesetSolana(e deployment.Environment, config DeployChainContractsConfigSolana) (deployment.ChangesetOutput, error) {
-	c := config.DeployChainContractsConfig
+func (c DeployChainContractsConfig) Validate() error {
+	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
+		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
+	}
+	for cs := range c.ContractParamsPerChain {
+		if err := deployment.IsValidChainSelector(cs); err != nil {
+			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
+		}
+	}
+	return nil
+}
+
+func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
+	// c := config.DeployChainContractsConfig
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	existingState, err := cs.LoadOnchainState(e)
+	existingState, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return deployment.ChangesetOutput{}, err
@@ -117,7 +145,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		if existingState.SolChains[chainSel].LinkToken.IsZero() {
 			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
 		}
-		if err := config.UpgradeConfig.Validate(e, chainSel); err != nil {
+		if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
 		}
 		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
@@ -130,7 +158,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 		proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
 		inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
 
-		mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, config)
+		mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, c)
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
 			return deployment.ChangesetOutput{}, err
@@ -152,7 +180,7 @@ func DeployChainContractsChangesetSolana(e deployment.Environment, config Deploy
 			inspectors,
 			batches,
 			"proposal to upgrade CCIP contracts",
-			config.UpgradeConfig.MCMS.MinDelay)
+			c.UpgradeConfig.MCMS.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -250,6 +278,7 @@ func initializeFeeQuoter(
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
+	params FeeQuoterParams,
 ) error {
 	e.Logger.Debugw("Initializing fee quoter", "chain", chain.String(), "feeQuoterAddress", feeQuoterAddress.String())
 	programData, err := solProgramData(e, chain, feeQuoterAddress)
@@ -260,7 +289,7 @@ func initializeFeeQuoter(
 
 	instruction, err := solFeeQuoter.NewInitializeInstruction(
 		linkTokenAddress,
-		deployment.SolDefaultMaxFeeJuelsPerMsg,
+		params.DefaultMaxFeeJuelsPerMsg,
 		ccipRouterProgram,
 		feeQuoterConfigPDA,
 		chain.DeployerKey.PublicKey(),
@@ -268,6 +297,9 @@ func initializeFeeQuoter(
 		feeQuoterAddress,
 		programData.Address,
 	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
 
 	offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
 	fqAllowedPriceUpdaterOfframpPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(offRampBillingSignerPDA, feeQuoterAddress)
@@ -297,6 +329,7 @@ func initializeOffRamp(
 	feeQuoterAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
 	addressLookupTable solana.PublicKey,
+	params OffRampParams,
 ) error {
 	e.Logger.Debugw("Initializing offRamp", "chain", chain.String(), "offRampAddress", offRampAddress.String())
 	programData, err := solProgramData(e, chain, offRampAddress)
@@ -329,7 +362,7 @@ func initializeOffRamp(
 
 	initConfigIx, err := solOffRamp.NewInitializeConfigInstruction(
 		chain.Selector,
-		deployment.EnableExecutionAfter,
+		params.EnableExecutionAfter,
 		offRampConfigPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -351,11 +384,11 @@ func deployChainContractsSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
-	config DeployChainContractsConfigSolana,
+	config DeployChainContractsConfig,
 ) ([]mcmsTypes.Transaction, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	txns := make([]mcmsTypes.Transaction, 0)
-	state, err := cs.LoadOnchainStateSolana(e)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return txns, err
@@ -368,18 +401,20 @@ func deployChainContractsSolana(
 		return txns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
+	params := config.ContractParamsPerChain[chain.Selector]
+
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.FeeQuoter.IsZero() {
-		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, cs.FeeQuoter, deployment.Version1_0_0, false)
+		feeQuoterAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.FeeQuoter, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
 		feeQuoterAddress = chainState.FeeQuoter
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, cs.FeeQuoter)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, ccipChangeset.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -395,14 +430,14 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.Router.IsZero() {
 		// deploy router
-		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, cs.Router, deployment.Version1_0_0, false)
+		ccipRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Router, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewRouterVersion != nil {
 		// router updated in place
 		ccipRouterProgram = chainState.Router
-		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, cs.Router)
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRouterVersion, chainState.Router, ccipChangeset.Router)
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
@@ -423,20 +458,20 @@ func deployChainContractsSolana(
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
-		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, cs.OffRamp, deployment.Version1_0_0, false)
+		offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 	} else if config.UpgradeConfig.NewOffRampVersion != nil {
-		tv := deployment.NewTypeAndVersion(cs.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
+		tv := deployment.NewTypeAndVersion(ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion)
 		existingAddresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 		if err != nil {
 			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
 		}
-		offRampAddress = cs.FindSolanaAddress(tv, existingAddresses)
+		offRampAddress = ccipChangeset.FindSolanaAddress(tv, existingAddresses)
 		if offRampAddress.IsZero() {
 			// deploy offramp, not upgraded in place so upgrade is false
-			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, cs.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false)
+			offRampAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.OffRamp, *config.UpgradeConfig.NewOffRampVersion, false)
 			if err != nil {
 				return txns, fmt.Errorf("failed to deploy program: %w", err)
 			}
@@ -456,7 +491,7 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to build instruction: %w", err)
 		}
-		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), cs.FeeQuoter)
+		priceUpdaterTx, err := BuildMCMSTxn(priceUpdaterix, feeQuoterAddress.String(), ccipChangeset.FeeQuoter)
 		if err != nil {
 			return txns, fmt.Errorf("failed to create price updater transaction: %w", err)
 		}
@@ -472,7 +507,7 @@ func deployChainContractsSolana(
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), feeQuoterConfigPDA, &fqConfig)
 	if err != nil {
-		if err2 := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress); err2 != nil {
+		if err2 := initializeFeeQuoter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, offRampAddress, params.FeeQuoterParams); err2 != nil {
 			return txns, err2
 		}
 	} else {
@@ -514,7 +549,7 @@ func deployChainContractsSolana(
 		if err2 != nil {
 			return txns, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
-		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, table); err2 != nil {
+		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, table, params.OffRampParams); err2 != nil {
 			return txns, err2
 		}
 		// Initializing a new offramp means we need a new lookup table and need to fully populate it
@@ -535,29 +570,48 @@ func deployChainContractsSolana(
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
 	}
 
-	// TOKEN POOL DEPLOY
-	var tokenPoolProgram solana.PublicKey
-	if chainState.TokenPool.IsZero() {
-		// TODO: there should be two token pools deployed one of each type (lock/burn)
-		// separate token pools are not ready yet
-		tokenPoolProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, cs.TokenPool, deployment.Version1_0_0, false)
+	var burnMintTokenPool solana.PublicKey
+	if chainState.BurnMintTokenPool.IsZero() {
+		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
 		needTokenPoolinLookupTable = true
 	} else {
-		e.Logger.Infow("Using existing token pool", "addr", chainState.TokenPool.String())
-		tokenPoolProgram = chainState.TokenPool
+		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPool.String())
+		burnMintTokenPool = chainState.BurnMintTokenPool
+	}
+
+	var lockReleaseTokenPool solana.PublicKey
+	if chainState.LockReleaseTokenPool.IsZero() {
+		lockReleaseTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.LockReleaseTokenPool, deployment.Version1_0_0, false)
+		if err != nil {
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
+		}
+		needTokenPoolinLookupTable = true
+	} else {
+		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPool.String())
+		lockReleaseTokenPool = chainState.LockReleaseTokenPool
+	}
+
+	for _, billingConfig := range params.FeeQuoterParams.BillingConfig {
+		if err := AddBillingToken(
+			e, chain, chainState, billingConfig,
+		); err != nil {
+			return txns, err
+		}
 	}
 
 	if needFQinLookupTable {
 		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
+		wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
 		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			// fee quoter
 			feeQuoterConfigPDA,
 			feeQuoterAddress,
 			linkFqBillingConfigPDA,
+			wsolFqBillingConfigPDA,
 		}...)
 	}
 
@@ -579,12 +633,13 @@ func deployChainContractsSolana(
 	if needTokenPoolinLookupTable {
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
 			// token pools
-			tokenPoolProgram,
+			burnMintTokenPool,
+			lockReleaseTokenPool,
 		}...)
 	}
 
 	if len(lookupTableKeys) > 0 {
-		addressLookupTable, err := cs.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
+		addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
 		if err != nil {
 			return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 		}
@@ -611,7 +666,7 @@ func generateUpgradeTxns(
 	e deployment.Environment,
 	chain deployment.SolChain,
 	ab deployment.AddressBook,
-	config DeployChainContractsConfigSolana,
+	config DeployChainContractsConfig,
 	newVersion *semver.Version,
 	programID solana.PublicKey,
 	contractType deployment.ContractType,
@@ -847,7 +902,7 @@ type SetFeeAggregatorConfig struct {
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
-	state, err := cs.LoadOnchainState(e)
+	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -878,7 +933,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		return deployment.ChangesetOutput{}, err
 	}
 
-	state, _ := cs.LoadOnchainState(e)
+	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 
@@ -900,7 +955,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(cs.FeeAggregator, deployment.Version1_0_0))
+	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(ccipChangeset.FeeAggregator, deployment.Version1_0_0))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
 	}
