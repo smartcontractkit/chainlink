@@ -8,6 +8,8 @@ import (
 	"math/rand"
 	"time"
 
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"go.uber.org/atomic"
@@ -16,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
