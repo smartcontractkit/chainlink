@@ -3,13 +3,15 @@ package ccip
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"go.uber.org/atomic"
 	"math"
 	"slices"
 	"sync"
 	"time"
+
+	"go.uber.org/atomic"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 
 	"github.com/ethereum/go-ethereum/event"
 
