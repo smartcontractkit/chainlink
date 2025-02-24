@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"math/big"
@@ -731,7 +732,6 @@ func TestCCIPReader_NextSeqNum(t *testing.T) {
 func TestCCIPReader_GetExpectedNextSequenceNumber(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
-	// env := NewMemoryEnvironmentContractsOnly(t, logger.TestLogger(t), 2, 4, nil)
 	env, _ := testhelpers.NewMemoryEnvironment(t)
 	state, err := changeset.LoadOnchainState(env.Env)
 	require.NoError(t, err)
@@ -1004,7 +1004,6 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	)
 	require.NoError(t, lpD.Start(ctx))
 
-	// Starting a chain reader service using merged reader configs for source chain and destination chain
 	crS1, err := evm.NewChainReaderService(ctx, logger.TestLogger(t), lpS1, headTrackerS1, clS1, evmconfig.SourceReaderConfig)
 	require.NoError(t, err)
 	extendedCrS1 := contractreader.NewExtendedContractReader(crS1)
@@ -1060,9 +1059,23 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	err = reader.Sync(ctx, onRampContractMapping)
 	require.NoError(t, err)
 
-	// Wait for the config poller to refresh in defaultRefreshPeriod = 30 seconds
-	time.Sleep(30 * time.Second)
+	require.Eventually(t, func() bool {
+		contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
+		if err != nil {
+			return false
+		}
 
+		// Check if router and FeeQuoter addresses on source chain are now discovered
+		// Adding 1 sec buffer to avoid flakes
+		routerS1, routerExists := contractAddresses[consts.ContractNameRouter][chainS1]
+		feeQuoterS1, feeQuoterExists := contractAddresses[consts.ContractNameFeeQuoter][chainS1]
+
+		return routerExists && feeQuoterExists &&
+			bytes.Equal(routerS1, destinationChainConfigArgs[0].Router.Bytes()) &&
+			bytes.Equal(feeQuoterS1, onRampS1DynamicConfig.FeeQuoter.Bytes())
+	}, (30+1)*time.Second, 100*time.Millisecond, "Router and FeeQuoter addresses were not discovered on source chain in time")
+
+	// Final assertions again for completeness:
 	contractAddresses, err = reader.DiscoverContracts(ctx, []cciptypes.ChainSelector{chainS1, chainD})
 	require.NoError(t, err)
 
@@ -1072,7 +1085,7 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	require.Equal(t, contractAddresses[consts.ContractNameNonceManager][chainD], cciptypes.UnknownAddress(offRampDStaticConfig.NonceManager.Bytes()))
 	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainD], cciptypes.UnknownAddress(offRampDDynamicConfig.FeeQuoter.Bytes()))
 
-	// Now it has also discovered the destination router address stored in source chain and the source chain FeeQuoter address
+	// Final assert to confirm source chain addresses discovered
 	require.Equal(t, contractAddresses[consts.ContractNameRouter][chainS1], cciptypes.UnknownAddress(destinationChainConfigArgs[0].Router.Bytes()))
 	require.Equal(t, contractAddresses[consts.ContractNameFeeQuoter][chainS1], cciptypes.UnknownAddress(onRampS1DynamicConfig.FeeQuoter.Bytes()))
 }
@@ -1114,7 +1127,6 @@ func Test_GetChainFeePriceUpdates(t *testing.T) {
 		ctx,
 		t,
 		chain1,
-		// evmconfig.DestReaderConfig,
 		map[cciptypes.ChainSelector][]types.BoundContract{
 			cciptypes.ChainSelector(chain1): {
 				{
