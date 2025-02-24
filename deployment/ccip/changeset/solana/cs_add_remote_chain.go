@@ -35,7 +35,7 @@ type AddRemoteChainToSolanaConfig struct {
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *ccipChangeset.MCMSConfig
-	// Public key of program authorites. Depending on when this changeset is called, some may be under
+	// Public key of program authorities. Depending on when this changeset is called, some may be under
 	// the control of the deployer, and some may be under the control of the timelock. (e.g. during new offramp deploy)
 	RouterAuthority    solana.PublicKey
 	FeeQuoterAuthority solana.PublicKey
