@@ -31,7 +31,7 @@ func deployAccessControllerProgram(
 	}
 
 	if programID.IsZero() {
-		deployedProgramID, err := chain.DeployProgram(e.Logger, "access_controller")
+		deployedProgramID, err := chain.DeployProgram(e.Logger, "access_controller", false)
 		if err != nil {
 			return fmt.Errorf("failed to deploy access controller program: %w", err)
 		}

@@ -96,14 +96,25 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
-				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				// return the error so devs can ensure expected reversions
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, mcmProp)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		if out.MCMSProposals != nil {
 			for _, prop := range out.MCMSProposals {
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				// return the error so devs can ensure expected reversions
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		currentEnv = deployment.Environment{
@@ -150,8 +161,14 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 
 				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
-				proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		if out.MCMSProposals != nil {
@@ -162,7 +179,10 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 				}
 
 				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				if err != nil {
+					return deployment.Environment{}, err
+				}
 			}
 		}
 		currentEnv = deployment.Environment{
