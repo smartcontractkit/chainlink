@@ -1,6 +1,8 @@
 package ccip
 
 import (
+	"fmt"
+	"github.com/AlekSi/pointer"
 	"testing"
 	"time"
 
@@ -9,9 +11,16 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	TokenOnlyTransfer    string = "Token"
+	DataOnlyTransfer     string = "Data"
+	DataAndTokenTransfer string = "DataWithToken"
+)
+
 type LoadConfig struct {
 	LoadDuration         *string
 	MessageTypeWeights   *[]int
+	MessageDetails       *[]MsgDetails
 	RequestFrequency     *string
 	CribEnvDirectory     *string
 	NumDestinationChains *int
@@ -27,13 +36,15 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	require.NoError(t, err, "TimeoutDuration must be a valid duration")
 
 	agg := 0
-	for _, w := range *l.MessageTypeWeights {
-		agg += w
+	for _, md := range *l.MessageDetails {
+		require.NoError(t, md.Validate())
+		agg += *md.Ratio
 	}
 	require.Equal(t, 100, agg, "Sum of MessageTypeWeights must be 100")
 
 	require.GreaterOrEqual(t, *l.NumDestinationChains, 1, "NumDestinationChains must be greater than or equal to 1")
 	require.GreaterOrEqual(t, len(e.Chains), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
+
 }
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {
@@ -47,4 +58,41 @@ func (l *LoadConfig) GetTimeoutDuration() time.Duration {
 		return 30 * time.Minute
 	}
 	return ld
+}
+
+type MsgDetails struct {
+	MsgType      *string `toml:",omitempty"`
+	DestGasLimit *int64  `toml:",omitempty"`
+	DataLength   *int64  `toml:",omitempty"`
+	Ratio        *int    `toml:",omitempty"` // Percentage ratio of this message type (0-100)
+}
+
+func (m *MsgDetails) IsTokenTransfer() bool {
+	return pointer.GetString(m.MsgType) == TokenOnlyTransfer || pointer.GetString(m.MsgType) == DataAndTokenTransfer
+}
+
+func (m *MsgDetails) IsDataTransfer() bool {
+	return pointer.GetString(m.MsgType) == DataOnlyTransfer || pointer.GetString(m.MsgType) == DataAndTokenTransfer
+}
+
+func (m *MsgDetails) Validate() error {
+	if m == nil {
+		return fmt.Errorf("msg details should be set")
+	}
+	if m.MsgType == nil {
+		return fmt.Errorf("msg type should be set")
+	}
+	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
+		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
+		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
+		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
+	}
+	if m.Ratio == nil {
+		return fmt.Errorf("ratio should be set")
+	}
+	if *m.Ratio < 0 || *m.Ratio > 100 {
+		return fmt.Errorf("ratio should be between 0 and 100")
+	}
+
+	return nil
 }
