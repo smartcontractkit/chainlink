@@ -2,10 +2,8 @@ package solana
 
 import (
 	"fmt"
-	"math/big"
 
 	"github.com/gagliardetto/solana-go"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -60,25 +58,14 @@ func transferAndWrapAcceptOwnership(
 	if err != nil {
 		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create accept ownership instruction: %w", label, err)
 	}
-	acceptData, err := ixAccept.Data()
-	if err != nil {
-		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to extract accept data: %w", label, err)
-	}
 
 	// 4. Wrap in MCMS transaction
-	mcmsTx, err := mcmsSolana.NewTransaction(
-		programID.String(),
-		acceptData,
-		big.NewInt(0),       // e.g. value
-		ixAccept.Accounts(), // pass along needed accounts
-		string(label),       // some string identifying the target
-		[]string{},          // any relevant metadata
-	)
+	mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
 	if err != nil {
 		return mcmsTypes.Transaction{}, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
 	}
 
-	return mcmsTx, nil
+	return *mcmsTx, nil
 }
 
 // transferOwnershipRouter transfers ownership of the router to the timelock.

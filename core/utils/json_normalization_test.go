@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
@@ -34,12 +33,12 @@ func TestNormalizedJSON(t *testing.T) {
 			false,
 		},
 		{"reordering",
-			cltest.JSONFromString(t, `{"a": "!", "A": "1"}`),
+			map[string]string{"a": "!", "A": "1"},
 			`{"A":"1","a":"!"}`,
 			false,
 		},
 		{"more key reordering",
-			cltest.JSONFromString(t, `{"a": "!", "A": "1", "B": "@", "b":"?", "c":"..."}`),
+			map[string]string{"a": "!", "A": "1", "B": "@", "b": "?", "c": "..."},
 			`{"A":"1","B":"@","a":"!","b":"?","c":"..."}`,
 			false,
 		},
@@ -52,7 +51,7 @@ func TestNormalizedJSON(t *testing.T) {
 
 			str, err := utils.NormalizedJSON(jsonBytes)
 
-			cltest.AssertError(t, test.wantError, err)
+			assert.Equal(t, test.wantError, err != nil)
 			assert.Equal(t, test.want, str)
 		})
 	}
