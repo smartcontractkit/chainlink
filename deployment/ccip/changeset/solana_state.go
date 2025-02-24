@@ -12,18 +12,25 @@ import (
 
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-var (
-	TokenPool     deployment.ContractType = "TokenPool"
-	Receiver      deployment.ContractType = "Receiver"
-	SPL2022Tokens deployment.ContractType = "SPL2022Tokens"
-	WSOL          deployment.ContractType = "WSOL"
-	FeeAggregator deployment.ContractType = "FeeAggregator"
+const (
+	OfframpAddressLookupTable deployment.ContractType = "OfframpAddressLookupTable"
+	TokenPool                 deployment.ContractType = "TokenPool"
+	Receiver                  deployment.ContractType = "Receiver"
+	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
+	SPLTokens                 deployment.ContractType = "SPLTokens"
+	WSOL                      deployment.ContractType = "WSOL"
+	FeeAggregator             deployment.ContractType = "FeeAggregator"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -35,15 +42,20 @@ var (
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
-	LinkToken     solana.PublicKey
-	Router        solana.PublicKey
-	Receiver      solana.PublicKey // for tests only
-	SPL2022Tokens []solana.PublicKey
-	TokenPool     solana.PublicKey
-	WSOL          solana.PublicKey
-	FeeQuoter     solana.PublicKey
-	OffRamp       solana.PublicKey
-	FeeAggregator solana.PublicKey
+	LinkToken                 solana.PublicKey
+	Router                    solana.PublicKey
+	OfframpAddressLookupTable solana.PublicKey
+	Receiver                  solana.PublicKey // for tests only
+	SPL2022Tokens             []solana.PublicKey
+	SPLTokens                 []solana.PublicKey
+	// TokenPool                 solana.PublicKey
+	BurnMintTokenPool    solana.PublicKey
+	LockReleaseTokenPool solana.PublicKey
+	WSOL                 solana.PublicKey
+	FeeQuoter            solana.PublicKey
+	OffRamp              solana.PublicKey
+	FeeAggregator        solana.PublicKey
+
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
 	SourceChainStatePDAs map[uint64]solana.PublicKey // deprecated
@@ -92,6 +104,8 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		SourceChainStatePDAs: make(map[uint64]solana.PublicKey),
 		DestChainStatePDAs:   make(map[uint64]solana.PublicKey),
 		SPL2022Tokens:        make([]solana.PublicKey, 0),
+		SPLTokens:            make([]solana.PublicKey, 0),
+		WSOL:                 solana.SolMint,
 		TokenPoolLookupTable: make(map[solana.PublicKey]solana.PublicKey),
 	}
 	// Most programs upgraded in place, but some are not so we always want to
@@ -116,9 +130,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case SPL2022Tokens:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.SPL2022Tokens = append(state.SPL2022Tokens, pub)
-		case TokenPool:
+		case SPLTokens:
 			pub := solana.MustPublicKeyFromBase58(address)
-			state.TokenPool = pub
+			state.SPLTokens = append(state.SPLTokens, pub)
 		case RemoteSource:
 			pub := solana.MustPublicKeyFromBase58(address)
 			// Labels should only have one entry
@@ -179,6 +193,12 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case FeeAggregator:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.FeeAggregator = pub
+		case BurnMintTokenPool:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.BurnMintTokenPool = pub
+		case LockReleaseTokenPool:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.LockReleaseTokenPool = pub
 		default:
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
@@ -190,8 +210,27 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		}
 		versions[tvStr.Type] = tvStr.Version
 	}
-	state.WSOL = solana.SolMint
 	return state, nil
+}
+
+func (s SolCCIPChainState) TokenToTokenProgram(tokenAddress solana.PublicKey) (solana.PublicKey, error) {
+	if tokenAddress.Equals(s.LinkToken) {
+		return solana.Token2022ProgramID, nil
+	}
+	if tokenAddress.Equals(s.WSOL) {
+		return solana.TokenProgramID, nil
+	}
+	for _, spl2022Token := range s.SPL2022Tokens {
+		if spl2022Token.Equals(tokenAddress) {
+			return solana.Token2022ProgramID, nil
+		}
+	}
+	for _, splToken := range s.SPLTokens {
+		if splToken.Equals(tokenAddress) {
+			return solana.TokenProgramID, nil
+		}
+	}
+	return solana.PublicKey{}, fmt.Errorf("token program not found for token address %s", tokenAddress.String())
 }
 
 func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deployment.TypeAndVersion) solana.PublicKey {
@@ -204,9 +243,57 @@ func FindSolanaAddress(tv deployment.TypeAndVersion, addresses map[string]deploy
 	return solana.PublicKey{}
 }
 
-func (c SolCCIPChainState) OnRampBytes() ([]byte, error) {
-	if !c.Router.IsZero() {
-		return c.Router.Bytes(), nil
+func ValidateOwnershipSolana(
+	e *deployment.Environment,
+	chain deployment.SolChain,
+	mcms bool,
+	deployerKey solana.PublicKey,
+	programID solana.PublicKey,
+	contractType deployment.ContractType,
+) error {
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to get existing addresses: %w", err)
 	}
-	return nil, errors.New("no onramp found in the state")
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	config, _, err := solState.FindConfigPDA(programID)
+	if err != nil {
+		return fmt.Errorf("failed to find config PDA: %w", err)
+	}
+	switch contractType {
+	case Router:
+		programData := ccip_router.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for router: %w", err)
+		}
+	case OffRamp:
+		programData := ccip_offramp.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for offramp: %w", err)
+		}
+	case FeeQuoter:
+		programData := fee_quoter.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, deployerKey, timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
+		}
+	default:
+		return fmt.Errorf("unsupported contract type: %s", contractType)
+	}
+	return nil
 }

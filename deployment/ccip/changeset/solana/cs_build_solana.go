@@ -6,10 +6,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
 var _ deployment.ChangeSet[BuildSolanaConfig] = BuildSolanaChangeset
@@ -21,6 +23,13 @@ const (
 	anchorDir = "chains/solana/contracts" // Path to the Anchor project within the repo
 	deployDir = "chains/solana/contracts/target/deploy"
 )
+
+// Map program names to their Rust file paths (relative to the Anchor project root)
+// Needed for upgrades in place
+var programToFileMap = map[deployment.ContractType]string{
+	cs.Router:    "programs/ccip-router/src/lib.rs",
+	cs.FeeQuoter: "programs/fee-quoter/src/lib.rs",
+}
 
 // Run a command in a specific directory
 func runCommand(command string, args []string, workDir string) (string, error) {
@@ -37,8 +46,14 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 }
 
 // Clone and checkout the specific revision of the repo
-func cloneRepo(e deployment.Environment, revision string) error {
+func cloneRepo(e deployment.Environment, revision string, forceClean bool) error {
 	// Check if the repository already exists
+	if forceClean {
+		e.Logger.Debugw("Cleaning repository", "dir", cloneDir)
+		if err := os.RemoveAll(cloneDir); err != nil {
+			return fmt.Errorf("failed to clean repository: %w", err)
+		}
+	}
 	if _, err := os.Stat(filepath.Join(cloneDir, ".git")); err == nil {
 		e.Logger.Debugw("Repository already exists, discarding local changes and updating", "dir", cloneDir)
 
@@ -83,6 +98,32 @@ func replaceKeys(e deployment.Environment) error {
 	return nil
 }
 
+func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.ContractType]string) error {
+	e.Logger.Debug("Replacing keys in Rust files...")
+	for program, key := range keys {
+		programStr := string(program)
+		filePath, exists := programToFileMap[program]
+		if !exists {
+			return fmt.Errorf("no file path found for program %s", programStr)
+		}
+
+		fullPath := filepath.Join(cloneDir, anchorDir, filePath)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", fullPath, err)
+		}
+
+		// Replace declare_id!("..."); with the new key
+		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
+		if err != nil {
+			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
+		}
+		e.Logger.Debugw("Updated key for program %s in file %s\n", programStr, filePath)
+	}
+	return nil
+}
+
 func copyFile(srcFile string, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
@@ -108,6 +149,9 @@ type BuildSolanaConfig struct {
 	DestinationDir       string
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
+	// Forces re-clone of git directory. Useful for forcing regeneration of keys
+	CleanGitDir bool
+	UpgradeKeys map[deployment.ContractType]string
 }
 
 func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
@@ -124,12 +168,19 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	}
 
 	// Clone the repository
-	if err := cloneRepo(e, config.GitCommitSha); err != nil {
+	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
 	}
 
+	// Replace keys in Rust files using anchor keys sync
 	if err := replaceKeys(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
+	}
+
+	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
+	// We need to do this so the keys will match the existing deployed program
+	if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
 	// Build the project with Anchor
