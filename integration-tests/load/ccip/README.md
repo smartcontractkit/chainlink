@@ -1,4 +1,4 @@
-# CCIP Load Tests 1.6+
+# CCIP Load and Chaos Tests 1.6+
 
 Resources
 - [CRIB setup](https://smartcontract-it.atlassian.net/wiki/spaces/CRIB/pages/1024622593/CCIP+v2+CRIB+-+Deploy+Access+Instructions+WIP)
@@ -43,12 +43,12 @@ export TIMEOUT=6h
 go test -run ^TestCCIPLoad_RPS$ ./integration-tests/load/ccip -v -timeout $TIMEOUT`
 ```
 
-### Remote
+## Remote
 Update the `PROVIDER=aws` and `DEVSPACE_NAMESPACE` in crib environment and deploy. Everything else should be the same. 
 
-### Running Chaos Tests (Remote only)
+## Running Chaos Tests (Remote only)
 
-#### Realistic RPC Latency
+### Realistic RPC Latency
 
 Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required, select chaos mode first
 ```
@@ -67,7 +67,7 @@ Run the load test
 go test -run ^TestCCIPLoad_RPS$ -v -timeout 12h
 ```
 
-#### Full Chaos Suite
+### Full Chaos Suite
 
 Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as required, select chaos mode first
 
