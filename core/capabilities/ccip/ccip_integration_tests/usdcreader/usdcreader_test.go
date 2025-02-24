@@ -66,7 +66,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
 		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
-		}, nil)
+		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
 		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
@@ -74,7 +74,7 @@ func Test_USDCReader_MessageHashes(t *testing.T) {
 				return nil, err
 			}
 			return addrBytes, nil
-		})
+		}).Maybe()
 	usdcReader, err := reader.NewUSDCMessageReader(
 		ctx,
 		logger.TestLogger(t),
@@ -255,7 +255,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
 		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
-		}, nil)
+		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
 		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
@@ -263,7 +263,7 @@ func Benchmark_MessageHashes(b *testing.B) {
 				return nil, err
 			}
 			return addrBytes, nil
-		})
+		}).Maybe()
 
 	for _, tc := range testCases {
 		b.Run(tc.name, func(b *testing.B) {

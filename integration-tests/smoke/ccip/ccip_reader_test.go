@@ -427,7 +427,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
 		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
-		}, nil)
+		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
 		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
@@ -435,7 +435,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 				return nil, err
 			}
 			return addrBytes, nil
-		})
+		}).Maybe()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
 		ctx,
 		lggr,
@@ -1576,7 +1576,7 @@ func testSetupRealContracts(
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
 		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
-		}, nil)
+		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
 		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
@@ -1584,7 +1584,7 @@ func testSetupRealContracts(
 				return nil, err
 			}
 			return addrBytes, nil
-		})
+		}).Maybe()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, mokAddrCodec)
 
 	return reader
@@ -1705,7 +1705,7 @@ func testSetup(
 	mokAddrCodec.On("AddressBytesToString", mock.Anything, mock.Anything).
 		Return(func(addr cciptypes.UnknownAddress, _ cciptypes.ChainSelector) string {
 			return "0x" + hex.EncodeToString(addr)
-		}, nil)
+		}, nil).Maybe()
 	mokAddrCodec.On("AddressStringToBytes", mock.Anything, mock.Anything).
 		Return(func(addr string, _ cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 			addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
@@ -1713,7 +1713,7 @@ func testSetup(
 				return nil, err
 			}
 			return addrBytes, nil
-		})
+		}).Maybe()
 	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, mokAddrCodec)
 
 	t.Cleanup(func() {
