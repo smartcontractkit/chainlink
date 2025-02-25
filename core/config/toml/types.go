@@ -124,7 +124,7 @@ type Secrets struct {
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
-	EVM        EthKeys                  `toml:",omitempty"`
+	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
 	P2PKey     P2PKey                   `toml:",omitempty"`
 }
 
@@ -132,8 +132,8 @@ type EthKeys struct {
 	Keys []*EthKey
 }
 
-func (e *EthKeys) SetFrom(f *EthKeys) (err error) {
-	err = e.validateMerge(f)
+func (e *EthKeys) SetFrom(f *EthKeys) error {
+	err := e.validateMerge(f)
 	if err != nil {
 		return err
 	}
@@ -157,7 +157,7 @@ func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
 			}
 		}
 	}
-	return nil
+	return err
 }
 
 func (e *EthKeys) ValidateConfig() (err error) {

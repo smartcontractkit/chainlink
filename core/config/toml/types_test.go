@@ -581,22 +581,45 @@ func TestMercuryTLS_ValidateTLSCertPath(t *testing.T) {
 }
 
 func TestEthKeys_TOMLSerialization(t *testing.T) {
-	ethKeysWrapper := EthKeys{
-		Keys: []*EthKey{
-			{JSON: ptr(models.Secret("key1")), Password: ptr(models.Secret("pass1")), ID: ptr(1)},
-			{JSON: ptr(models.Secret("key2")), Password: ptr(models.Secret("pass2")), ID: ptr(99)},
-		},
-	}
+	t.Parallel()
+	t.Run("encode", func(t *testing.T) {
+		ethKeysWrapper := EthKeys{
+			Keys: []*EthKey{
+				{JSON: ptr(models.Secret("key1")), Password: ptr(models.Secret("pass1")), ID: ptr(1)},
+				{JSON: ptr(models.Secret("key2")), Password: ptr(models.Secret("pass2")), ID: ptr(99)},
+			},
+		}
 
-	var buf bytes.Buffer
-	enc := toml.NewEncoder(&buf)
-	err := enc.Encode(ethKeysWrapper)
-	require.NoError(t, err)
+		var buf bytes.Buffer
+		enc := toml.NewEncoder(&buf)
+		err := enc.Encode(ethKeysWrapper)
+		require.NoError(t, err)
 
-	var decoded EthKeys
-	err = toml.NewDecoder(strings.NewReader(buf.String())).Decode(&decoded)
-	require.NoError(t, err)
-	assert.Equal(t, len(ethKeysWrapper.Keys), len(decoded.Keys))
+		var decoded EthKeys
+		err = toml.NewDecoder(strings.NewReader(buf.String())).Decode(&decoded)
+		require.NoError(t, err)
+		assert.Equal(t, len(ethKeysWrapper.Keys), len(decoded.Keys))
+		for i, key := range ethKeysWrapper.Keys {
+			// have to compare the GoString() of the Secret because it is redacted
+			assert.Equal(t, key.JSON.GoString(), decoded.Keys[i].JSON.GoString())
+			assert.Equal(t, key.Password.GoString(), decoded.Keys[i].Password.GoString())
+			assert.Equal(t, *key.ID, *decoded.Keys[i].ID)
+		}
+	})
+	t.Run("decode", func(t *testing.T) {
+		var decoded2 EthKeys
+		btoml := `[[Keys]]
+JSON = '{k:v}'
+ID = 1337
+Password = 'something'`
+		err := toml.Unmarshal([]byte(btoml), &decoded2)
+		require.NoError(t, err)
+		assert.Len(t, decoded2.Keys, 1)
+		assert.Equal(t, 1337, *decoded2.Keys[0].ID)
+		assert.Equal(t, models.NewSecret("something"), decoded2.Keys[0].Password)
+		assert.Equal(t, models.NewSecret("{k:v}"), decoded2.Keys[0].JSON)
+	})
+
 }
 
 func TestEthKeys_SetFrom(t *testing.T) {
