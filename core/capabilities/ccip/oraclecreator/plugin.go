@@ -601,7 +601,7 @@ func createChainWriter(
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
 		if solana.PublicKeyLength != len(offrampProgramAddress) {
-			return nil, fmt.Errorf("invalid DestTokenAddress length: %d", len(offrampProgramAddress))
+			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
 		}
 		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
 		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err != nil {
