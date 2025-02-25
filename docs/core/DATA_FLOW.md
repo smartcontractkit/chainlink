@@ -1,6 +1,9 @@
 # Mailboxes
 
 ```mermaid
+---
+title: Description of pkg/utils/mailbox/mailbox.go from the chainlink-common repository.
+---
 flowchart
     subgraph Legend
         style Legend fill:none 
@@ -21,6 +24,9 @@ flowchart
 ```
 
 ```mermaid
+---
+title: Description of the general data flow.
+---
 flowchart TB
     subgraph core/chains/evm
         subgraph gas

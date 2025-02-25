@@ -242,7 +242,6 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             globals.BatchGasLimit,
-				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
 				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
 				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
@@ -632,7 +631,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
-		offRampAddress, err := state.GetOffRampAddress(chainSelector)
+		offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -827,7 +826,7 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
-			offRampAddress, err := state.GetOffRampAddress(chainSelector)
+			offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}

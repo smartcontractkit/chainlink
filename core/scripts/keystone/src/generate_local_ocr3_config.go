@@ -76,7 +76,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxQueryLengthBytes": 1000000,
 		"MaxObservationLengthBytes": 1000000,
 		"MaxReportLengthBytes": 1000000,
-		"MaxRequestBatchSize": 1000,
+		"MaxBatchSize": 20,
 		"UniqueReports": true,
 		"DeltaProgressMillis": 5000,
 		"DeltaResendMillis": 5000,
@@ -90,8 +90,8 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxDurationQueryMillis": 1000,
 		"MaxDurationObservationMillis": 1000,
 		"MaxDurationReportMillis": 1000,
-		"MaxDurationAcceptMillis": 1000,
-		"MaxDurationTransmitMillis": 1000,
+		"MaxDurationShouldAcceptMillis": 1000,
+		"MaxDurationShouldTransmitMillis": 1000,
 		"MaxFaultyOracles": 1}`)
 	var cfg changeset.OracleConfig
 	err = json.Unmarshal(config, &cfg)

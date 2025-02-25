@@ -63,7 +63,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

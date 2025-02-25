@@ -5,8 +5,8 @@ go 1.23.3
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250206093113-4e72c05bdba6
-	github.com/smartcontractkit/chainlink/v2 v2.19.0-ccip1.5.16-alpha.0.0.20250206093113-4e72c05bdba6
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
 // Make sure we're working with the latest chainlink libs
@@ -341,9 +341,13 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
+<<<<<<< HEAD
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250224141718-38b4d98b3cbe // indirect
+=======
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250224184104-b25011bb3512 // indirect
+>>>>>>> develop
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250214202341-4190f2db1c01 // indirect
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250214231858-f365e2bdecea // indirect
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a // indirect
