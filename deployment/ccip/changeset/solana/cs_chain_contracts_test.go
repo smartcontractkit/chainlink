@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -226,6 +227,30 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	testhelpers.DeployCCIPContractsTest(t, 1)
+}
+
+func TestSetOcr3(t *testing.T) {
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	var err error
+	evmSelectors := tenv.Env.AllChainSelectors()
+	homeChainSel := evmSelectors[0]
+	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true, true, true, true)
+
+	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+				MCMS:               &ccipChangeset.MCMSConfig{MinDelay: 1 * time.Second},
+			},
+		),
+	})
+	require.NoError(t, err)
+
 }
 
 func TestAddTokenPool(t *testing.T) {
