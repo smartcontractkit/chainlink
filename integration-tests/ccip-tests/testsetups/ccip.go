@@ -29,10 +29,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/lib/config/types"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	ctf_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
@@ -1126,7 +1125,10 @@ func CCIPDefaultTestSetUp(
 			tokenDeployerWallet := chainClient.GetWallets()[1]
 			// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
 			// There aren't a lot of good ways to estimate this though. See CCIP-2471.
-			recommendedTokenBalance := new(big.Int).Mul(big.NewInt(5e18), big.NewInt(int64(pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain))))
+			recommendedTokenBalance := new(big.Int).Mul(
+				big.NewInt(5e18),
+				big.NewInt(int64(pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain))),
+			)
 			currentTokenBalance, err := chainClient.BalanceAt(context.Background(), common.HexToAddress(tokenDeployerWallet.Address()))
 			require.NoError(t, err)
 			if currentTokenBalance.Cmp(recommendedTokenBalance) < 0 {
@@ -1156,27 +1158,23 @@ func CCIPDefaultTestSetUp(
 
 	// set up mock server for price pipeline and usdc attestation if not using existing deployment
 	if !pointer.GetBool(setUpArgs.Cfg.TestGroupInput.ExistingDeployment) {
-		var killgrave *ctftestenv.Killgrave
-		if setUpArgs.Env.LocalCluster != nil {
-			killgrave = setUpArgs.Env.LocalCluster.MockAdapter
-		}
 		if setUpArgs.Cfg.TestGroupInput.TokenConfig.IsPipelineSpec() {
 			// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
 			// regex to match the path for all tokens across all lanes
-			actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
+			actions.SetMockserverWithTokenPriceValue(setUpArgs.Env.MockServer)
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer, false)
+			err = actions.SetMockServerWithUSDCAttestation(setUpArgs.Env.MockServer, false)
 			require.NoError(t, err, "failed to set up mock server for USDC attestation")
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.LBTCMockDeployment) {
 			// if it's a new LBTC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockAdapterWithLBTCAttestation(killgrave, setUpArgs.Env.MockServer)
+			err = actions.SetMockAdapterWithLBTCAttestation(setUpArgs.Env.MockServer)
 			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}
@@ -1362,10 +1360,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			ccipEnv = &actions.CCIPTestEnv{}
 			mockserverURL := pointer.GetString(testConfig.EnvInput.Mockserver)
 			require.NotEmpty(t, mockserverURL, "mockserver URL cannot be nil")
-			ccipEnv.MockServer = ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
-				LocalURL:   mockserverURL,
-				ClusterURL: mockserverURL,
-			})
+			ccipEnv.MockServer = ctf_env.ConnectParrot(mockserverURL)
 		}
 		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(o.SetUpContext)
 		o.Env = ccipEnv
