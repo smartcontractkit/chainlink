@@ -250,7 +250,6 @@ func TestSetOcr3(t *testing.T) {
 		),
 	})
 	require.NoError(t, err)
-
 }
 
 func TestAddTokenPool(t *testing.T) {
@@ -561,71 +560,89 @@ func TestTokenAdminRegistry(t *testing.T) {
 
 func TestPoolLookupTable(t *testing.T) {
 	t.Parallel()
-	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	tests := []struct {
+		Msg  string
+		Mcms bool
+	}{
+		{
+			Msg:  "TestPoolLookupTable with mcms",
+			Mcms: true,
+		},
+		{
+			Msg:  "TestPoolLookupTable without mcms",
+			Mcms: false,
+		},
+	}
 
-	e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
-	require.NoError(t, err)
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			// add token pool lookup table
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
-			ccipChangesetSolana.TokenPoolLookupTableConfig{
-				ChainSelector: solChain,
-				TokenPubKey:   tokenAddress.String(),
-			},
-		),
-	)
-	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress]
+	for _, test := range tests {
+		t.Run(test.Msg, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+			solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
-	require.NoError(t, err)
-	require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
-	require.Equal(t, tokenAddress, lookupTableEntries0[7])
+			e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
+			require.NoError(t, err)
+			e, err = commonchangeset.Apply(t, e, nil,
+				commonchangeset.Configure(
+					// add token pool lookup table
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
+					ccipChangesetSolana.TokenPoolLookupTableConfig{
+						ChainSelector: solChain,
+						TokenPubKey:   tokenAddress.String(),
+					},
+				),
+			)
+			require.NoError(t, err)
+			state, err := ccipChangeset.LoadOnchainStateSolana(e)
+			require.NoError(t, err)
+			lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress]
 
-	tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
+			lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
+			require.NoError(t, err)
+			require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
+			require.Equal(t, tokenAddress, lookupTableEntries0[7])
 
-	e, err = commonchangeset.Apply(t, e, nil,
-		commonchangeset.Configure(
-			// register token admin registry for linkToken via owner instruction
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
-			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
-				ChainSelector:           solChain,
-				TokenPubKey:             tokenAddress.String(),
-				TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
-				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
-			},
-		),
-		commonchangeset.Configure(
-			// accept admin role for tokenAddress
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
-			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-				ChainSelector:              solChain,
-				TokenPubKey:                tokenAddress.String(),
-				NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-			},
-		),
-		commonchangeset.Configure(
-			// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
-			ccipChangesetSolana.SetPoolConfig{
-				ChainSelector:                     solChain,
-				TokenPubKey:                       tokenAddress.String(),
-				TokenAdminRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-				WritableIndexes:                   []uint8{3, 4, 7},
-			},
-		),
-	)
-	require.NoError(t, err)
-	tokenAdminRegistry := solRouter.TokenAdminRegistry{}
-	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
+			tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
 
-	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
-	require.NoError(t, err)
-	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistry.Administrator)
-	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
+			e, err = commonchangeset.Apply(t, e, nil,
+				commonchangeset.Configure(
+					// register token admin registry for linkToken via owner instruction
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+					ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+						ChainSelector:           solChain,
+						TokenPubKey:             tokenAddress.String(),
+						TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
+						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+					},
+				),
+				commonchangeset.Configure(
+					// accept admin role for tokenAddress
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+					ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+						ChainSelector:              solChain,
+						TokenPubKey:                tokenAddress.String(),
+						NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+					},
+				),
+				commonchangeset.Configure(
+					// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+					ccipChangesetSolana.SetPoolConfig{
+						ChainSelector:                     solChain,
+						TokenPubKey:                       tokenAddress.String(),
+						TokenAdminRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+						WritableIndexes:                   []uint8{3, 4, 7},
+					},
+				),
+			)
+			require.NoError(t, err)
+			tokenAdminRegistry := solRouter.TokenAdminRegistry{}
+			tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
+
+			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
+			require.NoError(t, err)
+			require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistry.Administrator)
+			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
+		})
+	}
 }

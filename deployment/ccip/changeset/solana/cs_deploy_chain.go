@@ -976,12 +976,8 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
 	}
-	if !routerUsingMCMS {
-		if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-		}
-		e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
-	} else {
+
+	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
@@ -996,6 +992,11 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 			AddressBook:           newAddresses,
 		}, nil
 	}
+
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
 
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,

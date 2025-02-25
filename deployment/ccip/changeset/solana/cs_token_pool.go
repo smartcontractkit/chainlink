@@ -532,14 +532,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		return deployment.ChangesetOutput{}, err
 	}
 
-	if !routerUsingMCMS {
-		instructions := []solana.Instruction{instruction}
-		err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenAdminRegistryAdminPrivKey))
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
-	} else {
+	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
@@ -553,5 +546,11 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
+	instructions := []solana.Instruction{instruction}
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenAdminRegistryAdminPrivKey))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
 }
