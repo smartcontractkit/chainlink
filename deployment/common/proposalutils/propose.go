@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
 
@@ -102,7 +102,7 @@ func BuildProposalFromBatchesV2(
 	e deployment.Environment,
 	timelockAddressPerChain map[uint64]string,
 	proposerAddressPerChain map[uint64]string,
-	inspectorPerChain map[uint64]sdk.Inspector,
+	inspectorPerChain map[uint64]mcmssdk.Inspector,
 
 	batches []types.BatchOperation,
 	description string,
@@ -146,9 +146,10 @@ func BuildProposalFromBatchesV2(
 	}
 	return build, nil
 }
+
 func getSolAccessControllerFromAddress(addresses map[string]deployment.TypeAndVersion, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
 	for addr, tv := range addresses {
-		if tv.Type == tv.Type && tv.Version == tv.Version {
+		if tv.Type == typeAndVersion.Type && tv.Version == typeAndVersion.Version {
 			pubkey, err := solana.PublicKeyFromBase58(addr)
 			if err != nil {
 				return solana.PublicKey{}, fmt.Errorf("failed to parse address: %w", err)
@@ -156,12 +157,13 @@ func getSolAccessControllerFromAddress(addresses map[string]deployment.TypeAndVe
 			return pubkey, nil
 		}
 	}
-	return solana.PublicKey{}, fmt.Errorf("address not found")
+
+	return solana.PublicKey{}, errors.New("address not found")
 }
 func buildProposalMetadataV2(
 	env deployment.Environment,
 	chainSelectors []uint64,
-	inspectorPerChain map[uint64]sdk.Inspector,
+	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	proposerMcmsesPerChain map[uint64]string,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
@@ -218,9 +220,8 @@ func buildProposalMetadataV2(
 				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
 			}
 			metaDataPerChain[chainID] = metadata
-
 		}
-
 	}
+
 	return metaDataPerChain, nil
 }
