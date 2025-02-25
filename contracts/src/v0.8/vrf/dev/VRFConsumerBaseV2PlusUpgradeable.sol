@@ -99,8 +99,6 @@ import {ConfirmedOwnerUpgradeable} from "../../shared/access/ConfirmedOwnerUpgra
  * @dev and so remains effective only in the case of unmodified oracle software).
  */
 
-import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
-
 /**
  * @dev The VRFConsumerBaseV2PlusUpgradable is an upgradable variant of VRFConsumerBaseV2Plus
  * @dev (see https://docs.openzeppelin.com/upgrades-plugins/1.x/writing-upgradeable).
@@ -108,7 +106,7 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
  * @dev to create an upgradeable VRF v2.5 consumer contract.
  */
 
-abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plus, Initializable, ConfirmedOwnerUpgradeable {
+abstract contract VRFConsumerBaseV2PlusUpgradeable is IVRFMigratableConsumerV2Plus, ConfirmedOwnerUpgradeable {
   error OnlyCoordinatorCanFulfill(address have, address want);
   error OnlyOwnerOrCoordinator(address have, address owner, address coordinator);
   error ZeroAddress();
@@ -128,7 +126,7 @@ abstract contract VRFConsumerBaseV2PlusUpgradable is IVRFMigratableConsumerV2Plu
    * @dev addresses on your preferred network.
    */
   // solhint-disable-next-line func-name-mixedcase
-  function __VRFConsumerBaseV2Plus_init(address _vrfCoordinator) internal initializer {
+  function __VRFConsumerBaseV2Plus_init(address _vrfCoordinator) internal onlyInitializing {
     if (_vrfCoordinator == address(0)) {
       // solhint-disable-next-line gas-custom-errors
       revert ZeroAddress();

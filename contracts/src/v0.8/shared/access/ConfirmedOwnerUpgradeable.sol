@@ -6,9 +6,9 @@ import {Initializable} from "@openzeppelin/contracts-upgradeable/proxy/utils/Ini
 
 /// @title The ConfirmedOwner contract
 /// @notice A contract with helpers for basic contract ownership.
-contract ConfirmedOwnerUpgradeable is Initializable, ConfirmedOwnerWithProposalUpgradeable {
+contract ConfirmedOwnerUpgradeable is ConfirmedOwnerWithProposalUpgradeable {
   // solhint-disable-next-line func-name-mixedcase
-  function __ConfirmedOwner_init(address newOwner) internal initializer {
+  function __ConfirmedOwner_init(address newOwner) internal onlyInitializing {
     __ConfirmedOwnerWithProposal_init(newOwner, address(0));
   }
 }
