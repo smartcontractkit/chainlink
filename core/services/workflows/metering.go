@@ -1,16 +1,10 @@
 package workflows
 
 import (
-	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/shopspring/decimal"
-)
-
-var (
-	ErrInvalidMeteringSpendValue = errors.New("invalid metering spend value")
 )
 
 type MeteringReportStepRef string
@@ -22,23 +16,44 @@ func (s MeteringSpendUnit) String() string {
 }
 
 func (s MeteringSpendUnit) DecimalToSpendValue(value decimal.Decimal) MeteringSpendValue {
-	return MeteringSpendValue(value.String())
+	return MeteringSpendValue{value: value, roundingPlace: 18}
 }
 
-type MeteringSpendValue string
+func (s MeteringSpendUnit) IntToSpendValue(value int64) MeteringSpendValue {
+	return MeteringSpendValue{value: decimal.NewFromInt(value), roundingPlace: 18}
+}
 
-func (s MeteringSpendValue) String() string {
-	return string(s)
+type MeteringSpendValue struct {
+	value         decimal.Decimal
+	roundingPlace uint8
+}
+
+func (v MeteringSpendValue) Add(value MeteringSpendValue) MeteringSpendValue {
+	return MeteringSpendValue{
+		value:         v.value.Add(value.value),
+		roundingPlace: v.roundingPlace,
+	}
+}
+
+func (v MeteringSpendValue) Div(value MeteringSpendValue) MeteringSpendValue {
+	return MeteringSpendValue{
+		value:         v.value.Div(value.value),
+		roundingPlace: v.roundingPlace,
+	}
+}
+
+func (v MeteringSpendValue) GreaterThan(value MeteringSpendValue) bool {
+	return v.value.GreaterThan(v.value)
+}
+
+func (v MeteringSpendValue) String() string {
+	return v.value.StringFixedBank(int32(v.roundingPlace))
 }
 
 type MeteringReportStep struct {
 	Peer2PeerID string
 	SpendUnit   MeteringSpendUnit
 	SpendValue  MeteringSpendValue
-}
-
-func (s MeteringReportStep) Value() (decimal.Decimal, error) {
-	return decimal.NewFromString(s.SpendValue.String())
 }
 
 type MeteringReport struct {
@@ -56,19 +71,16 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
-	values := map[MeteringSpendUnit][]decimal.Decimal{}
+	values := map[MeteringSpendUnit][]MeteringSpendValue{}
 	medians := map[MeteringSpendUnit]MeteringSpendValue{}
 
 	for _, step := range r.steps {
 		vals, ok := values[step.SpendUnit]
 		if !ok {
-			vals = []decimal.Decimal{}
+			vals = []MeteringSpendValue{}
 		}
 
-		// ignoring the error here should be safe as long as AddStep verifies parsing
-		value, _ := step.Value()
-
-		values[step.SpendUnit] = append(vals, value)
+		values[step.SpendUnit] = append(vals, step.SpendValue)
 	}
 
 	for unit, set := range values {
@@ -77,13 +89,12 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 		})
 
 		if len(set)%2 > 0 {
-			medians[unit] = unit.DecimalToSpendValue(set[len(set)/2])
+			medians[unit] = set[len(set)/2]
 
 			continue
 		}
 
-		avg := set[len(set)/2-1].Add(set[len(set)/2]).Div(decimal.NewFromInt(2))
-		medians[unit] = unit.DecimalToSpendValue(avg)
+		medians[unit] = set[len(set)/2-1].Add(set[len(set)/2]).Div(unit.IntToSpendValue(2))
 	}
 
 	return medians
@@ -92,10 +103,6 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 func (r *MeteringReport) AddStep(ref MeteringReportStepRef, step MeteringReportStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
-	if _, err := step.Value(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidMeteringSpendValue, err)
-	}
 
 	r.steps[ref] = step
 

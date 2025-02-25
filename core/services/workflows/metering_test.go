@@ -4,6 +4,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -13,32 +14,20 @@ import (
 func TestMeteringReport(t *testing.T) {
 	t.Parallel()
 
-	t.Run("AddStep returns error for invalid value", func(t *testing.T) {
-		t.Parallel()
-
-		report := workflows.NewMeteringReport()
-		step := workflows.MeteringReportStep{
-			Peer2PeerID: "abc",
-			SpendUnit:   "a",
-			SpendValue:  "not a value",
-		}
-
-		err := report.AddStep(workflows.MeteringReportStepRef("42"), step)
-
-		require.ErrorIs(t, err, workflows.ErrInvalidMeteringSpendValue)
-	})
+	testUnitA := workflows.MeteringSpendUnit("a")
+	testUnitB := workflows.MeteringSpendUnit("b")
 
 	t.Run("MedianSpend returns median for multiple spend units", func(t *testing.T) {
 		t.Parallel()
 
 		report := workflows.NewMeteringReport()
 		steps := []workflows.MeteringReportStep{
-			{"abc", "a", "1.0"},
-			{"xyz", "a", "2.0"},
-			{"abc", "a", "3.0"},
-			{"abc", "b", "0.1"},
-			{"xyz", "b", "0.2"},
-			{"abc", "b", "0.3"},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
+			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
+			{"abc", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.1))},
+			{"xyz", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2))},
+			{"abc", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.3))},
 		}
 
 		for idx, step := range steps {
@@ -46,8 +35,8 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
-			"a": "2",
-			"b": "0.2",
+			testUnitA: testUnitB.IntToSpendValue(2),
+			testUnitB: testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2)),
 		}
 
 		assert.Equal(t, expected, report.MedianSpend())
@@ -58,7 +47,7 @@ func TestMeteringReport(t *testing.T) {
 
 		report := workflows.NewMeteringReport()
 		steps := []workflows.MeteringReportStep{
-			{"abc", "a", "1.0"},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 		}
 
 		for idx, step := range steps {
@@ -66,7 +55,7 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
-			"a": "1",
+			testUnitA: testUnitA.IntToSpendValue(1),
 		}
 
 		assert.Equal(t, expected, report.MedianSpend())
@@ -77,9 +66,9 @@ func TestMeteringReport(t *testing.T) {
 
 		report := workflows.NewMeteringReport()
 		steps := []workflows.MeteringReportStep{
-			{"abc", "a", "1.0"},
-			{"abc", "a", "3.0"},
-			{"xyz", "a", "2.0"},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
+			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 		}
 
 		for idx, step := range steps {
@@ -87,7 +76,7 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
-			"a": "2",
+			testUnitA: testUnitA.IntToSpendValue(2),
 		}
 
 		assert.Equal(t, expected, report.MedianSpend())
@@ -98,10 +87,10 @@ func TestMeteringReport(t *testing.T) {
 
 		report := workflows.NewMeteringReport()
 		steps := []workflows.MeteringReportStep{
-			{"xyz", "a", "42.0"},
-			{"abc", "a", "1.0"},
-			{"abc", "a", "3.0"},
-			{"xyz", "a", "2.0"},
+			{"xyz", testUnitA, testUnitA.IntToSpendValue(42)},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
+			{"abc", testUnitA, testUnitA.IntToSpendValue(3)},
+			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 		}
 
 		for idx, step := range steps {
@@ -109,7 +98,7 @@ func TestMeteringReport(t *testing.T) {
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
-			"a": "2.5",
+			testUnitA: testUnitA.DecimalToSpendValue(decimal.NewFromFloat(2.5)),
 		}
 
 		assert.Equal(t, expected, report.MedianSpend())

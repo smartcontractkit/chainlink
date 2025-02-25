@@ -638,12 +638,6 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		return err
 	}
 
-	e.meterReport.AddStep(MeteringReportStepRef(stepUpdate.ExecutionID), MeteringReportStep{
-		Peer2PeerID: "TODO",
-		SpendUnit:   "TODO",
-		SpendValue:  "TODO",
-	})
-
 	if workflowIsFullyProcessed {
 		switch status {
 		case store.StatusTimeout:
