@@ -76,7 +76,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxQueryLengthBytes": 1000000,
 		"MaxObservationLengthBytes": 1000000,
 		"MaxReportLengthBytes": 1000000,
-		"MaxBatchSize": 1000,
+		"MaxBatchSize": 20,
 		"UniqueReports": true,
 		"DeltaProgressMillis": 5000,
 		"DeltaResendMillis": 5000,

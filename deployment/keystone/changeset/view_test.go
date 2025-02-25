@@ -45,6 +45,32 @@ var (
 	}
 )
 
+var oracleConfig = changeset.OracleConfig{
+	DeltaProgressMillis:               30000,
+	DeltaResendMillis:                 5000,
+	DeltaInitialMillis:                5000,
+	DeltaRoundMillis:                  2000,
+	DeltaGraceMillis:                  500,
+	DeltaCertifiedCommitRequestMillis: 1000,
+	DeltaStageMillis:                  30000,
+	MaxRoundsPerEpoch:                 10,
+	TransmissionSchedule:              []int{},
+	MaxDurationQueryMillis:            1000,
+	MaxDurationObservationMillis:      1000,
+	MaxDurationShouldAcceptMillis:     1000,
+	MaxDurationShouldTransmitMillis:   1000,
+	MaxFaultyOracles:                  1,
+	MaxQueryLengthBytes:               1000000,
+	MaxObservationLengthBytes:         1000000,
+	MaxReportLengthBytes:              1000000,
+	MaxOutcomeLengthBytes:             1000000,
+	MaxReportCount:                    20,
+	MaxBatchSize:                      20,
+	OutcomePruningThreshold:           3600,
+	UniqueReports:                     true,
+	RequestTimeout:                    30 * time.Second,
+}
+
 func TestKeystoneView(t *testing.T) {
 	t.Parallel()
 	env := test.SetupContractTestEnv(t, test.EnvWrapperConfig{

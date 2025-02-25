@@ -222,6 +222,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				MerkleRootAsyncObserverDisabled:    false,
 				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+				ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
+				ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {
@@ -240,7 +242,6 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             globals.BatchGasLimit,
-				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
 				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
 				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
@@ -630,7 +631,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
-		offRampAddress, err := state.GetOffRampAddress(chainSelector)
+		offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -649,18 +650,18 @@ func AddDonAndSetCandidateChangeset(
 			return deployment.ChangesetOutput{}, err
 		}
 
-		latestDon, err := internal.LatestCCIPDON(state.Chains[cfg.HomeChainSelector].CapabilityRegistry)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-
 		pluginOCR3Config, ok := newDONArgs[cfg.PluginInfo.PluginType]
 		if !ok {
 			return deployment.ChangesetOutput{}, fmt.Errorf("missing plugin %s in ocr3Configs",
 				cfg.PluginInfo.PluginType.String())
 		}
 
-		expectedDonID := latestDon.Id + 1
+		expectedDonID, err := state.Chains[cfg.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+			Context: e.GetContext(),
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
+		}
 		addDonOp, err := newDonWithCandidateOp(
 			txOpts,
 			e.Chains[cfg.HomeChainSelector],
@@ -825,7 +826,7 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
-			offRampAddress, err := state.GetOffRampAddress(chainSelector)
+			offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
