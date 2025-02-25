@@ -4,12 +4,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func Test_RMNRemote_Curse_View(t *testing.T) {
@@ -40,5 +41,4 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	require.Equal(t, "01000000000000000000000000000001", view.CursedSubjectEntries[0].Subject)
 	require.Equal(t, uint64(0), view.CursedSubjectEntries[0].Selector)
 	require.Equal(t, e.AllChainSelectors()[0], view.CursedSubjectEntries[1].Selector)
-
 }
