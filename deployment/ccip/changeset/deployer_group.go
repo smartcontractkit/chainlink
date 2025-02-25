@@ -196,16 +196,14 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 		if abiStr, ok := d.state.Chains[chain].ABIByAddress[tx.To().Hex()]; ok {
 			_abi, err := abi.JSON(strings.NewReader(abiStr))
 			if err != nil {
-				d.e.Logger.Errorw("could not load ABI",
-					"chain", chain, "address", tx.To().Hex(), "error", err)
+				return nil, fmt.Errorf("could not get ABI: %w", err)
+			}
+			decodedCall, err := d.txDecoder.Analyze(tx.To().String(), &_abi, tx.Data())
+			if err != nil {
+				d.e.Logger.Errorw("could not analyze transaction",
+					"chain", chain, "address", tx.To().Hex(), "nonce", currentNonce, "error", err)
 			} else {
-				decodedCall, err := d.txDecoder.Analyze(tx.To().String(), &_abi, tx.Data())
-				if err != nil {
-					d.e.Logger.Errorw("could not analyze transaction",
-						"chain", chain, "address", tx.To().Hex(), "nonce", currentNonce, "error", err)
-				} else {
-					description = decodedCall.Describe(d.describeContext)
-				}
+				description = decodedCall.Describe(d.describeContext)
 			}
 		}
 		dc.transactions[chain] = append(dc.transactions[chain], DescribedTransaction{Tx: tx, Description: description})

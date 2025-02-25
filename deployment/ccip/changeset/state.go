@@ -700,7 +700,8 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
 		case deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token.LinkTokenABI

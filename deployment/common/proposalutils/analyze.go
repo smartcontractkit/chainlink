@@ -149,8 +149,8 @@ type ChainSelectorArgument struct {
 
 func (c ChainSelectorArgument) Describe(_ *ArgumentContext) string {
 	chainName, err := GetChainNameBySelector(c.Value)
-	if err != nil {
-		return fmt.Sprintf("%d (unknown)", c.Value)
+	if err != nil || chainName == "" {
+		return fmt.Sprintf("%d (<chain unknown>)", c.Value)
 	}
 	return fmt.Sprintf("%d (%s)", c.Value, chainName)
 }
@@ -168,19 +168,19 @@ type AddressArgument struct {
 }
 
 func (a AddressArgument) Describe(ctx *ArgumentContext) string {
-	description := a.Value.Hex() + " (address, unknown)"
+	description := a.Value.Hex() + " (address of <type unknown> from <chain unknown>)"
 	addresses, err := ContextGet[deployment.AddressesByChain](ctx, "AddressesByChain")
 	if err != nil {
 		return description
 	}
 	for chainSel, addresses := range addresses {
 		chainName, err := GetChainNameBySelector(chainSel)
-		if err != nil {
+		if err != nil || chainName == "" {
 			chainName = strconv.FormatUint(chainSel, 10)
 		}
 		typeAndVersion, ok := addresses[a.Value.Hex()]
 		if ok {
-			return fmt.Sprintf("%s (address, %s, %s)", a.Value.Hex(), chainName, typeAndVersion.String())
+			return fmt.Sprintf("%s (address of %s from %s)", a.Value.Hex(), typeAndVersion.String(), chainName)
 		}
 	}
 	return description
@@ -394,8 +394,8 @@ func DescribeProposal(proposal *mcmslib.Proposal, describedOperations []string) 
 	for opIdx, opDesc := range describedOperations {
 		chainSelector := uint64(proposal.Operations[opIdx].ChainSelector)
 		chainName, err := GetChainNameBySelector(chainSelector)
-		if err != nil {
-			chainName = "unknown"
+		if err != nil || chainName == "" {
+			chainName = "<chain unknown>"
 		}
 		describedProposal.WriteString("Operation #" + strconv.Itoa(opIdx))
 		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
@@ -410,8 +410,8 @@ func DescribeTimelockProposal(proposal *mcmslib.TimelockProposal, describedBatch
 	for batchIdx, describedOperations := range describedBatches {
 		chainSelector := uint64(proposal.Operations[batchIdx].ChainSelector)
 		chainName, err := GetChainNameBySelector(chainSelector)
-		if err != nil {
-			chainName = "unknown"
+		if err != nil || chainName == "" {
+			chainName = "<chain unknown>"
 		}
 		describedProposal.WriteString(fmt.Sprintf("Batch #%v\n", batchIdx))
 		describedProposal.WriteString(fmt.Sprintf("Chain selector: %v (%s)\n", chainSelector, chainName))
