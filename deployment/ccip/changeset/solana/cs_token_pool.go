@@ -6,9 +6,6 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
-	"github.com/smartcontractkit/mcms"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
-
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
@@ -456,7 +453,6 @@ type SetPoolConfig struct {
 	TokenPubKey                       string
 	TokenAdminRegistryAdminPrivateKey string
 	WritableIndexes                   []uint8
-	MCMSSolana                        *MCMSConfigSolana
 }
 
 func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
@@ -469,13 +465,6 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
-	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMCMS, chainState.Router, ccipChangeset.Router); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
@@ -505,25 +494,14 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	tokenAdminRegistryAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.TokenAdminRegistryAdminPrivateKey)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 
-	var authority solana.PublicKey
-	var err error
-	if routerUsingMCMS {
-		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
-	}
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,
 		routerConfigPDA,
 		tokenAdminRegistryPDA,
 		tokenPubKey,
 		lookupTablePubKey,
-		authority,
+		tokenAdminRegistryAdminPrivKey.PublicKey(),
 	)
 
 	base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
@@ -532,20 +510,6 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		return deployment.ChangesetOutput{}, err
 	}
 
-	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-		}
-		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to add set pool in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
-		}
-		return deployment.ChangesetOutput{
-			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-		}, nil
-	}
 	instructions := []solana.Instruction{instruction}
 	err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenAdminRegistryAdminPrivKey))
 	if err != nil {
