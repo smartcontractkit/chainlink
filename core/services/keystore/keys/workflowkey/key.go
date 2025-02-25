@@ -1,10 +1,12 @@
 package workflowkey
 
 import (
+	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"math/big"
 
 	"golang.org/x/crypto/curve25519"
 	"golang.org/x/crypto/nacl/box"
@@ -120,4 +122,17 @@ func curve25519PubKeyFromPrivateKey(privateKey [curve25519.PointSize]byte) *[cur
 	curve25519.ScalarBaseMult(&publicKey, &privateKey)
 
 	return &publicKey
+}
+
+func MustNewXXXTestingOnly(k *big.Int) Key {
+	seed := make([]byte, ed25519.SeedSize)
+	copy(seed, k.Bytes())
+	privKey := ed25519.NewKeyFromSeed(seed)
+
+	var privateKey [32]byte
+	copy(privateKey[:], privKey.Seed())
+	return Key{
+		privateKey: &privateKey,
+		publicKey:  curve25519PubKeyFromPrivateKey(privateKey),
+	}
 }

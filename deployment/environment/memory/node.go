@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -304,7 +305,8 @@ func NewNode(
 		eks: &EthKeystoreSim{
 			Eth: master.Eth(),
 		},
-		csa: master.CSA(),
+		csa:      master.CSA(),
+		workflow: master.Workflow(),
 	}
 
 	// Build evm factory using clients + keystore.
@@ -338,6 +340,7 @@ func NewNode(
 	ctx := tests.Context(t)
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
+	require.NoError(t, master.Workflow().EnsureKey(ctx))
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
@@ -392,6 +395,7 @@ func NewNode(
 type Keys struct {
 	PeerID        p2pkey.PeerID
 	CSA           csakey.KeyV2
+	WorkflowKey   workflowkey.Key
 	Transmitters  map[uint64]string // chainSelector => address
 	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
@@ -587,8 +591,9 @@ func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx 
 }
 
 type KeystoreSim struct {
-	eks keystore.Eth
-	csa keystore.CSA
+	eks      keystore.Eth
+	csa      keystore.CSA
+	workflow keystore.Workflow
 }
 
 func (e KeystoreSim) Eth() keystore.Eth {
