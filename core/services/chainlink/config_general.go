@@ -519,6 +519,13 @@ func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
 }
 
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+	return &importedEthKeyConfigs{s: g.secrets.EVM}
+}
+func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
+	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
+}
+
 func (g *generalConfig) Tracing() coreconfig.Tracing {
 	return &tracingConfig{s: g.c.Tracing}
 }

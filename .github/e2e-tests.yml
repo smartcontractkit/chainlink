@@ -194,7 +194,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
-      E2E_JD_VERSION: 0.6.0 # there is no latest tag for this repo, so we need to specify the version
+      E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
       CTF_CONFIGS: "environment-ci.toml"
@@ -966,7 +966,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_gas_price_updates_test.go:*
@@ -980,7 +980,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote$
@@ -1036,7 +1036,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1052,7 +1052,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1068,7 +1068,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1084,7 +1084,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1100,7 +1100,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1116,7 +1116,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1132,7 +1132,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1148,7 +1148,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1164,7 +1164,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1180,7 +1180,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker

@@ -184,10 +184,11 @@ func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
 
 func newJDNode(n deployment.Node) *nodev1.Node {
 	out := nodev1.Node{
-		Id:        n.NodeID,
-		Labels:    n.Labels,
-		Name:      n.Name,
-		PublicKey: n.CSAKey,
+		Id:          n.NodeID,
+		Labels:      n.Labels,
+		Name:        n.Name,
+		PublicKey:   n.CSAKey,
+		WorkflowKey: &n.WorkflowKey,
 	}
 
 	return &out
@@ -195,10 +196,11 @@ func newJDNode(n deployment.Node) *nodev1.Node {
 
 func newDeploymentNode(n *nodev1.Node) (deployment.Node, error) {
 	out := deployment.Node{
-		NodeID: n.Id,
-		Labels: n.Labels,
-		Name:   n.Name,
-		CSAKey: n.PublicKey,
+		NodeID:      n.Id,
+		Labels:      n.Labels,
+		Name:        n.Name,
+		CSAKey:      n.PublicKey,
+		WorkflowKey: n.GetWorkflowKey(),
 	}
 	for _, label := range n.Labels {
 		if p, err := p2pkey.MakePeerID(*label.Value); err == nil {
