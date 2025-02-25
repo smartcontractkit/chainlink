@@ -33,7 +33,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	}
 
 	merkleRoot := combinedRoots[0]
-	mr := ccip_offramp.MerkleRoot{
+	mr := &ccip_offramp.MerkleRoot{
 		SourceChainSelector: uint64(merkleRoot.ChainSel),
 		OnRampAddress:       merkleRoot.OnRampAddress,
 		MinSeqNr:            uint64(merkleRoot.SeqNumsRange.Start()),

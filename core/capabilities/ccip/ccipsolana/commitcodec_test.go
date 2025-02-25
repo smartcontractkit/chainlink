@@ -225,7 +225,7 @@ func Test_DecodingCommitReport(t *testing.T) {
 		}
 
 		onChainReport := ccip_offramp.CommitInput{
-			MerkleRoot: ccip_offramp.MerkleRoot{
+			MerkleRoot: &ccip_offramp.MerkleRoot{
 				SourceChainSelector: uint64(chainSel),
 				OnRampAddress:       onRampAddr.PublicKey().Bytes(),
 				MinSeqNr:            minSeqNr,

@@ -40,6 +40,7 @@ import (
 	datastreamsmercury "github.com/smartcontractkit/chainlink-data-streams/mercury"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -91,7 +92,7 @@ func detectPanicLogs(t *testing.T, logObservers []*observer.ObservedLogs) {
 }
 
 func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend, *verifier.Verifier, common.Address, func() common.Hash) {
-	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
+	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit()                                          // ensure starting block number at least 1

@@ -7,7 +7,7 @@ import (
 
 	common "github.com/ethereum/go-ethereum/common"
 
-	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
@@ -185,23 +185,23 @@ func (_c *LogPoller_FilteredLogs_Call) RunAndReturn(run func(context.Context, []
 }
 
 // FindLCA provides a mock function with given fields: ctx
-func (_m *LogPoller) FindLCA(ctx context.Context) (*logpoller.LogPollerBlock, error) {
+func (_m *LogPoller) FindLCA(ctx context.Context) (*logpoller.Block, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for FindLCA")
 	}
 
-	var r0 *logpoller.LogPollerBlock
+	var r0 *logpoller.Block
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (*logpoller.LogPollerBlock, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (*logpoller.Block, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) *logpoller.LogPollerBlock); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) *logpoller.Block); ok {
 		r0 = rf(ctx)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*logpoller.LogPollerBlock)
+			r0 = ret.Get(0).(*logpoller.Block)
 		}
 	}
 
@@ -232,34 +232,34 @@ func (_c *LogPoller_FindLCA_Call) Run(run func(ctx context.Context)) *LogPoller_
 	return _c
 }
 
-func (_c *LogPoller_FindLCA_Call) Return(_a0 *logpoller.LogPollerBlock, _a1 error) *LogPoller_FindLCA_Call {
+func (_c *LogPoller_FindLCA_Call) Return(_a0 *logpoller.Block, _a1 error) *LogPoller_FindLCA_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *LogPoller_FindLCA_Call) RunAndReturn(run func(context.Context) (*logpoller.LogPollerBlock, error)) *LogPoller_FindLCA_Call {
+func (_c *LogPoller_FindLCA_Call) RunAndReturn(run func(context.Context) (*logpoller.Block, error)) *LogPoller_FindLCA_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // GetBlocksRange provides a mock function with given fields: ctx, numbers
-func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.LogPollerBlock, error) {
+func (_m *LogPoller) GetBlocksRange(ctx context.Context, numbers []uint64) ([]logpoller.Block, error) {
 	ret := _m.Called(ctx, numbers)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetBlocksRange")
 	}
 
-	var r0 []logpoller.LogPollerBlock
+	var r0 []logpoller.Block
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, []uint64) ([]logpoller.LogPollerBlock, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []uint64) ([]logpoller.Block, error)); ok {
 		return rf(ctx, numbers)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, []uint64) []logpoller.LogPollerBlock); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, []uint64) []logpoller.Block); ok {
 		r0 = rf(ctx, numbers)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).([]logpoller.LogPollerBlock)
+			r0 = ret.Get(0).([]logpoller.Block)
 		}
 	}
 
@@ -291,12 +291,12 @@ func (_c *LogPoller_GetBlocksRange_Call) Run(run func(ctx context.Context, numbe
 	return _c
 }
 
-func (_c *LogPoller_GetBlocksRange_Call) Return(_a0 []logpoller.LogPollerBlock, _a1 error) *LogPoller_GetBlocksRange_Call {
+func (_c *LogPoller_GetBlocksRange_Call) Return(_a0 []logpoller.Block, _a1 error) *LogPoller_GetBlocksRange_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *LogPoller_GetBlocksRange_Call) RunAndReturn(run func(context.Context, []uint64) ([]logpoller.LogPollerBlock, error)) *LogPoller_GetBlocksRange_Call {
+func (_c *LogPoller_GetBlocksRange_Call) RunAndReturn(run func(context.Context, []uint64) ([]logpoller.Block, error)) *LogPoller_GetBlocksRange_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -931,22 +931,22 @@ func (_c *LogPoller_IndexedLogsWithSigsExcluding_Call) RunAndReturn(run func(con
 }
 
 // LatestBlock provides a mock function with given fields: ctx
-func (_m *LogPoller) LatestBlock(ctx context.Context) (logpoller.LogPollerBlock, error) {
+func (_m *LogPoller) LatestBlock(ctx context.Context) (logpoller.Block, error) {
 	ret := _m.Called(ctx)
 
 	if len(ret) == 0 {
 		panic("no return value specified for LatestBlock")
 	}
 
-	var r0 logpoller.LogPollerBlock
+	var r0 logpoller.Block
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context) (logpoller.LogPollerBlock, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) (logpoller.Block, error)); ok {
 		return rf(ctx)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context) logpoller.LogPollerBlock); ok {
+	if rf, ok := ret.Get(0).(func(context.Context) logpoller.Block); ok {
 		r0 = rf(ctx)
 	} else {
-		r0 = ret.Get(0).(logpoller.LogPollerBlock)
+		r0 = ret.Get(0).(logpoller.Block)
 	}
 
 	if rf, ok := ret.Get(1).(func(context.Context) error); ok {
@@ -976,12 +976,12 @@ func (_c *LogPoller_LatestBlock_Call) Run(run func(ctx context.Context)) *LogPol
 	return _c
 }
 
-func (_c *LogPoller_LatestBlock_Call) Return(_a0 logpoller.LogPollerBlock, _a1 error) *LogPoller_LatestBlock_Call {
+func (_c *LogPoller_LatestBlock_Call) Return(_a0 logpoller.Block, _a1 error) *LogPoller_LatestBlock_Call {
 	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *LogPoller_LatestBlock_Call) RunAndReturn(run func(context.Context) (logpoller.LogPollerBlock, error)) *LogPoller_LatestBlock_Call {
+func (_c *LogPoller_LatestBlock_Call) RunAndReturn(run func(context.Context) (logpoller.Block, error)) *LogPoller_LatestBlock_Call {
 	_c.Call.Return(run)
 	return _c
 }

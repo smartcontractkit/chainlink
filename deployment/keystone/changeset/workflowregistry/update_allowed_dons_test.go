@@ -72,10 +72,10 @@ func TestUpdateAllowedDons(t *testing.T) {
 }
 
 func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
-	te := test.SetupTestEnv(t, test.TestConfig{
-		WFDonConfig:     test.DonConfig{N: 4},
-		AssetDonConfig:  test.DonConfig{N: 4},
-		WriterDonConfig: test.DonConfig{N: 4},
+	te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
+		WFDonConfig:     test.DonConfig{Name: "wfDon", N: 4},
+		AssetDonConfig:  test.DonConfig{Name: "assetDon", N: 4},
+		WriterDonConfig: test.DonConfig{Name: "writerDon", N: 4},
 		NumChains:       1,
 		UseMCMS:         true,
 	})
@@ -89,7 +89,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 
 	out, err := workflowregistry.UpdateAllowedDons(te.Env, req)
 	require.NoError(t, err)
-	require.Len(t, out.Proposals, 1)
+	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
 	contracts := te.ContractSets()[te.RegistrySelector]

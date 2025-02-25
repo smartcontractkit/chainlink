@@ -13,9 +13,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -98,7 +98,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.Name, func(t *testing.T) {
 			lp := new(mocks.LogPoller)
-			lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
+			lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: tc.LatestBlock}, tc.LatestBlockErr)
 			bs := NewBlockSubscriber(hb, lp, finality, lggr)
 			bs.blockHistorySize = historySize
 			bs.blockSize = blockSize
@@ -120,7 +120,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	tests := []struct {
 		Name             string
 		Blocks           []uint64
-		PollerBlocks     []logpoller.LogPollerBlock
+		PollerBlocks     []logpoller.Block
 		LastClearedBlock int64
 		Error            error
 	}{
@@ -131,7 +131,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 		{
 			Name:   "get block range",
 			Blocks: []uint64{97, 98, 99, 100},
-			PollerBlocks: []logpoller.LogPollerBlock{
+			PollerBlocks: []logpoller.Block{
 				{
 					BlockNumber: 97,
 					BlockHash:   common.HexToHash("0x5e7fadfc14e1cfa9c05a91128c16a20c6cbc3be38b4723c3d482d44bf9c0e07b"),
@@ -279,9 +279,9 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	hb := headstest.NewBroadcaster[*evmtypes.Head, common.Hash](t)
 	hb.On("Subscribe", mock.Anything).Return(&evmtypes.Head{Number: 42}, func() {})
 	lp := new(mocks.LogPoller)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: 100}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: 100}, nil)
 	blocks := []uint64{97, 98, 99, 100}
-	pollerBlocks := []logpoller.LogPollerBlock{
+	pollerBlocks := []logpoller.Block{
 		{
 			BlockNumber: 97,
 			BlockHash:   common.HexToHash("0xda2f9d1359eadd7b93338703adc07d942021a78195564038321ef53f23f87333"),

@@ -3,10 +3,10 @@ package changeset_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
 func TestDeployLinkToken(t *testing.T) {
 	t.Parallel()
-	testhelpers.DeployLinkTokenTest(t, 0)
+	changeset.DeployLinkTokenTest(t, 0)
 }

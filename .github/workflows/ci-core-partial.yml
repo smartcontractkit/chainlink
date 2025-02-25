@@ -28,7 +28,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           repository: smartcontractkit/chainlink
@@ -61,7 +61,7 @@ jobs:
             module-directory: "./deployment"
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -146,14 +146,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           # fetches all history for all tags and branches to provide more metadata for sonar reports
           fetch-depth: 0
 
       - name: Download all workflow run artifacts
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v4
         with:
           path: coverage
           pattern: coverage-*
@@ -205,7 +205,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 
@@ -257,7 +257,7 @@ jobs:
     if: ${{ github.event_name == 'schedule' }}
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
 

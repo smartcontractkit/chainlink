@@ -31,6 +31,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -167,7 +168,7 @@ type Coordinator struct {
 }
 
 func StartNewChainWithContracts(t *testing.T, nClients int) (*bind.TransactOpts, evmtypes.Backend, func() common.Hash, func(), Coordinator, Coordinator, []deployedClientContract, common.Address, *functions_router.FunctionsRouter, *link_token_interface.LinkToken, common.Address, *functions_allow_list.TermsOfServiceAllowList) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 	owner.GasPrice = big.NewInt(int64(DefaultGasPrice))
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
