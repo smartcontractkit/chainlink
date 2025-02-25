@@ -4572,7 +4572,7 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 		}
 		c.CLNodes = chainlinkK8sNodes
 		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
-			c.MockServer = parro
+			c.MockServer = ctftestenv.ConnectParrotTestEnv(c.K8Env)
 		}
 	}
 	return nil
