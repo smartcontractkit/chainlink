@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250224210553-dc2073fe0d21
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.4
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.23
@@ -348,7 +348,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250224223358-479a5ea800af // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250225004105-edc18d18efc8 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
 	github.com/smartcontractkit/mcms v0.10.0 // indirect
