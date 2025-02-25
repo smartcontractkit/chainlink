@@ -20,6 +20,7 @@ type LoadConfig struct {
 	NumDestinationChains *int
 	TimeoutDuration      *string
 	TestLabel            *string
+	GasLimit             *uint64
 }
 
 const (

@@ -84,7 +84,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		r, err := kslib.GetContractSets(env.Logger, &kslib.GetContractSetsRequest{
+		r, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
 		})
