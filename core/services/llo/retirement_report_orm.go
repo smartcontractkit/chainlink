@@ -62,8 +62,12 @@ func (o *retirementReportCacheORM) LoadAttestedRetirementReports(ctx context.Con
 }
 
 func (o *retirementReportCacheORM) StoreConfig(ctx context.Context, cd ocr2types.ConfigDigest, signers [][]byte, f uint8) error {
-	_, err := o.ds.ExecContext(ctx, `INSERT INTO llo_retirement_report_cache_configs (config_digest, signers, f, updated_at) VALUES ($1, $2, $3, NOW())`, cd, signers, f)
-	return err
+	// do nothing on overwrite since configs are supposedly immutable
+	_, err := o.ds.ExecContext(ctx, `INSERT INTO llo_retirement_report_cache_configs (config_digest, signers, f, updated_at) VALUES ($1, $2, $3, NOW()) ON CONFLICT (config_digest) DO NOTHING`, cd, signers, f)
+	if err != nil {
+		return fmt.Errorf("StoreConfig failed: %w", err)
+	}
+	return nil
 }
 
 type Config struct {

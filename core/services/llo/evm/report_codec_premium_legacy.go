@@ -88,14 +88,17 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 		multiplier = decimal.NewFromBigInt(opts.Multiplier.ToInt(), 0)
 	}
 
-	codec := reportcodecv3.NewReportCodec(opts.FeedID, r.Logger)
+	validAfterSeconds, observationTimestampSeconds, err := ExtractTimestamps(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract timestamps; %w", err)
+	}
 
 	rf := v3.ReportFields{
-		ValidFromTimestamp: report.ValidAfterSeconds + 1,
-		Timestamp:          report.ObservationTimestampSeconds,
+		ValidFromTimestamp: validAfterSeconds + 1,
+		Timestamp:          observationTimestampSeconds,
 		NativeFee:          CalculateFee(nativePrice, opts.BaseUSDFee),
 		LinkFee:            CalculateFee(linkPrice, opts.BaseUSDFee),
-		ExpiresAt:          report.ObservationTimestampSeconds + opts.ExpirationWindow,
+		ExpiresAt:          observationTimestampSeconds + opts.ExpirationWindow,
 		BenchmarkPrice:     quote.Benchmark.Mul(multiplier).BigInt(),
 		Bid:                quote.Bid.Mul(multiplier).BigInt(),
 		Ask:                quote.Ask.Mul(multiplier).BigInt(),
@@ -103,6 +106,7 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 
 	r.Logger.Debugw("Encoding report", "report", report, "opts", opts, "nativePrice", nativePrice, "linkPrice", linkPrice, "quote", quote, "multiplier", multiplier, "rf", rf)
 
+	codec := reportcodecv3.NewReportCodec(opts.FeedID, r.Logger)
 	return codec.BuildReport(ctx, rf)
 }
 
