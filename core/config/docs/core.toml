@@ -452,9 +452,9 @@ GlobalRPS = 200 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
 GlobalBurst = 200 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 100 # Default
+PerSenderRPS = 200 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 100 # Default
+PerSenderBurst = 200 # Default
 
 [Capabilities.WorkflowRegistry]
 # Address is the address for the workflow registry contract.
