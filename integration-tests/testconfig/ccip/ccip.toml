@@ -247,10 +247,11 @@ ephemeral_addresses_number = 0
 # The sum of all ratios should be 100
 # Messages that include data MUST have a `DataLengthBytes` field
 MessageDetails = [
-    {Ratio = 3, MsgType = "Token"},
-    {Ratio = 82, MsgType = "DataWithToken", DataLengthBytes = 5000, DestGasLimit=650_000},
-    {Ratio = 10,  MsgType = "Data", DataLengthBytes = 10_000, DestGasLimit=800_000},
-    {Ratio = 5,  MsgType = "Data", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
+     {Ratio = 100, MsgType = "Token"},
+#    {Ratio = 3, MsgType = "Token"},
+#    {Ratio = 82, MsgType = "DataWithToken", DataLengthBytes = 5000, DestGasLimit=650_000},
+#    {Ratio = 10,  MsgType = "Data", DataLengthBytes = 10_000, DestGasLimit=800_000},
+#    {Ratio = 5,  MsgType = "Data", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "5s"

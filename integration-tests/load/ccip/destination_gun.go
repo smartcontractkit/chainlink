@@ -110,7 +110,9 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	// Set the gas limit for this tx
-	acc.GasLimit = uint64(gasLimit)
+	if gasLimit != 0 {
+		acc.GasLimit = uint64(gasLimit)
+	}
 
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
