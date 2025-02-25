@@ -67,7 +67,9 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
-		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
+		//return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
+		// return evm codec as default when chain selector is not found
+		return ac.EVMAddressCodec.AddressStringToBytes(addr)
 	}
 
 	switch family {
