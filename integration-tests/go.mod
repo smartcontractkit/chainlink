@@ -52,7 +52,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250225174253-0fe1e95e89b2
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.1-0.20250225174253-0fe1e95e89b2
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.14-0.20250225174253-0fe1e95e89b2
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.6-0.20250225174253-0fe1e95e89b2
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298
 	github.com/spf13/cobra v1.8.1
