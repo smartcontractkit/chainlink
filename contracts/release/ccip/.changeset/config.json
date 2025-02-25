@@ -1,7 +1,7 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@2.3.1/schema.json",
   "changelog": [
-    "../../.changeset/changelog-generator.js",
+    "../../../../.changeset/changelog-generator.js",
     {
       "repo": "smartcontractkit/chainlink"
     }

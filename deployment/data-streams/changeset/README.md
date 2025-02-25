@@ -1,11 +1,11 @@
 ## Overview
 
-The files in this directory define changesets or operations to be performed. These changesets can be called by
-migrations, which are the actual actions which change the state of the system.
+This directory contains **changesets**, which define specific operations that can be invoked by migrations to modify the on-chain system state.
 
-We use several prefixes:
+### Naming Conventions
 
-- `deploy_` refers to changesets that deploy a new onchain contract
-- `call_` refers to changesets that call a function on an existing onchain contract
+- **`deploy_`**: Deploys a new on-chain contract.
+- **`call_`**: Calls a function on an existing on-chain contract.
+- **`jd_`**: Interacts with the Job Distributor.
 
-Aside from the prefixed files, we also have files with names that match the prefixes. Those contain shared code.
+Files named exactly after these prefixes contain shared code or utility functions relevant to that category of changeset.

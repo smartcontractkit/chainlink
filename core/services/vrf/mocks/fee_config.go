@@ -4,9 +4,9 @@ package mocks
 
 import (
 	common "github.com/ethereum/go-ethereum/common"
-	assets "github.com/smartcontractkit/chainlink/v2/evm/assets"
+	assets "github.com/smartcontractkit/chainlink-integrations/evm/assets"
 
-	config "github.com/smartcontractkit/chainlink/v2/evm/config"
+	config "github.com/smartcontractkit/chainlink-integrations/evm/config"
 
 	mock "github.com/stretchr/testify/mock"
 )

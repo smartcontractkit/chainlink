@@ -2,6 +2,8 @@
 pragma solidity ^0.8.24;
 
 import {IMessageInterceptor} from "../../../interfaces/IMessageInterceptor.sol";
+
+import {IPoolV1} from "../../../interfaces/IPool.sol";
 import {IRouter} from "../../../interfaces/IRouter.sol";
 
 import {BurnMintERC20} from "../../../../shared/token/ERC20/BurnMintERC20.sol";
@@ -24,12 +26,18 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
   }
 
   MessageInterceptorHelper internal s_outboundMessageInterceptor;
+  FeeQuoter.DestChainConfig private s_svmDestChainConfig;
 
   address internal s_destTokenPool = makeAddr("destTokenPool");
   address internal s_destToken = makeAddr("destToken");
 
   function setUp() public virtual override {
     super.setUp();
+    // setup for SVM chain
+    s_svmDestChainConfig = _generateFeeQuoterDestChainConfigArgs()[0].destChainConfig;
+    s_svmDestChainConfig.enforceOutOfOrder = true; // Enforcing out of order execution for messages to SVM
+    s_svmDestChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
     s_outboundMessageInterceptor = new MessageInterceptorHelper();
 
     address[] memory feeTokens = new address[](1);
@@ -125,7 +133,76 @@ contract OnRamp_forwardFromRouter is OnRampSetup {
 
     vm.expectEmit();
     emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, OWNER));
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+  }
 
+  function test_ForwardFromRouter_EVM_WithTokenTransfer() public {
+    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceTokens[0], 1000);
+    uint256 feeAmount = 1234567890;
+    IERC20(s_sourceFeeToken).transferFrom(OWNER, address(s_onRamp), feeAmount);
+
+    vm.expectEmit();
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, _messageToEvent(message, 1, 1, feeAmount, OWNER));
+
+    vm.expectCall(
+      s_tokenAdminRegistry.getPool(s_sourceTokens[0]),
+      abi.encodeCall(
+        IPoolV1.lockOrBurn,
+        (
+          Pool.LockOrBurnInV1({
+            receiver: message.receiver,
+            remoteChainSelector: DEST_CHAIN_SELECTOR,
+            originalSender: OWNER,
+            amount: 1000,
+            localToken: s_sourceTokens[0]
+          })
+        )
+      )
+    );
+    s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
+  }
+
+  function test_ForwardFromRouter_SVM_WithTokenTransfer() public {
+    changePrank(OWNER);
+    // register SVM chain family excludeSelector
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigs = new FeeQuoter.DestChainConfigArgs[](1);
+    destChainConfigs[0] =
+      FeeQuoter.DestChainConfigArgs({destChainSelector: DEST_CHAIN_SELECTOR, destChainConfig: s_svmDestChainConfig});
+    s_feeQuoter.applyDestChainConfigUpdates(destChainConfigs);
+
+    changePrank(address(s_sourceRouter));
+    bytes32 svmTokenReceiver = bytes32("TOKEN RECEIVER");
+    Client.EVM2AnyMessage memory message = _generateSingleTokenMessage(s_sourceTokens[0], 1000);
+    message.extraArgs = Client._svmArgsToBytes(
+      Client.SVMExtraArgsV1({
+        computeUnits: GAS_LIMIT,
+        accountIsWritableBitmap: 0,
+        allowOutOfOrderExecution: true,
+        tokenReceiver: svmTokenReceiver,
+        accounts: new bytes32[](0)
+      })
+    );
+    uint256 feeAmount = 1234567890;
+    Internal.EVM2AnyRampMessage memory expectedEvent = _messageToEvent(message, 1, 1, feeAmount, OWNER);
+    expectedEvent.extraArgs = message.extraArgs;
+    vm.expectEmit();
+    emit OnRamp.CCIPMessageSent(DEST_CHAIN_SELECTOR, 1, expectedEvent);
+
+    vm.expectCall(
+      s_tokenAdminRegistry.getPool(s_sourceTokens[0]),
+      abi.encodeCall(
+        IPoolV1.lockOrBurn,
+        (
+          Pool.LockOrBurnInV1({
+            receiver: abi.encode(svmTokenReceiver), // For SVM, the receiver is the SVMExtraArgsV1.tokenReceiver
+            remoteChainSelector: DEST_CHAIN_SELECTOR,
+            originalSender: OWNER,
+            amount: 1000,
+            localToken: s_sourceTokens[0]
+          })
+        )
+      )
+    );
     s_onRamp.forwardFromRouter(DEST_CHAIN_SELECTOR, message, feeAmount, OWNER);
   }
 

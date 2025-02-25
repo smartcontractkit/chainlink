@@ -14,9 +14,9 @@ import (
 	"github.com/urfave/cli"
 	"go.uber.org/multierr"
 
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func initFowardersSubCmds(s *Shell) []cli.Command {

@@ -3,8 +3,8 @@ package bindings
 import (
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
 )
 
 func NewChainReaderConfig() types.ChainReaderConfig {

@@ -1,6 +1,6 @@
 # ALL_FOUNDRY_PRODUCTS contains a list of all products that have a foundry
 # profile defined and use the Foundry snapshots.
-ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared workflow
+ALL_FOUNDRY_PRODUCTS = ccip functions keystone l2ep liquiditymanager llo-feeds operatorforwarder shared workflow data-feeds
 
 # To make a snapshot for a specific product, either set the `FOUNDRY_PROFILE` env var
 # or call the target with `FOUNDRY_PROFILE=product`
@@ -43,7 +43,7 @@ mockery: $(mockery) ## Install mockery.
 
 .PHONY: foundry
 foundry: ## Install foundry.
-	foundryup --install v0.3.0
+	foundryup --install v1.0.0
 
 .PHONY: foundry-refresh
 foundry-refresh: foundry
@@ -64,6 +64,15 @@ ccip-lcov:
 	forge coverage --report lcov
 	../tools/ci/ccip_lcov_prune ./lcov.info ./lcov.info.pruned
 	genhtml -o report lcov.info.pruned --branch-coverage
+
+data-feeds-precommit: export FOUNDRY_PROFILE=data-feeds
+.PHONY: data-feeds-precommit
+data-feeds-precommit:
+	forge test
+	make snapshot
+	forge fmt
+	make wrappers
+	pnpm solhint
 
 # To generate gethwrappers for a specific product, either set the `FOUNDRY_PROFILE`
 # env var or call the target with `FOUNDRY_PROFILE=product`

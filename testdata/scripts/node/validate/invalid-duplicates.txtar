@@ -93,18 +93,16 @@ Error running app: invalid configuration: 5 errors:
 		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique
 		- 1.Nodes.1.WSURL: invalid value (wss://foo.bar/ws): duplicate - must be unique
 		- 1.Nodes.1.HTTPURL: invalid value (https://foo.bar): duplicate - must be unique
-	- Cosmos: 3 errors:
+	- Cosmos: 2 errors:
 		- 1.ChainID: invalid value (Malaga-420): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-		- 1.Nodes.1.TendermintURL: invalid value (http://tender.mint): duplicate - must be unique
 	- Solana: 3 errors:
 		- 1.ChainID: invalid value (mainnet): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
 		- 1.Nodes.1.URL: invalid value (http://solana.web): duplicate - must be unique
-	- Starknet: 3 errors:
+	- Starknet: 2 errors:
 		- 1.ChainID: invalid value (foobar): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (primary): duplicate - must be unique
-		- 1.Nodes.1.URL: invalid value (http://stark.node): duplicate - must be unique
 	- Tron: 2 errors:
 		- 1.ChainID: invalid value (1): duplicate - must be unique
 		- 1.Nodes.1.Name: invalid value (fake): duplicate - must be unique

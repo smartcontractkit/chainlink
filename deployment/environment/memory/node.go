@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -27,11 +30,15 @@ import (
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/logger"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
@@ -42,10 +49,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	v2toml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -58,6 +61,14 @@ type Node struct {
 	IsBoostrap bool
 }
 
+func (n Node) MultiAddr() string {
+	a := ""
+	if n.IsBoostrap {
+		a = fmt.Sprintf("%s@%s", strings.TrimPrefix(n.Keys.PeerID.String(), "p2p_"), n.Addr.String())
+	}
+	return a
+}
+
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
@@ -66,6 +77,132 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 		}
 	}
 	return nil
+}
+
+// DeploymentNode is an adapter for deployment.Node
+func (n Node) DeploymentNode() (deployment.Node, error) {
+	jdChainConfigs, err := n.JDChainConfigs()
+	if err != nil {
+		return deployment.Node{}, err
+	}
+	selMap, err := deployment.ChainConfigsToOCRConfig(jdChainConfigs)
+	if err != nil {
+		return deployment.Node{}, err
+	}
+	// arbitrarily set the first evm chain as the transmitter
+	var admin string
+	for _, k := range n.Keys.Transmitters {
+		admin = k
+		break
+	}
+	return deployment.Node{
+		NodeID:         n.Keys.PeerID.String(),
+		Name:           n.Keys.PeerID.String(),
+		SelToOCRConfig: selMap,
+		CSAKey:         n.Keys.CSA.ID(),
+		PeerID:         n.Keys.PeerID,
+		AdminAddr:      admin,
+		MultiAddr:      n.MultiAddr(),
+		IsBootstrap:    n.IsBoostrap,
+	}, nil
+}
+
+func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
+	var chainConfigs []*nodev1.ChainConfig
+	for _, selector := range n.Chains {
+		family, err := chainsel.GetSelectorFamily(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		// NOTE: this supports non-EVM too
+		chainID, err := chainsel.GetChainIDFromSelector(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		var ocrtype chaintype.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ocrtype = chaintype.EVM
+		case chainsel.FamilySolana:
+			ocrtype = chaintype.Solana
+		case chainsel.FamilyStarknet:
+			ocrtype = chaintype.StarkNet
+		case chainsel.FamilyCosmos:
+			ocrtype = chaintype.Cosmos
+		case chainsel.FamilyAptos:
+			ocrtype = chaintype.Aptos
+		default:
+			return nil, fmt.Errorf("Unsupported chain family %v", family)
+		}
+
+		bundle := n.Keys.OCRKeyBundles[ocrtype]
+		offpk := bundle.OffchainPublicKey()
+		cpk := bundle.ConfigEncryptionPublicKey()
+
+		keyBundle := &nodev1.OCR2Config_OCRKeyBundle{
+			BundleId:              bundle.ID(),
+			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
+			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
+			OnchainSigningAddress: bundle.OnChainPublicKey(),
+		}
+
+		var ctype nodev1.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ctype = nodev1.ChainType_CHAIN_TYPE_EVM
+		case chainsel.FamilySolana:
+			ctype = nodev1.ChainType_CHAIN_TYPE_SOLANA
+		case chainsel.FamilyStarknet:
+			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
+		case chainsel.FamilyAptos:
+			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
+		default:
+			panic(fmt.Sprintf("Unsupported chain family %v", family))
+		}
+
+		transmitter := n.Keys.Transmitters[selector]
+
+		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			Chain: &nodev1.Chain{
+				Id:   chainID,
+				Type: ctype,
+			},
+			AccountAddress: transmitter,
+			AdminAddress:   transmitter,
+			Ocr1Config:     nil,
+			Ocr2Config: &nodev1.OCR2Config{
+				Enabled:     true,
+				IsBootstrap: n.IsBoostrap,
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: n.Keys.PeerID.String(),
+				},
+				OcrKeyBundle:     keyBundle,
+				Multiaddr:        n.MultiAddr(),
+				Plugins:          nil, // TODO: programmatic way to list these from the embedded chainlink.Application?
+				ForwarderAddress: ptr(""),
+			},
+		})
+	}
+	return chainConfigs, nil
+}
+
+type ConfigOpt func(c *chainlink.Config)
+
+// WithFinalityDepths sets the finality depths of the evm chain
+// in the map.
+func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
+	return func(c *chainlink.Config) {
+		for chainID, depth := range finalityDepths {
+			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
+			for _, evmChainConfig := range c.EVM {
+				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
+					evmChainConfig.Chain.FinalityDepth = ptr(depth)
+				}
+			}
+		}
+	}
 }
 
 // Creates a CL node which is:
@@ -80,6 +217,7 @@ func NewNode(
 	logLevel zapcore.Level,
 	bootstrap bool,
 	registryConfig deployment.CapabilityRegistryConfig,
+	configOpts ...ConfigOpt,
 ) *Node {
 	evmchains := make(map[uint64]EVMChain)
 	for _, chain := range chains {
@@ -144,10 +282,14 @@ func NewNode(
 			solConfigs = append(solConfigs, createSolanaChainConfig(solanaChainID, chain))
 		}
 		c.Solana = solConfigs
+
+		for _, opt := range configOpts {
+			opt(c)
+		}
 	})
 
 	// Set logging.
-	lggr := logger.TestLogger(t)
+	lggr := logger.NewSingleFileLogger(t)
 	lggr.SetLogLevel(logLevel)
 
 	// Create clients for the core node backed by sim.

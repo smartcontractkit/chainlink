@@ -15,7 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 )
 
 var errEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")

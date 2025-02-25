@@ -32,6 +32,8 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -44,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/contracts/laneconfig"
@@ -52,23 +55,24 @@ import (
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/token_pool"
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 	bigmath "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const (
@@ -3571,38 +3575,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		for {
 			select {
 			case e := <-sendReqEventLatest:
-				lane.Logger.Info().Msgf("CCIPSendRequested event received for seq number %d", e.Message.SequenceNumber)
-				eventsForTx, ok := lane.Source.CCIPSendRequestedWatcher.Load(e.Raw.TxHash.Hex())
-				if ok {
-					lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), append(eventsForTx.([]*contracts.SendReqEventData),
-						&contracts.SendReqEventData{
-							MessageId:      e.Message.MessageId,
-							SequenceNumber: e.Message.SequenceNumber,
-							DataLength:     len(e.Message.Data),
-							NoOfTokens:     len(e.Message.TokenAmounts),
-							LogInfo: contracts.LogInfo{
-								BlockNumber: e.Raw.BlockNumber,
-								TxHash:      e.Raw.TxHash,
-							},
-							Fee: e.Message.FeeTokenAmount,
-						}))
-				} else {
-					lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), []*contracts.SendReqEventData{
-						{
-							MessageId:      e.Message.MessageId,
-							SequenceNumber: e.Message.SequenceNumber,
-							DataLength:     len(e.Message.Data),
-							NoOfTokens:     len(e.Message.TokenAmounts),
-							LogInfo: contracts.LogInfo{
-								BlockNumber: e.Raw.BlockNumber,
-								TxHash:      e.Raw.TxHash,
-							},
-							Fee: e.Message.FeeTokenAmount,
-						},
-					})
-				}
-
-				lane.Source.CCIPSendRequestedWatcher = testutils.DeleteNilEntriesFromMap(lane.Source.CCIPSendRequestedWatcher)
+				processSendRequestedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}
@@ -3625,19 +3598,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		for {
 			select {
 			case e := <-reportAcceptedEvent:
-				lane.Logger.Info().Interface("Interval", e.Report.Interval).Msgf("ReportAccepted event received")
-				for i := e.Report.Interval.Min; i <= e.Report.Interval.Max; i++ {
-					lane.Dest.ReportAcceptedWatcher.Store(i, &contracts.CommitStoreReportAccepted{
-						Min:        e.Report.Interval.Min,
-						Max:        e.Report.Interval.Max,
-						MerkleRoot: e.Report.MerkleRoot,
-						LogInfo: contracts.LogInfo{
-							BlockNumber: e.Raw.BlockNumber,
-							TxHash:      e.Raw.TxHash,
-						},
-					})
-				}
-				lane.Dest.ReportAcceptedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportAcceptedWatcher)
+				processReportAcceptedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}
@@ -3660,13 +3621,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		for {
 			select {
 			case e := <-messageReceivedEvent:
-				messageID := string(e.MessageId[:])
-				messageContent := e.Data
-				messageSender := string(e.Sender)
-				log.Info().Msgf("Message event received for message id: 0x%x", messageID)
-				log.Info().Msgf("Message event received with content: %+v", string(messageContent))
-				log.Info().Msgf("Message event received with sender: 0x%x", messageSender[len(messageSender)-20:])
-				lane.Dest.MessageReceivedWatcher.Store(messageID, messageContent)
+				processMessageReceivedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}
@@ -3690,14 +3645,7 @@ func (lane *CCIPLane) StartEventWatchers() error {
 			for {
 				select {
 				case e := <-reportBlessedEvent:
-					lane.Logger.Info().Msgf("TaggedRootBlessed event received for root %x", e.TaggedRoot.Root)
-					if e.TaggedRoot.CommitStore == lane.Dest.CommitStore.EthAddress {
-						lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &contracts.LogInfo{
-							BlockNumber: e.Raw.BlockNumber,
-							TxHash:      e.Raw.TxHash,
-						})
-					}
-					lane.Dest.ReportBlessedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportBlessedWatcher)
+					processTaggedRootBlessedEvent(lane, e)
 				case <-lane.Context.Done():
 					return
 				}
@@ -3721,23 +3669,288 @@ func (lane *CCIPLane) StartEventWatchers() error {
 		for {
 			select {
 			case e := <-execStateChangedEventLatest:
-				lane.Logger.Info().Msgf("Execution state changed event received for seq number %d", e.SequenceNumber)
-				lane.Dest.ExecStateChangedWatcher.Store(e.SequenceNumber, &contracts.EVM2EVMOffRampExecutionStateChanged{
-					SequenceNumber: e.SequenceNumber,
-					MessageId:      e.MessageId,
-					State:          e.State,
-					ReturnData:     e.ReturnData,
-					LogInfo: contracts.LogInfo{
-						BlockNumber: e.Raw.BlockNumber,
-						TxHash:      e.Raw.TxHash,
-					},
-				})
-				lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
+				processExecutionStateChangedEvent(lane, e)
 			case <-lane.Context.Done():
 				return
 			}
 		}
 	}(execSub)
+	return nil
+}
+
+func processSendRequestedEvent(lane *CCIPLane, e *evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested) {
+	lane.Logger.Info().Msgf("CCIPSendRequested event received for seq number %d", e.Message.SequenceNumber)
+	eventsForTx, ok := lane.Source.CCIPSendRequestedWatcher.Load(e.Raw.TxHash.Hex())
+	if ok {
+		lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), append(eventsForTx.([]*contracts.SendReqEventData),
+			&contracts.SendReqEventData{
+				MessageId:      e.Message.MessageId,
+				SequenceNumber: e.Message.SequenceNumber,
+				DataLength:     len(e.Message.Data),
+				NoOfTokens:     len(e.Message.TokenAmounts),
+				LogInfo: contracts.LogInfo{
+					BlockNumber: e.Raw.BlockNumber,
+					TxHash:      e.Raw.TxHash,
+				},
+				Fee: e.Message.FeeTokenAmount,
+			}))
+	} else {
+		lane.Source.CCIPSendRequestedWatcher.Store(e.Raw.TxHash.Hex(), []*contracts.SendReqEventData{
+			{
+				MessageId:      e.Message.MessageId,
+				SequenceNumber: e.Message.SequenceNumber,
+				DataLength:     len(e.Message.Data),
+				NoOfTokens:     len(e.Message.TokenAmounts),
+				LogInfo: contracts.LogInfo{
+					BlockNumber: e.Raw.BlockNumber,
+					TxHash:      e.Raw.TxHash,
+				},
+				Fee: e.Message.FeeTokenAmount,
+			},
+		})
+	}
+
+	lane.Source.CCIPSendRequestedWatcher = testutils.DeleteNilEntriesFromMap(lane.Source.CCIPSendRequestedWatcher)
+}
+
+func processReportAcceptedEvent(lane *CCIPLane, e *commit_store.CommitStoreReportAccepted) {
+	lane.Logger.Info().Interface("Interval", e.Report.Interval).Msgf("ReportAccepted event received")
+	for i := e.Report.Interval.Min; i <= e.Report.Interval.Max; i++ {
+		lane.Dest.ReportAcceptedWatcher.Store(i, &contracts.CommitStoreReportAccepted{
+			Min:        e.Report.Interval.Min,
+			Max:        e.Report.Interval.Max,
+			MerkleRoot: e.Report.MerkleRoot,
+			LogInfo: contracts.LogInfo{
+				BlockNumber: e.Raw.BlockNumber,
+				TxHash:      e.Raw.TxHash,
+			},
+		})
+	}
+
+	// Clean up nil entries
+	lane.Dest.ReportAcceptedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportAcceptedWatcher)
+}
+
+func processTaggedRootBlessedEvent(lane *CCIPLane, e *rmn_contract.RMNContractTaggedRootBlessed) {
+	// Process the event
+	lane.Logger.Info().Msgf("TaggedRootBlessed event received for root %x", e.TaggedRoot.Root)
+	if e.TaggedRoot.CommitStore == lane.Dest.CommitStore.EthAddress {
+		lane.Dest.ReportBlessedWatcher.Store(e.TaggedRoot.Root, &contracts.LogInfo{
+			BlockNumber: e.Raw.BlockNumber,
+			TxHash:      e.Raw.TxHash,
+		})
+	}
+
+	// Clean up nil entries
+	lane.Dest.ReportBlessedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ReportBlessedWatcher)
+}
+
+func processExecutionStateChangedEvent(lane *CCIPLane, e *evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged) {
+	lane.Logger.Info().Msgf("Execution state changed event received for seq number %d", e.SequenceNumber)
+	lane.Dest.ExecStateChangedWatcher.Store(e.SequenceNumber, &contracts.EVM2EVMOffRampExecutionStateChanged{
+		SequenceNumber: e.SequenceNumber,
+		MessageId:      e.MessageId,
+		State:          e.State,
+		ReturnData:     e.ReturnData,
+		LogInfo: contracts.LogInfo{
+			BlockNumber: e.Raw.BlockNumber,
+			TxHash:      e.Raw.TxHash,
+		},
+	})
+	lane.Dest.ExecStateChangedWatcher = testutils.DeleteNilEntriesFromMap(lane.Dest.ExecStateChangedWatcher)
+}
+
+func processMessageReceivedEvent(lane *CCIPLane, e *maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived) {
+	messageID := string(e.MessageId[:])
+	messageContent := e.Data
+	messageSender := string(e.Sender)
+	log.Info().Msgf("Message event received for message id: 0x%x", messageID)
+	log.Info().Msgf("Message event received with content: %+v", string(messageContent))
+	log.Info().Msgf("Message event received with sender: 0x%x", messageSender[len(messageSender)-20:])
+	lane.Dest.MessageReceivedWatcher.Store(messageID, messageContent)
+}
+
+func (lane *CCIPLane) StartEventWatchersPolling(sc *sentinel.SentinelCoordinator) error {
+	lane.Logger.Info().Msg("Starting event watchers, Polling")
+	if lane.Source.Common.ChainClient.GetNetworkConfig().FinalityDepth == 0 {
+		err := lane.Source.Common.ChainClient.PollFinality()
+		if err != nil {
+			return err
+		}
+	}
+
+	sendReqEventSub, err := sc.Sentinel.Subscribe(
+		lane.SourceChain.GetChainID().Int64(),
+		lane.Source.OnRamp.EthAddress,
+		evm_2_evm_onramp.EVM2EVMOnRampCCIPSendRequested{}.Topic(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("error in setting up polling to CCIPSendRequested event")
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case <-sc.Ctx.Done():
+				return
+			case event, ok := <-sendReqEventSub:
+				if !ok {
+					lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+					return
+				}
+				typesLog, _ := sentinel.ConvertAPILogToTypesLog(event)
+				e, _ := lane.Source.OnRamp.Instance.Latest.EVM2EVMOnRampFilterer.ParseCCIPSendRequested(*typesLog)
+				processSendRequestedEvent(lane, e)
+			case <-lane.Context.Done():
+				return
+			}
+		}
+	}()
+
+	reportAcceptedSub, err := sc.Sentinel.Subscribe(
+		lane.DestChain.GetChainID().Int64(),
+		lane.Dest.CommitStore.EthAddress,
+		commit_store.CommitStoreReportAccepted{}.Topic(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("error in setting up polling to ReportAccepted event")
+		return errors.New("failed to subscribe to ReportAccepted event")
+	}
+	go func() {
+		for {
+			select {
+			case <-sc.Ctx.Done():
+				return
+			case event, ok := <-reportAcceptedSub:
+				if !ok {
+					lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+					return
+				}
+
+				// Convert the log and parse the ReportAccepted event
+				typesLog, err := sentinel.ConvertAPILogToTypesLog(event)
+				if err != nil {
+					lane.Logger.Error().Err(err).Msg("error converting Sentinel log to types.Log")
+					continue
+				}
+				e, err := lane.Dest.CommitStore.Instance.Latest.CommitStoreFilterer.ParseReportAccepted(*typesLog)
+				if err != nil {
+					lane.Logger.Error().Err(err).Msg("error parsing ReportAccepted event")
+					continue
+				}
+				processReportAcceptedEvent(lane, e)
+			case <-lane.Context.Done():
+				return
+			}
+		}
+	}()
+
+	if lane.Dest.Common.ARM != nil {
+		reportBlessedEventSub, err := sc.Sentinel.Subscribe(
+			lane.DestChain.GetChainID().Int64(),
+			lane.Dest.Common.ARM.EthAddress,
+			rmn_contract.RMNContractTaggedRootBlessed{}.Topic(),
+		)
+		if err != nil {
+			log.Error().Err(err).Msg("error in setting up polling to TaggedRootBlessed event")
+			return errors.New("failed to subscribe to TaggedRootBlessed event")
+		}
+
+		go func() {
+			for {
+				select {
+				case <-sc.Ctx.Done():
+					return
+				case event, ok := <-reportBlessedEventSub:
+					if !ok {
+						lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+						return
+					}
+
+					// Convert the log and parse the TaggedRootBlessed event
+					typesLog, err := sentinel.ConvertAPILogToTypesLog(event)
+					if err != nil {
+						lane.Logger.Error().Err(err).Msg("error converting Sentinel log to types.Log")
+						continue
+					}
+					e, err := lane.Dest.Common.ARM.Instance.RMNContractFilterer.ParseTaggedRootBlessed(*typesLog)
+					if err != nil {
+						lane.Logger.Error().Err(err).Msg("error parsing TaggedRootBlessed event")
+						continue
+					}
+					processTaggedRootBlessedEvent(lane, e)
+				case <-lane.Context.Done():
+					return
+				}
+			}
+		}()
+	}
+
+	execStateChangedEventSub, err := sc.Sentinel.Subscribe(
+		lane.DestChain.GetChainID().Int64(),
+		lane.Dest.OffRamp.EthAddress,
+		evm_2_evm_offramp.EVM2EVMOffRampExecutionStateChanged{}.Topic(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("error in setting up polling to ExecutionStateChanged event")
+		return errors.New("failed to subscribe to ExecutionStateChanged event")
+	}
+
+	go func() {
+		for {
+			select {
+			case <-sc.Ctx.Done():
+				return
+			case event, ok := <-execStateChangedEventSub:
+				if !ok {
+					lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+					return
+				}
+
+				// Convert the log and parse the ExecutionStateChanged event
+				typesLog, err := sentinel.ConvertAPILogToTypesLog(event)
+				if err != nil {
+					lane.Logger.Error().Err(err).Msg("error converting Sentinel log to types.Log")
+					continue
+				}
+				e, err := lane.Dest.OffRamp.Instance.Latest.EVM2EVMOffRampFilterer.ParseExecutionStateChanged(*typesLog)
+				if err != nil {
+					lane.Logger.Error().Err(err).Msg("error parsing ExecutionStateChanged event")
+					continue
+				}
+				processExecutionStateChangedEvent(lane, e)
+			case <-lane.Context.Done():
+				return
+			}
+		}
+	}()
+	messageReceivedSub, err := sc.Sentinel.Subscribe(
+		lane.DestChain.GetChainID().Int64(),
+		lane.Dest.ReceiverDapp.EthAddress,
+		maybe_revert_message_receiver.MaybeRevertMessageReceiverMessageReceived{}.Topic(),
+	)
+	if err != nil {
+		log.Error().Err(err).Msg("error in setting up polling to MaybeRevertMessageReceiverMessageReceived event")
+		return err
+	}
+	go func() {
+		for {
+			select {
+			case <-sc.Ctx.Done():
+				return
+			case event, ok := <-messageReceivedSub:
+				if !ok {
+					lane.Logger.Info().Msg("Sentinel log channel closed. Exiting goroutine.")
+					return
+				}
+				typesLog, _ := sentinel.ConvertAPILogToTypesLog(event)
+				e, _ := lane.Dest.ReceiverDapp.Instance.MaybeRevertMessageReceiverFilterer.ParseMessageReceived(*typesLog)
+				processMessageReceivedEvent(lane, e)
+			case <-lane.Context.Done():
+				return
+			}
+		}
+	}()
 	return nil
 }
 

@@ -11,6 +11,7 @@
 ./src/v0.8/liquiditymanager/
 ./src/v0.8/keystone/
 ./src/v0.8/llo-feeds/
+./src/v0.8/data-feeds/test/helpers/DataFeedsLegacyAggregatorProxy.sol
 
 
 # Ignore Functions v1.0.0 code that was frozen after audit

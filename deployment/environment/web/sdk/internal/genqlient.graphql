@@ -93,6 +93,7 @@ fragment OCR2Spec on OCR2Spec {
     transmitterID
     pluginType
     pluginConfig
+    allowNoBootstrappers
 }
 
 fragment JobParts on Job {

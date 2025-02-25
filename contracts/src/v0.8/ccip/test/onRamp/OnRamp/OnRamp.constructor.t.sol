@@ -36,7 +36,7 @@ contract OnRamp_constructor is OnRampSetup {
     assertEq(dynamicConfig.feeQuoter, gotDynamicConfig.feeQuoter);
 
     // Initial values
-    assertEq("OnRamp 1.6.0-dev", s_onRamp.typeAndVersion());
+    assertEq("OnRamp 1.6.0", s_onRamp.typeAndVersion());
     assertEq(OWNER, s_onRamp.owner());
     assertEq(1, s_onRamp.getExpectedNextSequenceNumber(DEST_CHAIN_SELECTOR));
   }

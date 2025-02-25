@@ -2,6 +2,7 @@
 pragma solidity ^0.8.24;
 
 import {SiloedLockReleaseTokenPool} from "../../../pools/SiloedLockReleaseTokenPool.sol";
+import {TokenPool} from "../../../pools/TokenPool.sol";
 import {SiloedLockReleaseTokenPoolSetup} from "./SiloedLockReleaseTokenPoolSetup.t.sol";
 
 contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseTokenPoolSetup {
@@ -46,7 +47,7 @@ contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseT
     // Assert that the funds are siloed correctly
     assertTrue(s_siloedLockReleaseTokenPool.isSiloed(SILOED_CHAIN_SELECTOR));
     assertEq(s_siloedLockReleaseTokenPool.getAvailableTokens(SILOED_CHAIN_SELECTOR), 0);
-    assertEq(s_siloedLockReleaseTokenPool.getSiloRebalancer(SILOED_CHAIN_SELECTOR), OWNER);
+    assertEq(s_siloedLockReleaseTokenPool.getChainRebalancer(SILOED_CHAIN_SELECTOR), OWNER);
 
     // Provide some Liquidity so that we can then check that it gets removed.
     s_siloedLockReleaseTokenPool.provideSiloedLiquidity(SILOED_CHAIN_SELECTOR, amount);
@@ -85,6 +86,17 @@ contract SiloedLockReleaseTokenPool_updateSiloDesignations is SiloedLockReleaseT
     vm.expectRevert(
       abi.encodeWithSelector(SiloedLockReleaseTokenPool.InvalidChainSelector.selector, SILOED_CHAIN_SELECTOR)
     );
+
+    s_siloedLockReleaseTokenPool.updateSiloDesignations(new uint64[](0), adds);
+  }
+
+  function test_updateSiloDesignations_RevertWhen_InvalidZeroRebalancerAddress() public {
+    SiloedLockReleaseTokenPool.SiloConfigUpdate[] memory adds = new SiloedLockReleaseTokenPool.SiloConfigUpdate[](1);
+    adds[0] =
+      SiloedLockReleaseTokenPool.SiloConfigUpdate({remoteChainSelector: DEST_CHAIN_SELECTOR, rebalancer: address(0)});
+
+    // Rebalancer address cannot be zero
+    vm.expectRevert(abi.encodeWithSelector(TokenPool.ZeroAddressNotAllowed.selector));
 
     s_siloedLockReleaseTokenPool.updateSiloDesignations(new uint64[](0), adds);
   }

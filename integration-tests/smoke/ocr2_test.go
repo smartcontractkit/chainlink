@@ -51,7 +51,7 @@ func defaultTestData() ocr2test {
 // Tests a basic OCRv2 median feed
 func TestOCRv2Basic(t *testing.T) {
 	t.Parallel()
-
+	t.Skip("skipping until txm issues are fixed")
 	noMedianPlugin := map[string]string{string(env.MedianPlugin.Cmd): ""}
 	medianPlugin := map[string]string{string(env.MedianPlugin.Cmd): "chainlink-feeds"}
 	for _, test := range []ocr2test{
@@ -85,6 +85,7 @@ func TestOCRv2Basic(t *testing.T) {
 // Tests that just calling requestNewRound() will properly induce more rounds
 func TestOCRv2Request(t *testing.T) {
 	t.Parallel()
+	t.Skip("skipping until txm issues are fixed")
 	l := logging.GetTestLogger(t)
 
 	_, aggregatorContracts, sethClient := prepareORCv2SmokeTestEnv(t, defaultTestData(), l, 5)

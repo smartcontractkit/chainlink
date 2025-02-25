@@ -1,27 +1,50 @@
 package solana_test
 
 import (
-	"context"
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
-
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/token_pool"
+	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
+
+func deployToken(t *testing.T, tenv deployment.Environment, solChain uint64) (deployment.Environment, solana.PublicKey, error) {
+	e, err := commonchangeset.Apply(t, tenv, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeploySolanaToken),
+			ccipChangesetSolana.DeploySolanaTokenConfig{
+				ChainSelector:    solChain,
+				TokenProgramName: ccipChangeset.SPL2022Tokens,
+				TokenDecimals:    9,
+				TokenSymbol:      "TEST_TOKEN",
+			},
+		),
+	)
+	require.NoError(t, err)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
+	return e, tokenAddress, err
+}
 
 func TestAddRemoteChain(t *testing.T) {
 	t.Parallel()
@@ -31,16 +54,17 @@ func TestAddRemoteChain(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
 	evmChain := tenv.Env.AllChainSelectors()[0]
+	evmChain2 := tenv.Env.AllChainSelectors()[1]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-	state, err := changeset.LoadOnchainState(tenv.Env)
+	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
 
-	tenv.Env, err = commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+	tenv.Env, err = commonchangeset.Apply(t, tenv.Env, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					evmChain: {
 						solChain: {
 							IsEnabled:        true,
@@ -50,15 +74,76 @@ func TestAddRemoteChain(t *testing.T) {
 					},
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
-			Config: changeset_solana.AddRemoteChainToSolanaConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset_solana.RemoteChainConfigSolana{
-					solChain: {
-						evmChain: {
-							EnabledAsSource: true,
-							DestinationConfig: solRouter.DestChainConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
+			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+					evmChain: {
+						EnabledAsSource:         true,
+						RouterDestinationConfig: solRouter.DestChainConfig{},
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+							// TODO: do a similar test for other chain families
+							// https://smartcontract-it.atlassian.net/browse/INTAUTO-438
+							ChainFamilySelector: [4]uint8{40, 18, 213, 44},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	state, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
+	require.NoError(t, err)
+
+	var destChainStateAccount solRouter.DestChain
+	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
+	require.NoError(t, err)
+
+	var destChainFqAccount solFeeQuoter.DestChain
+	fqEvmDestChainPDA, _, _ := solState.FindFqDestChainPDA(evmChain, state.SolChains[solChain].FeeQuoter)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
+	require.True(t, destChainFqAccount.Config.IsEnabled)
+
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
+
+	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env,
+		[]commonchangeset.ConfiguredChangeSet{
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+				v1_6.UpdateOnRampDestsConfig{
+					UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
+						evmChain2: {
+							solChain: {
+								IsEnabled:        true,
+								TestRouter:       false,
+								AllowListEnabled: false,
+							},
+						},
+					},
+				},
+			),
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
+				ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+					ChainSelector: solChain,
+					UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+						evmChain2: {
+							EnabledAsSource:         true,
+							RouterDestinationConfig: solRouter.DestChainConfig{},
+							FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 								IsEnabled:                   true,
 								DefaultTxGasLimit:           200000,
 								MaxPerMsgGasLimit:           3000000,
@@ -72,25 +157,31 @@ func TestAddRemoteChain(t *testing.T) {
 							},
 						},
 					},
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+					RouterAuthority:    timelockSignerPDA,
+					FeeQuoterAuthority: timelockSignerPDA,
+					OffRampAuthority:   timelockSignerPDA,
 				},
-			},
+			),
 		},
-	})
+	)
+
 	require.NoError(t, err)
 
-	state, err = changeset.LoadOnchainStateSolana(tenv.Env)
+	state, err = ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
-	var sourceChainStateAccount solRouter.SourceChain
-	evmSourceChainStatePDA := state.SolChains[solChain].SourceChainStatePDAs[evmChain]
-	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmSourceChainStatePDA, &sourceChainStateAccount)
-	require.NoError(t, err)
-	require.Equal(t, uint64(1), sourceChainStateAccount.State.MinSeqNr)
-	require.True(t, sourceChainStateAccount.Config.IsEnabled)
 
-	var destChainStateAccount solRouter.DestChain
-	evmDestChainStatePDA := state.SolChains[solChain].DestChainStatePDAs[evmChain]
+	evmDestChainStatePDA = state.SolChains[solChain].DestChainStatePDAs[evmChain2]
 	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, evmDestChainStatePDA, &destChainStateAccount)
 	require.NoError(t, err)
+
+	fqEvmDestChainPDA, _, _ = solState.FindFqDestChainPDA(evmChain2, state.SolChains[solChain].FeeQuoter)
+	err = tenv.Env.SolChains[solChain].GetAccountDataBorshInto(ctx, fqEvmDestChainPDA, &destChainFqAccount)
+	require.NoError(t, err, "failed to get account info")
+	require.Equal(t, solFeeQuoter.TimestampedPackedU224{}, destChainFqAccount.State.UsdPerUnitGas)
+	require.True(t, destChainFqAccount.Config.IsEnabled)
 }
 
 func TestDeployCCIPContracts(t *testing.T) {
@@ -100,140 +191,135 @@ func TestDeployCCIPContracts(t *testing.T) {
 
 func TestAddTokenPool(t *testing.T) {
 	t.Parallel()
-
+	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-
-	e, err := commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.DeploySolanaToken),
-			Config: changeset_solana.DeploySolanaTokenConfig{
-				ChainSelector:    solChain,
-				TokenProgramName: deployment.SPL2022Tokens,
-				TokenDecimals:    9,
-			},
-		},
-	})
+	e, newTokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
-
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
+	remoteConfig := solBaseTokenPool.RemoteConfig{
+		PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
+		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
+		Decimals:      9,
+	}
+	inboundConfig := solBaseTokenPool.RateLimitConfig{
+		Enabled:  true,
+		Capacity: uint64(1000),
+		Rate:     1,
+	}
+	outboundConfig := solBaseTokenPool.RateLimitConfig{
+		Enabled:  false,
+		Capacity: 0,
+		Rate:     0,
+	}
 
-	// TODO: can test this with solana.SolMint as well (WSOL)
-	// https://smartcontract-it.atlassian.net/browse/INTAUTO-440
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
+	tokenMap := map[deployment.ContractType]solana.PublicKey{
+		ccipChangeset.SPL2022Tokens: newTokenAddress,
+		ccipChangeset.SPLTokens:     state.SolChains[solChain].WSOL,
+	}
+
+	type poolTestType struct {
+		poolType    solTestTokenPool.PoolType
+		poolAddress solana.PublicKey
+	}
+	testCases := []poolTestType{
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddTokenPool),
-			Config: changeset_solana.TokenPoolConfig{
-				ChainSelector:    solChain,
-				TokenPubKey:      tokenAddress.String(),
-				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         "LockAndRelease",
-				// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
-				Authority: e.SolChains[solChain].DeployerKey.PublicKey().String(),
-			},
+			poolType:    solTestTokenPool.BurnAndMint_PoolType,
+			poolAddress: state.SolChains[solChain].BurnMintTokenPool,
 		},
 		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.SetupTokenPoolForRemoteChain),
-			Config: changeset_solana.RemoteChainTokenPoolConfig{
-				ChainSelector:       solChain,
-				RemoteChainSelector: evmChain,
-				TokenPubKey:         tokenAddress.String(),
-				RemoteConfig: token_pool.RemoteConfig{
-					PoolAddresses: []token_pool.RemoteAddress{{Address: []byte{1, 2, 3}}},
-					TokenAddress:  token_pool.RemoteAddress{Address: []byte{4, 5, 6}},
-					Decimals:      9,
-				},
-				InboundRateLimit: token_pool.RateLimitConfig{
-					Enabled:  true,
-					Capacity: uint64(1000),
-					Rate:     1,
-				},
-				OutboundRateLimit: token_pool.RateLimitConfig{
-					Enabled:  false,
-					Capacity: 0,
-					Rate:     0,
-				},
-			},
+			poolType:    solTestTokenPool.LockAndRelease_PoolType,
+			poolAddress: state.SolChains[solChain].LockReleaseTokenPool,
 		},
-	})
-	require.NoError(t, err)
+	}
+	for _, testCase := range testCases {
+		for _, tokenAddress := range tokenMap {
+			e, err = commonchangeset.Apply(t, e, nil,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPool),
+					ccipChangesetSolana.TokenPoolConfig{
+						ChainSelector: solChain,
+						TokenPubKey:   tokenAddress.String(),
+						PoolType:      testCase.poolType,
+						// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
+						Authority: tenv.Env.SolChains[solChain].DeployerKey.PublicKey().String(),
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+					ccipChangesetSolana.RemoteChainTokenPoolConfig{
+						SolChainSelector:    solChain,
+						RemoteChainSelector: evmChain,
+						SolTokenPubKey:      tokenAddress.String(),
+						RemoteConfig:        remoteConfig,
+						InboundRateLimit:    inboundConfig,
+						OutboundRateLimit:   outboundConfig,
+						PoolType:            testCase.poolType,
+					},
+				),
+			)
+			require.NoError(t, err)
+			// test AddTokenPool results
+			configAccount := solTestTokenPool.State{}
+			poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, testCase.poolAddress)
+			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
+			require.NoError(t, err)
+			require.Equal(t, tokenAddress, configAccount.Config.Mint)
+			// test SetupTokenPoolForRemoteChain results
+			remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, testCase.poolAddress)
+			var remoteChainConfigAccount solTestTokenPool.ChainConfig
+			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
+			require.NoError(t, err)
+			require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
+		}
+	}
 
-	// test AddTokenPool results
-	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(tokenAddress, state.SolChains[solChain].TokenPool)
-	require.NoError(t, err)
-	var configAccount token_pool.Config
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), poolConfigPDA, &configAccount)
-	t.Logf("configAccount: %+v", configAccount)
-	require.NoError(t, err)
-	require.Equal(t, token_pool.LockAndRelease_PoolType, configAccount.PoolType)
-	require.Equal(t, tokenAddress, configAccount.Mint)
-	// try minting after this and see if the pool or the deployer key is the authority
-
-	// test SetupTokenPoolForRemoteChain results
-	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].TokenPool)
-	var remoteChainConfigAccount token_pool.ChainConfig
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
-	require.NoError(t, err)
-	require.Equal(t, uint8(9), remoteChainConfigAccount.Remote.Decimals)
 }
 
 func TestBilling(t *testing.T) {
 	t.Parallel()
-
+	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
-	e, err := commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.DeploySolanaToken),
-			Config: changeset_solana.DeploySolanaTokenConfig{
-				ChainSelector:    solChain,
-				TokenProgramName: deployment.SPL2022Tokens,
-				TokenDecimals:    9,
-			},
-		},
-	})
+	e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
-
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
 	validTimestamp := int64(100)
 	value := [28]uint8{}
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	require.True(t, ok)
 	bigNum.FillBytes(value[:])
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddBillingToken),
-			Config: changeset_solana.BillingTokenConfig{
-				ChainSelector:    solChain,
-				TokenPubKey:      tokenAddress.String(),
-				TokenProgramName: deployment.SPL2022Tokens,
-				Config: solRouter.BillingTokenConfig{
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenChangeset),
+			ccipChangesetSolana.BillingTokenConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   tokenAddress.String(),
+				Config: solFeeQuoter.BillingTokenConfig{
 					Enabled: true,
 					Mint:    tokenAddress,
-					UsdPerToken: solRouter.TimestampedPackedU224{
+					UsdPerToken: solFeeQuoter.TimestampedPackedU224{
 						Timestamp: validTimestamp,
 						Value:     value,
 					},
 					PremiumMultiplierWeiPerEth: 100,
 				},
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AddBillingTokenForRemoteChain),
-			Config: changeset_solana.BillingTokenForRemoteChainConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenForRemoteChain),
+			ccipChangesetSolana.BillingTokenForRemoteChainConfig{
 				ChainSelector:       solChain,
 				RemoteChainSelector: evmChain,
 				TokenPubKey:         tokenAddress.String(),
-				Config: solRouter.TokenBilling{
+				Config: solFeeQuoter.TokenTransferFeeConfig{
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
 					DeciBps:           0,
@@ -242,110 +328,180 @@ func TestBilling(t *testing.T) {
 					IsEnabled:         true,
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
-	billingConfigPDA, _, _ := solState.FindFeeBillingTokenConfigPDA(tokenAddress, state.SolChains[solChain].Router)
-	var token0ConfigAccount solRouter.BillingTokenConfigWrapper
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), billingConfigPDA, &token0ConfigAccount)
+	billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenAddress, state.SolChains[solChain].FeeQuoter)
+	var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, billingConfigPDA, &token0ConfigAccount)
 	require.NoError(t, err)
 	require.True(t, token0ConfigAccount.Config.Enabled)
 	require.Equal(t, tokenAddress, token0ConfigAccount.Config.Mint)
 
-	remoteBillingPDA, _, _ := solState.FindCcipTokenpoolBillingPDA(evmChain, tokenAddress, state.SolChains[solChain].Router)
-	var remoteBillingAccount solRouter.PerChainPerTokenConfig
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), remoteBillingPDA, &remoteBillingAccount)
+	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(evmChain, tokenAddress, state.SolChains[solChain].FeeQuoter)
+	var remoteBillingAccount solFeeQuoter.PerChainPerTokenConfig
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteBillingPDA, &remoteBillingAccount)
 	require.NoError(t, err)
 	require.Equal(t, tokenAddress, remoteBillingAccount.Mint)
-	require.Equal(t, uint32(800), remoteBillingAccount.Billing.MinFeeUsdcents)
+	require.Equal(t, uint32(800), remoteBillingAccount.TokenTransferConfig.MinFeeUsdcents)
 }
 
 func TestTokenAdminRegistry(t *testing.T) {
 	t.Parallel()
-
+	ctx := testcontext.Get(t)
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-
-	e, err := commonchangeset.ApplyChangesets(t, tenv.Env, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.DeploySolanaToken),
-			Config: changeset_solana.DeploySolanaTokenConfig{
-				ChainSelector:    solChain,
-				TokenProgramName: deployment.SPL2022Tokens,
-				TokenDecimals:    9,
-			},
-		},
-	})
+	e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
-
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain].SPL2022Tokens[0]
-	tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
-
-	// We have to do run the ViaOwnerInstruction testcase for linkToken as we already registered a PDA for tokenAddress in the previous testcase
 	linkTokenAddress := state.SolChains[solChain].LinkToken
 
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{ // register token admin registry for tokenAddress via getCcipAdminInstruction
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.RegisterTokenAdminRegistry),
-			Config: changeset_solana.RegisterTokenAdminRegistryConfig{
+	tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
+
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// register token admin registry for tokenAddress via admin instruction
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 				ChainSelector:           solChain,
 				TokenPubKey:             tokenAddress.String(),
 				TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
-				RegisterType:            changeset_solana.ViaGetCcipAdminInstruction,
+				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 			},
-		},
-		{ // register token admin registry for linkToken via owner instruction
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.RegisterTokenAdminRegistry),
-			Config: changeset_solana.RegisterTokenAdminRegistryConfig{
-				ChainSelector: solChain,
-				TokenPubKey:   linkTokenAddress.String(),
-				RegisterType:  changeset_solana.ViaOwnerInstruction,
+		),
+		commonchangeset.Configure(
+			// register token admin registry for linkToken via owner instruction
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChain,
+				TokenPubKey:             linkTokenAddress.String(),
+				TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
+				RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
 			},
-		},
-		{ // transfer admin role for tokenAddress
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.TransferAdminRoleTokenAdminRegistry),
-			Config: changeset_solana.TransferAdminRoleTokenAdminRegistryConfig{
-				ChainSelector:                  solChain,
-				TokenPubKey:                    tokenAddress.String(),
-				CurrentRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-				NewRegistryAdminPublicKey:      e.SolChains[solChain].DeployerKey.PublicKey().String(),
-			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 	require.NoError(t, err)
-	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
-	// pending administrator should be the deployer key
-	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
+	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
+	// pending administrator should be the proposed admin key
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
 
 	linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
 	var linkTokenAdminRegistryAccount solRouter.TokenAdminRegistry
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
 	require.NoError(t, err)
-	// as DeployLinkToken (DeploySolanaToken) makes the deployer key the authority of the token, it should be the administrator of the tokenAdminRegistry via owner instruction
-	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), linkTokenAdminRegistryAccount.Administrator)
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), linkTokenAdminRegistryAccount.PendingAdministrator)
 
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{ // accept admin role for tokenAddress
-			Changeset: commonchangeset.WrapChangeSet(changeset_solana.AcceptAdminRoleTokenAdminRegistry),
-			Config: changeset_solana.AcceptAdminRoleTokenAdminRegistryConfig{
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// accept admin role for tokenAddress
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 				ChainSelector:              solChain,
 				TokenPubKey:                tokenAddress.String(),
-				NewRegistryAdminPrivateKey: e.SolChains[solChain].DeployerKey.String(),
+				NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
-	err = e.SolChains[solChain].GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 	require.NoError(t, err)
 	// confirm that the administrator is the deployer key
-	require.Equal(t, e.SolChains[solChain].DeployerKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.Administrator)
+	require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
+
+	newTokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// transfer admin role for tokenAddress
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
+			ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:                  solChain,
+				TokenPubKey:                    tokenAddress.String(),
+				NewRegistryAdminPublicKey:      newTokenAdminRegistryAdminPrivKey.PublicKey().String(),
+				CurrentRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+			},
+		),
+	)
+	require.NoError(t, err)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+	require.NoError(t, err)
+	require.Equal(t, newTokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
+}
+
+func TestPoolLookupTable(t *testing.T) {
+	t.Parallel()
+	ctx := testcontext.Get(t)
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+
+	e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
+	require.NoError(t, err)
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// add token pool lookup table
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
+			ccipChangesetSolana.TokenPoolLookupTableConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   tokenAddress.String(),
+			},
+		),
+	)
+	require.NoError(t, err)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	lookupTablePubKey := state.SolChains[solChain].TokenPoolLookupTable[tokenAddress]
+
+	lookupTableEntries0, err := solCommonUtil.GetAddressLookupTable(ctx, e.SolChains[solChain].Client, lookupTablePubKey)
+	require.NoError(t, err)
+	require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
+	require.Equal(t, tokenAddress, lookupTableEntries0[7])
+
+	tokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
+
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			// register token admin registry for linkToken via owner instruction
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChain,
+				TokenPubKey:             tokenAddress.String(),
+				TokenAdminRegistryAdmin: tokenAdminRegistryAdminPrivKey.PublicKey().String(),
+				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+			},
+		),
+		commonchangeset.Configure(
+			// accept admin role for tokenAddress
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector:              solChain,
+				TokenPubKey:                tokenAddress.String(),
+				NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+			},
+		),
+		commonchangeset.Configure(
+			// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+			ccipChangesetSolana.SetPoolConfig{
+				ChainSelector:                     solChain,
+				TokenPubKey:                       tokenAddress.String(),
+				TokenAdminRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+				WritableIndexes:                   []uint8{3, 4, 7},
+			},
+		),
+	)
+	require.NoError(t, err)
+	tokenAdminRegistry := solRouter.TokenAdminRegistry{}
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
+
+	err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
+	require.NoError(t, err)
+	require.Equal(t, tokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistry.Administrator)
+	require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 }

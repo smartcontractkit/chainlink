@@ -17,7 +17,7 @@ import (
 	clnull "github.com/smartcontractkit/chainlink-common/pkg/utils/null"
 
 	commontypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 )
 
 type Transaction struct {

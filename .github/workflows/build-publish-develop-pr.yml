@@ -23,6 +23,10 @@ on:
         required: false
         default: "false"
 
+concurrency:
+  group: "build-publish-${{ github.ref_name }}-${{ github.sha }}"
+  cancel-in-progress: true
+
 env:
   # Use github.sha here otherwise a race condition exists if
   # a commit is pushed to develop before merge is run.
@@ -36,7 +40,7 @@ jobs:
       release-type: ${{ steps.get-image-tag.outputs.release-type }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
@@ -90,7 +94,7 @@ jobs:
             dist_name: linux_arm64
     steps:
       - name: Checkout chainlink repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
@@ -105,7 +109,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Checkout capabilities repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           repository: smartcontractkit/capabilities
           token: ${{ steps.token.outputs.access-token }}
@@ -144,7 +148,7 @@ jobs:
       contents: read
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}

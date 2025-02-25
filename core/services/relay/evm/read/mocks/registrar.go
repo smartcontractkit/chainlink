@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	logpoller "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	mock "github.com/stretchr/testify/mock"
 )
 

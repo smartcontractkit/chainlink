@@ -151,8 +151,8 @@ func TestUpdateDon(t *testing.T) {
 				ConfigCount: 1,
 				NodeP2PIds:  internal.PeerIDsToBytes([]p2pkey.PeerID{p2p_1.PeerID(), p2p_2.PeerID(), p2p_3.PeerID(), p2p_4.PeerID()}),
 				CapabilityConfigurations: []kcr.CapabilitiesRegistryCapabilityConfiguration{
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.CapabilitiesRegistry, initialCap), Config: initialCapCfgB},
-					{CapabilityId: kstest.MustCapabilityId(t, testCfg.CapabilitiesRegistry, capToAdd), Config: capToAddCfgB},
+					{CapabilityId: kstest.MustCapabilityID(t, testCfg.CapabilitiesRegistry, initialCap), Config: initialCapCfgB},
+					{CapabilityId: kstest.MustCapabilityID(t, testCfg.CapabilitiesRegistry, capToAdd), Config: capToAddCfgB},
 				},
 			},
 		}

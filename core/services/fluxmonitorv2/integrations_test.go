@@ -27,6 +27,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
@@ -44,9 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const description = "exactly thirty-three characters!!"
@@ -114,9 +115,9 @@ func setupFluxAggregatorUniverse(t *testing.T, configOptions ...func(cfg *fluxAg
 	var f fluxAggregatorUniverse
 	f.evmChainID = *testutils.SimulatedChainID
 	f.key = key
-	f.sergey = testutils.MustNewSimTransactor(t)
-	f.neil = testutils.MustNewSimTransactor(t)
-	f.ned = testutils.MustNewSimTransactor(t)
+	f.sergey = evmtestutils.MustNewSimTransactor(t)
+	f.neil = evmtestutils.MustNewSimTransactor(t)
+	f.ned = evmtestutils.MustNewSimTransactor(t)
 	f.nallory = oracleTransactor
 	genesisData := gethtypes.GenesisAlloc{
 		f.sergey.From:  {Balance: assets.Ether(1000).ToInt()},

@@ -205,24 +205,6 @@ func TestHashPassword(t *testing.T) {
 	assert.False(t, ok)
 }
 
-func TestBoxOutput(t *testing.T) {
-	t.Parallel()
-
-	output := utils.BoxOutput("some error %d %s", 123, "foo")
-	const expected = "\n" +
-		"↘↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↙\n" +
-		"→                      ←\n" +
-		"→  README README       ←\n" +
-		"→                      ←\n" +
-		"→  some error 123 foo  ←\n" +
-		"→                      ←\n" +
-		"→  README README       ←\n" +
-		"→                      ←\n" +
-		"↗↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↖\n" +
-		"\n"
-	assert.Equal(t, expected, output)
-}
-
 func TestISO8601UTC(t *testing.T) {
 	t.Parallel()
 

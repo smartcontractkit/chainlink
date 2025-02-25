@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	big "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	big "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	mock "github.com/stretchr/testify/mock"
 

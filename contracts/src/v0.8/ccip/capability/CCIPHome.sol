@@ -136,7 +136,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
     ChainConfig chainConfig;
   }
 
-  string public constant override typeAndVersion = "CCIPHome 1.6.0-dev";
+  string public constant override typeAndVersion = "CCIPHome 1.6.0";
 
   /// @dev A prefix added to all config digests that is unique to the implementation.
   uint256 private constant PREFIX = 0x000a << (256 - 16); // 0x000a00..00

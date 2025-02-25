@@ -20,6 +20,42 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_Server_DefaultExcludedAttributes(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	numCapabilityPeers := 4
+
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{},
+		&TestCapability{}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+
+	for idx, caller := range callers {
+		rawInputs := map[string]any{
+			"StepDependency": strconv.Itoa(idx),
+		}
+
+		inputs, err := values.NewMap(rawInputs)
+		require.NoError(t, err)
+
+		_, err = caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
+				},
+				Inputs: inputs,
+			})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for i := 0; i < numCapabilityPeers; i++ {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+		}
+	}
+	closeServices(t, srvcs)
+}
+
 func Test_Server_ExcludesNonDeterministicInputAttributes(t *testing.T) {
 	ctx := testutils.Context(t)
 

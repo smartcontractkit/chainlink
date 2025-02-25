@@ -7,12 +7,9 @@ import (
 	"slices"
 	"strings"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/pelletier/go-toml/v2"
 	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/timestamppb"
-
-	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -20,13 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/validate"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrbootstrap"
 )
 
 type JobClient struct {
-	Nodes map[string]Node
+	Nodes           map[string]Node
+	RegisteredNodes map[string]Node
 }
 
 func (j JobClient) BatchProposeJob(ctx context.Context, in *jobv1.BatchProposeJobRequest, opts ...grpc.CallOption) (*jobv1.BatchProposeJobResponse, error) {
@@ -49,9 +46,38 @@ func (j JobClient) EnableNode(ctx context.Context, in *nodev1.EnableNodeRequest,
 	panic("implement me")
 }
 
-func (j JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
-	// TODO implement me
-	panic("implement me")
+func (j *JobClient) RegisterNode(ctx context.Context, in *nodev1.RegisterNodeRequest, opts ...grpc.CallOption) (*nodev1.RegisterNodeResponse, error) {
+	if in == nil || in.GetPublicKey() == "" {
+		return nil, errors.New("public key is required")
+	}
+
+	if _, exists := j.RegisteredNodes[in.GetPublicKey()]; exists {
+		return nil, fmt.Errorf("node with Public Key %s is already registered", in.GetPublicKey())
+	}
+
+	var foundNode *Node
+	for _, node := range j.Nodes {
+		if node.Keys.CSA.ID() == in.GetPublicKey() {
+			foundNode = &node
+			break
+		}
+	}
+
+	if foundNode == nil {
+		return nil, fmt.Errorf("node with Public Key %s is not known", in.GetPublicKey())
+	}
+
+	j.RegisteredNodes[in.GetPublicKey()] = *foundNode
+
+	return &nodev1.RegisterNodeResponse{
+		Node: &nodev1.Node{
+			Id:          in.GetPublicKey(),
+			PublicKey:   in.GetPublicKey(),
+			IsEnabled:   true,
+			IsConnected: true,
+			Labels:      in.Labels,
+		},
+	}, nil
 }
 
 func (j JobClient) UpdateNode(ctx context.Context, in *nodev1.UpdateNodeRequest, opts ...grpc.CallOption) (*nodev1.UpdateNodeResponse, error) {
@@ -85,40 +111,6 @@ func (j JobClient) GetNode(ctx context.Context, in *nodev1.GetNodeRequest, opts 
 }
 
 func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, opts ...grpc.CallOption) (*nodev1.ListNodesResponse, error) {
-	include := func(node *nodev1.Node) bool {
-		if in.Filter == nil {
-			return true
-		}
-		if len(in.Filter.Ids) > 0 {
-			idx := slices.IndexFunc(in.Filter.Ids, func(id string) bool {
-				return node.Id == id
-			})
-			if idx < 0 {
-				return false
-			}
-		}
-		for _, selector := range in.Filter.Selectors {
-			idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
-				return label.Key == selector.Key
-			})
-			if idx < 0 {
-				return false
-			}
-			label := node.Labels[idx]
-
-			switch selector.Op {
-			case ptypes.SelectorOp_IN:
-				values := strings.Split(*selector.Value, ",")
-				found := slices.Contains(values, *label.Value)
-				if !found {
-					return false
-				}
-			default:
-				panic("unimplemented selector")
-			}
-		}
-		return true
-	}
 	var nodes []*nodev1.Node
 	for id, n := range j.Nodes {
 		node := &nodev1.Node{
@@ -133,7 +125,7 @@ func (j JobClient) ListNodes(ctx context.Context, in *nodev1.ListNodesRequest, o
 				},
 			},
 		}
-		if include(node) {
+		if ApplyNodeFilter(in.Filter, node) {
 			nodes = append(nodes, node)
 		}
 	}
@@ -153,82 +145,9 @@ func (j JobClient) ListNodeChainConfigs(ctx context.Context, in *nodev1.ListNode
 	if !ok {
 		return nil, fmt.Errorf("node id not found: %s", in.Filter.NodeIds[0])
 	}
-	var chainConfigs []*nodev1.ChainConfig
-	for _, selector := range n.Chains {
-		family, err := chainsel.GetSelectorFamily(selector)
-		if err != nil {
-			return nil, err
-		}
-
-		// NOTE: this supports non-EVM too
-		chainID, err := chainsel.GetChainIDFromSelector(selector)
-		if err != nil {
-			return nil, err
-		}
-
-		var ocrtype chaintype.ChainType
-		switch family {
-		case chainsel.FamilyEVM:
-			ocrtype = chaintype.EVM
-		case chainsel.FamilySolana:
-			ocrtype = chaintype.Solana
-		case chainsel.FamilyStarknet:
-			ocrtype = chaintype.StarkNet
-		case chainsel.FamilyCosmos:
-			ocrtype = chaintype.Cosmos
-		case chainsel.FamilyAptos:
-			ocrtype = chaintype.Aptos
-		default:
-			return nil, fmt.Errorf("Unsupported chain family %v", family)
-		}
-
-		bundle := n.Keys.OCRKeyBundles[ocrtype]
-		offpk := bundle.OffchainPublicKey()
-		cpk := bundle.ConfigEncryptionPublicKey()
-
-		keyBundle := &nodev1.OCR2Config_OCRKeyBundle{
-			BundleId:              bundle.ID(),
-			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
-			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
-			OnchainSigningAddress: bundle.OnChainPublicKey(),
-		}
-
-		var ctype nodev1.ChainType
-		switch family {
-		case chainsel.FamilyEVM:
-			ctype = nodev1.ChainType_CHAIN_TYPE_EVM
-		case chainsel.FamilySolana:
-			ctype = nodev1.ChainType_CHAIN_TYPE_SOLANA
-		case chainsel.FamilyStarknet:
-			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
-		case chainsel.FamilyAptos:
-			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
-		default:
-			panic(fmt.Sprintf("Unsupported chain family %v", family))
-		}
-
-		transmitter := n.Keys.Transmitters[selector]
-
-		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
-			Chain: &nodev1.Chain{
-				Id:   chainID,
-				Type: ctype,
-			},
-			AccountAddress: transmitter,
-			AdminAddress:   transmitter,
-			Ocr1Config:     nil,
-			Ocr2Config: &nodev1.OCR2Config{
-				Enabled:     true,
-				IsBootstrap: n.IsBoostrap,
-				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
-					PeerId: n.Keys.PeerID.String(),
-				},
-				OcrKeyBundle:     keyBundle,
-				Multiaddr:        n.Addr.String(),
-				Plugins:          nil,
-				ForwarderAddress: ptr(""),
-			},
-		})
+	chainConfigs, err := n.JDChainConfigs()
+	if err != nil {
+		return nil, err
 	}
 	return &nodev1.ListNodeChainConfigsResponse{
 		ChainConfigs: chainConfigs,
@@ -369,5 +288,46 @@ func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
 }
 
 func NewMemoryJobClient(nodesByPeerID map[string]Node) *JobClient {
-	return &JobClient{nodesByPeerID}
+	return &JobClient{nodesByPeerID, make(map[string]Node)}
+}
+
+func ApplyNodeFilter(filter *nodev1.ListNodesRequest_Filter, node *nodev1.Node) bool {
+	if filter == nil {
+		return true
+	}
+	if len(filter.Ids) > 0 {
+		idx := slices.IndexFunc(filter.Ids, func(id string) bool {
+			return node.Id == id
+		})
+		if idx < 0 {
+			return false
+		}
+	}
+	for _, selector := range filter.Selectors {
+		idx := slices.IndexFunc(node.Labels, func(label *ptypes.Label) bool {
+			return label.Key == selector.Key
+		})
+		if idx < 0 {
+			return false
+		}
+		label := node.Labels[idx]
+
+		switch selector.Op {
+		case ptypes.SelectorOp_IN:
+			values := strings.Split(*selector.Value, ",")
+			found := slices.Contains(values, *label.Value)
+			if !found {
+				return false
+			}
+		case ptypes.SelectorOp_EQ:
+			if *label.Value != *selector.Value {
+				return false
+			}
+		case ptypes.SelectorOp_EXIST:
+			// do nothing
+		default:
+			panic("unimplemented selector")
+		}
+	}
+	return true
 }
