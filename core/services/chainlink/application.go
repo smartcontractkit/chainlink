@@ -395,7 +395,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 	case sessions.OIDCAuth:
 		var err error
 		authenticationProvider, err = oidcauth.NewOIDCAuthenticator(
-			opts.DS, cfg.Database(), cfg.WebServer().OIDC(), globalLogger, auditLogger,
+			opts.DS, cfg.WebServer().OIDC(), globalLogger, auditLogger,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "NewApplication: failed to initialize OIDC Authentication module")

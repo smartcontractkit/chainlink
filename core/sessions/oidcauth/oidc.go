@@ -27,19 +27,18 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	"github.com/jmoiron/sqlx"
 	"github.com/ulule/limiter/v3"
 	mgin "github.com/ulule/limiter/v3/drivers/middleware/gin"
 	"github.com/ulule/limiter/v3/drivers/store/memory"
 	"golang.org/x/oauth2"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mathutil"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
-	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -52,7 +51,7 @@ const (
 var ErrUserNoOIDCGroups = errors.New("user claims response from identity server recieved, but no matching role group names in claim")
 
 type oidcAuthenticator struct {
-	q            pg.Q
+	ds              sqlutil.DataSource
 	config       config.OIDC
 	provider     *oidc.Provider
 	oidcConfig   *oidc.Config
@@ -65,14 +64,11 @@ type oidcAuthenticator struct {
 var _ sessions.AuthenticationProvider = (*oidcAuthenticator)(nil)
 
 func NewOIDCAuthenticator(
-	db *sqlx.DB,
-	pgCfg pg.QConfig,
+	ds sqlutil.DataSource,
 	oidcCfg config.OIDC,
 	lggr logger.Logger,
 	auditLogger audit.AuditLogger,
 ) (*oidcAuthenticator, error) {
-	namedLogger := lggr.Named("OIDCAuthenticationProvider")
-
 	// Ensure all RBAC role mappings to OIDC Groups are defined, and required fields populated, or error on startup
 	if oidcCfg.AdminUserGroupClaim() == "" || oidcCfg.EditUserGroupClaim() == "" ||
 		oidcCfg.RunUserGroupClaim() == "" || oidcCfg.ReadUserGroupClaim() == "" {
@@ -116,7 +112,7 @@ func NewOIDCAuthenticator(
 
 	// Create Authenticator struct, with internal HTTP handlers
 	ldapAuth := oidcAuthenticator{
-		q:            pg.NewQ(db, namedLogger, pgCfg),
+		ds:           ds,
 		config:       oidcCfg,
 		provider:     provider,
 		oidcConfig:   oidcConfig,
@@ -211,7 +207,8 @@ func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.R
 	// Save new user authenticated session and role to oidc_sessions table
 	// Sessions are set to expire after the duration + creation date elapsed
 	session := sessions.NewSession()
-	_, err = oi.q.Exec(
+	_, err = oi.ds.ExecContext(
+		ctx,
 		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, $4, now())",
 		session.ID,
 		strings.ToLower(claims.Email),
@@ -236,14 +233,14 @@ func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.R
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
-func (oi *oidcAuthenticator) FindUser(email string) (sessions.User, error) {
+func (oi *oidcAuthenticator) FindUser(ctx context.Context, email string) (sessions.User, error) {
 	email = strings.ToLower(email)
 	foundUser := sessions.User{}
 
 	var foundLocalAdminUser sessions.User
-	checkErr := oi.q.Transaction(func(tx pg.Queryer) error {
+		checkErr := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.Get(&foundLocalAdminUser, sql, email)
+		return tx.GetContext(ctx, &foundLocalAdminUser, sql, email)
 	})
 	if checkErr == nil {
 		return foundLocalAdminUser, nil
@@ -259,13 +256,13 @@ func (oi *oidcAuthenticator) FindUser(email string) (sessions.User, error) {
 }
 
 // FindUserByAPIToken retrieves a possible stored user and role from the oidc_user_api_tokens table store
-func (oi *oidcAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User, error) {
+func (oi *oidcAuthenticator) FindUserByAPIToken(ctx context.Context, apiToken string) (sessions.User, error) {
 	if !oi.config.UserApiTokenEnabled() {
 		return sessions.User{}, errors.New("API token is not enabled ")
 	}
 
 	var foundUser sessions.User
-	err := oi.q.Transaction(func(tx pg.Queryer) error {
+	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		// Query the oidc user API token table for given token, user role and email are cached so
 		// no further upstream OIDC query is performed, sessions and tokens are synced against the upstream server
 		// via the UpstreamSyncInterval config and reaper.go sync implementation
@@ -274,7 +271,7 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User,
 			UserRole  sessions.UserRole
 			Valid     bool
 		}
-		if err := tx.Get(&foundUserToken,
+		if err := tx.GetContext(ctx, &foundUserToken,
 			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM oidc_user_api_tokens WHERE token_key = $1",
 			apiToken, oi.config.UserAPITokenDuration().Duration(),
 		); err != nil {
@@ -292,7 +289,7 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User,
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
 			// API Token expired, purge
-			if _, execErr := oi.q.Exec("DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
+			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE token_key = $1", apiToken); err != nil {
 				oi.lggr.Errorf("error purging stale oidc API token session: %v", execErr)
 			}
 		}
@@ -302,12 +299,13 @@ func (oi *oidcAuthenticator) FindUserByAPIToken(apiToken string) (sessions.User,
 }
 
 // ListUsers in the context of the OIDC driver only supports listing the local (admin) users, we don't have an identity server to query against
-func (oi *oidcAuthenticator) ListUsers() ([]sessions.User, error) {
+func (oi *oidcAuthenticator) ListUsers(ctx context.Context) ([]sessions.User, error) {
 	returnUsers := []sessions.User{}
-	if err := oi.q.Transaction(func(tx pg.Queryer) error {
+	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users ORDER BY email ASC;"
-		return tx.Select(&returnUsers, sql)
-	}); err != nil {
+		return tx.SelectContext(ctx, &returnUsers, sql)
+	})
+	 err != nil {
 		oi.lggr.Errorf("error listing local users: ", err)
 	}
 	return returnUsers, nil
@@ -315,19 +313,19 @@ func (oi *oidcAuthenticator) ListUsers() ([]sessions.User, error) {
 
 // AuthorizedUserWithSession will return the API user associated with the Session ID if it
 // exists and hasn't expired, and update session's LastUsed field
-func (oi *oidcAuthenticator) AuthorizedUserWithSession(sessionID string) (sessions.User, error) {
+func (oi *oidcAuthenticator) AuthorizedUserWithSession(ctx context.Context, sessionID string) (sessions.User, error) {
 	if len(sessionID) == 0 {
 		return sessions.User{}, errors.New("session ID cannot be empty")
 	}
 	var foundUser sessions.User
-	err := oi.q.Transaction(func(tx pg.Queryer) error {
+	err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		// Query the oidc_sessions table for given session ID, user role and email are saved after the SAML groups claim is provided and validated
 		var foundSession struct {
 			UserEmail string
 			UserRole  sessions.UserRole
 			Valid     bool
 		}
-		if err := tx.Get(&foundSession,
+		if err := tx.GetContext(ctx, &foundSession,
 			"SELECT user_email, user_role, created_at + $2 >= now() as valid FROM oidc_sessions WHERE id = $1",
 			sessionID, oi.config.SessionTimeout().Duration(),
 		); err != nil {
@@ -345,7 +343,7 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(sessionID string) (sessio
 	})
 	if err != nil {
 		if errors.Is(err, sessions.ErrUserSessionExpired) {
-			if _, execErr := oi.q.Exec("DELETE FROM oidc_sessions WHERE id = $1", sessionID); err != nil {
+			if _, execErr := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id = $1", sessionID); err != nil {
 				oi.lggr.Errorf("error purging stale OIDC session: %v", execErr)
 			}
 		}
@@ -355,26 +353,26 @@ func (oi *oidcAuthenticator) AuthorizedUserWithSession(sessionID string) (sessio
 }
 
 // DeleteUser is not supported for read only OIDC
-func (oi *oidcAuthenticator) DeleteUser(email string) error {
+func (oi *oidcAuthenticator) DeleteUser(ctx context.Context, email string) error {
 	return sessions.ErrNotSupported
 }
 
 // DeleteUserSession removes an oidcSession table entry by ID
-func (oi *oidcAuthenticator) DeleteUserSession(sessionID string) error {
-	_, err := oi.q.Exec("DELETE FROM oidc_sessions WHERE id = $1", sessionID)
+func (oi *oidcAuthenticator) DeleteUserSession(ctx context.Context, sessionID string) error {
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_sessions WHERE id = $1", sessionID)
 	return err
 }
 
 // GetUserWebAuthn returns an empty stub, MFA is delegated to SAML provider
-func (oi *oidcAuthenticator) GetUserWebAuthn(email string) ([]sessions.WebAuthn, error) {
+func (oi *oidcAuthenticator) GetUserWebAuthn(ctx context.Context, email string) ([]sessions.WebAuthn, error) {
 	return []sessions.WebAuthn{}, nil
 }
 
 // CreateSession in the context of the OIDC driver handles only the local auth admin user, exposed by the default endpoint defined in the router. To initiate the SAML/OIDC
 // flow, a separate /oidc-login route is defined which handles the redirect to the
 // configured provider
-func (oi *oidcAuthenticator) CreateSession(sr sessions.SessionRequest) (string, error) {
-	foundUser, err := oi.localLoginFallback(sr)
+func (oi *oidcAuthenticator) CreateSession(ctx context.Context, sr sessions.SessionRequest) (string, error) {
+	foundUser, err := oi.localLoginFallback(ctx, sr)
 	if err != nil {
 		return "", err
 	}
@@ -384,7 +382,7 @@ func (oi *oidcAuthenticator) CreateSession(sr sessions.SessionRequest) (string, 
 	// Save local admin session, user, and role to sessions table
 	// Sessions are set to expire after the duration + creation date elapsed
 	session := sessions.NewSession()
-	_, err = oi.q.Exec(
+	_, err = oi.ds.ExecContext(ctx,
 		"INSERT INTO oidc_sessions (id, user_email, user_role, created_at) VALUES ($1, $2, $3, $4, now())",
 		session.ID,
 		strings.ToLower(sr.Email),
@@ -401,30 +399,31 @@ func (oi *oidcAuthenticator) CreateSession(sr sessions.SessionRequest) (string, 
 }
 
 // ClearNonCurrentSessions removes all oicd_sessions but the id passed in.
-func (oi *oidcAuthenticator) ClearNonCurrentSessions(sessionID string) error {
-	_, err := oi.q.Exec("DELETE FROM oicd_sessions where id != $1", sessionID)
+func (oi *oidcAuthenticator) ClearNonCurrentSessions(ctx context.Context, sessionID string) error {
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oicd_sessions where id != $1", sessionID)
 	return err
 }
 
 // CreateUser is not supported for read only OIDC
-func (oi *oidcAuthenticator) CreateUser(user *sessions.User) error {
+func (oi *oidcAuthenticator) CreateUser(ctx context.Context, user *sessions.User) error {
 	return sessions.ErrNotSupported
 }
 
 // UpdateRole is not supported for read only OIDC
-func (oi *oidcAuthenticator) UpdateRole(email, newRole string) (sessions.User, error) {
+func (oi *oidcAuthenticator) UpdateRole(ctx context.Context, email string, newRole string) (sessions.User, error) {
 	return sessions.User{}, sessions.ErrNotSupported
 }
 
 // SetPassword for remote users is not supported via the read only OIDC implementation, however change password
 // in the context of updating a local admin user's password is required
-func (oi *oidcAuthenticator) SetPassword(user *sessions.User, newPassword string) error {
+func (oi *oidcAuthenticator) SetPassword(ctx context.Context, user *sessions.User, newPassword string) error {
 	// Ensure specified user is part of the local admins user table
 	var localAdminUser sessions.User
-	if err := oi.q.Transaction(func(tx pg.Queryer) error {
+	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil,func(tx sqlutil.DataSource) error {
 		sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-		return tx.Get(&localAdminUser, sql, user.Email)
-	}); err != nil {
+		return tx.GetContext(ctx, &localAdminUser, sql, user.Email)
+	});
+	err != nil {
 		oi.lggr.Infof("Can not change password, local user with email not found in users table: %s, err: %v", user.Email, err)
 		return sessions.ErrNotSupported
 	}
@@ -434,10 +433,11 @@ func (oi *oidcAuthenticator) SetPassword(user *sessions.User, newPassword string
 	if err != nil {
 		return err
 	}
-	if err := oi.q.Transaction(func(tx pg.Queryer) error {
+	if err := sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		sql := "UPDATE users SET hashed_password = $1, updated_at = now() WHERE email = $2 RETURNING *"
-		return tx.Get(user, sql, hashedPassword, user.Email)
-	}); err != nil {
+		return tx.GetContext(ctx, user, sql, hashedPassword, user.Email)
+	});
+	 err != nil {
 		oi.lggr.Errorf("unable to set password for user: %s, err: %v", user.Email, err)
 		return errors.New("unable to save password")
 	}
@@ -445,10 +445,10 @@ func (oi *oidcAuthenticator) SetPassword(user *sessions.User, newPassword string
 }
 
 // TestPassword only supports the potential local admin user, as there is no queryable identity server for the OIDC implementation
-func (oi *oidcAuthenticator) TestPassword(email string, password string) error {
+func (oi *oidcAuthenticator) TestPassword(ctx context.Context, email string, password string) error {
 	// Fall back to test local users table in case of supported local CLI users as well
 	var hashedPassword string
-	if err := oi.q.Get(&hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
+	if err := oi.ds.GetContext(ctx, &hashedPassword, "SELECT hashed_password FROM users WHERE lower(email) = lower($1)", email); err != nil {
 		return errors.New("invalid credentials")
 	}
 	if !utils.CheckPasswordHash(password, hashedPassword) {
@@ -458,9 +458,9 @@ func (oi *oidcAuthenticator) TestPassword(email string, password string) error {
 }
 
 // CreateAndSetAuthToken generates a new credential token with the user role
-func (oi *oidcAuthenticator) CreateAndSetAuthToken(user *sessions.User) (*auth.Token, error) {
+func (oi *oidcAuthenticator) CreateAndSetAuthToken(ctx context.Context, user *sessions.User) (*auth.Token, error) {
 	newToken := auth.NewToken()
-	err := oi.SetAuthToken(user, newToken)
+	err := oi.SetAuthToken(ctx, user, newToken)
 	if err != nil {
 		return nil, err
 	}
@@ -468,7 +468,7 @@ func (oi *oidcAuthenticator) CreateAndSetAuthToken(user *sessions.User) (*auth.T
 }
 
 // SetAuthToken updates the user to use the given Authentication Token.
-func (oi *oidcAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token) error {
+func (oi *oidcAuthenticator) SetAuthToken(ctx context.Context, user *sessions.User, token *auth.Token) error {
 	if !oi.config.UserApiTokenEnabled() {
 		return errors.New("API token is not enabled ")
 	}
@@ -479,13 +479,13 @@ func (oi *oidcAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token
 		return fmt.Errorf("OIDCAuth SetAuthToken hashed secret error: %w", err)
 	}
 
-	err = oi.q.Transaction(func(tx pg.Queryer) error {
+	err = sqlutil.TransactDataSource(ctx, oi.ds, nil, func(tx sqlutil.DataSource) error {
 		// Remove any existing API tokens
-		if _, err = oi.q.Exec("DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
+		if _, err = oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE user_email = $1", user.Email); err != nil {
 			return fmt.Errorf("error executing DELETE FROM oidc_user_api_tokens: %w", err)
 		}
 		// Create new API token for user
-		_, err = oi.q.Exec(
+		_, err = oi.ds.ExecContext(ctx,
 			"INSERT INTO oidc_user_api_tokens (user_email, user_role, token_key, token_salt, token_hashed_secret, created_at) VALUES ($1, $2, $3, $4, $5, $6, now())",
 			user.Email,
 			user.Role,
@@ -507,39 +507,39 @@ func (oi *oidcAuthenticator) SetAuthToken(user *sessions.User, token *auth.Token
 }
 
 // DeleteAuthToken clears and disables the users Authentication Token.
-func (oi *oidcAuthenticator) DeleteAuthToken(user *sessions.User) error {
-	_, err := oi.q.Exec("DELETE FROM oidc_user_api_tokens WHERE email = $1")
+func (oi *oidcAuthenticator) DeleteAuthToken(ctx context.Context, user *sessions.User) error {
+	_, err := oi.ds.ExecContext(ctx, "DELETE FROM oidc_user_api_tokens WHERE email = $1")
 	return err
 }
 
 // SaveWebAuthn is not supported for read only OIDC
-func (oi *oidcAuthenticator) SaveWebAuthn(token *sessions.WebAuthn) error {
+func (oi *oidcAuthenticator) SaveWebAuthn(ctx context.Context, token *sessions.WebAuthn) error {
 	return sessions.ErrNotSupported
 }
 
 // Sessions returns all sessions limited by the parameters.
-func (oi *oidcAuthenticator) Sessions(offset, limit int) ([]sessions.Session, error) {
+func (oi *oidcAuthenticator) Sessions(ctx context.Context, offset, limit int) ([]sessions.Session, error) {
 	var sessions []sessions.Session
 	sql := `SELECT * FROM oidc_sessions ORDER BY created_at, id LIMIT $1 OFFSET $2;`
-	if err := oi.q.Select(&sessions, sql, limit, offset); err != nil {
+	if err := oi.ds.SelectContext(ctx, &sessions, sql, limit, offset); err != nil {
 		return sessions, nil
 	}
 	return sessions, nil
 }
 
 // FindExternalInitiator supports the 'Run' role external intiator header auth functionality
-func (oi *oidcAuthenticator) FindExternalInitiator(eia *auth.Token) (*bridges.ExternalInitiator, error) {
+func (oi *oidcAuthenticator) FindExternalInitiator(ctx context.Context, eia *auth.Token) (*bridges.ExternalInitiator, error) {
 	exi := &bridges.ExternalInitiator{}
-	err := oi.q.Get(exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
+	err := oi.ds.GetContext(ctx, exi, `SELECT * FROM external_initiators WHERE access_key = $1`, eia.AccessKey)
 	return exi, err
 }
 
 // localLoginFallback tests the credentials provided against the 'local' authentication method
 // This covers the case of local CLI API calls requiring local login separate from the OIDC server
-func (oi *oidcAuthenticator) localLoginFallback(sr sessions.SessionRequest) (sessions.User, error) {
+func (oi *oidcAuthenticator) localLoginFallback(ctx context.Context, sr sessions.SessionRequest) (sessions.User, error) {
 	var user sessions.User
 	sql := "SELECT * FROM users WHERE lower(email) = lower($1)"
-	err := oi.q.Get(&user, sql, sr.Email)
+	err := oi.ds.GetContext(ctx, &user, sql, sr.Email)
 	if err != nil {
 		return user, err
 	}
