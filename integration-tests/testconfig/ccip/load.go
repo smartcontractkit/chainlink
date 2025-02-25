@@ -3,9 +3,11 @@ package ccip
 import (
 	"errors"
 	"fmt"
-	"github.com/AlekSi/pointer"
+
 	"testing"
 	"time"
+
+	"github.com/AlekSi/pointer"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
@@ -38,7 +40,7 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	agg := 0
 	for _, md := range *l.MessageDetails {
 		require.NoError(t, md.Validate())
-		agg += int(*md.Ratio)
+		agg += *md.Ratio
 	}
 	require.Equal(t, 100, agg, "Sum of MessageDetails Ratios must be 100")
 
@@ -85,7 +87,7 @@ func (m *MsgDetails) Validate() error {
 	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
 		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
 		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
-		return errors.New(fmt.Sprintf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer))
+		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
 	}
 
 	// We need to check for dest gas limit only if the message type is not token only transfer
