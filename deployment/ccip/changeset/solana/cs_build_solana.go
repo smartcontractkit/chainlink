@@ -119,7 +119,7 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 		if err != nil {
 			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
 		}
-		e.Logger.Debugw("Updated key for program %s in file %s\n", programStr, filePath)
+		e.Logger.Debugf("Updated key for program %s in file %s\n", programStr, filePath)
 	}
 	return nil
 }

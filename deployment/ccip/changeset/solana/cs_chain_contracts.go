@@ -18,12 +18,22 @@ import (
 
 var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
 var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
+var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
 var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
 var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
+
+type MCMSConfigSolana struct {
+	MCMS *ccipChangeset.MCMSConfig
+	// Public key of program authorities. Depending on when this changeset is called, some may be under
+	// the control of the deployer, and some may be under the control of the timelock. (e.g. during new offramp deploy)
+	RouterOwnedByTimelock    bool
+	FeeQuoterOwnedByTimelock bool
+	OffRampOwnedByTimelock   bool
+}
 
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
