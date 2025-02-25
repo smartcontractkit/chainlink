@@ -1,6 +1,7 @@
 package ccip
 
 import (
+	"errors"
 	"fmt"
 	"github.com/AlekSi/pointer"
 	"testing"
@@ -61,9 +62,9 @@ func (l *LoadConfig) GetTimeoutDuration() time.Duration {
 
 type MsgDetails struct {
 	MsgType         *string `toml:",omitempty"`
-	DestGasLimit    *uint64 `toml:",omitempty"`
-	DataLengthBytes *uint64 `toml:",omitempty"`
-	Ratio           *uint   `toml:",omitempty"` // Percentage ratio of this message type (0-100)
+	DestGasLimit    *int64  `toml:",omitempty"`
+	DataLengthBytes *int    `toml:",omitempty"`
+	Ratio           *int    `toml:",omitempty"` // Percentage ratio of this message type (0-100)
 }
 
 func (m *MsgDetails) IsTokenTransfer() bool {
@@ -76,45 +77,45 @@ func (m *MsgDetails) IsDataTransfer() bool {
 
 func (m *MsgDetails) Validate() error {
 	if m == nil {
-		return fmt.Errorf("msg details should be set")
+		return errors.New("msg details should be set")
 	}
 	if m.MsgType == nil {
-		return fmt.Errorf("msg type should be set")
+		return errors.New("msg type should be set")
 	}
 	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
 		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
 		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
-		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
+		return errors.New(fmt.Sprintf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer))
 	}
 
 	if m.DestGasLimit == nil {
-		return fmt.Errorf("dest gas limit should be set")
+		return errors.New("dest gas limit should be set")
 	}
 	if *m.DestGasLimit < 0 {
-		return fmt.Errorf("dest gas limit should be greater than 0")
+		return errors.New("dest gas limit should be greater than 0")
 	}
 
 	if m.Ratio == nil {
-		return fmt.Errorf("ratio should be set")
+		return errors.New("ratio should be set")
 	}
 	if *m.Ratio < 0 || *m.Ratio > 100 {
-		return fmt.Errorf("ratio should be between 0 and 100")
+		return errors.New("ratio should be between 0 and 100")
 	}
 
 	if pointer.GetString(m.MsgType) == DataAndTokenTransfer {
 		if m.DataLengthBytes == nil {
-			return fmt.Errorf("data length should be set for data and token transfer")
+			return errors.New("data length should be set for data and token transfer")
 		}
 		if *m.DataLengthBytes < 0 {
-			return fmt.Errorf("data length should be greater than 0")
+			return errors.New("data length should be greater than 0")
 		}
 	}
 	if pointer.GetString(m.MsgType) == DataOnlyTransfer {
 		if m.DataLengthBytes == nil {
-			return fmt.Errorf("data length should be set for data transfer")
+			return errors.New("data length should be set for data transfer")
 		}
 		if *m.DataLengthBytes < 0 {
-			return fmt.Errorf("data length should be greater than 0")
+			return errors.New("data length should be greater than 0")
 		}
 	}
 

@@ -78,7 +78,7 @@ func NewDestinationGun(
 func (m *DestinationGun) Validate() error {
 	sum := 0
 	for _, md := range *m.testConfig.MessageDetails {
-		sum += int(*md.Ratio)
+		sum += *md.Ratio
 	}
 	if sum != 100 {
 		return errors.New("message type weights must sum to 100")
@@ -110,7 +110,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
 	// Set the gas limit for this tx
-	acc.GasLimit = gasLimit
+	acc.GasLimit = uint64(gasLimit)
 
 	fee, err := r.GetFee(
 		&bind.CallOpts{Context: context.Background()}, m.chainSelector, msg)
@@ -180,7 +180,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 
 // GetMessage will return the message to be sent while considering expected load of different messages
 // returns the message, gas limit
-func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, uint64, error) {
+func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
