@@ -34,9 +34,6 @@ packages:
     interfaces:
       Dispatcher:
       Receiver:
-  github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders:
-    interfaces:
-      ORM:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/log:
     interfaces:
       Broadcaster:
@@ -48,6 +45,11 @@ packages:
     interfaces:
       LogPoller:
   github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm:
+    config:
+      dir: core/chains/evm/txm
+      outpkg: txm
+      mockname: "mock{{ .InterfaceName }}"
+      filename: "mock_{{ .InterfaceName | snakecase }}_test.go"
     interfaces:
       Client:
       TxStore:

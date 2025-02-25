@@ -2,6 +2,7 @@ package internal_test
 
 import (
 	"context"
+	"encoding/hex"
 	"maps"
 	"testing"
 
@@ -213,7 +214,6 @@ func Test_RegisterNodes(t *testing.T) {
 				want:    expected{nOps: 1},
 				input:   testInput,
 			},
-
 			{
 				name:    "no mcms",
 				useMCMS: false,
@@ -273,6 +273,7 @@ func Test_RegisterNodes(t *testing.T) {
 										ConfigEncryptionPublicKey: tc.input.EncryptionPublicKey,
 									},
 								},
+								WorkflowKey: hex.EncodeToString(tc.input.EncryptionPublicKey[:]),
 							},
 						},
 					},
@@ -329,6 +330,7 @@ func Test_RegisterNodes(t *testing.T) {
 								ChainSelector: chain.Selector,
 							}: {},
 						},
+						WorkflowKey: hex.EncodeToString(registeredNodeParams[0].EncryptionPublicKey[:]),
 					},
 				},
 			},
