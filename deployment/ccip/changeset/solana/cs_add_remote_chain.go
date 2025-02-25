@@ -2,7 +2,6 @@ package solana
 
 import (
 	"context"
-
 	"fmt"
 	"strconv"
 
@@ -151,7 +150,7 @@ func AddRemoteChainToSolana(e deployment.Environment, cfg AddRemoteChainToSolana
 			Transactions:  txns,
 		})
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelocks,
 			proposers,
 			inspectors,

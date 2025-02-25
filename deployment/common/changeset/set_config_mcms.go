@@ -170,7 +170,7 @@ func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployme
 		return nil, err
 	}
 
-	transaction := res.RawTransaction.(*types.Transaction)
+	transaction := res.RawData.(*types.Transaction)
 	if !useMCMS {
 		_, err = deployment.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
 		if err != nil {
