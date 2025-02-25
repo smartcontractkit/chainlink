@@ -17,7 +17,6 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
@@ -54,7 +53,7 @@ var (
 	ErrForwarderNotConfigured = errors.New("forwarder not configured")
 )
 
-func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
+func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
 	details, err := ocr3Cap.LatestConfigDetails(nil)
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -64,7 +63,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	configIterator, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
 		Start:   blockNumber,
 		End:     &blockNumber,
-		Context: nil,
+		Context: ctx,
 	})
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -150,8 +149,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}, nil
 }
 
-func GenerateForwarderView(f *forwarder.KeystoneForwarder, chain deployment.Chain) (ForwarderView, error) {
-	ctx := context.Background()
+func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder) (ForwarderView, error) {
 	// This could be effectively done with 2 other approaches:
 	// 1. Fetching the transaction receipt of the contract deployment, getting the deployment block number,
 	//    and extracting the config from the logs, but we don't have access to the transaction hash needed for this.
