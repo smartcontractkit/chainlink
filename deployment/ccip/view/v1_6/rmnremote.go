@@ -1,9 +1,9 @@
 package v1_6
 
 import (
-	"encoding/binary"
 	"encoding/hex"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 )
@@ -36,7 +36,7 @@ func mapCurseSubjects(subjects [][16]byte) []RMNRemoteCurseEntry {
 	for _, subject := range subjects {
 		res = append(res, RMNRemoteCurseEntry{
 			Subject:  hex.EncodeToString(subject[:]),
-			Selector: SubjectToSelector(subject),
+			Selector: globals.SubjectToSelector(subject),
 		})
 	}
 	return res
@@ -45,20 +45,6 @@ func mapCurseSubjects(subjects [][16]byte) []RMNRemoteCurseEntry {
 var (
 	globalSubject = [16]byte{0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 )
-
-func SubjectToSelector(subject [16]byte) uint64 {
-	if subject == globalSubject {
-		return 0
-	}
-
-	return binary.BigEndian.Uint64(subject[8:])
-}
-
-func SelectorToSubject(selector uint64) [16]byte {
-	subject := globalSubject
-	binary.BigEndian.PutUint64(subject[8:], selector)
-	return subject
-}
 
 func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, error) {
 	tv, err := types.NewContractMetaData(rmnReader, rmnReader.Address())

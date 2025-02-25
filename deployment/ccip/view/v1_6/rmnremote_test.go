@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -19,17 +20,14 @@ func Test_RMNRemote_Curse_View(t *testing.T) {
 	})
 	chain := e.Chains[e.AllChainSelectors()[0]]
 	_, tx, remote, err := rmn_remote.DeployRMNRemote(chain.DeployerKey, chain.Client, e.AllChainSelectors()[0], common.Address{})
-	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	tx, err = remote.Curse(chain.DeployerKey, globalSubject)
-	require.NoError(t, err)
+	tx, err = remote.Curse(chain.DeployerKey, globals.GlobalCurseSubject())
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	tx, err = remote.Curse(chain.DeployerKey, SelectorToSubject(e.AllChainSelectors()[0]))
-	require.NoError(t, err)
+	tx, err = remote.Curse(chain.DeployerKey, globals.SelectorToSubject(e.AllChainSelectors()[0]))
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
