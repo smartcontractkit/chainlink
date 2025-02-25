@@ -46,9 +46,7 @@ func NewAddressCodec(params AddressCodecParams) AddressCodec {
 func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
-		// return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
-		// return evm codec as default when chain selector is not found
-		return ac.EVMAddressCodec.AddressBytesToString(addr)
+		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}
 
 	switch family {
@@ -67,9 +65,7 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
-		// return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
-		// return evm codec as default when chain selector is not found
-		return ac.EVMAddressCodec.AddressStringToBytes(addr)
+		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
 	}
 
 	switch family {
