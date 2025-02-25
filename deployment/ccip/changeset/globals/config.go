@@ -55,7 +55,7 @@ const (
 )
 
 var (
-	DefaultCommitOffChainCfg = &pluginconfig.CommitOffchainConfig{
+	DefaultCommitOffChainCfg = pluginconfig.CommitOffchainConfig{
 		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(30 * time.Minute),
 		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(30 * time.Minute),
 		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
@@ -72,7 +72,7 @@ var (
 		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
 		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
 	}
-	DefaultExecuteOffChainCfg = &pluginconfig.ExecuteOffchainConfig{
+	DefaultExecuteOffChainCfg = pluginconfig.ExecuteOffchainConfig{
 		BatchGasLimit:               6_500_000, // Building batches with 6.5m and transmit with 8m to account for overhead. Clarify with offchain
 		InflightCacheExpiry:         *config.MustNewDuration(5 * time.Minute),
 		RootSnoozeTime:              *config.MustNewDuration(5 * time.Minute), // does not work now

@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
 	"testing"
@@ -675,7 +676,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		} else {
 			linkTokenAddr = state.Chains[chain].LinkToken.Address()
 		}
-		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address())
 		ocrOverride := tc.OCRConfigOverride
 		if tc.OCRConfigOverride != nil || tc.RMNEnabled {
 			ocrOverride = func(ocrParams v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
@@ -691,8 +691,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(
 			chain,
 			e.FeedChainSel,
-			tokenInfo,
+			tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address()),
 			ocrOverride)
+		fmt.Println(globals.DefaultCommitOffChainCfg)
 		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(
 			chain,
 			tokenDataProviders,

@@ -4,7 +4,6 @@ import (
 	"time"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 
@@ -28,7 +27,7 @@ var (
 			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
 			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
-		CommitOffChainConfig: globals.DefaultCommitOffChainCfg,
+		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
@@ -46,7 +45,7 @@ var (
 			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
 			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
-		ExecuteOffChainConfig: globals.DefaultExecuteOffChainCfg,
+		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 
 	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
@@ -64,7 +63,7 @@ var (
 			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
 			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
-		CommitOffChainConfig: globals.DefaultCommitOffChainCfg,
+		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
 	}
 
 	DefaultOCRParamsForExecForETH = CCIPOCRParams{
@@ -82,7 +81,7 @@ var (
 			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
 			MaxDurationShouldTransmitAcceptedReport: 8 * time.Second,
 		},
-		ExecuteOffChainConfig: globals.DefaultExecuteOffChainCfg,
+		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 )
 
@@ -92,10 +91,10 @@ func DeriveOCRParamsForCommit(
 	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	params := DefaultOCRParamsForCommitForNonETH
+	params := DefaultOCRParamsForCommitForNonETH.Copy()
 	if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
 		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
-		params = DefaultOCRParamsForCommitForETH
+		params = DefaultOCRParamsForCommitForETH.Copy()
 	}
 	params.CommitOffChainConfig.TokenInfo = feeTokenInfo
 	params.CommitOffChainConfig.PriceFeedChainSelector = ccipocr3.ChainSelector(feedChain)
@@ -111,10 +110,10 @@ func DeriveOCRParamsForExec(
 	observerConfig []pluginconfig.TokenDataObserverConfig,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	params := DefaultOCRParamsForExecForNonETH
+	params := DefaultOCRParamsForExecForNonETH.Copy()
 	if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
 		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
-		params = DefaultOCRParamsForExecForETH
+		params = DefaultOCRParamsForExecForETH.Copy()
 	}
 	params.ExecuteOffChainConfig.TokenDataObservers = observerConfig
 	if override == nil {

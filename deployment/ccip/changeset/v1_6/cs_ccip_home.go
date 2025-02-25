@@ -119,7 +119,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		tokenInfos = append(tokenInfos, onchainState.Weth9)
 		symbol, decimal, err := findTokenInfo(tokenInfos, token)
 		if err != nil {
-			return err
+			return fmt.Errorf("chain %d- %w", selector, err)
 		}
 		if decimal != tokenConfig.Decimals {
 			return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
@@ -166,6 +166,21 @@ type CCIPOCRParams struct {
 	CommitOffChainConfig *pluginconfig.CommitOffchainConfig
 	// Note contains USDC config
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
+}
+
+func (c CCIPOCRParams) Copy() CCIPOCRParams {
+	newC := CCIPOCRParams{
+		OCRParameters: c.OCRParameters,
+	}
+	if c.CommitOffChainConfig != nil {
+		commit := *c.CommitOffChainConfig
+		newC.CommitOffChainConfig = &commit
+	}
+	if c.ExecuteOffChainConfig != nil {
+		exec := *c.ExecuteOffChainConfig
+		newC.ExecuteOffChainConfig = &exec
+	}
+	return newC
 }
 
 func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {

@@ -87,7 +87,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 		state.Chains[e.HomeChainSel].RMNHome.Address(),
 		params.OCRParameters,
 		params.CommitOffChainConfig,
-		globals.DefaultExecuteOffChainCfg,
+		&globals.DefaultExecuteOffChainCfg,
 	)
 	require.Errorf(t, err, "expected error")
 
