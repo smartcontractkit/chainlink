@@ -330,7 +330,7 @@ func TestBilling(t *testing.T) {
 		},
 		{
 			Msg:  "TestBilling without mcms",
-			Mcms: true,
+			Mcms: false,
 		},
 	}
 
