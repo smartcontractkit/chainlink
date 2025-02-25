@@ -144,7 +144,7 @@ func Run(tc TestCase) (out TestCaseOutput) {
 			Receiver:     common.LeftPadBytes(tc.Receiver.Bytes(), 32),
 			Data:         tc.MsgData,
 			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x000102030405060708090a0b0c0d0e0f10111213"),
+			FeeToken:     common.HexToAddress("0x0"),
 			ExtraArgs:    tc.ExtraArgs,
 		})
 	expectedSeqNum := map[testhelpers.SourceDestPair]uint64{

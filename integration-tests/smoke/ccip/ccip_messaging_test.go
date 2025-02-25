@@ -93,7 +93,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
-				Receiver:               common.HexToAddress("0xDeaDbeefdEAdbeefdEadbEEFdeadbeEFdEaDbeeF"),
+				Receiver:               common.HexToAddress("0xdead"),
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
