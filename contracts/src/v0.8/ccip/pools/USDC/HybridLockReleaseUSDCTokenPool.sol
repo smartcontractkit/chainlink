@@ -6,7 +6,6 @@ import {ITokenMessenger} from "../USDC/ITokenMessenger.sol";
 
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
-
 import {CCTPMessageTransmitterProxy} from "../USDC/CCTPMessageTransmitterProxy.sol";
 import {USDCTokenPool} from "../USDC/USDCTokenPool.sol";
 import {USDCBridgeMigrator} from "./USDCBridgeMigrator.sol";
