@@ -62,7 +62,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 					havoc.PodDelayCfg{
 						Namespace:         cfg.Namespace,
 						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"geth-1337", "geth-2337"},
+						LabelValues:       []string{"geth-1337", "geth-2337", "geth-90000001", "geth-90000002", "geth-90000003", "geth-90000004"},
 						Latency:           latency,
 						Jitter:            jitter,
 						Correlation:       "0",
