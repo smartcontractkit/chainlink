@@ -192,12 +192,12 @@ func validateDBURL(dbURI url.URL) error {
 		// fallback to user info
 		userInfo := dbURI.User
 		if userInfo == nil {
-			return fmt.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+			return errors.New("DB URL must be authenticated; plaintext URLs are not allowed")
 		}
 		var pwSet bool
 		pw, pwSet = userInfo.Password()
 		if !pwSet {
-			return fmt.Errorf("DB URL must be authenticated; password is required")
+			return errors.New("DB URL must be authenticated; password is required")
 		}
 	}
 

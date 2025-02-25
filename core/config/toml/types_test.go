@@ -104,7 +104,7 @@ func Test_validateDBURL(t *testing.T) {
 			url := testutils.MustParseURL(t, test.url)
 			err := validateDBURL(*url)
 			if test.wantErr == "" {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			} else {
 				assert.EqualError(t, err, test.wantErr)
 			}
@@ -619,7 +619,6 @@ Password = 'something'`
 		assert.Equal(t, models.NewSecret("something"), decoded2.Keys[0].Password)
 		assert.Equal(t, models.NewSecret("{k:v}"), decoded2.Keys[0].JSON)
 	})
-
 }
 
 func TestEthKeys_SetFrom(t *testing.T) {
