@@ -355,7 +355,7 @@ func WaitForNoCommit(
 				return
 			}
 		case <-timer.C:
-			t.Logf("timed out waiting for commit for sequence number %d for commit store %s ", seqNr, commitStore.Address().String())
+			t.Logf("Successfully observed no commit for sequence number %d for commit store %s during 30s period", seqNr, commitStore.Address().String())
 			return
 		}
 	}

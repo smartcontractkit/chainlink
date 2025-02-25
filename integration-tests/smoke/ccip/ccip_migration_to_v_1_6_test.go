@@ -2,13 +2,10 @@ package ccip
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
 
-	"github.com/docker/docker/api/types/container"
-	"github.com/docker/docker/api/types/filters"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/stretchr/testify/require"
 
@@ -34,8 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-
-	dockerClient "github.com/docker/docker/client"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
@@ -100,7 +95,6 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	)
 	require.NoError(t, err)
 	oldState, err := changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
 	require.NoError(t, err)
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
 	// reload state after adding lanes
@@ -288,7 +282,6 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	require.NoError(t, err)
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
 	// reload state after adding lanes
 
@@ -326,7 +319,6 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 
 	require.NotNil(t, sentEvent)
 	destChain := e.Env.Chains[dest]
-	require.NoError(t, err)
 	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
 		sentEvent.Message.SequenceNumber)
 
@@ -350,9 +342,11 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	}
 
 	// We have to restart all chainlink node because it cache the curse status for 30min
-	cli, err := dockerClient.NewClientWithOpts()
-	require.NoError(t, err)
-	err = restartContainersByImage(context.Background(), cli, "chainlink")
+	tLocalEnv, ok := tEnv.(*testsetups.DeployedLocalDevEnvironment)
+	if !ok {
+		t.Fatal("expected tEnv to be a DeployedLocalDevEnvironment")
+	}
+	err = tLocalEnv.RestartChainlinkNodes(t)
 	require.NoError(t, err)
 
 	select {
@@ -361,37 +355,6 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	case <-time.After(5 * time.Minute):
 		t.Fatal("timed out waiting for commit")
 	}
-}
-
-func restartContainersByImage(ctx context.Context, cli *dockerClient.Client, imageName string) error {
-	// Create a filter to find containers using the specified image as an ancestor.
-	filterArgs := filters.NewArgs()
-	filterArgs.Add("ancestor", imageName)
-
-	// List all containers (running and stopped) that match the filter.
-	containers, err := cli.ContainerList(ctx, container.ListOptions{
-		All:     true,
-		Filters: filterArgs,
-	})
-	if err != nil {
-		return fmt.Errorf("error listing containers: %w", err)
-	}
-
-	if len(containers) == 0 {
-		fmt.Printf("No containers found for image %s\n", imageName)
-		return nil
-	}
-
-	// Restart each container found.
-	for _, c := range containers {
-		fmt.Printf("Restarting container %s (Image: %s)\n", c.ID[:10], c.Image)
-		if err := cli.ContainerRestart(ctx, c.ID, container.StopOptions{}); err != nil {
-			fmt.Printf("Error restarting container %s: %v\n", c.ID[:10], err)
-			return err
-		}
-		fmt.Printf("Container %s restarted successfully\n", c.ID[:10])
-	}
-	return nil
 }
 
 // TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
