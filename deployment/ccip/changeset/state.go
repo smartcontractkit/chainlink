@@ -250,15 +250,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
 	for version, tokenPool := range c.USDCTokenPools {
-		if version == deployment.Version1_5_1 {
-			tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(tokenPool)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate usdc token pool view for %s", tokenPool.Address().String())
-			}
-			chainView.USDCTokenPool = helpers.AddValueToNestedMap(chainView.USDCTokenPool, tokenPool.Address().Hex(), version.String(), tokenPoolView)
-		} else {
+		if version != deployment.Version1_5_1 {
 			return chainView, errors.New("unsupported USDCTokenPool version")
 		}
+		tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(tokenPool)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate usdc token pool view for %s", tokenPool.Address().String())
+		}
+		chainView.USDCTokenPool = helpers.AddValueToNestedMap(chainView.USDCTokenPool, tokenPool.Address().Hex(), version.String(), tokenPoolView)
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
