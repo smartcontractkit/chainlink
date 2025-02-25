@@ -179,7 +179,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	}
 
 	i.lggr.Infow("Creating plugin using OCR3 settings",
-		"plugin", config.Config.PluginType,
+		"plugin", pluginType.String(),
 		"deltaProgress", publicConfig.DeltaProgress,
 		"deltaResend", publicConfig.DeltaResend,
 		"deltaInitial", publicConfig.DeltaInitial,
