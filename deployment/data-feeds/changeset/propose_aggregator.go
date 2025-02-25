@@ -11,6 +11,7 @@ import (
 )
 
 // ProposeAggregatorChangeset is a changeset that proposes a new aggregator on existing AggregatorProxy contract
+// This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var ProposeAggregatorChangeset = deployment.CreateChangeSet(proposeAggregatorLogic, proposeAggregatorPrecondition)
 
 func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (deployment.ChangesetOutput, error) {

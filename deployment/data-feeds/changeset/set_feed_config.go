@@ -51,6 +51,11 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 }
 
 func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecimalConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if (len(c.DataIDs) == 0) || (len(c.Descriptions) == 0) || (len(c.WorkflowMetadata) == 0) {
 		return errors.New("dataIDs, descriptions and workflowMetadata must not be empty")
 	}

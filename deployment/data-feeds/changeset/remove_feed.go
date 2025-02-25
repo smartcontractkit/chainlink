@@ -70,6 +70,11 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (depl
 }
 
 func removeFeedPrecondition(env deployment.Environment, c types.RemoveFeedConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if (len(c.DataIDs) == 0) || (len(c.ProxyAddresses) == 0) {
 		return errors.New("dataIDs and proxy addresses must not be empty")
 	}

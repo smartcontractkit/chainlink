@@ -40,6 +40,11 @@ func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddres
 }
 
 func importToAddressbookPrecondition(env deployment.Environment, c types.ImportToAddressbookConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if c.InputFileName == "" {
 		return errors.New("input file name is required")
 	}

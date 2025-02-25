@@ -83,6 +83,11 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 }
 
 func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	_, err := shared.LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 	if err != nil {
 		return fmt.Errorf("failed to load addresses input file: %w", err)

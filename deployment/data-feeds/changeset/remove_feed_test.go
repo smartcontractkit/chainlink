@@ -152,6 +152,9 @@ func TestRemoveFeed(t *testing.T) {
 				CacheAddress:   common.HexToAddress(cacheAddress),
 				DataIDs:        [][16]byte{dataid},
 				ProxyAddresses: []common.Address{common.HexToAddress("0x123")},
+				McmsConfig: &types.MCMSConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)

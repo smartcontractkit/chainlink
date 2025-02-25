@@ -50,6 +50,11 @@ func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (
 }
 
 func setFeedAdminPrecondition(env deployment.Environment, c types.SetFeedAdminConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if c.McmsConfig != nil {
 		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
 			return err

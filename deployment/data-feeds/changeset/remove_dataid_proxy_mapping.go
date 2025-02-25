@@ -51,6 +51,11 @@ func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedP
 }
 
 func removeFeedFeedProxyMappingPrecondition(env deployment.Environment, c types.RemoveFeedProxyConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if len(c.ProxyAddresses) == 0 {
 		return errors.New("proxy addresses must not be empty")
 	}

@@ -51,6 +51,11 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 }
 
 func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDataIDProxyConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if len(c.ProxyAddresses) == 0 || len(c.DataIDs) == 0 {
 		return errors.New("empty proxies or dataIds")
 	}

@@ -53,6 +53,9 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	}
 
 	dataFeedsCache := chainState.DataFeedsCache[common.HexToAddress(dataFeedsCacheAddress)]
+	if dataFeedsCache == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract not found in onchain state")
+	}
 
 	// Propose and confirm DataFeedsCache contract as an aggregator on AggregatorProxy
 	proposeAggregatorConfig := types.ProposeConfirmAggregatorConfig{
@@ -75,10 +78,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	// We don't use the existing changesets so that we can batch the transactions into a single MCMS proposal
 
 	// transfer proxy ownership
-	timelockAddr, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not present in addressbook: %w", err)
-	}
+	timelockAddr, _ := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock)
 	_, proxyContract, err := changeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
@@ -134,5 +134,10 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 }
 
 func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
 }

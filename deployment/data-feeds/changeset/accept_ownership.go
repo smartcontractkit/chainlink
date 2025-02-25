@@ -43,15 +43,14 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 }
 
 func acceptOwnershipPrecondition(env deployment.Environment, c types.AcceptOwnershipConfig) error {
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
+	}
+
 	if c.McmsConfig == nil {
 		return errors.New("mcms config is required")
 	}
 
-	if c.McmsConfig != nil {
-		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
 }

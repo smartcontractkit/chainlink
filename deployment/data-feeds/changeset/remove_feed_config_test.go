@@ -150,6 +150,9 @@ func TestRemoveFeedConfig(t *testing.T) {
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
 				DataIDs:       [][16]byte{dataid},
+				McmsConfig: &types.MCMSConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)

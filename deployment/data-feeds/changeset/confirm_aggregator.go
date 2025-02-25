@@ -11,6 +11,7 @@ import (
 )
 
 // ConfirmAggregatorChangeset is a changeset that confirms a proposed aggregator on deployed AggregatorProxy contract
+// This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
 var ConfirmAggregatorChangeset = deployment.CreateChangeSet(confirmAggregatorLogic, confirmAggregatorPrecondition)
 
 func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAggregatorConfig) (deployment.ChangesetOutput, error) {
