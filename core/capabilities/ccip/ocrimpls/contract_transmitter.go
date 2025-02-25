@@ -87,7 +87,7 @@ func ToExecCalldata(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
-) (string, string, any, error) {
+) (contract string, method string, args any, err error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
 	// to the argument name in the function call.
