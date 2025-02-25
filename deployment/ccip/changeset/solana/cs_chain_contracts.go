@@ -12,12 +12,13 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 )
 
-var _ deployment.ChangeSet[cs.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
+var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
 var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingToken
+var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
 var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdminRegistry
 var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
@@ -26,15 +27,15 @@ var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
 
 // HELPER FUNCTIONS
 // GetTokenProgramID returns the program ID for the given token program name
-func GetTokenProgramID(programName string) (solana.PublicKey, error) {
-	tokenPrograms := map[string]solana.PublicKey{
-		deployment.SPLTokens:     solana.TokenProgramID, // not used yet
-		deployment.SPL2022Tokens: solana.Token2022ProgramID,
+func GetTokenProgramID(programName deployment.ContractType) (solana.PublicKey, error) {
+	tokenPrograms := map[deployment.ContractType]solana.PublicKey{
+		ccipChangeset.SPLTokens:     solana.TokenProgramID,
+		ccipChangeset.SPL2022Tokens: solana.Token2022ProgramID,
 	}
 
 	programID, ok := tokenPrograms[programName]
 	if !ok {
-		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, deployment.SPLTokens, deployment.SPL2022Tokens)
+		return solana.PublicKey{}, fmt.Errorf("invalid token program: %s. Must be one of: %s, %s", programName, ccipChangeset.SPLTokens, ccipChangeset.SPL2022Tokens)
 	}
 	return programID, nil
 }
@@ -44,7 +45,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	if !ok {
 		return fmt.Errorf("chain selector %d not found in environment", selector)
 	}
-	state, err := cs.LoadOnchainState(e)
+	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -56,7 +57,9 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 		return nil
 	}
 	exists := false
-	for _, token := range chainState.SPL2022Tokens {
+	allTokens := chainState.SPL2022Tokens
+	allTokens = append(allTokens, chainState.SPLTokens...)
+	for _, token := range allTokens {
 		if token.Equals(tokenPubKey) {
 			exists = true
 			break
@@ -68,7 +71,7 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
 	if chainState.Router.IsZero() {
 		return fmt.Errorf("router not found in existing state, deploy the router first for chain %d", chain.Selector)
 	}
@@ -81,7 +84,7 @@ func validateRouterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainS
 	return nil
 }
 
-func validateFeeQuoterConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateFeeQuoterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
 	}
@@ -94,7 +97,7 @@ func validateFeeQuoterConfig(chain deployment.SolChain, chainState cs.SolCCIPCha
 	return nil
 }
 
-func validateOffRampConfig(chain deployment.SolChain, chainState cs.SolCCIPChainState) error {
+func validateOffRampConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
 	if chainState.OffRamp.IsZero() {
 		return fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", chain.Selector)
 	}

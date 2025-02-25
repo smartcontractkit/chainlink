@@ -37,11 +37,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
+	viewv1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	viewv1_5 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	viewv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
+	viewv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -230,13 +230,6 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	return common.Address{}, errors.New("no link token found in the state")
 }
 
-func (c CCIPChainState) OnRampBytes() ([]byte, error) {
-	if c.OnRamp != nil {
-		return c.OnRamp.Address().Bytes(), nil
-	}
-	return nil, errors.New("no onramp found in the state")
-}
-
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
@@ -247,7 +240,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		chainView.Router[c.Router.Address().Hex()] = routerView
 	}
 	if c.TokenAdminRegistry != nil {
-		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
+		taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
@@ -255,7 +248,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -264,7 +257,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -273,7 +266,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -282,7 +275,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 			}
@@ -290,14 +283,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 	}
 	if c.NonceManager != nil {
-		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
+		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
 		}
 		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 	}
 	if c.RMNRemote != nil {
-		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
+		rmnView, err := viewv1_6.GenerateRMNRemoteView(c.RMNRemote)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
@@ -305,7 +298,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMNHome != nil {
-		rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
+		rmnHomeView, err := viewv1_6.GenerateRMNHomeView(c.RMNHome)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
 		}
@@ -313,7 +306,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
+		fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 		}
@@ -321,7 +314,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		onRampView, err := v1_6.GenerateOnRampView(
+		onRampView, err := viewv1_6.GenerateOnRampView(
 			c.OnRamp,
 			c.Router,
 			c.TokenAdminRegistry,
@@ -333,7 +326,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.OffRamp != nil && c.Router != nil {
-		offRampView, err := v1_6.GenerateOffRampView(
+		offRampView, err := viewv1_6.GenerateOffRampView(
 			c.OffRamp,
 			c.Router,
 		)
@@ -344,14 +337,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMNProxy != nil {
-		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
+		rmnProxyView, err := viewv1_0.GenerateRMNProxyView(c.RMNProxy)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
-		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
+		chView, err := viewv1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
 		}
@@ -388,7 +381,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	// Legacy contracts
 	if c.CommitStore != nil {
 		for source, commitStore := range c.CommitStore {
-			commitStoreView, err := v1_5.GenerateCommitStoreView(commitStore)
+			commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
 			}
@@ -405,7 +398,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMN != nil {
-		rmnView, err := v1_5.GenerateRMNView(c.RMN)
+		rmnView, err := viewv1_5.GenerateRMNView(c.RMN)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
 		}
@@ -414,7 +407,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOffRamp != nil {
 		for source, offRamp := range c.EVM2EVMOffRamp {
-			offRampView, err := v1_5.GenerateOffRampView(offRamp)
+			offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
 			}
@@ -424,7 +417,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOnRamp != nil {
 		for dest, onRamp := range c.EVM2EVMOnRamp {
-			onRampView, err := v1_5.GenerateOnRampView(onRamp)
+			onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
 			}
@@ -574,7 +567,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
-func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, err
@@ -591,6 +584,31 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	}
 
 	return offRampAddress, nil
+}
+
+func (s CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var onRampAddressBytes []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		if s.Chains[chainSelector].OnRamp == nil {
+			return nil, fmt.Errorf("no onramp found in the state for chain %d", chainSelector)
+		}
+		onRampAddressBytes = s.Chains[chainSelector].OnRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		if s.SolChains[chainSelector].Router.IsZero() {
+			return nil, fmt.Errorf("no router found in the state for chain %d", chainSelector)
+		}
+		onRampAddressBytes = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	return onRampAddressBytes, nil
 }
 
 func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
@@ -858,28 +876,28 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.USDFeeds[key] = feed
 		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
 			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
 		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
 			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
 			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
 		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
 			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
 			if err != nil {
 				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
 			}
