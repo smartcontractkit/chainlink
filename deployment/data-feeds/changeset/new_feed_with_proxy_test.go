@@ -77,6 +77,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 			},
 		),
 	)
+	require.NoError(t, err)
 
 	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 

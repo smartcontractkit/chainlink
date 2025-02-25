@@ -80,6 +80,9 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		return deployment.ChangesetOutput{}, fmt.Errorf("timelock not present in addressbook: %w", err)
 	}
 	_, proxyContract, err := changeset.LoadOwnableContract(common.HexToAddress(proxyAddress), chain.Client)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
+	}
 	tx, err := proxyContract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timelockAddr))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership tx %w", err)
@@ -131,9 +134,5 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 }
 
 func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
-	if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
-		return err
-	}
-
-	return nil
+	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
 }
