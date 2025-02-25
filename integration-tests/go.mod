@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/integration-tests
 
-go 1.24
-
-toolchain go1.24.0
+go 1.24.0
 
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
@@ -51,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.2
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250213193215-6ae9e40ebb9f
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250225180522-f986cfad9503
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.0
 	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.4.1
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
