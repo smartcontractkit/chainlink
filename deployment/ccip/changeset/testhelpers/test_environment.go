@@ -63,7 +63,7 @@ type TestConfigs struct {
 	IsUSDCAttestationMissing   bool
 	IsMultiCall3               bool
 	IsStaticLink               bool
-	OCRConfigOverride          func(*v1_6.CCIPOCRParams)
+	OCRConfigOverride          func(v1_6.CCIPOCRParams) v1_6.CCIPOCRParams
 	RMNEnabled                 bool
 	NumOfRMNNodes              int
 	LinkPrice                  *big.Int
@@ -174,7 +174,7 @@ func WithRMNEnabled(numOfNode int) TestOps {
 	}
 }
 
-func WithOCRConfigOverride(override func(*v1_6.CCIPOCRParams)) TestOps {
+func WithOCRConfigOverride(override func(v1_6.CCIPOCRParams) v1_6.CCIPOCRParams) TestOps {
 	return func(testCfg *TestConfigs) {
 		testCfg.OCRConfigOverride = override
 	}
@@ -662,7 +662,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	require.NoError(t, err)
 	// Build the per chain config.
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
-	ocrConfigs := make(map[uint64]v1_6.CCIPOCRParams)
+	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
+	execOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range evmChains {
 		timelockContractsPerChain[chain] = &proposalutils.TimelockExecutionContracts{
 			Timelock:  state.Chains[chain].Timelock,
@@ -676,20 +677,26 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 		tokenInfo := tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address())
 		ocrOverride := tc.OCRConfigOverride
-		if tc.RMNEnabled {
-			ocrOverride = func(ocrParams *v1_6.CCIPOCRParams) {
+		if tc.OCRConfigOverride != nil || tc.RMNEnabled {
+			ocrOverride = func(ocrParams v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 				if tc.OCRConfigOverride != nil {
 					tc.OCRConfigOverride(ocrParams)
 				}
-				ocrParams.CommitOffChainConfig.RMNEnabled = true
+				if tc.RMNEnabled {
+					ocrParams.CommitOffChainConfig.RMNEnabled = true
+				}
+				return ocrParams
 			}
 		}
-		ocrParams := v1_6.DeriveCCIPOCRParams(
-			v1_6.WithDefaultCommitOffChainConfig(e.FeedChainSel, tokenInfo),
-			v1_6.WithDefaultExecuteOffChainConfig(tokenDataProviders),
-			v1_6.WithOCRParamOverride(ocrOverride),
-		)
-		ocrConfigs[chain] = ocrParams
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(
+			chain,
+			e.FeedChainSel,
+			tokenInfo,
+			ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(
+			chain,
+			tokenDataProviders,
+			ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
@@ -703,13 +710,15 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	for _, chain := range solChains {
 		ocrOverride := tc.OCRConfigOverride
-		ocrParams := v1_6.DeriveCCIPOCRParams(
-			// TODO: tokenInfo is nil for solana
-			v1_6.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
-			v1_6.WithDefaultExecuteOffChainConfig(tokenDataProviders),
-			v1_6.WithOCRParamOverride(ocrOverride),
-		)
-		ocrConfigs[chain] = ocrParams
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(
+			chain,
+			e.FeedChainSel,
+			nil,
+			ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(
+			chain,
+			tokenDataProviders,
+			ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			// #nosec G115 - Overflow is not a concern in this test scenario
@@ -750,7 +759,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 					MCMS:              mcmsConfig,
 				},
 				PluginInfo: v1_6.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					OCRConfigPerRemoteChainSelector: commitOCRConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
@@ -767,7 +776,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigs,
+						OCRConfigPerRemoteChainSelector: execOCRConfigs,
 						PluginType:                      types.PluginTypeCCIPExec,
 					},
 				},

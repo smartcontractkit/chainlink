@@ -530,11 +530,11 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 
 func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
-	var ocrConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	for selector := range e.Chains {
-		ocrConfigPerSelector[selector] = v1_6.DeriveCCIPOCRParams(v1_6.WithDefaultCommitOffChainConfig(feedChainSel, nil),
-			v1_6.WithDefaultExecuteOffChainConfig(nil),
-		)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(selector, feedChainSel, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(selector, nil, nil)
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet
@@ -548,7 +548,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 					FeedChainSelector: feedChainSel,
 				},
 				PluginInfo: v1_6.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+					OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
@@ -564,7 +564,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPCommit,
 					},
 				},
@@ -584,7 +584,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPExec,
 					},
 				},
