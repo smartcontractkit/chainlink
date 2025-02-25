@@ -7,7 +7,6 @@ import (
 
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
@@ -18,7 +17,7 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	types2 "github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 const (
@@ -147,19 +146,6 @@ func BuildProposalFromBatchesV2(
 	return build, nil
 }
 
-func getSolAccessControllerFromAddress(addresses map[string]deployment.TypeAndVersion, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
-	for addr, tv := range addresses {
-		if tv.Type == typeAndVersion.Type && tv.Version == typeAndVersion.Version {
-			pubkey, err := solana.PublicKeyFromBase58(addr)
-			if err != nil {
-				return solana.PublicKey{}, fmt.Errorf("failed to parse address: %w", err)
-			}
-			return pubkey, nil
-		}
-	}
-
-	return solana.PublicKey{}, errors.New("address not found")
-}
 func buildProposalMetadataV2(
 	env deployment.Environment,
 	chainSelectors []uint64,
@@ -188,38 +174,24 @@ func buildProposalMetadataV2(
 				MCMAddress:      proposerMcms,
 			}
 		case chain_selectors.FamilySolana:
-			mcmsProgramID, mcmSeed, err := mcmssolanasdk.ParseContractAddress(proposerMcms)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse solana contract address: %w", err)
-			}
-			// Get access controller from state
 			addresses, err := env.ExistingAddresses.AddressesForChain(selector)
 			if err != nil {
 				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
 			}
-			proposerAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.ProposerAccessControllerAccount, deployment.Version1_0_0))
+			solanaState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[selector], addresses)
 			if err != nil {
-				return nil, fmt.Errorf("failed to get proposer access controller: %w", err)
+				return nil, fmt.Errorf("failed to load solana state: %w", err)
 			}
-			cancellerAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.CancellerAccessControllerAccount, deployment.Version1_0_0))
-			if err != nil {
-				return nil, fmt.Errorf("failed to get canceller access controller: %w", err)
-			}
-			bypasserAC, err := getSolAccessControllerFromAddress(addresses, deployment.NewTypeAndVersion(types2.BypasserAccessControllerAccount, deployment.Version1_0_0))
-			if err != nil {
-				return nil, fmt.Errorf("failed to get bypasser access controller: %w", err)
-			}
-			metadata, err := mcmssolanasdk.NewChainMetadata(
+			metaDataPerChain[chainID], err = mcmssolanasdk.NewChainMetadata(
 				opCount,
-				mcmsProgramID,
-				mcmSeed,
-				proposerAC,
-				cancellerAC,
-				bypasserAC)
+				solanaState.McmProgram,
+				mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed),
+				solanaState.ProposerAccessControllerAccount,
+				solanaState.CancellerAccessControllerAccount,
+				solanaState.BypasserAccessControllerAccount)
 			if err != nil {
 				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
 			}
-			metaDataPerChain[chainID] = metadata
 		}
 	}
 
