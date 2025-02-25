@@ -6,8 +6,6 @@ import (
 
 	mcmslib "github.com/smartcontractkit/mcms"
 
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
@@ -61,11 +59,8 @@ func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDat
 	}
 
 	if c.McmsConfig != nil {
-		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
-			return fmt.Errorf("timelock not present on the chain %w", err)
-		}
-		if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
-			return fmt.Errorf("mcms proposer not present on the chain %w", err)
+		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+			return err
 		}
 	}
 

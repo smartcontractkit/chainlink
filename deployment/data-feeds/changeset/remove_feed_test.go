@@ -7,20 +7,21 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
-func TestUpdateDataIDProxyMap(t *testing.T) {
+func TestRemoveFeed(t *testing.T) {
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{
@@ -51,10 +52,11 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
 
 	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
+		// set the feed admin, only admin can perform set/remove operations
 		commonChangesets.Configure(
 			changeset.SetFeedAdminChangeset,
 			types.SetFeedAdminConfig{
@@ -64,13 +66,31 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 				IsAdmin:       true,
 			},
 		),
+		// set the feed config
 		commonChangesets.Configure(
-			changeset.UpdateDataIDProxyChangeset,
-			types.UpdateDataIDProxyConfig{
+			changeset.SetFeedConfigChangeset,
+			types.SetFeedDecimalConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				DataIDs:       [][16]byte{dataid},
+				Descriptions:  []string{"test"},
+				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+					cache.DataFeedsCacheWorkflowMetadata{
+						AllowedSender:        common.HexToAddress("0x22"),
+						AllowedWorkflowOwner: common.HexToAddress("0x33"),
+						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+					},
+				},
+			},
+		),
+		// remove the feed config
+		commonChangesets.Configure(
+			changeset.RemoveFeedChangeset,
+			types.RemoveFeedConfig{
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
-				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataID},
+				DataIDs:        [][16]byte{dataid},
+				ProxyAddresses: []common.Address{common.HexToAddress("0x123")},
 			},
 		),
 	)
@@ -104,17 +124,34 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	)
 	require.NoError(t, err)
 
+	// Set and remove the feed config with MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
-			changeset.UpdateDataIDProxyChangeset,
-			types.UpdateDataIDProxyConfig{
-				ChainSelector:  chainSelector,
-				CacheAddress:   common.HexToAddress(cacheAddress),
-				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataID},
+			changeset.SetFeedConfigChangeset,
+			types.SetFeedDecimalConfig{
+				ChainSelector: chainSelector,
+				CacheAddress:  common.HexToAddress(cacheAddress),
+				DataIDs:       [][16]byte{dataid},
+				Descriptions:  []string{"test2"},
+				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
+					cache.DataFeedsCacheWorkflowMetadata{
+						AllowedSender:        common.HexToAddress("0x22"),
+						AllowedWorkflowOwner: common.HexToAddress("0x33"),
+						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+					},
+				},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 0,
 				},
+			},
+		),
+		commonChangesets.Configure(
+			changeset.RemoveFeedChangeset,
+			types.RemoveFeedConfig{
+				ChainSelector:  chainSelector,
+				CacheAddress:   common.HexToAddress(cacheAddress),
+				DataIDs:        [][16]byte{dataid},
+				ProxyAddresses: []common.Address{common.HexToAddress("0x123")},
 			},
 		),
 	)

@@ -8,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
@@ -48,11 +47,10 @@ func acceptOwnershipPrecondition(env deployment.Environment, c types.AcceptOwner
 		return errors.New("mcms config is required")
 	}
 
-	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.RBACTimelock); err != nil {
-		return fmt.Errorf("timelock not present on the chain %w", err)
-	}
-	if _, err := deployment.SearchAddressBook(env.ExistingAddresses, c.ChainSelector, commonTypes.ProposerManyChainMultisig); err != nil {
-		return fmt.Errorf("mcms proposer not present on the chain %w", err)
+	if c.McmsConfig != nil {
+		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
+			return err
+		}
 	}
 
 	return nil

@@ -10,11 +10,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-// SetFeedConfigChangeset is a changeset that sets a feed configuration on DataFeedsCache contract.
+// RemoveFeedConfigChangeset is a changeset that only removes a feed configuration from DataFeedsCache contract.
 // This changeset may return a timelock proposal if the MCMS config is provided, otherwise it will execute the transaction with the deployer key.
-var SetFeedConfigChangeset = deployment.CreateChangeSet(setFeedConfigLogic, setFeedConfigPrecondition)
+var RemoveFeedConfigChangeset = deployment.CreateChangeSet(removeFeedConfigLogic, removeFeedConfigPrecondition)
 
-func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig) (deployment.ChangesetOutput, error) {
+func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigCSConfig) (deployment.ChangesetOutput, error) {
 	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
@@ -25,13 +25,13 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.SetDecimalFeedConfigs(txOpt, c.DataIDs, c.Descriptions, c.WorkflowMetadata)
+	tx, err := contract.RemoveFeedConfigs(txOpt, c.DataIDs)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove feed config %w", err)
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to set feed config on a cache", c.ChainSelector, []ProposalData{
+		proposal, err := BuildMCMProposals(env, "proposal to remove a feed config from cache", c.ChainSelector, []ProposalData{
 			{
 				contract: contract.Address().Hex(),
 				tx:       tx,
@@ -50,14 +50,10 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 	return deployment.ChangesetOutput{}, nil
 }
 
-func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecimalConfig) error {
-	if (len(c.DataIDs) == 0) || (len(c.Descriptions) == 0) || (len(c.WorkflowMetadata) == 0) {
-		return errors.New("dataIDs, descriptions and workflowMetadata must not be empty")
+func removeFeedConfigPrecondition(env deployment.Environment, c types.RemoveFeedConfigCSConfig) error {
+	if len(c.DataIDs) == 0 {
+		return errors.New("dataIDs must not be empty")
 	}
-	if len(c.DataIDs) != len(c.Descriptions) {
-		return errors.New("dataIDs and descriptions must have the same length")
-	}
-
 	if c.McmsConfig != nil {
 		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {
 			return err

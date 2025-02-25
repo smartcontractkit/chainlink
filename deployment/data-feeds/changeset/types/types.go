@@ -72,11 +72,33 @@ type SetFeedDecimalConfig struct {
 	McmsConfig       *MCMSConfig
 }
 
+type RemoveFeedConfig struct {
+	ChainSelector  uint64
+	CacheAddress   common.Address
+	ProxyAddresses []common.Address
+	DataIDs        [][16]byte // without the 0x prefix
+	McmsConfig     *MCMSConfig
+}
+
+type RemoveFeedConfigCSConfig struct {
+	ChainSelector uint64
+	CacheAddress  common.Address
+	DataIDs       [][16]byte // without the 0x prefix
+	McmsConfig    *MCMSConfig
+}
+
 type UpdateDataIDProxyConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
 	DataIDs        [][16]byte
+	McmsConfig     *MCMSConfig
+}
+
+type RemoveFeedProxyConfig struct {
+	ChainSelector  uint64
+	CacheAddress   common.Address
+	ProxyAddresses []common.Address
 	McmsConfig     *MCMSConfig
 }
 
@@ -98,4 +120,14 @@ type AcceptOwnershipConfig struct {
 	ContractAddress common.Address
 	ChainSelector   uint64
 	McmsConfig      *MCMSConfig
+}
+
+type NewFeedWithProxyConfig struct {
+	ChainSelector    uint64
+	AccessController common.Address
+	Labels           []string // labels for AggregatorProxy
+	DataID           [16]byte // without the 0x prefix
+	Description      string
+	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
+	McmsConfig       *MCMSConfig
 }
