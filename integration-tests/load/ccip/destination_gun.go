@@ -67,23 +67,7 @@ func NewDestinationGun(
 		metricPipe:    metricPipe,
 	}
 
-	err := dg.Validate()
-	if err != nil {
-		return nil, err
-	}
-
 	return &dg, nil
-}
-
-func (m *DestinationGun) Validate() error {
-	sum := 0
-	for _, md := range *m.testConfig.MessageDetails {
-		sum += *md.Ratio
-	}
-	if sum != 100 {
-		return errors.New("message type weights must sum to 100")
-	}
-	return nil
 }
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
