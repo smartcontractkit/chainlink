@@ -248,8 +248,8 @@ LatestReportDeadline = '5s'
 CertFile = ''
 
 [Mercury.Transmitter]
-Protocol = 'wsrpc'
-TransmitQueueMaxSize = 100000
+Protocol = 'grpc'
+TransmitQueueMaxSize = 250000
 TransmitTimeout = '5s'
 TransmitConcurrency = 100
 ReaperFrequency = '1h0m0s'
@@ -259,8 +259,8 @@ ReaperMaxAge = '48h0m0s'
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
 GlobalBurst = 200
-PerSenderRPS = 100.0
-PerSenderBurst = 100
+PerSenderRPS = 200.0
+PerSenderBurst = 200
 
 [Capabilities.Peering]
 IncomingMessageBufferSize = 10

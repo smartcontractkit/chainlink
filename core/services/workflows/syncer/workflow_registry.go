@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"iter"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -63,6 +64,7 @@ type WorkflowRegistryEvent struct {
 	Data      any
 	EventType WorkflowRegistryEventType
 	Head      Head
+	DonID     *uint32
 }
 
 func (we WorkflowRegistryEvent) GetEventType() WorkflowRegistryEventType {
@@ -231,7 +233,7 @@ func (w *workflowRegistry) Start(_ context.Context) error {
 				}
 			}
 
-			w.readRegistryEvents(ctx, reader, loadWorkflowsHead.Height)
+			w.readRegistryEvents(ctx, don, reader, loadWorkflowsHead.Height)
 		}()
 
 		return nil
@@ -259,7 +261,7 @@ func (w *workflowRegistry) Name() string {
 }
 
 // readRegistryEvents polls the contract for events and send them to the events channel.
-func (w *workflowRegistry) readRegistryEvents(ctx context.Context, reader ContractReader, lastReadBlockNumber string) {
+func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilities.DON, reader ContractReader, lastReadBlockNumber string) {
 	ticker := w.getTicker()
 
 	var keyQueries = make([]types.ContractKeyFilter, 0, len(w.eventTypes))
@@ -325,7 +327,25 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, reader Contra
 					continue
 				}
 
-				events = append(events, toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr))
+				event := toWorkflowRegistryEventResponse(log.Sequence, log.EventType, w.lggr)
+
+				switch {
+				case event.Event.DonID == nil:
+					// event is missing a DonID, so don't filter it out;
+					// it applies to all Dons
+					events = append(events, event)
+				case *event.Event.DonID == don.ID:
+					// event has a DonID and matches, so it applies to this DON.
+					events = append(events, event)
+				default:
+					// event doesn't match, let's skip it
+					donID := "MISSING_DON_ID"
+					if event.Event.DonID != nil {
+						donID = strconv.FormatUint(uint64(*event.Event.DonID), 10)
+					}
+					w.lggr.Debugw("event belongs to a different don, skipping...", "don", don.ID, "gotDON", donID)
+				}
+
 				cursor = log.Sequence.Cursor
 			}
 
@@ -540,6 +560,7 @@ func toWorkflowRegistryEventResponse(
 			return resp
 		}
 		resp.Event.Data = data
+		resp.Event.DonID = &data.DonID
 	case WorkflowUpdatedEvent:
 		var data WorkflowRegistryWorkflowUpdatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
@@ -549,6 +570,7 @@ func toWorkflowRegistryEventResponse(
 			return resp
 		}
 		resp.Event.Data = data
+		resp.Event.DonID = &data.DonID
 	case WorkflowPausedEvent:
 		var data WorkflowRegistryWorkflowPausedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
@@ -558,6 +580,7 @@ func toWorkflowRegistryEventResponse(
 			return resp
 		}
 		resp.Event.Data = data
+		resp.Event.DonID = &data.DonID
 	case WorkflowActivatedEvent:
 		var data WorkflowRegistryWorkflowActivatedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
@@ -567,6 +590,7 @@ func toWorkflowRegistryEventResponse(
 			return resp
 		}
 		resp.Event.Data = data
+		resp.Event.DonID = &data.DonID
 	case WorkflowDeletedEvent:
 		var data WorkflowRegistryWorkflowDeletedV1
 		if err := dataAsValuesMap.UnwrapTo(&data); err != nil {
@@ -576,6 +600,7 @@ func toWorkflowRegistryEventResponse(
 			return resp
 		}
 		resp.Event.Data = data
+		resp.Event.DonID = &data.DonID
 	default:
 		lggr.Errorf("unknown event type: %s", evt)
 		resp.Event = nil

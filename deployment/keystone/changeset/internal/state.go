@@ -10,8 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -21,13 +20,21 @@ import (
 type GetContractSetsRequest struct {
 	Chains      map[uint64]deployment.Chain
 	AddressBook deployment.AddressBook
+
+	// Labels indicates the label set that a contract must include to be considered as a member
+	// of the returned contract set.  By default, an empty label set implies that only contracts without
+	// labels will be considered.  Otherwise, all labels must be on the contract (e.g., "label1" AND "label2").
+	Labels []string
 }
 
 type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
-// TODO move this out of internal
+// ContractSet is a set of contracts for a single chain
+// It is a mirror of changeset.ContractSet, and acts an an adapter to the internal package
+//
+// TODO: remove after CRE-227
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
@@ -36,52 +43,7 @@ type ContractSet struct {
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
 
-func (cs ContractSet) TransferableContracts() []common.Address {
-	var out []common.Address
-	if cs.OCR3 != nil {
-		for _, ocr := range cs.OCR3 {
-			out = append(out, ocr.Address())
-		}
-	}
-	if cs.Forwarder != nil {
-		out = append(out, cs.Forwarder.Address())
-	}
-	if cs.CapabilitiesRegistry != nil {
-		out = append(out, cs.CapabilitiesRegistry.Address())
-	}
-	if cs.WorkflowRegistry != nil {
-		out = append(out, cs.WorkflowRegistry.Address())
-	}
-	return out
-}
-
-func (cs ContractSet) View() (view.KeystoneChainView, error) {
-	out := view.NewKeystoneChainView()
-	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-		if err != nil {
-			return view.KeystoneChainView{}, err
-		}
-		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
-	}
-
-	// Process the workflow registry and print if WorkflowRegistryError errors.
-	if cs.WorkflowRegistry != nil {
-		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-		for _, err := range wrErrs {
-			var wre *common_v1_0.WorkflowRegistryError
-			if !errors.As(err, &wre) {
-				return view.KeystoneChainView{}, err
-			}
-			fmt.Println("WorkflowRegistry error:", err)
-		}
-		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
-	}
-
-	return out, nil
-}
-
-func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+func (cs ContractSet) getOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
 
@@ -94,7 +56,10 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(lggr, chain, addrs)
+
+		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+
+		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}
@@ -103,7 +68,12 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 	return resp, nil
 }
 
-func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*ContractSet, error) {
+// loadContractSet loads the MCMS state and then sets the Keystone contract state.
+func loadContractSet(
+	lggr logger.Logger,
+	chain deployment.Chain,
+	addresses map[string]deployment.TypeAndVersion,
+) (*ContractSet, error) {
 	var out ContractSet
 	mcmsWithTimelock, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
@@ -111,42 +81,57 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 	}
 	out.MCMSWithTimelockState = *mcmsWithTimelock
 
+	if err := setContracts(lggr, addresses, chain.Client, &out); err != nil {
+		return nil, err
+	}
+
+	return &out, nil
+}
+
+// setContracts sets the Keystone contract state.  Non-Keystone contracts (e.g., MCMS contracts) are
+// ignored.
+func setContracts(
+	lggr logger.Logger,
+	addresses map[string]deployment.TypeAndVersion,
+	client deployment.OnchainClient,
+	set *ContractSet,
+) error {
 	for addr, tv := range addresses {
 		// todo handle versions
 		switch tv.Type {
 		case CapabilitiesRegistry:
-			c, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
+			c, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create capability registry contract from address %s: %w", addr, err)
+				return fmt.Errorf("failed to create capability registry contract from address %s: %w", addr, err)
 			}
-			out.CapabilitiesRegistry = c
+			set.CapabilitiesRegistry = c
 		case KeystoneForwarder:
-			c, err := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), chain.Client)
+			c, err := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create forwarder contract from address %s: %w", addr, err)
+				return fmt.Errorf("failed to create forwarder contract from address %s: %w", addr, err)
 			}
-			out.Forwarder = c
+			set.Forwarder = c
 		case OCR3Capability:
-			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
+			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
+				return fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
-			if out.OCR3 == nil {
-				out.OCR3 = make(map[common.Address]*ocr3_capability.OCR3Capability)
+			if set.OCR3 == nil {
+				set.OCR3 = make(map[common.Address]*ocr3_capability.OCR3Capability)
 			}
-			out.OCR3[common.HexToAddress(addr)] = c
+			set.OCR3[common.HexToAddress(addr)] = c
 		case WorkflowRegistry:
-			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+			c, err := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), client)
 			if err != nil {
-				return nil, fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
+				return fmt.Errorf("failed to create OCR3Capability contract from address %s: %w", addr, err)
 			}
-			out.WorkflowRegistry = c
+			set.WorkflowRegistry = c
 		default:
-			lggr.Warnw("unknown contract type", "type", tv.Type)
-			// ignore unknown contract types
+			// do nothing, non-exhaustive
+			lggr.Warnf("skipping contract of type : %s", tv.Type)
 		}
 	}
-	return &out, nil
+	return nil
 }
 
 // getOCR3Contract returns the OCR3 contract from the contract set.  By default, it returns the only
