@@ -111,9 +111,7 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	}
 
 	var merkleRoots []cciptypes.MerkleRootChain
-	if commitReport.MerkleRoot == nil {
-		merkleRoots = nil
-	} else {
+	if commitReport.MerkleRoot != nil {
 		merkleRoots = []cciptypes.MerkleRootChain{
 			{
 				ChainSel:      cciptypes.ChainSelector(commitReport.MerkleRoot.SourceChainSelector),
