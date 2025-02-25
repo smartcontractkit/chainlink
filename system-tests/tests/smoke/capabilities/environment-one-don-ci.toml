@@ -17,7 +17,7 @@
   should_compile_new_workflow = false
 
   [workflow_config.dependencies]
-  capabilities_version = "v1.0.0-alpha"
+  capabilities_version = "v1.0.2-alpha"
   cre_cli_version = "v0.0.2"
 
   [workflow_config.compiled_config]
