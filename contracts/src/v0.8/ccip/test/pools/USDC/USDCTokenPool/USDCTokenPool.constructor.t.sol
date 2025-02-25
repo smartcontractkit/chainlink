@@ -37,7 +37,7 @@ contract USDCTokenPool_constructor is USDCSetup {
   }
 
   function test_constructor_RevertWhen_TokenMessengerVersionDoesNotMatchSupportedUSDCVersion() public {
-    uint32 tokenMessengerVersion = uint32(vm.randomUint());
+    uint32 tokenMessengerVersion = s_mockUSDC.messageBodyVersion() + 1;
     vm.mockCall(
       address(s_mockUSDC), abi.encodeCall(s_mockUSDC.messageBodyVersion, ()), abi.encode(tokenMessengerVersion)
     );

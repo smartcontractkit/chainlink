@@ -18,10 +18,10 @@ contract USDCTokenPoolSetup is USDCSetup {
       s_mockUSDC, s_cctpMessageTransmitterProxy, s_token, new address[](0), address(s_mockRMNRemote), address(s_router)
     );
 
-    CCTPMessageTransmitterProxy.AllowedCallerConfigParam[] memory allowedCallerParams =
-      new CCTPMessageTransmitterProxy.AllowedCallerConfigParam[](1);
+    CCTPMessageTransmitterProxy.AllowedCallerConfigArgs[] memory allowedCallerParams =
+      new CCTPMessageTransmitterProxy.AllowedCallerConfigArgs[](1);
     allowedCallerParams[0] =
-      CCTPMessageTransmitterProxy.AllowedCallerConfigParam({caller: address(s_usdcTokenPool), allowed: true});
+      CCTPMessageTransmitterProxy.AllowedCallerConfigArgs({caller: address(s_usdcTokenPool), allowed: true});
     s_cctpMessageTransmitterProxy.configureAllowedCallers(allowedCallerParams);
 
     s_allowedList.push(vm.randomAddress());
