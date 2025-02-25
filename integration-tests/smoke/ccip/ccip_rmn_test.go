@@ -285,9 +285,9 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 }
 
 const (
-	chain0      = 0
-	chain1      = 1
-	globalCurse = 1000
+	chain0      = 5298399861320400553
+	chain1      = 4168263376276232250
+	globalCurse = 8236463271206331221
 )
 
 func runRmnTestCase(t *testing.T, tc rmnTestCase) {
