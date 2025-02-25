@@ -285,8 +285,8 @@ func TestRMN_GlobalCurseTwoMessagesOnTwoLanes(t *testing.T) {
 }
 
 const (
-	chain0      = 5298399861320400553 // "ethereum-testnet-sepolia-lisk-1"
-	chain1      = 4168263376276232250 // "ethereum-testnet-goerli-mantle-1"
+	chain0      = 0
+	chain1      = 1
 	globalCurse = 1000
 )
 
