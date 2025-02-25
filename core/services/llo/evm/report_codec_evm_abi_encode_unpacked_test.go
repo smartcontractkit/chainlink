@@ -823,6 +823,105 @@ func Test_ABIEncoder_Encode(t *testing.T) {
 	})
 }
 
+func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
+	c := ReportCodecEVMABIEncodeUnpacked{}
+	t.Run("unrecognized fields in opts", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"unknown":"field"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown field")
+	})
+	t.Run("invalid opts", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`"invalid"`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.EqualError(t, err, "invalid Opts, got: \"\\\"invalid\\\"\"; json: cannot unmarshal string into Go value of type evm.ReportFormatEVMABIEncodeOpts")
+	})
+	t.Run("negative BaseUSDFee", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"-1"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "baseUSDFee must be non-negative")
+	})
+	t.Run("zero feedID", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"feedID":"0x0000000000000000000000000000000000000000000000000000000000000000"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "feedID must not be zero")
+	})
+	t.Run("missing feedID", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "feedID must not be zero")
+	})
+	t.Run("not enough streams", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Streams: []llotypes.Stream{
+				{StreamID: 1},
+				{StreamID: 2},
+			},
+			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "expected at least 3 streams; got: 2")
+	})
+	t.Run("ABI length does not match streams length", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Streams: []llotypes.Stream{
+				{StreamID: 1},
+				{StreamID: 2},
+				{StreamID: 3},
+				{StreamID: 4},
+			},
+			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ABI length mismatch; expected: 2, got: 1")
+	})
+	t.Run("invalid feedID", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"1","feedID":"0x"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.EqualError(t, err, "invalid Opts, got: \"{\\\"baseUSDFee\\\":\\\"1\\\",\\\"feedID\\\":\\\"0x\\\"}\"; hex string has length 0, want 64 for common.Hash")
+	})
+	t.Run("valid", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			Streams: []llotypes.Stream{
+				{StreamID: 1},
+				{StreamID: 2},
+				{StreamID: 3},
+			},
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"1","feedID":"0x1111111111111111111111111111111111111111111111111111111111111111","ABI":[{"streamID":1,"type":"int192"}]}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.NoError(t, err)
+	})
+}
+
 func padLeft32Byte(str string) string {
 	if len(str) >= 64 {
 		return str
