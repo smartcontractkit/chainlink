@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -54,7 +55,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 
 	dataFeedsCache := chainState.DataFeedsCache[common.HexToAddress(dataFeedsCacheAddress)]
 	if dataFeedsCache == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("DataFeedsCache contract not found in onchain state")
+		return deployment.ChangesetOutput{}, errors.New("DataFeedsCache contract not found in onchain state")
 	}
 
 	// Propose and confirm DataFeedsCache contract as an aggregator on AggregatorProxy
