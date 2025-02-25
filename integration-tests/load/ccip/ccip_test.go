@@ -2,11 +2,12 @@ package ccip
 
 import (
 	"context"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/common/math"
 
