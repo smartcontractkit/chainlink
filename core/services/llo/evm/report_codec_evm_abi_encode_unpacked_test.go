@@ -870,12 +870,27 @@ func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
 		require.Error(t, err)
 		assert.Contains(t, err.Error(), "feedID must not be zero")
 	})
+	t.Run("not enough streams", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Streams: []llotypes.Stream{
+				{StreamID: 1},
+				{StreamID: 2},
+			},
+			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "expected at least 3 streams; got: 2")
+	})
 	t.Run("ABI length does not match streams length", func(t *testing.T) {
 		cd := llotypes.ChannelDefinition{
 			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 			Streams: []llotypes.Stream{
 				{StreamID: 1},
 				{StreamID: 2},
+				{StreamID: 3},
+				{StreamID: 4},
 			},
 			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
 		}
@@ -896,6 +911,8 @@ func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
 		cd := llotypes.ChannelDefinition{
 			Streams: []llotypes.Stream{
 				{StreamID: 1},
+				{StreamID: 2},
+				{StreamID: 3},
 			},
 			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 			Opts:         []byte(`{"baseUSDFee":"1","feedID":"0x1111111111111111111111111111111111111111111111111111111111111111","ABI":[{"streamID":1,"type":"int192"}]}`),

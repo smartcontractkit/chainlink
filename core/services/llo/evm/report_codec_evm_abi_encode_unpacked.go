@@ -136,8 +136,12 @@ func (r ReportCodecEVMABIEncodeUnpacked) Verify(_ context.Context, cd llotypes.C
 	if opts.FeedID == (common.Hash{}) {
 		return errors.New("feedID must not be zero")
 	}
-	if len(opts.ABI) != len(cd.Streams) {
-		return fmt.Errorf("ABI length mismatch; expected: %d, got: %d", len(cd.Streams), len(opts.ABI))
+	if len(cd.Streams) < 3 {
+		return fmt.Errorf("expected at least 3 streams; got: %d", len(cd.Streams))
+	}
+	// NOTE: First two streams are always expected to be native/link price
+	if len(opts.ABI) != len(cd.Streams)-2 {
+		return fmt.Errorf("ABI length mismatch; expected: %d, got: %d", len(cd.Streams)-2, len(opts.ABI))
 	}
 	return nil
 }
