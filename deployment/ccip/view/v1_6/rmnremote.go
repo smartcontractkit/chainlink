@@ -42,10 +42,6 @@ func mapCurseSubjects(subjects [][16]byte) []RMNRemoteCurseEntry {
 	return res
 }
 
-var (
-	globalSubject = [16]byte{0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
-)
-
 func GenerateRMNRemoteView(rmnReader *rmn_remote.RMNRemote) (RMNRemoteView, error) {
 	tv, err := types.NewContractMetaData(rmnReader, rmnReader.Address())
 	if err != nil {
