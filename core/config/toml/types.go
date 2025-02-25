@@ -853,35 +853,61 @@ func (w *WebServerLDAPSecrets) setFrom(f *WebServerLDAPSecrets) {
 	}
 }
 
-// TODO: harry
-
 type WebServerOIDC struct {
 	ClientID *string
-	// TODO: put in fields from example core/config/docs/core.toml
-	// ServerTLS                   *bool
-	// SessionTimeout              *commonconfig.Duration
-	// QueryTimeout                *commonconfig.Duration
-	// BaseUserAttr                *string
-	// BaseDN                      *string
-	// UsersDN                     *string
-	// GroupsDN                    *string
-	// ActiveAttribute             *string
-	// ActiveAttributeAllowedValue *string
-	// AdminUserGroupCN            *string
-	// EditUserGroupCN             *string
-	// RunUserGroupCN              *string
-	// ReadUserGroupCN             *string
-	// UserApiTokenEnabled         *bool
-	// UserAPITokenDuration        *commonconfig.Duration
-	// UpstreamSyncInterval        *commonconfig.Duration
-	// UpstreamSyncRateLimit       *commonconfig.Duration
+	ProviderDomain *string
+	OAuth2ProviderRouteSuffix *string
+	OIDCCallbackURL *string
+	OIDCCallbackURLSuffix *string
+	HTTPPort uint16
+	AdminUserGroupClaim *string
+	EditUserGroupClaim *string
+	RunUserGroupClaim *string
+	ReadUserGroupClaim *string
+	SessionTimeout *commonconfig.Duration
+	UserApiTokenEnabled *bool
+	UserAPITokenDuration *commonconfig.Duration
 }
 
-// TODO: add getter methods for struct above
-// TDOO
 func (w *WebServerOIDC) setFrom(f *WebServerOIDC) {
 	if v := f.ClientID; v != nil {
 		w.ClientID = v
+	}
+	if v := f.ProviderDomain; v != nil {
+		w.ProviderDomain = v
+	}
+	if v := f.OAuth2ProviderRouteSuffix; v != nil {
+		w.OAuth2ProviderRouteSuffix = v
+	}
+	if v := f.OIDCCallbackURL; v != nil {
+		w.OIDCCallbackURL = v
+	}
+	if v := f.OIDCCallbackURLSuffix; v != nil {
+		w.OIDCCallbackURLSuffix = v
+	}
+	if v := f.HTTPPort; v != 0 {
+		w.HTTPPort = v
+	}
+	if v := f.AdminUserGroupClaim; v != nil {
+		w.AdminUserGroupClaim = v
+	}
+	if v := f.EditUserGroupClaim; v != nil {
+		w.EditUserGroupClaim = v
+	}
+	if v := f.RunUserGroupClaim; v != nil {
+		w.RunUserGroupClaim = v
+	}
+	if v := f.ReadUserGroupClaim; v != nil {
+		w.ReadUserGroupClaim = v
+	}
+	if v := f.SessionTimeout; v != nil {
+		w.SessionTimeout = v
+	}
+	if v := f.UserApiTokenEnabled; v != nil {
+		w.UserApiTokenEnabled = v
+	}
+	if v := f.UserAPITokenDuration; v != nil {
+		w.UserAPITokenDuration = v
 	}
 }
 
@@ -897,6 +923,7 @@ func (w *WebServerOIDCSecrets) setFrom(f *WebServerOIDCSecrets) {
 
 type WebServerSecrets struct {
 	LDAP WebServerLDAPSecrets `toml:",omitempty"`
+	OIDC WebServerOIDCSecrets `toml:",omitempty"`
 }
 
 func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {

@@ -317,3 +317,104 @@ func (l *ldapConfig) UpstreamSyncRateLimit() commonconfig.Duration {
 	}
 	return *l.c.UpstreamSyncRateLimit
 }
+
+type oidcConfig struct {
+	c toml.WebServerOIDC
+	s toml.WebServerOIDCSecrets
+}
+
+func (l *oidcConfig) ClientID() string {
+	if l.c.ClientID == nil {
+		return ""
+	}
+	return *l.c.ClientID
+}
+
+func (l *oidcConfig) ClientSecret() string {
+	if l.s.ClientSecret == nil {
+		return ""
+	}
+	return *l.s.ClientSecret
+}
+
+func (l *oidcConfig) ProviderDomain() string {
+	if l.c.ProviderDomain == nil {
+		return ""
+	}
+	return *l.c.ProviderDomain
+}
+
+func (l *oidcConfig) OAuth2ProviderRouteSuffix() string {
+	if l.c.OAuth2ProviderRouteSuffix == nil {
+		return ""
+	}
+	return *l.c.OAuth2ProviderRouteSuffix
+}
+
+func (l *oidcConfig) OIDCCallbackURL() string {
+	if l.c.OIDCCallbackURL == nil {
+		return ""
+	}
+	return *l.c.OIDCCallbackURL
+}
+
+func (l *oidcConfig) OIDCCallbackURLSuffix() string {
+	if l.c.OIDCCallbackURLSuffix == nil {
+		return ""
+	}
+	return *l.c.OIDCCallbackURLSuffix
+}
+
+func (l *oidcConfig) HTTPPort() uint16 {
+	return l.c.HTTPPort
+}
+
+func (l *oidcConfig) AdminUserGroupClaim() string {
+	if l.c.AdminUserGroupClaim == nil {
+		return ""
+	}
+	return *l.c.AdminUserGroupClaim
+}
+
+func (l *oidcConfig) EditUserGroupClaim() string {
+	if l.c.EditUserGroupClaim == nil {
+		return ""
+	}
+	return *l.c.EditUserGroupClaim
+}
+
+func (l *oidcConfig) RunUserGroupClaim() string {
+	if l.c.RunUserGroupClaim == nil {
+		return ""
+	}
+	return *l.c.RunUserGroupClaim
+}
+
+func (l *oidcConfig) ReadUserGroupClaim() string {
+	if l.c.ReadUserGroupClaim == nil {
+		return ""
+	}
+	return *l.c.ReadUserGroupClaim
+}
+
+func (l *oidcConfig) SessionTimeout() commonconfig.Duration {
+	if l.c.SessionTimeout == nil {
+		return commonconfig.Duration{}
+	}
+	return *l.c.SessionTimeout
+}
+
+func (l *oidcConfig) UserApiTokenEnabled() bool {
+	if l.c.UserApiTokenEnabled == nil {
+		return false
+	}
+	return *l.c.UserApiTokenEnabled
+}
+
+
+func (l *oidcConfig) UserAPITokenDuration() commonconfig.Duration {
+	if l.c.UserAPITokenDuration == nil {
+		return commonconfig.Duration{}
+	}
+	return *l.c.UserAPITokenDuration
+}

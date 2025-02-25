@@ -23,7 +23,7 @@ type SessionReaperConfig interface {
 
 // NewSessionReaper creates a reaper that cleans stale sessions from the store.
 func NewSessionReaper(ds sqlutil.DataSource, config SessionReaperConfig, lggr logger.Logger) *utils.SleeperTask {
-	return utils.NewSleeperTask(&sessionReaper{
+	return utils.NewSleeperTaskCtx(&sessionReaper{
 		ds,
 		config,
 		lggr.Named("OIDCSessionReaper"),
