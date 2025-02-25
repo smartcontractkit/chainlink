@@ -105,16 +105,13 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
 	// reload state after adding lanes
 
-	state, err = changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
-	for _, chainSel := range e.Env.AllChainSelectors() {
-		key := e.Env.Chains[chainSel].DeployerKey
-		rmnContractAddress := state.Chains[chainSel].RMNRemote.Address()
-		_, err = state.Chains[chainSel].RMNProxy.SetARM(key, rmnContractAddress)
-		require.NoError(t, err)
-	}
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
 
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
@@ -196,18 +193,15 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, err)
 	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
-	// reload state after adding lanes
 
-	state, err = changeset.LoadOnchainState(e.Env)
-	require.NoError(t, err)
+	// reload state after adding lanes
 	tEnv.UpdateDeployedEnvironment(e)
 
-	for _, chainSel := range e.Env.AllChainSelectors() {
-		key := e.Env.Chains[chainSel].DeployerKey
-		rmnContractAddress := state.Chains[chainSel].RMNRemote.Address()
-		_, err = state.Chains[chainSel].RMNProxy.SetARM(key, rmnContractAddress)
-		require.NoError(t, err)
-	}
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
 
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
@@ -225,8 +219,8 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = deployment.CreateLegacyChangeSet(changeset.RMNCurseChangeset).Apply(e.Env, changeset.RMNCurseConfig{
-		CurseActions: []changeset.CurseAction{changeset.CurseChain(e.Env.AllChainSelectors()[0])},
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
@@ -302,12 +296,11 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
-	for _, chainSel := range e.Env.AllChainSelectors() {
-		key := e.Env.Chains[chainSel].DeployerKey
-		rmnContractAddress := state.Chains[chainSel].RMNRemote.Address()
-		_, err = state.Chains[chainSel].RMNProxy.SetARM(key, rmnContractAddress)
-		require.NoError(t, err)
-	}
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
 
 	// send continuous messages in real router until done is closed
 	// send a message from the other lane src1 -> dest
@@ -325,8 +318,8 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_, err = deployment.CreateLegacyChangeSet(changeset.RMNCurseChangeset).Apply(e.Env, changeset.RMNCurseConfig{
-		CurseActions: []changeset.CurseAction{changeset.CurseChain(e.Env.AllChainSelectors()[0])},
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
 		Reason:       "Curse test",
 	})
 	require.NoError(t, err)
@@ -344,8 +337,8 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 		commitFound <- struct{}{}
 	}()
 
-	_, err = deployment.CreateLegacyChangeSet(changeset.RMNUncurseChangeset).Apply(e.Env, changeset.RMNCurseConfig{
-		CurseActions: []changeset.CurseAction{changeset.CurseChain(e.Env.AllChainSelectors()[0])},
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
 		Reason:       "Uncurse test",
 	})
 	require.NoError(t, err)
@@ -357,7 +350,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	}
 
 	// We have to restart all chainlink node because it cache the curse status for 30min
-	cli, err := dockerClient.NewClientWithOpts(dockerClient.FromEnv, dockerClient.WithAPIVersionNegotiation())
+	cli, err := dockerClient.NewClientWithOpts()
 	require.NoError(t, err)
 	err = restartContainersByImage(context.Background(), cli, "chainlink")
 	require.NoError(t, err)
@@ -365,7 +358,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	select {
 	case <-commitFound:
 		return
-	case <-time.After(30 * time.Minute):
+	case <-time.After(5 * time.Minute):
 		t.Fatal("timed out waiting for commit")
 	}
 }
