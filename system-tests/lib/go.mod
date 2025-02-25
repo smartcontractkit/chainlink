@@ -3,8 +3,8 @@ module github.com/smartcontractkit/chainlink/system-tests/lib
 go 1.23.3
 
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250206093113-4e72c05bdba6
-	github.com/smartcontractkit/chainlink/v2 v2.19.0-ccip1.5.16-alpha.0.0.20250206093113-4e72c05bdba6
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
 )
 
 // Make sure we're working with the latest chainlink libs
@@ -17,7 +17,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250214231858-f365e2bdecea
+	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.4
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.23
@@ -338,7 +338,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.40 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250221121938-dd0db587bff4 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250225082728-02822188ef7b // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250214202341-4190f2db1c01 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250128203428-08031923fbe5 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect

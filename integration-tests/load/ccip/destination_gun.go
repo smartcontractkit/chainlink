@@ -88,7 +88,6 @@ func (m *DestinationGun) Validate() error {
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
-	requestedRound := m.roundNum.Load()
 
 	waspGroup := fmt.Sprintf("%d-%s", m.chainSelector, "messageOnly")
 
@@ -110,7 +109,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
-	// Set the gas limit of the message
+	// Set the gas limit for this tx
 	acc.GasLimit = gasLimit
 
 	fee, err := r.GetFee(
@@ -130,7 +129,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
-		"round", requestedRound,
 		"fee", fee,
 		"msg", msg)
 	tx, err := r.CcipSend(

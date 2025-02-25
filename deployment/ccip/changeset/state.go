@@ -230,13 +230,6 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	return common.Address{}, errors.New("no link token found in the state")
 }
 
-func (c CCIPChainState) OnRampBytes() ([]byte, error) {
-	if c.OnRamp != nil {
-		return c.OnRamp.Address().Bytes(), nil
-	}
-	return nil, errors.New("no onramp found in the state")
-}
-
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
@@ -574,7 +567,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	return m, nil
 }
 
-func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, err
@@ -591,6 +584,31 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	}
 
 	return offRampAddress, nil
+}
+
+func (s CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var onRampAddressBytes []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		if s.Chains[chainSelector].OnRamp == nil {
+			return nil, fmt.Errorf("no onramp found in the state for chain %d", chainSelector)
+		}
+		onRampAddressBytes = s.Chains[chainSelector].OnRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		if s.SolChains[chainSelector].Router.IsZero() {
+			return nil, fmt.Errorf("no router found in the state for chain %d", chainSelector)
+		}
+		onRampAddressBytes = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
+	}
+
+	return onRampAddressBytes, nil
 }
 
 func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
