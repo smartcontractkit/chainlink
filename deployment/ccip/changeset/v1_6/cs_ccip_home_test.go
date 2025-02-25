@@ -74,6 +74,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	params := v1_6.DeriveOCRParamsForCommit(
 		chain1, e.FeedChainSel, nil, nil,
 	)
+
 	// tweak params to have invalid config
 	// make DeltaRound greater than DeltaProgress
 	params.OCRParameters.DeltaRound = params.OCRParameters.DeltaProgress + time.Duration(1)
@@ -89,7 +90,8 @@ func TestInvalidOCR3Params(t *testing.T) {
 		globals.DefaultExecuteOffChainCfg,
 	)
 	require.Errorf(t, err, "expected error")
-	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`
+
+	pattern := `DeltaRound \(\d+m\d+\.\d+s\) must be less than DeltaProgress \(\d+m\d+s\)`
 	matched, err1 := regexp.MatchString(pattern, err.Error())
 	require.NoError(t, err1)
 	require.True(t, matched)
