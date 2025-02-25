@@ -89,11 +89,14 @@ func (m *MsgDetails) Validate() error {
 		return errors.New(fmt.Sprintf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer))
 	}
 
-	if m.DestGasLimit == nil {
-		return errors.New("dest gas limit should be set")
-	}
-	if *m.DestGasLimit < 0 {
-		return errors.New("dest gas limit should be greater than 0")
+	// We need to check for dest gas limit only if the message type is not token only transfer
+	if pointer.GetString(m.MsgType) != TokenOnlyTransfer {
+		if m.DestGasLimit == nil {
+			return errors.New("dest gas limit should be set")
+		}
+		if *m.DestGasLimit < 0 {
+			return errors.New("dest gas limit should be greater than 0")
+		}
 	}
 
 	if m.Ratio == nil {

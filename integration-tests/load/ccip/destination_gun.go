@@ -193,7 +193,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	var selectedMsgDetails *ccip.MsgDetails
 
 	for _, msg := range *m.testConfig.MessageDetails {
-		accumulatedRatio += int(*msg.Ratio)
+		accumulatedRatio += *msg.Ratio
 		if randomValue < accumulatedRatio {
 			selectedMsgDetails = &msg
 			break
@@ -225,10 +225,15 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 		message.TokenAmounts = []router.ClientEVMTokenAmount{
 			{
 				Token:  m.state.Chains[src].LinkToken.Address(),
-				Amount: big.NewInt(1), // Use a configurable amount here if needed
+				Amount: big.NewInt(1),
 			},
 		}
 	}
 
-	return message, *selectedMsgDetails.DestGasLimit, nil
+	gasLimit := int64(0)
+	if selectedMsgDetails.DestGasLimit != nil {
+		gasLimit = *selectedMsgDetails.DestGasLimit
+	}
+
+	return message, gasLimit, nil
 }
