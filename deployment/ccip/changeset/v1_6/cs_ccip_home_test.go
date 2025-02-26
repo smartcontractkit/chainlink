@@ -88,8 +88,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 		&globals.DefaultExecuteOffChainCfg,
 	)
 	require.Errorf(t, err, "expected error")
-
-	pattern := `DeltaRound \(\d+m\d+\.\d+s\) must be less than DeltaProgress \(\d+m\d+s\)`
+	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`
 	matched, err1 := regexp.MatchString(pattern, err.Error())
 	require.NoError(t, err1)
 	require.True(t, matched)
