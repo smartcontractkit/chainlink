@@ -8,9 +8,13 @@ interface ILiquidityContainer {
 
   /// @notice Provide additional liquidity to the container.
   /// @dev Should emit LiquidityAdded
-  function provideLiquidity(uint256 amount) external;
+  function provideLiquidity(
+    uint256 amount
+  ) external;
 
   /// @notice Withdraws liquidity from the container to the msg sender
   /// @dev Should emit LiquidityRemoved
-  function withdrawLiquidity(uint256 amount) external;
+  function withdrawLiquidity(
+    uint256 amount
+  ) external;
 }
