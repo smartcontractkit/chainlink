@@ -4,6 +4,7 @@ import (
 	"time"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
@@ -136,12 +137,13 @@ func DeriveOCRParamsForCommit(
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
 	var params CCIPOCRParams
-	if isSimulatedChain {
+	switch {
+	case isSimulatedChain:
 		params = OcrParamsForTest.Copy()
-	} else if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
+	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
 		params = DefaultOCRParamsForCommitForETH.Copy()
-	} else {
+	default:
 		params = DefaultOCRParamsForCommitForNonETH.Copy()
 	}
 	params.CommitOffChainConfig.TokenInfo = feeTokenInfo
@@ -160,12 +162,13 @@ func DeriveOCRParamsForExec(
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
 	var params CCIPOCRParams
-	if isSimulatedChain {
+	switch {
+	case isSimulatedChain:
 		params = OcrParamsForTest.Copy()
-	} else if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
+	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
 		params = DefaultOCRParamsForExecForETH.Copy()
-	} else {
+	default:
 		params = DefaultOCRParamsForExecForNonETH.Copy()
 	}
 
