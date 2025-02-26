@@ -440,7 +440,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250213203720-e15b1333a14a // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8-0.20250225210020-fc215b29321e // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5-0.20250225210020-fc215b29321e // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.1-0.20250225210020-fc215b29321e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
