@@ -107,12 +107,13 @@ func TestKeystoneView(t *testing.T) {
 		viewOCR3Config, ok := viewChain.OCRContracts[newOCR3Addr]
 		require.True(t, ok)
 		require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
-		viewForwarder, ok := viewChain.Forwarders[newForwarderAddr]
+		viewForwarders, ok := viewChain.Forwarders[newForwarderAddr]
 		require.True(t, ok)
-		require.Equal(t, uint32(1), viewForwarder.DonID)
-		require.Equal(t, uint8(1), viewForwarder.F)
-		require.Equal(t, uint32(1), viewForwarder.ConfigVersion)
-		require.Len(t, viewForwarder.Signers, 4)
+		require.Len(t, viewForwarders, 1)
+		require.Equal(t, uint32(1), viewForwarders[0].DonID)
+		require.Equal(t, uint8(1), viewForwarders[0].F)
+		require.Equal(t, uint32(1), viewForwarders[0].ConfigVersion)
+		require.Len(t, viewForwarders[0].Signers, 4)
 
 		fmt.Printf("%+v\n", outView.Chains[chainName].Forwarders)
 	})

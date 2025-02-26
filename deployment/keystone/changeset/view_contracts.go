@@ -29,7 +29,7 @@ type KeystoneChainView struct {
 	// OCRContracts is a map of OCR3 contract addresses to their configuration view
 	OCRContracts     map[string]OCR3ConfigView                   `json:"ocrContracts,omitempty"`
 	WorkflowRegistry map[string]common_v1_0.WorkflowRegistryView `json:"workflowRegistry,omitempty"`
-	Forwarders       map[string]ForwarderView                    `json:"forwarders,omitempty"`
+	Forwarders       map[string][]ForwarderView                  `json:"forwarders,omitempty"`
 }
 
 type OCR3ConfigView struct {
@@ -149,7 +149,7 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 	}, nil
 }
 
-func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder) (ForwarderView, error) {
+func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder) ([]ForwarderView, error) {
 	// This could be effectively done with 2 other approaches:
 	// 1. Fetching the transaction receipt of the contract deployment, getting the deployment block number,
 	//    and extracting the config from the logs, but we don't have access to the transaction hash needed for this.
@@ -161,35 +161,38 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder) 
 		Context: ctx,
 	}, nil, nil)
 	if err != nil {
-		return ForwarderView{}, fmt.Errorf("error filtering ConfigSet events: %w", err)
+		return nil, fmt.Errorf("error filtering ConfigSet events: %w", err)
 	}
 
-	var configSet *forwarder.KeystoneForwarderConfigSet
+	configSets := make([]*forwarder.KeystoneForwarderConfigSet, 0)
 	for configIterator.Next() {
 		// We wait for the iterator to receive an event
 		if configIterator.Event == nil {
-			// Since we are going from the contract deployment block
-			// to the latest block, we can't just return an error here
-			// as we might not have reached the latest block yet
-			// which may contain the config event.
+			// We cannot return an error, since we are capturing all `SetConfig` events, so if there's a nil event,
+			// we ignore it.
 			continue
 		}
-		configSet = configIterator.Event
+		configSets = append(configSets, configIterator.Event)
 	}
-	if configSet == nil {
-		return ForwarderView{}, ErrForwarderNotConfigured
+	if len(configSets) == 0 {
+		return nil, ErrForwarderNotConfigured
 	}
 
-	var readableSigners []string
-	for _, s := range configSet.Signers {
-		readableSigners = append(readableSigners, s.String())
+	var forwarderViews []ForwarderView
+	for _, configSet := range configSets {
+		var readableSigners []string
+		for _, s := range configSet.Signers {
+			readableSigners = append(readableSigners, s.String())
+		}
+		forwarderViews = append(forwarderViews, ForwarderView{
+			DonID:         configSet.DonId,
+			ConfigVersion: configSet.ConfigVersion,
+			F:             configSet.F,
+			Signers:       readableSigners,
+		})
 	}
-	return ForwarderView{
-		DonID:         configSet.DonId,
-		ConfigVersion: configSet.ConfigVersion,
-		F:             configSet.F,
-		Signers:       readableSigners,
-	}, nil
+
+	return forwarderViews, nil
 }
 
 func millisecondsToUint32(dur time.Duration) uint32 {
@@ -206,7 +209,7 @@ func NewKeystoneChainView() KeystoneChainView {
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		OCRContracts:       make(map[string]OCR3ConfigView),
 		WorkflowRegistry:   make(map[string]common_v1_0.WorkflowRegistryView),
-		Forwarders:         make(map[string]ForwarderView),
+		Forwarders:         make(map[string][]ForwarderView),
 	}
 }
 
