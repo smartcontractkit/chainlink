@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
 
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
@@ -15,6 +16,7 @@ import (
 
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -40,6 +42,44 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	e, newTokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	// MintTo does not support native tokens
+	deployerKey := e.SolChains[solChain].DeployerKey.PublicKey()
+	testUser, _ := solana.NewRandomPrivateKey()
+	testUserPubKey := testUser.PublicKey()
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			// deployer creates ATA for itself and testUser
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.CreateSolanaTokenATA),
+			ccipChangesetSolana.CreateSolanaTokenATAConfig{
+				ChainSelector: solChain,
+				TokenPubkey:   newTokenAddress,
+				TokenProgram:  ccipChangeset.SPL2022Tokens,
+				ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
+			},
+		),
+		commonchangeset.Configure(
+			// deployer mints token to itself and testUser
+			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
+			ccipChangesetSolana.MintSolanaTokenConfig{
+				ChainSelector: solChain,
+				TokenPubkey:   newTokenAddress.String(),
+				AmountToAddress: map[string]uint64{
+					deployerKey.String():    uint64(1000),
+					testUserPubKey.String(): uint64(1000),
+				},
+			},
+		),
+	},
+	)
+	require.NoError(t, err)
+	testUserATA, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, newTokenAddress, testUserPubKey)
+	require.NoError(t, err)
+	deployerATA, _, err := solTokenUtil.FindAssociatedTokenAddress(
+		solana.Token2022ProgramID,
+		newTokenAddress,
+		e.SolChains[solChain].DeployerKey.PublicKey(),
+	)
 	require.NoError(t, err)
 	mcmsConfigured := false
 	remoteConfig := solBaseTokenPool.RemoteConfig{
@@ -87,8 +127,6 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						ChainSelector: solChain,
 						TokenPubKey:   tokenAddress.String(),
 						PoolType:      testCase.poolType,
-						// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
-						Authority: tenv.Env.SolChains[solChain].DeployerKey.PublicKey().String(),
 					},
 				),
 				commonchangeset.Configure(
@@ -192,6 +230,76 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			},
 			)
 			require.NoError(t, err)
+			if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
+				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.TokenApproveChecked),
+						ccipChangesetSolana.TokenApproveCheckedConfig{
+							Amount:        100,
+							Decimals:      9,
+							ChainSelector: solChain,
+							TokenPubKey:   tokenAddress.String(),
+							PoolType:      testCase.poolType,
+							SourceATA:     deployerATA,
+						},
+					),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+						ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
+							SolChainSelector: solChain,
+							SolTokenPubKey:   tokenAddress.String(),
+							SetCfg: &ccipChangesetSolana.SetLiquidityConfig{
+								Enabled: true,
+							},
+							MCMSSolana: mcmsConfig,
+						},
+					),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+						ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
+							SolChainSelector: solChain,
+							SolTokenPubKey:   tokenAddress.String(),
+							LiquidityCfg: &ccipChangesetSolana.LiquidityConfig{
+								Amount:             100,
+								RemoteTokenAccount: deployerATA,
+								Type:               ccipChangesetSolana.Provide,
+							},
+							MCMSSolana: mcmsConfig,
+						},
+					),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
+						ccipChangesetSolana.LockReleaseLiquidityOpsConfig{
+							SolChainSelector: solChain,
+							SolTokenPubKey:   tokenAddress.String(),
+							LiquidityCfg: &ccipChangesetSolana.LiquidityConfig{
+								Amount:             50,
+								RemoteTokenAccount: testUserATA,
+								Type:               ccipChangesetSolana.Withdraw,
+							},
+							MCMSSolana: mcmsConfig,
+						},
+					),
+				},
+				)
+				require.NoError(t, err)
+				outDec, outVal, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, deployerATA, solRpc.CommitmentConfirmed)
+				require.NoError(t, err)
+				require.Equal(t, int(900), outVal)
+				require.Equal(t, 9, int(outDec))
+
+				outDec, outVal, err = solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, testUserATA, solRpc.CommitmentConfirmed)
+				require.NoError(t, err)
+				require.Equal(t, int(1050), outVal)
+				require.Equal(t, 9, int(outDec))
+
+				err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
+				require.NoError(t, err)
+				outDec, outVal, err = solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, configAccount.Config.PoolTokenAccount, solRpc.CommitmentConfirmed)
+				require.NoError(t, err)
+				require.Equal(t, int(50), outVal)
+				require.Equal(t, 9, int(outDec))
+			}
 		}
 	}
 }

@@ -909,7 +909,6 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubKey:   solTokenAddress.String(),
 				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
-				Authority:     solDeployerKey.String(),
 			},
 		),
 	)
