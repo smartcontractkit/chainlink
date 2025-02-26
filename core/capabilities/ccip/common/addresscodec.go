@@ -18,19 +18,22 @@ type ChainSpecificAddressCodec interface {
 type AddressCodec struct {
 	EVMAddressCodec    ChainSpecificAddressCodec
 	SolanaAddressCodec ChainSpecificAddressCodec
+	AptosAddressCodec  ChainSpecificAddressCodec
 }
 
 // AddressCodecParams is a struct that holds the parameters for creating a AddressCodec
 type AddressCodecParams struct {
 	evmAddressCodec    ChainSpecificAddressCodec
 	solanaAddressCodec ChainSpecificAddressCodec
+	aptosAddressCodec  ChainSpecificAddressCodec
 }
 
 // NewAddressCodecParams is a constructor for AddressCodecParams
-func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
+func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec, aptosAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
 	return AddressCodecParams{
 		evmAddressCodec:    evmAddressCodec,
 		solanaAddressCodec: solanaAddressCodec,
+		aptosAddressCodec:  aptosAddressCodec,
 	}
 }
 
@@ -39,6 +42,7 @@ func NewAddressCodec(params AddressCodecParams) AddressCodec {
 	return AddressCodec{
 		EVMAddressCodec:    params.evmAddressCodec,
 		SolanaAddressCodec: params.solanaAddressCodec,
+		AptosAddressCodec:  params.aptosAddressCodec,
 	}
 }
 
@@ -55,6 +59,9 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 
 	case chainsel.FamilySolana:
 		return ac.SolanaAddressCodec.AddressBytesToString(addr)
+
+	case chainsel.FamilyAptos:
+		return ac.AptosAddressCodec.AddressBytesToString(addr)
 
 	default:
 		return "", fmt.Errorf("unsupported family for address encode type %s", family)
@@ -74,6 +81,9 @@ func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes
 
 	case chainsel.FamilySolana:
 		return ac.SolanaAddressCodec.AddressStringToBytes(addr)
+
+	case chainsel.FamilyAptos:
+		return ac.AptosAddressCodec.AddressStringToBytes(addr)
 
 	default:
 		return nil, fmt.Errorf("unsupported family for address decode type %s", family)
