@@ -37,8 +37,8 @@ CPUProfileRate = 7
 
 [Workflows]
 [Workflows.Limits]
-Global = 50
-PerOwner = 5
+Global = 200
+PerOwner = 200
 
 [[EVM]]
 ChainID = '1'

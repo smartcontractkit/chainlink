@@ -473,9 +473,9 @@ MaxConfigSize = '50.00kb' # Default
 [Workflows]
 [Workflows.Limits]
 # Global is the maximum number of workflows that can be registered globally.
-Global = 50 # Default
+Global = 200 # Default
 # PerOwner is the maximum number of workflows that can be registered per owner.
-PerOwner = 5 # Default
+PerOwner = 200 # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.

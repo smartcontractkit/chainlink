@@ -15,6 +15,6 @@ func TestWorkflowsConfig(t *testing.T) {
 	require.NoError(t, err)
 
 	w := cfg.Workflows()
-	assert.Equal(t, int32(50), w.Limits().Global())
-	assert.Equal(t, int32(5), w.Limits().PerOwner())
+	assert.Equal(t, int32(200), w.Limits().Global())
+	assert.Equal(t, int32(200), w.Limits().PerOwner())
 }

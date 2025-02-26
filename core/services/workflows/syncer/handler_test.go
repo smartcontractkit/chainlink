@@ -89,7 +89,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "https://original-url.com"
@@ -120,7 +120,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
@@ -139,7 +139,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
@@ -166,7 +166,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -197,7 +197,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -535,7 +535,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
 			workflowkey.Key{}, rl, workflowLimits, opts...)
@@ -588,7 +588,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -668,7 +668,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -753,7 +753,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
@@ -905,7 +905,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	}
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
@@ -973,7 +973,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	}
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
@@ -1042,7 +1042,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 50, PerOwner: 5})
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
 	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,

@@ -99,8 +99,8 @@ var (
 			},
 			Workflows: toml.Workflows{
 				Limits: toml.Limits{
-					Global:   ptr(int32(50)),
-					PerOwner: ptr(int32(5)),
+					Global:   ptr(int32(200)),
+					PerOwner: ptr(int32(200)),
 				},
 			},
 		},
@@ -509,8 +509,8 @@ func TestConfig_Marshal(t *testing.T) {
 	}
 	full.Workflows = toml.Workflows{
 		Limits: toml.Limits{
-			Global:   ptr(int32(50)),
-			PerOwner: ptr(int32(5)),
+			Global:   ptr(int32(200)),
+			PerOwner: ptr(int32(200)),
 		},
 	}
 	full.Keeper = toml.Keeper{

@@ -49,8 +49,8 @@ var rlConfig = ratelimiter.Config{
 }
 
 var wlConfig = syncerlimiter.Config{
-	Global:   50,
-	PerOwner: 10,
+	Global:   200,
+	PerOwner: 200,
 }
 
 type testEvtHandler struct {

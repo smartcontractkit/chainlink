@@ -351,8 +351,8 @@ EmitterExportTimeout = '1s'
 
 [Workflows]
 [Workflows.Limits]
-Global = 50
-PerOwner = 5
+Global = 200
+PerOwner = 200
 
 Invalid configuration: invalid configuration: P2P.V2.Enabled: invalid value (false): P2P required for OCR or OCR2. Please enable P2P or disable OCR/OCR2.
 

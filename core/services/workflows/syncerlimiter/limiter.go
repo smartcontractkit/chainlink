@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	defaultGlobal   = 50
-	defaultPerOwner = 5
+	defaultGlobal   = 200
+	defaultPerOwner = 200
 )
 
 type Limits struct {

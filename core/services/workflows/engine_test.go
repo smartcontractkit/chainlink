@@ -183,8 +183,8 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	require.NoError(t, err)
 
 	sl, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
-		Global:   50,
-		PerOwner: 5,
+		Global:   200,
+		PerOwner: 200,
 	})
 	require.NoError(t, err)
 

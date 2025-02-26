@@ -1311,20 +1311,20 @@ MaxConfigSize is the maximum size of a config that can be fetched from the given
 ## Workflows.Limits
 ```toml
 [Workflows.Limits]
-Global = 50 # Default
-PerOwner = 5 # Default
+Global = 200 # Default
+PerOwner = 200 # Default
 ```
 
 
 ### Global
 ```toml
-Global = 50 # Default
+Global = 200 # Default
 ```
 Global is the maximum number of workflows that can be registered globally.
 
 ### PerOwner
 ```toml
-PerOwner = 5 # Default
+PerOwner = 200 # Default
 ```
 PerOwner is the maximum number of workflows that can be registered per owner.
 

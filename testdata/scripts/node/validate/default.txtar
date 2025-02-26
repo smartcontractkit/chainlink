@@ -322,8 +322,8 @@ EmitterExportTimeout = '1s'
 
 [Workflows]
 [Workflows.Limits]
-Global = 50
-PerOwner = 5
+Global = 200
+PerOwner = 200
 
 Invalid configuration: invalid secrets: 2 errors:
 	- Database.URL: empty: must be provided and non-empty
