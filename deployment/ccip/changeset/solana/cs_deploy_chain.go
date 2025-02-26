@@ -174,7 +174,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 
 	if len(batches) > 0 {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelocks,
 			proposers,
 			inspectors,

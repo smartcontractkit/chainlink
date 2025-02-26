@@ -74,7 +74,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@bb2d725fba3a42858bcb91e816987ca7cd063488
+    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@18ee2276811ff4ad56a2284590c9917bec33b748
     with:
       workflow_name: Run CCIP Integration Tests For PR
       test_path: .github/integration-in-memory-tests.yml
@@ -98,7 +98,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@d7f8e299e891eafa428a37b5e856d929232c6e18
+    uses: smartcontractkit/.github/.github/workflows/run-integration-tests.yml@18ee2276811ff4ad56a2284590c9917bec33b748
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       test_path: .github/integration-in-memory-tests.yml

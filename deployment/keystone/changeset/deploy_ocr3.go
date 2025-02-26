@@ -107,7 +107,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 			cfg.ChainSel: inspector,
 		}
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
 			inspectorPerChain,

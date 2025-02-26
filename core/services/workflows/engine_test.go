@@ -10,6 +10,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
@@ -1874,6 +1875,86 @@ func TestEngine_CloseHappensOnlyIfWorkflowHasBeenRegistered(t *testing.T) {
 	<-testHooks.initFailed
 	err = eng.Close()
 	require.NoError(t, err)
+}
+
+func TestEngine_CloseUnregisterFails_NotFound(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+	trigger, _ := mockTrigger(t)
+
+	require.NoError(t, reg.Add(ctx, trigger))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+
+	target := mockTarget("write_ethereum-testnet-sepolia@1.0.0")
+	require.NoError(t, reg.Add(ctx, target))
+
+	action := newMockCapability(
+		// Create a remote capability so we don't use the local transmission protocol.
+		capabilities.MustNewRemoteCapabilityInfo(
+			"custom-compute@1.0.0",
+			capabilities.CapabilityTypeAction,
+			"a custom compute action with custom config",
+			&capabilities.DON{ID: 1},
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			return capabilities.CapabilityResponse{
+				Value: req.Inputs,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, action))
+
+	eng, testHooks := newTestEngineWithYAMLSpec(
+		t,
+		reg,
+		secretsWorkflow,
+		func(c *Config) {
+			c.SecretsFetcher = &mockFetcher{
+				retval: map[string]string{},
+				retErr: errors.New("failed to fetch secrets XXX"),
+			}
+		},
+	)
+
+	err := eng.Start(ctx)
+	require.NoError(t, err)
+
+	// simulate WorkflowUpdatedEvent that calls tryEngineCleanup
+	<-testHooks.initFailed
+
+	// update trigger to mock
+	// triggerCapability wraps a capabilities.TriggerCapability
+	mockedInternalTrigger := newMockRuntimeTrigger(eng.workflow.triggers[0].trigger)
+	mockedInternalTrigger.On("UnregisterTrigger").Return(errors.New("trigger mock not found"))
+	eng.workflow.triggers[0].trigger = mockedInternalTrigger
+	eng.workflow.triggers[0].registered = true
+
+	err = eng.Close()
+	require.NoError(t, err)
+}
+
+type mockRuntimeTrigger struct {
+	c capabilities.TriggerCapability
+	*mock.Mock
+}
+
+func newMockRuntimeTrigger(t capabilities.TriggerCapability) *mockRuntimeTrigger {
+	return &mockRuntimeTrigger{t, new(mock.Mock)}
+}
+
+func (t mockRuntimeTrigger) Info(ctx context.Context) (capabilities.CapabilityInfo, error) {
+	return t.c.Info(ctx)
+}
+
+func (t mockRuntimeTrigger) RegisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) (<-chan capabilities.TriggerResponse, error) {
+	return t.c.RegisterTrigger(ctx, request)
+}
+
+func (t mockRuntimeTrigger) UnregisterTrigger(ctx context.Context, request capabilities.TriggerRegistrationRequest) error {
+	args := t.Called()
+	return args.Error(0)
 }
 
 func TestMerge(t *testing.T) {

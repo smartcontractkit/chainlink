@@ -170,7 +170,7 @@ func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployme
 		return nil, err
 	}
 
-	transaction := res.RawTransaction.(*types.Transaction)
+	transaction := res.RawData.(*types.Transaction)
 	if !useMCMS {
 		_, err = deployment.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
 		if err != nil {
@@ -357,7 +357,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 	}
 
 	if useMCMS {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(e.GetContext(), timelockAddressesPerChain,
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
 			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", cfg.ProposalConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)

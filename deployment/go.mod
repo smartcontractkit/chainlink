@@ -32,7 +32,7 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250225130625-4a632b0b1e61
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250226083129-e596590f48f7
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250214202341-4190f2db1c01
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb
@@ -42,7 +42,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298
-	github.com/smartcontractkit/mcms v0.10.0
+	github.com/smartcontractkit/mcms v0.12.2
 	github.com/stretchr/testify v1.10.0
 	github.com/testcontainers/testcontainers-go v0.35.0
 	go.uber.org/multierr v1.11.0
@@ -358,7 +358,7 @@ require (
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250224190032-809e4b8cf29e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a // indirect
-	github.com/smartcontractkit/chainlink-protos/orchestrator v0.4.0 // indirect
+	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10 // indirect
