@@ -83,6 +83,9 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
@@ -110,6 +113,9 @@ jobs:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
       QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
+      PROD_AWS_ACCOUNT_NUMBER: ${{ secrets.AWS_ACCOUNT_ID_PROD }}
+      QA_PYROSCOPE_INSTANCE: ${{ secrets.QA_PYROSCOPE_INSTANCE }}
+      QA_PYROSCOPE_KEY: ${{ secrets.QA_PYROSCOPE_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       MAIN_DNS_ZONE_PUBLIC_SDLC: ${{ secrets.MAIN_DNS_ZONE_PUBLIC_SDLC }}
