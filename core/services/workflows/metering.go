@@ -43,7 +43,7 @@ func (v MeteringSpendValue) Div(value MeteringSpendValue) MeteringSpendValue {
 }
 
 func (v MeteringSpendValue) GreaterThan(value MeteringSpendValue) bool {
-	return v.value.GreaterThan(v.value)
+	return v.value.GreaterThan(value.value)
 }
 
 func (v MeteringSpendValue) String() string {

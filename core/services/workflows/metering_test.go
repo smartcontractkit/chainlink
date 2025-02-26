@@ -7,6 +7,7 @@ import (
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 )
@@ -39,7 +40,14 @@ func TestMeteringReport(t *testing.T) {
 			testUnitB: testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.2)),
 		}
 
-		assert.Equal(t, expected, report.MedianSpend())
+		median := report.MedianSpend()
+
+		require.Len(t, median, 2)
+		require.Contains(t, maps.Keys(median), testUnitA)
+		require.Contains(t, maps.Keys(median), testUnitB)
+
+		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
+		assert.Equal(t, expected[testUnitB].String(), median[testUnitB].String())
 	})
 
 	t.Run("MedianSpend returns median single spend value", func(t *testing.T) {
@@ -58,7 +66,12 @@ func TestMeteringReport(t *testing.T) {
 			testUnitA: testUnitA.IntToSpendValue(1),
 		}
 
-		assert.Equal(t, expected, report.MedianSpend())
+		median := report.MedianSpend()
+
+		require.Len(t, median, 1)
+		require.Contains(t, maps.Keys(median), testUnitA)
+
+		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
 	})
 
 	t.Run("MedianSpend returns median odd number of spend values", func(t *testing.T) {
@@ -79,7 +92,12 @@ func TestMeteringReport(t *testing.T) {
 			testUnitA: testUnitA.IntToSpendValue(2),
 		}
 
-		assert.Equal(t, expected, report.MedianSpend())
+		median := report.MedianSpend()
+
+		require.Len(t, median, 1)
+		require.Contains(t, maps.Keys(median), testUnitA)
+
+		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
 	})
 
 	t.Run("MedianSpend returns median as average for even number of spend values", func(t *testing.T) {
@@ -101,6 +119,11 @@ func TestMeteringReport(t *testing.T) {
 			testUnitA: testUnitA.DecimalToSpendValue(decimal.NewFromFloat(2.5)),
 		}
 
-		assert.Equal(t, expected, report.MedianSpend())
+		median := report.MedianSpend()
+
+		require.Len(t, median, 1)
+		require.Contains(t, maps.Keys(median), testUnitA)
+
+		assert.Equal(t, expected[testUnitA].String(), median[testUnitA].String())
 	})
 }
