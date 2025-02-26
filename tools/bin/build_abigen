@@ -34,7 +34,7 @@ pushd "$TMPDIR"
 
 git clone --depth=1 --single-branch --branch "$GETH_VERSION" "$GETH_REPO_URL"
 cd go-ethereum/cmd/abigen
-go build
+go build -ldflags="-s -w" # necessary on MacOS for code signing (see  https://github.com/confluentinc/confluent-kafka-go/issues/1092#issuecomment-2373681430)
 rm -f "$THIS_DIR/abigen" # necessary on MacOS for code signing
 cp ./abigen "$THIS_DIR"
 

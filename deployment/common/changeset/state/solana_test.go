@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -50,7 +51,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) 
 		return chainState
 	}
 
-	setPreloadedSolanaAddresses(t, env, chainSelector)
+	changeset.SetPreloadedSolanaAddresses(t, env, chainSelector)
 
 	tests := []struct {
 		name    string
@@ -138,20 +139,6 @@ func toJSON[T any](t *testing.T, value T) string {
 	require.NoError(t, err)
 
 	return string(bytes)
-}
-
-func setPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err := env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["mcm"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["access_controller"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
-	require.NoError(t, err)
 }
 
 func signerPDA(programID solana.PublicKey, seed state.PDASeed) string {
