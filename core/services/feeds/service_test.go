@@ -238,9 +238,9 @@ func setupTestServiceCfg(
 		DatabaseConfig: gcfg.Database(),
 		FeatureConfig:  gcfg.Feature(),
 		ListenerConfig: gcfg.Database().Listener(),
+		KeyStore:       ethKeyStore,
 		DB:             db,
 		HeadTracker:    heads.NullTracker,
-		KeyStore:       ethKeyStore,
 	})
 	keyStore.On("Eth").Return(ethKeyStore)
 	keyStore.On("CSA").Return(csaKeystore)
@@ -272,8 +272,6 @@ func setupTestServiceCfg(
 func Test_Service_RegisterManager(t *testing.T) {
 	t.Parallel()
 
-	key := cltest.DefaultCSAKey
-
 	var (
 		id        = int64(1)
 		pubKeyHex = "0f17c3bf72de8beef6e2d17a14c0a972f5d7e0e66e70722373f12b88382d40f9"
@@ -303,7 +301,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 		Return(id, nil)
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
 	svc.orm.On("ListManagers", testutils.Context(t)).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
@@ -324,8 +321,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 
 func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	t.Parallel()
-
-	key := cltest.DefaultCSAKey
 
 	var (
 		id        = int64(1)
@@ -360,7 +355,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 		Return(id, nil)
 	svc.orm.On("CreateBatchChainConfig", mock.Anything, params.ChainConfigs, mock.Anything).
 		Return([]int64{}, nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	// ListManagers runs in a goroutine so it might be called.
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 	transactCall := svc.orm.On("Transact", mock.Anything, mock.Anything)
@@ -505,7 +499,6 @@ func Test_Service_GetManager(t *testing.T) {
 }
 
 func Test_Service_UpdateFeedsManager(t *testing.T) {
-	key := cltest.DefaultCSAKey
 
 	var (
 		mgr = feeds.FeedsManager{ID: 1}
@@ -514,7 +507,6 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 	svc := setupTestService(t)
 
 	svc.orm.On("UpdateManager", mock.Anything, mgr, mock.Anything).Return(nil)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
@@ -523,15 +515,12 @@ func Test_Service_UpdateFeedsManager(t *testing.T) {
 }
 
 func Test_Service_EnableFeedsManager(t *testing.T) {
-	key := cltest.DefaultCSAKey
-
 	mgr := feeds.FeedsManager{ID: 1}
 
 	svc := setupTestService(t)
 
 	svc.orm.On("EnableManager", mock.Anything, mgr.ID).Return(&mgr, nil)
 	svc.connMgr.On("IsConnected", mgr.ID).Return(false)
-	svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	svc.connMgr.On("Disconnect", mgr.ID).Return(nil)
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{})).Return(nil)
 
@@ -643,6 +632,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 			svc.orm.On("CreateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
@@ -714,6 +704,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 
 	workflowKey, err := workflowkey.New()
 	require.NoError(t, err)
+	svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 	svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 	svc.orm.On("GetChainConfig", mock.Anything, cfg.ID).Return(&cfg, nil)
@@ -811,6 +802,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 
 			workflowKey, err := workflowkey.New()
 			require.NoError(t, err)
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 
 			svc.orm.On("UpdateChainConfig", mock.Anything, cfg).Return(int64(1), nil)
@@ -1817,6 +1809,7 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 			svc.p2pKeystore.On("Get", p2pKey.PeerID()).Return(p2pKey, nil)
 			svc.ocr1Keystore.On("Get", ocrKey.GetID()).Return(ocrKey, nil)
 
+			svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 			svc.workflowKeystore.On("GetAll").Return([]workflowkey.Key{workflowKey}, nil)
 			wkID := workflowKey.ID()
 			svc.fmsClient.On("UpdateNode", mock.Anything, &proto.UpdateNodeRequest{
@@ -1921,6 +1914,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "create chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
@@ -1944,6 +1938,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "update chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().UpdateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
@@ -1967,6 +1962,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "delete chain",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().DeleteChainConfig(mock.Anything, cfg.ID).Return(cfg.ID, nil)
@@ -1991,6 +1987,7 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 		{
 			name: "more errors than MaxAttempts",
 			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
 				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
@@ -4878,6 +4875,7 @@ func Test_Service_StartStop(t *testing.T) {
 		{
 			name: "success with a feeds manager connection",
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
@@ -4890,6 +4888,7 @@ func Test_Service_StartStop(t *testing.T) {
 			name:                     "success with multiple feeds managers connection",
 			enableMultiFeedsManagers: true,
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{mgr, mgr2}, nil)
 				svc.connMgr.On("IsConnected", mgr.ID).Return(false)
@@ -4902,6 +4901,7 @@ func Test_Service_StartStop(t *testing.T) {
 		{
 			name: "success with no registered managers",
 			beforeFunc: func(svc *TestService) {
+				svc.csaKeystore.On("EnsureKey", mock.Anything).Return(nil)
 				svc.csaKeystore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 				svc.orm.On("ListManagers", mock.Anything).Return([]feeds.FeedsManager{}, nil)
 				svc.connMgr.On("Close")

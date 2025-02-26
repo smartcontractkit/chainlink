@@ -40,9 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
 
@@ -97,7 +95,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	webauth "github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	webpresenters "github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 
 	// Force import of pgtest to ensure that txdb is registered as a DB driver
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -277,25 +274,6 @@ func NewApplicationWithConfigAndKey(t testing.TB, c chainlink.GeneralConfig, fla
 	return app
 }
 
-func setKeys(t testing.TB, app *TestApplication, flagsAndDeps ...interface{}) (chainID ubig.Big) {
-	ctx := testutils.Context(t)
-
-	for _, dep := range flagsAndDeps {
-		switch v := dep.(type) {
-		case ethkey.KeyV2:
-			app.Keys = append(app.Keys, v)
-		case p2pkey.KeyV2:
-			require.NoError(t, app.GetKeyStore().P2P().Add(ctx, v))
-		case csakey.KeyV2:
-			require.NoError(t, app.GetKeyStore().CSA().Add(ctx, v))
-		case ocr2key.KeyBundle:
-			require.NoError(t, app.GetKeyStore().OCR2().Add(ctx, v))
-		}
-	}
-
-	return
-}
-
 const (
 	UseRealExternalInitiatorManager = "UseRealExternalInitiatorManager"
 )
@@ -409,12 +387,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
-	require.NoError(t, keyStore.Unlock(ctx, Password))
-
-	mailMon := mailbox.NewMonitor(cfg.AppID().String(), lggr.Named("Mailbox"))
-	loopRegistry := plugins.NewLoopRegistry(lggr, cfg.Database(), cfg.Tracing(), cfg.Telemetry(), nil, "")
-
 	mercuryPool := wsrpc.NewPool(lggr, cache.Config{
 		LatestReportTTL:      cfg.Mercury().Cache().LatestReportTTL(),
 		MaxStaleAge:          cfg.Mercury().Cache().MaxStaleAge(),
@@ -422,98 +394,62 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	})
 
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
-	retirementReportCache := llo.NewRetirementReportCache(lggr, ds)
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:                lggr,
-		LoopRegistry:          loopRegistry,
-		GRPCOpts:              loop.GRPCOpts{},
-		Registerer:            prometheus.NewRegistry(), // Don't use global registry here since otherwise multiple apps can create name conflicts. Could also potentially give a mock registry to test prometheus.
-		MercuryPool:           mercuryPool,
-		CapabilitiesRegistry:  capabilitiesRegistry,
-		HTTPClient:            c,
-		RetirementReportCache: retirementReportCache,
-	}
 
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   cfg.EVMConfigs(),
-			DatabaseConfig: cfg.Database(),
-			ListenerConfig: cfg.Database().Listener(),
-			FeatureConfig:  cfg.Feature(),
-			MailMon:        mailMon,
-			DS:             ds,
-		},
-		CSAETHKeystore: keyStore,
-		MercuryConfig:  cfg.Mercury(),
-	}
-
+	var evmFactoryConfigFn func(config *chainlink.EVMFactoryConfig)
 	if cfg.EVMEnabled() {
 		if ethClient == nil {
 			ethClient = evmclient.NewNullClient(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()), lggr)
 		}
 		chainId := ethClient.ConfiguredChainID()
-		evmOpts.GenEthClient = func(_ *big.Int) evmclient.Client {
-			if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
-				t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+		evmFactoryConfigFn = func(fc *chainlink.EVMFactoryConfig) {
+			fc.GenEthClient = func(_ *big.Int) evmclient.Client {
+				if chainId.Cmp(evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs())) != 0 {
+					t.Fatalf("expected eth client ChainID %d to match evm config chain id %d", chainId, evmtest.MustGetDefaultChainID(t, cfg.EVMConfigs()))
+				}
+				return ethClient
 			}
-			return ethClient
+		}
+	}
+	keyStore := keystore.NewInMemory(ds, utils.FastScryptParams, lggr)
+	require.NoError(t, keyStore.Unlock(ctx, Password))
+
+	for _, dep := range flagsAndDeps {
+		switch v := dep.(type) {
+		case p2pkey.KeyV2:
+			require.NoError(t, keyStore.P2P().Add(ctx, v))
+		case csakey.KeyV2:
+			require.NoError(t, keyStore.CSA().Add(ctx, v))
+		case ocr2key.KeyBundle:
+			require.NoError(t, keyStore.OCR2().Add(ctx, v))
 		}
 	}
 
-	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmOpts)}
-
-	if cfg.CosmosEnabled() {
-		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
-	}
-	if cfg.SolanaEnabled() {
-		solanaCfg := chainlink.SolanaFactoryConfig{
-			Keystore:    keyStore.Solana(),
-			TOMLConfigs: cfg.SolanaConfigs(),
-			DS:          ds,
-		}
-		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
-	}
-	if cfg.StarkNetEnabled() {
-		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
-	}
-	if cfg.AptosEnabled() {
-		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
-	}
-	if cfg.TronEnabled() {
-		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
-	}
-
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	if err != nil {
-		t.Fatal(err)
-	}
-	creOpts := chainlink.CREOpts{
-		CapabilitiesRegistry:    capabilitiesRegistry,
-		CapabilitiesDispatcher:  dispatcher,
-		CapabilitiesPeerWrapper: peerWrapper,
-		FetcherFunc:             syncerFetcherFunc,
-		FetcherFactoryFn:        computeFetcherFactory,
-	}
-	appInstance, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		CREOpts:                    creOpts,
-		Config:                     cfg,
-		MailMon:                    mailMon,
-		DS:                         ds,
-		KeyStore:                   keyStore,
-		RelayerChainInteroperators: relayChainInterops,
-		Logger:                     lggr,
-		AuditLogger:                auditLogger,
-		CloseLogger:                lggr.Sync,
-		ExternalInitiatorManager:   externalInitiatorManager,
-		RestrictedHTTPClient:       c,
-		UnrestrictedHTTPClient:     c,
-		SecretGenerator:            MockSecretGenerator{},
-		LoopRegistry:               plugins.NewTestLoopRegistry(lggr),
-		MercuryPool:                mercuryPool,
-		NewOracleFactoryFn:         newOracleFactoryFn,
-		RetirementReportCache:      retirementReportCache,
-		LLOTransmissionReaper:      llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+	appInstance, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		CREOpts: chainlink.CREOpts{
+			CapabilitiesRegistry:    capabilitiesRegistry,
+			CapabilitiesDispatcher:  dispatcher,
+			CapabilitiesPeerWrapper: peerWrapper,
+			FetcherFunc:             syncerFetcherFunc,
+			FetcherFactoryFn:        computeFetcherFactory,
+		},
+		Config:   cfg,
+		DS:       ds,
+		KeyStore: keyStore,
+		Logger:   lggr,
+		// Don't use global registry here since otherwise multiple apps can create name conflicts.
+		// Could also potentially give a mock registry to test prometheus.
+		Registerer:               prometheus.NewRegistry(),
+		AuditLogger:              auditLogger,
+		CloseLogger:              lggr.Sync,
+		ExternalInitiatorManager: externalInitiatorManager,
+		RestrictedHTTPClient:     c,
+		UnrestrictedHTTPClient:   c,
+		SecretGenerator:          MockSecretGenerator{},
+		MercuryPool:              mercuryPool,
+		NewOracleFactoryFn:       newOracleFactoryFn,
+		RetirementReportCache:    llo.NewRetirementReportCache(lggr, ds),
+		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
+		EVMFactoryConfigFn:       evmFactoryConfigFn,
 	})
 
 	require.NoError(t, err)
@@ -522,6 +458,11 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		t:                    t,
 		ChainlinkApplication: app,
 		Logger:               lggr,
+	}
+	for _, dep := range flagsAndDeps {
+		if k, ok := dep.(ethkey.KeyV2); ok {
+			ta.Keys = append(ta.Keys, k)
+		}
 	}
 
 	srvr := httptest.NewUnstartedServer(web.Router(t, app, nil))
@@ -532,8 +473,6 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	if !useRealExternalInitiatorManager {
 		app.ExternalInitiatorManager = externalInitiatorManager
 	}
-
-	setKeys(t, ta, flagsAndDeps...)
 
 	return ta
 }

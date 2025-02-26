@@ -14,6 +14,7 @@ import (
 	"github.com/onsi/gomega"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/functions"
@@ -79,15 +80,17 @@ func TestFunctionsConnectorHandler(t *testing.T) {
 	allowlist.On("Close", mock.Anything).Return(nil)
 	subscriptions.On("Start", mock.Anything).Return(nil)
 	subscriptions.On("Close", mock.Anything).Return(nil)
+	signAddr := crypto.PubkeyToAddress(privateKey.PublicKey)
 	config := &config.PluginConfig{
 		GatewayConnectorConfig: &gwconnector.ConnectorConfig{
 			NodeAddress: addr.Hex(),
 		},
 		MinimumSubscriptionBalance: *assets.NewLinkFromJuels(100),
 		RequestTimeoutSec:          1_000,
-		AllowedHeartbeatInitiators: []string{crypto.PubkeyToAddress(privateKey.PublicKey).Hex()},
+		AllowedHeartbeatInitiators: []string{signAddr.Hex()},
 	}
-	handler, err := functions.NewFunctionsConnectorHandler(config, privateKey, storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger)
+	msgSigner := (*keystest.ECDSAMessageSigner)(privateKey)
+	handler, err := functions.NewFunctionsConnectorHandler(config, signAddr, msgSigner, storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, logger)
 	require.NoError(t, err)
 
 	handler.SetConnector(connector)

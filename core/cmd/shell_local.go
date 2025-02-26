@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -700,14 +701,16 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
+	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID())
+
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	orm := txmgr.NewTxStore(app.GetDB(), lggr)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), ks, nil)
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
+		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), ks, txBuilder, chain.Logger(), stuckTxDetector)
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {

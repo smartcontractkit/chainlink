@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
 )
@@ -56,7 +57,7 @@ func TestShell_ListCSAKeys(t *testing.T) {
 	ctx := testutils.Context(t)
 
 	app := startNewApplicationV2(t, nil)
-	key, err := app.GetKeyStore().CSA().Create(ctx)
+	key, err := keystore.GetDefault(ctx, app.GetKeyStore().CSA())
 	require.NoError(t, err)
 
 	requireCSAKeyCount(t, app, 1)
@@ -75,9 +76,9 @@ func TestShell_CreateCSAKey(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 	client, _ := app.NewShellAndRenderer()
 
-	requireCSAKeyCount(t, app, 0)
+	requireCSAKeyCount(t, app, 1)
 
-	require.NoError(t, client.CreateCSAKey(nilContext))
+	require.Error(t, client.CreateCSAKey(nilContext))
 
 	requireCSAKeyCount(t, app, 1)
 }
@@ -91,7 +92,7 @@ func TestShell_ImportExportCsaKey(t *testing.T) {
 	app := startNewApplicationV2(t, nil)
 
 	client, _ := app.NewShellAndRenderer()
-	_, err := app.GetKeyStore().CSA().Create(ctx)
+	err := app.GetKeyStore().CSA().EnsureKey(ctx)
 	require.NoError(t, err)
 
 	keys := requireCSAKeyCount(t, app, 1)

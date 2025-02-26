@@ -40,6 +40,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -1355,7 +1356,9 @@ func (d *Delegate) newServicesOCR2Keepers20(
 		return nil, fmt.Errorf("keepers2.0 services: failed to get chain (%s): %w", rid.ChainID, err2)
 	}
 
-	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(ctx, jb, d.ds, lggr, chain, d.ethKs)
+	cid := chain.ID()
+	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
+	keeperProvider, rgstry, encoder, logProvider, err2 := ocr2keeper.EVMDependencies20(ctx, jb, d.ds, lggr, chain, ks)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "could not build dependencies for ocr2 keepers")
 	}
@@ -1482,6 +1485,8 @@ func (d *Delegate) newServicesOCR2Functions(
 	if err != nil {
 		return nil, fmt.Errorf("functions services: failed to get chain %s: %w", rid.ChainID, err)
 	}
+	cid := chain.ID()
+	ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKs, cid), cid)
 	createPluginProvider := func(pluginType functionsRelay.FunctionsPluginType, relayerName string) (evmrelaytypes.FunctionsProvider, error) {
 		return evmrelay.NewFunctionsProvider(
 			ctx,
@@ -1498,7 +1503,7 @@ func (d *Delegate) newServicesOCR2Functions(
 				PluginConfig:  spec.PluginConfig.Bytes(),
 			},
 			lggr.Named(relayerName),
-			d.ethKs,
+			ks,
 			pluginType,
 		)
 	}
@@ -1597,7 +1602,7 @@ func (d *Delegate) newServicesOCR2Functions(
 		Logger:            lggr,
 		MailMon:           d.mailMon,
 		URLsMonEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, spec.ContractID, synchronization.FunctionsRequests),
-		EthKeystore:       d.ethKs,
+		EthKeystore:       ks,
 		ThresholdKeyShare: thresholdKeyShare,
 		LogPollerWrapper:  functionsProvider.LogPollerWrapper(),
 	}

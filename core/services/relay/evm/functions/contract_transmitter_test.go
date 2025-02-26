@@ -2,28 +2,28 @@ package functions_test
 
 import (
 	"encoding/hex"
-	"math/big"
 	"strings"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	lpmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 )
@@ -35,9 +35,6 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
-
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 
 	digestStr := "000130da6b9315bd59af6b0a3f5463c0d0a39e92eaa34cbcbdbace7b3bfcc776"
 	lggr := logger.Test(t)
@@ -52,9 +49,9 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 	contractABI, err := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	require.NoError(t, err)
 	txm := txmmocks.NewMockEvmTxManager(t)
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -71,7 +68,6 @@ func TestContractTransmitter_LatestConfigDigestAndEpoch(t *testing.T) {
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
@@ -87,9 +83,6 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress := testutils.NewAddress(), testutils.NewAddress()
 	lggr := logger.Test(t)
@@ -97,9 +90,9 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -116,7 +109,6 @@ func TestContractTransmitter_Transmit_V1(t *testing.T) {
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
@@ -165,9 +157,6 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	t.Parallel()
 	ctx := testutils.Context(t)
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
 	contractVersion := uint32(1)
 	configuredDestAddress, coordinatorAddress1, coordinatorAddress2 := testutils.NewAddress(), testutils.NewAddress(), testutils.NewAddress()
 	lggr := logger.Test(t)
@@ -175,9 +164,10 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 	lp := lpmocks.NewLogPoller(t)
 	contractABI, _ := abi.JSON(strings.NewReader(ocr2aggregator.OCR2AggregatorABI))
 	txm := txmmocks.NewMockEvmTxManager(t)
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := cltest.MustGenerateRandomKey(t).Address
+	ethKeyStore := keystest.Addresses{fromAddress}
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
+
 	effectiveTransmitterAddress := fromAddress
 	strategy := newMockTxStrategy(t)
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
@@ -194,7 +184,6 @@ func TestContractTransmitter_Transmit_V1_CoordinatorMismatch(t *testing.T) {
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)

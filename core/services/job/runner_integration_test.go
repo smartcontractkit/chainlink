@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -90,7 +89,7 @@ func TestRunner(t *testing.T) {
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
-		KeyStore:       ethKeyStore,
+		KeyStore:       keyStore.Eth(),
 	})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
@@ -474,7 +473,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -509,7 +509,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -537,7 +538,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -599,7 +601,8 @@ answer1      [type=median index=0];
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
-				keyStore,
+				ethKeyStore,
+				keyStore.OCR(),
 				nil,
 				pw,
 				monitoringEndpoint,
@@ -644,7 +647,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,

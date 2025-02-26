@@ -13,12 +13,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ocr2keepers21 "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
-
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmregistry20 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v20"
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21"
 	evmregistry21transmit "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/transmit"
@@ -37,7 +36,7 @@ type Encoder21 interface {
 	ocr2keepers21.Encoder
 }
 
-func EVMProvider(ctx context.Context, ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keystore.Eth) (evmrelay.OCR2KeeperProvider, error) {
+func EVMProvider(ctx context.Context, ds sqlutil.DataSource, chain legacyevm.Chain, lggr logger.Logger, spec job.Job, ethKeystore keys.Store) (evmrelay.OCR2KeeperProvider, error) {
 	oSpec := spec.OCR2OracleSpec
 	ocr2keeperRelayer := evmrelay.NewOCR2KeeperRelayer(ds, chain, lggr.Named("OCR2KeeperRelayer"), ethKeystore)
 
@@ -66,7 +65,7 @@ func EVMDependencies20(
 	ds sqlutil.DataSource,
 	lggr logger.Logger,
 	chain legacyevm.Chain,
-	ethKeystore keystore.Eth,
+	ethKeystore keys.Store,
 ) (evmrelay.OCR2KeeperProvider, *evmregistry20.EvmRegistry, Encoder20, *evmregistry20.LogProvider, error) {
 	var err error
 

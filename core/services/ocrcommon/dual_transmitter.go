@@ -2,7 +2,6 @@ package ocrcommon
 
 import (
 	"context"
-	"math/big"
 	"net/url"
 	"slices"
 
@@ -10,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 )
@@ -21,8 +21,7 @@ type ocr2FeedsDualTransmission struct {
 	primaryEffectiveTransmitterAddress common.Address
 	strategy                           types.TxStrategy
 	checker                            txmgr.TransmitCheckerSpec
-	chainID                            *big.Int
-	keystore                           roundRobinKeystore
+	keystore                           keys.RoundRobin
 
 	ocr2Aggregator common.Address
 	txManagerOCR2
@@ -52,7 +51,7 @@ func (t *ocr2FeedsDualTransmission) forwarderAddress(ctx context.Context, eoa, o
 }
 
 func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.primaryFromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.primaryFromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
@@ -107,7 +106,7 @@ func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Co
 }
 
 func (t *ocr2FeedsDualTransmission) FromAddress(ctx context.Context) common.Address {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.primaryFromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.primaryFromAddresses...)
 	if err != nil {
 		return t.primaryEffectiveTransmitterAddress
 	}

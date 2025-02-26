@@ -189,7 +189,14 @@ func (lk *StarknetLooppSigner) Sign(ctx context.Context, id string, hash []byte)
 	return sig.Bytes()
 }
 
-// TODO what is this supposed to return for starknet?
 func (lk *StarknetLooppSigner) Accounts(ctx context.Context) ([]string, error) {
-	return nil, errors.New("unimplemented")
+	ks, err := lk.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	as := make([]string, 0, len(ks))
+	for _, k := range ks {
+		as = append(as, k.ID())
+	}
+	return as, nil
 }

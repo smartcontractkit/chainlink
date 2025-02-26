@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
-	"sync"
 	"time"
 
 	gethkeystore "github.com/ethereum/go-ethereum/accounts/keystore"
@@ -423,71 +422,4 @@ func (rawKeys rawKeyRing) keys() (*keyRing, error) {
 // adulteration prevents the password from getting used in the wrong place
 func adulteratedPassword(password string) string {
 	return "master-password-" + password
-}
-
-type ResourceMutex struct {
-	mu          sync.Mutex
-	serviceType ServiceType
-	count       int // Tracks active users per service type
-}
-type ServiceType int
-
-const (
-	TXMv1 ServiceType = iota
-	TXMv2
-)
-
-// TryLock attempts to lock the resource for the specified service type.
-// It returns an error if the resource is locked by a different service type.
-func (rm *ResourceMutex) TryLock(serviceType ServiceType) error {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	if rm.count == 0 {
-		rm.serviceType = serviceType
-	}
-
-	// Check if other service types are using the resource
-	if rm.serviceType != serviceType && rm.count > 0 {
-		return errors.New("resource is locked by another service type")
-	}
-
-	// Increment active count for the current service type
-	rm.count++
-	return nil
-}
-
-// Unlock releases the lock for the service type
-func (rm *ResourceMutex) Unlock(serviceType ServiceType) error {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	// Check if the service type has an active lock
-	if rm.count == 0 {
-		return errors.New("no active lock")
-	}
-
-	if rm.serviceType != serviceType {
-		return errors.New("no active lock for this service type")
-	}
-
-	// Decrement active count for the service type
-	rm.count--
-	return nil
-}
-
-// IsLocked checks if the resource is locked by a specific service type.
-func (rm *ResourceMutex) IsLocked(serviceType ServiceType) (bool, error) {
-	rm.mu.Lock()
-	defer rm.mu.Unlock()
-
-	if rm.count == 0 || rm.serviceType != serviceType {
-		return false, nil
-	}
-
-	return true, nil
-}
-
-func NewResourceMutex() *ResourceMutex {
-	return &ResourceMutex{}
 }

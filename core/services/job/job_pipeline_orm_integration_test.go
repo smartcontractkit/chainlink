@@ -162,7 +162,7 @@ func TestPipelineORM_Integration(t *testing.T) {
 			ListenerConfig: config.Database().Listener(),
 			Client:         clienttest.NewClientWithDefaultChainID(t),
 			DB:             db,
-			KeyStore:       ethKeyStore,
+			KeyStore:       keyStore.Eth(),
 		})
 		runner := pipeline.NewRunner(orm, btORM, config.JobPipeline(), config.WebServer(), legacyChains, nil, nil, lggr, nil, nil)
 
