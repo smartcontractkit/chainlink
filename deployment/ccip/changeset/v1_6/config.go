@@ -17,92 +17,40 @@ import (
 
 var (
 	DefaultOCRParamsForCommitForNonETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           120 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              15 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              25 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  13 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
+		OCRParameters:        globals.CommitOCRParams,
+		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
+	}
+
+	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
+		OCRParameters:        globals.CommitOCRParamsForEthereum,
 		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           100 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              15 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              25 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  13 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
+		OCRParameters:         globals.ExecOCRParams,
 		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 
-	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           120 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              60 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  35 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
-		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
-	}
-
 	DefaultOCRParamsForExecForETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           100 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              60 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  20 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 8 * time.Second,
-		},
+		OCRParameters:         globals.ExecOCRParamsForEthereum,
 		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 
 	// Used for only testing with simulated chains
 	OcrParamsForTest = CCIPOCRParams{
 		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           globals.DeltaProgress,
-			DeltaResend:                             globals.DeltaResend,
-			DeltaInitial:                            globals.DeltaInitial,
-			DeltaRound:                              globals.DeltaRound,
-			DeltaGrace:                              globals.DeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
-			DeltaStage:                              globals.DeltaStage,
-			Rmax:                                    globals.Rmax,
-			MaxDurationQuery:                        globals.MaxDurationQuery,
-			MaxDurationObservation:                  globals.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
+			DeltaProgress:                           10 * time.Second,
+			DeltaResend:                             10 * time.Second,
+			DeltaInitial:                            20 * time.Second,
+			DeltaRound:                              2 * time.Second,
+			DeltaGrace:                              2 * time.Second,
+			DeltaCertifiedCommitRequest:             10 * time.Second,
+			DeltaStage:                              10 * time.Second,
+			Rmax:                                    50,
+			MaxDurationQuery:                        10 * time.Second,
+			MaxDurationObservation:                  10 * time.Second,
+			MaxDurationShouldAcceptAttestedReport:   10 * time.Second,
+			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
 		CommitOffChainConfig: &pluginconfig.CommitOffchainConfig{
 			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
