@@ -80,10 +80,10 @@ var (
 type OCRConfigChainType int
 
 const (
-	NonEthereum OCRConfigChainType = iota + 1
+	Default OCRConfigChainType = iota + 1
 	Ethereum
 	// SimulationTest is kept only for backward compatibility. Tests probably should
-	// migrate to using NonEthereum or Ethereum
+	// migrate to using Default or Ethereum
 	SimulationTest
 )
 
@@ -93,7 +93,7 @@ func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
 		chain_selectors.ETHEREUM_MAINNET.Selector:
 		return Ethereum
 	default:
-		return NonEthereum
+		return Default
 	}
 }
 
@@ -101,7 +101,7 @@ func (c OCRConfigChainType) CommitOCRParams() CCIPOCRParams {
 	switch c {
 	case Ethereum:
 		return DefaultOCRParamsForCommitForETH.Copy()
-	case NonEthereum:
+	case Default:
 		return DefaultOCRParamsForCommitForNonETH.Copy()
 	case SimulationTest:
 		return OcrParamsForTest.Copy()
@@ -114,7 +114,7 @@ func (c OCRConfigChainType) ExecuteOCRParams() CCIPOCRParams {
 	switch c {
 	case Ethereum:
 		return DefaultOCRParamsForExecForETH.Copy()
-	case NonEthereum:
+	case Default:
 		return DefaultOCRParamsForExecForNonETH.Copy()
 	case SimulationTest:
 		return OcrParamsForTest.Copy()
