@@ -10,7 +10,7 @@ const (
 	ConfigTypeActive    ConfigType = "active"
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
-	PermissionLessExecutionThreshold        = 8 * time.Hour
+	PermissionLessExecutionThreshold        = 86400 * time.Second
 	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
 	TokenPriceBatchWriteFrequency           = 30 * time.Minute
 	BatchGasLimit                           = 6_500_000

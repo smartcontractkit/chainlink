@@ -129,8 +129,8 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		defer func() { acc.Value = nil }()
 	}
 	// todo: remove once CCIP-5143 is implemented
-	acc.GasLimit = *m.testConfig.GasLimit
-	
+	//acc.GasLimit = *m.testConfig.GasLimit
+
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,

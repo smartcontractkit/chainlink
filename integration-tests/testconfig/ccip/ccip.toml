@@ -244,9 +244,9 @@ ephemeral_addresses_number = 0
 [Load.CCIP.Load]
 # 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
 ChaosMode = 1
-# works only with Load.CCIP.ChaosMode = 0
+# works only with Load.CCIP.ChaosMode = 1
 RPCLatency = "400ms"
-RPCJitter = "50ms"
+RPCJitter = "0ms"
 # MessageTypeWeights corresponds with [data only, token only, message with token]
 MessageTypeWeights = [10,45,45]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
@@ -262,12 +262,12 @@ GasLimit = 700_000
 
 [CCIP.Chaos]
 # works only with Load.CCIP.ChaosMode = 2
-Namespace = "crib-ccip-chaos-tests"
+Namespace = "crib-aw-remote"
 # RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
 DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
-WaitBeforeStart = "30s"
+WaitBeforeStart = "0s"
 # Chaos experiment total duration (chaos + recovery)
-ExperimentFullInterval = "10m"
+ExperimentFullInterval = "1h"
 # Chaos time
 ExperimentInjectionInterval = "5m"
 # Src and Dst chain URLs, change it according to your namespace name
