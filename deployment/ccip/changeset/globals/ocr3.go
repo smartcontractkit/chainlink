@@ -1,7 +1,10 @@
 package globals
 
 import (
+	"fmt"
 	"time"
+
+	"dario.cat/mergo"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -86,41 +89,9 @@ var (
 )
 
 func withOverrides(base types.OCRParameters, overrides types.OCRParameters) types.OCRParameters {
-	if overrides.DeltaProgress != 0 {
-		base.DeltaProgress = overrides.DeltaProgress
+	outcome := base
+	if err := mergo.Merge(&outcome, overrides, mergo.WithOverride); err != nil {
+		panic(fmt.Sprintf("error while building an OCR config %v", err))
 	}
-	if overrides.DeltaResend != 0 {
-		base.DeltaResend = overrides.DeltaResend
-	}
-	if overrides.DeltaInitial != 0 {
-		base.DeltaInitial = overrides.DeltaInitial
-	}
-	if overrides.DeltaRound != 0 {
-		base.DeltaRound = overrides.DeltaRound
-	}
-	if overrides.DeltaGrace != 0 {
-		base.DeltaGrace = overrides.DeltaGrace
-	}
-	if overrides.DeltaCertifiedCommitRequest != 0 {
-		base.DeltaCertifiedCommitRequest = overrides.DeltaCertifiedCommitRequest
-	}
-	if overrides.DeltaStage != 0 {
-		base.DeltaStage = overrides.DeltaStage
-	}
-	if overrides.Rmax != 0 {
-		base.Rmax = overrides.Rmax
-	}
-	if overrides.MaxDurationQuery != 0 {
-		base.MaxDurationQuery = overrides.MaxDurationQuery
-	}
-	if overrides.MaxDurationObservation != 0 {
-		base.MaxDurationObservation = overrides.MaxDurationObservation
-	}
-	if overrides.MaxDurationShouldAcceptAttestedReport != 0 {
-		base.MaxDurationShouldAcceptAttestedReport = overrides.MaxDurationShouldAcceptAttestedReport
-	}
-	if overrides.MaxDurationShouldTransmitAcceptedReport != 0 {
-		base.MaxDurationShouldTransmitAcceptedReport = overrides.MaxDurationShouldTransmitAcceptedReport
-	}
-	return base
+	return outcome
 }
