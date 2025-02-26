@@ -3,8 +3,9 @@ package changeset_test
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"

@@ -1044,9 +1044,9 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 		default:
 			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
-			} else {
-				return state, fmt.Errorf("unknown contract %s", tvStr)
+				continue
 			}
+			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}
 	return state, nil
