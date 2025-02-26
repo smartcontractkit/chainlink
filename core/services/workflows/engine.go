@@ -159,11 +159,13 @@ func (e *Engine) Start(_ context.Context) error {
 		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
 		if !globalAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
 			return errGlobalWorkflowCountLimitReached
 		}
 
 		if !ownerAllow {
 			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
 			return errPerOwnerWorkflowCountLimitReached
 		}
 
