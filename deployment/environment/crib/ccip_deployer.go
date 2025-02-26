@@ -533,8 +533,8 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	for selector := range e.Chains {
-		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(selector, feedChainSel, nil, nil)
-		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(selector, nil, nil)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(selector, feedChainSel, true, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(selector, true, nil, nil)
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet

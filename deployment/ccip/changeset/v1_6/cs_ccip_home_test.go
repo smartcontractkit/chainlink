@@ -71,9 +71,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.NoError(t, err)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	params := v1_6.DeriveOCRParamsForCommit(
-		chain1, e.FeedChainSel, nil, nil,
-	)
+	params := v1_6.DeriveOCRParamsForCommit(chain1, true, e.FeedChainSel, nil, nil)
 
 	// tweak params to have invalid config
 	// make DeltaRound greater than DeltaProgress
@@ -271,33 +269,24 @@ func Test_SetCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(
-										dest,
-										tenv.FeedChainSel,
-										tokenConfig.GetTokenInfo(logger.TestLogger(t),
-											state.Chains[dest].LinkToken.Address(),
-											state.Chains[dest].Weth9.Address()),
-										nil,
-									),
+									dest: v1_6.DeriveOCRParamsForCommit(dest, true, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+										state.Chains[dest].LinkToken.Address(),
+										state.Chains[dest].Weth9.Address()), nil),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(
-										dest,
-										nil,
-										// change the default config to make MessageVisibilityInterval != PermissionLessExecutionThresholdSeconds
-										func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-											dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
-												Context: ctx,
-											})
-											require.NoError(t, err)
-											params.ExecuteOffChainConfig.MessageVisibilityInterval =
-												*config.MustNewDuration(
-													time.Duration(dCfg.PermissionLessExecutionThresholdSeconds + uint32(time.Second)))
-											return params
-										}),
+									dest: v1_6.DeriveOCRParamsForExec(dest, true, nil, func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+										dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
+											Context: ctx,
+										})
+										require.NoError(t, err)
+										params.ExecuteOffChainConfig.MessageVisibilityInterval =
+											*config.MustNewDuration(
+												time.Duration(dCfg.PermissionLessExecutionThresholdSeconds + uint32(time.Second)))
+										return params
+									}),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
@@ -327,22 +316,15 @@ func Test_SetCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(
-										dest,
-										tenv.FeedChainSel,
-										tokenConfig.GetTokenInfo(logger.TestLogger(t),
-											state.Chains[dest].LinkToken.Address(),
-											state.Chains[dest].Weth9.Address()),
-										nil,
-									),
+									dest: v1_6.DeriveOCRParamsForCommit(dest, true, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+										state.Chains[dest].LinkToken.Address(),
+										state.Chains[dest].Weth9.Address()), nil),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(
-										dest, nil, nil,
-									),
+									dest: v1_6.DeriveOCRParamsForExec(dest, true, nil, nil),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
@@ -445,22 +427,15 @@ func Test_RevokeCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(
-										dest,
-										tenv.FeedChainSel,
-										tokenConfig.GetTokenInfo(logger.TestLogger(t),
-											state.Chains[dest].LinkToken.Address(),
-											state.Chains[dest].Weth9.Address()),
-										nil,
-									),
+									dest: v1_6.DeriveOCRParamsForCommit(dest, true, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+										state.Chains[dest].LinkToken.Address(),
+										state.Chains[dest].Weth9.Address()), nil),
 								},
 								PluginType: types.PluginTypeCCIPCommit,
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(
-										dest, nil, nil,
-									),
+									dest: v1_6.DeriveOCRParamsForExec(dest, true, nil, nil),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},

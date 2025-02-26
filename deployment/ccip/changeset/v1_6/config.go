@@ -4,6 +4,8 @@ import (
 	"time"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
@@ -84,18 +86,63 @@ var (
 		},
 		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
+
+	// Used for only testing with simulated chains
+	OcrParamsForTest = CCIPOCRParams{
+		OCRParameters: types.OCRParameters{
+			DeltaProgress:                           globals.DeltaProgress,
+			DeltaResend:                             globals.DeltaResend,
+			DeltaInitial:                            globals.DeltaInitial,
+			DeltaRound:                              globals.DeltaRound,
+			DeltaGrace:                              globals.DeltaGrace,
+			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
+			DeltaStage:                              globals.DeltaStage,
+			Rmax:                                    globals.Rmax,
+			MaxDurationQuery:                        globals.MaxDurationQuery,
+			MaxDurationObservation:                  globals.MaxDurationObservation,
+			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
+			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
+		},
+		CommitOffChainConfig: &pluginconfig.CommitOffchainConfig{
+			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
+			TokenPriceBatchWriteFrequency:      *config.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
+			NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+			MaxReportTransmissionCheckAttempts: 5,
+			RMNEnabled:                         false,
+			RMNSignaturesTimeout:               30 * time.Minute,
+			MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+			SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+			MerkleRootAsyncObserverDisabled:    false,
+			MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
+			MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+			ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
+			ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+		},
+		ExecuteOffChainConfig: &pluginconfig.ExecuteOffchainConfig{
+			BatchGasLimit:             globals.BatchGasLimit,
+			InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
+			RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
+			MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
+			BatchingStrategyID:        globals.BatchingStrategyID,
+		},
+	}
 )
 
 func DeriveOCRParamsForCommit(
 	chainsel uint64,
+	isSimulatedChain bool,
 	feedChain uint64,
 	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	params := DefaultOCRParamsForCommitForNonETH.Copy()
-	if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+	var params CCIPOCRParams
+	if isSimulatedChain {
+		params = OcrParamsForTest.Copy()
+	} else if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
 		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
 		params = DefaultOCRParamsForCommitForETH.Copy()
+	} else {
+		params = DefaultOCRParamsForCommitForNonETH.Copy()
 	}
 	params.CommitOffChainConfig.TokenInfo = feeTokenInfo
 	params.CommitOffChainConfig.PriceFeedChainSelector = ccipocr3.ChainSelector(feedChain)
@@ -108,14 +155,20 @@ func DeriveOCRParamsForCommit(
 
 func DeriveOCRParamsForExec(
 	chainsel uint64,
+	isSimulatedChain bool,
 	observerConfig []pluginconfig.TokenDataObserverConfig,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	params := DefaultOCRParamsForExecForNonETH.Copy()
-	if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
+	var params CCIPOCRParams
+	if isSimulatedChain {
+		params = OcrParamsForTest.Copy()
+	} else if chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
 		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector {
 		params = DefaultOCRParamsForExecForETH.Copy()
+	} else {
+		params = DefaultOCRParamsForExecForNonETH.Copy()
 	}
+
 	params.ExecuteOffChainConfig.TokenDataObservers = observerConfig
 	if override == nil {
 		return params

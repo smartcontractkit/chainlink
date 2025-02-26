@@ -210,23 +210,16 @@ func Test_ActiveCandidate(t *testing.T) {
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
 						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-							dest: v1_6.DeriveOCRParamsForCommit(
-								dest,
-								tenv.FeedChainSel,
-								tokenConfig.GetTokenInfo(logger.TestLogger(t),
-									state.Chains[dest].LinkToken.Address(),
-									state.Chains[dest].Weth9.Address()),
-								nil,
-							),
+							dest: v1_6.DeriveOCRParamsForCommit(dest, true, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+								state.Chains[dest].LinkToken.Address(),
+								state.Chains[dest].Weth9.Address()), nil),
 						},
 						PluginType: types.PluginTypeCCIPCommit,
 					},
 					{
 						// NOTE: this is technically not a new chain, but needed for validation.
 						OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-							dest: v1_6.DeriveOCRParamsForExec(
-								dest, nil, nil,
-							),
+							dest: v1_6.DeriveOCRParamsForExec(dest, true, nil, nil),
 						},
 						PluginType: types.PluginTypeCCIPExec,
 					},
