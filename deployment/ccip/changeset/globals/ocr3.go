@@ -11,16 +11,15 @@ import (
 //   - Although, some values are similar between Commit and Execute, we should keep them separate, because
 //     these plugins have different requirements and characteristics. This way we can avoid misconfiguration
 //     by accidentally changing parameter for one plugin while adjusting it for the other
-//   - OCR3 parameters are chain agnostic and should be reused across different chains. There might be some use cases for overrides to accomodate
-//     specific chain characteristics (e.g. Ethereum), but for most of the cases we should strive to rely on defaults
-//     under CommitOCRParams and ExecOCRParams. This makes the testing process much easier and increase our confidence
-//     that the configuration is safe to use
+//   - OCR3 parameters are chain agnostic and should be reused across different chains. There might be some use cases
+//     for overrides to accommodate specific chain characteristics (e.g. Ethereum).
+//     However, for most of the cases we should strive to rely on defaults under CommitOCRParams and ExecOCRParams.
+//     This makes the testing process much easier and increase our confidence that the configuration is safe to use.
 //   - The fewer overrides the better. Introducing new overrides should be done with caution and only if there's a strong
 //     justification for it. Moreover, it requires detailed chaos / load testing to ensure that the new parameters are safe to use
 //     and meet CCIP SLOs
 //   - Single params must not be stored under const or exposed outside of this file to limit the risk of
 //     accidental configuration or partial configuration
-//   - If you need to override some of the parameters, you should use withOverrides function to ensure that you're not missing any of the parameters
 //   - MaxDurations should be set on the latencies observed on various environments using p99 OCR3 latencies
 //     These values should be specific to the plugin type and should not depend on the chain family
 //     (assuming plugin logic is chain agnostic)
@@ -28,12 +27,13 @@ var (
 	// CommitOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see CommitOCRParamsForEthereum).
 	// Most of the intervals here should be generic enough (and chain agnostic) to be reused across different chains.
 	CommitOCRParams = types.OCRParameters{
-		DeltaProgress:                           120 * time.Second,
-		DeltaResend:                             30 * time.Second,
-		DeltaInitial:                            20 * time.Second,
-		DeltaRound:                              15 * time.Second,
-		DeltaGrace:                              5 * time.Second,
-		DeltaCertifiedCommitRequest:             10 * time.Second,
+		DeltaProgress:               120 * time.Second,
+		DeltaResend:                 30 * time.Second,
+		DeltaInitial:                20 * time.Second,
+		DeltaRound:                  15 * time.Second,
+		DeltaGrace:                  5 * time.Second,
+		DeltaCertifiedCommitRequest: 10 * time.Second,
+		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage:                              25 * time.Second,
 		Rmax:                                    3,
 		MaxDurationQuery:                        7 * time.Second,
@@ -63,8 +63,9 @@ var (
 		DeltaRound:                  15 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
-		DeltaStage:                  25 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-		Rmax:                        3,
+		// TransmissionDelayMultiplier overrides DeltaStage
+		DeltaStage: 25 * time.Second,
+		Rmax:       3,
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
 		MaxDurationQuery:                        200 * time.Millisecond,
 		MaxDurationObservation:                  13 * time.Second,
