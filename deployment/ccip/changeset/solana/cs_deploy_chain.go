@@ -174,7 +174,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 
 	if len(batches) > 0 {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelocks,
 			proposers,
 			inspectors,
@@ -595,8 +595,8 @@ func deployChainContractsSolana(
 	}
 
 	for _, billingConfig := range params.FeeQuoterParams.BillingConfig {
-		if err := AddBillingToken(
-			e, chain, chainState, billingConfig,
+		if _, err := AddBillingToken(
+			e, chain, chainState, billingConfig, nil, false,
 		); err != nil {
 			return txns, err
 		}
