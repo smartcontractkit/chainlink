@@ -341,6 +341,7 @@ func GetConfig(configurationNames []string, product Product) (TestConfig, error)
 			}
 		}
 	} else {
+		// todo: we need to make this part working with k8s-tester, so the config file is mount in k8s pod
 		logger.Info().Msg("Reading configs from file system")
 		for _, fileName := range fileNames {
 			logger.Debug().Msgf("Looking for config file %s", fileName)
