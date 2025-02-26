@@ -19,9 +19,9 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8-0.20250225174253-0fe1e95e89b2
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250225174253-0fe1e95e89b2
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.14-0.20250225174253-0fe1e95e89b2
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	google.golang.org/grpc v1.70.0
 	gopkg.in/yaml.v3 v3.0.1
 )
