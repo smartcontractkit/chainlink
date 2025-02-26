@@ -60,7 +60,6 @@ type engineMetrics struct {
 	workflowUnregisteredCounter              metric.Int64Counter
 	workflowExecutionRateLimitGlobalCounter  metric.Int64Counter
 	workflowExecutionRateLimitPerUserCounter metric.Int64Counter
-	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
 	engineHeartbeatCounter                   metric.Int64Counter
@@ -112,13 +111,6 @@ func initEngineMonitoringResources() (m *engineMetricLabeler, err error) {
 	em.workflowUnregisteredCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_unregistered_count")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register workflow unregistered counter: %w", err)
-	}
-
-	em.workflowExecutionLatencyGauge, err = beholder.GetMeter().Int64Gauge(
-		"platform_engine_workflow_time",
-		metric.WithUnit("ms"))
-	if err != nil {
-		return nil, fmt.Errorf("failed to register workflow execution latency gauge: %w", err)
 	}
 
 	em.workflowInitializationCounter, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_initializations")
@@ -244,11 +236,6 @@ func (c engineMetricLabeler) incrementTriggerWorkflowStarterErrorCounter(ctx con
 func (c engineMetricLabeler) incrementCapabilityInvocationCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.capabilityInvocationCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
-}
-
-func (c engineMetricLabeler) updateWorkflowExecutionLatencyGauge(ctx context.Context, val int64) {
-	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
-	c.em.workflowExecutionLatencyGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c engineMetricLabeler) incrementTotalWorkflowStepErrorsCounter(ctx context.Context) {
