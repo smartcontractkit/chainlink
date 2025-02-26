@@ -17,7 +17,7 @@ import (
 const (
 	TokenTransfer             string = "TokenTransfer"
 	MessagingTransfer         string = "Messaging"
-	ProgrammableTokenTransfer string = "ProgrammableTokenTransfer "
+	ProgrammableTokenTransfer string = "ProgrammableTokenTransfer"
 )
 
 type LoadConfig struct {
@@ -89,14 +89,16 @@ func (m *MsgDetails) Validate() error {
 	if m.MsgType == nil {
 		return errors.New("msg type should be set")
 	}
-	if pointer.GetString(m.MsgType) != MessagingTransfer &&
-		pointer.GetString(m.MsgType) != TokenTransfer &&
-		pointer.GetString(m.MsgType) != ProgrammableTokenTransfer {
-		return fmt.Errorf("msg type should be - %s/%s/%s", MessagingTransfer, TokenTransfer, ProgrammableTokenTransfer)
+	msgType := pointer.GetString(m.MsgType)
+	if msgType != MessagingTransfer &&
+		msgType != TokenTransfer &&
+		msgType != ProgrammableTokenTransfer {
+		return fmt.Errorf("msg type should be one of %s/%s/%s. Got %s",
+			MessagingTransfer, TokenTransfer, ProgrammableTokenTransfer, msgType)
 	}
 
 	// We need to check for dest gas limit only if the message type is not token only transfer
-	if pointer.GetString(m.MsgType) != TokenTransfer {
+	if msgType != TokenTransfer {
 		if m.DestGasLimit == nil {
 			return errors.New("dest gas limit should be set")
 		}
@@ -112,7 +114,7 @@ func (m *MsgDetails) Validate() error {
 		return errors.New("ratio should be between 0 and 100")
 	}
 
-	if pointer.GetString(m.MsgType) == ProgrammableTokenTransfer {
+	if msgType == ProgrammableTokenTransfer {
 		if m.DataLengthBytes == nil {
 			return errors.New("data length should be set for data and token transfer")
 		}
@@ -120,7 +122,7 @@ func (m *MsgDetails) Validate() error {
 			return errors.New("data length should be greater than 0")
 		}
 	}
-	if pointer.GetString(m.MsgType) == MessagingTransfer {
+	if msgType == MessagingTransfer {
 		if m.DataLengthBytes == nil {
 			return errors.New("data length should be set for data transfer")
 		}
