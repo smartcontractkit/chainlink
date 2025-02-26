@@ -718,8 +718,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
 		case deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token.LinkTokenABI
@@ -1043,7 +1042,11 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.MockRMN = mockRMN
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
 		default:
-			return state, fmt.Errorf("unknown contract %s", tvStr)
+			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
+				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
+			} else {
+				return state, fmt.Errorf("unknown contract %s", tvStr)
+			}
 		}
 	}
 	return state, nil
