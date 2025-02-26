@@ -445,8 +445,8 @@ func TestConfig_Marshal(t *testing.T) {
 		RateLimit: toml.EngineExecutionRateLimit{
 			GlobalRPS:      ptr(200.00),
 			GlobalBurst:    ptr(200),
-			PerSenderRPS:   ptr(100.0),
-			PerSenderBurst: ptr(100),
+			PerSenderRPS:   ptr(200.0),
+			PerSenderBurst: ptr(200),
 		},
 		Peering: toml.P2P{
 			IncomingMessageBufferSize: ptr[int64](13),

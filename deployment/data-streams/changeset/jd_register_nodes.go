@@ -66,14 +66,20 @@ func validateNodeSlice(nodes []NodeCfg, nodeType string, donIndex int) error {
 	return nil
 }
 
-func registerNodesForDON(e deployment.Environment, nodes []NodeCfg, baseLabels []*ptypes.Label, nodeType NodeType) {
+func registerNodesForDON(e deployment.Environment, donName string, donID int, nodes []NodeCfg, baseLabels []*ptypes.Label, nodeType NodeType) {
 	ntStr := nodeType.String()
 	for _, node := range nodes {
 		labels := append([]*ptypes.Label(nil), baseLabels...)
+
 		labels = append(labels, &ptypes.Label{
 			Key:   "nodeType",
 			Value: &ntStr,
 		})
+
+		labels = append(labels, &ptypes.Label{
+			Key: fmt.Sprintf("don-%d-%s", donID, donName),
+		})
+
 		nodeID, err := e.Offchain.RegisterNode(e.GetContext(), &nodev1.RegisterNodeRequest{
 			Name:      node.Name,
 			PublicKey: node.CSAKey,
@@ -100,8 +106,8 @@ func RegisterNodesWithJD(e deployment.Environment, cfg RegisterNodesInput) (depl
 	}
 
 	for _, don := range cfg.DONsList {
-		registerNodesForDON(e, don.Nodes, baseLabels, NodeTypeOracle)
-		registerNodesForDON(e, don.BootstrapNodes, baseLabels, NodeTypeBootstrap)
+		registerNodesForDON(e, don.Name, don.ID, don.Nodes, baseLabels, NodeTypeOracle)
+		registerNodesForDON(e, don.Name, don.ID, don.BootstrapNodes, baseLabels, NodeTypeBootstrap)
 	}
 
 	return deployment.ChangesetOutput{}, nil

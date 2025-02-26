@@ -178,6 +178,26 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
+	i.lggr.Infow("Creating plugin using OCR3 settings",
+		"plugin", pluginType.String(),
+		"chainSelector", chainSelector,
+		"chainID", destChainID,
+		"deltaProgress", publicConfig.DeltaProgress,
+		"deltaResend", publicConfig.DeltaResend,
+		"deltaInitial", publicConfig.DeltaInitial,
+		"deltaRound", publicConfig.DeltaRound,
+		"deltaGrace", publicConfig.DeltaGrace,
+		"deltaCertifiedCommitRequest", publicConfig.DeltaCertifiedCommitRequest,
+		"deltaStage", publicConfig.DeltaStage,
+		"rMax", publicConfig.RMax,
+		"s", publicConfig.S,
+		"maxDurationInitialization", publicConfig.MaxDurationInitialization,
+		"maxDurationQuery", publicConfig.MaxDurationQuery,
+		"maxDurationObservation", publicConfig.MaxDurationObservation,
+		"maxDurationShouldAcceptAttestedReport", publicConfig.MaxDurationShouldAcceptAttestedReport,
+		"maxDurationShouldTransmitAcceptedReport", publicConfig.MaxDurationShouldTransmitAcceptedReport,
+	)
+
 	offrampAddrStr, err := i.addressCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
 	if err != nil {
 		return nil, err

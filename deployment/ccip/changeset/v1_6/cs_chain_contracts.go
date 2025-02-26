@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -250,7 +249,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -394,7 +393,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -509,7 +508,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(), timelocks, proposers, inspectors, batches,
+		e, timelocks, proposers, inspectors, batches,
 		"update onramp dynamic config",
 		cfg.MCMS.MinDelay)
 	if err != nil {
@@ -667,7 +666,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -769,7 +768,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -936,7 +935,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1057,7 +1056,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1154,15 +1153,8 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 			} else {
 				router = state.Chains[chainSel].Router.Address()
 			}
-			sourceChainFamily, _ := chain_selectors.GetSelectorFamily(source)
-
-			onRampBytes := []byte{}
 			// can ignore err as validation checks for nil addresses
-			if sourceChainFamily == chain_selectors.FamilyEVM {
-				onRampBytes, _ = state.Chains[source].OnRampBytes()
-			} else if sourceChainFamily == chain_selectors.FamilySolana {
-				onRampBytes, _ = state.SolChains[source].OnRampBytes()
-			}
+			onRampBytes, _ := state.GetOnRampAddressBytes(source)
 
 			args = append(args, offramp.OffRampSourceChainConfigArgs{
 				SourceChainSelector: source,
@@ -1204,7 +1196,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1384,7 +1376,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1429,24 +1421,12 @@ func (c SetOCR3OffRampConfig) validateRemoteChain(e *deployment.Environment, sta
 	}
 	switch family {
 	case chain_selectors.FamilySolana:
-		chain, ok := e.SolChains[chainSelector]
-		if !ok {
-			return fmt.Errorf("chain %d not found in environment", chainSelector)
-		}
 		chainState, ok := state.SolChains[chainSelector]
 		if !ok {
 			return fmt.Errorf("remote chain %d not found in onchain state", chainSelector)
 		}
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			return err
-		}
-		mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-		if err != nil {
-			return fmt.Errorf("error loading MCMS state for chain %d: %w", chainSelector, err)
-		}
-		if err := commoncs.ValidateOwnershipSolana(e.GetContext(), c.MCMS != nil, e.SolChains[chainSelector].DeployerKey.PublicKey(), mcmState.TimelockProgram, mcmState.TimelockSeed, chainState.Router); err != nil {
-			return err
+		if chainState.OffRamp.IsZero() {
+			return fmt.Errorf("missing OffRamp for chain %d", chainSelector)
 		}
 	case chain_selectors.FamilyEVM:
 		chainState, ok := state.Chains[chainSelector]
@@ -1538,7 +1518,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1652,7 +1632,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1874,7 +1854,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2027,7 +2007,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2151,7 +2131,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2331,7 +2311,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
