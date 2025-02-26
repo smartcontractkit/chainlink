@@ -222,6 +222,8 @@ func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3
 				MerkleRootAsyncObserverDisabled:    false,
 				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+				ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
+				ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
 			}
 		} else {
 			if params.CommitOffChainConfig.TokenInfo == nil {
@@ -240,7 +242,6 @@ func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDat
 		if params.ExecuteOffChainConfig == nil {
 			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
 				BatchGasLimit:             globals.BatchGasLimit,
-				RelativeBoostPerWaitHour:  globals.RelativeBoostPerWaitHour,
 				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
 				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
 				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
@@ -436,7 +437,7 @@ func PromoteCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: mcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -630,7 +631,7 @@ func AddDonAndSetCandidateChangeset(
 	}
 	var donMcmsTxs []mcmstypes.Transaction
 	for chainSelector, params := range cfg.PluginInfo.OCRConfigPerRemoteChainSelector {
-		offRampAddress, err := state.GetOffRampAddress(chainSelector)
+		offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -685,7 +686,7 @@ func AddDonAndSetCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: donMcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -825,7 +826,7 @@ func SetCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		pluginInfos = append(pluginInfos, plugin.String())
 		for chainSelector, params := range plugin.OCRConfigPerRemoteChainSelector {
-			offRampAddress, err := state.GetOffRampAddress(chainSelector)
+			offRampAddress, err := state.GetOffRampAddressBytes(chainSelector)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
@@ -874,7 +875,7 @@ func SetCandidateChangeset(
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: setCandidateMcmsTxs}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1162,7 +1163,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 	batches := []mcmstypes.BatchOperation{{ChainSelector: mcmstypes.ChainSelector(cfg.HomeChainSelector), Transactions: ops}}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1368,7 +1369,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 	}
 
 	prop, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,

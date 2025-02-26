@@ -10,8 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
+
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
@@ -32,7 +31,10 @@ type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
-// TODO move this out of internal
+// ContractSet is a set of contracts for a single chain
+// It is a mirror of changeset.ContractSet, and acts an an adapter to the internal package
+//
+// TODO: remove after CRE-227
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
@@ -41,52 +43,7 @@ type ContractSet struct {
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
 
-func (cs ContractSet) TransferableContracts() []common.Address {
-	var out []common.Address
-	if cs.OCR3 != nil {
-		for _, ocr := range cs.OCR3 {
-			out = append(out, ocr.Address())
-		}
-	}
-	if cs.Forwarder != nil {
-		out = append(out, cs.Forwarder.Address())
-	}
-	if cs.CapabilitiesRegistry != nil {
-		out = append(out, cs.CapabilitiesRegistry.Address())
-	}
-	if cs.WorkflowRegistry != nil {
-		out = append(out, cs.WorkflowRegistry.Address())
-	}
-	return out
-}
-
-func (cs ContractSet) View() (view.KeystoneChainView, error) {
-	out := view.NewKeystoneChainView()
-	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-		if err != nil {
-			return view.KeystoneChainView{}, err
-		}
-		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
-	}
-
-	// Process the workflow registry and print if WorkflowRegistryError errors.
-	if cs.WorkflowRegistry != nil {
-		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-		for _, err := range wrErrs {
-			var wre *common_v1_0.WorkflowRegistryError
-			if !errors.As(err, &wre) {
-				return view.KeystoneChainView{}, err
-			}
-			fmt.Println("WorkflowRegistry error:", err)
-		}
-		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
-	}
-
-	return out, nil
-}
-
-func (cs ContractSet) GetOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
+func (cs ContractSet) getOCR3Contract(addr *common.Address) (*ocr3_capability.OCR3Capability, error) {
 	return getOCR3Contract(cs.OCR3, addr)
 }
 

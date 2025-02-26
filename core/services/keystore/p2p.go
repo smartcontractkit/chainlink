@@ -110,7 +110,7 @@ func (ks *p2p) Import(ctx context.Context, keyJSON []byte, password string) (p2p
 		return p2pkey.KeyV2{}, errors.Wrap(err, "P2PKeyStore#ImportKey failed to decrypt key")
 	}
 	if _, found := ks.keyRing.P2P[key.ID()]; found {
-		return p2pkey.KeyV2{}, fmt.Errorf("key with ID %s already exists", key.ID())
+		return p2pkey.KeyV2{}, fmt.Errorf("p2p key %s: %w", key.ID(), ErrKeyExists)
 	}
 	return key, ks.keyManager.safeAddKey(ctx, key)
 }

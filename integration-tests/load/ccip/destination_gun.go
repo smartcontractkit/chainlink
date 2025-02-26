@@ -92,7 +92,6 @@ func (m *DestinationGun) Validate() error {
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	m.roundNum.Add(1)
-	requestedRound := m.roundNum.Load()
 
 	waspGroup := fmt.Sprintf("%d-%s", m.chainSelector, "messageOnly")
 
@@ -129,10 +128,12 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		acc.Value = fee
 		defer func() { acc.Value = nil }()
 	}
+	// todo: remove once CCIP-5143 is implemented
+	acc.GasLimit = *m.testConfig.GasLimit
+	
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
-		"round", requestedRound,
 		"fee", fee,
 		"msg", msg)
 	tx, err := r.CcipSend(
