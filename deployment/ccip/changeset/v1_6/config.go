@@ -90,6 +90,7 @@ const (
 func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
 	switch chainsel {
 	case chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+		chain_selectors.ETHEREUM_TESTNET_HOLESKY.Selector,
 		chain_selectors.ETHEREUM_MAINNET.Selector:
 		return Ethereum
 	default:
