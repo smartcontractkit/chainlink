@@ -236,11 +236,18 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
-		routerView, err := v1_2.GenerateRouterView(c.Router)
+		routerView, err := v1_2.GenerateRouterView(c.Router, false)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
 		}
 		chainView.Router[c.Router.Address().Hex()] = routerView
+	}
+	if c.TestRouter != nil {
+		testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
+		}
+		chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
 	}
 	if c.TokenAdminRegistry != nil {
 		taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
