@@ -77,53 +77,76 @@ var (
 	}
 )
 
+type OCRConfigChainType int
+
+const (
+	NonEthereum OCRConfigChainType = iota + 1
+	Ethereum
+	// SimulationTest is kept only for backward compatibility. Tests probably should
+	// migrate to using NonEthereum or Ethereum
+	SimulationTest
+)
+
+func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
+	switch chainsel {
+	case chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+		chain_selectors.ETHEREUM_MAINNET.Selector:
+		return Ethereum
+	default:
+		return NonEthereum
+	}
+}
+
+func (c OCRConfigChainType) CommitOCRParams() CCIPOCRParams {
+	switch c {
+	case Ethereum:
+		return DefaultOCRParamsForCommitForETH.Copy()
+	case NonEthereum:
+		return DefaultOCRParamsForCommitForNonETH.Copy()
+	case SimulationTest:
+		return OcrParamsForTest.Copy()
+	default:
+		panic("unknown OCRConfigChainType")
+	}
+}
+
+func (c OCRConfigChainType) ExecuteOCRParams() CCIPOCRParams {
+	switch c {
+	case Ethereum:
+		return DefaultOCRParamsForExecForETH.Copy()
+	case NonEthereum:
+		return DefaultOCRParamsForExecForNonETH.Copy()
+	case SimulationTest:
+		return OcrParamsForTest.Copy()
+	default:
+		panic("unknown OCRConfigChainType")
+	}
+}
+
 func DeriveOCRParamsForCommit(
-	chainsel uint64,
-	isSimulatedChain bool,
+	ocrChainType OCRConfigChainType,
 	feedChain uint64,
 	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	var params CCIPOCRParams
-	switch {
-	case isSimulatedChain:
-		params = OcrParamsForTest.Copy()
-	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
-		params = DefaultOCRParamsForCommitForETH.Copy()
-	default:
-		params = DefaultOCRParamsForCommitForNonETH.Copy()
-	}
+	params := ocrChainType.CommitOCRParams()
 	params.CommitOffChainConfig.TokenInfo = feeTokenInfo
 	params.CommitOffChainConfig.PriceFeedChainSelector = ccipocr3.ChainSelector(feedChain)
 	if override == nil {
 		return params
 	}
-
 	return override(params)
 }
 
 func DeriveOCRParamsForExec(
-	chainsel uint64,
-	isSimulatedChain bool,
+	ocrChainType OCRConfigChainType,
 	observerConfig []pluginconfig.TokenDataObserverConfig,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	var params CCIPOCRParams
-	switch {
-	case isSimulatedChain:
-		params = OcrParamsForTest.Copy()
-	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
-		params = DefaultOCRParamsForExecForETH.Copy()
-	default:
-		params = DefaultOCRParamsForExecForNonETH.Copy()
-	}
-
+	params := ocrChainType.ExecuteOCRParams()
 	params.ExecuteOffChainConfig.TokenDataObservers = observerConfig
 	if override == nil {
 		return params
 	}
-
 	return override(params)
 }
