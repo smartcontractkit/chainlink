@@ -444,7 +444,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.1-0.20250225210020-fc215b29321e // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
-	github.com/smartcontractkit/mcms v0.10.0 // indirect
+	github.com/smartcontractkit/mcms v0.12.2 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.3 // indirect
 	github.com/sony/gobreaker/v2 v2.1.0 // indirect
