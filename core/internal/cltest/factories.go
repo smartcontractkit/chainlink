@@ -116,8 +116,8 @@ func WebURL(t testing.TB, unparsed string) models.WebURL {
 }
 
 // JSONFromString create JSON from given body and arguments
-func JSONFromString(t testing.TB, body string, args ...interface{}) models.JSON {
-	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
+func JSONFromString(t testing.TB, body string) models.JSON {
+	return JSONFromBytes(t, []byte(body))
 }
 
 // JSONFromBytes creates JSON from a given byte array

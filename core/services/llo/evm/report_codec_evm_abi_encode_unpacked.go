@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -60,7 +61,9 @@ type ReportFormatEVMABIEncodeOpts struct {
 }
 
 func (r *ReportFormatEVMABIEncodeOpts) Decode(opts []byte) error {
-	return json.Unmarshal(opts, r)
+	decoder := json.NewDecoder(bytes.NewReader(opts))
+	decoder.DisallowUnknownFields() // Error on unrecognized fields
+	return decoder.Decode(r)
 }
 
 func (r *ReportFormatEVMABIEncodeOpts) Encode() ([]byte, error) {
@@ -120,6 +123,27 @@ func (r ReportCodecEVMABIEncodeUnpacked) Encode(ctx context.Context, report llo.
 	}
 
 	return append(header, payload...), nil
+}
+
+func (r ReportCodecEVMABIEncodeUnpacked) Verify(_ context.Context, cd llotypes.ChannelDefinition) error {
+	opts := new(ReportFormatEVMABIEncodeOpts)
+	if err := opts.Decode(cd.Opts); err != nil {
+		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
+	}
+	if opts.BaseUSDFee.IsNegative() {
+		return errors.New("baseUSDFee must be non-negative")
+	}
+	if opts.FeedID == (common.Hash{}) {
+		return errors.New("feedID must not be zero")
+	}
+	if len(cd.Streams) < 3 {
+		return fmt.Errorf("expected at least 3 streams; got: %d", len(cd.Streams))
+	}
+	// NOTE: First two streams are always expected to be native/link price
+	if len(opts.ABI) != len(cd.Streams)-2 {
+		return fmt.Errorf("ABI length mismatch; expected: %d, got: %d", len(cd.Streams)-2, len(opts.ABI))
+	}
+	return nil
 }
 
 // BaseSchema represents the fixed base schema that remains unchanged for all

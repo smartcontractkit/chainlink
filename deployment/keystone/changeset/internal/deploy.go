@@ -659,6 +659,10 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 // the signer is the onchain public key
 // the enc is the encryption public key
 func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
+	wfKey, err := hex.DecodeString(n.WorkflowKey)
+	if err != nil {
+		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
+	}
 	chainID, err := chainsel.ChainIdFromSelector(chainSel)
 	if err != nil {
 		return signer, enc, fmt.Errorf("error getting chain id for selector %d: %w", chainSel, err)
@@ -673,7 +677,7 @@ func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32
 		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
 	}
 	copy(signer[:], evmCC.OnchainPublicKey)
-	copy(enc[:], evmCC.ConfigEncryptionPublicKey[:])
+	copy(enc[:], wfKey)
 	return signer, enc, nil
 }
 
@@ -759,6 +763,9 @@ func getNodesToRegister(
 		)
 		if ni, err = registry.GetNode(&bind.CallOpts{}, nodeParams.P2pId); err != nil {
 			if err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err); strings.Contains(err.Error(), "NodeDoesNotExist") {
+				if nodeParams.EncryptionPublicKey == ([32]byte{}) {
+					return nil, fmt.Errorf("invalid workflow key (cannot be empty or zero) for nodeID: %s", nodeID)
+				}
 				nodes2Add = append(nodes2Add, nodeParams)
 				continue
 			}

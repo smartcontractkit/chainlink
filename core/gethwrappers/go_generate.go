@@ -3,7 +3,7 @@
 package gethwrappers
 
 // Make sure solidity compiler artifacts are up-to-date. Only output stdout on failure.
-//go:generate ./generation/compile_contracts.sh
+//go:generate ../../contracts/scripts/native_solc_compile_all
 
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin Operator operator_wrapper
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin OperatorFactory operator_factory
@@ -161,6 +161,6 @@ package gethwrappers
 // The flow is as follows:
 // 1. Compile all non events mock contracts.
 // 2. Generate events mock .sol files based on ABI of compiled contracts.
-// 3. Compile events mock contracts. ./generation/compile_event_mock_contract.sh calls contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
+// 3. Compile mocks by calling contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
 // 4. Generate wrappers for events mock contracts.
-//go:generate ./generation/compile_event_mock_contract.sh
+//go:generate ../../contracts/scripts/native_solc_compile_all_events_mock
