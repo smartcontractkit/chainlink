@@ -644,7 +644,6 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 	}
 	switch cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
-		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.BurnMintTokenPool)
 		solBurnMintTokenPool.SetProgramID(chainState.BurnMintTokenPool)
 		programID = chainState.BurnMintTokenPool
@@ -660,7 +659,6 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
-		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.LockReleaseTokenPool)
 		solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
 		programID = chainState.LockReleaseTokenPool
@@ -777,7 +775,6 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 	}
 	switch cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
-		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.BurnMintTokenPool)
 		solBurnMintTokenPool.SetProgramID(chainState.BurnMintTokenPool)
 		programID = chainState.BurnMintTokenPool
@@ -791,7 +788,6 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
-		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.LockReleaseTokenPool)
 		solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
 		programID = chainState.LockReleaseTokenPool
