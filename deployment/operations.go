@@ -18,7 +18,7 @@ type Input interface {
 	Validate() error
 }
 
-type ExecuteFunc[I, O, D any] func(ctx OpContext, deps D, input I) (output O, err error)
+type OpHandler[I, O, D any] func(ctx OpContext, deps D, input I) (output O, err error)
 
 // An Operation / Sequence is defined by a unique ID and version. It has a description explaining what it does.
 type Definition struct {
@@ -31,12 +31,12 @@ type Definition struct {
 // They execute one operation, which can perform max 1 side effect (e.g. send a transaction, post a job spec...)
 // TODO: There should be some constraint on Input, Output and Deps
 type Operation[Input, Output, Deps any] struct {
-	def      Definition
-	execFunc ExecuteFunc[Input, Output, Deps]
+	def     Definition
+	handler OpHandler[Input, Output, Deps]
 }
 
 // TODO: Add std context.Context
-func NewOperation[I, O, D any](version string, description string, execFunc ExecuteFunc[I, O, D]) *Operation[I, O, D] {
+func NewOperation[I, O, D any](version string, description string, handler OpHandler[I, O, D]) *Operation[I, O, D] {
 	return &Operation[I, O, D]{
 		def: Definition{
 			// Id and version are useful to identify the operation
@@ -44,13 +44,13 @@ func NewOperation[I, O, D any](version string, description string, execFunc Exec
 			Version:     version,
 			Description: description,
 		},
-		execFunc: execFunc,
+		handler: handler,
 	}
 }
 
 func (o *Operation[I, O, D]) Execute(ctx OpContext, deps D, input I) (output O, err error) {
 	ctx.Log.Infow("Executing operation", "id", o.def.ID, "version", o.def.Version, "description", o.def.Description)
-	return o.execFunc(ctx, deps, input)
+	return o.handler(ctx, deps, input)
 }
 
 func (o *Operation[I, O, D]) ID() string {

@@ -20,7 +20,7 @@ type EthereumTxOutput struct {
 	Hash    common.Hash
 	Address common.Address
 
-	RawReceipt any
+	RawReceipt *types.Receipt
 }
 
 type EthereumDeps struct {

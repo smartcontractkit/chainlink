@@ -8,8 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
 
-// var newLinkToken = deployment_ethereum.NewContractCtorFn(link_token.NewLinkToken)
-
 // Deployment Op
 var DeployLinkOp = deployment_ethereum.NewEthDeployOperationFromBindingNoParams(link_token.DeployLinkToken, "v1")
 

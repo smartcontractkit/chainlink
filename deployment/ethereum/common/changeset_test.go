@@ -19,7 +19,7 @@ func TestLinkChangeset(t *testing.T) {
 	})
 	chain1 := e.AllChainSelectors()[0]
 
-	changesetInput := ChangesetLinkInput{
+	changesetInput := SqDeployLinkInput{
 		MintAmount: big.NewInt(1000000000000000000),
 		Amount:     big.NewInt(1000000000000),
 		To:         common.HexToAddress("0x1"),
@@ -30,8 +30,9 @@ func TestLinkChangeset(t *testing.T) {
 
 	// Check the report
 	reports := e.OpEnv.Reporter.GetReports()
-	require.Len(t, reports, 4)
+	require.Len(t, reports, 5)
+	require.NoError(t, err)
 
 	// Check the output
-	require.Len(t, ret.Reports, 4)
+	require.Len(t, ret.Reports, 5)
 }

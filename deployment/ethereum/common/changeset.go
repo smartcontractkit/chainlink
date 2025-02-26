@@ -1,72 +1,32 @@
 package deployment_common
 
 import (
-	"math/big"
-
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	deployment_ethereum "github.com/smartcontractkit/chainlink/deployment/ethereum/extension"
 )
 
-type ChangesetLinkInput struct {
-	MintAmount *big.Int
-	Amount     *big.Int
-	To         common.Address
-	chainID    uint64
-}
+// This changeset uses the DeployLinkSequence to deploy a LINK token contract, grant minting permissions, mint some LINK to the deployer, and transfer some LINK to another address
+var LinkExampleChangeset = func(e deployment.Environment, config SqDeployLinkInput) (deployment.ChangesetOutput, error) {
 
-// This changeset deploys and transfers an specific amount of LINK to an address
-var LinkExampleChangeset = func(e deployment.Environment, config ChangesetLinkInput) (deployment.ChangesetOutput, error) {
-
-	// Prepare operation context
+	// Prepare sequence deps
 	auth := e.Chains[config.chainID].DeployerKey
 	client := e.Chains[config.chainID].Client
-	ethCtx := deployment_ethereum.EthereumDeps{
+	deps := deployment_ethereum.EthereumDeps{
 		Auth:    auth,
 		Client:  client,
 		Confirm: e.Chains[config.chainID].ConfirmByHash,
 	}
 
-	linkDeployReport, err := deployment.ExecuteOp(e.OpEnv, DeployLinkOp, ethCtx, deployment.EmptyInput{})
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	grantMintInput := GrantLinkInput{
-		contractAddress: linkDeployReport.Output.Address,
-		To:              auth.From,
-	}
-
-	_, err = deployment.ExecuteOp(e.OpEnv, GrantMintLinkOp, ethCtx, grantMintInput)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	mintInput := MintLinkInput{
-		contractAddress: linkDeployReport.Output.Address,
-		To:              auth.From,
-		Amount:          config.MintAmount,
-	}
-
-	_, err = deployment.ExecuteOp(e.OpEnv, MintLinkOp, ethCtx, mintInput)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-
-	transferInput := TransferLinkInput{
-		contractAddress: linkDeployReport.Output.Address,
-		To:              config.To,
-		Amount:          config.Amount,
-	}
-
-	_, err = deployment.ExecuteOp(e.OpEnv, TransferLinkOp, ethCtx, transferInput)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
+	// Execute Sequence
+	// TODO: Build a way to re execute the sequence from an existing report. Ideally this is an extra optional parameter in the changeset
+	linkDeployReport := deployment.ExecuteSeq(e.OpEnv, *DeployLinkSequence, deps, config)
+	if linkDeployReport.Err != nil {
+		return deployment.ChangesetOutput{}, linkDeployReport.Err
 	}
 
 	// TODO: Changeset should return its own Report with a unique ID, storing low level operation reports
 	return deployment.ChangesetOutput{
-		// Should include Address Book and other relevant information
+		// TODO: Make a way to return only the executed reports
 		Reports: e.OpEnv.Reporter.GetReports(),
-	}, err
+	}, nil
 }
