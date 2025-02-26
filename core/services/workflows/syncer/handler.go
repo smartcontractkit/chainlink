@@ -221,9 +221,14 @@ func NewEventHandler(
 	opts ...func(*eventHandler),
 ) *eventHandler {
 
-	m, err := initMonitoringResources()
+	registryMetrics, err := initMonitoringResources()
 	if err != nil {
-		lggr.Criticalw("Failed to initialize monitoring resources", "err", err)
+		lggr.Criticalw("Failed to initialize registry monitoring resources", "err", err)
+	}
+
+	workflowMetrics, err := workflows.InitWorkflowMonitoringResources()
+	if err != nil {
+		lggr.Criticalw("Failed to initialize workflow monitoring resources", "err", err)
 	}
 
 	eh := &eventHandler{
@@ -233,7 +238,8 @@ func NewEventHandler(
 		capRegistry:              capRegistry,
 		fetchFn:                  fetchFn,
 		engineRegistry:           engineRegistry,
-		registryMetrics:          newWorkflowRegistryMetricsLabeler(m),
+		registryMetrics:          *registryMetrics,
+		workflowMetrics:          *workflowMetrics,
 		emitter:                  emitter,
 		lastFetchedAtMap:         newLastFetchedAtMap(),
 		clock:                    clock,

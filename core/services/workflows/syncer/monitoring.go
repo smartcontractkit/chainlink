@@ -22,8 +22,8 @@ type workflowRegistryMetrics struct {
 	updateCounter             metric.Int64Counter
 }
 
-func initMonitoringResources() (m *workflowRegistryMetrics, err error) {
-	m = &workflowRegistryMetrics{}
+func initMonitoringResources() (l *workflowRegistryMetricsLabeler, err error) {
+	m := &workflowRegistryMetrics{}
 
 	m.activateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_register")
 	if err != nil {
@@ -55,7 +55,7 @@ func initMonitoringResources() (m *workflowRegistryMetrics, err error) {
 		return nil, fmt.Errorf("error initializing update counter: %w", err)
 	}
 
-	return m, nil
+	return newWorkflowRegistryMetricsLabeler(m), nil
 }
 
 // workflowRegistryMetricsLabeler wraps m to provide utilities for
@@ -65,8 +65,8 @@ type workflowRegistryMetricsLabeler struct {
 	m *workflowRegistryMetrics
 }
 
-func newWorkflowRegistryMetricsLabeler(m *workflowRegistryMetrics) workflowRegistryMetricsLabeler {
-	return workflowRegistryMetricsLabeler{
+func newWorkflowRegistryMetricsLabeler(m *workflowRegistryMetrics) *workflowRegistryMetricsLabeler {
+	return &workflowRegistryMetricsLabeler{
 		metrics.NewLabeler(),
 		m,
 	}

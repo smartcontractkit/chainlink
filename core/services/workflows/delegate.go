@@ -118,7 +118,7 @@ func NewDelegate(
 	ratelimiter *ratelimiter.RateLimiter,
 	engineRegistry *registry.EngineRegistry,
 ) *Delegate {
-	metrics, err := initWorkflowMonitoringResources()
+	metrics, err := InitWorkflowMonitoringResources()
 	if err != nil {
 		logger.Criticalw("Failed to initialize workflow monitoring resources", "err", err)
 	}

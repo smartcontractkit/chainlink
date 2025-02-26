@@ -19,8 +19,10 @@ type workflowMetrics struct {
 	totalWorkflows metric.Int64Gauge
 }
 
-func initWorkflowMonitoringResources() (l *WorkflowMetricLabeler, err error) {
-	wm := &workflowMetrics{}
+// InitWorkflowMonitoringResources is exported to allow the syncer to report on
+// totalWorkflows, as well as the delegate in this package
+func InitWorkflowMonitoringResources() (l *WorkflowMetricLabeler, err error) {
+	wm := workflowMetrics{}
 
 	wm.totalWorkflows, err = beholder.GetMeter().Int64Gauge("platform_workflow_engines_total")
 	if err != nil {
@@ -29,7 +31,7 @@ func initWorkflowMonitoringResources() (l *WorkflowMetricLabeler, err error) {
 
 	l = &WorkflowMetricLabeler{
 		metrics.NewLabeler(),
-		*wm,
+		wm,
 	}
 	return l, nil
 }
