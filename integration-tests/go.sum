@@ -1468,6 +1468,8 @@ github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0 h1:rNjLZrwY3
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0/go.mod h1:jNxIJa9Fl/zM7rFahUFE8E55VGPC/2e6ilqVKoSbr8U=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1-0.20250226204105-e29bfa4a952f h1:iu6VsWZZ/2FOBdaEYR/slYvXb9VgOeomUopgL+yYsBw=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1-0.20250226204105-e29bfa4a952f/go.mod h1:+ZDD9sEUxztv16mQGXfOPFouu/kBVKvSSJ66NzrbK/I=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1-0.20250226211722-508e66cfe442 h1:1Yf1cztFyW7+8cecwAYchz3KKcS6+eYAg+D4izaIgsQ=
+github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1-0.20250226211722-508e66cfe442/go.mod h1:+ZDD9sEUxztv16mQGXfOPFouu/kBVKvSSJ66NzrbK/I=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 h1:+6L/PVxWsaYCr9jmxtKfyCcEJm1o6UaKrFJU9jAiZwA=
 github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0/go.mod h1:ym1yBKknQkGfgSQF7EGXSevDuex1YZbz+zgDwRvhY3U=
 github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.0 h1:hMZWkNIBB32Nm4WOQe6SjnhSIb8pw4V3+UemNXE8UeA=
