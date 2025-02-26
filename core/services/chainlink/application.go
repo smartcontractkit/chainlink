@@ -739,7 +739,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 		opts                 = cscfg.CREOpts
 		ds                   = cscfg.DS
 	)
-	var engineRegistry *registry.EngineRegistry
+	engineRegistry := registry.NewEngineRegistry() // must be created even w/o workflow registry
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
@@ -846,7 +846,6 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				engineRegistry = registry.NewEngineRegistry()
 				eventHandler := syncer.NewEventHandler(
 					lggr,
 					syncer.NewWorkflowRegistryDS(ds, globalLogger),
