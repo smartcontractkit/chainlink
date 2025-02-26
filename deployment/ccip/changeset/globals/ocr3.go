@@ -123,5 +123,4 @@ func withOverrides(base types.OCRParameters, overrides types.OCRParameters) type
 		base.MaxDurationShouldTransmitAcceptedReport = overrides.MaxDurationShouldTransmitAcceptedReport
 	}
 	return base
-
 }
