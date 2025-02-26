@@ -356,7 +356,7 @@ func transferOwnershipLockReleaseTokenPools(
 			tokenPoolConfigPDA, // config PDA
 			solChain.DeployerKey.PublicKey(),
 			solChain,
-			state2.BurnMintTokenPool,
+			state2.LockReleaseTokenPool,
 		)
 
 		if err != nil {

@@ -384,20 +384,20 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 	// (D) Check BurnMintTokenPools ownership:
 	require.Eventually(t, func() bool {
-		programData := burnmint.BaseConfig{}
+		programData := burnmint.State{}
 		t.Logf("Checking BurnMintTokenPools ownership data. configPDA: %s", burnMintPoolConfigPDA.String())
 		err := solChain.GetAccountDataBorshInto(ctx, burnMintPoolConfigPDA, &programData)
 		require.NoError(t, err)
-		return timelockSignerPDA.String() == programData.Owner.String()
+		return timelockSignerPDA.String() == programData.Config.Owner.String()
 	}, 30*time.Second, 5*time.Second, "BurnMintTokenPool owner was not changed to timelock signer PDA")
 
 	// (E) Check LockReleaseTokenPools ownership:
 	require.Eventually(t, func() bool {
 
-		programData := lockrelease.BaseConfig{}
+		programData := lockrelease.State{}
 		t.Logf("Checking LockReleaseTokenPools ownership data. configPDA: %s", lockReleasePoolConfigPDA.String())
 		err := solChain.GetAccountDataBorshInto(ctx, lockReleasePoolConfigPDA, &programData)
 		require.NoError(t, err)
-		return timelockSignerPDA.String() == programData.Owner.String()
+		return timelockSignerPDA.String() == programData.Config.Owner.String()
 	}, 30*time.Second, 5*time.Second, "LockReleaseTokenPool owner was not changed to timelock signer PDA")
 }
