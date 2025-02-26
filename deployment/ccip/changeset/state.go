@@ -1042,6 +1042,10 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.MockRMN = mockRMN
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
 		default:
+			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
+			// bypasser, proposer and canceller
+			// if you try to compare tvStr.String() you will have to compare all combinations of labels
+			// so we will compare the type and version only
 			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
 				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 				continue
