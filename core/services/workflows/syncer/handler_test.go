@@ -24,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	ereg "github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
@@ -106,7 +107,7 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, ereg.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 		err = h.Handle(ctx, giveEvent)
 		require.NoError(t, err)
 	})
@@ -122,7 +123,7 @@ func Test_Handler(t *testing.T) {
 			return []byte("contents"), nil
 		}
 
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, ereg.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
@@ -134,7 +135,7 @@ func Test_Handler(t *testing.T) {
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
 
-		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, nil, nil, nil, ereg.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -175,7 +176,7 @@ func Test_Handler(t *testing.T) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, ereg.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -204,7 +205,7 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, ereg.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -508,7 +509,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 
 		event := tc.Event(giveWFID[:])
 
-		er := NewEngineRegistry()
+		er := ereg.NewEngineRegistry()
 		opts := []func(*eventHandler){
 			WithEngineRegistry(er),
 		}
@@ -520,7 +521,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
+		h := NewEventHandler(lggr, orm, fetcher, store, registry, er, emitter, clockwork.NewFakeClock(),
 			workflowkey.Key{}, rl, opts...)
 
 		tc.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
@@ -566,7 +567,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			SecretsURL:    secretsURL,
 		}
 
-		er := NewEngineRegistry()
+		er := ereg.NewEngineRegistry()
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -578,6 +579,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			fetcher,
 			store,
 			registry,
+			er,
 			emitter,
 			clockwork.NewFakeClock(),
 			workflowkey.Key{},
@@ -667,7 +669,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			SecretsURL:    secretsURL,
 		}
 
-		er := NewEngineRegistry()
+		er := ereg.NewEngineRegistry()
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
@@ -679,6 +681,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			fetcher,
 			store,
 			registry,
+			er,
 			emitter,
 			clockwork.NewFakeClock(),
 			workflowkey.Key{},
@@ -828,6 +831,7 @@ func Test_Handler_SecretsFor(t *testing.T) {
 		fetcher.Fetch,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
+		ereg.NewEngineRegistry(),
 		custmsg.NewLabeler(),
 		clockwork.NewFakeClock(),
 		encryptionKey,
@@ -893,6 +897,7 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 		fetcher.Fetch,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
+		ereg.NewEngineRegistry(),
 		custmsg.NewLabeler(),
 		clockwork.NewFakeClock(),
 		encryptionKey,
@@ -959,6 +964,7 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 		fetcher.Fetch,
 		wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock()),
 		capabilities.NewRegistry(lggr),
+		ereg.NewEngineRegistry(),
 		custmsg.NewLabeler(),
 		clock,
 		encryptionKey,

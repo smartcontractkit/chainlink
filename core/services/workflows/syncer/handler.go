@@ -27,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -168,7 +169,7 @@ type eventHandler struct {
 	limits                   *ArtifactConfig
 	workflowStore            store.Store
 	capRegistry              core.CapabilitiesRegistry
-	engineRegistry           *EngineRegistry
+	engineRegistry           *registry.EngineRegistry
 	registryMetrics          workflowRegistryMetricsLabeler
 	workflowMetrics          workflows.WorkflowMetricLabeler
 	emitter                  custmsg.MessageEmitter
@@ -187,7 +188,7 @@ type Event interface {
 
 var defaultSecretsFreshnessDuration = 24 * time.Hour
 
-func WithEngineRegistry(er *EngineRegistry) func(*eventHandler) {
+func WithEngineRegistry(er *registry.EngineRegistry) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineRegistry = er
 	}
@@ -212,7 +213,7 @@ func NewEventHandler(
 	fetchFn FetcherFunc,
 	workflowStore store.Store,
 	capRegistry core.CapabilitiesRegistry,
-	engineRegistry *EngineRegistry,
+	engineRegistry *registry.EngineRegistry,
 	emitter custmsg.MessageEmitter,
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,

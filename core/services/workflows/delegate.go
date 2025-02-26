@@ -8,9 +8,8 @@ import (
 	"github.com/pelletier/go-toml"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
@@ -25,7 +24,7 @@ type Delegate struct {
 	logger         logger.Logger
 	store          store.Store
 	ratelimiter    *ratelimiter.RateLimiter
-	engineRegistry *syncer.EngineRegistry
+	engineRegistry *registry.EngineRegistry
 	metrics        WorkflowMetricLabeler
 }
 
@@ -117,7 +116,7 @@ func NewDelegate(
 	registry core.CapabilitiesRegistry,
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
-	engineRegistry *syncer.EngineRegistry,
+	engineRegistry *registry.EngineRegistry,
 ) *Delegate {
 	metrics, err := initWorkflowMonitoringResources()
 	if err != nil {

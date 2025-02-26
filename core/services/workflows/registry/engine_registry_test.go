@@ -1,4 +1,4 @@
-package syncer_test
+package registry_test
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 )
 
 // mockService implements the services.Service interface for testing.
@@ -40,7 +40,7 @@ func (m *mockService) Close() error {
 }
 
 func TestEngineRegistry_AddAndGet(t *testing.T) {
-	registry := syncer.NewEngineRegistry()
+	registry := registry.NewEngineRegistry()
 
 	svc := mockService{}
 	svc.On("Ready").Return(nil)
@@ -66,7 +66,7 @@ func TestEngineRegistry_AddAndGet(t *testing.T) {
 }
 
 func TestEngineRegistry_IsRunning(t *testing.T) {
-	registry := syncer.NewEngineRegistry()
+	registry := registry.NewEngineRegistry()
 
 	runningSvc := &mockService{}
 	runningSvc.On("Ready").Return(nil)
@@ -83,7 +83,7 @@ func TestEngineRegistry_IsRunning(t *testing.T) {
 }
 
 func TestEngineRegistry_Pop(t *testing.T) {
-	registry := syncer.NewEngineRegistry()
+	registry := registry.NewEngineRegistry()
 
 	svc := &mockService{}
 	err := registry.Add("id1", svc)
@@ -104,7 +104,7 @@ func TestEngineRegistry_Pop(t *testing.T) {
 }
 
 func TestEngineRegistry_Close(t *testing.T) {
-	registry := syncer.NewEngineRegistry()
+	registry := registry.NewEngineRegistry()
 
 	// Set up multiple services to test aggregated errors
 	svc1 := &mockService{}
@@ -150,7 +150,7 @@ func TestEngineRegistry_Size(t *testing.T) {
 	svc1.On("Close").Return(nil)
 	svc2.On("Close").Return(nil)
 
-	registry := syncer.NewEngineRegistry()
+	registry := registry.NewEngineRegistry()
 	require.Equal(t, 0, registry.Size(), "initial registry should have size 0")
 
 	_ = registry.Add("id1", svc1)

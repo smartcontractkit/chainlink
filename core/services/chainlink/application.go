@@ -76,6 +76,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
@@ -724,7 +725,7 @@ type CREServices struct {
 	// engineRegistry is exposed so that both the delegate
 	// and syncer paths share an underlying store of Engine
 	// instances
-	engineRegistry *syncer.EngineRegistry
+	engineRegistry *registry.EngineRegistry
 	// srvs are all the services that are created, including those that are explicitly exposed
 	srvs []services.ServiceCtx
 }
@@ -738,7 +739,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 		opts                 = cscfg.CREOpts
 		ds                   = cscfg.DS
 	)
-	var engineRegistry *syncer.EngineRegistry
+	var engineRegistry *registry.EngineRegistry
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),
@@ -845,7 +846,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
 				}
 
-				engineRegistry = syncer.NewEngineRegistry()
+				engineRegistry = registry.NewEngineRegistry()
 				eventHandler := syncer.NewEventHandler(
 					lggr,
 					syncer.NewWorkflowRegistryDS(ds, globalLogger),

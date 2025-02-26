@@ -32,6 +32,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
@@ -435,7 +436,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	require.NoError(t, err)
 	giveWorkflow.ID = id
 
-	er := syncer.NewEngineRegistry()
+	er := registry.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
@@ -535,7 +536,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	giveWorkflow.ID = id
 
 	mf := &mockEngineFactory{}
-	er := syncer.NewEngineRegistry()
+	er := registry.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
