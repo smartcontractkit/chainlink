@@ -15,7 +15,6 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -46,13 +45,13 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		contracts *proposalutils.MCMSWithTimelockContracts
+		contracts *MCMSWithTimelockState
 		want      string
 		wantErr   string
 	}{
 		{
 			name: "success",
-			contracts: &proposalutils.MCMSWithTimelockContracts{
+			contracts: &MCMSWithTimelockState{
 				ProposerMcm:  proposerMcm,
 				CancellerMcm: cancellerMcm,
 				BypasserMcm:  bypasserMcm,
@@ -110,7 +109,7 @@ func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewV2(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			state := MCMSWithTimelockState{tt.contracts}
+			state := tt.contracts
 
 			got, err := state.GenerateMCMSWithTimelockView()
 

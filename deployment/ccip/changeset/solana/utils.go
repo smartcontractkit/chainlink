@@ -81,7 +81,7 @@ func BuildProposalsForTxns(
 		Transactions:  txns,
 	})
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
