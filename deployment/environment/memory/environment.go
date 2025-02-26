@@ -174,7 +174,7 @@ func NewNodes(
 	if numNodes+numBootstraps == 0 {
 		return nodesByPeerID
 	}
-	ports := freeport.GetN(t, numBootstraps+numNodes)
+	ports := WaitForPorts(t, numBootstraps+numNodes)
 	// bootstrap nodes must be separate nodes from plugin nodes,
 	// since we won't run a bootstrapper and a plugin oracle on the same
 	// chainlink node in production.
@@ -190,6 +190,30 @@ func NewNodes(
 		// Note in real env, this ID is allocated by JD.
 	}
 	return nodesByPeerID
+}
+
+// WaitForPorts is like freeport.GetN, but retries until ports are available.
+func WaitForPorts(t *testing.T, n int) (ports []int) {
+	t.Helper()
+	for {
+		var err error
+		ports, err = freeport.Take(n)
+		if err == nil {
+			break
+		}
+		t.Logf("failed to take %v ports: %v", n, err)
+		select {
+		case <-t.Context().Done():
+			t.Fatalf("timed out waiting for ports to be available")
+		case <-time.After(5 * time.Second):
+		}
+	}
+	t.Logf("DEBUG", "Test %q took ports %v", t.Name(), ports)
+	t.Cleanup(func() {
+		freeport.Return(ports)
+		t.Logf("DEBUG", "Test %q returned ports %v", t.Name(), ports)
+	})
+	return ports
 }
 
 func NewMemoryEnvironmentFromChainsNodes(
