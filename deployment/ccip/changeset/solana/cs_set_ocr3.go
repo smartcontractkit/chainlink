@@ -150,7 +150,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 	}
 	if cfg.MCMS != nil {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelocks,
 			proposers,
 			inspectors,

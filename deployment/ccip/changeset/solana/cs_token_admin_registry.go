@@ -122,25 +122,6 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		}
 	}
 	if routerUsingMCMS {
-		// ixn := instruction
-		// programID := chainState.Router.String()
-		// contractType := ccipChangeset.Router
-		// data, err := ixn.Data()
-		// if err != nil {
-		// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to extract data: %w", err)
-		// }
-		// tx, err := mcmsSolana.NewTransaction(
-		// 	programID,
-		// 	data,
-		// 	big.NewInt(0),        // e.g. value
-		// 	ixn.Accounts(),       // pass along needed accounts
-		// 	string(contractType), // some string identifying the target
-		// 	[]string{},           // any relevant metadata
-		// )
-		// if err != nil {
-		// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
-		// }
-
 		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
@@ -168,8 +149,7 @@ type TransferAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector             uint64
 	TokenPubKey               string
 	NewRegistryAdminPublicKey string
-	// CurrentRegistryAdminPrivateKey string
-	MCMSSolana *MCMSConfigSolana
+	MCMSSolana                *MCMSConfigSolana
 }
 
 func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -264,11 +244,11 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-	// instructions := []solana.Instruction{ix1}
-	// // the existing authority will have to sign the transfer
-	// if err := chain.Confirm(instructions, solCommonUtil.AddSigners(currentRegistryAdminPrivateKey)); err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	// }
+	// the existing authority will have to sign the transfer
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := chain.Confirm([]solana.Instruction{ix1}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
 	return deployment.ChangesetOutput{}, nil
 }
 
@@ -276,8 +256,7 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 type AcceptAdminRoleTokenAdminRegistryConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
-	// NewRegistryAdminPrivateKey string
-	MCMSSolana *MCMSConfigSolana
+	MCMSSolana    *MCMSConfigSolana
 }
 
 func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environment) error {
@@ -295,6 +274,14 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 		return err
 	}
 	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	newAdmin := chain.DeployerKey.PublicKey()
+	var err error
+	if routerUsingMcms {
+		newAdmin, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	}
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
@@ -306,14 +293,9 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot accept admin role", tokenPubKey.String(), chainState.Router.String())
 	}
-	// check if accepting admin is the pending admin
-	newRegistryAdminPublicKey, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
-	if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newRegistryAdminPublicKey) {
+	if !tokenAdminRegistryAccount.PendingAdministrator.Equals(newAdmin) {
 		return fmt.Errorf("new admin public key (%s) does not match pending registry admin role (%s) for token %s",
-			newRegistryAdminPublicKey.String(),
+			newAdmin.String(),
 			tokenAdminRegistryAccount.PendingAdministrator.String(),
 			tokenPubKey.String(),
 		)
@@ -325,29 +307,36 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	// chain := e.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 
 	// verified
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
-	newRegistryAdminPublicKey, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	var authority solana.PublicKey
+	var err error
+	if routerUsingMCMS {
+		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	} else {
+		authority = chain.DeployerKey.PublicKey()
+	}
 	ix1, err := solRouter.NewAcceptAdminRoleTokenAdminRegistryInstruction(
 		chainState.RouterConfigPDA,
 		tokenAdminRegistryPDA,
 		tokenPubKey,
-		newRegistryAdminPublicKey,
+		authority,
 	).ValidateAndBuild()
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if routerUsingMCMS {
+		// We will only be able to accept the admin role if the pending admin is the timelock signer
 		tx, err := BuildMCMSTxn(ix1, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
@@ -361,11 +350,8 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
 		}, nil
 	}
-
-	// instructions := []solana.Instruction{ix1}
-	// // the new authority will have to sign the acceptance
-	// if err := chain.Confirm(instructions, solCommonUtil.AddSigners(newRegistryAdminPrivateKey)); err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
-	// }
+	if err := chain.Confirm([]solana.Instruction{ix1}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
 	return deployment.ChangesetOutput{}, nil
 }

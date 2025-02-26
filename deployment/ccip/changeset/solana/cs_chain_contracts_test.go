@@ -496,6 +496,9 @@ func TestTokenAdminRegistry(t *testing.T) {
 			state, err := ccipChangeset.LoadOnchainStateSolana(e)
 			require.NoError(t, err)
 			linkTokenAddress := state.SolChains[solChain].LinkToken
+			newAdminNonTimelock, _ := solana.NewRandomPrivateKey()
+			newAdmin := newAdminNonTimelock.PublicKey()
+			newTokenAdmin := e.SolChains[solChain].DeployerKey.PublicKey()
 
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if test.Mcms {
@@ -508,18 +511,22 @@ func TestTokenAdminRegistry(t *testing.T) {
 					FeeQuoterOwnedByTimelock: true,
 					OffRampOwnedByTimelock:   true,
 				}
+				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
+				require.NoError(t, err)
+				newAdmin = timelockSignerPDA
+				newTokenAdmin = timelockSignerPDA
 			}
 			timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
 			require.NoError(t, err)
 
-			e, err = commonchangeset.Apply(t, e, nil,
+			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					// register token admin registry for tokenAddress via admin instruction
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 					ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 						ChainSelector:           solChain,
 						TokenPubKey:             tokenAddress.String(),
-						TokenAdminRegistryAdmin: timelockSignerPDA.String(),
+						TokenAdminRegistryAdmin: newAdmin.String(),
 						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 						MCMSSolana:              mcmsConfig,
 					},
@@ -530,7 +537,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 						ChainSelector: solChain,
 						TokenPubkey:   linkTokenAddress,
 						TokenProgram:  ccipChangeset.SPL2022Tokens,
-						NewAuthority:  timelockSignerPDA,
+						NewAuthority:  newTokenAdmin,
 					},
 				),
 				commonchangeset.Configure(
@@ -539,11 +546,12 @@ func TestTokenAdminRegistry(t *testing.T) {
 					ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 						ChainSelector:           solChain,
 						TokenPubKey:             linkTokenAddress.String(),
-						TokenAdminRegistryAdmin: timelockSignerPDA.String(),
+						TokenAdminRegistryAdmin: newAdmin.String(),
 						RegisterType:            ccipChangesetSolana.ViaOwnerInstruction,
 						MCMSSolana:              mcmsConfig,
 					},
 				),
+			},
 			)
 			require.NoError(t, err)
 
@@ -553,51 +561,52 @@ func TestTokenAdminRegistry(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
 			// pending administrator should be the proposed admin key
-			require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.PendingAdministrator)
+			require.Equal(t, newAdmin, tokenAdminRegistryAccount.PendingAdministrator)
 
 			linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
 			var linkTokenAdminRegistryAccount solRouter.TokenAdminRegistry
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
 			require.NoError(t, err)
-			require.Equal(t, timelockSignerPDA, linkTokenAdminRegistryAccount.PendingAdministrator)
+			require.Equal(t, newAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
 
-			e, err = commonchangeset.Apply(t, e, nil,
-				commonchangeset.Configure(
-					// accept admin role for tokenAddress
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
-					ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
-						ChainSelector: solChain,
-						TokenPubKey:   tokenAddress.String(),
-						// NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-						MCMSSolana: mcmsConfig,
-					},
-				),
-			)
-			require.NoError(t, err)
-			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-			require.NoError(t, err)
-			// confirm that the administrator is the deployer key
-			require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.Administrator)
-			require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
+			// While we can assign the admin role arbitrarily regardless of mcms, we can only accept it as timelock
+			if test.Mcms {
+				e, err = commonchangeset.Apply(t, e, nil,
+					commonchangeset.Configure(
+						// accept admin role for tokenAddress
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+						ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+							ChainSelector: solChain,
+							TokenPubKey:   tokenAddress.String(),
+							MCMSSolana:    mcmsConfig,
+						},
+					),
+				)
+				require.NoError(t, err)
+				err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+				require.NoError(t, err)
+				// confirm that the administrator is the deployer key
+				require.Equal(t, timelockSignerPDA, tokenAdminRegistryAccount.Administrator)
+				require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.PendingAdministrator)
 
-			newTokenAdminRegistryAdminPrivKey, _ := solana.NewRandomPrivateKey()
-			e, err = commonchangeset.Apply(t, e, nil,
-				commonchangeset.Configure(
-					// transfer admin role for tokenAddress
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
-					ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
-						ChainSelector:             solChain,
-						TokenPubKey:               tokenAddress.String(),
-						NewRegistryAdminPublicKey: newTokenAdminRegistryAdminPrivKey.PublicKey().String(),
-						// CurrentRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-						MCMSSolana: mcmsConfig,
-					},
-				),
-			)
-			require.NoError(t, err)
-			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
-			require.NoError(t, err)
-			require.Equal(t, newTokenAdminRegistryAdminPrivKey.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
+				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						// transfer admin role for tokenAddress
+						deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
+						ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
+							ChainSelector:             solChain,
+							TokenPubKey:               tokenAddress.String(),
+							NewRegistryAdminPublicKey: newAdminNonTimelock.PublicKey().String(),
+							MCMSSolana:                mcmsConfig,
+						},
+					),
+				},
+				)
+				require.NoError(t, err)
+				err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
+				require.NoError(t, err)
+				require.Equal(t, newAdminNonTimelock.PublicKey(), tokenAdminRegistryAccount.PendingAdministrator)
+			}
 		})
 	}
 }
@@ -625,6 +634,7 @@ func TestPoolLookupTable(t *testing.T) {
 			solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+			newAdmin := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
 			if test.Mcms {
 				_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true)
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
@@ -635,6 +645,9 @@ func TestPoolLookupTable(t *testing.T) {
 					FeeQuoterOwnedByTimelock: true,
 					OffRampOwnedByTimelock:   true,
 				}
+				timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(tenv.Env, solChain)
+				require.NoError(t, err)
+				newAdmin = timelockSignerPDA
 			}
 
 			e, tokenAddress, err := deployToken(t, tenv.Env, solChain)
@@ -659,9 +672,6 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, lookupTablePubKey, lookupTableEntries0[0])
 			require.Equal(t, tokenAddress, lookupTableEntries0[7])
 
-			timelockSignerPDA, err := ccipChangesetSolana.FetchTimelockSigner(e, solChain)
-			require.NoError(t, err)
-
 			e, err = commonchangeset.Apply(t, e, nil,
 				commonchangeset.Configure(
 					// register token admin registry for linkToken via owner instruction
@@ -669,7 +679,7 @@ func TestPoolLookupTable(t *testing.T) {
 					ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
 						ChainSelector:           solChain,
 						TokenPubKey:             tokenAddress.String(),
-						TokenAdminRegistryAdmin: timelockSignerPDA.String(),
+						TokenAdminRegistryAdmin: newAdmin.String(),
 						RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
 						MCMSSolana:              mcmsConfig,
 					},
@@ -680,17 +690,15 @@ func TestPoolLookupTable(t *testing.T) {
 					ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
 						ChainSelector: solChain,
 						TokenPubKey:   tokenAddress.String(),
-						// NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
-						MCMSSolana: mcmsConfig,
+						MCMSSolana:    mcmsConfig,
 					},
 				),
 				commonchangeset.Configure(
 					// set pool -> this updates tokenAdminRegistryPDA, hence above changeset is required
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
 					ccipChangesetSolana.SetPoolConfig{
-						ChainSelector: solChain,
-						TokenPubKey:   tokenAddress.String(),
-						// TokenAdminRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+						ChainSelector:   solChain,
+						TokenPubKey:     tokenAddress.String(),
 						WritableIndexes: []uint8{3, 4, 7},
 						MCMSSolana:      mcmsConfig,
 					},
@@ -702,7 +710,7 @@ func TestPoolLookupTable(t *testing.T) {
 
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)
 			require.NoError(t, err)
-			require.Equal(t, timelockSignerPDA, tokenAdminRegistry.Administrator)
+			require.Equal(t, newAdmin, tokenAdminRegistry.Administrator)
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
 	}

@@ -453,7 +453,6 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 type SetPoolConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
-	// TokenAdminRegistryAdminPrivateKey string
 	WritableIndexes []uint8
 	MCMSSolana      *MCMSConfigSolana
 }
@@ -496,27 +495,31 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
-	// tokenAdminRegistryAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.TokenAdminRegistryAdminPrivateKey)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
-	tokenAdminRegistryAdmin, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	var authority solana.PublicKey
+	var err error
+	if routerUsingMCMS {
+		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	} else {
+		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
+	}
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,
 		routerConfigPDA,
 		tokenAdminRegistryPDA,
 		tokenPubKey,
 		lookupTablePubKey,
-		tokenAdminRegistryAdmin,
+		authority,
 	)
 
 	base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
@@ -540,11 +543,10 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		}, nil
 	}
 
-	// instructions := []solana.Instruction{instruction}
-	// err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenAdminRegistryAdminPrivKey))
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, err
-	// }
-	// e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
+	chain := e.SolChains[cfg.ChainSelector]
+	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
 	return deployment.ChangesetOutput{}, nil
 }
