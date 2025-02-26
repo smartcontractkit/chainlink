@@ -68,7 +68,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	var err error
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true)
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 			MCMS: &ccipChangeset.MCMSConfig{
 				MinDelay: 1 * time.Second,
@@ -352,7 +352,7 @@ func TestBilling(t *testing.T) {
 			bigNum.FillBytes(value[:])
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true)
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
