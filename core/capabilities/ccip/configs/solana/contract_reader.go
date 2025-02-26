@@ -479,13 +479,12 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{{
-								Name: "Tokens",
-								Type: solanacodec.IdlType{
-									AsIdlTypeVec: &solanacodec.IdlTypeVec{
-										Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
-									},
-								},
+								Name: "Token",
+								Type: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
 							}}},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{FieldName: "Config.UsdPerToken"},
+						},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "DestChain",
