@@ -33,6 +33,8 @@ func TestMCMSState(t *testing.T) {
 	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
 	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].BypasserMcm.Address().String())
+	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].ProposerMcm.Address().String())
+	require.Equal(t, addr.String(), state.Chains[tenv.HomeChainSel].CancellerMcm.Address().String())
 }
 
 // TODO: add solana state test
