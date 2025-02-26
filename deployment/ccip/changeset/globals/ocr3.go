@@ -22,7 +22,7 @@ import (
 //     accidental configuration or partial configuration
 //   - MaxDurations should be set on the latencies observed on various environments using p99 OCR3 latencies
 //     These values should be specific to the plugin type and should not depend on the chain family
-//     (assuming plugin logic is chain agnostic)
+//     or the environment in which plugin runs
 var (
 	// CommitOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see CommitOCRParamsForEthereum).
 	// Most of the intervals here should be generic enough (and chain agnostic) to be reused across different chains.
