@@ -17,17 +17,18 @@ const (
 
 // Source for a set of JD filters to apply when fetching a DON.
 // Should uniquely identify a set of nodes in JD which belong to a single DON.
-type DONFilter struct {
+type ListFilter struct {
 	DONID    uint64
 	DONName  string
 	EnvLabel string
+	Size     int // Expected number of nodes in the result
 }
 
-func (f *DONFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
+func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
 			{
-				Key: fmt.Sprintf("don-%s-%s", f.DONID, f.DONName),
+				Key: fmt.Sprintf("don-%d-%s", f.DONID, f.DONName),
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
@@ -49,11 +50,15 @@ func (f *DONFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	}
 }
 
-func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *DONFilter) (nodes []*nodeapiv1.Node, err error) {
+func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter) (nodes []*nodeapiv1.Node, err error) {
 	jdFilter := filter.bootstrappersFilter()
 	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
 	if err != nil {
-		return nil, fmt.Errorf("failed to list bootstrap nodes for DON %s - %s: %w", filter.DONID, filter.DONName, err)
+		return nil, fmt.Errorf("failed to list bootstrap nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
+	}
+
+	if len(resp.Nodes) != filter.Size {
+		return nil, fmt.Errorf("expected %d bootstrap nodes for DON(%d,%s), got %d", filter.Size, filter.DONID, filter.DONName, len(resp.Nodes))
 	}
 
 	return resp.Nodes, nil
