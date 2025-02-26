@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"strings"
 
-	ethcommon "github.com/ethereum/go-ethereum/common"
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 
@@ -113,7 +112,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
 			TokenAmounts:  tokenAmounts,
 			ExtraArgs:     extraArgs,
-			OnRampAddress: ethcommon.LeftPadBytes(msg.Header.OnRamp, 64),
+			OnRampAddress: msg.Header.OnRamp,
 		}
 
 		// should only have an offchain token data if there are tokens as part of the message
@@ -132,7 +131,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		Message:             message,
 		OffchainTokenData:   offChainTokenData,
 		Proofs:              solanaProofs,
-		Root:                chainReport.Root,
 	}
 
 	var buf bytes.Buffer

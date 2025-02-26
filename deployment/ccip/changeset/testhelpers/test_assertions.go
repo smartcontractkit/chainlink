@@ -542,7 +542,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 		select {
 		case commitEvent := <-sink:
 			// if merkle root is zero, it only contains price updates
-			if commitEvent.Report.MerkleRoot == [32]uint8{} {
+			if commitEvent.Report == nil {
 				t.Logf("Skipping CommitReportAccepted with only price updates")
 				continue
 			}
