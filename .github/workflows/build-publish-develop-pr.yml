@@ -98,7 +98,7 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
-          fetch-depth: 0
+          fetch-depth: 1
 
       - name: Setup Github Token
         id: token

@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/lib
 
-go 1.24
-
-toolchain go1.24.0
+go 1.24.0
 
 require (
 	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
@@ -21,9 +19,9 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.4
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.23
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	google.golang.org/grpc v1.70.0
 	gopkg.in/yaml.v3 v3.0.1
 )
