@@ -57,9 +57,9 @@ The test requires several environment variables. Below is a launch configuration
 - **`GITHUB_READ_TOKEN`**: Required for downloading the `cron` capability binary and CRE CLI (if enabled). Requires `content:read` permission for `smartcontractkit/capabilities` and `smartcontractkit/dev-platform` repositories. Use a fine-grained personal access token (PAT) tied to the **organization’s GitHub account**.
 - **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
 
-Test also expects you to have the Job Distributor image available locally. By default, `environment.toml` expects image tagged as `jd-test-1:latest`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
+Test also expects you to have the Job Distributor image available locally. By default, `environment.toml` expects image tagged as `job-distributor:latest`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
 ```bash
-docker build -t jd-test-1 -f e2e/Dockerfile.e2e
+docker build -t job-distributor:latest -f e2e/Dockerfile.e2e .
 ```
 
 Alternatively, if you have access to the Docker image repository where it's stored you can modify `environment.toml` with the name of the image stored there.

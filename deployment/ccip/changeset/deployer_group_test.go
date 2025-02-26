@@ -338,6 +338,10 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[0].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[0].selectorIndex])].StartingOpCount)
 	require.Equal(t, uint64(3), cs.MCMSTimelockProposals[1].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[1].selectorIndex])].StartingOpCount)
 	require.Equal(t, uint64(2), cs.MCMSTimelockProposals[2].ChainMetadata[mcmstypes.ChainSelector(e.Env.AllChainSelectors()[tc.mints[2].selectorIndex])].StartingOpCount)
+	require.Len(t, cs.DescribedTimelockProposals, len(tc.mints))
+	require.NotEmpty(t, cs.DescribedTimelockProposals[0])
+	require.NotEmpty(t, cs.DescribedTimelockProposals[1])
+	require.NotEmpty(t, cs.DescribedTimelockProposals[2])
 }
 
 func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
