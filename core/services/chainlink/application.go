@@ -739,7 +739,9 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 		opts                 = cscfg.CREOpts
 		ds                   = cscfg.DS
 	)
-	engineRegistry := registry.NewEngineRegistry() // must be created even w/o workflow registry
+	// engineRegistry is consumed by the workflow job delegate and by the handler
+	// for the workflow registry for a unified backend store of engine instances
+	engineRegistry := registry.NewEngineRegistry()
 	var srvcs []services.ServiceCtx
 	workflowRateLimiter, err := ratelimiter.NewRateLimiter(ratelimiter.Config{
 		GlobalRPS:      capCfg.RateLimit().GlobalRPS(),

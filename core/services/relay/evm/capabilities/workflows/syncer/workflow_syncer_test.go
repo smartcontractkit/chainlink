@@ -357,7 +357,7 @@ func Test_SecretsWorker(t *testing.T) {
 	require.NoError(t, err)
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
+			registry.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -440,7 +440,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
+		registry.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -545,6 +545,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		fetcherFn,
 		nil,
 		nil,
+		er,
 		emitter,
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
