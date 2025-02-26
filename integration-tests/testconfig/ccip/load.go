@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	TokenOnlyTransfer    string = "Token"
-	DataOnlyTransfer     string = "Data"
-	DataAndTokenTransfer string = "DataWithToken"
+	TokenTransfer             string = "TokenTransfer"
+	MessagingTransfer         string = "Messaging"
+	ProgrammableTokenTransfer string = "ProgrammableTokenTransfer "
 )
 
 type LoadConfig struct {
@@ -70,11 +70,11 @@ type MsgDetails struct {
 }
 
 func (m *MsgDetails) IsTokenTransfer() bool {
-	return pointer.GetString(m.MsgType) == TokenOnlyTransfer || pointer.GetString(m.MsgType) == DataAndTokenTransfer
+	return pointer.GetString(m.MsgType) == TokenTransfer || pointer.GetString(m.MsgType) == ProgrammableTokenTransfer
 }
 
 func (m *MsgDetails) IsDataTransfer() bool {
-	return pointer.GetString(m.MsgType) == DataOnlyTransfer || pointer.GetString(m.MsgType) == DataAndTokenTransfer
+	return pointer.GetString(m.MsgType) == MessagingTransfer || pointer.GetString(m.MsgType) == ProgrammableTokenTransfer
 }
 
 func (m *MsgDetails) Validate() error {
@@ -84,14 +84,14 @@ func (m *MsgDetails) Validate() error {
 	if m.MsgType == nil {
 		return errors.New("msg type should be set")
 	}
-	if pointer.GetString(m.MsgType) != DataOnlyTransfer &&
-		pointer.GetString(m.MsgType) != TokenOnlyTransfer &&
-		pointer.GetString(m.MsgType) != DataAndTokenTransfer {
-		return fmt.Errorf("msg type should be - %s/%s/%s", DataOnlyTransfer, TokenOnlyTransfer, DataAndTokenTransfer)
+	if pointer.GetString(m.MsgType) != MessagingTransfer &&
+		pointer.GetString(m.MsgType) != TokenTransfer &&
+		pointer.GetString(m.MsgType) != ProgrammableTokenTransfer {
+		return fmt.Errorf("msg type should be - %s/%s/%s", MessagingTransfer, TokenTransfer, ProgrammableTokenTransfer)
 	}
 
 	// We need to check for dest gas limit only if the message type is not token only transfer
-	if pointer.GetString(m.MsgType) != TokenOnlyTransfer {
+	if pointer.GetString(m.MsgType) != TokenTransfer {
 		if m.DestGasLimit == nil {
 			return errors.New("dest gas limit should be set")
 		}
@@ -107,7 +107,7 @@ func (m *MsgDetails) Validate() error {
 		return errors.New("ratio should be between 0 and 100")
 	}
 
-	if pointer.GetString(m.MsgType) == DataAndTokenTransfer {
+	if pointer.GetString(m.MsgType) == ProgrammableTokenTransfer {
 		if m.DataLengthBytes == nil {
 			return errors.New("data length should be set for data and token transfer")
 		}
@@ -115,7 +115,7 @@ func (m *MsgDetails) Validate() error {
 			return errors.New("data length should be greater than 0")
 		}
 	}
-	if pointer.GetString(m.MsgType) == DataOnlyTransfer {
+	if pointer.GetString(m.MsgType) == MessagingTransfer {
 		if m.DataLengthBytes == nil {
 			return errors.New("data length should be set for data transfer")
 		}
