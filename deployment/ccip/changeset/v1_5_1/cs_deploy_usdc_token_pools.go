@@ -102,7 +102,7 @@ func (c DeployUSDCTokenPoolContractsConfig) Validate(env deployment.Environment)
 		if !ok {
 			return fmt.Errorf("chain with selector %d does not exist in state", chainSelector)
 		}
-		if chainState.Router == nil {
+		if !c.IsTestRouter && chainState.Router == nil {
 			return fmt.Errorf("missing router on %s", chain)
 		}
 		if c.IsTestRouter && chainState.TestRouter == nil {
