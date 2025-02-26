@@ -158,21 +158,6 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-
-	timelockSigner, err := FetchTimelockSigner(e, cfg.ChainSelector)
-	if err != nil {
-		return fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
-	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
-
-	if timelockSigner.Equals(newRegistryAdminPubKey) {
-		return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
-			newRegistryAdminPubKey.String(),
-			timelockSigner.String(),
-			tokenPubKey.String(),
-		)
-	}
-
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
@@ -182,7 +167,26 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
 		return err
 	}
+	currentAdmin := chain.DeployerKey.PublicKey()
 	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	var err error
+	if routerUsingMcms {
+		currentAdmin, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	}
+
+	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
+
+	if currentAdmin.Equals(newRegistryAdminPubKey) {
+		return fmt.Errorf("new registry admin public key (%s) cannot be the same as current registry admin public key (%s) for token %s",
+			newRegistryAdminPubKey.String(),
+			currentAdmin.String(),
+			tokenPubKey.String(),
+		)
+	}
+
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
 		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
