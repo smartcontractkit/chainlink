@@ -525,6 +525,15 @@ func TestTokenAdminRegistry(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenMintAuthority),
+					ccipChangesetSolana.SetTokenMintAuthorityConfig{
+						ChainSelector: solChain,
+						TokenPubkey:   linkTokenAddress,
+						TokenProgram:  ccipChangeset.SPL2022Tokens,
+						NewAuthority:  timelockSignerPDA,
+					},
+				),
+				commonchangeset.Configure(
 					// register token admin registry for linkToken via owner instruction
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
 					ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
@@ -560,6 +569,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 						ChainSelector: solChain,
 						TokenPubKey:   tokenAddress.String(),
 						// NewRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+						MCMSSolana: mcmsConfig,
 					},
 				),
 			)
@@ -576,10 +586,11 @@ func TestTokenAdminRegistry(t *testing.T) {
 					// transfer admin role for tokenAddress
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.TransferAdminRoleTokenAdminRegistry),
 					ccipChangesetSolana.TransferAdminRoleTokenAdminRegistryConfig{
-						ChainSelector:                  solChain,
-						TokenPubKey:                    tokenAddress.String(),
-						NewRegistryAdminPublicKey:      newTokenAdminRegistryAdminPrivKey.PublicKey().String(),
+						ChainSelector:             solChain,
+						TokenPubKey:               tokenAddress.String(),
+						NewRegistryAdminPublicKey: newTokenAdminRegistryAdminPrivKey.PublicKey().String(),
 						// CurrentRegistryAdminPrivateKey: tokenAdminRegistryAdminPrivKey.String(),
+						MCMSSolana: mcmsConfig,
 					},
 				),
 			)

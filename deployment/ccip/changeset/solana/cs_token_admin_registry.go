@@ -4,14 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math/big"
 
 	"github.com/gagliardetto/solana-go"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/mcms"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -86,15 +84,15 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	var instruction *solRouter.Instruction
 	var err error
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	// var authority solana.PublicKey
-	// if routerUsingMCMS {
-	// 	authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-	// 	if err != nil {
-	// 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	// 	}
-	// } else {
-	// 	authority = chain.DeployerKey.PublicKey()
-	// }
+	var authority solana.PublicKey
+	if routerUsingMCMS {
+		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	} else {
+		authority = chain.DeployerKey.PublicKey()
+	}
 	switch cfg.RegisterType {
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 	case ViaGetCcipAdminInstruction:
@@ -103,7 +101,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			chainState.RouterConfigPDA,
 			tokenAdminRegistryPDA, // this gets created
 			tokenPubKey,
-			chain.DeployerKey.PublicKey(),
+			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
@@ -116,7 +114,7 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 			chainState.RouterConfigPDA,
 			tokenAdminRegistryPDA, // this gets created
 			tokenPubKey,
-			chain.DeployerKey.PublicKey(), // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
+			authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
@@ -124,30 +122,31 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		}
 	}
 	if routerUsingMCMS {
-		ixn := instruction
-		programID := chainState.Router.String()
-		contractType := ccipChangeset.Router
-		// tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
+		// ixn := instruction
+		// programID := chainState.Router.String()
+		// contractType := ccipChangeset.Router
+		// data, err := ixn.Data()
+		// if err != nil {
+		// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to extract data: %w", err)
+		// }
+		// tx, err := mcmsSolana.NewTransaction(
+		// 	programID,
+		// 	data,
+		// 	big.NewInt(0),        // e.g. value
+		// 	ixn.Accounts(),       // pass along needed accounts
+		// 	string(contractType), // some string identifying the target
+		// 	[]string{},           // any relevant metadata
+		// )
 		// if err != nil {
 		// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		// }
-		data, err := ixn.Data()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to extract data: %w", err)
-		}
-		tx, err := mcmsSolana.NewTransaction(
-			programID,
-			data,
-			big.NewInt(0),        // e.g. value
-			ixn.Accounts(),       // pass along needed accounts
-			string(contractType), // some string identifying the target
-			[]string{},           // any relevant metadata
-		)
+
+		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}
 		proposal, err := BuildProposalsForTxns(
-			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{tx})
+			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
