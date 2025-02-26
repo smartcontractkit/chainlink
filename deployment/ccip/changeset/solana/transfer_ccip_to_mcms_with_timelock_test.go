@@ -40,6 +40,7 @@ const TimelockProgramID = "LoCoNsJFuhTkSQjfdDfn3yuwqhSYoPujmviRHVCzsqn"
 const MCMProgramID = "6UmMZr5MEqiKWD5jqTJd1WCR5kT8oZuFYBLJFi1o6GQX"
 
 func TestValidateContracts(t *testing.T) {
+	t.Parallel()
 	validPubkey := solana.NewWallet().PublicKey()
 
 	zeroPubkey := solana.PublicKey{} // Zero public key
@@ -102,6 +103,7 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
