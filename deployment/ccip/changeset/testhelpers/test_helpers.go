@@ -1641,7 +1641,7 @@ func TransferOwnershipSolana(
 	transferFeeQuoter,
 	transferOffRamp bool,
 	burnMintTokenPools []solana.PublicKey,
-	lockReleaseTokenPools []solana.PublicKey) (solana.PublicKey, solana.PublicKey) {
+	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
@@ -1667,8 +1667,8 @@ func TransferOwnershipSolana(
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
 		100, e.SolChains[solChain].Client)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())

@@ -393,7 +393,6 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 
 	// (E) Check LockReleaseTokenPools ownership:
 	require.Eventually(t, func() bool {
-
 		programData := lockrelease.State{}
 		t.Logf("Checking LockReleaseTokenPools ownership data. configPDA: %s", lockReleasePoolConfigPDA.String())
 		err := solChain.GetAccountDataBorshInto(ctx, lockReleasePoolConfigPDA, &programData)
