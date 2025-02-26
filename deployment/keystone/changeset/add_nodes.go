@@ -254,7 +254,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
 			inspectorPerChain,
