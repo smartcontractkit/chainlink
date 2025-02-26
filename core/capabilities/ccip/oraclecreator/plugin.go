@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 
