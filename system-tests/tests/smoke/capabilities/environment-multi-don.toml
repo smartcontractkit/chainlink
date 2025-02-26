@@ -5,7 +5,7 @@
 
 [jd]
   # change to your version
-  image = "jd-test-1:latest"
+  image = "job-distributor:latest"
 
 [workflow_config]
   workflow_name = "abcdefgasd"
