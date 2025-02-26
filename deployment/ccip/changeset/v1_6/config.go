@@ -17,92 +17,40 @@ import (
 
 var (
 	DefaultOCRParamsForCommitForNonETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           120 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              15 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              25 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  13 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
+		OCRParameters:        globals.CommitOCRParams,
+		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
+	}
+
+	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
+		OCRParameters:        globals.CommitOCRParamsForEthereum,
 		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           100 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              15 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              25 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  13 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
+		OCRParameters:         globals.ExecOCRParams,
 		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 
-	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           120 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              60 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  35 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
-		},
-		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
-	}
-
 	DefaultOCRParamsForExecForETH = CCIPOCRParams{
-		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           100 * time.Second,
-			DeltaResend:                             globals.OcrDeltaResend,
-			DeltaInitial:                            globals.OcrDeltaInitial,
-			DeltaRound:                              90 * time.Second,
-			DeltaGrace:                              globals.OcrDeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.OcrDeltaCertifiedCommitRequest,
-			DeltaStage:                              60 * time.Second, // TransmissionDelayMultiplier overrides DeltaStage
-			Rmax:                                    globals.OcrRMax,
-			MaxDurationQuery:                        globals.OcrMaxDurationQuery,
-			MaxDurationObservation:                  20 * time.Second,
-			MaxDurationShouldAcceptAttestedReport:   globals.OcrMaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: 8 * time.Second,
-		},
+		OCRParameters:         globals.ExecOCRParamsForEthereum,
 		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
 	}
 
 	// Used for only testing with simulated chains
 	OcrParamsForTest = CCIPOCRParams{
 		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           globals.DeltaProgress,
-			DeltaResend:                             globals.DeltaResend,
-			DeltaInitial:                            globals.DeltaInitial,
-			DeltaRound:                              globals.DeltaRound,
-			DeltaGrace:                              globals.DeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
-			DeltaStage:                              globals.DeltaStage,
-			Rmax:                                    globals.Rmax,
-			MaxDurationQuery:                        globals.MaxDurationQuery,
-			MaxDurationObservation:                  globals.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
+			DeltaProgress:                           10 * time.Second,
+			DeltaResend:                             10 * time.Second,
+			DeltaInitial:                            20 * time.Second,
+			DeltaRound:                              2 * time.Second,
+			DeltaGrace:                              2 * time.Second,
+			DeltaCertifiedCommitRequest:             10 * time.Second,
+			DeltaStage:                              10 * time.Second,
+			Rmax:                                    50,
+			MaxDurationQuery:                        10 * time.Second,
+			MaxDurationObservation:                  10 * time.Second,
+			MaxDurationShouldAcceptAttestedReport:   10 * time.Second,
+			MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 		},
 		CommitOffChainConfig: &pluginconfig.CommitOffchainConfig{
 			RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
@@ -129,53 +77,77 @@ var (
 	}
 )
 
+type OCRConfigChainType int
+
+const (
+	Default OCRConfigChainType = iota + 1
+	Ethereum
+	// SimulationTest is kept only for backward compatibility. Tests probably should
+	// migrate to using Default or Ethereum
+	SimulationTest
+)
+
+func DeriveOCRConfigTypeFromSelector(chainsel uint64) OCRConfigChainType {
+	switch chainsel {
+	case chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector,
+		chain_selectors.ETHEREUM_TESTNET_HOLESKY.Selector,
+		chain_selectors.ETHEREUM_MAINNET.Selector:
+		return Ethereum
+	default:
+		return Default
+	}
+}
+
+func (c OCRConfigChainType) CommitOCRParams() CCIPOCRParams {
+	switch c {
+	case Ethereum:
+		return DefaultOCRParamsForCommitForETH.Copy()
+	case Default:
+		return DefaultOCRParamsForCommitForNonETH.Copy()
+	case SimulationTest:
+		return OcrParamsForTest.Copy()
+	default:
+		panic("unknown OCRConfigChainType")
+	}
+}
+
+func (c OCRConfigChainType) ExecuteOCRParams() CCIPOCRParams {
+	switch c {
+	case Ethereum:
+		return DefaultOCRParamsForExecForETH.Copy()
+	case Default:
+		return DefaultOCRParamsForExecForNonETH.Copy()
+	case SimulationTest:
+		return OcrParamsForTest.Copy()
+	default:
+		panic("unknown OCRConfigChainType")
+	}
+}
+
 func DeriveOCRParamsForCommit(
-	chainsel uint64,
-	isSimulatedChain bool,
+	ocrChainType OCRConfigChainType,
 	feedChain uint64,
 	feeTokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	var params CCIPOCRParams
-	switch {
-	case isSimulatedChain:
-		params = OcrParamsForTest.Copy()
-	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
-		params = DefaultOCRParamsForCommitForETH.Copy()
-	default:
-		params = DefaultOCRParamsForCommitForNonETH.Copy()
-	}
+	params := ocrChainType.CommitOCRParams()
 	params.CommitOffChainConfig.TokenInfo = feeTokenInfo
 	params.CommitOffChainConfig.PriceFeedChainSelector = ccipocr3.ChainSelector(feedChain)
 	if override == nil {
 		return params
 	}
-
 	return override(params)
 }
 
 func DeriveOCRParamsForExec(
-	chainsel uint64,
-	isSimulatedChain bool,
+	ocrChainType OCRConfigChainType,
 	observerConfig []pluginconfig.TokenDataObserverConfig,
 	override func(params CCIPOCRParams) CCIPOCRParams,
 ) CCIPOCRParams {
-	var params CCIPOCRParams
-	switch {
-	case isSimulatedChain:
-		params = OcrParamsForTest.Copy()
-	case chainsel == chain_selectors.ETHEREUM_TESTNET_SEPOLIA.Selector ||
-		chainsel == chain_selectors.ETHEREUM_MAINNET.Selector:
-		params = DefaultOCRParamsForExecForETH.Copy()
-	default:
-		params = DefaultOCRParamsForExecForNonETH.Copy()
-	}
-
+	params := ocrChainType.ExecuteOCRParams()
 	params.ExecuteOffChainConfig.TokenDataObservers = observerConfig
 	if override == nil {
 		return params
 	}
-
 	return override(params)
 }

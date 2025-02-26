@@ -861,7 +861,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 	wrongChainConfigs := make(map[uint64]v1_6.ChainConfig)
 	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range allChains {
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(chain, true, e.FeedChainSel, nil, nil)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
 		// set wrong chain config with incorrect value of FChain
 		wrongChainConfigs[chain] = v1_6.ChainConfig{
 			Readers: envNodes.NonBootstraps().PeerIDs(),
