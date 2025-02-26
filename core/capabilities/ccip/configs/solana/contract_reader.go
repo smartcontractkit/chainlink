@@ -41,6 +41,15 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 		},
 	})
 
+	// Prepend custom type so it takes priority over the IDL
+	offRampIDL.Types = append([]solanacodec.IdlTypeDef{{
+		Name: "OnRampAddress",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind:  solanacodec.IdlTypeDefTyKindCustom,
+			Codec: "onramp_address",
+		},
+	}}, offRampIDL.Types...)
+
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
