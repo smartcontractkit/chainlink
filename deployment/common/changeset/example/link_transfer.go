@@ -291,7 +291,7 @@ func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployme
 
 	if cfg.McmsConfig != nil {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			e.GetContext(),
+			e,
 			timelockAddressesPerChain,
 			proposerAddressPerChain,
 			inspectorPerChain,

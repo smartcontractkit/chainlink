@@ -70,7 +70,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		m.Env.GetContext(),
+		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,

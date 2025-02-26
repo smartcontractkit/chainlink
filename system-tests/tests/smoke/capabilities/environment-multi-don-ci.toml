@@ -4,8 +4,7 @@
   docker_cmd_params = ["-b", "5"]
 
 [jd]
-  # change to your version
-  image = "job-distributor:latest"
+  image = "injected-at-runtime"
 
 [workflow_config]
   workflow_name = "abcdefgasd"
@@ -13,7 +12,6 @@
 
   use_cre_cli = true
   should_compile_new_workflow = false
-  # workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
@@ -37,8 +35,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -55,8 +52,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -74,8 +70,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -93,8 +88,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -112,8 +106,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -142,8 +135,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -160,8 +152,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -178,8 +169,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

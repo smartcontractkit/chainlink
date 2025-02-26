@@ -118,7 +118,7 @@ func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal
 		_, err := chainsel.SolanaChainIdFromSelector(chainSelector)
 		require.NoError(t, err)
 		chainSel := mcmstypes.ChainSelector(chainSelector)
-		converters[chainSel] = mcmssolanasdk.NewTimelockConverter(chain.Client)
+		converters[chainSel] = mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
 
@@ -238,7 +238,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(chainSelector)]
-			evmTransaction := root.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := root.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] SetRoot EVM tx hash: %s", evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
 			if err != nil {
@@ -260,7 +260,7 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(op.ChainSelector)]
-			evmTransaction := result.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := result.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] Operation %d EVM tx hash: %s", i, evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
 			if err != nil {
@@ -327,7 +327,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(op.ChainSelector)]
-			evmTransaction := tx.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := tx.RawData.(*gethtypes.Transaction)
 			_, err = chain.Confirm(evmTransaction)
 			if err != nil {
 				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
