@@ -285,7 +285,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			d.e.GetContext(),
+			d.e,
 			timelocks,
 			proposerMcms,
 			inspectors,
