@@ -8,7 +8,7 @@ import (
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/AlekSi/pointer"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
 const (
@@ -33,7 +33,7 @@ func (f *DONFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 			{
 				Key:   "nodeType",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.String("bootstrap"),
+				Value: pointer.To("bootstrap"),
 			},
 			{
 				Key:   "environment",
@@ -43,7 +43,7 @@ func (f *DONFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 			{
 				Key:   "product",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.String("data-streams"),
+				Value: pointer.To("data-streams"),
 			},
 		},
 	}
