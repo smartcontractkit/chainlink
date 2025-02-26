@@ -52,7 +52,7 @@ func overrides(c *chainlink.Config, s *chainlink.Secrets) {
 	c.Database.DriverName = pgcommon.DriverTxWrappedPostgres
 	c.Database.Lock.Enabled = ptr(false)
 	c.Database.MaxIdleConns = ptr[int64](20)
-	c.Database.MaxOpenConns = ptr[int64](20)
+	c.Database.MaxOpenConns = ptr[int64](100)
 	c.Database.MigrateOnStartup = ptr(false)
 	c.Database.DefaultLockTimeout = commonconfig.MustNewDuration(1 * time.Minute)
 
