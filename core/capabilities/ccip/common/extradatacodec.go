@@ -26,19 +26,22 @@ type ExtraDataDecoder interface {
 type RealExtraDataCodec struct {
 	EVMExtraDataDecoder    ExtraDataDecoder
 	SolanaExtraDataDecoder ExtraDataDecoder
+	AptosExtraDataDecoder  ExtraDataDecoder
 }
 
 // ExtraDataCodecParams is a struct that holds the parameters for creating a RealExtraDataCodec
 type ExtraDataCodecParams struct {
 	evmExtraDataDecoder    ExtraDataDecoder
 	solanaExtraDataDecoder ExtraDataDecoder
+	aptosExtraDataDecoder  ExtraDataDecoder
 }
 
 // NewExtraDataCodecParams is a constructor for ExtraDataCodecParams
-func NewExtraDataCodecParams(evmDecoder ExtraDataDecoder, solanaDecoder ExtraDataDecoder) ExtraDataCodecParams {
+func NewExtraDataCodecParams(evmDecoder ExtraDataDecoder, solanaDecoder ExtraDataDecoder, aptosDecoder ExtraDataDecoder) ExtraDataCodecParams {
 	return ExtraDataCodecParams{
 		evmExtraDataDecoder:    evmDecoder,
 		solanaExtraDataDecoder: solanaDecoder,
+		aptosExtraDataDecoder:  aptosDecoder,
 	}
 }
 
@@ -47,6 +50,7 @@ func NewExtraDataCodec(params ExtraDataCodecParams) RealExtraDataCodec {
 	return RealExtraDataCodec{
 		EVMExtraDataDecoder:    params.evmExtraDataDecoder,
 		SolanaExtraDataDecoder: params.solanaExtraDataDecoder,
+		AptosExtraDataDecoder:  params.aptosExtraDataDecoder,
 	}
 }
 
@@ -68,6 +72,9 @@ func (c RealExtraDataCodec) DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceCha
 
 	case chainsel.FamilySolana:
 		return c.SolanaExtraDataDecoder.DecodeExtraArgsToMap(extraArgs)
+
+	case chainsel.FamilyAptos:
+		return c.AptosExtraDataDecoder.DecodeExtraArgsToMap(extraArgs)
 
 	default:
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
@@ -92,6 +99,9 @@ func (c RealExtraDataCodec) DecodeTokenAmountDestExecData(destExecData cciptypes
 
 	case chainsel.FamilySolana:
 		return c.SolanaExtraDataDecoder.DecodeDestExecDataToMap(destExecData)
+
+	case chainsel.FamilyAptos:
+		return c.AptosExtraDataDecoder.DecodeDestExecDataToMap(destExecData)
 
 	default:
 		return nil, fmt.Errorf("unsupported family for extra args type %s", family)
