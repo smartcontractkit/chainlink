@@ -11,15 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var curve = crypto.S256()
 
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
+func KeyFor(raw internal.Raw) KeyV2 {
 	var privateKey ecdsa.PrivateKey
-	d := big.NewInt(0).SetBytes(raw)
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privateKey.PublicKey.Curve = curve
 	privateKey.D = d
 	privateKey.PublicKey.X, privateKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
@@ -30,14 +30,6 @@ func (raw Raw) Key() KeyV2 {
 		EIP55Address: eip55,
 		privateKey:   &privateKey,
 	}
-}
-
-func (raw Raw) String() string {
-	return "<Eth Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -70,8 +62,8 @@ func (key KeyV2) ID() string {
 	return key.Address.Hex()
 }
 
-func (key KeyV2) Raw() Raw {
-	return key.privateKey.D.Bytes()
+func (key KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(key.privateKey.D.Bytes())
 }
 
 func (key KeyV2) ToEcdsaPrivKey() *ecdsa.PrivateKey {
