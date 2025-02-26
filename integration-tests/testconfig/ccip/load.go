@@ -74,6 +74,10 @@ func (m *MsgDetails) IsTokenTransfer() bool {
 	return pointer.GetString(m.MsgType) == TokenTransfer || pointer.GetString(m.MsgType) == ProgrammableTokenTransfer
 }
 
+func (m *MsgDetails) IsTokenOnlyTransfer() bool {
+	return pointer.GetString(m.MsgType) == TokenTransfer
+}
+
 func (m *MsgDetails) IsDataTransfer() bool {
 	return pointer.GetString(m.MsgType) == MessagingTransfer || pointer.GetString(m.MsgType) == ProgrammableTokenTransfer
 }

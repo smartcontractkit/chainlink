@@ -200,10 +200,15 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 
 	// Set data length if it's a data transfer
 	if selectedMsgDetails.IsDataTransfer() {
-		dataLength := int(*selectedMsgDetails.DataLengthBytes)
+		dataLength := *selectedMsgDetails.DataLengthBytes
 		data := make([]byte, dataLength)
 		rand.Read(data)
 		message.Data = data
+	}
+
+	// When it's not a programmable token transfer the receiver can be an EOA, we use a random address to denote that
+	if selectedMsgDetails.IsTokenOnlyTransfer() {
+		message.Receiver = utils.RandomAddress().Bytes()
 	}
 
 	// Set token amounts if it's a token transfer

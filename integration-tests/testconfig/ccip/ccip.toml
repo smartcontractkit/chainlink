@@ -242,7 +242,7 @@ addresses_to_fund = [
 ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
-# We have 3 types of messages: Token, DataWithToken, Data
+# We have 3 types of messages: TokenTransfer, ProgrammableTokenTransfer, Messaging
 # Each message type has a ratio and a destination gas limit
 # The sum of all ratios should be 100
 # Messages that include data MUST have a `DataLengthBytes` field
