@@ -46,6 +46,8 @@ type ForwarderView struct {
 	ConfigVersion uint32   `json:"configVersion"`
 	F             uint8    `json:"f"`
 	Signers       []string `json:"signers"`
+	TxHash        string   `json:"txHash,omitempty"`
+	BlockNumber   uint64   `json:"blockNumber,omitempty"`
 }
 
 var (
@@ -189,6 +191,8 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder) 
 			ConfigVersion: configSet.ConfigVersion,
 			F:             configSet.F,
 			Signers:       readableSigners,
+			TxHash:        configSet.Raw.TxHash.String(),
+			BlockNumber:   configSet.Raw.BlockNumber,
 		})
 	}
 
