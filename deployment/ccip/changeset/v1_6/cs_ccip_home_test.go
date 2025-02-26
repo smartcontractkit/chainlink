@@ -32,6 +32,7 @@ import (
 )
 
 func TestInvalidOCR3Params(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
 	chain1 := e.Env.AllChainSelectors()[0]
@@ -97,6 +98,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 }
 
 func Test_PromoteCandidate(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -195,6 +197,7 @@ func Test_PromoteCandidate(t *testing.T) {
 }
 
 func Test_SetCandidate(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -367,6 +370,7 @@ func Test_SetCandidate(t *testing.T) {
 }
 
 func Test_RevokeCandidate(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -558,6 +562,7 @@ func transferToTimelock(
 }
 
 func Test_UpdateChainConfigs(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

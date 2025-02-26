@@ -68,6 +68,7 @@ func TestDeployHomeChain(t *testing.T) {
 }
 
 func TestDeployHomeChainIdempotent(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
@@ -89,6 +90,7 @@ func TestDeployHomeChainIdempotent(t *testing.T) {
 }
 
 func TestRemoveDonsValidate(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -144,6 +146,7 @@ func TestRemoveDonsValidate(t *testing.T) {
 }
 
 func TestRemoveDons(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -201,6 +204,7 @@ func TestRemoveDons(t *testing.T) {
 }
 
 func TestAddDonAfterRemoveDons(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	s, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

@@ -33,6 +33,7 @@ import (
 )
 
 func TestUpdateOnRampsDests(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -109,6 +110,7 @@ func TestUpdateOnRampsDests(t *testing.T) {
 }
 
 func TestUpdateOnRampDynamicConfig(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -177,6 +179,7 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 }
 
 func TestUpdateOnRampAllowList(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -253,6 +256,7 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 }
 
 func TestWithdrawOnRampFeeTokens(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -369,6 +373,7 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 }
 
 func TestUpdateOffRampsSources(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -445,6 +450,7 @@ func TestUpdateOffRampsSources(t *testing.T) {
 }
 
 func TestUpdateFQDests(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -513,6 +519,7 @@ func TestUpdateFQDests(t *testing.T) {
 }
 
 func TestUpdateRouterRamps(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -590,6 +597,7 @@ func TestUpdateRouterRamps(t *testing.T) {
 }
 
 func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -650,6 +658,7 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 }
 
 func TestUpdateNonceManagersCS(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -708,6 +717,7 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 }
 
 func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
+	t.Parallel()
 	e, tenv := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(&changeset.V1_5DeploymentConfig{
@@ -803,6 +813,7 @@ func TestUpdateNonceManagersCSApplyPreviousRampsUpdates(t *testing.T) {
 }
 
 func TestSetOCR3ConfigValidations(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(nil))
@@ -909,6 +920,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 }
 
 func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -994,6 +1006,7 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 }
 
 func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1106,6 +1119,7 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 }
 
 func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool
@@ -1223,6 +1237,7 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 }
 
 func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name        string
 		mcmsEnabled bool

@@ -27,6 +27,7 @@ import (
 )
 
 func Test_ActiveCandidate(t *testing.T) {
+	t.Parallel()
 	// Setup an environment with 2 chains, a source and a dest.
 	// We want to have the active instance execute a few messages
 	// and then setup a candidate instance. The candidate instance

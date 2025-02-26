@@ -53,6 +53,7 @@ func TestJobSpecChangeset(t *testing.T) {
 }
 
 func TestJobSpecChangesetIdempotent(t *testing.T) {
+	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t)
 	// we call the changeset again to ensure that it doesn't return any new job specs
 	// as the job specs are already created in the first call
