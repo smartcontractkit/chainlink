@@ -250,7 +250,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 			break
 		}
 	}
-	ocrConfigs[donRemovedForChain] = v1_6.DeriveOCRParamsForCommit(donRemovedForChain, true, e.FeedChainSel, nil, nil)
+	ocrConfigs[donRemovedForChain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
 	// try to add the another don
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(
