@@ -1,9 +1,9 @@
 package ccipaptos
 
 import (
+	"encoding/hex"
 	"fmt"
-
-	"github.com/aptos-labs/aptos-go-sdk"
+	"strings"
 )
 
 type AddressCodec struct{}
@@ -17,30 +17,30 @@ func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
 }
 
 func addressBytesToString(addr []byte) (string, error) {
-	if len(addr) != 32 {
-		return "", fmt.Errorf("invalid Aptos address length, expected 32, got %d", len(addr))
+	if len(addr) < 1 || len(addr) > 32 {
+		return "", fmt.Errorf("invalid Aptos address length (%d)", len(addr))
 	}
 
-	accAddress := aptos.AccountAddress(addr)
-	return accAddress.String(), nil
+	return fmt.Sprintf("0x%064x", addr), nil
 }
 
 func addressStringToBytes(addr string) ([]byte, error) {
-	var accAddress aptos.AccountAddress
-	err := accAddress.ParseStringRelaxed(addr)
+	a := strings.TrimPrefix(addr, "0x")
+	if len(a) == 0 {
+		return nil, fmt.Errorf("invalid Aptos address length, expected at least 1 character: %s", addr)
+	}
+	if len(a) > 64 {
+		return nil, fmt.Errorf("invalid Aptos address length, expected at most 64 characters: %s", addr)
+	}
+	for len(a) < 64 {
+		a = "0" + a
+	}
+
+	bytes, err := hex.DecodeString(a)
 	if err != nil {
 		return nil, fmt.Errorf("failed to decode Aptos address '%s': %w", addr, err)
 	}
-	return accAddress[:], nil
-}
-
-func addressStringToBytes32(addr string) ([32]byte, error) {
-	var accAddress aptos.AccountAddress
-	err := accAddress.ParseStringRelaxed(addr)
-	if err != nil {
-		return accAddress, fmt.Errorf("failed to decode Aptos address '%s': %w", addr, err)
-	}
-	return accAddress, nil
+	return bytes, nil
 }
 
 func addressBytesToBytes32(addr []byte) ([32]byte, error) {
@@ -53,14 +53,12 @@ func addressBytesToBytes32(addr []byte) ([32]byte, error) {
 	return result, nil
 }
 
-// takes a valid Aptos address string and converts it into canonical format.
-func addressStringToString(addr string) (string, error) {
-	var accAddress aptos.AccountAddress
-	err := accAddress.ParseStringRelaxed(addr)
+func addressStringToBytes32(addr string) ([32]byte, error) {
+	bytes, err := addressStringToBytes(addr)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode Aptos address '%s': %w", addr, err)
+		return [32]byte{}, err
 	}
-	return accAddress.String(), nil
+	return addressBytesToBytes32(bytes)
 }
 
 func addressIsValid(addr string) bool {
