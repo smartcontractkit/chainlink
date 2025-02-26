@@ -1,8 +1,9 @@
 package globals
 
 import (
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // Intention of this file is to be a single source of the truth for OCR3 parameters used by CCIP plugins.
