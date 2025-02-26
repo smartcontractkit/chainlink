@@ -49,7 +49,7 @@ require (
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5-0.20250225210020-fc215b29321e
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250226085401-fb3abb7650e7
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250226104006-8f07c1e617a6
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.50.1-0.20250225210020-fc215b29321e
 	github.com/smartcontractkit/chainlink-testing-framework/sentinel v0.1.2
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.14-0.20250225174253-0fe1e95e89b2

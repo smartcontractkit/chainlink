@@ -29,7 +29,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250225130625-4a632b0b1e61
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250226085401-fb3abb7650e7
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.51.1-0.20250226104006-8f07c1e617a6
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.14-0.20250225174253-0fe1e95e89b2
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.50.6-0.20250225210020-fc215b29321e
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
