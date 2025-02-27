@@ -174,7 +174,7 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	
+
 	// create instructions for each ATA
 	instructions := []solana.Instruction{}
 	for _, ata := range cfg.ATAList {
