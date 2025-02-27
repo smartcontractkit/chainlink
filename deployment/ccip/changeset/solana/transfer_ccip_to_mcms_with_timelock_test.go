@@ -316,7 +316,6 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressBurnMint.String(),
 				PoolType:      test_token_pool.BurnAndMint_PoolType,
-				Authority:     e.SolChains[solChain1].DeployerKey.PublicKey().String(),
 			},
 		),
 	})
