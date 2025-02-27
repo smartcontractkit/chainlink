@@ -96,7 +96,7 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 	m.timeUntilTxConfirmed.Record(ctx, duration)
 }
 
-func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress common.Address, toAddress common.Address, nonce string) error {
+func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress, toAddress, forwardedAddress common.Address, nonce string) error {
 
 	message := &svrv1.TxMessage{
 		Hash:        tx.String(),
@@ -105,7 +105,7 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddr
 		Nonce:       nonce,
 		CreatedAt:   time.Now().UnixMicro(),
 		ChainId:     m.chainID.String(),
-		// FeedAddress: m.Get("feedAddress"),
+		FeedAddress: forwardedAddress.String(),
 		// FeedName:    m.Get("feedName"),
 	}
 	fmt.Printf("Emitting tx message: %v\n", message) // TODO(gg): remove
