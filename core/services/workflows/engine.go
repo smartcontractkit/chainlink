@@ -1167,10 +1167,11 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
+
 		for idx, t := range e.workflow.triggers {
 			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
-				return err
+				e.logger.Errorf("failed to deregister trigger: %v", err)
 			}
 		}
 

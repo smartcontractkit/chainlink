@@ -534,11 +534,17 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 
 func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
-	var ocrConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	// Should be configured in the future based on the load test scenario
+	// chainType := v1_6.Default
+
+	// TODO Passing SimulationTest to reduce number of changes in the CRIB (load test setup)
+	// @Austin please flip it back to Default once we reach a stable state
+	chainType := v1_6.SimulationTest
 	for selector := range e.Chains {
-		ocrConfigPerSelector[selector] = v1_6.DeriveCCIPOCRParams(v1_6.WithDefaultCommitOffChainConfig(feedChainSel, nil),
-			v1_6.WithDefaultExecuteOffChainConfig(nil),
-		)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}
 
 	var commitChangeset commonchangeset.ConfiguredChangeSet
@@ -552,7 +558,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 					FeedChainSelector: feedChainSel,
 				},
 				PluginInfo: v1_6.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+					OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
@@ -568,7 +574,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPCommit,
 					},
 				},
@@ -588,7 +594,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 				},
 				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPExec,
 					},
 				},
