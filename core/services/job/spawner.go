@@ -56,7 +56,10 @@ type (
 		lbDependentAwaiters []utils.DependentAwaiter
 	}
 
-	// TODO(spook): I can't wait for Go generics
+	// Delegate allows for multiple types of jobs and their related
+	// services + subservices to be managed by a Spawner.
+	// Errors should not be silenced; partial creation or
+	// deletion states should be bubbled out to be handled by the Spawner.
 	Delegate interface {
 		JobType() Type
 		// BeforeJobCreated is only called once on first time job create.
@@ -73,6 +76,7 @@ type (
 		// non-db side effects.  This is required in order to guarantee mutual atomicity between
 		// all tasks intended to happen during job deletion.  For the same reason, the job will
 		// not show up in the db within OnDeleteJob(), even though it is still actively running.
+		// A failure in OnDeleteJob will cause a total rollback of the delete operation.
 		OnDeleteJob(ctx context.Context, jb Job) error
 	}
 
