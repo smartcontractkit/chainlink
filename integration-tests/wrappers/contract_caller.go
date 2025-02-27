@@ -63,16 +63,20 @@ func MustNewRetryingWrappedContractBackend(sethClient *seth.Client, logger zerol
 	}
 }
 
-func (w *WrappedContractBackend) getGethClient() *ethclient.Client {
+func (w *WrappedContractBackend) getGethClient() (*ethclient.Client, error) {
 	if w.sethClient != nil {
-		return w.sethClient.Client
+		if asEthClient, ok := w.sethClient.Client.(*ethclient.Client); ok {
+			return asEthClient, nil
+		}
+
+		return nil, fmt.Errorf("seth client is not an ethclient, but %T", w.sethClient.Client)
 	}
 
 	if w.evmClient != nil {
-		return w.evmClient.GetEthClient()
+		return w.evmClient.GetEthClient(), nil
 	}
 
-	panic("No client found")
+	return nil, errors.New("no client found")
 }
 
 func (w *WrappedContractBackend) CodeAt(ctx context.Context, contract common.Address, blockNumber *big.Int) ([]byte, error) {
@@ -81,7 +85,10 @@ func (w *WrappedContractBackend) CodeAt(ctx context.Context, contract common.Add
 	}
 
 	var fn = func() ([]byte, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.CodeAt(ctx, contract, blockNumber)
 	}
 
@@ -95,7 +102,10 @@ func (w *WrappedContractBackend) PendingCodeAt(ctx context.Context, contract com
 	}
 
 	var fn = func() ([]byte, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.PendingCodeAt(ctx, contract)
 	}
 
@@ -109,7 +119,10 @@ func (w *WrappedContractBackend) CodeAtHash(ctx context.Context, contract common
 	}
 
 	var fn = func() ([]byte, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.CodeAtHash(ctx, contract, blockHash)
 	}
 
@@ -123,7 +136,10 @@ func (w *WrappedContractBackend) CallContractAtHash(ctx context.Context, call et
 	}
 
 	var fn = func() ([]byte, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.CallContractAtHash(ctx, call, blockHash)
 	}
 
@@ -137,7 +153,10 @@ func (w *WrappedContractBackend) HeaderByNumber(ctx context.Context, number *big
 	}
 
 	var fn = func() (*types.Header, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.HeaderByNumber(ctx, number)
 	}
 
@@ -151,7 +170,10 @@ func (w *WrappedContractBackend) PendingNonceAt(ctx context.Context, account com
 	}
 
 	var fn = func() (uint64, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return 0, clientErr
+		}
 		return client.PendingNonceAt(ctx, account)
 	}
 
@@ -165,7 +187,10 @@ func (w *WrappedContractBackend) SuggestGasPrice(ctx context.Context) (*big.Int,
 	}
 
 	var fn = func() (*big.Int, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.SuggestGasPrice(ctx)
 	}
 
@@ -179,7 +204,10 @@ func (w *WrappedContractBackend) SuggestGasTipCap(ctx context.Context) (*big.Int
 	}
 
 	var fn = func() (*big.Int, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.SuggestGasTipCap(ctx)
 	}
 
@@ -193,7 +221,10 @@ func (w *WrappedContractBackend) EstimateGas(ctx context.Context, call ethereum.
 	}
 
 	var fn = func() (uint64, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return 0, clientErr
+		}
 		return client.EstimateGas(ctx, call)
 	}
 
@@ -206,7 +237,10 @@ func (w *WrappedContractBackend) SendTransaction(ctx context.Context, tx *types.
 		return errors.Wrapf(ctxErr, "the context you passed had an error set. Won't call SendTransaction")
 	}
 
-	client := w.getGethClient()
+	client, clientErr := w.getGethClient()
+	if clientErr != nil {
+		return clientErr
+	}
 	return client.SendTransaction(ctx, tx)
 }
 
@@ -216,7 +250,10 @@ func (w *WrappedContractBackend) FilterLogs(ctx context.Context, query ethereum.
 	}
 
 	var fn = func() ([]types.Log, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.FilterLogs(ctx, query)
 	}
 
@@ -230,7 +267,10 @@ func (w *WrappedContractBackend) SubscribeFilterLogs(ctx context.Context, query 
 	}
 
 	var fn = func() (ethereum.Subscription, error) {
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		return client.SubscribeFilterLogs(ctx, query, ch)
 	}
 
@@ -245,7 +285,10 @@ func (w *WrappedContractBackend) CallContract(ctx context.Context, msg ethereum.
 
 	var fn = func() ([]byte, error) {
 		var hex hexutil.Bytes
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), evmClient.ToBackwardCompatibleBlockNumArg(blockNumber))
 		if err != nil {
 			return nil, err
@@ -264,7 +307,10 @@ func (w *WrappedContractBackend) PendingCallContract(ctx context.Context, msg et
 
 	var fn = func() ([]byte, error) {
 		var hex hexutil.Bytes
-		client := w.getGethClient()
+		client, clientErr := w.getGethClient()
+		if clientErr != nil {
+			return nil, clientErr
+		}
 		err := client.Client().CallContext(ctx, &hex, "eth_call", evmClient.ToBackwardCompatibleCallArg(msg), "pending")
 		if err != nil {
 			return nil, err

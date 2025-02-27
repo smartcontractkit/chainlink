@@ -11,13 +11,14 @@ import (
 
 type RouterView struct {
 	types.ContractMetaData
+	IsTestRouter  bool                      `json:"isTestRouter,omitempty"`
 	WrappedNative common.Address            `json:"wrappedNative,omitempty"`
 	ARMProxy      common.Address            `json:"armProxy,omitempty"`
 	OnRamps       map[uint64]common.Address `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses
 	OffRamps      map[uint64]common.Address `json:"offRamps,omitempty"` // Map of SourceChainSelectors to a list of OffRamp Addresses
 }
 
-func GenerateRouterView(r *router.Router) (RouterView, error) {
+func GenerateRouterView(r *router.Router, isTestRouter bool) (RouterView, error) {
 	meta, err := types.NewContractMetaData(r, r.Address())
 	if err != nil {
 		return RouterView{}, fmt.Errorf("view error to get router metadata: %w", err)
@@ -48,6 +49,7 @@ func GenerateRouterView(r *router.Router) (RouterView, error) {
 	}
 	return RouterView{
 		ContractMetaData: meta,
+		IsTestRouter:     isTestRouter,
 		WrappedNative:    wrappedNative,
 		ARMProxy:         armProxy,
 		OnRamps:          onRamps,

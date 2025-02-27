@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -17,17 +16,13 @@ import (
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
-
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -124,7 +119,7 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 		tokenInfos = append(tokenInfos, onchainState.Weth9)
 		symbol, decimal, err := findTokenInfo(tokenInfos, token)
 		if err != nil {
-			return err
+			return fmt.Errorf("chain %d- %w", selector, err)
 		}
 		if decimal != tokenConfig.Decimals {
 			return fmt.Errorf("token %s -address %s has %d decimals in provided token config, expected %d",
@@ -173,6 +168,21 @@ type CCIPOCRParams struct {
 	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
 }
 
+func (c CCIPOCRParams) Copy() CCIPOCRParams {
+	newC := CCIPOCRParams{
+		OCRParameters: c.OCRParameters,
+	}
+	if c.CommitOffChainConfig != nil {
+		commit := *c.CommitOffChainConfig
+		newC.CommitOffChainConfig = &commit
+	}
+	if c.ExecuteOffChainConfig != nil {
+		exec := *c.ExecuteOffChainConfig
+		newC.ExecuteOffChainConfig = &exec
+	}
+	return newC
+}
+
 func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedChainSel uint64, state changeset.CCIPOnChainState) error {
 	if err := c.OCRParameters.Validate(); err != nil {
 		return fmt.Errorf("invalid OCR parameters: %w", err)
@@ -191,93 +201,6 @@ func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedC
 		}
 	}
 	return nil
-}
-
-type CCIPOCROpts func(params *CCIPOCRParams)
-
-// WithOCRParamOverride can be used if you want to override the default OCR parameters with your custom function.
-func WithOCRParamOverride(override func(params *CCIPOCRParams)) CCIPOCROpts {
-	return func(params *CCIPOCRParams) {
-		if override != nil {
-			override(params)
-		}
-	}
-}
-
-// WithDefaultCommitOffChainConfig can be used to add token info to the existing commit off-chain config. If no commit off-chain config is set, it will be created with default values.
-func WithDefaultCommitOffChainConfig(feedChainSel uint64, tokenInfo map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo) CCIPOCROpts {
-	return func(params *CCIPOCRParams) {
-		if params.CommitOffChainConfig == nil {
-			params.CommitOffChainConfig = &pluginconfig.CommitOffchainConfig{
-				RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(globals.RemoteGasPriceBatchWriteFrequency),
-				TokenPriceBatchWriteFrequency:      *config.MustNewDuration(globals.TokenPriceBatchWriteFrequency),
-				TokenInfo:                          tokenInfo,
-				PriceFeedChainSelector:             ccipocr3.ChainSelector(feedChainSel),
-				NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
-				MaxReportTransmissionCheckAttempts: 5,
-				RMNEnabled:                         false,
-				RMNSignaturesTimeout:               30 * time.Minute,
-				MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
-				SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
-				MerkleRootAsyncObserverDisabled:    false,
-				MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
-				MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
-				ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
-				ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
-			}
-		} else {
-			if params.CommitOffChainConfig.TokenInfo == nil {
-				params.CommitOffChainConfig.TokenInfo = make(map[ccipocr3.UnknownEncodedAddress]pluginconfig.TokenInfo)
-			}
-			for k, v := range tokenInfo {
-				params.CommitOffChainConfig.TokenInfo[k] = v
-			}
-		}
-	}
-}
-
-// WithDefaultExecuteOffChainConfig can be used to add token data observers to the execute off-chain config. If no execute off-chain config is set, it will be created with default values.
-func WithDefaultExecuteOffChainConfig(tokenDataObservers []pluginconfig.TokenDataObserverConfig) CCIPOCROpts {
-	return func(params *CCIPOCRParams) {
-		if params.ExecuteOffChainConfig == nil {
-			params.ExecuteOffChainConfig = &pluginconfig.ExecuteOffchainConfig{
-				BatchGasLimit:             globals.BatchGasLimit,
-				InflightCacheExpiry:       *config.MustNewDuration(globals.InflightCacheExpiry),
-				RootSnoozeTime:            *config.MustNewDuration(globals.RootSnoozeTime),
-				MessageVisibilityInterval: *config.MustNewDuration(globals.PermissionLessExecutionThreshold),
-				BatchingStrategyID:        globals.BatchingStrategyID,
-				TokenDataObservers:        tokenDataObservers,
-			}
-		} else if tokenDataObservers != nil {
-			params.ExecuteOffChainConfig.TokenDataObservers = append(params.ExecuteOffChainConfig.TokenDataObservers, tokenDataObservers...)
-		}
-	}
-}
-
-// DeriveCCIPOCRParams derives the default OCR parameters for a chain, with the option to override them.
-func DeriveCCIPOCRParams(
-	opts ...CCIPOCROpts,
-) CCIPOCRParams {
-	params := CCIPOCRParams{
-		OCRParameters: commontypes.OCRParameters{
-			DeltaProgress:                           globals.DeltaProgress,
-			DeltaResend:                             globals.DeltaResend,
-			DeltaInitial:                            globals.DeltaInitial,
-			DeltaRound:                              globals.DeltaRound,
-			DeltaGrace:                              globals.DeltaGrace,
-			DeltaCertifiedCommitRequest:             globals.DeltaCertifiedCommitRequest,
-			DeltaStage:                              globals.DeltaStage,
-			Rmax:                                    globals.Rmax,
-			MaxDurationQuery:                        globals.MaxDurationQuery,
-			MaxDurationObservation:                  globals.MaxDurationObservation,
-			MaxDurationShouldAcceptAttestedReport:   globals.MaxDurationShouldAcceptAttestedReport,
-			MaxDurationShouldTransmitAcceptedReport: globals.MaxDurationShouldTransmitAcceptedReport,
-		},
-	}
-	for _, opt := range opts {
-		opt(&params)
-	}
-	return params
 }
 
 type PromoteCandidatePluginInfo struct {

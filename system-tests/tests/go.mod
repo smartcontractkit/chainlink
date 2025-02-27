@@ -1,8 +1,6 @@
 module github.com/smartcontractkit/chainlink/system-tests/tests
 
-go 1.24
-
-toolchain go1.24.0
+go 1.24.0
 
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
@@ -26,9 +24,9 @@ require (
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
 	github.com/smartcontractkit/chain-selectors v1.0.40
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.4
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.23
-	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
+	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
 	github.com/stretchr/testify v1.10.0
 )
