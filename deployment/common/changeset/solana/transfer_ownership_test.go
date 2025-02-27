@@ -11,6 +11,7 @@ import (
 
 	accessControllerBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/access_controller"
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
+	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -42,14 +43,16 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 		},
 	)
 	// validate initial owner
-	assertOwner(t, env, solanaSelector, chainState, env.SolChains[solanaSelector].DeployerKey.PublicKey())
+	deployer := env.SolChains[solanaSelector].DeployerKey.PublicKey()
+	assertOwner(t, env, solanaSelector, chainState, deployer)
 
 	// --- act ---
 	_, err := commonchangeset.ApplyChangesetsV2(t, env, []commonchangeset.ConfiguredChangeSet{configuredChangeset})
 	require.NoError(t, err)
 
 	// --- assert ---
-	assertOwner(t, env, solanaSelector, chainState, state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed))
+	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	assertOwner(t, env, solanaSelector, chainState, timelockSignerPDA)
 }
 
 func deployMCMS(t *testing.T, env deployment.Environment, selector uint64) *state.MCMSWithTimelockStateSolana {
@@ -78,6 +81,7 @@ func assertOwner(
 	assertMCMOwner(t, owner, state.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed), env, selector)
 	assertMCMOwner(t, owner, state.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed), env, selector)
 	assertMCMOwner(t, owner, state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed), env, selector)
+	assertTimelockOwner(t, owner, state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed), env, selector)
 	assertAccessControllerOwner(t, owner, chainState.ProposerAccessControllerAccount, env, selector)
 	assertAccessControllerOwner(t, owner, chainState.ExecutorAccessControllerAccount, env, selector)
 	assertAccessControllerOwner(t, owner, chainState.CancellerAccessControllerAccount, env, selector)
@@ -89,6 +93,16 @@ func assertMCMOwner(
 ) {
 	t.Helper()
 	var config mcmBindings.MultisigConfig
+	err := env.SolChains[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
+	require.NoError(t, err)
+	require.Equal(t, want, config.Owner)
+}
+
+func assertTimelockOwner(
+	t *testing.T, want solana.PublicKey, configPDA solana.PublicKey, env deployment.Environment, selector uint64,
+) {
+	t.Helper()
+	var config timelockBindings.Config
 	err := env.SolChains[selector].GetAccountDataBorshInto(env.GetContext(), configPDA, &config)
 	require.NoError(t, err)
 	require.Equal(t, want, config.Owner)

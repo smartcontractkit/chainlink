@@ -39,7 +39,7 @@ type OwnableContract struct {
 
 // TransferToTimelockSolana transfers a set of Solana "contracts" to the Timelock
 // signer PDA.
-// The "transfer ownership" instructions are immediatelly sent and
+// The "transfer ownership" instructions are immediately sent and
 // confirmed onchain. The "accept ownership" instructions are added to an MCMS
 // timelock proposal that should be executed using the standard MCMS workflows.
 type TransferToTimelockSolana struct{}
@@ -233,6 +233,12 @@ func (t *TransferMCMSToTimelockSolana) Apply(
 				Seed:      chainState.BypasserMcmSeed,
 				OwnerPDA:  state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed),
 				Type:      commontypes.BypasserManyChainMultisig,
+			},
+			{
+				ProgramID: chainState.TimelockProgram,
+				Seed:      chainState.TimelockSeed,
+				OwnerPDA:  state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed),
+				Type:      commontypes.RBACTimelock,
 			},
 			{
 				ProgramID: chainState.AccessControllerProgram,
