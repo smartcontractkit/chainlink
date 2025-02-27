@@ -224,7 +224,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						OutboundRateLimit:   newOutboundConfig,
 						PoolType:            testCase.poolType,
 						MCMSSolana:          mcmsConfig,
-						IsEdit:              true,
+						IsUpdate:            true,
 					},
 				),
 			},

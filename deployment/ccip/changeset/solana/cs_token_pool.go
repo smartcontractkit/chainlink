@@ -131,7 +131,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 			chainState.Router,
 			poolConfigPDA,
 			tokenPubKey,
-			chain.DeployerKey.PublicKey(), // this is assumed to be chain.DeployerKey for now (owner of token pool)
+			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 	case solTestTokenPool.LockAndRelease_PoolType:
@@ -140,7 +140,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 			chainState.Router,
 			poolConfigPDA,
 			tokenPubKey,
-			chain.DeployerKey.PublicKey(), // this is assumed to be chain.DeployerKey for now (owner of token pool)
+			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 			solana.SystemProgramID,
 		).ValidateAndBuild()
 	default:
@@ -187,7 +187,7 @@ type RemoteChainTokenPoolConfig struct {
 	InboundRateLimit  solBaseTokenPool.RateLimitConfig
 	OutboundRateLimit solBaseTokenPool.RateLimitConfig
 	MCMSSolana        *MCMSConfigSolana
-	IsEdit            bool
+	IsUpdate          bool
 }
 
 func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
@@ -236,9 +236,9 @@ func (cfg RemoteChainTokenPoolConfig) Validate(e deployment.Environment) error {
 	}
 	err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
 
-	if !cfg.IsEdit && err == nil {
+	if !cfg.IsUpdate && err == nil {
 		return fmt.Errorf("remote chain config already exists for (remoteSelector: %d, mint: %s, pool: %s, type: %s)", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType)
-	} else if cfg.IsEdit && err != nil {
+	} else if cfg.IsUpdate && err != nil {
 		return fmt.Errorf("remote chain config not found for (remoteSelector: %d, mint: %s, pool: %s, type: %s): %w", cfg.RemoteChainSelector, tokenPubKey.String(), tokenPool.String(), cfg.PoolType, err)
 	}
 	return nil
@@ -286,7 +286,7 @@ func getInstructionsForBurnMint(
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.BurnMintTokenPool)
 	solBurnMintTokenPool.SetProgramID(chainState.BurnMintTokenPool)
 	ixns := make([]solana.Instruction, 0)
-	if !cfg.IsEdit {
+	if !cfg.IsUpdate {
 		ixConfigure, err := solBurnMintTokenPool.NewInitChainRemoteConfigInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
@@ -357,7 +357,7 @@ func getInstructionsForLockRelease(
 	remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.LockReleaseTokenPool)
 	solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
 	ixns := make([]solana.Instruction, 0)
-	if !cfg.IsEdit {
+	if !cfg.IsUpdate {
 		ixConfigure, err := solLockReleaseTokenPool.NewInitChainRemoteConfigInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
@@ -629,7 +629,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 
 	var ix solana.Instruction
 	var err error
-	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolOwnedByTimelock
+	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
 	var authority solana.PublicKey
 	var programID solana.PublicKey
@@ -760,7 +760,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 
 	var ix solana.Instruction
 	var err error
-	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolOwnedByTimelock
+	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
 	var authority solana.PublicKey
 	var programID solana.PublicKey
@@ -891,7 +891,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	tokenPool := chainState.LockReleaseTokenPool
 
 	var err error
-	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolOwnedByTimelock
+	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
 	var authority solana.PublicKey
 

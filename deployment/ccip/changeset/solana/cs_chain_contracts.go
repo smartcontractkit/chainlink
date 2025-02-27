@@ -34,7 +34,7 @@ type MCMSConfigSolana struct {
 	FeeQuoterOwnedByTimelock bool
 	OffRampOwnedByTimelock   bool
 	// Assumes whatever token pool we're operating on
-	TokenPoolOwnedByTimelock bool
+	TokenPoolPDAOwnedByTimelock bool
 }
 
 // HELPER FUNCTIONS
