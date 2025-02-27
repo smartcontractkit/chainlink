@@ -899,6 +899,7 @@ func generateCloseBufferIxn(
 type SetFeeAggregatorConfig struct {
 	ChainSelector uint64
 	FeeAggregator string
+	MCMSSolana    *MCMSConfigSolana
 }
 
 func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
@@ -914,6 +915,14 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
+	}
+
+	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+		return err
+	}
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMCMS, chainState.Router, ccipChangeset.Router); err != nil {
+		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 
 	// Validate fee aggregator address is valid
@@ -939,20 +948,28 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 
 	feeAggregatorPubKey := solana.MustPublicKeyFromBase58(cfg.FeeAggregator)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 
 	solRouter.SetProgramID(chainState.Router)
+	var authority solana.PublicKey
+	var err error
+	if routerUsingMCMS {
+		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	} else {
+		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
+	}
+
 	instruction, err := solRouter.NewUpdateFeeAggregatorInstruction(
 		feeAggregatorPubKey,
 		routerConfigPDA,
-		chain.DeployerKey.PublicKey(),
+		authority,
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
-	}
-
-	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
 	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(ccipChangeset.FeeAggregator, deployment.Version1_0_0))
@@ -960,7 +977,27 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
 	}
 
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to SetFeeAggregator in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+			AddressBook:           newAddresses,
+		}, nil
+	}
+
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
 	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
+
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
 	}, nil
