@@ -90,6 +90,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	matchedWorkflows := 0
 	// workflows that have matched topic and passed all checks
 	fullyMatchedWorkflows := 0
+
 	for _, trigger := range h.registeredWorkflows {
 		for _, topic := range topics {
 			if trigger.allowedTopics[topic] {
@@ -123,7 +124,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		}
 	}
 	if matchedWorkflows == 0 {
-		return fmt.Errorf("no Matching Workflow Topics")
+		return fmt.Errorf("no Matching Workflow Topics. Be sure that you sent the correct topic and that the workflow is correctly registered")
 	}
 
 	if fullyMatchedWorkflows > 0 {

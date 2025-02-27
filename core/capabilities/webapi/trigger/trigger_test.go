@@ -244,7 +244,7 @@ func TestTriggerExecute(t *testing.T) {
 		gatewayRequest := gatewayRequest(t, privateKey1, `["foo"]`, "")
 		th.connector.On("SignAndSendToGateway", mock.Anything, mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
 			resp, _ := getResponseFromArg(args.Get(2))
-			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics"}, resp)
+			require.Equal(t, ghcapabilities.TriggerResponsePayload{Status: "ERROR", ErrorMessage: "no Matching Workflow Topics. Be sure that you sent the correct topic and that the workflow is correctly registered"}, resp)
 		}).Return(nil).Once()
 
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
