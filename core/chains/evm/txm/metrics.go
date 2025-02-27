@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
@@ -96,14 +97,14 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 }
 
 func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress common.Address, toAddress common.Address, nonce string) error {
-	
+
 	message := &svrv1.TxMessage{
 		Hash:        tx.String(),
 		FromAddress: fromAddress.String(),
 		ToAddress:   toAddress.String(),
 		Nonce:       nonce,
-		// CreatedAt:   time.Now().UnixMicro(),
-		// ChainId:     m.chainID.String(),
+		CreatedAt:   time.Now().UnixMicro(),
+		ChainId:     m.chainID.String(),
 		// FeedAddress: m.Get("feedAddress"),
 		// FeedName:    m.Get("feedName"),
 	}
