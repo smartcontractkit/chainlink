@@ -164,7 +164,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	// else deploy the mock RMN contract
 	switch {
 	// if RMN is found in state use that
-	case chainState.RMN != nil:
+	case chainState.RMN != nil && chainState.RMN.Address() != (common.Address{}):
 		lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
 		rmnAddr = chainState.RMN.Address()
 	// if RMN is not found in state and LegacyDeploymentCfg is provided, deploy RMN contract based on the config
