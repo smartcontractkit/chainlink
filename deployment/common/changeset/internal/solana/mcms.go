@@ -1,6 +1,7 @@
 package mcmsnew
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -19,7 +20,7 @@ func DeployMCMSWithTimelockProgramsSolana(
 	config commontypes.MCMSWithTimelockConfigV2,
 ) (*state.MCMSWithTimelockStateSolana, error) {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
-	if err != nil {
+	if err != nil && !errors.Is(err, deployment.ErrChainNotFound) {
 		return nil, fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
 	}
 

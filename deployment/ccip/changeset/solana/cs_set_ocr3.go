@@ -5,12 +5,20 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 const (
@@ -32,8 +40,8 @@ func btoi(b bool) uint8 {
 // run after the candidate is confirmed to be working correctly.
 // Multichain is especially helpful for NOP rotations where we have
 // to touch all the chain to change signers.
-func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
-	state, err := cs.LoadOnchainState(e)
+func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -47,8 +55,16 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 		if chainFamily != chain_selectors.FamilySolana {
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", remote)
 		}
+		chain := e.SolChains[remote]
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, ccipChangeset.OffRamp); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
+		}
 	}
 
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]sdk.Inspector{}
+	var batches []mcmsTypes.BatchOperation
 	for _, remote := range cfg.RemoteChainSels {
 		donID, err := internal.DonIDForChain(
 			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
@@ -69,11 +85,31 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 			e.Logger.Infof("OCR3 config already set on offramp for chain %d", remote)
 			continue
 		}
+		chain := e.SolChains[remote]
+		addresses, _ := e.ExistingAddresses.AddressesForChain(remote)
+		mcmState, _ := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+
+		timelocks[remote] = mcmsSolana.ContractAddress(
+			mcmState.TimelockProgram,
+			mcmsSolana.PDASeed(mcmState.TimelockSeed),
+		)
+		proposers[remote] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+		inspectors[remote] = mcmsSolana.NewInspector(chain.Client)
 
 		var instructions []solana.Instruction
+		var txns []mcmsTypes.Transaction
 		offRampConfigPDA := state.SolChains[remote].OffRampConfigPDA
 		offRampStatePDA := state.SolChains[remote].OffRampStatePDA
 		solOffRamp.SetProgramID(state.SolChains[remote].OffRamp)
+		var authority solana.PublicKey
+		if cfg.MCMS != nil {
+			authority, err = FetchTimelockSigner(e, remote)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+			}
+		} else {
+			authority = e.SolChains[remote].DeployerKey.PublicKey()
+		}
 		for _, arg := range args {
 			instruction, err := solOffRamp.NewSetOcrConfigInstruction(
 				arg.OCRPluginType,
@@ -86,18 +122,48 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 				arg.Transmitters,
 				offRampConfigPDA,
 				offRampStatePDA,
-				e.SolChains[remote].DeployerKey.PublicKey(),
+				authority,
 			).ValidateAndBuild()
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
 			}
-			instructions = append(instructions, instruction)
+			if cfg.MCMS == nil {
+				instructions = append(instructions, instruction)
+			} else {
+				tx, err := BuildMCMSTxn(instruction, state.SolChains[remote].OffRamp.String(), ccipChangeset.OffRamp)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+				}
+				txns = append(txns, *tx)
+			}
 		}
 		if cfg.MCMS == nil {
 			if err := e.SolChains[remote].Confirm(instructions); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
+		} else {
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(remote),
+				Transactions:  txns,
+			})
 		}
+	}
+	if cfg.MCMS != nil {
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			e,
+			timelocks,
+			proposers,
+			inspectors,
+			batches,
+			"set ocr3 config for Solana",
+			cfg.MCMS.MinDelay,
+		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 	return deployment.ChangesetOutput{}, nil
 }
@@ -105,7 +171,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg cs.SetOCR3OffRampConfig) 
 func isOCR3ConfigSetOnOffRampSolana(
 	e deployment.Environment,
 	chain deployment.SolChain,
-	chainState cs.SolCCIPChainState,
+	chainState ccipChangeset.SolCCIPChainState,
 	args []internal.MultiOCR3BaseOCRConfigArgsSolana,
 ) (bool, error) {
 	var configAccount solOffRamp.Config

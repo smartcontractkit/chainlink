@@ -2,7 +2,9 @@ package proposalutils
 
 import (
 	"crypto/ecdsa"
+	"fmt"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -116,7 +118,7 @@ func SignMCMSTimelockProposal(t *testing.T, env deployment.Environment, proposal
 		_, err := chainsel.SolanaChainIdFromSelector(chainSelector)
 		require.NoError(t, err)
 		chainSel := mcmstypes.ChainSelector(chainSelector)
-		converters[chainSel] = mcmssolanasdk.NewTimelockConverter(chain.Client)
+		converters[chainSel] = mcmssolanasdk.TimelockConverter{}
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
 
@@ -182,7 +184,7 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 }
 
 // ExecuteMCMSProposalV2 - Executes an MCMS proposal on a chain. For timelock proposal, use ExecuteMCMSTimelockProposalV2 instead.
-func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) {
+func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *mcmslib.Proposal) error {
 	t.Log("Executing proposal")
 
 	encoders, err := proposal.GetEncoders()
@@ -226,7 +228,9 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 	for chainSelector := range executorsMap {
 		t.Logf("[ExecuteMCMSProposalV2] Setting root on chain %d...", chainSelector)
 		root, err := executable.SetRoot(env.GetContext(), chainSelector)
-		require.NoError(t, deployment.MaybeDataErr(err), "[ExecuteMCMSProposalV2] SetRoot failed")
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSProposalV2] SetRoot failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 		require.NoError(t, err)
@@ -234,10 +238,12 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(chainSelector)]
-			evmTransaction := root.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := root.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] SetRoot EVM tx hash: %s", evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
 
@@ -245,29 +251,36 @@ func ExecuteMCMSProposalV2(t *testing.T, env deployment.Environment, proposal *m
 	for i, op := range proposal.Operations {
 		t.Logf("[ExecuteMCMSProposalV2] Executing operation index=%d on chain %d...", i, uint64(op.ChainSelector))
 		result, err := executable.Execute(env.GetContext(), i)
-		require.NoError(t, err)
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSProposalV2] Execute failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(op.ChainSelector)]
-			evmTransaction := result.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := result.RawData.(*gethtypes.Transaction)
 			t.Logf("[ExecuteMCMSProposalV2] Operation %d EVM tx hash: %s", i, evmTransaction.Hash().String())
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
+
+	return nil
 }
 
 // ExecuteMCMSTimelockProposalV2 - Includes an option to set callProxy to execute the calls through a proxy.
 // If the callProxy is not set, the calls will be executed directly to the timelock.
-func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) {
+func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, timelockProposal *mcmslib.TimelockProposal, opts ...mcmslib.Option) error {
 	t.Log("Executing timelock proposal")
 
 	// build a "chainSelector => executor" map
 	executorsMap := map[mcmstypes.ChainSelector]mcmssdk.TimelockExecutor{}
-	for _, op := range timelockProposal.Operations {
+	callProxies := make([]string, len(timelockProposal.Operations))
+	for i, op := range timelockProposal.Operations {
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
 
@@ -276,10 +289,13 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 			executorsMap[op.ChainSelector] = mcmsevmsdk.NewTimelockExecutor(
 				env.Chains[uint64(op.ChainSelector)].Client,
 				env.Chains[uint64(op.ChainSelector)].DeployerKey)
+			callProxies[i] = findCallProxyAddress(t, env, uint64(op.ChainSelector))
+
 		case chainsel.FamilySolana:
 			executorsMap[op.ChainSelector] = mcmssolanasdk.NewTimelockExecutor(
 				env.SolChains[uint64(op.ChainSelector)].Client,
 				*env.SolChains[uint64(op.ChainSelector)].DeployerKey)
+
 		default:
 			require.FailNow(t, "unsupported chain family")
 		}
@@ -295,8 +311,15 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 	// execute each operation sequentially
 	var tx = mcmstypes.TransactionResult{}
 	for i, op := range timelockProposal.Operations {
-		tx, err = timelockExecutable.Execute(env.GetContext(), i, opts...)
-		require.NoError(t, err)
+		opOpts := slices.Clone(opts)
+		if callProxies[i] != "" {
+			opOpts = append(opOpts, mcmslib.WithCallProxy(callProxies[i]))
+		}
+
+		tx, err = timelockExecutable.Execute(env.GetContext(), i, opOpts...)
+		if err != nil {
+			return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Execute failed: %w", err)
+		}
 
 		family, err := chainsel.GetSelectorFamily(uint64(op.ChainSelector))
 		require.NoError(t, err)
@@ -304,11 +327,15 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 		// no need to confirm transaction on solana as the MCMS sdk confirms it internally
 		if family == chainsel.FamilyEVM {
 			chain := env.Chains[uint64(op.ChainSelector)]
-			evmTransaction := tx.RawTransaction.(*gethtypes.Transaction)
+			evmTransaction := tx.RawData.(*gethtypes.Transaction)
 			_, err = chain.Confirm(evmTransaction)
-			require.NoError(t, err)
+			if err != nil {
+				return fmt.Errorf("[ExecuteMCMSTimelockProposalV2] Confirm failed: %w", err)
+			}
 		}
 	}
+
+	return nil
 }
 
 func SingleGroupTimelockConfig(t *testing.T) commontypes.MCMSWithTimelockConfig {
@@ -327,4 +354,18 @@ func SingleGroupTimelockConfigV2(t *testing.T) commontypes.MCMSWithTimelockConfi
 		Proposer:         SingleGroupMCMSV2(t),
 		TimelockMinDelay: big.NewInt(0),
 	}
+}
+
+func findCallProxyAddress(t *testing.T, env deployment.Environment, chainSelector uint64) string {
+	addressesForChain, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+
+	for address, tvStr := range addressesForChain {
+		if tvStr.Type == commontypes.CallProxy && tvStr.Version == deployment.Version1_0_0 {
+			return address
+		}
+	}
+
+	require.FailNow(t, "unable to find call proxy address")
+	return ""
 }

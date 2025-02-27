@@ -13,7 +13,7 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -37,7 +37,7 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
-func ValidateContracts(state changeset.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
+func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, contracts CCIPContractsToTransfer) error {
 	contractChecks := []struct {
 		enabled bool
 		value   solana.PublicKey
@@ -58,7 +58,7 @@ func ValidateContracts(state changeset.SolCCIPChainState, chainSelector uint64, 
 }
 
 func (cfg TransferCCIPToMCMSWithTimelockSolanaConfig) Validate(e deployment.Environment) error {
-	ccipState, err := changeset.LoadOnchainStateSolana(e)
+	ccipState, err := state2.LoadOnchainStateSolana(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -131,7 +131,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	}
 	var batches []mcmsTypes.BatchOperation
 
-	ccipState, err := changeset.LoadOnchainStateSolana(e)
+	ccipState, err := state2.LoadOnchainStateSolana(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
@@ -203,7 +203,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,

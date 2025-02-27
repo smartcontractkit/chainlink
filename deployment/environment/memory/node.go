@@ -2,6 +2,9 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
+
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -15,6 +18,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
@@ -35,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -46,10 +51,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 )
 
 type Node struct {
@@ -304,7 +315,8 @@ func NewNode(
 		eks: &EthKeystoreSim{
 			Eth: master.Eth(),
 		},
-		csa: master.CSA(),
+		csa:      master.CSA(),
+		workflow: master.Workflow(),
 	}
 
 	// Build evm factory using clients + keystore.
@@ -338,6 +350,7 @@ func NewNode(
 	ctx := tests.Context(t)
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
+	require.NoError(t, master.Workflow().EnsureKey(ctx))
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
@@ -377,6 +390,9 @@ func NewNode(
 	})
 	keys := CreateKeys(t, app, chains, solchains)
 
+	// JD
+
+	setupJD(t, app)
 	return &Node{
 		App: app,
 		Chains: slices.Concat(
@@ -392,6 +408,7 @@ func NewNode(
 type Keys struct {
 	PeerID        p2pkey.PeerID
 	CSA           csakey.KeyV2
+	WorkflowKey   workflowkey.Key
 	Transmitters  map[uint64]string // chainSelector => address
 	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
@@ -587,8 +604,9 @@ func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx 
 }
 
 type KeystoreSim struct {
-	eks keystore.Eth
-	csa keystore.CSA
+	eks      keystore.Eth
+	csa      keystore.CSA
+	workflow keystore.Workflow
 }
 
 func (e KeystoreSim) Eth() keystore.Eth {
@@ -597,4 +615,55 @@ func (e KeystoreSim) Eth() keystore.Eth {
 
 func (e KeystoreSim) CSA() keystore.CSA {
 	return e.csa
+}
+
+func setupJD(t *testing.T, app chainlink.Application) {
+	secret := randomBytes32(t)
+	pkey, err := crypto.PublicKeyFromHex(hex.EncodeToString(secret))
+	require.NoError(t, err)
+	m := feeds2.RegisterManagerParams{
+		Name:      "In memory env test",
+		URI:       "http://dev.null:8080",
+		PublicKey: *pkey,
+	}
+	f := app.GetFeedsService()
+	connManager := feedsMocks.NewConnectionsManager(t)
+	connManager.On("Connect", mock.Anything).Maybe()
+	connManager.On("GetClient", mock.Anything).Maybe().Return(noopFeedsClient{}, nil)
+	connManager.On("Close").Maybe().Return()
+	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
+	f.Unsafe_SetConnectionsManager(connManager)
+
+	_, err = f.RegisterManager(testutils.Context(t), m)
+	require.NoError(t, err)
+}
+
+func randomBytes32(t *testing.T) []byte {
+	t.Helper()
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	require.NoError(t, err)
+	return b
+}
+
+type noopFeedsClient struct{}
+
+func (n noopFeedsClient) ApprovedJob(context.Context, *pb.ApprovedJobRequest) (*pb.ApprovedJobResponse, error) {
+	return &pb.ApprovedJobResponse{}, nil
+}
+
+func (n noopFeedsClient) Healthcheck(context.Context, *pb.HealthcheckRequest) (*pb.HealthcheckResponse, error) {
+	return &pb.HealthcheckResponse{}, nil
+}
+
+func (n noopFeedsClient) UpdateNode(context.Context, *pb.UpdateNodeRequest) (*pb.UpdateNodeResponse, error) {
+	return &pb.UpdateNodeResponse{}, nil
+}
+
+func (n noopFeedsClient) RejectedJob(context.Context, *pb.RejectedJobRequest) (*pb.RejectedJobResponse, error) {
+	return &pb.RejectedJobResponse{}, nil
+}
+
+func (n noopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
+	return &pb.CancelledJobResponse{}, nil
 }

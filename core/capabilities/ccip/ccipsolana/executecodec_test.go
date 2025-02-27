@@ -13,12 +13,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
-	"github.com/smartcontractkit/chainlink-ccip/mocks/pkg/types/ccipocr3"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/stretchr/testify/assert"
@@ -53,20 +52,12 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 					ExtraData:         extraData,
 					Amount:            cciptypes.NewBigInt(big.NewInt(rand.Int63())),
 					DestExecData:      destExecData,
-					DestExecDataDecoded: map[string]any{
-						"destGasAmount": uint32(10),
-					},
 				}
 			}
 
 			extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
 				ComputeUnits:     1000,
 				IsWritableBitmap: 2,
-			}
-
-			extraArgsMap := map[string]any{
-				"ComputeUnits":            uint32(1000),
-				"accountIsWritableBitmap": uint64(2),
 			}
 
 			var buf bytes.Buffer
@@ -84,14 +75,13 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 					MsgHash:             utils.RandomBytes32(),
 					OnRamp:              cciptypes.UnknownAddress(key.PublicKey().String()),
 				},
-				Sender:           cciptypes.UnknownAddress(key.PublicKey().String()),
-				Data:             extraData,
-				Receiver:         key.PublicKey().Bytes(),
-				ExtraArgs:        buf.Bytes(),
-				FeeToken:         cciptypes.UnknownAddress(key.PublicKey().String()),
-				FeeTokenAmount:   cciptypes.NewBigInt(big.NewInt(rand.Int63())),
-				TokenAmounts:     tokenAmounts,
-				ExtraArgsDecoded: extraArgsMap,
+				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
+				Data:           extraData,
+				Receiver:       key.PublicKey().Bytes(),
+				ExtraArgs:      buf.Bytes(),
+				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
+				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
+				TokenAmounts:   tokenAmounts,
 			}
 		}
 
@@ -148,10 +138,28 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			expErr:        false,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
+		{
+			name: "reports have invalid DestTokenAddress",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].TokenAmounts[0].DestTokenAddress = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
+		{
+			name: "reports have invalid receiver",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].Receiver = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
 	}
 
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)
@@ -178,10 +186,6 @@ func TestExecutePluginCodecV1(t *testing.T) {
 					report.ChainReports[i].Messages[j].Header.OnRamp = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeToken = cciptypes.UnknownAddress{}
 					report.ChainReports[i].Messages[j].FeeTokenAmount = cciptypes.BigInt{}
-					report.ChainReports[i].Messages[j].ExtraArgsDecoded = nil
-					for k := range report.ChainReports[i].Messages[j].TokenAmounts {
-						report.ChainReports[i].Messages[j].TokenAmounts[k].DestExecDataDecoded = nil
-					}
 				}
 			}
 
@@ -194,7 +198,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodingExecuteReport(t *testing.T) {
-	mockExtraDataCodec := ccipocr3.NewMockExtraDataCodec(t)
+	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
 	}, nil)

@@ -2,48 +2,61 @@ package changeset
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/view"
 )
 
 var _ deployment.ViewState = ViewKeystone
 
 func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
-	state, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
+	lggr := e.Logger
+	state, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
 		AddressBook: e.ExistingAddresses,
 	})
+	// this error is unrecoverable
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
-	chainViews := make(map[string]view.KeystoneChainView)
+	var viewErrs error
+	chainViews := make(map[string]KeystoneChainView)
 	for chainSel, contracts := range state.ContractSets {
 		chainid, err := chainsel.ChainIdFromSelector(chainSel)
 		if err != nil {
-			return nil, fmt.Errorf("failed to resolve chain id for selector %d: %w", chainSel, err)
+			err2 := fmt.Errorf("failed to resolve chain id for selector %d: %w", chainSel, err)
+			lggr.Error(err2)
+			viewErrs = errors.Join(viewErrs, err2)
+			continue
 		}
 		chainName, err := chainsel.NameFromChainId(chainid)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get name for chainid %d selector %d:%w", chainid, chainSel, err)
+			err2 := fmt.Errorf("failed to resolve chain name for chain id %d: %w", chainid, err)
+			lggr.Error(err2)
+			viewErrs = errors.Join(viewErrs, err2)
+			continue
 		}
-		v, err := contracts.View()
+		v, err := contracts.View(e.GetContext(), e.Logger)
 		if err != nil {
-			return nil, fmt.Errorf("failed to view contract set: %w", err)
+			err2 := fmt.Errorf("failed to view chain %s: %w", chainName, err)
+			lggr.Error(err2)
+			viewErrs = errors.Join(viewErrs, err2)
+			// don't continue; add the partial view
 		}
 		chainViews[chainName] = v
 	}
 	nopsView, err := commonview.GenerateNopsView(e.NodeIDs, e.Offchain)
 	if err != nil {
-		return nil, fmt.Errorf("failed to view nops: %w", err)
+		err2 := fmt.Errorf("failed to view nops: %w", err)
+		lggr.Error(err2)
+		viewErrs = errors.Join(viewErrs, err2)
 	}
-	return &view.KeystoneView{
+	return &KeystoneView{
 		Chains: chainViews,
 		Nops:   nopsView,
-	}, nil
+	}, viewErrs
 }

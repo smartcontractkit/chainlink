@@ -8,9 +8,8 @@ import (
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	view "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 )
@@ -20,40 +19,41 @@ import (
 // It is public for use in product specific packages.
 // Either all fields are nil or all fields are non-nil.
 type MCMSWithTimelockState struct {
-	*proposalutils.MCMSWithTimelockContracts
+	CancellerMcm *bindings.ManyChainMultiSig
+	BypasserMcm  *bindings.ManyChainMultiSig
+	ProposerMcm  *bindings.ManyChainMultiSig
+	Timelock     *bindings.RBACTimelock
+	CallProxy    *bindings.CallProxy
 }
 
-func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWithTimelockView, error) {
+// Validate checks that all fields are non-nil, ensuring it's ready
+// for use generating views or interactions.
+func (state MCMSWithTimelockState) Validate() error {
+	if state.Timelock == nil {
+		return errors.New("timelock not found")
+	}
+	if state.CancellerMcm == nil {
+		return errors.New("canceller not found")
+	}
+	if state.ProposerMcm == nil {
+		return errors.New("proposer not found")
+	}
+	if state.BypasserMcm == nil {
+		return errors.New("bypasser not found")
+	}
+	if state.CallProxy == nil {
+		return errors.New("call proxy not found")
+	}
+	return nil
+}
+
+func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWithTimelockView, error) {
 	if err := state.Validate(); err != nil {
-		return v1_0.MCMSWithTimelockView{}, err
+		return view.MCMSWithTimelockView{}, fmt.Errorf("unable to validate McmsWithTimelock state: %w", err)
 	}
-	timelockView, err := v1_0.GenerateTimelockView(*state.Timelock)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	callProxyView, err := v1_0.GenerateCallProxyView(*state.CallProxy)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	bypasserView, err := v1_0.GenerateMCMSView(*state.BypasserMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	proposerView, err := v1_0.GenerateMCMSView(*state.ProposerMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	cancellerView, err := v1_0.GenerateMCMSView(*state.CancellerMcm)
-	if err != nil {
-		return v1_0.MCMSWithTimelockView{}, nil
-	}
-	return v1_0.MCMSWithTimelockView{
-		Timelock:  timelockView,
-		Bypasser:  bypasserView,
-		Proposer:  proposerView,
-		Canceller: cancellerView,
-		CallProxy: callProxyView,
-	}, nil
+
+	return view.GenerateMCMSWithTimelockView(*state.BypasserMcm, *state.CancellerMcm, *state.ProposerMcm,
+		*state.Timelock, *state.CallProxy)
 }
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
@@ -85,9 +85,7 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
 func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockState, error) {
-	state := MCMSWithTimelockState{
-		MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
-	}
+	state := MCMSWithTimelockState{}
 	// We expect one of each contract on the chain.
 	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 	callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
@@ -101,7 +99,7 @@ func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[s
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
@@ -163,11 +161,11 @@ type LinkTokenState struct {
 	LinkToken *link_token.LinkToken
 }
 
-func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
+func (s LinkTokenState) GenerateLinkView() (view.LinkTokenView, error) {
 	if s.LinkToken == nil {
-		return v1_0.LinkTokenView{}, errors.New("link token not found")
+		return view.LinkTokenView{}, errors.New("link token not found")
 	}
-	return v1_0.GenerateLinkTokenView(s.LinkToken)
+	return view.GenerateLinkTokenView(s.LinkToken)
 }
 
 // MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
@@ -199,7 +197,7 @@ func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]d
 	wantTypes := []deployment.TypeAndVersion{linkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
@@ -220,11 +218,11 @@ type StaticLinkTokenState struct {
 	StaticLinkToken *link_token_interface.LinkToken
 }
 
-func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView, error) {
+func (s StaticLinkTokenState) GenerateStaticLinkView() (view.StaticLinkTokenView, error) {
 	if s.StaticLinkToken == nil {
-		return v1_0.StaticLinkTokenView{}, errors.New("static link token not found")
+		return view.StaticLinkTokenView{}, errors.New("static link token not found")
 	}
-	return v1_0.GenerateStaticLinkTokenView(s.StaticLinkToken)
+	return view.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
 func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
@@ -235,7 +233,7 @@ func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]
 	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}

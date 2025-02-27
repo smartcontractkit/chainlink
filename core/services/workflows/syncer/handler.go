@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
@@ -179,6 +180,7 @@ type eventHandler struct {
 	encryptionKey            workflowkey.Key
 	engineFactory            engineFactoryFn
 	ratelimiter              *ratelimiter.RateLimiter
+	workflowLimits           *syncerlimiter.Limits
 }
 
 type Event interface {
@@ -212,6 +214,7 @@ func NewEventHandler(
 	clock clockwork.Clock,
 	encryptionKey workflowkey.Key,
 	ratelimiter *ratelimiter.RateLimiter,
+	workflowLimits *syncerlimiter.Limits,
 	opts ...func(*eventHandler),
 ) *eventHandler {
 
@@ -241,9 +244,11 @@ func NewEventHandler(
 		secretsFreshnessDuration: defaultSecretsFreshnessDuration,
 		encryptionKey:            encryptionKey,
 		ratelimiter:              ratelimiter,
+		workflowLimits:           workflowLimits,
 	}
 	eh.engineFactory = eh.engineFactoryFn
 	eh.limits.ApplyDefaults()
+
 	for _, o := range opts {
 		o(eh)
 	}
@@ -582,6 +587,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		BinaryURL:     payload.BinaryURL,
 		ConfigURL:     payload.ConfigURL,
 	}
+
 	if _, err = h.orm.UpsertWorkflowSpecWithSecrets(ctx, entry, payload.SecretsURL, hex.EncodeToString(urlHash), string(secrets)); err != nil {
 		return fmt.Errorf("failed to upsert workflow spec with secrets: %w", err)
 	}
@@ -674,6 +680,7 @@ func (h *eventHandler) engineFactoryFn(ctx context.Context, id string, owner str
 		Binary:         binary,
 		SecretsFetcher: h,
 		RateLimiter:    h.ratelimiter,
+		WorkflowLimits: h.workflowLimits,
 	}
 	return workflows.NewEngine(ctx, cfg)
 }

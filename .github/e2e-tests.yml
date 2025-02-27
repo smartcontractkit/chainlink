@@ -183,21 +183,57 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
 
-  - id: smoke/capabilities/workflow_test.go:*
-    path: integration-tests/smoke/capabilities/workflow_test.go
+  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_SingleDon
+    path: system-tests/tests/smoke/capabilities/workflow_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
       - PR Workflow Engine E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow)$" -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
-      E2E_JD_VERSION: 0.6.0 # there is no latest tag for this repo, so we need to specify the version
+      E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
-      CTF_CONFIGS: "environment-ci.toml"
+      CTF_CONFIGS: "environment-one-don-ci.toml"
+      # Anvil developer key, not a secret
+      PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_GatewayDon
+    path: system-tests/tests/smoke/capabilities/workflow_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Workflow Engine E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-capabilities-evm-simulated
+    test_env_vars:
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
+      GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
+      CI: "true"
+      CTF_CONFIGS: "environment-two-dons-ci.toml"
+      # Anvil developer key, not a secret
+      PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_ThreeDons
+    path: system-tests/tests/smoke/capabilities/workflow_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Workflow Engine E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-capabilities-evm-simulated
+    test_env_vars:
+      E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
+      E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
+      GITHUB_READ_TOKEN: '{{ env.GITHUB_API_TOKEN }}' # GATI-provided token that can read from capabilities and dev-platform repos
+      CI: "true"
+      CTF_CONFIGS: "environment-three-dons-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
@@ -966,7 +1002,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_gas_price_updates_test.go:*
@@ -980,7 +1016,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
@@ -994,7 +1030,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1010,7 +1046,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1026,7 +1062,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1042,7 +1078,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1058,7 +1094,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1074,7 +1110,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1090,7 +1126,7 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1106,39 +1142,39 @@ runner-test-matrix:
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_IncorrectSig$
-    path: integration-tests/smoke/ccip/ccip_rmn_test.go 
+    path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu20.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests 
+      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_IncorrectSig$ -timeout 20m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$
-    path: integration-tests/smoke/ccip/ccip_rmn_test.go 
+    path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu20.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests 
+      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$ -timeout 12m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
       CCIP_V16_TEST_ENV: docker
@@ -1227,6 +1263,7 @@ runner-test-matrix:
     test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPTokenPoolRateLimits$
@@ -1345,34 +1382,6 @@ runner-test-matrix:
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
 
-  - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPS
-    path: integration-tests/ccip-tests/load/ccip_test.go
-    test_env_type: k8s-remote-runner
-    runs_on: ubuntu-latest
-    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run ^TestLoadCCIPStableRPS$ -timeout 70m -count=1 -test.parallel=1 -json
-    test_env_vars:
-      TEST_SUITE: ccip-load
-      E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-    triggers:
-      - E2E CCIP Load Tests
-    test_artifacts_on_failure:
-      - ./integration-tests/load/logs/payload_ccip.json
-
-  # Enable when CCIP-2277 is resolved
-  #
-  # - id: integration-tests/ccip-tests/load/ccip_test.go:TestLoadCCIPStableRPSAfterARMCurseAndUncurse
-  #   path: integration-tests/ccip-tests/load/ccip_test.go
-  #   test_env_type: k8s-remote-runner
-  #   runs_on: ubuntu-latest
-  #   test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -test.run $TestLoadCCIPStableRPSAfterARMCurseAndUncurse$ -timeout 70m -count=1 -test.parallel=1 -json
-  #   test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/load-with-arm-curse-uncurse.toml
-  #   test_env_vars:
-  #     E2E_TEST_GRAFANA_DASHBOARD_URL: "/d/6vjVx-1V8/ccip-long-running-tests"
-  #   triggers:
-  #     - E2E CCIP Load Tests
-  #   test_artifacts_on_failure:
-  #     - ./integration-tests/load/logs/payload_ccip.json
-
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go
     test_env_type: k8s-remote-runner
@@ -1384,19 +1393,6 @@ runner-test-matrix:
       TEST_SUITE: chaos
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
       TEST_LOG_LEVEL: debug
-
-  - id: ccip-tests/load/ccip_test.go:^TestLoadCCIPStableWithPodChaosDiffCommitAndExec
-    path: integration-tests/ccip-tests/load/ccip_test.go
-    test_env_type: k8s-remote-runner
-    runs_on: ubuntu-latest
-    triggers:
-      # Disabled until CCIP-2555 is resolved
-      # - E2E CCIP Chaos Tests
-    test_cmd: cd integration-tests/ccip-tests/load && DETACH_RUNNER=false go test -run '^TestLoadCCIPStableWithPodChaosDiffCommitAndExec' -v -test.parallel=4 -timeout 120m -count=1 -json
-    test_env_vars:
-      TEST_SUITE: chaos
-      TEST_TRIGGERED_BY: ccip-cron-chaos-eth
-      TEST_LOG_LEVEL: debug
-      E2E_TEST_GRAFANA_DASHBOARD_URL: /d/6vjVx-1V8/ccip-long-running-tests
+      CHAINLINK_USER_TEAM: CCIP
 
   # END: CCIP tests

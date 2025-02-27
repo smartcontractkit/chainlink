@@ -7,8 +7,14 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+
+	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
@@ -33,11 +39,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
+	viewv1_0 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
+	viewv1_5 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
+	viewv1_5_1 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5_1"
+	viewv1_6 "github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
@@ -98,16 +104,17 @@ var (
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
 
 	// Pools
-	BurnMintToken             deployment.ContractType = "BurnMintToken"
-	ERC20Token                deployment.ContractType = "ERC20Token"
-	ERC677Token               deployment.ContractType = "ERC677Token"
-	BurnMintTokenPool         deployment.ContractType = "BurnMintTokenPool"
-	BurnWithFromMintTokenPool deployment.ContractType = "BurnWithFromMintTokenPool"
-	BurnFromMintTokenPool     deployment.ContractType = "BurnFromMintTokenPool"
-	LockReleaseTokenPool      deployment.ContractType = "LockReleaseTokenPool"
-	USDCToken                 deployment.ContractType = "USDCToken"
-	USDCTokenMessenger        deployment.ContractType = "USDCTokenMessenger"
-	USDCTokenPool             deployment.ContractType = "USDCTokenPool"
+	BurnMintToken                  deployment.ContractType = "BurnMintToken"
+	ERC20Token                     deployment.ContractType = "ERC20Token"
+	ERC677Token                    deployment.ContractType = "ERC677Token"
+	BurnMintTokenPool              deployment.ContractType = "BurnMintTokenPool"
+	BurnWithFromMintTokenPool      deployment.ContractType = "BurnWithFromMintTokenPool"
+	BurnFromMintTokenPool          deployment.ContractType = "BurnFromMintTokenPool"
+	LockReleaseTokenPool           deployment.ContractType = "LockReleaseTokenPool"
+	USDCToken                      deployment.ContractType = "USDCToken"
+	USDCTokenMessenger             deployment.ContractType = "USDCTokenMessenger"
+	USDCTokenPool                  deployment.ContractType = "USDCTokenPool"
+	HybridLockReleaseUSDCTokenPool deployment.ContractType = "HybridLockReleaseUSDCTokenPool"
 )
 
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
@@ -116,6 +123,7 @@ type CCIPChainState struct {
 	commoncs.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
+	ABIByAddress       map[string]string
 	OnRamp             onramp.OnRampInterface
 	OffRamp            offramp.OffRampInterface
 	FeeQuoter          *fee_quoter.FeeQuoter
@@ -135,6 +143,7 @@ type CCIPChainState struct {
 	BurnMintTokenPools         map[TokenSymbol]map[semver.Version]*burn_mint_token_pool.BurnMintTokenPool
 	BurnWithFromMintTokenPools map[TokenSymbol]map[semver.Version]*burn_with_from_mint_token_pool.BurnWithFromMintTokenPool
 	BurnFromMintTokenPools     map[TokenSymbol]map[semver.Version]*burn_from_mint_token_pool.BurnFromMintTokenPool
+	USDCTokenPools             map[semver.Version]*usdc_token_pool.USDCTokenPool
 	LockReleaseTokenPools      map[TokenSymbol]map[semver.Version]*lock_release_token_pool.LockReleaseTokenPool
 	// Map between token Symbol (e.g. LinkSymbol, WethSymbol)
 	// and the respective aggregator USD feed contract
@@ -149,7 +158,6 @@ type CCIPChainState struct {
 	Receiver               maybe_revert_message_receiver.MaybeRevertMessageReceiverInterface
 	LogMessageDataReceiver *log_message_data_receiver.LogMessageDataReceiver
 	TestRouter             *router.Router
-	USDCTokenPool          *usdc_token_pool.USDCTokenPool
 	MockUSDCTransmitter    *mock_usdc_token_transmitter.MockE2EUSDCTransmitter
 	MockUSDCTokenMessenger *mock_usdc_token_messenger.MockE2EUSDCTokenMessenger
 	Multicall3             *multicall3.Multicall3
@@ -163,6 +171,58 @@ type CCIPChainState struct {
 	RMN            *rmn_contract.RMNContract
 }
 
+func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, error) {
+	tokenAddresses := make(map[TokenSymbol]common.Address)
+	for symbol, token := range c.ERC20Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.ERC677Tokens {
+		tokenAddresses[symbol] = token.Address()
+	}
+	for symbol, token := range c.BurnMintTokens677 {
+		tokenAddresses[symbol] = token.Address()
+	}
+	var err error
+	tokenAddresses[LinkSymbol], err = c.LinkTokenAddress()
+	if err != nil {
+		return nil, err
+	}
+	if c.Weth9 == nil {
+		return nil, errors.New("no WETH contract found in the state")
+	}
+	tokenAddresses[WethSymbol] = c.Weth9.Address()
+	return tokenAddresses, nil
+}
+
+func (c CCIPChainState) TokenDetailsBySymbol() (map[TokenSymbol]TokenDetails, error) {
+	tokenDetails := make(map[TokenSymbol]TokenDetails)
+	for symbol, token := range c.ERC20Tokens {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.ERC677Tokens {
+		tokenDetails[symbol] = token
+	}
+	for symbol, token := range c.BurnMintTokens677 {
+		tokenDetails[symbol] = token
+	}
+	if c.LinkToken != nil {
+		tokenDetails[LinkSymbol] = c.LinkToken
+	}
+	if c.StaticLinkToken != nil {
+		tokenDetails[LinkSymbol] = c.StaticLinkToken
+	}
+
+	if _, ok := tokenDetails[LinkSymbol]; !ok {
+		return nil, errors.New("no LINK contract found in the state")
+	}
+
+	if c.Weth9 == nil {
+		return nil, errors.New("no WETH contract found in the state")
+	}
+	tokenDetails[WethSymbol] = c.Weth9
+	return tokenDetails, nil
+}
+
 func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	if c.LinkToken != nil {
 		return c.LinkToken.Address(), nil
@@ -173,24 +233,24 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 	return common.Address{}, errors.New("no link token found in the state")
 }
 
-func (c CCIPChainState) OnRampBytes() ([]byte, error) {
-	if c.OnRamp != nil {
-		return c.OnRamp.Address().Bytes(), nil
-	}
-	return nil, errors.New("no onramp found in the state")
-}
-
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
-		routerView, err := v1_2.GenerateRouterView(c.Router)
+		routerView, err := v1_2.GenerateRouterView(c.Router, false)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
 		}
 		chainView.Router[c.Router.Address().Hex()] = routerView
 	}
+	if c.TestRouter != nil {
+		testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
+		}
+		chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
+	}
 	if c.TokenAdminRegistry != nil {
-		taView, err := v1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
+		taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate token admin registry view for token admin registry %s", c.TokenAdminRegistry.Address().String())
 		}
@@ -198,7 +258,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -207,7 +267,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -216,7 +276,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
@@ -225,7 +285,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := v1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+			tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 			}
@@ -233,14 +293,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 	}
 	if c.NonceManager != nil {
-		nmView, err := v1_6.GenerateNonceManagerView(c.NonceManager)
+		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate nonce manager view for nonce manager %s", c.NonceManager.Address().String())
 		}
 		chainView.NonceManager[c.NonceManager.Address().Hex()] = nmView
 	}
 	if c.RMNRemote != nil {
-		rmnView, err := v1_6.GenerateRMNRemoteView(c.RMNRemote)
+		rmnView, err := viewv1_6.GenerateRMNRemoteView(c.RMNRemote)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn remote view for rmn remote %s", c.RMNRemote.Address().String())
 		}
@@ -248,7 +308,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMNHome != nil {
-		rmnHomeView, err := v1_6.GenerateRMNHomeView(c.RMNHome)
+		rmnHomeView, err := viewv1_6.GenerateRMNHomeView(c.RMNHome)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn home view for rmn home %s", c.RMNHome.Address().String())
 		}
@@ -256,7 +316,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		fqView, err := v1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
+		fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 		}
@@ -264,7 +324,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.OnRamp != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		onRampView, err := v1_6.GenerateOnRampView(
+		onRampView, err := viewv1_6.GenerateOnRampView(
 			c.OnRamp,
 			c.Router,
 			c.TokenAdminRegistry,
@@ -276,7 +336,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.OffRamp != nil && c.Router != nil {
-		offRampView, err := v1_6.GenerateOffRampView(
+		offRampView, err := viewv1_6.GenerateOffRampView(
 			c.OffRamp,
 			c.Router,
 		)
@@ -287,14 +347,14 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMNProxy != nil {
-		rmnProxyView, err := v1_0.GenerateRMNProxyView(c.RMNProxy)
+		rmnProxyView, err := viewv1_0.GenerateRMNProxyView(c.RMNProxy)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn proxy view for rmn proxy %s", c.RMNProxy.Address().String())
 		}
 		chainView.RMNProxy[c.RMNProxy.Address().Hex()] = rmnProxyView
 	}
 	if c.CCIPHome != nil && c.CapabilityRegistry != nil {
-		chView, err := v1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
+		chView, err := viewv1_6.GenerateCCIPHomeView(c.CapabilityRegistry, c.CCIPHome)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate CCIP home view for CCIP home %s", c.CCIPHome.Address())
 		}
@@ -331,7 +391,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	// Legacy contracts
 	if c.CommitStore != nil {
 		for source, commitStore := range c.CommitStore {
-			commitStoreView, err := v1_5.GenerateCommitStoreView(commitStore)
+			commitStoreView, err := viewv1_5.GenerateCommitStoreView(commitStore)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate commit store view for commit store %s for source %d", commitStore.Address().String(), source)
 			}
@@ -348,7 +408,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.RMN != nil {
-		rmnView, err := v1_5.GenerateRMNView(c.RMN)
+		rmnView, err := viewv1_5.GenerateRMNView(c.RMN)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate rmn view for rmn %s", c.RMN.Address().String())
 		}
@@ -357,7 +417,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOffRamp != nil {
 		for source, offRamp := range c.EVM2EVMOffRamp {
-			offRampView, err := v1_5.GenerateOffRampView(offRamp)
+			offRampView, err := viewv1_5.GenerateOffRampView(offRamp)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate off ramp view for off ramp %s for source %d", offRamp.Address().String(), source)
 			}
@@ -367,7 +427,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 
 	if c.EVM2EVMOnRamp != nil {
 		for dest, onRamp := range c.EVM2EVMOnRamp {
-			onRampView, err := v1_5.GenerateOnRampView(onRamp)
+			onRampView, err := viewv1_5.GenerateOnRampView(onRamp)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate on ramp view for on ramp %s for dest %d", onRamp.Address().String(), dest)
 			}
@@ -388,6 +448,52 @@ type CCIPOnChainState struct {
 	Chains      map[uint64]CCIPChainState
 	SolChains   map[uint64]SolCCIPChainState
 	AptosChains map[uint64]AptosCCIPChainState
+}
+
+func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return 0, err
+	}
+	switch family {
+	case chain_selectors.FamilyEVM:
+		c, ok := s.Chains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d not found in the state", selector)
+		}
+		offRamp := c.OffRamp
+		if offRamp == nil {
+			return 0, fmt.Errorf("offramp not found in the state for chain %d", selector)
+		}
+		dCfg, err := offRamp.GetDynamicConfig(&bind.CallOpts{
+			Context: ctx,
+		})
+		if err != nil {
+			return dCfg.PermissionLessExecutionThresholdSeconds, fmt.Errorf("fetch dynamic config from offRamp %s for chain %d: %w", offRamp.Address().String(), selector, err)
+		}
+		return dCfg.PermissionLessExecutionThresholdSeconds, nil
+	case chain_selectors.FamilySolana:
+		c, ok := s.SolChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("chain %d not found in the state", selector)
+		}
+		chain, ok := env.SolChains[selector]
+		if !ok {
+			return 0, fmt.Errorf("solana chain %d not found in the environment", selector)
+		}
+		if c.OffRamp.IsZero() {
+			return 0, fmt.Errorf("offramp not found in existing state, deploy the offramp first for chain %d", selector)
+		}
+		var offRampConfig solOffRamp.Config
+		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(c.OffRamp)
+		err := chain.GetAccountDataBorshInto(context.Background(), offRampConfigPDA, &offRampConfig)
+		if err != nil {
+			return 0, fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
+		}
+		// #nosec G115
+		return uint32(offRampConfig.EnableManualExecutionAfter), nil
+	}
+	return 0, fmt.Errorf("unsupported chain family %s", family)
 }
 
 func (s CCIPOnChainState) Validate() error {
@@ -460,12 +566,18 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 		if chainInfo.ChainName == "" {
 			name = strconv.FormatUint(chainSelector, 10)
 		}
+		chainView.ChainSelector = chainSelector
+		id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
+		}
+		chainView.ChainID = id
 		m[name] = chainView
 	}
 	return m, nil
 }
 
-func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error) {
+func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
 	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, err
@@ -484,339 +596,29 @@ func (s CCIPOnChainState) GetOffRampAddress(chainSelector uint64) ([]byte, error
 	return offRampAddress, nil
 }
 
-func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
-	solState, err := LoadOnchainStateSolana(e)
+func (s CCIPOnChainState) GetOnRampAddressBytes(chainSelector uint64) ([]byte, error) {
+	family, err := chain_selectors.GetSelectorFamily(chainSelector)
 	if err != nil {
-		return CCIPOnChainState{}, err
+		return nil, err
 	}
-	state := CCIPOnChainState{
-		Chains:    make(map[uint64]CCIPChainState),
-		SolChains: solState.SolChains,
-	}
-	for chainSelector, chain := range e.Chains {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
-		if err != nil {
-			// Chain not found in address book, initialize empty
-			if errors.Is(err, deployment.ErrChainNotFound) {
-				addresses = make(map[string]deployment.TypeAndVersion)
-			} else {
-				return state, err
-			}
-		}
-		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
-		if err != nil {
-			return state, err
-		}
-		state.Chains[chainSelector] = chainState
-	}
-	return state, state.Validate()
-}
 
-// LoadChainState Loads all state for a chain into state
-func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
-	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
-	if err != nil {
-		return state, err
-	}
-	state.MCMSWithTimelockState = *mcmsWithTimelock
-
-	linkState, err := commoncs.MaybeLoadLinkTokenChainState(chain, addresses)
-	if err != nil {
-		return state, err
-	}
-	state.LinkTokenState = *linkState
-	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
-	if err != nil {
-		return state, err
-	}
-	state.StaticLinkTokenState = *staticLinkState
-	for address, tvStr := range addresses {
-		switch tvStr.String() {
-		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
-			// Skip common contracts, they are already loaded.
-			continue
-		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
-			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.CapabilityRegistry = cr
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
-			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.OnRamp = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
-			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.OffRamp = offRamp
-		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
-			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMNProxy = armProxy
-		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
-			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMNRemote = rmnRemote
-		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
-			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMNHome = rmnHome
-		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
-			weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.Weth9 = weth9
-		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
-			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.NonceManager = nm
-		case deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
-			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.TokenAdminRegistry = tm
-		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
-			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RegistryModule = rm
-		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
-			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.Router = r
-		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
-			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.TestRouter = r
-		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
-			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.FeeQuoter = fq
-		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
-			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
-				USDCSymbol: ut,
-			}
-		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0).String():
-			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.USDCTokenPool = utp
-		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
-			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockUSDCTransmitter = umt
-		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
-			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockUSDCTokenMessenger = utm
-		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
-			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.CCIPHome = ccipHome
-		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
-			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.Receiver = mr
-		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
-			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.LogMessageDataReceiver = mr
-		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
-			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.Multicall3 = mc
-		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
-			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.USDFeeds == nil {
-				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
-			}
-			desc, err := feed.Description(&bind.CallOpts{})
-			if err != nil {
-				return state, err
-			}
-			key, ok := DescriptionToTokenSymbol[desc]
-			if !ok {
-				return state, fmt.Errorf("unknown feed description %s", desc)
-			}
-			state.USDFeeds[key] = feed
-		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
-		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
-		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
-		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
-			ethAddress := common.HexToAddress(address)
-			pool, metadata, err := newTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
-			if err != nil {
-				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
-			}
-			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
-		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
-			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.BurnMintTokens677 == nil {
-				state.BurnMintTokens677 = make(map[TokenSymbol]*burn_mint_erc677.BurnMintERC677)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
-		case deployment.NewTypeAndVersion(ERC20Token, deployment.Version1_0_0).String():
-			tok, err := erc20.NewERC20(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.ERC20Tokens == nil {
-				state.ERC20Tokens = make(map[TokenSymbol]*erc20.ERC20)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.ERC20Tokens[TokenSymbol(symbol)] = tok
-		case deployment.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
-			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			if state.ERC677Tokens == nil {
-				state.ERC677Tokens = make(map[TokenSymbol]*erc677.ERC677)
-			}
-			symbol, err := tok.Symbol(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
-			}
-			state.ERC677Tokens[TokenSymbol(symbol)] = tok
-		// legacy addresses below
-		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
-			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := onRampC.GetStaticConfig(nil)
-			if err != nil {
-				return state, fmt.Errorf("failed to get static config chain %s: %w", chain.String(), err)
-			}
-			if state.EVM2EVMOnRamp == nil {
-				state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
-			}
-			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
-		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_5_0).String():
-			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := offRamp.GetStaticConfig(nil)
-			if err != nil {
-				return state, err
-			}
-			if state.EVM2EVMOffRamp == nil {
-				state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
-			}
-			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
-		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
-			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			sCfg, err := commitStore.GetStaticConfig(nil)
-			if err != nil {
-				return state, err
-			}
-			if state.CommitStore == nil {
-				state.CommitStore = make(map[uint64]*commit_store.CommitStore)
-			}
-			state.CommitStore[sCfg.SourceChainSelector] = commitStore
-		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0).String():
-			pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.PriceRegistry = pr
-		case deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0).String():
-			rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.RMN = rmnC
-		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
-			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
-			if err != nil {
-				return state, err
-			}
-			state.MockRMN = mockRMN
-		default:
-			return state, fmt.Errorf("unknown contract %s", tvStr)
+	var onRampAddressBytes []byte
+	switch family {
+	case chain_selectors.FamilyEVM:
+		if s.Chains[chainSelector].OnRamp == nil {
+			return nil, fmt.Errorf("no onramp found in the state for chain %d", chainSelector)
 		}
+		onRampAddressBytes = s.Chains[chainSelector].OnRamp.Address().Bytes()
+	case chain_selectors.FamilySolana:
+		if s.SolChains[chainSelector].Router.IsZero() {
+			return nil, fmt.Errorf("no router found in the state for chain %d", chainSelector)
+		}
+		onRampAddressBytes = s.SolChains[chainSelector].Router.Bytes()
+	default:
+		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
-	return state, nil
+
+	return onRampAddressBytes, nil
 }
 
 func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment.ContractType) error {
@@ -867,7 +669,401 @@ func (s CCIPOnChainState) ValidateRamp(chainSelector uint64, rampType deployment
 	return nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, checkMcms bool) error {
+func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
+	solState, err := LoadOnchainStateSolana(e)
+	if err != nil {
+		return CCIPOnChainState{}, err
+	}
+	state := CCIPOnChainState{
+		Chains:    make(map[uint64]CCIPChainState),
+		SolChains: solState.SolChains,
+	}
+	for chainSelector, chain := range e.Chains {
+		addresses, err := e.ExistingAddresses.AddressesForChain(chainSelector)
+		if err != nil {
+			// Chain not found in address book, initialize empty
+			if errors.Is(err, deployment.ErrChainNotFound) {
+				addresses = make(map[string]deployment.TypeAndVersion)
+			} else {
+				return state, err
+			}
+		}
+		chainState, err := LoadChainState(e.GetContext(), chain, addresses)
+		if err != nil {
+			return state, err
+		}
+		state.Chains[chainSelector] = chainState
+	}
+	return state, state.Validate()
+}
+
+// LoadChainState Loads all state for a chain into state
+func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
+	var state CCIPChainState
+	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.MCMSWithTimelockState = *mcmsWithTimelock
+
+	linkState, err := commoncs.MaybeLoadLinkTokenChainState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.LinkTokenState = *linkState
+	staticLinkState, err := commoncs.MaybeLoadStaticLinkTokenState(chain, addresses)
+	if err != nil {
+		return state, err
+	}
+	state.StaticLinkTokenState = *staticLinkState
+	state.ABIByAddress = make(map[string]string)
+	for address, tvStr := range addresses {
+		switch tvStr.String() {
+		case deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
+		case deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.CallProxyABI
+		case deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
+		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = link_token.LinkTokenABI
+		case deployment.NewTypeAndVersion(commontypes.StaticLinkToken, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = link_token_interface.LinkTokenABI
+		case deployment.NewTypeAndVersion(CapabilitiesRegistry, deployment.Version1_0_0).String():
+			cr, err := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.CapabilityRegistry = cr
+			state.ABIByAddress[address] = capabilities_registry.CapabilitiesRegistryABI
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_6_0).String():
+			onRampC, err := onramp.NewOnRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.OnRamp = onRampC
+			state.ABIByAddress[address] = onramp.OnRampABI
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_6_0).String():
+			offRamp, err := offramp.NewOffRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.OffRamp = offRamp
+			state.ABIByAddress[address] = offramp.OffRampABI
+		case deployment.NewTypeAndVersion(ARMProxy, deployment.Version1_0_0).String():
+			armProxy, err := rmn_proxy_contract.NewRMNProxy(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNProxy = armProxy
+			state.ABIByAddress[address] = rmn_proxy_contract.RMNProxyABI
+		case deployment.NewTypeAndVersion(RMNRemote, deployment.Version1_6_0).String():
+			rmnRemote, err := rmn_remote.NewRMNRemote(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNRemote = rmnRemote
+			state.ABIByAddress[address] = rmn_remote.RMNRemoteABI
+		case deployment.NewTypeAndVersion(RMNHome, deployment.Version1_6_0).String():
+			rmnHome, err := rmn_home.NewRMNHome(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMNHome = rmnHome
+			state.ABIByAddress[address] = rmn_home.RMNHomeABI
+		case deployment.NewTypeAndVersion(WETH9, deployment.Version1_0_0).String():
+			_weth9, err := weth9.NewWETH9(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Weth9 = _weth9
+			state.ABIByAddress[address] = weth9.WETH9ABI
+		case deployment.NewTypeAndVersion(NonceManager, deployment.Version1_6_0).String():
+			nm, err := nonce_manager.NewNonceManager(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.NonceManager = nm
+			state.ABIByAddress[address] = nonce_manager.NonceManagerABI
+		case deployment.NewTypeAndVersion(TokenAdminRegistry, deployment.Version1_5_0).String():
+			tm, err := token_admin_registry.NewTokenAdminRegistry(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.TokenAdminRegistry = tm
+			state.ABIByAddress[address] = token_admin_registry.TokenAdminRegistryABI
+		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
+			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RegistryModule = rm
+			state.ABIByAddress[address] = registry_module_owner_custom.RegistryModuleOwnerCustomABI
+		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
+			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Router = r
+			state.ABIByAddress[address] = router.RouterABI
+		case deployment.NewTypeAndVersion(TestRouter, deployment.Version1_2_0).String():
+			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.TestRouter = r
+			state.ABIByAddress[address] = router.RouterABI
+		case deployment.NewTypeAndVersion(FeeQuoter, deployment.Version1_6_0).String():
+			fq, err := fee_quoter.NewFeeQuoter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.FeeQuoter = fq
+			state.ABIByAddress[address] = fee_quoter.FeeQuoterABI
+		case deployment.NewTypeAndVersion(USDCToken, deployment.Version1_0_0).String():
+			ut, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.BurnMintTokens677 = map[TokenSymbol]*burn_mint_erc677.BurnMintERC677{
+				USDCSymbol: ut,
+			}
+			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
+		case deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
+		case deployment.NewTypeAndVersion(HybridLockReleaseUSDCTokenPool, deployment.Version1_5_1).String():
+			utp, err := usdc_token_pool.NewUSDCTokenPool(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDCTokenPools == nil {
+				state.USDCTokenPools = make(map[semver.Version]*usdc_token_pool.USDCTokenPool)
+			}
+			state.USDCTokenPools[deployment.Version1_5_1] = utp
+			state.ABIByAddress[address] = usdc_token_pool.USDCTokenPoolABI
+		case deployment.NewTypeAndVersion(USDCMockTransmitter, deployment.Version1_0_0).String():
+			umt, err := mock_usdc_token_transmitter.NewMockE2EUSDCTransmitter(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTransmitter = umt
+			state.ABIByAddress[address] = mock_usdc_token_transmitter.MockE2EUSDCTransmitterABI
+		case deployment.NewTypeAndVersion(USDCTokenMessenger, deployment.Version1_0_0).String():
+			utm, err := mock_usdc_token_messenger.NewMockE2EUSDCTokenMessenger(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockUSDCTokenMessenger = utm
+			state.ABIByAddress[address] = mock_usdc_token_messenger.MockE2EUSDCTokenMessengerABI
+		case deployment.NewTypeAndVersion(CCIPHome, deployment.Version1_6_0).String():
+			ccipHome, err := ccip_home.NewCCIPHome(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.CCIPHome = ccipHome
+			state.ABIByAddress[address] = ccip_home.CCIPHomeABI
+		case deployment.NewTypeAndVersion(CCIPReceiver, deployment.Version1_0_0).String():
+			mr, err := maybe_revert_message_receiver.NewMaybeRevertMessageReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Receiver = mr
+			state.ABIByAddress[address] = maybe_revert_message_receiver.MaybeRevertMessageReceiverABI
+		case deployment.NewTypeAndVersion(LogMessageDataReceiver, deployment.Version1_0_0).String():
+			mr, err := log_message_data_receiver.NewLogMessageDataReceiver(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.LogMessageDataReceiver = mr
+			state.ABIByAddress[address] = log_message_data_receiver.LogMessageDataReceiverABI
+		case deployment.NewTypeAndVersion(Multicall3, deployment.Version1_0_0).String():
+			mc, err := multicall3.NewMulticall3(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.Multicall3 = mc
+			state.ABIByAddress[address] = multicall3.Multicall3ABI
+		case deployment.NewTypeAndVersion(PriceFeed, deployment.Version1_0_0).String():
+			feed, err := aggregator_v3_interface.NewAggregatorV3Interface(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.USDFeeds == nil {
+				state.USDFeeds = make(map[TokenSymbol]*aggregator_v3_interface.AggregatorV3Interface)
+			}
+			desc, err := feed.Description(&bind.CallOpts{})
+			if err != nil {
+				return state, err
+			}
+			key, ok := DescriptionToTokenSymbol[desc]
+			if !ok {
+				return state, fmt.Errorf("unknown feed description %s", desc)
+			}
+			state.USDFeeds[key] = feed
+			state.ABIByAddress[address] = aggregator_v3_interface.AggregatorV3InterfaceABI
+		case deployment.NewTypeAndVersion(BurnMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_mint_token_pool.NewBurnMintTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnMintTokenPools = helpers.AddValueToNestedMap(state.BurnMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_mint_token_pool.BurnMintTokenPoolABI
+		case deployment.NewTypeAndVersion(BurnWithFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_with_from_mint_token_pool.NewBurnWithFromMintTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnWithFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnWithFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_with_from_mint_token_pool.BurnWithFromMintTokenPoolABI
+		case deployment.NewTypeAndVersion(BurnFromMintTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, burn_from_mint_token_pool.NewBurnFromMintTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.BurnFromMintTokenPools = helpers.AddValueToNestedMap(state.BurnFromMintTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = burn_from_mint_token_pool.BurnFromMintTokenPoolABI
+		case deployment.NewTypeAndVersion(LockReleaseTokenPool, deployment.Version1_5_1).String():
+			ethAddress := common.HexToAddress(address)
+			pool, metadata, err := NewTokenPoolWithMetadata(ctx, lock_release_token_pool.NewLockReleaseTokenPool, ethAddress, chain.Client)
+			if err != nil {
+				return state, fmt.Errorf("failed to connect address %s with token pool bindings and get token symbol: %w", ethAddress, err)
+			}
+			state.LockReleaseTokenPools = helpers.AddValueToNestedMap(state.LockReleaseTokenPools, metadata.Symbol, metadata.Version, pool)
+			state.ABIByAddress[address] = lock_release_token_pool.LockReleaseTokenPoolABI
+		case deployment.NewTypeAndVersion(BurnMintToken, deployment.Version1_0_0).String():
+			tok, err := burn_mint_erc677.NewBurnMintERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.BurnMintTokens677 == nil {
+				state.BurnMintTokens677 = make(map[TokenSymbol]*burn_mint_erc677.BurnMintERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.BurnMintTokens677[TokenSymbol(symbol)] = tok
+			state.ABIByAddress[address] = burn_mint_erc677.BurnMintERC677ABI
+		case deployment.NewTypeAndVersion(ERC20Token, deployment.Version1_0_0).String():
+			tok, err := erc20.NewERC20(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.ERC20Tokens == nil {
+				state.ERC20Tokens = make(map[TokenSymbol]*erc20.ERC20)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.ERC20Tokens[TokenSymbol(symbol)] = tok
+			state.ABIByAddress[address] = erc20.ERC20ABI
+		case deployment.NewTypeAndVersion(ERC677Token, deployment.Version1_0_0).String():
+			tok, err := erc677.NewERC677(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			if state.ERC677Tokens == nil {
+				state.ERC677Tokens = make(map[TokenSymbol]*erc677.ERC677)
+			}
+			symbol, err := tok.Symbol(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get token symbol of token at %s: %w", address, err)
+			}
+			state.ERC677Tokens[TokenSymbol(symbol)] = tok
+			state.ABIByAddress[address] = erc677.ERC677ABI
+		// legacy addresses below
+		case deployment.NewTypeAndVersion(OnRamp, deployment.Version1_5_0).String():
+			onRampC, err := evm_2_evm_onramp.NewEVM2EVMOnRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := onRampC.GetStaticConfig(nil)
+			if err != nil {
+				return state, fmt.Errorf("failed to get static config chain %s: %w", chain.String(), err)
+			}
+			if state.EVM2EVMOnRamp == nil {
+				state.EVM2EVMOnRamp = make(map[uint64]*evm_2_evm_onramp.EVM2EVMOnRamp)
+			}
+			state.EVM2EVMOnRamp[sCfg.DestChainSelector] = onRampC
+			state.ABIByAddress[address] = evm_2_evm_onramp.EVM2EVMOnRampABI
+		case deployment.NewTypeAndVersion(OffRamp, deployment.Version1_5_0).String():
+			offRamp, err := evm_2_evm_offramp.NewEVM2EVMOffRamp(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := offRamp.GetStaticConfig(nil)
+			if err != nil {
+				return state, err
+			}
+			if state.EVM2EVMOffRamp == nil {
+				state.EVM2EVMOffRamp = make(map[uint64]*evm_2_evm_offramp.EVM2EVMOffRamp)
+			}
+			state.EVM2EVMOffRamp[sCfg.SourceChainSelector] = offRamp
+			state.ABIByAddress[address] = evm_2_evm_offramp.EVM2EVMOffRampABI
+		case deployment.NewTypeAndVersion(CommitStore, deployment.Version1_5_0).String():
+			commitStore, err := commit_store.NewCommitStore(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			sCfg, err := commitStore.GetStaticConfig(nil)
+			if err != nil {
+				return state, err
+			}
+			if state.CommitStore == nil {
+				state.CommitStore = make(map[uint64]*commit_store.CommitStore)
+			}
+			state.CommitStore[sCfg.SourceChainSelector] = commitStore
+			state.ABIByAddress[address] = commit_store.CommitStoreABI
+		case deployment.NewTypeAndVersion(PriceRegistry, deployment.Version1_2_0).String():
+			pr, err := price_registry_1_2_0.NewPriceRegistry(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.PriceRegistry = pr
+			state.ABIByAddress[address] = price_registry_1_2_0.PriceRegistryABI
+		case deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0).String():
+			rmnC, err := rmn_contract.NewRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.RMN = rmnC
+			state.ABIByAddress[address] = rmn_contract.RMNContractABI
+		case deployment.NewTypeAndVersion(MockRMN, deployment.Version1_0_0).String():
+			mockRMN, err := mock_rmn_contract.NewMockRMNContract(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return state, err
+			}
+			state.MockRMN = mockRMN
+			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
+		default:
+			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
+			// bypasser, proposer and canceller
+			// if you try to compare tvStr.String() you will have to compare all combinations of labels
+			// so we will compare the type and version only
+			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
+				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
+				continue
+			}
+			return state, fmt.Errorf("unknown contract %s", tvStr)
+		}
+	}
+	return state, nil
+}
+
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -880,12 +1076,18 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 	if !ok {
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
-	if checkMcms {
+	if mcmsCfg != nil {
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}
-		if chainState.ProposerMcm == nil {
+		if mcmsCfg.MCMSAction == timelock.Schedule && chainState.ProposerMcm == nil {
 			return fmt.Errorf("missing proposerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSAction == timelock.Cancel && chainState.CancellerMcm == nil {
+			return fmt.Errorf("missing cancellerMcm on %s", chain)
+		}
+		if mcmsCfg.MCMSAction == timelock.Bypass && chainState.BypasserMcm == nil {
+			return fmt.Errorf("missing bypasserMcm on %s", chain)
 		}
 	}
 	return nil

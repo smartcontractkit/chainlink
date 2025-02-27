@@ -239,7 +239,7 @@ func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[st
 
 	// Convert map keys to a slice
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy}
-	_, err := deployment.AddressesContainBundle(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
@@ -281,7 +281,7 @@ func MaybeLoadMCMSWithTimelockContracts(chain deployment.Chain, addresses map[st
 	return &state, nil
 }
 
-func McmsTimelockConverterForChain(env deployment.Environment, chain uint64) (mcmssdk.TimelockConverter, error) {
+func McmsTimelockConverterForChain(chain uint64) (mcmssdk.TimelockConverter, error) {
 	chainFamily, err := mcmstypes.GetChainSelectorFamily(mcmstypes.ChainSelector(chain))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for chain %d: %w", chain, err)
@@ -291,7 +291,7 @@ func McmsTimelockConverterForChain(env deployment.Environment, chain uint64) (mc
 	case chain_selectors.FamilyEVM:
 		return &mcmsevmsdk.TimelockConverter{}, nil
 	case chain_selectors.FamilySolana:
-		return mcmssolanasdk.NewTimelockConverter(env.SolChains[chain].Client), nil
+		return mcmssolanasdk.TimelockConverter{}, nil
 	default:
 		return nil, fmt.Errorf("unsupported chain family %s", chainFamily)
 	}
@@ -302,7 +302,7 @@ func McmsTimelockConverters(env deployment.Environment) (map[uint64]mcmssdk.Time
 
 	for _, chain := range env.Chains {
 		var err error
-		converters[chain.Selector], err = McmsTimelockConverterForChain(env, chain.Selector)
+		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
 		}
@@ -310,7 +310,7 @@ func McmsTimelockConverters(env deployment.Environment) (map[uint64]mcmssdk.Time
 
 	for _, chain := range env.SolChains {
 		var err error
-		converters[chain.Selector], err = McmsTimelockConverterForChain(env, chain.Selector)
+		converters[chain.Selector], err = McmsTimelockConverterForChain(chain.Selector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get mcms inspector for chain %s: %w", chain.String(), err)
 		}

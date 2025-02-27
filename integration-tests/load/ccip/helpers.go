@@ -2,12 +2,16 @@ package ccip
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math"
 	"slices"
 	"sync"
 	"time"
+
+	"go.uber.org/atomic"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 
 	"github.com/ethereum/go-ethereum/event"
 
@@ -43,16 +47,120 @@ var (
 	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 eth
 )
 
-// todo: Have a different struct for commit/exec?
-type LokiMetric struct {
-	SequenceNumber uint64 `json:"sequence_number"`
-	CommitDuration uint64 `json:"commit_duration"`
-	ExecDuration   uint64 `json:"exec_duration"`
-}
-
 type finalSeqNrReport struct {
 	sourceChainSelector uint64
 	expectedSeqNrRange  ccipocr3.SeqNumRange
+}
+
+func subscribeTransmitEvents(
+	ctx context.Context,
+	lggr logger.Logger,
+	onRamp onramp.OnRampInterface,
+	otherChains []uint64,
+	startBlock *uint64,
+	srcChainSel uint64,
+	loadFinished chan struct{},
+	client deployment.OnchainClient,
+	wg *sync.WaitGroup,
+	metricPipe chan messageData,
+	finalSeqNrCommitChannels map[uint64]chan finalSeqNrReport,
+	finalSeqNrExecChannels map[uint64]chan finalSeqNrReport,
+) {
+	defer wg.Done()
+	lggr.Infow("starting transmit event subscriber for ",
+		"srcChain", srcChainSel,
+		"startblock", startBlock,
+	)
+
+	seqNums := make(map[testhelpers.SourceDestPair]SeqNumRange)
+	for _, cs := range otherChains {
+		seqNums[testhelpers.SourceDestPair{
+			SourceChainSelector: srcChainSel,
+			DestChainSelector:   cs,
+		}] = SeqNumRange{
+			// we use the maxuint as a sentinel value here to ensure we always get the lowest possible seqnum
+			Start: atomic.NewUint64(math.MaxUint64),
+			End:   atomic.NewUint64(0),
+		}
+	}
+
+	sink := make(chan *onramp.OnRampCCIPMessageSent)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return onRamp.WatchCCIPMessageSent(&bind.WatchOpts{
+			Context: ctx,
+			Start:   startBlock,
+		}, sink, nil, nil)
+	})
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case <-subscription.Err():
+			return
+		case event := <-sink:
+			lggr.Debugw("received transmit event for",
+				"srcChain", srcChainSel,
+				"destChain", event.DestChainSelector,
+				"sequenceNumber", event.SequenceNumber)
+
+			blockNum := event.Raw.BlockNumber
+			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
+			if err != nil {
+				lggr.Errorw("error getting header by number")
+			}
+			data := messageData{
+				eventType: transmitted,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    srcChainSel,
+					dst:    event.DestChainSelector,
+					seqNum: event.SequenceNumber,
+				},
+				timestamp: header.Time,
+			}
+			metricPipe <- data
+
+			csPair := testhelpers.SourceDestPair{
+				SourceChainSelector: srcChainSel,
+				DestChainSelector:   event.DestChainSelector,
+			}
+			// always store the lowest seen number as the start seq num
+			if event.SequenceNumber < seqNums[csPair].Start.Load() {
+				seqNums[csPair].Start.Store(event.SequenceNumber)
+			}
+
+			// always store the greatest sequence number we have seen as the maximum
+			if event.SequenceNumber > seqNums[csPair].End.Load() {
+				seqNums[csPair].End.Store(event.SequenceNumber)
+			}
+		case <-ctx.Done():
+			lggr.Errorw("received context cancel signal for transmit watcher",
+				"srcChain", srcChainSel)
+			return
+		case <-loadFinished:
+			lggr.Debugw("load finished, closing transmit watchers", "srcChainSel", srcChainSel)
+			for csPair, seqNums := range seqNums {
+				lggr.Infow("pushing finalized sequence numbers for ",
+					"srcChainSelector", srcChainSel,
+					"destChainSelector", csPair.DestChainSelector,
+					"seqNums", seqNums)
+				finalSeqNrCommitChannels[csPair.DestChainSelector] <- finalSeqNrReport{
+					sourceChainSelector: csPair.SourceChainSelector,
+					expectedSeqNrRange: ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+					},
+				}
+
+				finalSeqNrExecChannels[csPair.DestChainSelector] <- finalSeqNrReport{
+					sourceChainSelector: csPair.SourceChainSelector,
+					expectedSeqNrRange: ccipocr3.SeqNumRange{
+						ccipocr3.SeqNum(seqNums.Start.Load()), ccipocr3.SeqNum(seqNums.End.Load()),
+					},
+				}
+			}
+			return
+		}
+
+	}
 }
 
 func subscribeCommitEvents(
@@ -64,11 +172,11 @@ func subscribeCommitEvents(
 	chainSelector uint64,
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
-	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 ) {
 	defer wg.Done()
+	defer close(finalSeqNrs)
 
 	lggr.Infow("starting commit event subscriber for ",
 		"destChain", chainSelector,
@@ -96,8 +204,7 @@ func subscribeCommitEvents(
 
 	for {
 		select {
-		case subErr := <-subscription.Err():
-			errChan <- subErr
+		case <-subscription.Err():
 			return
 		case report := <-sink:
 			if len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots) > 0 {
@@ -113,7 +220,7 @@ func subscribeCommitEvents(
 						blockNum := report.Raw.BlockNumber
 						header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 						if err != nil {
-							errChan <- err
+							lggr.Errorw("error getting header by number")
 						}
 						data := messageData{
 							eventType: committed,
@@ -134,7 +241,6 @@ func subscribeCommitEvents(
 				"destChain", chainSelector,
 				"sourceChains", srcChains,
 				"expectedSeqNumbers", expectedRange)
-			errChan <- errors.New("timed out waiting for commit report")
 			return
 
 		case finalSeqNrUpdate, ok := <-finalSeqNrs:
@@ -193,11 +299,11 @@ func subscribeExecutionEvents(
 	chainSelector uint64,
 	client deployment.OnchainClient,
 	finalSeqNrs chan finalSeqNrReport,
-	errChan chan error,
 	wg *sync.WaitGroup,
 	metricPipe chan messageData,
 ) {
 	defer wg.Done()
+	defer close(finalSeqNrs)
 
 	lggr.Infow("starting execution event subscriber for ",
 		"destChain", chainSelector,
@@ -227,7 +333,6 @@ func subscribeExecutionEvents(
 		case subErr := <-subscription.Err():
 			lggr.Errorw("error in execution subscription",
 				"err", subErr)
-			errChan <- subErr
 			return
 		case event := <-sink:
 			lggr.Debugw("received execution event for",
@@ -239,7 +344,7 @@ func subscribeExecutionEvents(
 			blockNum := event.Raw.BlockNumber
 			header, err := client.HeaderByNumber(ctx, new(big.Int).SetUint64(blockNum))
 			if err != nil {
-				errChan <- err
+				lggr.Errorw("error getting header by number")
 			}
 			data := messageData{
 				eventType: executed,
@@ -260,7 +365,6 @@ func subscribeExecutionEvents(
 				"expectedSeqNumbers", expectedRange,
 				"seenMessages", seenMessages,
 				"completedSrcChains", completedSrcChains)
-			errChan <- errors.New("timed out waiting for execution event")
 			return
 
 		case finalSeqNrUpdate := <-finalSeqNrs:

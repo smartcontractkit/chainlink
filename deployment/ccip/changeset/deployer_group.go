@@ -5,15 +5,18 @@ import (
 	"fmt"
 	"math/big"
 	"slices"
+	"strings"
 	"time"
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -22,7 +25,22 @@ import (
 
 // MCMSConfig defines timelock duration.
 type MCMSConfig struct {
-	MinDelay time.Duration
+	MinDelay   time.Duration
+	MCMSAction timelock.TimelockOperation
+}
+
+func (mcmsConfig *MCMSConfig) Validate() error {
+	// to make it backwards compatible with the old MCMSConfig , if MCMSAction is not set, default to timelock.Schedule
+	// TODO remove this after all the usages are updated to reflect canceller and bypasser with new mcmslib
+	if mcmsConfig.MCMSAction == "" {
+		mcmsConfig.MCMSAction = timelock.Schedule
+	}
+	if mcmsConfig.MCMSAction != timelock.Schedule &&
+		mcmsConfig.MCMSAction != timelock.Cancel &&
+		mcmsConfig.MCMSAction != timelock.Bypass {
+		return fmt.Errorf("invalid MCMS type %s", mcmsConfig.MCMSAction)
+	}
+	return nil
 }
 
 type DeployerGroup struct {
@@ -30,18 +48,25 @@ type DeployerGroup struct {
 	state             CCIPOnChainState
 	mcmConfig         *MCMSConfig
 	deploymentContext *DeploymentContext
+	txDecoder         *proposalutils.TxCallDecoder
+	describeContext   *proposalutils.ArgumentContext
+}
+
+type DescribedTransaction struct {
+	Tx          *types.Transaction
+	Description string
 }
 
 type DeploymentContext struct {
 	description    string
-	transactions   map[uint64][]*types.Transaction
+	transactions   map[uint64][]DescribedTransaction
 	previousConfig *DeploymentContext
 }
 
 func NewDeploymentContext(description string) *DeploymentContext {
 	return &DeploymentContext{
 		description:    description,
-		transactions:   make(map[uint64][]*types.Transaction),
+		transactions:   make(map[uint64][]DescribedTransaction),
 		previousConfig: nil,
 	}
 }
@@ -49,7 +74,7 @@ func NewDeploymentContext(description string) *DeploymentContext {
 func (d *DeploymentContext) Fork(description string) *DeploymentContext {
 	return &DeploymentContext{
 		description:    description,
-		transactions:   make(map[uint64][]*types.Transaction),
+		transactions:   make(map[uint64][]DescribedTransaction),
 		previousConfig: d,
 	}
 }
@@ -59,9 +84,11 @@ type DeployerGroupWithContext interface {
 }
 
 type deployerGroupBuilder struct {
-	e         deployment.Environment
-	state     CCIPOnChainState
-	mcmConfig *MCMSConfig
+	e               deployment.Environment
+	state           CCIPOnChainState
+	mcmConfig       *MCMSConfig
+	txDecoder       *proposalutils.TxCallDecoder
+	describeContext *proposalutils.ArgumentContext
 }
 
 func (d *deployerGroupBuilder) WithDeploymentContext(description string) *DeployerGroup {
@@ -69,6 +96,8 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 		e:                 d.e,
 		mcmConfig:         d.mcmConfig,
 		state:             d.state,
+		txDecoder:         d.txDecoder,
+		describeContext:   d.describeContext,
 		deploymentContext: NewDeploymentContext(description),
 	}
 }
@@ -86,10 +115,13 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
 func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) DeployerGroupWithContext {
+	addresses, _ := e.ExistingAddresses.Addresses()
 	return &deployerGroupBuilder{
-		e:         e,
-		mcmConfig: mcmConfig,
-		state:     state,
+		e:               e,
+		mcmConfig:       mcmConfig,
+		state:           state,
+		txDecoder:       proposalutils.NewTxCallDecoder(nil),
+		describeContext: proposalutils.NewArgumentContext(addresses),
 	}
 }
 
@@ -98,6 +130,8 @@ func (d *DeployerGroup) WithDeploymentContext(description string) *DeployerGroup
 		e:                 d.e,
 		mcmConfig:         d.mcmConfig,
 		state:             d.state,
+		txDecoder:         d.txDecoder,
+		describeContext:   d.describeContext,
 		deploymentContext: d.deploymentContext.Fork(description),
 	}
 }
@@ -145,7 +179,6 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 		}
 		startingNonce = new(big.Int).SetUint64(nonce)
 	}
-
 	dc := d.deploymentContext
 	sim.Signer = func(a common.Address, t *types.Transaction) (*types.Transaction, error) {
 		txCount, err := d.getTransactionCount(chain)
@@ -159,7 +192,21 @@ func (d *DeployerGroup) GetDeployer(chain uint64) (*bind.TransactOpts, error) {
 		if err != nil {
 			return nil, err
 		}
-		dc.transactions[chain] = append(dc.transactions[chain], tx)
+		var description string
+		if abiStr, ok := d.state.Chains[chain].ABIByAddress[tx.To().Hex()]; ok {
+			_abi, err := abi.JSON(strings.NewReader(abiStr))
+			if err != nil {
+				return nil, fmt.Errorf("could not get ABI: %w", err)
+			}
+			decodedCall, err := d.txDecoder.Analyze(tx.To().String(), &_abi, tx.Data())
+			if err != nil {
+				d.e.Logger.Errorw("could not analyze transaction",
+					"chain", chain, "address", tx.To().Hex(), "nonce", currentNonce, "error", err)
+			} else {
+				description = decodedCall.Describe(d.describeContext)
+			}
+		}
+		dc.transactions[chain] = append(dc.transactions[chain], DescribedTransaction{Tx: tx, Description: description})
 		// Update the nonce to consider the transactions that have been sent
 		sim.Nonce = big.NewInt(0).Add(currentNonce, big.NewInt(1))
 		return tx, nil
@@ -176,8 +223,8 @@ func (d *DeployerGroup) getContextChainInOrder() []*DeploymentContext {
 	return contexts
 }
 
-func (d *DeployerGroup) getTransactions() map[uint64][]*types.Transaction {
-	transactions := make(map[uint64][]*types.Transaction)
+func (d *DeployerGroup) getTransactions() map[uint64][]DescribedTransaction {
+	transactions := make(map[uint64][]DescribedTransaction)
 	for _, c := range d.getContextChainInOrder() {
 		for k, v := range c.transactions {
 			transactions[k] = append(transactions[k], v...)
@@ -201,22 +248,28 @@ func (d *DeployerGroup) Enact() (deployment.ChangesetOutput, error) {
 
 func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 	contexts := d.getContextChainInOrder()
-	proposals := make([]timelock.MCMSWithTimelockProposal, 0)
+	proposals := make([]mcmslib.TimelockProposal, 0, len(contexts))
+	describedProposals := make([]string, 0, len(contexts))
 	for _, dc := range contexts {
-		batches := make([]timelock.BatchChainOperation, 0)
+		batches := make([]mcmstypes.BatchOperation, 0, len(dc.transactions))
+		describedBatches := make([][]string, 0, len(dc.transactions))
 		for selector, txs := range dc.transactions {
-			mcmOps := make([]mcms.Operation, len(txs))
+			mcmTransactions := make([]mcmstypes.Transaction, len(txs))
+			describedTxs := make([]string, len(txs))
 			for i, tx := range txs {
-				mcmOps[i] = mcms.Operation{
-					To:    *tx.To(),
-					Data:  tx.Data(),
-					Value: tx.Value(),
+				var err error
+				mcmTransactions[i], err = proposalutils.TransactionForChain(selector, tx.Tx.To().Hex(), tx.Tx.Data(), tx.Tx.Value(), "", []string{})
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to build mcms transaction: %w", err)
 				}
+				describedTxs[i] = tx.Description
 			}
-			batches = append(batches, timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(selector),
-				Batch:           mcmOps,
+
+			batches = append(batches, mcmstypes.BatchOperation{
+				ChainSelector: mcmstypes.ChainSelector(selector),
+				Transactions:  mcmTransactions,
 			})
+			describedBatches = append(describedBatches, describedTxs)
 		}
 
 		if len(batches) == 0 {
@@ -224,50 +277,58 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 			continue
 		}
 
-		timelocksPerChain := BuildTimelockAddressPerChain(d.e, d.state)
+		timelocks := BuildTimelockAddressPerChain(d.e, d.state)
+		proposerMcms := BuildProposerMcmAddressesPerChain(d.e, d.state)
+		inspectors, err := proposalutils.McmsInspectors(d.e)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain: %w", err)
+		}
 
-		proposerMCMSes := BuildProposerPerChain(d.e, d.state)
-
-		prop, err := proposalutils.BuildProposalFromBatches(
-			timelocksPerChain,
-			proposerMCMSes,
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			d.e,
+			timelocks,
+			proposerMcms,
+			inspectors,
 			batches,
 			dc.description,
 			d.mcmConfig.MinDelay,
 		)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
+		}
+		describedProposal := proposalutils.DescribeTimelockProposal(proposal, describedBatches)
 
 		// Update the proposal metadata to incorporate the startingOpCount
 		// from the previous proposal
 		if len(proposals) > 0 {
 			previousProposal := proposals[len(proposals)-1]
 			for chain, metadata := range previousProposal.ChainMetadata {
-				nextStartingOp := metadata.StartingOpCount + getBatchCountForChain(chain, prop)
-				prop.ChainMetadata[chain] = mcms.ChainMetadata{
+				nextStartingOp := metadata.StartingOpCount + getBatchCountForChain(chain, proposal)
+				proposal.ChainMetadata[chain] = mcmstypes.ChainMetadata{
 					StartingOpCount: nextStartingOp,
-					MCMAddress:      prop.ChainMetadata[chain].MCMAddress,
+					MCMAddress:      proposal.ChainMetadata[chain].MCMAddress,
 				}
 			}
 		}
 
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)
-		}
-
-		proposals = append(proposals, *prop)
+		proposals = append(proposals, *proposal)
+		describedProposals = append(describedProposals, describedProposal)
 	}
 
 	return deployment.ChangesetOutput{
-		Proposals: proposals,
+		MCMSTimelockProposals:      proposals,
+		DescribedTimelockProposals: describedProposals,
 	}, nil
 }
 
-func getBatchCountForChain(chain mcms.ChainIdentifier, m *timelock.MCMSWithTimelockProposal) uint64 {
-	batches := make([]timelock.BatchChainOperation, 0)
-	for _, t := range m.Transactions {
-		if t.ChainIdentifier == chain {
-			batches = append(batches, t)
+func getBatchCountForChain(chain mcmstypes.ChainSelector, timelockProposal *mcmslib.TimelockProposal) uint64 {
+	batches := make([]mcmstypes.BatchOperation, 0)
+	for _, batchOperation := range timelockProposal.Operations {
+		if batchOperation.ChainSelector == chain {
+			batches = append(batches, batchOperation)
 		}
 	}
+
 	return uint64(len(batches))
 }
 
@@ -279,12 +340,12 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 			selector, txs := selector, txs
 			g.Go(func() error {
 				for _, tx := range txs {
-					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx)
+					err := d.e.Chains[selector].Client.SendTransaction(context.Background(), tx.Tx)
 					if err != nil {
 						return fmt.Errorf("failed to send transaction: %w", err)
 					}
 					// TODO how to pass abi here to decode error reason
-					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx, err)
+					_, err = deployment.ConfirmIfNoError(d.e.Chains[selector], tx.Tx, err)
 					if err != nil {
 						return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 					}
@@ -310,19 +371,18 @@ func BuildTimelockPerChain(e deployment.Environment, state CCIPOnChainState) map
 	return timelocksPerChain
 }
 
-func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]common.Address {
-	timelocksPerChain := BuildTimelockPerChain(e, state)
-	timelockAddressPerChain := make(map[uint64]common.Address)
-	for chain, timelock := range timelocksPerChain {
-		timelockAddressPerChain[chain] = timelock.Timelock.Address()
+func BuildTimelockAddressPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+	addressPerChain := make(map[uint64]string)
+	for _, chain := range e.Chains {
+		addressPerChain[chain.Selector] = state.Chains[chain.Selector].Timelock.Address().Hex()
 	}
-	return timelockAddressPerChain
+	return addressPerChain
 }
 
-func BuildProposerPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]*gethwrappers.ManyChainMultiSig {
-	proposerPerChain := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+func BuildProposerMcmAddressesPerChain(e deployment.Environment, state CCIPOnChainState) map[uint64]string {
+	addressPerChain := make(map[uint64]string)
 	for _, chain := range e.Chains {
-		proposerPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm
+		addressPerChain[chain.Selector] = state.Chains[chain.Selector].ProposerMcm.Address().Hex()
 	}
-	return proposerPerChain
+	return addressPerChain
 }

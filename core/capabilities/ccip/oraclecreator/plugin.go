@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
@@ -39,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -64,7 +64,6 @@ var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
 		CommitPluginCodec:  ccipevm.NewCommitPluginCodecV1(),
 		ExecutePluginCodec: ccipevm.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraArgsCodec:     extraDataCodec,
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
@@ -75,13 +74,13 @@ var plugins = map[string]plugin{
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
 		ExecutePluginCodec: ccipsolana.NewExecutePluginCodecV1(extraDataCodec),
-		ExtraArgsCodec:     extraDataCodec,
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
 		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
 		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:   consts.MethodCommitPriceOnly,
 	},
 }
 
@@ -93,11 +92,12 @@ const (
 type plugin struct {
 	CommitPluginCodec   cciptypes.CommitPluginCodec
 	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	ExtraArgsCodec      ccipcommon.ExtraDataCodec
 	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
 	TokenDataEncoder    cciptypes.TokenDataEncoder
 	GasEstimateProvider cciptypes.EstimateProvider
 	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	// PriceOnlyCommitFn optional method override for price only commit reports.
+	PriceOnlyCommitFn string
 }
 
 // pluginOracleCreator creates oracles that reference plugins running
@@ -117,6 +117,7 @@ type pluginOracleCreator struct {
 	homeChainReader       ccipreaderpkg.HomeChain
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
+	addressCodec          cciptypes.AddressCodec
 }
 
 func NewPluginOracleCreator(
@@ -134,6 +135,7 @@ func NewPluginOracleCreator(
 	bootstrapperLocators []commontypes.BootstrapperLocator,
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
+	addressCodec cciptypes.AddressCodec,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -150,6 +152,7 @@ func NewPluginOracleCreator(
 		bootstrapperLocators:  bootstrapperLocators,
 		homeChainReader:       homeChainReader,
 		homeChainSelector:     homeChainSelector,
+		addressCodec:          addressCodec,
 	}
 }
 
@@ -179,6 +182,31 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
+	i.lggr.Infow("Creating plugin using OCR3 settings",
+		"plugin", pluginType.String(),
+		"chainSelector", chainSelector,
+		"chainID", destChainID,
+		"deltaProgress", publicConfig.DeltaProgress,
+		"deltaResend", publicConfig.DeltaResend,
+		"deltaInitial", publicConfig.DeltaInitial,
+		"deltaRound", publicConfig.DeltaRound,
+		"deltaGrace", publicConfig.DeltaGrace,
+		"deltaCertifiedCommitRequest", publicConfig.DeltaCertifiedCommitRequest,
+		"deltaStage", publicConfig.DeltaStage,
+		"rMax", publicConfig.RMax,
+		"s", publicConfig.S,
+		"maxDurationInitialization", publicConfig.MaxDurationInitialization,
+		"maxDurationQuery", publicConfig.MaxDurationQuery,
+		"maxDurationObservation", publicConfig.MaxDurationObservation,
+		"maxDurationShouldAcceptAttestedReport", publicConfig.MaxDurationShouldAcceptAttestedReport,
+		"maxDurationShouldTransmitAcceptedReport", publicConfig.MaxDurationShouldTransmitAcceptedReport,
+	)
+
+	offrampAddrStr, err := i.addressCodec.AddressBytesToString(config.Config.OfframpAddress, cciptypes.ChainSelector(chainSelector))
+	if err != nil {
+		return nil, err
+	}
+
 	contractReaders, chainWriters, err := i.createReadersAndWriters(
 		ctx,
 		destChainID,
@@ -186,6 +214,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		config,
 		publicConfig,
 		destChainFamily,
+		offrampAddrStr,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create readers and writers: %w", err)
@@ -214,7 +243,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 
 	// TODO: Extract the correct transmitter address from the destsFromAccount
 	factory, transmitter, err := i.createFactoryAndTransmitter(
-		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, destChainFamily)
+		donID, config, destRelayID, contractReaders, chainWriters, destChainWriter, destFromAccounts, publicConfig, offrampAddrStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create factory and transmitter: %w", err)
 	}
@@ -232,7 +261,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 			i.lggr.
 				Named(fmt.Sprintf("CCIP%sOCR3", pluginType.String())).
 				Named(destRelayID.String()).
-				Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
+				Named(offrampAddrStr),
 			false,
 			func(ctx context.Context, msg string) {}),
 		MetricsRegisterer: prometheus.WrapRegistererWith(map[string]string{"name": fmt.Sprintf("commit-%d", config.Config.ChainSelector)}, prometheus.DefaultRegisterer),
@@ -262,23 +291,6 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 	return newWrappedOracle(oracle, closers), nil
 }
 
-func encodeOffRampAddr(addr []byte, chainFamily string, checkSum bool) string {
-	var offRampAddr string
-	switch chainFamily {
-	case relay.NetworkEVM:
-		offRampAddr = common.BytesToAddress(addr).Hex()
-		if !checkSum {
-			offRampAddr = hexutil.Encode(addr)
-		}
-	case relay.NetworkSolana:
-		offRampAddr = solana.PublicKeyFromBytes(addr).String()
-	default:
-		panic(fmt.Errorf("unsupported chain family: %s", chainFamily))
-	}
-
-	return offRampAddr
-}
-
 func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	donID uint32,
 	config cctypes.OCR3ConfigWithMeta,
@@ -288,7 +300,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	destChainWriter types.ContractWriter,
 	destFromAccounts []string,
 	publicConfig ocr3confighelper.PublicConfig,
-	destChainFamily string,
+	offrampAddrStr string,
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
@@ -330,12 +342,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 					Named("CCIPCommitPlugin").
 					Named(destRelayID.String()).
 					Named(fmt.Sprintf("%d", config.Config.ChainSelector)).
-					Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
+					Named(offrampAddrStr),
 				DonID:             donID,
 				OcrConfig:         ccipreaderpkg.OCR3ConfigWithMeta(config),
 				CommitCodec:       plugin.CommitPluginCodec,
 				MsgHasher:         messageHasher,
-				ExtraDataCodec:    plugin.ExtraArgsCodec,
+				AddrCodec:         i.addressCodec,
 				HomeChainReader:   i.homeChainReader,
 				HomeChainSelector: i.homeChainSelector,
 				ContractReaders:   contractReaders,
@@ -345,7 +357,9 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
-			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false),
+			offrampAddrStr,
+			consts.MethodCommit,
+			plugins[chainFamily].PriceOnlyCommitFn,
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
 		factory = execocr3.NewExecutePluginFactory(
@@ -353,12 +367,12 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				Lggr: i.lggr.
 					Named("CCIPExecPlugin").
 					Named(destRelayID.String()).
-					Named(encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false)),
+					Named(offrampAddrStr),
 				DonID:            donID,
 				OcrConfig:        ccipreaderpkg.OCR3ConfigWithMeta(config),
 				ExecCodec:        plugin.ExecutePluginCodec,
 				MsgHasher:        messageHasher,
-				ExtraDataCodec:   plugin.ExtraArgsCodec,
+				AddrCodec:        i.addressCodec,
 				HomeChainReader:  i.homeChainReader,
 				TokenDataEncoder: plugin.TokenDataEncoder,
 				EstimateProvider: plugin.GasEstimateProvider,
@@ -368,7 +382,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
 		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
-			encodeOffRampAddr(config.Config.OfframpAddress, destChainFamily, false),
+			offrampAddrStr,
 		)
 	} else {
 		return nil, nil, fmt.Errorf("unsupported plugin type %d", config.Config.PluginType)
@@ -383,6 +397,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	config cctypes.OCR3ConfigWithMeta,
 	publicCfg ocr3confighelper.PublicConfig,
 	destChainFamily string,
+	destAddrStr string,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
 	map[cciptypes.ChainSelector]types.ContractWriter,
@@ -429,7 +444,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		}
 
 		if chainID == destChainID && destChainFamily == relayChainFamily {
-			offrampAddress := encodeOffRampAddr(config.Config.OfframpAddress, relayChainFamily, true)
+			offrampAddress := destAddrStr
 			err2 := cr.Bind(ctx, []types.BoundContract{
 				{
 					Address: offrampAddress,
@@ -590,8 +605,11 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
+		if solana.PublicKeyLength != len(offrampProgramAddress) {
+			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+		}
 		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err == nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

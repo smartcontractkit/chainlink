@@ -79,6 +79,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/registry"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -285,6 +286,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		DS:                   opts.DS,
 		CREOpts:              opts.CREOpts,
 		capabilityCfg:        cfg.Capabilities(),
+		workflowsCfg:         cfg.Workflows(),
 		logger:               globalLogger,
 		relayerChainInterops: relayerChainInterops,
 		keystore:             keyStore,
@@ -490,6 +492,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		workflowORM,
 		creServices.workflowRateLimiter,
 		creServices.engineRegistry,
+		creServices.workflowLimits,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -709,6 +712,7 @@ type creServiceConfig struct {
 	CREOpts
 
 	capabilityCfg        config.Capabilities
+	workflowsCfg         config.Workflows
 	keystore             creKeystore
 	logger               logger.Logger
 	relayerChainInterops *CoreRelayerChainInteroperators
@@ -719,6 +723,11 @@ type CREServices struct {
 	// workflowRateLimiter is the rate limiter for workflows
 	// it is exposed because there are contingent services in the application
 	workflowRateLimiter *ratelimiter.RateLimiter
+
+	// workflowLimits is the syncer limiter for workflows
+	// it will specify the amount of global an per owner workflows that can be registered
+	workflowLimits *syncerlimiter.Limits
+
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
@@ -733,6 +742,7 @@ type CREServices struct {
 func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	var (
 		capCfg               = cscfg.capabilityCfg
+		wCfg                 = cscfg.workflowsCfg
 		globalLogger         = cscfg.logger
 		keyStore             = cscfg.keystore
 		relayerChainInterops = cscfg.relayerChainInterops
@@ -751,6 +761,14 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
+	}
+
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		Global:   wCfg.Limits().Global(),
+		PerOwner: wCfg.Limits().PerOwner(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
@@ -859,6 +877,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					clockwork.NewRealClock(),
 					keys[0],
 					workflowRateLimiter,
+					workflowLimits,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
@@ -896,6 +915,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	}
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
+		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		engineRegistry:          engineRegistry,
 		srvs:                    srvcs,

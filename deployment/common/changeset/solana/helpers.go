@@ -9,25 +9,34 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-// FundFromDeployerKey transfers SOL from the deployer to each provided account and waits for confirmations.
-func FundFromDeployerKey(solChain deployment.SolChain, accounts []solana.PublicKey, amount uint64) error {
+// FundFromAddressIxs transfers SOL from the given address to each provided account and waits for confirmations.
+func FundFromAddressIxs(solChain deployment.SolChain, from solana.PublicKey, accounts []solana.PublicKey, amount uint64) ([]solana.Instruction, error) {
 	var ixs []solana.Instruction
 	for _, account := range accounts {
 		// Create a transfer instruction using the provided builder.
 		ix, err := system.NewTransferInstruction(
 			amount,
-			solChain.DeployerKey.PublicKey(), // funding account (sender)
-			account,                          // recipient account
+			from,    // funding account (sender)
+			account, // recipient account
 		).ValidateAndBuild()
 		if err != nil {
-			return fmt.Errorf("failed to create transfer instruction: %w", err)
+			return nil, fmt.Errorf("failed to create transfer instruction: %w", err)
 		}
 		ixs = append(ixs, ix)
 	}
 
-	err := solChain.Confirm(ixs)
+	return ixs, nil
+}
+
+// FundFromDeployerKey transfers SOL from the deployer to each provided account and waits for confirmations.
+func FundFromDeployerKey(solChain deployment.SolChain, accounts []solana.PublicKey, amount uint64) error {
+	ixs, err := FundFromAddressIxs(solChain, solChain.DeployerKey.PublicKey(), accounts, amount)
 	if err != nil {
-		return fmt.Errorf("failed to create transaction: %w", err)
+		return fmt.Errorf("failed to create transfer instructions: %w", err)
+	}
+	err = solChain.Confirm(ixs)
+	if err != nil {
+		return fmt.Errorf("failed to confirm transaction: %w", err)
 	}
 	return nil
 }

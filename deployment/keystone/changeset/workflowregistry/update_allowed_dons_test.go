@@ -89,7 +89,7 @@ func Test_UpdateAllowedDons_WithMCMS(t *testing.T) {
 
 	out, err := workflowregistry.UpdateAllowedDons(te.Env, req)
 	require.NoError(t, err)
-	require.Len(t, out.Proposals, 1)
+	require.Len(t, out.MCMSTimelockProposals, 1)
 	require.Nil(t, out.AddressBook)
 
 	contracts := te.ContractSets()[te.RegistrySelector]

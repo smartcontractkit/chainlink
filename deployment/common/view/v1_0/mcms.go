@@ -1,11 +1,18 @@
 package v1_0
 
 import (
+	"context"
+	"fmt"
 	"math/big"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	"github.com/gagliardetto/solana-go"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk/evm/bindings"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
@@ -49,24 +56,39 @@ var (
 	}
 )
 
+// --- evm ---
+
 type MCMSView struct {
 	types.ContractMetaData
 	// Note config is json marshallable.
-	Config config.Config `json:"config"`
+	Config mcmstypes.Config `json:"config"`
 }
 
 func GenerateMCMSView(mcms owner_helpers.ManyChainMultiSig) (MCMSView, error) {
 	owner, err := mcms.Owner(nil)
 	if err != nil {
-		return MCMSView{}, nil
+		return MCMSView{}, err
 	}
-	c, err := mcms.GetConfig(nil)
+	mcmsConfig, err := mcms.GetConfig(nil)
 	if err != nil {
-		return MCMSView{}, nil
+		return MCMSView{}, err
 	}
-	parsedConfig, err := config.NewConfigFromRaw(c)
+
+	mapSigners := func(in []owner_helpers.ManyChainMultiSigSigner) []bindings.ManyChainMultiSigSigner {
+		out := make([]bindings.ManyChainMultiSigSigner, len(in))
+		for i, s := range in {
+			out[i] = bindings.ManyChainMultiSigSigner{Addr: s.Addr, Index: s.Index, Group: s.Group}
+		}
+		return out
+	}
+
+	parsedConfig, err := mcmsevmsdk.NewConfigTransformer().ToConfig(bindings.ManyChainMultiSigConfig{
+		Signers:      mapSigners(mcmsConfig.Signers),
+		GroupQuorums: mcmsConfig.GroupQuorums,
+		GroupParents: mcmsConfig.GroupParents,
+	})
 	if err != nil {
-		return MCMSView{}, nil
+		return MCMSView{}, err
 	}
 	return MCMSView{
 		// Has no type and version on the contract
@@ -132,26 +154,27 @@ func GenerateMCMSWithTimelockView(
 	canceller owner_helpers.ManyChainMultiSig,
 	proposer owner_helpers.ManyChainMultiSig,
 	timelock owner_helpers.RBACTimelock,
+	callProxy owner_helpers.CallProxy,
 ) (MCMSWithTimelockView, error) {
 	timelockView, err := GenerateTimelockView(timelock)
 	if err != nil {
-		return MCMSWithTimelockView{}, nil
+		return MCMSWithTimelockView{}, err
 	}
-	callProxyView, err := GenerateCallProxyView(owner_helpers.CallProxy{})
+	callProxyView, err := GenerateCallProxyView(callProxy)
 	if err != nil {
-		return MCMSWithTimelockView{}, nil
+		return MCMSWithTimelockView{}, err
 	}
 	bypasserView, err := GenerateMCMSView(bypasser)
 	if err != nil {
-		return MCMSWithTimelockView{}, nil
+		return MCMSWithTimelockView{}, err
 	}
 	proposerView, err := GenerateMCMSView(proposer)
 	if err != nil {
-		return MCMSWithTimelockView{}, nil
+		return MCMSWithTimelockView{}, err
 	}
 	cancellerView, err := GenerateMCMSView(canceller)
 	if err != nil {
-		return MCMSWithTimelockView{}, nil
+		return MCMSWithTimelockView{}, err
 	}
 
 	return MCMSWithTimelockView{
@@ -160,5 +183,117 @@ func GenerateMCMSWithTimelockView(
 		Proposer:  proposerView,
 		Canceller: cancellerView,
 		CallProxy: callProxyView,
+	}, nil
+}
+
+// --- solana ---
+
+type MCMSWithTimelockViewSolana struct {
+	Bypasser  MCMViewSolana      `json:"bypasser"`
+	Canceller MCMViewSolana      `json:"canceller"`
+	Proposer  MCMViewSolana      `json:"proposer"`
+	Timelock  TimelockViewSolana `json:"timelock"`
+}
+
+func GenerateMCMSWithTimelockViewSolana(
+	ctx context.Context,
+	inspector *mcmssolanasdk.Inspector,
+	timelockInspector *mcmssolanasdk.TimelockInspector,
+	mcmProgram solana.PublicKey,
+	proposerMcmSeed [32]byte,
+	cancellerMcmSeed [32]byte,
+	bypasserMcmSeed [32]byte,
+	timelockProgram solana.PublicKey,
+	timelockSeed [32]byte,
+) (MCMSWithTimelockViewSolana, error) {
+	timelockView, err := GenerateTimelockViewSolana(ctx, timelockInspector, timelockProgram, timelockSeed)
+	if err != nil {
+		return MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to generate timelock view: %w", err)
+	}
+	bypasserView, err := GenerateMCMViewSolana(ctx, inspector, mcmProgram, bypasserMcmSeed)
+	if err != nil {
+		return MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to generate bypasser mcm view: %w", err)
+	}
+	proposerView, err := GenerateMCMViewSolana(ctx, inspector, mcmProgram, proposerMcmSeed)
+	if err != nil {
+		return MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to generate proposer mcm view: %w", err)
+	}
+	cancellerView, err := GenerateMCMViewSolana(ctx, inspector, mcmProgram, cancellerMcmSeed)
+	if err != nil {
+		return MCMSWithTimelockViewSolana{}, fmt.Errorf("unable to generate canceller mcm view: %w", err)
+	}
+
+	return MCMSWithTimelockViewSolana{
+		Timelock:  timelockView,
+		Bypasser:  bypasserView,
+		Proposer:  proposerView,
+		Canceller: cancellerView,
+	}, nil
+}
+
+type MCMViewSolana struct {
+	ProgramID solana.PublicKey `json:"programID"`
+	Seed      string           `json:"seed"`
+	Owner     solana.PublicKey `json:"owner"`
+	Config    mcmstypes.Config `json:"config"`
+}
+
+func GenerateMCMViewSolana(
+	ctx context.Context, inspector *mcmssolanasdk.Inspector, programID solana.PublicKey, seed [32]byte,
+) (MCMViewSolana, error) {
+	address := mcmssolanasdk.ContractAddress(programID, mcmssolanasdk.PDASeed(seed))
+	config, err := inspector.GetConfig(ctx, address)
+	if err != nil {
+		return MCMViewSolana{}, fmt.Errorf("unable to get config from mcm (%v): %w", address, err)
+	}
+
+	return MCMViewSolana{
+		ProgramID: programID,
+		Seed:      string(seed[:]),
+		Owner:     solana.PublicKey{}, // FIXME: needs inspector.GetOwner() in mcms solana sdk
+		Config:    *config,
+	}, nil
+}
+
+type TimelockViewSolana struct {
+	ProgramID  solana.PublicKey `json:"programID"`
+	Seed       string           `json:"seed"`
+	Owner      solana.PublicKey `json:"owner"`
+	Proposers  []string         `json:"proposers"`
+	Executors  []string         `json:"executors"`
+	Cancellers []string         `json:"cancellers"`
+	Bypassers  []string         `json:"bypassers"`
+}
+
+func GenerateTimelockViewSolana(
+	ctx context.Context, inspector *mcmssolanasdk.TimelockInspector, programID solana.PublicKey, seed [32]byte,
+) (TimelockViewSolana, error) {
+	address := mcmssolanasdk.ContractAddress(programID, mcmssolanasdk.PDASeed(seed))
+
+	proposers, err := inspector.GetProposers(ctx, address)
+	if err != nil {
+		return TimelockViewSolana{}, fmt.Errorf("unable to get proposers from timelock (%v): %w", address, err)
+	}
+	executors, err := inspector.GetExecutors(ctx, address)
+	if err != nil {
+		return TimelockViewSolana{}, fmt.Errorf("unable to get executors from timelock (%v): %w", address, err)
+	}
+	cancellers, err := inspector.GetCancellers(ctx, address)
+	if err != nil {
+		return TimelockViewSolana{}, fmt.Errorf("unable to get cancellers from timelock (%v): %w", address, err)
+	}
+	bypassers, err := inspector.GetBypassers(ctx, address)
+	if err != nil {
+		return TimelockViewSolana{}, fmt.Errorf("unable to get bypassers from timelock (%v): %w", address, err)
+	}
+
+	return TimelockViewSolana{
+		ProgramID:  programID,
+		Seed:       string(seed[:]),
+		Owner:      solana.PublicKey{}, // FIXME: needs inspector.GetOwner() in mcms solana sdk
+		Proposers:  slices.Sorted(slices.Values(proposers)),
+		Executors:  slices.Sorted(slices.Values(executors)),
+		Cancellers: slices.Sorted(slices.Values(cancellers)),
+		Bypassers:  slices.Sorted(slices.Values(bypassers)),
 	}, nil
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 type Delegate struct {
@@ -26,6 +27,7 @@ type Delegate struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	engineRegistry *registry.EngineRegistry
 	metrics        WorkflowMetricLabeler
+	workflowLimits *syncerlimiter.Limits
 }
 
 var _ job.Delegate = (*Delegate)(nil)
@@ -87,6 +89,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 		Binary:         binary,
 		SecretsFetcher: d.secretsFetcher,
 		RateLimiter:    d.ratelimiter,
+		WorkflowLimits: d.workflowLimits,
 	}
 	engine, err := NewEngine(ctx, cfg)
 	if err != nil {
@@ -118,6 +121,7 @@ func NewDelegate(
 	store store.Store,
 	ratelimiter *ratelimiter.RateLimiter,
 	engineRegistry *registry.EngineRegistry,
+	workflowLimits *syncerlimiter.Limits,
 ) *Delegate {
 	metrics, err := InitWorkflowMonitoringResources()
 	if err != nil {
@@ -132,6 +136,7 @@ func NewDelegate(
 		store:          store,
 		ratelimiter:    ratelimiter,
 		metrics:        *metrics,
+		workflowLimits: workflowLimits,
 	}
 }
 

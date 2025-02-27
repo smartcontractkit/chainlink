@@ -243,13 +243,13 @@ ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
 # MessageTypeWeights corresponds with [data only, token only, message with token]
-#MessageTypeWeights = [100,0,0]
-MessageTypeWeights = [100,0,0]
+MessageTypeWeights = [10,45,45]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "5s"
 LoadDuration = "1h"
 # destination chain selectors to send messages to
-NumDestinationChains = 30
+NumDestinationChains = 6
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
-TimeoutDuration = "1h"
+TimeoutDuration = "30m"
+GasLimit = 700_000

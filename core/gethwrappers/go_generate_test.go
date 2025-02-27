@@ -17,8 +17,6 @@ import (
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -39,7 +37,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 		wd = "<directory containing this test>"
 	}
 	require.Equal(t, versions.GethVersion, GethVersion,
-		color.HiRedString(utils.BoxOutput("please re-run `go generate %s` and commit the"+
+		color.HiRedString(BoxOutput("please re-run `go generate %s` and commit the"+
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
@@ -96,7 +94,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	require.NoError(t, err)
 	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
-		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
+		BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
 and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }

@@ -6,7 +6,7 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8'
 test = 'test/v0.8'
 out = 'foundry-artifacts'
-cache_path  = 'foundry-cache'
+cache_path = 'foundry-cache'
 libs = ['node_modules']
 bytecode_hash = "none"
 ffi = false
@@ -42,9 +42,10 @@ via_ir = true
 
 [profile.functions]
 solc_version = '0.8.19'
-src = 'src/v0.8/functions/dev/v1_X'
-test = 'src/v0.8/functions/tests/v1_X'
-gas_price = 3_000_000_000 # 3 gwei
+evm_version = 'paris'
+src = 'src/v0.8/functions'
+test = 'src/v0.8/functions/tests'
+gas_price = 3_000_000_000         # 3 gwei
 
 [profile.vrf]
 optimizer_runs = 1_000
@@ -76,13 +77,6 @@ src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
 
-[profile.liquiditymanager]
-optimizer_runs = 1000000
-src = 'src/v0.8/liquiditymanager'
-test = 'src/v0.8/liquiditymanager/test'
-solc_version = '0.8.24'
-evm_version = 'paris'
-
 [profile.keystone]
 optimizer_runs = 1_000_000
 solc_version = '0.8.24'
@@ -101,7 +95,7 @@ optimizer_runs = 1_000_000
 solc_version = '0.8.24'
 src = 'src/v0.8/workflow'
 test = 'src/v0.8/workflow/test'
-via_ir = true # reconsider using the --via-ir flag if compilation takes too long
+via_ir = true                   # reconsider using the --via-ir flag if compilation takes too long
 evm_version = 'paris'
 
 [profile.data-feeds]
