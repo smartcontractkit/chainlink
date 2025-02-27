@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -68,8 +69,8 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best effort and logs errors
-func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
+// It is best-effort and logs errors
+func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
@@ -85,7 +86,7 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 		for addr, ocr3Cap := range cs.OCR3 {
 			oc := *ocr3Cap
 			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(oc)
+			ocrView, err := GenerateOCR3ConfigView(ctx, oc)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				// don't block view on single OCR3 not being configured
@@ -107,6 +108,15 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 			lggr.Errorf("WorkflowRegistry error: %v", err)
 		}
 		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+	}
+
+	if cs.Forwarder != nil {
+		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
+		if fwrErr != nil {
+			allErrs = errors.Join(allErrs, fwrErr)
+			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+		}
+		out.Forwarders[cs.Forwarder.Address().String()] = fwrView
 	}
 
 	return out, allErrs
