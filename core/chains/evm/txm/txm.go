@@ -358,7 +358,7 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 			return err
 		}
 		if pendingNonce <= *tx.Nonce {
-			return fmt.Errorf("Pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d. TxErr: %w", tx.ID, pendingNonce, *tx.Nonce, txErr)
+			return fmt.Errorf("pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d. TxErr: %w", tx.ID, pendingNonce, *tx.Nonce, txErr)
 		}
 	}
 
