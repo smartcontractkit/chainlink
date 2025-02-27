@@ -1,0 +1,18 @@
+[
+  {
+    "address": "0x33442400910b7B03316fe47eF8fC7bEd54Bca407",
+    "description": "TEST / USD",
+    "typeAndVersion": {
+      "type": "AggregatorProxy",
+      "version": "1.0.0"
+    }
+  },
+  {
+    "address": "0x43442400910b7B03316fe47eF8fC7bEd54Bca407",
+    "description": "LINK / USD",
+    "typeAndVersion": {
+      "type": "AggregatorProxy",
+      "version": "1.0.0"
+    }
+  }
+]

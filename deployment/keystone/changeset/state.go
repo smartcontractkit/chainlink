@@ -23,6 +23,11 @@ import (
 type GetContractSetsRequest struct {
 	Chains      map[uint64]deployment.Chain
 	AddressBook deployment.AddressBook
+
+	// Labels indicates the label set that a contract must include to be considered as a member
+	// of the returned contract set.  By default, an empty label set implies that only contracts without
+	// labels will be considered.  Otherwise, all labels must be on the contract (e.g., "label1" AND "label2").
+	Labels []string
 }
 
 type GetContractSetsResponse struct {
@@ -135,7 +140,10 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(lggr, chain, addrs)
+
+		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+
+		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}

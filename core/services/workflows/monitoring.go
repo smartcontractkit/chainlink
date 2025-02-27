@@ -162,7 +162,8 @@ func MetricViews() []sdkmetric.View {
 		sdkmetric.NewView(
 			sdkmetric.Instrument{Name: "platform_engine_workflow_completed_time_seconds"},
 			sdkmetric.Stream{Aggregation: sdkmetric.AggregationExplicitBucketHistogram{
-				Boundaries: []float64{0, 10, 30, 60, 120, 300, 600, 900, 1200},
+				// increased granularity for the workflow execution latencies near expected values
+				Boundaries: []float64{0, 10, 20, 40, 50, 70, 90, 120, 150, 180, 210, 300, 600, 900, 1200},
 			}},
 		),
 		sdkmetric.NewView(
