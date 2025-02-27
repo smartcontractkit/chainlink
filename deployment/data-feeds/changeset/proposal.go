@@ -49,7 +49,7 @@ func BuildMCMProposals(env deployment.Environment, description string, chainSele
 	inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		env.GetContext(),
+		env,
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,
