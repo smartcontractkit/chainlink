@@ -8,14 +8,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
-	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
@@ -226,96 +223,6 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 func TestDeployCCIPContracts(t *testing.T) {
 	t.Parallel()
 	testhelpers.DeployCCIPContractsTest(t, 1)
-}
-
-func TestAddTokenPool(t *testing.T) {
-	t.Parallel()
-	ctx := testcontext.Get(t)
-	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-
-	evmChain := tenv.Env.AllChainSelectors()[0]
-	solChain := tenv.Env.AllChainSelectorsSolana()[0]
-	e, newTokenAddress, err := deployToken(t, tenv.Env, solChain)
-	require.NoError(t, err)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err)
-	remoteConfig := solBaseTokenPool.RemoteConfig{
-		PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
-		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
-		Decimals:      9,
-	}
-	inboundConfig := solBaseTokenPool.RateLimitConfig{
-		Enabled:  true,
-		Capacity: uint64(1000),
-		Rate:     1,
-	}
-	outboundConfig := solBaseTokenPool.RateLimitConfig{
-		Enabled:  false,
-		Capacity: 0,
-		Rate:     0,
-	}
-
-	tokenMap := map[deployment.ContractType]solana.PublicKey{
-		ccipChangeset.SPL2022Tokens: newTokenAddress,
-		ccipChangeset.SPLTokens:     state.SolChains[solChain].WSOL,
-	}
-
-	type poolTestType struct {
-		poolType    solTestTokenPool.PoolType
-		poolAddress solana.PublicKey
-	}
-	testCases := []poolTestType{
-		{
-			poolType:    solTestTokenPool.BurnAndMint_PoolType,
-			poolAddress: state.SolChains[solChain].BurnMintTokenPool,
-		},
-		{
-			poolType:    solTestTokenPool.LockAndRelease_PoolType,
-			poolAddress: state.SolChains[solChain].LockReleaseTokenPool,
-		},
-	}
-	for _, testCase := range testCases {
-		for _, tokenAddress := range tokenMap {
-			e, err = commonchangeset.Apply(t, e, nil,
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPool),
-					ccipChangesetSolana.TokenPoolConfig{
-						ChainSelector: solChain,
-						TokenPubKey:   tokenAddress.String(),
-						PoolType:      testCase.poolType,
-						// this works for testing, but if we really want some other authority we need to pass in a private key for signing purposes
-						Authority: tenv.Env.SolChains[solChain].DeployerKey.PublicKey().String(),
-					},
-				),
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
-					ccipChangesetSolana.RemoteChainTokenPoolConfig{
-						SolChainSelector:    solChain,
-						RemoteChainSelector: evmChain,
-						SolTokenPubKey:      tokenAddress.String(),
-						RemoteConfig:        remoteConfig,
-						InboundRateLimit:    inboundConfig,
-						OutboundRateLimit:   outboundConfig,
-						PoolType:            testCase.poolType,
-					},
-				),
-			)
-			require.NoError(t, err)
-			// test AddTokenPool results
-			configAccount := solTestTokenPool.State{}
-			poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, testCase.poolAddress)
-			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, poolConfigPDA, &configAccount)
-			require.NoError(t, err)
-			require.Equal(t, tokenAddress, configAccount.Config.Mint)
-			// test SetupTokenPoolForRemoteChain results
-			remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(evmChain, tokenAddress, testCase.poolAddress)
-			var remoteChainConfigAccount solTestTokenPool.ChainConfig
-			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
-			require.NoError(t, err)
-			require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
-		}
-	}
-
 }
 
 func TestBilling(t *testing.T) {

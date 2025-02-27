@@ -308,7 +308,6 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 				ChainSelector: solChain1,
 				TokenPubKey:   tokenAddressLockRelease.String(),
 				PoolType:      test_token_pool.LockAndRelease_PoolType,
-				Authority:     e.SolChains[solChain1].DeployerKey.PublicKey().String(),
 			},
 		),
 		commonchangeset.Configure(

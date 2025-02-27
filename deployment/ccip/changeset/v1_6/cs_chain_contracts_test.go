@@ -859,13 +859,9 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 
 	// Build the per chain config.
 	wrongChainConfigs := make(map[uint64]v1_6.ChainConfig)
-	ocrConfigs := make(map[uint64]v1_6.CCIPOCRParams)
+	commitOCRConfigs := make(map[uint64]v1_6.CCIPOCRParams)
 	for _, chain := range allChains {
-		ocrParams := v1_6.DeriveCCIPOCRParams(
-			v1_6.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
-			v1_6.WithDefaultExecuteOffChainConfig(nil),
-		)
-		ocrConfigs[chain] = ocrParams
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
 		// set wrong chain config with incorrect value of FChain
 		wrongChainConfigs[chain] = v1_6.ChainConfig{
 			Readers: envNodes.NonBootstraps().PeerIDs(),
@@ -898,7 +894,7 @@ func TestSetOCR3ConfigValidations(t *testing.T) {
 					FeedChainSelector: e.FeedChainSel,
 				},
 				PluginInfo: v1_6.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigs,
+					OCRConfigPerRemoteChainSelector: commitOCRConfigs,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
