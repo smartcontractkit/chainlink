@@ -35,6 +35,7 @@ func BuildTopologyAndCLDEnvironment(lgr logger.Logger, nodeSetInput []*types.Cap
 func buildChainlinkDeploymentEnv(lgr logger.Logger, jdOutput *jd.Output, nodeSetOutput []*types.WrappedNodeOutput, blockchainOutput *blockchain.Output, sethClient *seth.Client) (*deployment.Environment, []*devenv.DON, error) {
 	envs := make([]*deployment.Environment, len(nodeSetOutput))
 	dons := make([]*devenv.DON, len(nodeSetOutput))
+	var allNodesInfo []devenv.NodeInfo
 
 	for i, nodeOutput := range nodeSetOutput {
 		// assume that each nodeset has only one bootstrap node
@@ -42,6 +43,7 @@ func buildChainlinkDeploymentEnv(lgr logger.Logger, jdOutput *jd.Output, nodeSet
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "failed to get node info")
 		}
+		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
 		jdConfig := devenv.JDConfig{
 			GRPC:     jdOutput.HostGRPCUrl,
@@ -84,6 +86,18 @@ func buildChainlinkDeploymentEnv(lgr logger.Logger, jdOutput *jd.Output, nodeSet
 		nodeIDs = append(nodeIDs, env.NodeIDs...)
 	}
 
+	// Create a JD client that can interact with all the nodes, otherwise if it has node IDs of nodes that belong only to one Don,
+	// it will still propose jobs to unknown nodes, but won't accept them automatically
+	jd, err := devenv.NewJDClient(context.Background(), devenv.JDConfig{
+		GRPC:     jdOutput.HostGRPCUrl,
+		WSRPC:    jdOutput.DockerWSRPCUrl,
+		Creds:    insecure.NewCredentials(),
+		NodeInfo: allNodesInfo,
+	})
+	if err != nil {
+		return nil, nil, errors.Wrap(err, "failed to create JD client")
+	}
+
 	// we assume that all DONs run on the same chain and that there's only one chain
 	// also, we don't care which instance of offchain client we use, because we have
 	// only one instance of offchain client and we have just configured it to work
@@ -93,7 +107,7 @@ func buildChainlinkDeploymentEnv(lgr logger.Logger, jdOutput *jd.Output, nodeSet
 		Logger:            envs[0].Logger,
 		ExistingAddresses: envs[0].ExistingAddresses,
 		Chains:            envs[0].Chains,
-		Offchain:          envs[0].Offchain,
+		Offchain:          jd,
 		OCRSecrets:        envs[0].OCRSecrets,
 		GetContext:        envs[0].GetContext,
 		NodeIDs:           nodeIDs,
