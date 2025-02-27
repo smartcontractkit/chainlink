@@ -440,7 +440,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		registry.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
+		registry.NewEngineRegistry(), emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -550,7 +550,6 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
 		rl,
-		syncer.WithEngineRegistry(er),
 		syncer.WithEngineFactoryFn(mf.new),
 	)
 

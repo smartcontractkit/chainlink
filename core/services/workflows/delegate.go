@@ -40,11 +40,12 @@ func (d *Delegate) AfterJobCreated(jb job.Job) {}
 
 func (d *Delegate) BeforeJobDeleted(spec job.Job) {}
 
+// OnDeleteJob removes the engine instance from the registry.
+// Engine instance will be closed in the job spawner.
 func (d *Delegate) OnDeleteJob(ctx context.Context, spec job.Job) error {
 	_, err := d.engineRegistry.Pop(spec.WorkflowSpec.WorkflowID)
 	if err != nil {
-		d.logger.Errorf("delegate failed to unregister workflow engine for workflow name: %s id: %s: %v", spec.WorkflowSpec.WorkflowName, spec.WorkflowSpec.WorkflowName, err)
-		return nil
+		return fmt.Errorf("delegate failed to unregister workflow engine for workflow name: %s id: %s: %v", spec.WorkflowSpec.WorkflowName, spec.WorkflowSpec.WorkflowName, err)
 	}
 	d.metrics.UpdateTotalWorkflowsGauge(ctx, int64(d.engineRegistry.Size()))
 	return nil
@@ -94,7 +95,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 	err = d.engineRegistry.Add(spec.WorkflowSpec.WorkflowID, engine)
 	if err != nil {
-		d.logger.Errorf("delegate failed to register workflow engine for workflow name: %s id: %s: %v", cfg.WorkflowName.String(), cfg.WorkflowID, err)
+		return nil, fmt.Errorf("delegate failed to register workflow engine for workflow name: %s id: %s: %v", cfg.WorkflowName.String(), cfg.WorkflowID, err)
 	}
 	d.metrics.UpdateTotalWorkflowsGauge(ctx, int64(d.engineRegistry.Size()))
 	d.logger.Infow("Creating Workflow Engine for workflow spec", "workflowID", spec.WorkflowSpec.WorkflowID, "workflowOwner", spec.WorkflowSpec.WorkflowOwner, "workflowName", spec.WorkflowSpec.WorkflowName, "jobName", spec.Name)

@@ -188,12 +188,6 @@ type Event interface {
 
 var defaultSecretsFreshnessDuration = 24 * time.Hour
 
-func WithEngineRegistry(er *registry.EngineRegistry) func(*eventHandler) {
-	return func(e *eventHandler) {
-		e.engineRegistry = er
-	}
-}
-
 func WithEngineFactoryFn(efn engineFactoryFn) func(*eventHandler) {
 	return func(e *eventHandler) {
 		e.engineFactory = efn
@@ -382,7 +376,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		metrics.incrementRegisterCounter(ctx)
 
-		// intentionally without workflow specific labels
+		// intentionally without workflow specific labels. measures total workflows on this node.
 		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow registration event", "workflowID", wfID)
 		return nil
@@ -440,7 +434,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		metrics.incrementPauseCounter(ctx)
 
-		// intentionally without workflow specific labels
+		// intentionally without workflow specific labels. measures total workflows on this node.
 		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow paused event", "workflowID", wfID)
 		return nil
@@ -471,7 +465,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 
 		metrics.incrementActivateCounter(ctx)
 
-		// intentionally without workflow specific labels
+		// intentionally without workflow specific labels. measures total workflows on this node.
 		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow activated event", "workflowID", wfID)
 		return nil
@@ -501,7 +495,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		}
 
 		metrics.incrementDeleteCounter(ctx)
-		// intentionally without workflow specific labels
+		// intentionally without workflow specific labels. measures total workflows on this node.
 		h.workflowMetrics.UpdateTotalWorkflowsGauge(ctx, int64(h.engineRegistry.Size()))
 		h.lggr.Debugw("handled workflow deleted event", "workflowID", wfID)
 		return nil
@@ -612,14 +606,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to create workflow engine: %w", err)
 	}
 
-	if err := engine.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start workflow engine: %w", err)
+	// add the engine to the registry before we start so it can be deleted on close
+	if err := h.engineRegistry.Add(wfID, engine); err != nil {
+		return fmt.Errorf("failed to add new engine to registry: %w", err)
 	}
 
-	// This shouldn't happen because we call the handler serially and
-	// check for running engines above, see the call to engineRegistry.IsRunning.
-	if err := h.engineRegistry.Add(wfID, engine); err != nil {
-		return fmt.Errorf("invariant violation: %w", err)
+	if err := engine.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
 	return nil

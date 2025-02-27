@@ -25,32 +25,32 @@ type workflowRegistryMetrics struct {
 func initMonitoringResources() (l *workflowRegistryMetricsLabeler, err error) {
 	m := &workflowRegistryMetrics{}
 
-	m.activateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_register")
+	m.activateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_activate")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing activate counter: %w", err)
 	}
 
-	m.deleteCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_delete")
+	m.deleteCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_delete")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing delete counter: %w", err)
 	}
 
-	m.forceUpdateSecretsCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_force_update_secrets")
+	m.forceUpdateSecretsCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_force_update_secrets")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing force update secrets counter: %w", err)
 	}
 
-	m.pauseCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_pause")
+	m.pauseCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_pause")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing pause counter: %w", err)
 	}
 
-	m.registerCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_register")
+	m.registerCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_register")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing register counter: %w", err)
 	}
 
-	m.updateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_update")
+	m.updateCounter, err = beholder.GetMeter().Int64Counter("platform_workflow_syncer_events_update")
 	if err != nil {
 		return nil, fmt.Errorf("error initializing update counter: %w", err)
 	}
