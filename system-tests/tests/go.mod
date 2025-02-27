@@ -346,9 +346,9 @@ require (
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250225100621-f0e1dd7b7942 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250224190032-809e4b8cf29e // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.1 // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250207205350-420ccacab78a // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250227163723-3c71fefea680 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb // indirect
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250227012921-08252fd61672 // indirect
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250227174346-ab609729dc5d // indirect
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
