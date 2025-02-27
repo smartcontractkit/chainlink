@@ -28,7 +28,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.40
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250226083129-e596590f48f7
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250221174903-e1e47fdb11b0
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250227012921-08252fd61672
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
