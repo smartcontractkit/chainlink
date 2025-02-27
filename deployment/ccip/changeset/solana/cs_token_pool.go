@@ -546,21 +546,20 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	var authority solana.PublicKey
-	var err error
-	if routerUsingMCMS {
-		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,
@@ -592,7 +591,6 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		}, nil
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
 	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -660,19 +658,17 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 
 	var ix solana.Instruction
-	var err error
 	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
-	var authority solana.PublicKey
 	var programID solana.PublicKey
 	var contractType deployment.ContractType
-	if tokenPoolUsingMcms {
-		authority, err = FetchTimelockSigner(e, cfg.SolChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.TokenPool)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	switch cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
@@ -791,19 +787,17 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 
 	var ix solana.Instruction
-	var err error
 	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
-	var authority solana.PublicKey
 	var programID solana.PublicKey
 	var contractType deployment.ContractType
-	if tokenPoolUsingMcms {
-		authority, err = FetchTimelockSigner(e, cfg.SolChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.TokenPool)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	switch cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
@@ -922,23 +916,21 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 	chainState := state.SolChains[cfg.SolChainSelector]
 	tokenPool := chainState.LockReleaseTokenPool
 
-	var err error
 	tokenPoolUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.TokenPoolPDAOwnedByTimelock
 	// validate ownership
-	var authority solana.PublicKey
 
 	solLockReleaseTokenPool.SetProgramID(tokenPool)
 	programID := tokenPool
 	contractType := ccipChangeset.LockReleaseTokenPool
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.SolTokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
-	if tokenPoolUsingMcms {
-		authority, err = FetchTimelockSigner(e, cfg.SolChainSelector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-		}
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.TokenPool)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	ixns := make([]solana.Instruction, 0)
 	if cfg.SetCfg != nil {

@@ -85,15 +85,14 @@ func AddBillingToken(
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(chainState.FeeQuoter)
 	feeQuoterUsingMCMS := mcms != nil && mcms.FeeQuoterOwnedByTimelock
-	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
+
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		mcms,
+		ccipChangeset.FeeQuoter)
 	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
-	var authority solana.PublicKey
-	if feeQuoterUsingMCMS {
-		authority = timelockSigner
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	var ixConfig solana.Instruction
 	if isUpdate {
@@ -236,16 +235,14 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, ccipChangeset.FeeQuoter); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
 	}
-	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
-	var authority solana.PublicKey
-	if feeQuoterUsingMCMS {
-		authority = timelockSigner
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	ix, err := solFeeQuoter.NewSetTokenTransferFeeConfigInstruction(
 		cfg.RemoteChainSelector,

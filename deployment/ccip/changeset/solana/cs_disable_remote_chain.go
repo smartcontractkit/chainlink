@@ -125,10 +125,6 @@ func doDisableRemoteChain(
 	offRampID := s.SolChains[chainSel].OffRamp
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
-	timelockSigner, err := FetchTimelockSigner(e, chainSel)
-	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	for _, remoteChainSel := range cfg.RemoteChains {
 		// verified while loading state
@@ -136,11 +132,13 @@ func doDisableRemoteChain(
 		offRampSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(remoteChainSel, s.SolChains[chainSel].OffRamp)
 
 		solFeeQuoter.SetProgramID(feeQuoterID)
-		var authority solana.PublicKey
-		if feeQuoterUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			cs.FeeQuoter)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		feeQuoterIx, err := solFeeQuoter.NewDisableDestChainInstruction(
 			remoteChainSel,
@@ -162,10 +160,13 @@ func doDisableRemoteChain(
 		}
 
 		solOffRamp.SetProgramID(offRampID)
-		if offRampUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err = GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			cs.OffRamp)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		offRampIx, err := solOffRamp.NewDisableSourceChainSelectorInstruction(
 			remoteChainSel,

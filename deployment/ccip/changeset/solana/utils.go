@@ -130,3 +130,41 @@ func FetchTimelockSigner(e deployment.Environment, chainSelector uint64) (solana
 	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	return timelockSignerPDA, nil
 }
+
+func GetAuthorityForIxn(
+	e *deployment.Environment,
+	chain deployment.SolChain,
+	mcms *MCMSConfigSolana,
+	contractType deployment.ContractType) (solana.PublicKey, error) {
+	if mcms == nil {
+		return chain.DeployerKey.PublicKey(), nil
+	}
+	timelockSigner, err := FetchTimelockSigner(*e, chain.Selector)
+	if err != nil {
+		return solana.PublicKey{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	switch contractType {
+	case cs.FeeQuoter:
+		if mcms.FeeQuoterOwnedByTimelock {
+			return timelockSigner, nil
+		}
+		return chain.DeployerKey.PublicKey(), nil
+	case cs.Router:
+		if mcms.RouterOwnedByTimelock {
+			return timelockSigner, nil
+		}
+		return chain.DeployerKey.PublicKey(), nil
+	case cs.OffRamp:
+		if mcms.OffRampOwnedByTimelock {
+			return timelockSigner, nil
+		}
+		return chain.DeployerKey.PublicKey(), nil
+	case cs.TokenPool:
+		if mcms.TokenPoolPDAOwnedByTimelock {
+			return timelockSigner, nil
+		}
+		return chain.DeployerKey.PublicKey(), nil
+	default:
+		return solana.PublicKey{}, fmt.Errorf("invalid contract type: %s", contractType)
+	}
+}

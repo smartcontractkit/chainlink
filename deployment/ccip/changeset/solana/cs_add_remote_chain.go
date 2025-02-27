@@ -156,10 +156,6 @@ func doAddRemoteChainToSolana(
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	timelockSigner, err := FetchTimelockSigner(e, chainSel)
-	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	for remoteChainSel, update := range updates {
 		var onRampBytes [64]byte
@@ -183,14 +179,15 @@ func doAddRemoteChainToSolana(
 		}
 
 		solRouter.SetProgramID(ccipRouterID)
-		var authority solana.PublicKey
-		if routerUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.Router)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		var routerIx solana.Instruction
-		var err error
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
@@ -247,10 +244,13 @@ func doAddRemoteChainToSolana(
 		}
 
 		solFeeQuoter.SetProgramID(feeQuoterID)
-		if feeQuoterUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err = GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.FeeQuoter)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		var feeQuoterIx solana.Instruction
 		if update.IsUpdate {
@@ -289,10 +289,13 @@ func doAddRemoteChainToSolana(
 			OnRamp:    [2][64]byte{onRampBytes, [64]byte{}},
 			IsEnabled: update.EnabledAsSource,
 		}
-		if offRampUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err = GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.OffRamp)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		var offRampIx solana.Instruction
 		if update.IsUpdate {
