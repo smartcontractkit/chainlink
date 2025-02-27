@@ -130,11 +130,13 @@ func getLatestNonce(tc TestCase) uint64 {
 	case chain_selectors.FamilySolana:
 		ctx := context.Background()
 		client := tc.Env.SolChains[tc.DestChain].Client
-		noncePDA, err := solstate.FindNoncePDA(tc.SourceChain, solana.PublicKeyFromBytes(tc.Sender), tc.OnchainState.SolChains[tc.DestChain].Router)
+		// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
+		chainSelectorLE := solcommon.Uint64ToLE(tc.DestChain)
+		noncePDA, _, err := solana.FindProgramAddress([][]byte{[]byte("nonce"), chainSelectorLE, tc.Sender}, tc.OnchainState.SolChains[tc.DestChain].Router)
 		require.NoError(tc.T, err)
 		var nonceCounterAccount ccip_router.Nonce
-		err = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
-		// require.NoError(tc.T, err, "failed to get nonce account info") TODO: this account could be missing before first call?
+		// we ignore the error because the account might not exist yet
+		_ = solcommon.GetAccountDataBorshInto(ctx, client, noncePDA, solconfig.DefaultCommitment, &nonceCounterAccount)
 		latestNonce = nonceCounterAccount.Counter
 	}
 	return latestNonce
@@ -200,11 +202,18 @@ func Run(tc TestCase) (out TestCaseOutput) {
 			execStates[sourceDest][msgSentEvent.SequenceNumber],
 		)
 
-		// check the sender latestNonce on the dest, should be incremented
-		latestNonce := getLatestNonce(tc)
-		require.Equal(tc.T, tc.Nonce+1, latestNonce)
-		out.Nonce = latestNonce
-		tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
+		family, err := chain_selectors.GetSelectorFamily(tc.DestChain)
+		require.NoError(tc.T, err)
+
+		// Solana doesn't support catching CPI errors, so nonces can't be ordered
+		unorderedExec := family == chain_selectors.FamilySolana
+
+		if !unorderedExec {
+			latestNonce := getLatestNonce(tc)
+			require.Equal(tc.T, tc.Nonce+1, latestNonce)
+			out.Nonce = latestNonce
+			tc.T.Logf("confirmed nonce bump for sender %x, latestNonce %d", tc.Sender, latestNonce)
+		}
 
 		for _, assertion := range tc.ExtraAssertions {
 			assertion(tc.T)
