@@ -343,6 +343,11 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
 # Configuration warning:
 Tracing.TLSCertPath: invalid value (something): must be empty when Tracing.Mode is 'unencrypted'
 Valid configuration.
