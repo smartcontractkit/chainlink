@@ -2,10 +2,11 @@ package ccip
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
+	mathrand "math/rand"
 	"time"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -95,6 +96,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 	// Set the gas limit for this tx
 	if gasLimit != 0 {
+		//nolint:gosec // it's okay here
 		acc.GasLimit = uint64(gasLimit)
 	}
 
@@ -174,7 +176,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	}
 
 	// Select a message type based on ratio
-	randomValue := rand.Intn(100)
+	randomValue := mathrand.Intn(100)
 	accumulatedRatio := 0
 	var selectedMsgDetails *ccip.MsgDetails
 
@@ -187,7 +189,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	}
 
 	if selectedMsgDetails == nil {
-		return router.ClientEVM2AnyMessage{}, 0, fmt.Errorf("failed to select message type")
+		return router.ClientEVM2AnyMessage{}, 0, errors.New("failed to select message type")
 	}
 
 	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
@@ -202,7 +204,10 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	if selectedMsgDetails.IsDataTransfer() {
 		dataLength := *selectedMsgDetails.DataLengthBytes
 		data := make([]byte, dataLength)
-		rand.Read(data)
+		_, err2 := rand.Read(data)
+		if err2 != nil {
+			return router.ClientEVM2AnyMessage{}, 0, err2
+		}
 		message.Data = data
 	}
 
