@@ -33,7 +33,7 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.A
 	return a
 }
 
-func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.ChaosRunner, *framework.Client) {
+func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.NamespaceScopedChaosRunner, *framework.Client) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
 	require.NoError(t, err)
@@ -41,7 +41,7 @@ func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.ChaosRunner, *framewo
 	config, err := tc.GetConfig([]string{"Chaos"}, tc.CCIP)
 	require.NoError(t, err)
 	cfg := config.CCIP.Chaos
-	cr := havoc.NewNamespaceRunner(l, c)
+	cr := havoc.NewNamespaceRunner(l, c, true)
 
 	gc := framework.NewGrafanaClient(os.Getenv("GRAFANA_URL"), os.Getenv("GRAFANA_TOKEN"))
 	return cfg, cr, gc
