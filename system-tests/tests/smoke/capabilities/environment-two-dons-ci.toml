@@ -15,7 +15,6 @@
 
   use_cre_cli = true
   should_compile_new_workflow = false
-  workflow_folder_location = "not-needed-here"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"

@@ -17,8 +17,9 @@
 
   use_cre_cli = true
   should_compile_new_workflow = true
-  # workflow_folder_location = "path-to-folder-with-main.go-of-your-workflow"
-  workflow_folder_location = "/Users/bartektofel/Downloads/workflow_test"
+  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
+  # config below assumes that you have it cloned next to chainlink repository
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.0-alpha"
@@ -44,7 +45,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -63,7 +63,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -83,7 +82,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -103,7 +101,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -123,7 +120,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -153,7 +149,6 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
-      # image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
