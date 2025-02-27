@@ -217,7 +217,6 @@ func NewEventHandler(
 	workflowLimits *syncerlimiter.Limits,
 	opts ...func(*eventHandler),
 ) *eventHandler {
-
 	registryMetrics, err := initMonitoringResources()
 	if err != nil {
 		lggr.Criticalw("Failed to initialize registry monitoring resources", "err", err)

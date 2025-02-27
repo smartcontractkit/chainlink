@@ -33,7 +33,7 @@ func retryable(ctx context.Context, lggr logger.Logger, retryMs int, maxRetries 
 		if maxRetries > 0 {
 			if retries >= maxRetries {
 				lggr.Errorf("%s", err)
-				return fmt.Errorf("max retries reached, aborting")
+				return fmt.Errorf("max retries (%v) reached, aborting", maxRetries)
 			}
 		}
 		lggr.Errorf("%s, retrying in %.2fs", err, float64(retryMs)/1000)
