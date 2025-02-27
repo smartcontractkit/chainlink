@@ -56,15 +56,9 @@ type stepUpdateManager struct {
 }
 
 func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
-	sucm.mu.RLock()
-	_, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
-	if ok {
-		return false
-	}
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
-	if _, ok = sucm.m[executionID]; ok {
+	if _, ok := sucm.m[executionID]; ok {
 		return false
 	}
 	sucm.m[executionID] = ch
@@ -74,29 +68,25 @@ func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (ad
 func (sucm *stepUpdateManager) remove(executionID string) {
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
-	fmt.Printf("removing %s\n", executionID)
 	if _, ok := sucm.m[executionID]; ok {
 		close(sucm.m[executionID].ch)
 		delete(sucm.m, executionID)
-		fmt.Printf("closed and removed %s\n", executionID)
 	}
 }
 
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
-	sucm.mu.RLock()
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
 	stepUpdateCh, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
 
 	if !ok {
 		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
 
-	fmt.Printf("waiting to write for %s\n", executionID)
 	select {
 	case <-ctx.Done():
 		return fmt.Errorf("context canceled before step update could be issued: %w", context.Cause(ctx))
 	case stepUpdateCh.ch <- stepUpdate:
-		fmt.Printf("sent on %s\n", executionID)
 		return nil
 	}
 }
