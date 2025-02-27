@@ -2,18 +2,25 @@ package test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"math/big"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -25,7 +32,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
+	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
 type DonConfig struct {
@@ -36,8 +48,61 @@ type DonConfig struct {
 	Labels           map[string]string                             // optional
 	RegistryChainSel uint64                                        // require, must be the same for all dons
 	ChainSelectors   []uint64                                      // optional chains
+
+	generatedKeys []importableKeys
 }
 
+type BootstrapConfig struct {
+	Name   string
+	N      int
+	Labels map[string]string
+
+	generatedKeys []importableKeys
+	bootstrappers []bootstrapperMetadata
+}
+
+func (b *BootstrapConfig) Locations() []ocrcommontypes.BootstrapperLocator {
+	locations := make([]ocrcommontypes.BootstrapperLocator, len(b.bootstrappers))
+	for i, bs := range b.bootstrappers {
+		locations[i] = bs.location()
+	}
+	return locations
+}
+
+type bootstrapperMetadata struct {
+	port      int
+	importKey keystore.ImportableKey
+}
+
+func (b bootstrapperMetadata) mustPeerID() p2pkey.PeerID {
+	var x p2pkey.EncryptedP2PKeyExport
+	err := json.Unmarshal([]byte(b.importKey.JSON), &x)
+	if err != nil {
+		panic(fmt.Sprintf("failed to unmarshal bootstrapper key: %v", err))
+	}
+	return x.PeerID
+}
+
+func (b bootstrapperMetadata) location() ocrcommontypes.BootstrapperLocator {
+	return ocrcommontypes.BootstrapperLocator{
+		PeerID: b.mustPeerID().String(),
+		Addrs:  []string{}, // TODO
+	}
+}
+
+func (b *BootstrapConfig) generateKeys(t *testing.T, ks *keystore.TestKeystore) {
+	if b.generatedKeys != nil {
+		return
+	}
+	b.generatedKeys = generateKeys(t, ks, generateKeysCfg{
+		N: b.N,
+	})
+}
+
+type importableKeys struct {
+	P2P     keystore.ImportableKey            // required
+	EthKeys map[int]keystore.ImportableEthKey // optional
+}
 type CapabilityNaturalKey struct {
 	LabelledName string
 	Version      string
@@ -48,6 +113,49 @@ func (c DonConfig) Validate() error {
 		return errors.New("N must be at least 4")
 	}
 	return nil
+}
+
+func (c *DonConfig) generateKeys(t *testing.T, ks *keystore.TestKeystore) {
+	if c.generatedKeys != nil {
+		return
+	}
+	c.generatedKeys = generateKeys(t, ks, generateKeysCfg{
+		N:                 c.N,
+		EVMChainSelectors: c.ChainSelectors,
+	})
+}
+
+func (c *DonConfig) GenerateOpts() map[string][]func(c *chainlink.Config, s *chainlink.Secrets) {
+	return nil
+}
+
+type capabilitiesTOMLConfigurer struct {
+	d2dListener string
+	don2don     []ocrcommontypes.BootstrapperLocator
+	capCfg      deployment.CapabilityRegistryConfig
+	wfCfg       *deployment.CapabilityRegistryConfig
+}
+
+func (c *capabilitiesTOMLConfigurer) generate() *toml.Capabilities {
+	capabilities := &toml.Capabilities{}
+	capabilities.Peering.PeerID = nil
+	capabilities.Peering.V2.Enabled = ptr(true)
+	capabilities.Peering.V2.ListenAddresses = ptr([]string{c.d2dListener})
+	capabilities.Peering.V2.DefaultBootstrappers = ptr(c.don2don)
+	capabilities.ExternalRegistry.NetworkID = ptr(relay.NetworkEVM)
+	capabilities.ExternalRegistry.ChainID = ptr(strconv.FormatUint(uint64(c.capCfg.EVMChainID), 10))
+	capabilities.ExternalRegistry.Address = ptr(c.capCfg.Contract.String())
+	if c.wfCfg != nil {
+		capabilities.WorkflowRegistry.NetworkID = ptr(relay.NetworkEVM)
+		capabilities.WorkflowRegistry.ChainID = ptr(strconv.FormatUint(uint64(c.wfCfg.EVMChainID), 10))
+		capabilities.WorkflowRegistry.Address = ptr(c.wfCfg.Contract.String())
+	}
+	// todo gateway
+	return capabilities
+}
+
+func ptr[T any](v T) *T {
+	return &v
 }
 
 type testEnvIface interface {
@@ -494,4 +602,43 @@ func validateDon(t *testing.T, gotRegistry *kcr.CapabilitiesRegistry, nodes test
 		}
 	}
 	require.True(t, found, "don not found in registry")
+}
+
+type generateKeysCfg struct {
+	N                 int      // number of nodes to generate keys for
+	EVMChainSelectors []uint64 // only evm supported in the core node secrets today
+}
+
+func generateKeys(t *testing.T, ks *keystore.TestKeystore, c generateKeysCfg) []importableKeys {
+	keys := make([]importableKeys, c.N)
+	for i := 0; i < c.N; i++ {
+		keys[i] = importableKeys{
+			P2P:     ks.GenerateP2PKey(),
+			EthKeys: make(map[int]keystore.ImportableEthKey, len(c.EVMChainSelectors)),
+		}
+		evmChainIDs := make([]*big.Int, len(c.EVMChainSelectors))
+		for j, sel := range c.EVMChainSelectors {
+			cid, err := chain_selectors.GetChainIDFromSelector(sel)
+			require.NoError(t, err)
+			id, ok := big.NewInt(0).SetString(cid, 10)
+			require.True(t, ok)
+			evmChainIDs[j] = id
+		}
+
+		// under the hood, the keystore adds the same key to all the chains, so we only need to add it once
+		k, err := ks.Eth().Create(tests.Context(t), evmChainIDs...)
+		require.NoError(t, err)
+		json, err := ks.Eth().Export(tests.Context(t), k.ID(), "password")
+		require.NoError(t, err)
+		for j, chainID := range evmChainIDs {
+			keys[i].EthKeys[j] = keystore.ImportableEthKey{
+				EVMChainID: chainID.Uint64(),
+				ImportableKey: keystore.ImportableKey{
+					JSON:     string(json),
+					Password: "password",
+				},
+			}
+		}
+	}
+	return keys
 }

@@ -3,9 +3,16 @@ package keystore
 import (
 	"context"
 	"errors"
+	"math/big"
 	"sync"
+	"testing"
+
+	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -77,5 +84,75 @@ func NewInMemory(ds sqlutil.DataSource, scryptParams utils.ScryptParams, lggr lo
 		tron:       newTronKeyStore(km),
 		vrf:        newVRFKeyStore(km),
 		workflow:   newWorkflowKeyStore(km),
+	}
+}
+
+// TestKeystore is a test keystore that wraps the master keystore
+// and provides a helper function to generate keys for testing.
+type TestKeystore struct {
+	t *testing.T
+	Master
+}
+
+func NewTestKeyStore(t *testing.T) *TestKeystore {
+	t.Helper()
+	db := pgtest.NewSqlxDB(t)
+	ks := New(db, utils.FastScryptParams, logger.TestLogger(t))
+
+	err := ks.Unlock(tests.Context(t), "password")
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		db.Close()
+	})
+	return &TestKeystore{
+		t:      t,
+		Master: ks,
+	}
+
+}
+
+// ImportableKey is a struct that holds the JSON representation of a key. It echos the core TOML secret [toml.ImportableKey].
+type ImportableKey struct {
+	JSON     string // JSON representation of the key; the format depends on the key type
+	Password string // Password used to encrypt the key
+}
+
+// ImportableEthKey is a struct that holds the JSON representation of an Ethereum key. It echos the core TOML secret [toml.ImportableEthKey].
+type ImportableEthKey struct {
+	EVMChainID uint64 // Chain ID for the Ethereum key. NOT the chain selector
+	ImportableKey
+}
+
+func (ks *TestKeystore) GenerateEthKeys(chainIDs ...*big.Int) []ImportableEthKey {
+	t := ks.t
+	ctx := tests.Context(t)
+	out := make([]ImportableEthKey, len(chainIDs))
+	for i, chainID := range chainIDs {
+		k, err := ks.Eth().Create(ctx, chainID)
+		require.NoError(t, err)
+		json, err := ks.Eth().Export(ctx, k.ID(), "password")
+		require.NoError(t, err)
+		out[i] = ImportableEthKey{
+			EVMChainID: chainID.Uint64(),
+			ImportableKey: ImportableKey{
+				JSON:     string(json),
+				Password: "password",
+			},
+		}
+	}
+
+	return out
+}
+
+func (ks *TestKeystore) GenerateP2PKey() ImportableKey {
+	t := ks.t
+	ctx := tests.Context(t)
+	k, err := ks.P2P().Create(ctx)
+	require.NoError(t, err)
+	json, err := ks.P2P().Export(k.PeerID(), "password")
+	require.NoError(t, err)
+	return ImportableKey{
+		JSON:     string(json),
+		Password: "password",
 	}
 }

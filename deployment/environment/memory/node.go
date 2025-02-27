@@ -53,6 +53,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
@@ -199,18 +200,38 @@ func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
 	return chainConfigs, nil
 }
 
-type ConfigOpt func(c *chainlink.Config)
+type ConfigOpt func(c *chainlink.Config, s *chainlink.Secrets)
 
 // WithFinalityDepths sets the finality depths of the evm chain
 // in the map.
 func WithFinalityDepths(finalityDepths map[uint64]uint32) ConfigOpt {
-	return func(c *chainlink.Config) {
+	return func(c *chainlink.Config, s *chainlink.Secrets) {
 		for chainID, depth := range finalityDepths {
 			chainIDBig := evmutils.New(new(big.Int).SetUint64(chainID))
 			for _, evmChainConfig := range c.EVM {
 				if evmChainConfig.ChainID.Cmp(chainIDBig) == 0 {
 					evmChainConfig.Chain.FinalityDepth = ptr(depth)
 				}
+			}
+		}
+	}
+}
+
+func WithImportedP2PKey(key keystore.ImportableKey) ConfigOpt {
+	return func(c *chainlink.Config, s *chainlink.Secrets) {
+		s.P2PKey.JSON = ptr(models.Secret(key.JSON))
+		s.P2PKey.Password = ptr(models.Secret(key.Password))
+	}
+}
+
+func WithImportedEthKeys(keys []keystore.ImportableEthKey) ConfigOpt {
+	return func(c *chainlink.Config, s *chainlink.Secrets) {
+		s.EVM.Keys = make([]*configv2.EthKey, 0, len(keys))
+		for i, key := range keys {
+			s.EVM.Keys[i] = &configv2.EthKey{
+				ID:       ptr(int(key.EVMChainID)),
+				JSON:     ptr(models.Secret(key.JSON)),
+				Password: ptr(models.Secret(key.Password)),
 			}
 		}
 	}
@@ -295,7 +316,7 @@ func NewNode(
 		c.Solana = solConfigs
 
 		for _, opt := range configOpts {
-			opt(c)
+			opt(c, s)
 		}
 	})
 
@@ -388,7 +409,7 @@ func NewNode(
 	t.Cleanup(func() {
 		require.NoError(t, db.Close())
 	})
-	keys := CreateKeys(t, app, chains, solchains)
+	keys := ensureKeys(t, app, chains, solchains)
 
 	// JD
 
@@ -413,25 +434,47 @@ type Keys struct {
 	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
 
-func CreateKeys(t *testing.T,
+func ensureKeys(t *testing.T,
 	app chainlink.Application,
 	chains map[uint64]deployment.Chain,
 	solchains map[uint64]deployment.SolChain,
 ) Keys {
 	ctx := tests.Context(t)
-	_, err := app.GetKeyStore().P2P().Create(ctx)
-	require.NoError(t, err)
-
-	err = app.GetKeyStore().CSA().EnsureKey(ctx)
+	lggr := app.GetLogger()
+	err := app.GetKeyStore().CSA().EnsureKey(ctx)
 	require.NoError(t, err)
 	csaKeys, err := app.GetKeyStore().CSA().GetAll()
 	require.NoError(t, err)
 	csaKey := csaKeys[0]
 
+	if app.GetConfig().ImportedP2PKey() != nil {
+		lggr.Debugf("Using imported P2P key %s", app.GetConfig().ImportedP2PKey().JSON)
+		_, err = app.GetKeyStore().P2P().Import(ctx, []byte(app.GetConfig().ImportedP2PKey().JSON()), app.GetConfig().ImportedP2PKey().Password())
+		require.NoError(t, err)
+	} else {
+		_, err = app.GetKeyStore().P2P().Create(ctx)
+		require.NoError(t, err)
+	}
+
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
 	require.NoError(t, err)
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
+
+	// import all the eth keys
+	if app.GetConfig().ImportedEthKeys() != nil {
+		for _, key := range app.GetConfig().ImportedEthKeys().List() {
+			lggr.Debugf("Using imported eth key %s", key.JSON)
+			id, err2 := chainsel.GetChainIDFromSelector(key.ChainDetails().ChainSelector)
+			require.NoError(t, err2, "error getting chain id from selector when trying to import eth key %v", key.JSON())
+
+			cid, _ := big.NewInt(0).SetString(id, 10)
+			require.NotNil(t, cid, "error converting chain id '%s' to big int", id)
+			_, err = app.GetKeyStore().Eth().Import(ctx, []byte(key.JSON()), key.Password(), cid)
+			require.NoError(t, err)
+		}
+	}
+
 	// create a transmitter for each chain
 	transmitters := make(map[uint64]string)
 	keybundles := make(map[chaintype.ChainType]ocr2key.KeyBundle)
