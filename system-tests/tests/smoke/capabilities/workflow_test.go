@@ -6,6 +6,7 @@ import (
 	"net"
 	"os"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -28,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -41,6 +43,7 @@ import (
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	libenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
@@ -305,17 +308,18 @@ func logTestInfo(l zerolog.Logger, feedID, workflowName, feedConsumerAddr, forwa
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
-func extraAllowedPortsAndIps(testLogger zerolog.Logger, fakePort int, nodeOutput *ns.Output) ([]string, []int, error) {
+func extraAllowedPortsAndIps(testLogger zerolog.Logger, fakePort int, containerName string) ([]string, []int, error) {
 	// we need to explicitly allow the port used by the fake data provider
 	// and IP corresponding to host.docker.internal or the IP of the host machine, if we are running on Linux,
 	// because that's where the fake data provider is running
 	var hostIP string
 	var err error
 
+	// TODO add handling for CRIB as none of the current cases will work in k8s
 	system := runtime.GOOS
 	switch system {
 	case "darwin":
-		hostIP, err = libdon.ResolveHostDockerInternaIP(testLogger, nodeOutput)
+		hostIP, err = libdon.ResolveHostDockerInternaIP(testLogger, containerName)
 	case "linux":
 		// for linux framework already returns an IP, so we don't need to resolve it,
 		// but we need to remove the http:// prefix
@@ -352,14 +356,10 @@ type InfrastructureInput struct {
 
 type InfrastructureOutput struct {
 	chainSelector      uint64
-	nodeOuput          []*keystonetypes.WrappedNodeOutput
 	blockchainOutput   *blockchain.Output
 	jdOutput           *jd.Output
-	cldEnv             *deployment.Environment
-	donTopology        *keystonetypes.DonTopology
 	sethClient         *seth.Client
 	deployerPrivateKey string
-	gatewayConnector   *keystonetypes.GatewayConnectorOutput
 }
 
 func CreateInfrastructure(
@@ -431,55 +431,12 @@ func CreateInfrastructure(
 		}
 	}
 
-	nodeOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.nodeSetInput))
-	for _, nsInput := range input.nodeSetInput {
-		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nsInput.Input, blockchainOutput)
-		if nodesetErr != nil {
-			return nil, errors.Wrapf(nodesetErr, "failed to deploy node set names %s", nsInput.Name)
-		}
-
-		nodeOutput = append(nodeOutput, &keystonetypes.WrappedNodeOutput{
-			Output:       nodeset,
-			NodeSetName:  nsInput.Name,
-			Capabilities: nsInput.Capabilities,
-		})
-	}
-
-	// Prepare the CLD environment and figure out DON topology; configure chains for nodes and job distributor
-	// Ugly glue hack ¯\_(ツ)_/¯
-	cldEnv, donTopology, err := libenv.BuildTopologyAndCLDEnvironment(cldLogger, input.nodeSetInput, jdOutput, nodeOutput, blockchainOutput, sethClient)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to build topology and CLD environment")
-	}
-
-	// Fund the nodes
-	for _, metaDon := range donTopology.MetaDons {
-		for _, node := range metaDon.DON.Nodes {
-			_, err := libfunding.SendFunds(zerolog.Logger{}, sethClient, libtypes.FundsToSend{
-				ToAddress:  common.HexToAddress(node.AccountAddr[sethClient.Cfg.Network.ChainID]),
-				Amount:     big.NewInt(5000000000000000000),
-				PrivateKey: sethClient.MustGetRootPrivateKey(),
-			})
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to send funds to node %s", node.AccountAddr[sethClient.Cfg.Network.ChainID])
-			}
-		}
-	}
-
 	return &InfrastructureOutput{
 		chainSelector:      chainSelector,
-		nodeOuput:          nodeOutput,
 		blockchainOutput:   blockchainOutput,
 		jdOutput:           jdOutput,
-		cldEnv:             cldEnv,
-		donTopology:        donTopology,
 		sethClient:         sethClient,
 		deployerPrivateKey: pkey,
-		gatewayConnector: &keystonetypes.GatewayConnectorOutput{
-			Path: "/node",
-			Port: 5003,
-			// do not set the host, it will be resolved automatically
-		},
 	}, nil
 }
 
@@ -490,6 +447,7 @@ type setupOutput struct {
 	sethClient           *seth.Client
 	blockchainOutput     *blockchain.Output
 	donTopology          *keystonetypes.DonTopology
+	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
 func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
@@ -499,34 +457,176 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		nodeSetInput:    mustSetCapabilitiesFn(in.NodeSets),
 		blockchainInput: in.BlockchainA,
 	}
-	envOutput, err := CreateInfrastructure(cldlogger.NewSingleFileLogger(t), testLogger, envInput)
+	singeFileLogger := cldlogger.NewSingleFileLogger(t)
+	envOutput, err := CreateInfrastructure(singeFileLogger, testLogger, envInput)
 	require.NoError(t, err, "failed to start environment")
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
+	// but first, we need to create deployment.Environment that will contain only chain information in order to deploy contracts with the CLD
+	chainsConfig := []devenv.ChainConfig{
+		{
+			ChainID:   envOutput.sethClient.Cfg.Network.ChainID,
+			ChainName: envOutput.sethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(envOutput.blockchainOutput.Family),
+			WSRPCs: []devenv.CribRPCs{{
+				External: envOutput.blockchainOutput.Nodes[0].HostWSUrl,
+				Internal: envOutput.blockchainOutput.Nodes[0].DockerInternalWSUrl,
+			}},
+			HTTPRPCs: []devenv.CribRPCs{{
+				External: envOutput.blockchainOutput.Nodes[0].HostHTTPUrl,
+				Internal: envOutput.blockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+			}},
+			DeployerKey: envOutput.sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
+		},
+	}
+
+	chains, err := devenv.NewChains(singeFileLogger, chainsConfig)
+	require.NoError(t, err, "failed to create chains")
+
+	chainsOnlyCld := &deployment.Environment{
+		Logger:            singeFileLogger,
+		Chains:            chains,
+		ExistingAddresses: deployment.NewMemoryAddressBook(),
+	}
+
 	keystoneContractsInput := &keystonetypes.KeystoneContractsInput{
 		ChainSelector: envOutput.chainSelector,
-		CldEnv:        envOutput.cldEnv,
+		CldEnv:        chainsOnlyCld,
 	}
 
 	keystoneContractsOutput, err := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
 	require.NoError(t, err, "failed to deploy keystone contracts")
 
-	// Configure Workflow Registry
+	// Translate node input to structure required further down the road and put as much information
+	// as we have at this point in labels. It will be used to generate node configs
+	topology, err := libdon.BuildTopology(envInput.nodeSetInput)
+	require.NoError(t, err, "failed to build input DON topology")
+
+	// Generate EVM and P2P keys, which are needed to prepare the node configs
+	// That way we can pass them final configs and do away with restarting the nodes
+	var keys *keystonetypes.GenerateKeysOutput
+	chainIDInt, err := strconv.Atoi(envOutput.blockchainOutput.ChainID)
+	require.NoError(t, err, "failed to convert chain ID to int")
+
+	generateKeysInput := &keystonetypes.GenerateKeysInput{
+		GenerateEVMKeysForChainIDs: []int{chainIDInt},
+		GenerateP2PKeys:            true,
+		Topology:                   topology,
+		Password:                   "", // since the test runs on private ephemeral blockchain we don't use real keys and do not care a lot about the password
+	}
+	keys, err = libdon.GenereteKeys(generateKeysInput)
+	require.NoError(t, err, "failed to generate keys")
+
+	topology, err = libdon.AddKeysToTopology(topology, keys)
+	require.NoError(t, err, "failed to add keys to topology")
+
+	// Configure Workflow Registry contract
 	workflowRegistryInput := &keystonetypes.WorkflowRegistryInput{
 		ChainSelector:  envOutput.chainSelector,
-		CldEnv:         envOutput.cldEnv,
-		AllowedDonIDs:  []uint32{envOutput.donTopology.WorkflowDONID},
+		CldEnv:         chainsOnlyCld,
+		AllowedDonIDs:  []uint32{topology.WorkflowDONID},
 		WorkflowOwners: []common.Address{envOutput.sethClient.MustGetRootKeyAddress()},
 	}
 
 	_, err = libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
 	require.NoError(t, err, "failed to configure workflow registry")
+
+	// Allow extra IPs and ports for the fake data provider, which is running on host machine and requires explicit whitelisting
+	// If using live endpoint, we don't need to do this
+	var extraAllowedIPs []string
+	var extraAllowedPorts []int
+	if _, ok := priceProvider.(*FakePriceProvider); ok {
+		// it doesn't really matter which container we will use to resolve the host.docker.internal IP, it will be the same for all of them
+		// here we will blokchain container, because by that time it will be running
+		extraAllowedIPs, extraAllowedPorts, err = extraAllowedPortsAndIps(testLogger, in.Fake.Port, envOutput.blockchainOutput.ContainerName)
+		require.NoError(t, err, "failed to get extra allowed ports and IPs")
+	}
+
+	peeringData, err := libdon.FindPeeringData(topology)
+	require.NoError(t, err, "failed to get peering data")
+
+	for i, donMetadata := range topology.DonsMetadata {
+		config, configErr := keystoneporconfig.GenerateConfigs(
+			keystonetypes.GeneratePoRConfigsInput{
+				DonMetadata:                 donMetadata,
+				BlockchainOutput:            envOutput.blockchainOutput,
+				DonID:                       donMetadata.ID,
+				Flags:                       donMetadata.Flags,
+				PeeringData:                 peeringData,
+				CapabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
+				WorkflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
+				ForwarderAddress:            keystoneContractsOutput.ForwarderAddress,
+				GatewayConnectorOutput:      topology.GatewayConnectorOutput,
+			},
+		)
+		require.NoError(t, configErr, "failed to define config for DON %d", donMetadata.ID)
+
+		secretsInput := &keystonetypes.GenerateSecretsInput{
+			DonMetadata: donMetadata,
+		}
+
+		if evmKeys, ok := keys.EVMKeys[donMetadata.ID]; ok {
+			secretsInput.EVMKeys = evmKeys
+		}
+
+		if p2pKeys, ok := keys.P2PKeys[donMetadata.ID]; ok {
+			secretsInput.P2PKeys = p2pKeys
+		}
+
+		// EVM and P2P keys will be provided to nodes as secrets
+		secrets, secretsErr := keystonesecrets.GenerateSecrets(
+			secretsInput,
+		)
+		require.NoError(t, secretsErr, "failed to define secrets for DON %d", donMetadata.ID)
+
+		for j := range donMetadata.NodesMetadata {
+			envInput.nodeSetInput[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
+			envInput.nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
+		}
+	}
+
+	nodeOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(envInput.nodeSetInput))
+	for _, nodeSetInput := range envInput.nodeSetInput {
+		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, envOutput.blockchainOutput)
+		require.NoError(t, nodesetErr, "failed to deploy node set named %s", nodeSetInput.Name)
+
+		nodeOutput = append(nodeOutput, &keystonetypes.WrappedNodeOutput{
+			Output:       nodeset,
+			NodeSetName:  nodeSetInput.Name,
+			Capabilities: nodeSetInput.Capabilities,
+		})
+	}
+
+	// Prepare the CLD environment that's required by the keystone changeset
+	// Ugly glue hack ¯\_(ツ)_/¯
+	fullCldInput := &keystonetypes.FullCLDEnvironmentInput{
+		JdOutput:          envOutput.jdOutput,
+		BlockchainOutput:  envOutput.blockchainOutput,
+		SethClient:        envOutput.sethClient,
+		NodeSetOutput:     nodeOutput,
+		ExistingAddresses: chainsOnlyCld.ExistingAddresses,
+		Topology:          topology,
+	}
+	fullCldOutput, err := libenv.BuildFullCLDEnvironment(singeFileLogger, fullCldInput)
+	require.NoError(t, err, "failed to build chainlink deployment environment")
+
+	// Fund the nodes
+	for _, metaDon := range fullCldOutput.DonTopology.DonsWithMetadata {
+		for _, node := range metaDon.DON.Nodes {
+			_, fundingErr := libfunding.SendFunds(zerolog.Logger{}, envOutput.sethClient, libtypes.FundsToSend{
+				ToAddress:  common.HexToAddress(node.AccountAddr[envOutput.sethClient.Cfg.Network.ChainID]),
+				Amount:     big.NewInt(5000000000000000000),
+				PrivateKey: envOutput.sethClient.MustGetRootPrivateKey(),
+			})
+			require.NoError(t, fundingErr, "failed to send funds to node %s", node.AccountAddr[envOutput.sethClient.Cfg.Network.ChainID])
+		}
+	}
 	// Universal setup -- END
 
 	// Workflow-specific configuration -- START
 	deployFeedConsumerInput := &keystonetypes.DeployFeedConsumerInput{
 		ChainSelector: envOutput.chainSelector,
-		CldEnv:        envOutput.cldEnv,
+		CldEnv:        chainsOnlyCld,
 	}
 	deployFeedsConsumerOutput, err := libcontracts.DeployFeedsConsumer(testLogger, deployFeedConsumerInput)
 	require.NoError(t, err, "failed to deploy feeds consumer")
@@ -544,7 +644,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	registerInput := registerPoRWorkflowInput{
 		WorkflowConfig:              in.WorkflowConfig,
 		chainSelector:               envOutput.chainSelector,
-		workflowDonID:               envOutput.donTopology.WorkflowDONID,
+		workflowDonID:               fullCldOutput.DonTopology.WorkflowDonID,
 		feedID:                      in.WorkflowConfig.FeedID,
 		workflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
 		feedConsumerAddress:         deployFeedsConsumerOutput.FeedConsumerAddress,
@@ -558,58 +658,44 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 	err = registerPoRWorkflow(registerInput)
 	require.NoError(t, err, "failed to register PoR workflow")
+
+	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
+		&keystonetypes.GeneratePoRJobSpecsInput{
+			BlockchainOutput:       envOutput.blockchainOutput,
+			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
+			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
+			ExtraAllowedPorts:      extraAllowedPorts,
+			ExtraAllowedIPs:        extraAllowedIPs,
+			CronCapBinName:         cronCapabilityAssetFile,
+			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
+		},
+	)
+	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
+
+	// Create jobs
+	createJobsInput := keystonetypes.CreateJobsInput{
+		CldEnv:        fullCldOutput.Environment,
+		DonTopology:   fullCldOutput.DonTopology,
+		DonToJobSpecs: donToJobSpecs,
+	}
+
+	err = libdon.CreateJobs(testLogger, createJobsInput)
+	require.NoError(t, err, "failed to configure nodes and create jobs")
 	// Workflow-specific configuration -- END
 
 	// Universal setup -- CONTINUED
-	// Allow extra IPs and ports for the fake data provider, which is running on host machine and requires explicit whitelisting
-	var extraAllowedIPs []string
-	var extraAllowedPorts []int
-	if _, ok := priceProvider.(*FakePriceProvider); ok {
-		extraAllowedIPs, extraAllowedPorts, err = extraAllowedPortsAndIps(testLogger, in.Fake.Port, envOutput.donTopology.MetaDons[0].NodeOutput.Output)
-		require.NoError(t, err, "failed to get extra allowed ports and IPs")
-	}
-
-	// Prepare job specs and node configs
-	configsAndJobsInput := jobsAndConfigsInput{
-		donTopology:                 envOutput.donTopology,
-		blockchainOutput:            envOutput.blockchainOutput,
-		gatewayConnectorOutput:      envOutput.gatewayConnector,
-		workflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
-		forwarderAddress:            keystoneContractsOutput.ForwarderAddress,
-		capabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
-		ocr3capabilityAddress:       keystoneContractsOutput.OCR3CapabilityAddress,
-		cldEnv:                      envOutput.cldEnv,
-		extraAllowedIPs:             extraAllowedIPs,
-		extraAllowedPorts:           extraAllowedPorts,
-	}
-
-	configsAndJobsOutput, err := prepareJobSpecsAndNodeConfigs(configsAndJobsInput)
-	require.NoError(t, err, "failed to prepare job specs and node configs")
-
-	// Configure nodes and create jobs
-	configureDonInput := keystonetypes.ConfigureDonInput{
-		CldEnv:               envOutput.cldEnv,
-		BlockchainOutput:     envOutput.blockchainOutput,
-		JdOutput:             envOutput.jdOutput,
-		DonTopology:          envOutput.donTopology,
-		DonToJobSpecs:        configsAndJobsOutput.donToJobSpecs,
-		DonToConfigOverrides: configsAndJobsOutput.nodeToConfigOverrides,
-	}
-	_, err = libdon.Configure(t, testLogger, configureDonInput)
-	require.NoError(t, err, "failed to configure nodes and create jobs")
-
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	testLogger.Info().Msg("Waiting 30s for OCR listeners to be ready...")
-	time.Sleep(30 * time.Second)
-	testLogger.Info().Msg("Proceeding to set OCR3 configuration.")
+	testLogger.Info().Msg("Waiting 45s for OCR listeners to be ready...")
+	time.Sleep(45 * time.Second)
+	testLogger.Info().Msg("Proceeding to set OCR3 and Keystone configuration...")
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
 		ChainSelector: envOutput.chainSelector,
-		CldEnv:        envOutput.cldEnv,
-		DonTopology:   envOutput.donTopology,
+		CldEnv:        fullCldOutput.Environment,
+		Topology:      topology,
 	}
 	err = libcontracts.ConfigureKeystone(configureKeystoneInput)
 	require.NoError(t, err, "failed to configure keystone contracts")
@@ -625,86 +711,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		forwarderAddress:     keystoneContractsOutput.ForwarderAddress,
 		sethClient:           envOutput.sethClient,
 		blockchainOutput:     envOutput.blockchainOutput,
-		donTopology:          envOutput.donTopology,
+		donTopology:          fullCldOutput.DonTopology,
+		nodeOutput:           nodeOutput,
 	}
 }
 
-type jobsAndConfigsInput struct {
-	donTopology                 *keystonetypes.DonTopology
-	blockchainOutput            *blockchain.Output
-	gatewayConnectorOutput      *keystonetypes.GatewayConnectorOutput
-	workflowRegistryAddress     common.Address
-	forwarderAddress            common.Address
-	capabilitiesRegistryAddress common.Address
-	ocr3capabilityAddress       common.Address
-	cldEnv                      *deployment.Environment
-	extraAllowedIPs             []string
-	extraAllowedPorts           []int
-}
-
-type jobsAndConfigsOutput struct {
-	donToJobSpecs         keystonetypes.DonsToJobSpecs
-	nodeToConfigOverrides keystonetypes.DonsToConfigOverrides
-}
-
-func prepareJobSpecsAndNodeConfigs(input jobsAndConfigsInput) (*jobsAndConfigsOutput, error) {
-	peeringData, err := libdon.FindPeeringData(input.donTopology.MetaDons)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get peering data")
-	}
-
-	// prepare node configs
-	donToConfigs := make(keystonetypes.DonsToConfigOverrides)
-	var configErr error
-	for _, donTopology := range input.donTopology.MetaDons {
-		donToConfigs[donTopology.ID], configErr = keystoneporconfig.GenerateConfigs(
-			keystonetypes.GeneratePoRConfigsInput{
-				Don:                         donTopology.DON,
-				NodeInput:                   donTopology.NodeInput,
-				BlockchainOutput:            input.blockchainOutput,
-				DonID:                       donTopology.ID,
-				Flags:                       donTopology.Flags,
-				PeeringData:                 peeringData,
-				CapabilitiesRegistryAddress: input.capabilitiesRegistryAddress,
-				WorkflowRegistryAddress:     input.workflowRegistryAddress,
-				ForwarderAddress:            input.forwarderAddress,
-				GatewayConnectorOutput:      input.gatewayConnectorOutput,
-			},
-		)
-		if configErr != nil {
-			return nil, errors.Wrapf(configErr, "failed to define config for DON %d", donTopology.ID)
-		}
-	}
-
-	// define jobs
-	donToJobSpecs := make(map[uint32]keystonetypes.DonJobs)
-	var jobSpecsErr error
-	for _, donTopology := range input.donTopology.MetaDons {
-		donToJobSpecs[donTopology.ID], jobSpecsErr = keystonepor.GenerateJobSpecs(
-			keystonetypes.GeneratePoRJobSpecsInput{
-				CldEnv:                 input.cldEnv,
-				Don:                    donTopology.DON,
-				NodeOutput:             donTopology.NodeOutput,
-				BlockchainOutput:       input.blockchainOutput,
-				DonID:                  donTopology.ID,
-				Flags:                  donTopology.Flags,
-				OCR3CapabilityAddress:  input.ocr3capabilityAddress,
-				ExtraAllowedPorts:      input.extraAllowedPorts,
-				ExtraAllowedIPs:        input.extraAllowedIPs,
-				CronCapBinName:         cronCapabilityAssetFile,
-				GatewayConnectorOutput: *input.gatewayConnectorOutput,
-			},
-		)
-		if jobSpecsErr != nil {
-			return nil, errors.Wrapf(jobSpecsErr, "failed to define job specs for DON %d", donTopology.ID)
-		}
-	}
-
-	return &jobsAndConfigsOutput{
-		nodeToConfigOverrides: donToConfigs,
-		donToJobSpecs:         donToJobSpecs,
-	}, nil
-}
 func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
@@ -721,9 +732,11 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
-				Input:        input[0],
-				Capabilities: keystonetypes.SingleDonFlags,
-				DONType:      keystonetypes.WorkflowDON,
+				Input:              input[0],
+				Capabilities:       keystonetypes.SingleDonFlags,
+				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
+				BootstrapNodeIndex: 0,
+				GatewayNodeIndex:   0,
 			},
 		}
 	}
@@ -752,8 +765,21 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 				return
 			}
 
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
 			debugInput := keystonetypes.DebugInput{
-				DonTopology:      setupOutput.donTopology,
+				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
@@ -789,7 +815,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 
-func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
+func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -801,17 +827,131 @@ func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
 	binaryDownloadOutput, err := downloadBinaryFiles(in)
 	require.NoError(t, err, "failed to download binary files")
 
+	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
-				Input:        input[0],
-				Capabilities: []string{keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.CronCapability},
-				DONType:      keystonetypes.WorkflowDON,
+				Input:              input[0],
+				Capabilities:       keystonetypes.SingleDonFlags,
+				DONTypes:           []string{keystonetypes.WorkflowDON},
+				BootstrapNodeIndex: 0,
 			},
 			{
-				Input:        input[1],
-				Capabilities: []string{keystonetypes.WriteEVMCapability},
-				DONType:      keystonetypes.CapabilitiesDON, // <----- it's crucial to set the correct DON type
+				Input:              input[1],
+				Capabilities:       []string{},
+				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				GatewayNodeIndex:   0,
+				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
+			},
+		}
+	}
+
+	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
+	require.NoError(t, priceErr, "failed to create fake price provider")
+
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
+
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
+
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput,
+			}
+			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+		}
+	})
+
+	testLogger.Info().Msg("Waiting for feed to update...")
+	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
+
+	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
+	require.NoError(t, err, "failed to create feeds consumer instance")
+
+	startTime := time.Now()
+	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
+
+	assert.Eventually(t, func() bool {
+		elapsed := time.Since(startTime).Round(time.Second)
+		price, _, err := feedsConsumerInstance.GetPrice(
+			setupOutput.sethClient.NewCallOpts(),
+			feedBytes,
+		)
+		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
+
+		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
+		if !hasNextPrice {
+			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		}
+
+		return !hasNextPrice
+	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
+
+	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "pricesup do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+}
+
+func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
+	testLogger := framework.L
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVars(t, in)
+	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
+
+	binaryDownloadOutput, err := downloadBinaryFiles(in)
+	require.NoError(t, err, "failed to download binary files")
+
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
+		return []*keystonetypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              input[0],
+				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.CronCapability},
+				DONTypes:           []string{keystonetypes.WorkflowDON},
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              input[1],
+				Capabilities:       []string{keystonetypes.WriteEVMCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              input[2],
+				Capabilities:       []string{},
+				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				GatewayNodeIndex:   0,
+				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 			},
 		}
 	}
@@ -838,8 +978,21 @@ func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
 				return
 			}
 
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
 			debugInput := keystonetypes.DebugInput{
-				DonTopology:      setupOutput.donTopology,
+				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)

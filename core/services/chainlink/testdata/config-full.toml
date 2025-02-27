@@ -322,6 +322,11 @@ EmitterExportTimeout = '1s'
 Baz = 'test'
 Foo = 'bar'
 
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
 [[EVM]]
 ChainID = '1'
 Enabled = false

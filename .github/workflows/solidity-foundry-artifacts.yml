@@ -12,7 +12,6 @@ on:
           - "functions"
           - "keystone"
           - "l2ep"
-          - "liquiditymanager"
           - "llo-feeds"
           - "operatorforwarder"
           - "shared"

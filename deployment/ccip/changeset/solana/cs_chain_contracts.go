@@ -33,6 +33,8 @@ type MCMSConfigSolana struct {
 	RouterOwnedByTimelock    bool
 	FeeQuoterOwnedByTimelock bool
 	OffRampOwnedByTimelock   bool
+	// Assumes whatever token pool we're operating on
+	TokenPoolPDAOwnedByTimelock bool
 }
 
 // HELPER FUNCTIONS
