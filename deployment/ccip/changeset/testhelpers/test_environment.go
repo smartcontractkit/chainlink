@@ -690,8 +690,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			}
 			return ocrParams
 		}
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address()), ocrOverride)
-		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.Default, e.FeedChainSel, tokenConfig.GetTokenInfo(e.Env.Logger, linkTokenAddr, state.Chains[chain].Weth9.Address()), ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.Default, tokenDataProviders, ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
@@ -705,8 +705,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 
 	for _, chain := range solChains {
 		ocrOverride := tc.OCRConfigOverride
-		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, ocrOverride)
-		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, tokenDataProviders, ocrOverride)
+		commitOCRConfigs[chain] = v1_6.DeriveOCRParamsForCommit(v1_6.Default, e.FeedChainSel, nil, ocrOverride)
+		execOCRConfigs[chain] = v1_6.DeriveOCRParamsForExec(v1_6.Default, tokenDataProviders, ocrOverride)
 		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
 			// #nosec G115 - Overflow is not a concern in this test scenario

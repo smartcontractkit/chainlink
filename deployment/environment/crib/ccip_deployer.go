@@ -533,11 +533,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
-	// chainType := v1_6.Default
-
-	// TODO Passing SimulationTest to reduce number of changes in the CRIB (load test setup)
-	// @Austin please flip it back to Default once we reach a stable state
-	chainType := v1_6.SimulationTest
+	chainType := v1_6.Default
 	for selector := range e.Chains {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)

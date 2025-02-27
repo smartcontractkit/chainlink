@@ -71,7 +71,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.NoError(t, err)
 	nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
-	params := v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
+	params := v1_6.DeriveOCRParamsForCommit(v1_6.Default, e.FeedChainSel, nil, nil)
 
 	// tweak params to have invalid config
 	// make DeltaRound greater than DeltaProgress
@@ -268,7 +268,7 @@ func Test_SetCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+									dest: v1_6.DeriveOCRParamsForCommit(v1_6.Default, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
 										state.Chains[dest].LinkToken.Address(),
 										state.Chains[dest].Weth9.Address()), nil),
 								},
@@ -276,7 +276,7 @@ func Test_SetCandidate(t *testing.T) {
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+									dest: v1_6.DeriveOCRParamsForExec(v1_6.Default, nil, func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 										dCfg, err := state.Chains[dest].OffRamp.GetDynamicConfig(&bind.CallOpts{
 											Context: ctx,
 										})
@@ -315,7 +315,7 @@ func Test_SetCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+									dest: v1_6.DeriveOCRParamsForCommit(v1_6.Default, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
 										state.Chains[dest].LinkToken.Address(),
 										state.Chains[dest].Weth9.Address()), nil),
 								},
@@ -323,7 +323,7 @@ func Test_SetCandidate(t *testing.T) {
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
+									dest: v1_6.DeriveOCRParamsForExec(v1_6.Default, nil, nil),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
@@ -426,7 +426,7 @@ func Test_RevokeCandidate(t *testing.T) {
 						PluginInfo: []v1_6.SetCandidatePluginInfo{
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
+									dest: v1_6.DeriveOCRParamsForCommit(v1_6.Default, tenv.FeedChainSel, tokenConfig.GetTokenInfo(logger.TestLogger(t),
 										state.Chains[dest].LinkToken.Address(),
 										state.Chains[dest].Weth9.Address()), nil),
 								},
@@ -434,7 +434,7 @@ func Test_RevokeCandidate(t *testing.T) {
 							},
 							{
 								OCRConfigPerRemoteChainSelector: map[uint64]v1_6.CCIPOCRParams{
-									dest: v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
+									dest: v1_6.DeriveOCRParamsForExec(v1_6.Default, nil, nil),
 								},
 								PluginType: types.PluginTypeCCIPExec,
 							},
