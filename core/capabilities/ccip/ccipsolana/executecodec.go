@@ -112,7 +112,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			TokenReceiver: solana.PublicKeyFromBytes(msg.Receiver),
 			TokenAmounts:  tokenAmounts,
 			ExtraArgs:     extraArgs,
-			OnRampAddress: msg.Header.OnRamp,
 		}
 
 		// should only have an offchain token data if there are tokens as part of the message
