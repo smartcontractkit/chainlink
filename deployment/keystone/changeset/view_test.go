@@ -3,6 +3,7 @@ package changeset_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"testing"
 	"time"
 
@@ -56,11 +57,19 @@ func TestKeystoneView(t *testing.T) {
 	addrs, err := env.Env.ExistingAddresses.AddressesForChain(registryChain)
 	require.NoError(t, err)
 
-	var newOCR3Addr string
+	var newOCR3Addr, newForwarderAddr string
 	for addr, tv := range addrs {
-		if tv.Type == internal.OCR3Capability {
-			newOCR3Addr = addr
+		if newForwarderAddr != "" && newOCR3Addr != "" {
 			break
+		}
+		switch tv.Type {
+		case internal.KeystoneForwarder:
+			newForwarderAddr = addr
+			continue
+		case internal.OCR3Capability:
+			newOCR3Addr = addr
+		default:
+			continue
 		}
 	}
 
@@ -98,6 +107,15 @@ func TestKeystoneView(t *testing.T) {
 		viewOCR3Config, ok := viewChain.OCRContracts[newOCR3Addr]
 		require.True(t, ok)
 		require.Equal(t, oracleConfig, viewOCR3Config.OffchainConfig)
+		viewForwarders, ok := viewChain.Forwarders[newForwarderAddr]
+		require.True(t, ok)
+		require.Len(t, viewForwarders, 1)
+		require.Equal(t, uint32(1), viewForwarders[0].DonID)
+		require.Equal(t, uint8(1), viewForwarders[0].F)
+		require.Equal(t, uint32(1), viewForwarders[0].ConfigVersion)
+		require.Len(t, viewForwarders[0].Signers, 4)
+
+		fmt.Printf("%+v\n", outView.Chains[chainName].Forwarders)
 	})
 
 	t.Run("fails to generate a view of the keystone state with OCR3 not configured", func(t *testing.T) {
