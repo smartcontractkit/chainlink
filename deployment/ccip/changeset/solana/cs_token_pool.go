@@ -605,8 +605,10 @@ type ConfigureTokenPoolAllowListConfig struct {
 	SolTokenPubKey   string
 	PoolType         solTestTokenPool.PoolType
 	Accounts         []solana.PublicKey
-	Enabled          bool
-	MCMSSolana       *MCMSConfigSolana
+	// whether or not the given accounts are being added to the allow list or removed
+	// i.e. true = add, false = remove
+	Enabled    bool
+	MCMSSolana *MCMSConfigSolana
 }
 
 func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) error {
