@@ -5,7 +5,11 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"strings"
+	"sync"
+	"time"
 
+	"github.com/avast/retry-go/v4"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/lib/pq"
@@ -77,6 +81,10 @@ var (
 		// Job Proposal status
 		"status",
 	})
+
+	defaultSyncMinDelay    = 10 * time.Second
+	defaultSyncMaxDelay    = 30 * time.Minute
+	defaultSyncMaxAttempts = uint(48 + 8) // 30m * 48 =~ 24h; plus the initial 8 shorter retries
 )
 
 // Service represents a behavior of the feeds service
@@ -142,6 +150,10 @@ type service struct {
 	lggr                logger.Logger
 	version             string
 	loopRegistrarConfig plugins.RegistrarConfig
+	syncNodeInfoCancel  atomicCancelFns
+	syncMinDelay        time.Duration
+	syncMaxDelay        time.Duration
+	syncMaxAttempts     uint
 }
 
 // NewService constructs a new feeds service
@@ -161,6 +173,7 @@ func NewService(
 	lggr logger.Logger,
 	version string,
 	rc plugins.RegistrarConfig,
+	opts ...ServiceOption,
 ) *service {
 	lggr = lggr.Named("Feeds")
 	svc := &service{
@@ -184,6 +197,14 @@ func NewService(
 		lggr:                lggr,
 		version:             version,
 		loopRegistrarConfig: rc,
+		syncNodeInfoCancel:  atomicCancelFns{fns: map[int64]context.CancelFunc{}},
+		syncMinDelay:        defaultSyncMinDelay,
+		syncMaxDelay:        defaultSyncMaxDelay,
+		syncMaxAttempts:     defaultSyncMaxAttempts,
+	}
+
+	for _, opt := range opts {
+		opt(svc)
 	}
 
 	return svc
@@ -255,8 +276,43 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 	return id, nil
 }
 
-// SyncNodeInfo syncs the node's information with FMS
+// syncNodeInfoWithRetry syncs the node's information with FMS. In case of failures,
+// it retries with an exponential backoff for up to 24h.
+func (s *service) syncNodeInfoWithRetry(id int64) {
+	ctx, cancel := context.WithCancel(context.Background())
+
+	// cancel the previous context -- and, by extension, the existing goroutine --
+	// so that we can start anew
+	s.syncNodeInfoCancel.callAndSwap(id, cancel)
+
+	retryOpts := []retry.Option{
+		retry.Context(ctx),
+		retry.DelayType(retry.BackOffDelay),
+		retry.Delay(s.syncMinDelay),
+		retry.MaxDelay(s.syncMaxDelay),
+		retry.Attempts(s.syncMaxAttempts),
+		retry.LastErrorOnly(true),
+		retry.OnRetry(func(attempt uint, err error) {
+			s.lggr.Infow("failed to sync node info", "attempt", attempt, "err", err.Error())
+		}),
+	}
+
+	go func() {
+		err := retry.Do(func() error { return s.SyncNodeInfo(ctx, id) }, retryOpts...)
+		if err != nil {
+			s.lggr.Errorw("failed to sync node info; aborting", "err", err)
+		} else {
+			s.lggr.Info("successfully synced node info")
+		}
+
+		s.syncNodeInfoCancel.callAndSwap(id, nil)
+	}()
+}
+
 func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
+
 	// Get the FMS RPC client
 	fmsClient, err := s.connMgr.GetClient(id)
 	if err != nil {
@@ -281,12 +337,22 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 	}
 
 	workflowKey := s.getWorkflowPublicKey()
-	if _, err = fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
+
+	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
 		ChainConfigs: cfgMsgs,
 		WorkflowKey:  &workflowKey,
-	}); err != nil {
-		return err
+	})
+	if err != nil {
+		return errors.Wrap(err, "SyncNodeInfo.UpdateNode call failed")
+	}
+	if len(resp.ChainConfigErrors) > 0 {
+		errMsgs := make([]string, 0, len(resp.ChainConfigErrors))
+		for _, ccErr := range resp.ChainConfigErrors {
+			errMsgs = append(errMsgs, ccErr.Message)
+		}
+
+		return errors.Errorf("SyncNodeInfo.UpdateNode call partially failed: %s", strings.Join(errMsgs, "; "))
 	}
 
 	return nil
@@ -402,9 +468,7 @@ func (s *service) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 		return 0, errors.Wrap(err, "CreateChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(mgr.ID)
 
 	return id, nil
 }
@@ -426,9 +490,7 @@ func (s *service) DeleteChainConfig(ctx context.Context, id int64) (int64, error
 		return 0, errors.Wrap(err, "DeleteChainConfig: failed to fetch manager")
 	}
 
-	if err := s.SyncNodeInfo(ctx, mgr.ID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(mgr.ID)
 
 	return id, nil
 }
@@ -467,9 +529,7 @@ func (s *service) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64
 		return 0, errors.Wrap(err, "UpdateChainConfig failed: could not get chain config")
 	}
 
-	if err := s.SyncNodeInfo(ctx, ccfg.FeedsManagerID); err != nil {
-		s.lggr.Infof("FMS: Unable to sync node info: %v", err)
-	}
+	s.syncNodeInfoWithRetry(ccfg.FeedsManagerID)
 
 	return id, nil
 }
@@ -1031,9 +1091,7 @@ func (s *service) CancelSpec(ctx context.Context, id int64) error {
 	)
 
 	err = s.transact(ctx, func(tx datasources) error {
-		var (
-			txerr error
-		)
+		var txerr error
 
 		if txerr = tx.orm.CancelSpec(ctx, id); txerr != nil {
 			return txerr
@@ -1153,6 +1211,8 @@ func (s *service) Start(ctx context.Context) error {
 // Close shuts down the service
 func (s *service) Close() error {
 	return s.StopOnce("FeedsService", func() error {
+		s.syncNodeInfoCancel.callAllAndClear()
+
 		// This blocks until it finishes
 		s.connMgr.Close()
 
@@ -1173,10 +1233,7 @@ func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, priv
 		},
 		OnConnect: func(pb.FeedsManagerClient) {
 			// Sync the node's information with FMS once connected
-			err := s.SyncNodeInfo(ctx, mgr.ID)
-			if err != nil {
-				s.lggr.Infof("Error syncing node info: %v", err)
-			}
+			s.syncNodeInfoWithRetry(mgr.ID)
 		},
 	})
 }
@@ -1220,8 +1277,10 @@ func (s *service) observeJobProposalCounts(ctx context.Context) error {
 	metrics := counts.toMetrics()
 
 	// Set the prometheus gauge metrics.
-	for _, status := range []JobProposalStatus{JobProposalStatusPending, JobProposalStatusApproved,
-		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked} {
+	for _, status := range []JobProposalStatus{
+		JobProposalStatusPending, JobProposalStatusApproved,
+		JobProposalStatusCancelled, JobProposalStatusRejected, JobProposalStatusDeleted, JobProposalStatusRevoked,
+	} {
 		status := status
 
 		promJobProposalCounts.With(prometheus.Labels{"status": string(status)}).Set(metrics[status])
@@ -1565,6 +1624,49 @@ func (s *service) isRevokable(propStatus JobProposalStatus, specStatus SpecStatu
 	return propStatus != JobProposalStatusDeleted && (specStatus == SpecStatusPending || specStatus == SpecStatusCancelled)
 }
 
+type atomicCancelFns struct {
+	fns   map[int64]context.CancelFunc
+	mutex sync.Mutex
+}
+
+func (f *atomicCancelFns) callAndSwap(id int64, other func()) {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	fn, found := f.fns[id]
+	if found && fn != nil {
+		fn()
+	}
+
+	f.fns[id] = other
+}
+
+func (f *atomicCancelFns) callAllAndClear() {
+	f.mutex.Lock()
+	defer f.mutex.Unlock()
+
+	for _, fn := range f.fns {
+		if fn != nil {
+			fn()
+		}
+	}
+	clear(f.fns)
+}
+
+type ServiceOption func(*service)
+
+func WithSyncMinDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMinDelay = delay }
+}
+
+func WithSyncMaxDelay(delay time.Duration) ServiceOption {
+	return func(s *service) { s.syncMaxDelay = delay }
+}
+
+func WithSyncMaxAttempts(attempts uint) ServiceOption {
+	return func(s *service) { s.syncMaxAttempts = attempts }
+}
+
 var _ Service = &NullService{}
 
 // NullService defines an implementation of the Feeds Service that is used
@@ -1577,24 +1679,31 @@ func (ns NullService) Close() error                    { return nil }
 func (ns NullService) ApproveSpec(ctx context.Context, id int64, force bool) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) CountJobProposalsByStatus(ctx context.Context) (*JobProposalCounts, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) CancelSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetJobProposal(ctx context.Context, id int64) (*JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListSpecsByJobProposalIDs(ctx context.Context, ids []int64) ([]JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListManagersByIDs(ctx context.Context, ids []int64) ([]FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetSpec(ctx context.Context, id int64) (*JobProposalSpec, error) {
 	return nil, ErrFeedsManagerDisabled
 }
@@ -1602,15 +1711,19 @@ func (ns NullService) ListManagers(ctx context.Context) ([]FeedsManager, error) 
 func (ns NullService) CreateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) GetChainConfig(ctx context.Context, id int64) (*ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DeleteChainConfig(ctx context.Context, id int64) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ListChainConfigsByManagerIDs(ctx context.Context, mgrIDs []int64) ([]ChainConfig, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) UpdateChainConfig(ctx context.Context, cfg ChainConfig) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
@@ -1618,18 +1731,23 @@ func (ns NullService) ListJobProposals(ctx context.Context) ([]JobProposal, erro
 func (ns NullService) ListJobProposalsByManagersIDs(ctx context.Context, ids []int64) ([]JobProposal, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) ProposeJob(ctx context.Context, args *ProposeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DeleteJob(ctx context.Context, args *DeleteJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RevokeJob(ctx context.Context, args *RevokeJobArgs) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RegisterManager(ctx context.Context, params RegisterManagerParams) (int64, error) {
 	return 0, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) RejectSpec(ctx context.Context, id int64) error {
 	return ErrFeedsManagerDisabled
 }
@@ -1637,15 +1755,19 @@ func (ns NullService) SyncNodeInfo(ctx context.Context, id int64) error { return
 func (ns NullService) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 	return ErrFeedsManagerDisabled
 }
+
 func (ns NullService) EnableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) DisableManager(ctx context.Context, id int64) (*FeedsManager, error) {
 	return nil, ErrFeedsManagerDisabled
 }
+
 func (ns NullService) IsJobManaged(ctx context.Context, jobID int64) (bool, error) {
 	return false, nil
 }
+
 func (ns NullService) UpdateSpecDefinition(ctx context.Context, id int64, spec string) error {
 	return ErrFeedsManagerDisabled
 }

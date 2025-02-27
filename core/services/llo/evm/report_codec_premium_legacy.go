@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -57,7 +58,9 @@ func (r *ReportFormatEVMPremiumLegacyOpts) Decode(opts []byte) error {
 		// special case if opts are unspecified, just use the zero options rather than erroring
 		return nil
 	}
-	return json.Unmarshal(opts, r)
+	decoder := json.NewDecoder(bytes.NewReader(opts))
+	decoder.DisallowUnknownFields() // Error on unrecognized fields
+	return decoder.Decode(r)
 }
 
 func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
@@ -101,6 +104,23 @@ func (r ReportCodecPremiumLegacy) Encode(ctx context.Context, report llo.Report,
 	r.Logger.Debugw("Encoding report", "report", report, "opts", opts, "nativePrice", nativePrice, "linkPrice", linkPrice, "quote", quote, "multiplier", multiplier, "rf", rf)
 
 	return codec.BuildReport(ctx, rf)
+}
+
+func (r ReportCodecPremiumLegacy) Verify(ctx context.Context, cd llotypes.ChannelDefinition) error {
+	opts := ReportFormatEVMPremiumLegacyOpts{}
+	if err := (&opts).Decode(cd.Opts); err != nil {
+		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
+	}
+	if opts.BaseUSDFee.IsNegative() {
+		return errors.New("baseUSDFee must be non-negative")
+	}
+	if opts.FeedID == (common.Hash{}) {
+		return errors.New("feedID must not be zero")
+	}
+	if len(cd.Streams) != 3 {
+		return fmt.Errorf("ReportFormatEVMPremiumLegacy requires exactly 3 streams (NativePrice, LinkPrice, Quote); got: %v", cd.Streams)
+	}
+	return nil
 }
 
 func (r ReportCodecPremiumLegacy) Decode(b []byte) (*reporttypes.Report, error) {

@@ -1,7 +1,6 @@
 package proposalutils
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"time"
@@ -11,9 +10,14 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 const (
@@ -94,10 +98,11 @@ func BuildProposalFromBatches(
 
 // BuildProposalFromBatchesV2 uses the new MCMS library which replaces the implementation in BuildProposalFromBatches.
 func BuildProposalFromBatchesV2(
-	ctx context.Context,
+	e deployment.Environment,
 	timelockAddressPerChain map[uint64]string,
 	proposerAddressPerChain map[uint64]string,
-	inspectorPerChain map[uint64]sdk.Inspector,
+	inspectorPerChain map[uint64]mcmssdk.Inspector,
+
 	batches []types.BatchOperation,
 	description string,
 	minDelay time.Duration,
@@ -110,17 +115,15 @@ func BuildProposalFromBatchesV2(
 	for _, op := range batches {
 		chains.Add(uint64(op.ChainSelector))
 	}
-
-	mcmsMd, err := buildProposalMetadataV2(ctx, chains.ToSlice(),
-		inspectorPerChain, proposerAddressPerChain)
-	if err != nil {
-		return nil, err
-	}
-
 	tlsPerChainID := make(map[types.ChainSelector]string)
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, proposerAddressPerChain)
+	if err != nil {
+		return nil, err
+	}
+
 	validUntil := time.Now().Unix() + int64(DefaultValidUntil.Seconds())
 
 	builder := mcmslib.NewTimelockProposalBuilder()
@@ -144,9 +147,9 @@ func BuildProposalFromBatchesV2(
 }
 
 func buildProposalMetadataV2(
-	ctx context.Context,
+	env deployment.Environment,
 	chainSelectors []uint64,
-	inspectorPerChain map[uint64]sdk.Inspector,
+	inspectorPerChain map[uint64]mcmssdk.Inspector,
 	proposerMcmsesPerChain map[uint64]string,
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
@@ -156,14 +159,41 @@ func buildProposalMetadataV2(
 			return nil, fmt.Errorf("missing proposer mcm for chain %d", selector)
 		}
 		chainID := types.ChainSelector(selector)
-		opCount, err := inspectorPerChain[selector].GetOpCount(ctx, proposerMcms)
+		opCount, err := inspectorPerChain[selector].GetOpCount(env.GetContext(), proposerMcms)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get op count for chain %d: %w", selector, err)
 		}
-		metaDataPerChain[chainID] = types.ChainMetadata{
-			StartingOpCount: opCount,
-			MCMAddress:      proposerMcms,
+		family, err := chain_selectors.GetSelectorFamily(selector)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get family for chain %d: %w", selector, err)
+		}
+		switch family {
+		case chain_selectors.FamilyEVM:
+			metaDataPerChain[chainID] = types.ChainMetadata{
+				StartingOpCount: opCount,
+				MCMAddress:      proposerMcms,
+			}
+		case chain_selectors.FamilySolana:
+			addresses, err := env.ExistingAddresses.AddressesForChain(selector)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load addresses for chain %d: %w", selector, err)
+			}
+			solanaState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(env.SolChains[selector], addresses)
+			if err != nil {
+				return nil, fmt.Errorf("failed to load solana state: %w", err)
+			}
+			metaDataPerChain[chainID], err = mcmssolanasdk.NewChainMetadata(
+				opCount,
+				solanaState.McmProgram,
+				mcmssolanasdk.PDASeed(solanaState.ProposerMcmSeed),
+				solanaState.ProposerAccessControllerAccount,
+				solanaState.CancellerAccessControllerAccount,
+				solanaState.BypasserAccessControllerAccount)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create chain metadata: %w", err)
+			}
 		}
 	}
+
 	return metaDataPerChain, nil
 }

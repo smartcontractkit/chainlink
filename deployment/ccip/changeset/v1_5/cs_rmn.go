@@ -167,7 +167,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 	}
 
 	timelockProposal, err := proposalutils.BuildProposalFromBatchesV2(
-		env.GetContext(),
+		env,
 		timelocks,
 		proposerMcms,
 		inspectors,

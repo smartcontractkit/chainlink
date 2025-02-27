@@ -5,7 +5,9 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"math/big"
+	"slices"
 	"testing"
 	"time"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 	"gopkg.in/guregu/null.v4"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -196,15 +200,18 @@ type TestService struct {
 	ocr2Keystore     *ksmocks.OCR2
 	workflowKeystore *ksmocks.Workflow
 	legacyChains     legacyevm.LegacyChainContainer
+	logs             *observer.ObservedLogs
 }
 
-func setupTestService(t *testing.T) *TestService {
+func setupTestService(t *testing.T, opts ...feeds.ServiceOption) *TestService {
 	t.Helper()
 
-	return setupTestServiceCfg(t, nil)
+	return setupTestServiceCfg(t, nil, opts...)
 }
 
-func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets)) *TestService {
+func setupTestServiceCfg(
+	t *testing.T, overrideCfg func(c *chainlink.Config, s *chainlink.Secrets), opts ...feeds.ServiceOption,
+) *TestService {
 	t.Helper()
 
 	var (
@@ -220,7 +227,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		workflowKeystore = ksmocks.NewWorkflow(t)
 	)
 
-	lggr := logger.TestLogger(t)
+	lggr, observedLogs := logger.TestLoggerObserved(t, zap.DebugLevel)
 
 	db := pgtest.NewSqlxDB(t)
 	gcfg := configtest.NewGeneralConfig(t, overrideCfg)
@@ -241,7 +248,8 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 	keyStore.On("OCR").Return(ocr1Keystore)
 	keyStore.On("OCR2").Return(ocr2Keystore)
 	keyStore.On("Workflow").Return(workflowKeystore)
-	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(), gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil)
+	svc := feeds.NewService(orm, jobORM, db, spawner, keyStore, gcfg, gcfg.Feature(), gcfg.Insecure(),
+		gcfg.JobPipeline(), gcfg.OCR(), gcfg.OCR2(), legacyChains, lggr, "1.0.0", nil, opts...)
 	svc.SetConnectionsManager(connMgr)
 
 	return &TestService{
@@ -257,6 +265,7 @@ func setupTestServiceCfg(t *testing.T, overrideCfg func(c *chainlink.Config, s *
 		ocr2Keystore:     ocr2Keystore,
 		workflowKeystore: workflowKeystore,
 		legacyChains:     legacyChains,
+		logs:             observedLogs,
 	}
 }
 
@@ -1852,6 +1861,170 @@ func Test_Service_SyncNodeInfo(t *testing.T) {
 
 			err = svc.SyncNodeInfo(testutils.Context(t), mgr.ID)
 			require.NoError(t, err)
+		})
+	}
+}
+
+func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
+	t.Parallel()
+
+	mgr := feeds.FeedsManager{ID: 1}
+	nodeVersion := &versioning.NodeVersion{Version: "1.0.0"}
+	cfg := feeds.ChainConfig{
+		FeedsManagerID:          mgr.ID,
+		ChainID:                 "42",
+		ChainType:               feeds.ChainTypeEVM,
+		AccountAddress:          "0x0000000000000000000000000000000000000000",
+		AccountAddressPublicKey: null.StringFrom("0x0000000000000000000000000000000000000002"),
+		AdminAddress:            "0x0000000000000000000000000000000000000001",
+		FluxMonitorConfig:       feeds.FluxMonitorConfig{Enabled: true},
+		OCR1Config:              feeds.OCR1Config{Enabled: false},
+		OCR2Config:              feeds.OCR2ConfigModel{Enabled: false},
+	}
+	workflowKey, err := workflowkey.New()
+	require.NoError(t, err)
+
+	request := &proto.UpdateNodeRequest{
+		Version: nodeVersion.Version,
+		ChainConfigs: []*proto.ChainConfig{
+			{
+				Chain: &proto.Chain{
+					Id:   cfg.ChainID,
+					Type: proto.ChainType_CHAIN_TYPE_EVM,
+				},
+				AccountAddress:          cfg.AccountAddress,
+				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+				AdminAddress:            cfg.AdminAddress,
+				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+				Ocr1Config:              &proto.OCR1Config{Enabled: false},
+				Ocr2Config:              &proto.OCR2Config{Enabled: false},
+			},
+		},
+		WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+	}
+	successResponse := &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	failureResponse := func(chainID string) *proto.UpdateNodeResponse {
+		return &proto.UpdateNodeResponse{
+			ChainConfigErrors: map[string]*proto.ChainConfigError{chainID: {Message: "error chain " + chainID}},
+		}
+	}
+
+	tests := []struct {
+		name     string
+		setup    func(t *testing.T, svc *TestService)
+		run      func(svc *TestService) (any, error)
+		wantLogs []string
+	}{
+		{
+			name: "create chain",
+			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
+				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
+				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-0")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("1"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("2"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+			},
+			run: func(svc *TestService) (any, error) {
+				return svc.CreateChainConfig(testutils.Context(t), cfg)
+			},
+			wantLogs: []string{
+				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call failed: error-0"`,
+				`failed to sync node info attempt="1" err="SyncNodeInfo.UpdateNode call partially failed: error chain 1"`,
+				`failed to sync node info attempt="2" err="SyncNodeInfo.UpdateNode call partially failed: error chain 2"`,
+				`successfully synced node info`,
+			},
+		},
+		{
+			name: "update chain",
+			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.orm.EXPECT().UpdateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
+				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
+				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("3"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-4")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("5"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+			},
+			run: func(svc *TestService) (any, error) {
+				return svc.UpdateChainConfig(testutils.Context(t), cfg)
+			},
+			wantLogs: []string{
+				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 3"`,
+				`failed to sync node info attempt="1" err="SyncNodeInfo.UpdateNode call failed: error-4"`,
+				`failed to sync node info attempt="2" err="SyncNodeInfo.UpdateNode call partially failed: error chain 5"`,
+				`successfully synced node info`,
+			},
+		},
+		{
+			name: "delete chain",
+			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
+				svc.orm.EXPECT().DeleteChainConfig(mock.Anything, cfg.ID).Return(cfg.ID, nil)
+				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
+				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("6"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("7"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-8")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+			},
+			run: func(svc *TestService) (any, error) {
+				return svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
+			},
+			wantLogs: []string{
+				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 6"`,
+				`failed to sync node info attempt="1" err="SyncNodeInfo.UpdateNode call partially failed: error chain 7"`,
+				`failed to sync node info attempt="2" err="SyncNodeInfo.UpdateNode call failed: error-8"`,
+				`successfully synced node info`,
+			},
+		},
+		{
+			name: "more errors than MaxAttempts",
+			setup: func(t *testing.T, svc *TestService) {
+				svc.workflowKeystore.EXPECT().GetAll().Return([]workflowkey.Key{workflowKey}, nil)
+				svc.orm.EXPECT().CreateChainConfig(mock.Anything, cfg).Return(int64(1), nil)
+				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
+				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
+				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("9"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("10"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-11")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("12"), nil).Once()
+			},
+			run: func(svc *TestService) (any, error) {
+				return svc.CreateChainConfig(testutils.Context(t), cfg)
+			},
+			wantLogs: []string{
+				`failed to sync node info attempt="0" err="SyncNodeInfo.UpdateNode call partially failed: error chain 9"`,
+				`failed to sync node info attempt="1" err="SyncNodeInfo.UpdateNode call partially failed: error chain 10"`,
+				`failed to sync node info attempt="2" err="SyncNodeInfo.UpdateNode call failed: error-11"`,
+				`failed to sync node info attempt="3" err="SyncNodeInfo.UpdateNode call partially failed: error chain 12"`,
+				`failed to sync node info; aborting err="SyncNodeInfo.UpdateNode call partially failed: error chain 12"`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			svc := setupTestService(t, feeds.WithSyncMinDelay(5*time.Millisecond),
+				feeds.WithSyncMaxDelay(50*time.Millisecond), feeds.WithSyncMaxAttempts(4))
+
+			tt.setup(t, svc)
+			_, err := tt.run(svc)
+
+			require.NoError(t, err)
+			assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+				assert.Equal(collect, tt.wantLogs, logMessages(svc.logs.All()))
+			}, 1*time.Second, 50*time.Millisecond)
 		})
 	}
 }
@@ -4750,4 +4923,22 @@ func Test_Service_StartStop(t *testing.T) {
 			servicetest.Run(t, svc)
 		})
 	}
+}
+
+func logMessages(logEntries []observer.LoggedEntry) []string {
+	messages := make([]string, 0, len(logEntries))
+	for _, entry := range logEntries {
+		messageWithContext := entry.Message
+		contextMap := entry.ContextMap()
+		for _, key := range slices.Sorted(maps.Keys(contextMap)) {
+			if key == "version" || key == "errVerbose" {
+				continue
+			}
+			messageWithContext += fmt.Sprintf(" %v=\"%v\"", key, entry.ContextMap()[key])
+		}
+
+		messages = append(messages, messageWithContext)
+	}
+
+	return messages
 }

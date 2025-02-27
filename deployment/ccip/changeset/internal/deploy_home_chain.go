@@ -77,6 +77,8 @@ func getNodeOperatorIDMap(capReg *capabilities_registry.CapabilitiesRegistry, ma
 	return nopIdByName, nil
 }
 
+// LatestCCIPDON returns the latest CCIP DON from the capabilities registry
+// Keeping this function for reference
 func LatestCCIPDON(registry *capabilities_registry.CapabilitiesRegistry) (*capabilities_registry.CapabilitiesRegistryDONInfo, error) {
 	dons, err := registry.GetDONs(nil)
 	if err != nil {

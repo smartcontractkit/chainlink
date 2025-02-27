@@ -71,20 +71,24 @@ func TestJDNodeService_GetNode(t *testing.T) {
 }
 
 func TestJDNodeService_ListNodes(t *testing.T) {
+	workflowKey1 := "workflow_key_1"
+	workflowKey2 := "workflow_key_2"
 	nodes := []deployment.Node{
 		{
-			NodeID: "node1",
-			Name:   "Node 1",
-			CSAKey: "csa_key_1",
-			PeerID: testPeerID(t, "peer_id_1"),
-			Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}},
+			NodeID:      "node1",
+			Name:        "Node 1",
+			CSAKey:      "csa_key_1",
+			PeerID:      testPeerID(t, "peer_id_1"),
+			Labels:      []*ptypes.Label{{Key: "foo", Value: ptr("bar")}},
+			WorkflowKey: workflowKey1,
 		},
 		{
-			NodeID: "node2",
-			Name:   "Node 2",
-			CSAKey: "csa_key_2",
-			PeerID: testPeerID(t, "peer_id_2"),
-			Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}},
+			NodeID:      "node2",
+			Name:        "Node 2",
+			CSAKey:      "csa_key_2",
+			PeerID:      testPeerID(t, "peer_id_2"),
+			Labels:      []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}},
+			WorkflowKey: workflowKey2,
 		},
 	}
 
@@ -99,45 +103,45 @@ func TestJDNodeService_ListNodes(t *testing.T) {
 			name:   "all nodes",
 			filter: nil,
 			want: []*nodev1.Node{
-				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}},
-				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}},
+				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}, WorkflowKey: &workflowKey1},
+				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}, WorkflowKey: &workflowKey2},
 			},
 		},
 		{
 			name:   "filter by id",
 			filter: &nodev1.ListNodesRequest_Filter{Ids: []string{"node1"}},
 			want: []*nodev1.Node{
-				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}},
+				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}, WorkflowKey: &workflowKey1},
 			},
 		},
 		{
 			name:   "filter EQ common label",
 			filter: &nodev1.ListNodesRequest_Filter{Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EQ, Key: "foo", Value: ptr("bar")}}},
 			want: []*nodev1.Node{
-				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}},
-				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}},
+				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}, WorkflowKey: &workflowKey1},
+				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}, WorkflowKey: &workflowKey2},
 			},
 		},
 		{
 			name:   "filter EQ single label",
 			filter: &nodev1.ListNodesRequest_Filter{Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EQ, Key: "baz", Value: ptr("qux")}}},
 			want: []*nodev1.Node{
-				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}},
+				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}, WorkflowKey: &workflowKey2},
 			},
 		},
 		{
 			name:   "filter EXIST common label name",
 			filter: &nodev1.ListNodesRequest_Filter{Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EXIST, Key: "foo"}}},
 			want: []*nodev1.Node{
-				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}},
-				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}},
+				{Id: "node1", Name: "Node 1", PublicKey: "csa_key_1", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}}, WorkflowKey: &workflowKey1},
+				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}, WorkflowKey: &workflowKey2},
 			},
 		},
 		{
 			name:   "filter EXIST single label value",
 			filter: &nodev1.ListNodesRequest_Filter{Selectors: []*ptypes.Selector{{Op: ptypes.SelectorOp_EXIST, Key: "baz"}}},
 			want: []*nodev1.Node{
-				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}},
+				{Id: "node2", Name: "Node 2", PublicKey: "csa_key_2", Labels: []*ptypes.Label{{Key: "foo", Value: ptr("bar")}, {Key: "baz", Value: ptr("qux")}}, WorkflowKey: &workflowKey2},
 			},
 		},
 	}
@@ -328,25 +332,31 @@ func TestJDNodeService_ListNodeChainConfigs(t *testing.T) {
 }
 
 func TestNewJDServiceFromListNodes(t *testing.T) {
+	workflowKey1 := "workflow_key_1"
+	workflowKey2 := "workflow_key_2"
+	workflowKey3 := "workflow_key_3"
 	testData := &nodev1.ListNodesResponse{
 		Nodes: []*nodev1.Node{
 			{
-				Id:        "node1",
-				Name:      "Node 1",
-				PublicKey: "csa_key_1",
-				Labels:    []*ptypes.Label{{Key: "foo", Value: ptr("bar")}},
+				Id:          "node1",
+				Name:        "Node 1",
+				PublicKey:   "csa_key_1",
+				Labels:      []*ptypes.Label{{Key: "foo", Value: ptr("bar")}},
+				WorkflowKey: &workflowKey1,
 			},
 			{
-				Id:        "node2",
-				Name:      "Node 2",
-				PublicKey: "csa_key_2",
-				Labels:    []*ptypes.Label{{Key: "baz", Value: ptr("qux")}},
+				Id:          "node2",
+				Name:        "Node 2",
+				PublicKey:   "csa_key_2",
+				Labels:      []*ptypes.Label{{Key: "baz", Value: ptr("qux")}},
+				WorkflowKey: &workflowKey2,
 			},
 			{
-				Id:        "node3",
-				Name:      "Node 3",
-				PublicKey: "csa_key_3",
-				Labels:    []*ptypes.Label{{Key: "p2p", Value: ptr(testPeerID(t, "peer_id_3").String())}},
+				Id:          "node3",
+				Name:        "Node 3",
+				PublicKey:   "csa_key_3",
+				Labels:      []*ptypes.Label{{Key: "p2p", Value: ptr(testPeerID(t, "peer_id_3").String())}},
+				WorkflowKey: &workflowKey3,
 			},
 		},
 	}
