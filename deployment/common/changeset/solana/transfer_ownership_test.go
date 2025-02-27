@@ -35,7 +35,7 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	fundSignerPDAs(t, env, solanaSelector, chainState)
 
 	configuredChangeset := commonchangeset.Configure(
-		deployment.CreateLegacyChangeSet(solanachangesets.TransferMCMSToTimelockSolana),
+		&solanachangesets.TransferMCMSToTimelockSolana{},
 		solanachangesets.TransferMCMSToTimelockSolanaConfig{
 			Chains:   []uint64{solanaSelector},
 			MinDelay: 1 * time.Second,

@@ -37,8 +37,17 @@ type OwnableContract struct {
 	Type      deployment.ContractType
 }
 
-func (c TransferToTimelockSolanaConfig) Validate(env deployment.Environment) error {
-	for chainSelector, contracts := range c.ContractsByChain {
+// TransferToTimelockSolana transfers a set of Solana "contracts" to the Timelock
+// signer PDA.
+// The "transfer ownership" instructions are immediatelly sent and
+// confirmed onchain. The "accept ownership" instructions are added to an MCMS
+// timelock proposal that should be executed using the standard MCMS workflows.
+type TransferToTimelockSolana struct{}
+
+func (t *TransferToTimelockSolana) VerifyPreconditions(
+	env deployment.Environment, config TransferToTimelockSolanaConfig,
+) error {
+	for chainSelector, contracts := range config.ContractsByChain {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
 			commontypes.RBACTimelockProgram,
 			commontypes.RBACTimelock,
@@ -88,16 +97,9 @@ func (c TransferToTimelockSolanaConfig) Validate(env deployment.Environment) err
 	return nil
 }
 
-// TransferToTimelockSolana transfers a set of Solana "contracts" to the Timelock
-// signer PDA
-func TransferToTimelockSolana(
+func (t *TransferToTimelockSolana) Apply(
 	env deployment.Environment, cfg TransferToTimelockSolanaConfig,
 ) (deployment.ChangesetOutput, error) {
-	err := cfg.Validate(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid transfer ownership config: %w", err)
-	}
-
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, slices.Collect(maps.Keys(env.SolChains)))
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
@@ -180,8 +182,16 @@ type TransferMCMSToTimelockSolanaConfig struct {
 	MinDelay time.Duration
 }
 
-func (c *TransferMCMSToTimelockSolanaConfig) Validate(env deployment.Environment) error {
-	for _, chainSelector := range c.Chains {
+// TransferMCMSToTimelockSolana transfers set MCMS "contracts" to the timelock
+// signer PDA. It relies on the TransferToTimelockSolana changeset and merely
+// adds the MCM, Timelock and AccessController contracts found in the address
+// book to the list of contracts to transfer.
+type TransferMCMSToTimelockSolana struct{}
+
+func (t *TransferMCMSToTimelockSolana) VerifyPreconditions(
+	env deployment.Environment, config TransferMCMSToTimelockSolanaConfig,
+) error {
+	for _, chainSelector := range config.Chains {
 		err := addressBookContains(env.ExistingAddresses, chainSelector,
 			commontypes.RBACTimelockProgram,
 			commontypes.RBACTimelock,
@@ -195,14 +205,9 @@ func (c *TransferMCMSToTimelockSolanaConfig) Validate(env deployment.Environment
 	return nil
 }
 
-func TransferMCMSToTimelockSolana(
+func (t *TransferMCMSToTimelockSolana) Apply(
 	env deployment.Environment, cfg TransferMCMSToTimelockSolanaConfig,
 ) (deployment.ChangesetOutput, error) {
-	err := cfg.Validate(env)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("invalid transfer ownership config: %w", err)
-	}
-
 	mcmsState, err := state.MaybeLoadMCMSWithTimelockStateSolana(env, cfg.Chains)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load mcms state: %w", err)
@@ -254,7 +259,7 @@ func TransferMCMSToTimelockSolana(
 		contracts[chainSelector] = chainContracts
 	}
 
-	return TransferToTimelockSolana(env, TransferToTimelockSolanaConfig{
+	return new(TransferToTimelockSolana).Apply(env, TransferToTimelockSolanaConfig{
 		ContractsByChain: contracts,
 		MinDelay:         cfg.MinDelay,
 	})
