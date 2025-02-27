@@ -213,7 +213,12 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 
 	// When it's not a programmable token transfer the receiver can be an EOA, we use a random address to denote that
 	if selectedMsgDetails.IsTokenOnlyTransfer() {
-		message.Receiver = utils.RandomAddress().Bytes()
+		receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(utils.RandomAddress().Hex()))
+		if err != nil {
+			m.l.Error("Error encoding receiver address")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.Receiver = receiver
 	}
 
 	// Set token amounts if it's a token transfer
