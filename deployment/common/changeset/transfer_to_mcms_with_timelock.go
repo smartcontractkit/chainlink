@@ -203,7 +203,7 @@ func TransferToMCMSWithTimelockV2(
 		})
 	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelockAddressByChain, proposerAddressByChain, inspectorPerChain,
 		batches, "Transfer ownership to timelock", cfg.MinDelay)
 	if err != nil {

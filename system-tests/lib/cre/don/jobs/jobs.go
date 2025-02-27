@@ -22,11 +22,39 @@ var SupportedJobs = []types.JobDescription{
 	{Flag: types.CronCapability, NodeType: types.WorkerNode},
 	{Flag: types.CustomComputeCapability, NodeType: types.WorkerNode},
 	{Flag: types.OCR3Capability, NodeType: types.WorkerNode},
+	{Flag: types.GatewayDON, NodeType: types.GatewayDON},
+
+	// add more jobs as needed
+}
+
+func checkForUnknownJobs(jobSpecs types.DonJobs) error {
+	for jobDesc := range jobSpecs {
+		found := false
+		for _, supportedJob := range SupportedJobs {
+			if jobDesc.Flag == supportedJob.Flag {
+				found = true
+				break
+			}
+		}
+
+		if !found {
+			return errors.Errorf("unknown job type %s", jobDesc.Flag)
+		}
+	}
+
+	return nil
 }
 
 func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
-	errCh := make(chan error, calculateJobCount(jobSpecs))
+	if len(jobSpecs) == 0 {
+		return nil
+	}
 
+	if unknownErr := checkForUnknownJobs(jobSpecs); unknownErr != nil {
+		return errors.Wrap(unknownErr, "failed to create jobs")
+	}
+
+	errCh := make(chan error, calculateJobCount(jobSpecs))
 	var wg sync.WaitGroup
 
 	for _, jobDesc := range SupportedJobs {
@@ -51,7 +79,11 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 
 	var finalErr error
 	for err := range errCh {
-		finalErr = errors.Wrap(finalErr, err.Error())
+		if finalErr == nil {
+			finalErr = err
+		} else {
+			finalErr = errors.Wrap(finalErr, err.Error())
+		}
 	}
 
 	if finalErr != nil {

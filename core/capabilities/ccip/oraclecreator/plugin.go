@@ -38,6 +38,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
@@ -79,6 +80,7 @@ var plugins = map[string]plugin{
 		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
 		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
 		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:   consts.MethodCommitPriceOnly,
 	},
 }
 
@@ -94,6 +96,8 @@ type plugin struct {
 	TokenDataEncoder    cciptypes.TokenDataEncoder
 	GasEstimateProvider cciptypes.EstimateProvider
 	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	// PriceOnlyCommitFn optional method override for price only commit reports.
+	PriceOnlyCommitFn string
 }
 
 // pluginOracleCreator creates oracles that reference plugins running
@@ -354,6 +358,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
+			consts.MethodCommit,
+			plugins[chainFamily].PriceOnlyCommitFn,
 		)
 	} else if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPExec) {
 		factory = execocr3.NewExecutePluginFactory(
@@ -597,8 +603,11 @@ func createChainWriter(
 	switch chainFamily {
 	case relay.NetworkSolana:
 		var solConfig chainwriter.ChainWriterConfig
+		if solana.PublicKeyLength != len(offrampProgramAddress) {
+			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+		}
 		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0]); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

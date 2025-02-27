@@ -6,12 +6,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 type NodeType = string
@@ -19,6 +21,7 @@ type NodeType = string
 const (
 	BootstrapNode NodeType = "bootstrap"
 	WorkerNode    NodeType = "worker"
+	GatewayNode   NodeType = "gateway"
 )
 
 type JobDescription struct {
@@ -34,8 +37,8 @@ type ConfigDescription struct {
 type DonJobs = map[JobDescription][]*jobv1.ProposeJobRequest
 type DonsToJobSpecs = map[uint32]DonJobs
 
-type NodeIndexToConfigOverrides = map[int]string
-type DonsToConfigOverrides = map[uint32]NodeIndexToConfigOverrides
+type NodeIndexToConfigOverride = map[int]string
+type NodeIndexToSecretsOverride = map[int]string
 
 type KeystoneContractsInput struct {
 	ChainSelector uint64                  `toml:"-"`
@@ -157,56 +160,57 @@ type WrappedNodeOutput struct {
 	Capabilities []string
 }
 
-type ConfigureDonInput struct {
-	CldEnv               *deployment.Environment
-	BlockchainOutput     *blockchain.Output
-	DonTopology          *DonTopology
-	JdOutput             *jd.Output
-	DonToJobSpecs        DonsToJobSpecs
-	DonToConfigOverrides DonsToConfigOverrides
+type CreateJobsInput struct {
+	CldEnv        *deployment.Environment
+	DonTopology   *DonTopology
+	DonToJobSpecs DonsToJobSpecs
 }
 
-func (c *ConfigureDonInput) Validate() error {
+func (c *CreateJobsInput) Validate() error {
 	if c.CldEnv == nil {
 		return errors.New("chainlink deployment env not set")
-	}
-	if c.BlockchainOutput == nil {
-		return errors.New("blockchain output not set")
 	}
 	if c.DonTopology == nil {
 		return errors.New("don topology not set")
 	}
-	if len(c.DonTopology.MetaDons) == 0 {
-		return errors.New("meta dons not set")
-	}
-	if c.JdOutput == nil {
-		return errors.New("jd output not set")
+	if len(c.DonTopology.DonsWithMetadata) == 0 {
+		return errors.New("topology dons not set")
 	}
 	if len(c.DonToJobSpecs) == 0 {
 		return errors.New("don to job specs not set")
-	}
-	if len(c.DonToConfigOverrides) == 0 {
-		return errors.New("don to config overrides not set")
 	}
 
 	return nil
 }
 
-type ConfigureDonOutput struct {
-	JdOutput *deployment.OffchainClient
-}
-
 type DebugInput struct {
-	DonTopology      *DonTopology
+	DebugDons        []*DebugDon
 	BlockchainOutput *blockchain.Output
 }
 
+type DebugDon struct {
+	Flags          []string
+	ContainerNames []string
+	NodesMetadata  []*NodeMetadata
+}
+
 func (d *DebugInput) Validate() error {
-	if d.DonTopology == nil {
+	if d.DebugDons == nil {
 		return errors.New("don topology not set")
 	}
-	if len(d.DonTopology.MetaDons) == 0 {
-		return errors.New("meta dons not set")
+	if len(d.DebugDons) == 0 {
+		return errors.New("debug don not set")
+	}
+	for _, don := range d.DebugDons {
+		if len(don.ContainerNames) == 0 {
+			return errors.New("container names not set")
+		}
+		if len(don.NodesMetadata) == 0 {
+			return errors.New("nodes metadata not set")
+		}
+		if len(don.Flags) == 0 {
+			return errors.New("flags not set")
+		}
 	}
 	if d.BlockchainOutput == nil {
 		return errors.New("blockchain output not set")
@@ -217,7 +221,7 @@ func (d *DebugInput) Validate() error {
 
 type ConfigureKeystoneInput struct {
 	ChainSelector uint64
-	DonTopology   *DonTopology
+	Topology      *Topology
 	CldEnv        *deployment.Environment
 }
 
@@ -225,10 +229,10 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	if c.ChainSelector == 0 {
 		return errors.New("chain selector not set")
 	}
-	if c.DonTopology == nil {
+	if c.Topology == nil {
 		return errors.New("don topology not set")
 	}
-	if len(c.DonTopology.MetaDons) == 0 {
+	if len(c.Topology.DonsMetadata) == 0 {
 		return errors.New("meta dons not set")
 	}
 	if c.CldEnv == nil {
@@ -238,19 +242,21 @@ func (c *ConfigureKeystoneInput) Validate() error {
 	return nil
 }
 
+type GatewayConnectorDons struct {
+	MembersEthAddresses []string
+	ID                  uint32
+}
+
 type GatewayConnectorOutput struct {
-	Host string // do not set, it will be set dynamically
+	Dons []GatewayConnectorDons // do not set, it will be set dynamically
+	Host string                 // do not set, it will be set dynamically
 	Path string
 	Port int
 }
 
 type GeneratePoRJobSpecsInput struct {
-	CldEnv                 *deployment.Environment
-	Don                    *devenv.DON
-	NodeOutput             *WrappedNodeOutput
+	DonsWithMetadata       []*DonWithMetadata
 	BlockchainOutput       *blockchain.Output
-	DonID                  uint32
-	Flags                  []string
 	OCR3CapabilityAddress  common.Address
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
@@ -259,26 +265,11 @@ type GeneratePoRJobSpecsInput struct {
 }
 
 func (g *GeneratePoRJobSpecsInput) Validate() error {
-	if g.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	if g.Don == nil {
-		return errors.New("don not set")
-	}
-	if len(g.Don.Nodes) == 0 {
-		return errors.New("don nodes not set")
-	}
-	if g.NodeOutput == nil {
-		return errors.New("node output not set")
+	if len(g.DonsWithMetadata) == 0 {
+		return errors.New("metadata dons not set")
 	}
 	if g.BlockchainOutput == nil {
 		return errors.New("blockchain output not set")
-	}
-	if g.DonID == 0 {
-		return errors.New("don id not set")
-	}
-	if len(g.Flags) == 0 {
-		return errors.New("flags not set")
 	}
 	if g.OCR3CapabilityAddress == (common.Address{}) {
 		return errors.New("ocr3 capability address not set")
@@ -286,20 +277,22 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 	if g.CronCapBinName == "" {
 		return errors.New("cron cap bin name not set")
 	}
-	if g.GatewayConnectorOutput == (GatewayConnectorOutput{}) {
-		return errors.New("gateway connector output not set")
+	if g.GatewayConnectorOutput.Path == "" {
+		return errors.New("gateway connector path is not set")
+	}
+	if g.GatewayConnectorOutput.Port == 0 {
+		return errors.New("gateway connector port is not set")
 	}
 
 	return nil
 }
 
 type GeneratePoRConfigsInput struct {
-	Don                         *devenv.DON
-	NodeInput                   *CapabilitiesAwareNodeSet
+	DonMetadata                 *DonMetadata
 	BlockchainOutput            *blockchain.Output
 	DonID                       uint32
 	Flags                       []string
-	PeeringData                 PeeringData
+	PeeringData                 CapabilitiesPeeringData
 	CapabilitiesRegistryAddress common.Address
 	WorkflowRegistryAddress     common.Address
 	ForwarderAddress            common.Address
@@ -307,14 +300,8 @@ type GeneratePoRConfigsInput struct {
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
-	if g.Don == nil {
-		return errors.New("don not set")
-	}
-	if len(g.Don.Nodes) == 0 {
+	if len(g.DonMetadata.NodesMetadata) == 0 {
 		return errors.New("don nodes not set")
-	}
-	if g.NodeInput == nil {
-		return errors.New("node input not set")
 	}
 	if g.BlockchainOutput == nil {
 		return errors.New("blockchain output not set")
@@ -325,7 +312,7 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if len(g.Flags) == 0 {
 		return errors.New("flags not set")
 	}
-	if g.PeeringData == (PeeringData{}) {
+	if g.PeeringData == (CapabilitiesPeeringData{}) {
 		return errors.New("peering data not set")
 	}
 	if g.CapabilitiesRegistryAddress == (common.Address{}) {
@@ -344,27 +331,62 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	return nil
 }
 
-// DonWithMetadata is a struct that holds the DON references and various metadata
+type ToplogyInput struct {
+	NodeSetInput    []*CapabilitiesAwareNodeSet
+	DonToEthAddress map[uint32][]common.Address
+}
+
 type DonWithMetadata struct {
-	DON        *devenv.DON
-	NodeInput  *CapabilitiesAwareNodeSet
-	NodeOutput *WrappedNodeOutput
-	ID         uint32
-	Flags      []string
+	DON *devenv.DON
+	*DonMetadata
+}
+
+type DonMetadata struct {
+	NodesMetadata []*NodeMetadata
+	Flags         []string
+	ID            uint32
+	Name          string
+}
+
+type Label struct {
+	Key   string
+	Value string
+}
+
+func LabelFromProto(p *ptypes.Label) (*Label, error) {
+	if p.Value == nil {
+		return nil, errors.New("value not set")
+	}
+	return &Label{
+		Key:   p.Key,
+		Value: *p.Value,
+	}, nil
+}
+
+type NodeMetadata struct {
+	Labels []*Label
+}
+
+type Topology struct {
+	WorkflowDONID          uint32
+	DonsMetadata           []*DonMetadata
+	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 type DonTopology struct {
-	WorkflowDONID uint32
-	MetaDons      []*DonWithMetadata
+	WorkflowDonID    uint32
+	DonsWithMetadata []*DonWithMetadata
 }
 
 type CapabilitiesAwareNodeSet struct {
 	*ns.Input
-	Capabilities []string `toml:"capabilities"`
-	DONType      string   `toml:"don_type"`
+	Capabilities       []string
+	DONTypes           []string
+	BootstrapNodeIndex int // -1 -> no bootstrap, only used if the DON doesn't hae the GatewayDON flag
+	GatewayNodeIndex   int // -1 -> no gateway, only used if the DON has the GatewayDON flag
 }
 
-type PeeringData struct {
+type CapabilitiesPeeringData struct {
 	GlobalBootstraperPeerID string
 	GlobalBootstraperHost   string
 	Port                    int
@@ -374,4 +396,98 @@ type OCRPeeringData struct {
 	OCRBootstraperPeerID string
 	OCRBootstraperHost   string
 	Port                 int
+}
+
+type GenerateKeysInput struct {
+	GenerateEVMKeysForChainIDs []int
+	GenerateP2PKeys            bool
+	Topology                   *Topology
+	Password                   string
+}
+
+func (g *GenerateKeysInput) Validate() error {
+	if g.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(g.Topology.DonsMetadata) == 0 {
+		return errors.New("metadata not set")
+	}
+	if g.Topology.WorkflowDONID == 0 {
+		return errors.New("workflow don id not set")
+	}
+	return nil
+}
+
+type DonsToEVMKeys = map[uint32]*types.EVMKeys
+type DonsToP2PKeys = map[uint32]*types.P2PKeys
+
+type GenerateKeysOutput struct {
+	EVMKeys DonsToEVMKeys
+	P2PKeys DonsToP2PKeys
+}
+
+type GenerateSecretsInput struct {
+	DonMetadata *DonMetadata
+	EVMKeys     *types.EVMKeys
+	P2PKeys     *types.P2PKeys
+}
+
+func (g *GenerateSecretsInput) Validate() error {
+	if g.DonMetadata == nil {
+		return errors.New("don metadata not set")
+	}
+	if g.EVMKeys != nil {
+		if len(g.EVMKeys.ChainIDs) == 0 {
+			return errors.New("chain ids not set")
+		}
+		if len(g.EVMKeys.EncryptedJSONs) == 0 {
+			return errors.New("encrypted jsons not set")
+		}
+	}
+	if g.P2PKeys != nil {
+		if len(g.P2PKeys.EncryptedJSONs) == 0 {
+			return errors.New("encrypted jsons not set")
+		}
+	}
+
+	return nil
+}
+
+type FullCLDEnvironmentInput struct {
+	JdOutput          *jd.Output
+	BlockchainOutput  *blockchain.Output
+	SethClient        *seth.Client
+	NodeSetOutput     []*WrappedNodeOutput
+	ExistingAddresses deployment.AddressBook
+	Topology          *Topology
+}
+
+func (f *FullCLDEnvironmentInput) Validate() error {
+	if f.JdOutput == nil {
+		return errors.New("jd output not set")
+	}
+	if f.BlockchainOutput == nil {
+		return errors.New("blockchain output not set")
+	}
+	if f.SethClient == nil {
+		return errors.New("seth client not set")
+	}
+	if len(f.NodeSetOutput) == 0 {
+		return errors.New("node set output not set")
+	}
+	if f.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(f.Topology.DonsMetadata) == 0 {
+		return errors.New("metadata not set")
+	}
+	if f.Topology.WorkflowDONID == 0 {
+		return errors.New("workflow don id not set")
+	}
+	return nil
+}
+
+type FullCLDEnvironmentOutput struct {
+	Environment *deployment.Environment
+	DonTopology *DonTopology
 }

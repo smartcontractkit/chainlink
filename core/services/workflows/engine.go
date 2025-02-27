@@ -26,12 +26,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 const (
 	fifteenMinutesSec            = 15 * 60
 	reservedFieldNameStepTimeout = "cre_step_timeout"
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
+)
+
+var (
+	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
+	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
 )
 
 type stepRequest struct {
@@ -139,14 +145,29 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock       clockwork.Clock
-	ratelimiter *ratelimiter.RateLimiter
+	clock          clockwork.Clock
+	ratelimiter    *ratelimiter.RateLimiter
+	workflowLimits *syncerlimiter.Limits
 }
 
 func (e *Engine) Start(_ context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
+
+		// validate if adding another workflow would exceed either the global or per owner engine count limit
+		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
+		if !globalAllow {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
+			return errGlobalWorkflowCountLimitReached
+		}
+
+		if !ownerAllow {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
+			return errPerOwnerWorkflowCountLimitReached
+		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
 
@@ -1167,10 +1188,11 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
+
 		for idx, t := range e.workflow.triggers {
 			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
-				return err
+				e.logger.Errorf("failed to deregister trigger: %v", err)
 			}
 		}
 
@@ -1219,6 +1241,9 @@ func (e *Engine) Close() error {
 		if err != nil {
 			return err
 		}
+		// decrement the global and per owner engine counter
+		e.workflowLimits.Decrement(e.workflow.owner)
+
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
 		return nil
@@ -1251,6 +1276,7 @@ type Config struct {
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
 	RateLimiter          *ratelimiter.RateLimiter
+	WorkflowLimits       *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int
@@ -1331,6 +1357,14 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
+	if cfg.WorkflowLimits == nil {
+		return nil, &workflowError{reason: "workflowLimits must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
@@ -1384,6 +1418,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
+		workflowLimits:       cfg.WorkflowLimits,
 	}
 
 	return engine, nil
