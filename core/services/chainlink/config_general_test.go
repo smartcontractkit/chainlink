@@ -42,6 +42,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 
 		assert.False(t, config.Insecure().DevWebServer())
 		assert.False(t, config.Insecure().DisableRateLimiting())
+		assert.False(t, config.Insecure().DisableSSRFProtection())
 		assert.False(t, config.Insecure().InfiniteDepthQueries())
 		assert.False(t, config.Insecure().OCRDevelopmentMode())
 	})
@@ -51,6 +52,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 			OverrideFn: func(c *Config, s *Secrets) {
 				*c.Insecure.DevWebServer = true
 				*c.Insecure.DisableRateLimiting = true
+				*c.Insecure.DisableSSRFProtection = true
 				*c.Insecure.InfiniteDepthQueries = true
 				*c.AuditLogger.Enabled = true
 			}}.New()
@@ -61,6 +63,8 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 
 		assert.False(t, config.Insecure().DevWebServer())
 		assert.False(t, config.Insecure().DisableRateLimiting())
+		assert.False(t, config.Insecure().DisableSSRFProtection())
+		assert.False(t, config.Insecure().DisableSSRFProtection())
 		assert.False(t, config.Insecure().InfiniteDepthQueries())
 	})
 
@@ -69,6 +73,7 @@ func TestTOMLGeneralConfig_InsecureConfig(t *testing.T) {
 		  [insecure]
 		  DevWebServer = true
 		  DisableRateLimiting = false
+		  DisableSSRFProtection = false
 		  InfiniteDepthQueries = false
 		  OCRDevelopmentMode = false
 		`

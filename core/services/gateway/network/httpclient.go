@@ -77,29 +77,44 @@ type HTTPResponse struct {
 }
 
 type httpClient struct {
-	client *safeurl.WrappedClient
+	client client
 	config HTTPClientConfig
 	lggr   logger.Logger
 }
 
+type client interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 // NewHTTPClient creates a new NewHTTPClient
 // As of now, the client does not support TLS configuration but may be extended in the future
-func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger) (HTTPClient, error) {
+// disableSSRFProtection is a flag to disable SSRF protection for testing purposes and should be set to FALSE for production
+func NewHTTPClient(config HTTPClientConfig, lggr logger.Logger, disableSSRFProtection bool) (HTTPClient, error) {
 	config.ApplyDefaults()
-	safeConfig := safeurl.
-		GetConfigBuilder().
-		SetTimeout(config.DefaultTimeout).
-		SetAllowedIPs(config.AllowedIPs...).
-		SetAllowedPorts(config.AllowedPorts...).
-		SetAllowedSchemes(config.AllowedSchemes...).
-		SetBlockedIPs(config.BlockedIPs...).
-		SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
-		SetCheckRedirect(disableRedirects).
-		Build()
+	var client client
+	if disableSSRFProtection {
+		lggr.Warn("SSRF protection is disabled. Please enable it in production.")
+		client = &http.Client{
+			Timeout:   config.DefaultTimeout,
+			Transport: http.DefaultTransport,
+		}
+	} else {
+		safeConfig := safeurl.
+			GetConfigBuilder().
+			SetTimeout(config.DefaultTimeout).
+			SetAllowedIPs(config.AllowedIPs...).
+			SetAllowedPorts(config.AllowedPorts...).
+			SetAllowedSchemes(config.AllowedSchemes...).
+			SetBlockedIPs(config.BlockedIPs...).
+			SetBlockedIPsCIDR(config.BlockedIPsCIDR...).
+			SetCheckRedirect(disableRedirects).
+			Build()
+		client = safeurl.Client(safeConfig)
+	}
 
 	return &httpClient{
 		config: config,
-		client: safeurl.Client(safeConfig),
+		client: client,
 		lggr:   lggr,
 	}, nil
 }

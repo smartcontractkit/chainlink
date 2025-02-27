@@ -1377,10 +1377,11 @@ func (s *Sentry) setFrom(f *Sentry) {
 }
 
 type Insecure struct {
-	DevWebServer         *bool
-	OCRDevelopmentMode   *bool
-	InfiniteDepthQueries *bool
-	DisableRateLimiting  *bool
+	DevWebServer          *bool
+	OCRDevelopmentMode    *bool
+	InfiniteDepthQueries  *bool
+	DisableRateLimiting   *bool
+	DisableSSRFProtection *bool
 }
 
 func (ins *Insecure) ValidateConfig() (err error) {
@@ -1416,6 +1417,9 @@ func (ins *Insecure) setFrom(f *Insecure) {
 	}
 	if v := f.DisableRateLimiting; v != nil {
 		ins.DisableRateLimiting = f.DisableRateLimiting
+	}
+	if v := f.DisableSSRFProtection; v != nil {
+		ins.DisableSSRFProtection = f.DisableSSRFProtection
 	}
 	if v := f.OCRDevelopmentMode; v != nil {
 		ins.OCRDevelopmentMode = f.OCRDevelopmentMode

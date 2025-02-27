@@ -471,6 +471,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 				legacyEVMChains,
 				keyStore.Eth()),
 			job.Gateway: gateway.NewDelegate(
+				cfg,
 				legacyEVMChains,
 				keyStore.Eth(),
 				opts.DS,

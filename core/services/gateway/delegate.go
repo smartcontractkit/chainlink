@@ -10,24 +10,31 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
+	gatewayconfig "github.com/smartcontractkit/chainlink/v2/core/services/gateway/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type Delegate struct {
+	cfg          Config
 	legacyChains legacyevm.LegacyChainContainer
 	ks           keystore.Eth
 	ds           sqlutil.DataSource
 	lggr         logger.Logger
 }
 
+type Config interface {
+	Insecure() config.Insecure
+}
+
 var _ job.Delegate = (*Delegate)(nil)
 
-func NewDelegate(legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, lggr logger.Logger) *Delegate {
+func NewDelegate(config Config, legacyChains legacyevm.LegacyChainContainer, ks keystore.Eth, ds sqlutil.DataSource, lggr logger.Logger) *Delegate {
 	return &Delegate{
+		cfg:          config,
 		legacyChains: legacyChains,
 		ks:           ks,
 		ds:           ds,
@@ -50,12 +57,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, errors.Errorf("services.Delegate expects a *jobSpec.GatewaySpec to be present, got %v", spec)
 	}
 
-	var gatewayConfig config.GatewayConfig
+	var gatewayConfig gatewayconfig.GatewayConfig
 	err2 := json.Unmarshal(spec.GatewaySpec.GatewayConfig.Bytes(), &gatewayConfig)
 	if err2 != nil {
 		return nil, errors.Wrap(err2, "unmarshal gateway config")
 	}
-	httpClient, err := network.NewHTTPClient(gatewayConfig.HTTPClientConfig, d.lggr)
+	httpClient, err := network.NewHTTPClient(gatewayConfig.HTTPClientConfig, d.lggr, d.cfg.Insecure().DisableSSRFProtection())
 	if err != nil {
 		return nil, err
 	}

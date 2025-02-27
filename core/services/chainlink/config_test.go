@@ -241,10 +241,11 @@ func TestConfig_Marshal(t *testing.T) {
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: commoncfg.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
-				DevWebServer:         ptr(false),
-				OCRDevelopmentMode:   ptr(false),
-				InfiniteDepthQueries: ptr(false),
-				DisableRateLimiting:  ptr(false),
+				DevWebServer:          ptr(false),
+				OCRDevelopmentMode:    ptr(false),
+				InfiniteDepthQueries:  ptr(false),
+				DisableRateLimiting:   ptr(false),
+				DisableSSRFProtection: ptr(false),
 			},
 			Tracing: toml.Tracing{
 				Enabled:         ptr(true),
@@ -823,6 +824,7 @@ DevWebServer = false
 OCRDevelopmentMode = false
 InfiniteDepthQueries = false
 DisableRateLimiting = false
+DisableSSRFProtection = false
 
 [Tracing]
 Enabled = true

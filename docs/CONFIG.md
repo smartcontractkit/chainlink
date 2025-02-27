@@ -1829,6 +1829,7 @@ DevWebServer = false # Default
 OCRDevelopmentMode = false # Default
 InfiniteDepthQueries = false # Default
 DisableRateLimiting = false # Default
+DisableSSRFProtection = false # Default
 ```
 Insecure config family is only allowed in development builds.
 
@@ -1856,6 +1857,13 @@ InfiniteDepthQueries skips graphql query depth limit checks.
 DisableRateLimiting = false # Default
 ```
 DisableRateLimiting skips ratelimiting on asset requests.
+
+### DisableRateLimiting
+```toml
+DisableSSRFProtection = false # Default
+```
+Disable validation of IPs and URLs of outgoing requests.
+
 
 ## Tracing
 ```toml

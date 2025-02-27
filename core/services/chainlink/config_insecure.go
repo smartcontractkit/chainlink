@@ -19,6 +19,11 @@ func (i *insecureConfig) DisableRateLimiting() bool {
 		*i.c.DisableRateLimiting
 }
 
+func (i *insecureConfig) DisableSSRFProtection() bool {
+	return build.IsDev() && i.c.DisableSSRFProtection != nil &&
+		*i.c.DisableSSRFProtection
+}
+
 func (i *insecureConfig) OCRDevelopmentMode() bool {
 	// OCRDevelopmentMode is allowed in TestBuilds as well
 	return (build.IsDev() || build.IsTest()) && i.c.OCRDevelopmentMode != nil &&
