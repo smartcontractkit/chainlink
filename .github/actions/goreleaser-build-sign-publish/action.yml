@@ -37,6 +37,16 @@ inputs:
 runs:
   using: composite
   steps:
+    # See https://github.com/orgs/community/discussions/25678#discussioncomment-5242449
+    - name: Delete unused tools to free up space
+      shell: bash
+      run: |
+        sudo rm -rf /opt/hostedtoolcache/CodeQL
+        sudo rm -rf /opt/hostedtoolcache/PyPy
+        sudo rm -rf /opt/hostedtoolcache/Python
+        sudo rm -rf /opt/hostedtoolcache/Ruby
+        sudo rm -rf /opt/hostedtoolcache/Java_*
+
     - # We need QEMU to test the cross architecture builds after they're built.
       name: Set up QEMU
       uses: docker/setup-qemu-action@4574d27a4764455b42196d70a065bc6853246a25 # v3.4.0

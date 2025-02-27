@@ -207,10 +207,6 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 	allChains := e.Env.AllChainSelectors()
 	homeChain := s.Chains[e.HomeChainSel]
 	ocrConfigs := make(map[uint64]v1_6.CCIPOCRParams)
-	ocrParams := v1_6.DeriveCCIPOCRParams(
-		v1_6.WithDefaultCommitOffChainConfig(e.FeedChainSel, nil),
-		v1_6.WithDefaultExecuteOffChainConfig(nil),
-	)
 	// Remove a don
 	donsBefore, err := homeChain.CapabilityRegistry.GetDONs(nil)
 	require.NoError(t, err)
@@ -254,7 +250,7 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 			break
 		}
 	}
-	ocrConfigs[donRemovedForChain] = ocrParams
+	ocrConfigs[donRemovedForChain] = v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
 	// try to add the another don
 	e.Env, err = commoncs.Apply(t, e.Env, nil,
 		commoncs.Configure(

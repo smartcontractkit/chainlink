@@ -1285,7 +1285,7 @@ func Test_Service_ProposeJob(t *testing.T) {
 				svc.orm.On("ExistsSpecByJobProposalIDAndVersion", mock.Anything, jpFluxMonitor.ID, argsFluxMonitor.Version).Return(true, nil)
 			},
 			args:    argsFluxMonitor,
-			wantErr: "proposed job spec version already exists",
+			wantErr: "version conflict",
 		},
 		{
 			name: "upsert error",

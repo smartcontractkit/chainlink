@@ -536,7 +536,6 @@ func TestTokenAdminRegistry(t *testing.T) {
 					ccipChangesetSolana.SetTokenMintAuthorityConfig{
 						ChainSelector: solChain,
 						TokenPubkey:   linkTokenAddress,
-						TokenProgram:  ccipChangeset.SPL2022Tokens,
 						NewAuthority:  newTokenAdmin,
 					},
 				),

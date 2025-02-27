@@ -167,12 +167,14 @@ type CreateSolanaTokenATAConfig struct {
 
 func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
 
-	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-
+	
 	// create instructions for each ATA
 	instructions := []solana.Instruction{}
 	for _, ata := range cfg.ATAList {
@@ -202,14 +204,15 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 type SetTokenMintAuthorityConfig struct {
 	ChainSelector uint64
 	TokenPubkey   solana.PublicKey
-	TokenProgram  deployment.ContractType
 	NewAuthority  solana.PublicKey
 }
 
 func SetTokenMintAuthority(e deployment.Environment, cfg SetTokenMintAuthorityConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
 
-	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
