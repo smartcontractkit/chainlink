@@ -149,9 +149,10 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 			_, err = psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
 			assert.EqualError(t, err, "Verify failed; failed to decode retirement report: codec decode failed")
 
-			exampleRetirementReport := datastreamsllo.RetirementReport{ValidAfterSeconds: map[llotypes.ChannelID]uint32{
-				0: 1,
-			},
+			exampleRetirementReport := datastreamsllo.RetirementReport{
+				ValidAfterNanoseconds: map[llotypes.ChannelID]uint64{
+					0: 1,
+				},
 			}
 
 			// enough valid sigs and codec decode succeeds
