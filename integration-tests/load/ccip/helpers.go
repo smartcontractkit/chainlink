@@ -412,6 +412,35 @@ func subscribeExecutionEvents(
 	}
 }
 
+func subscribeAlreadyExecuted(
+	ctx context.Context,
+	offRamp offramp.OffRamp,
+	lggr logger.Logger,
+	destChain uint64,
+) {
+	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return offRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+			Context: ctx,
+			Start:   nil,
+		}, sink)
+	})
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-subscription.Err():
+			lggr.Errorw("error in alreadyExecuted subscription",
+				"err", subErr)
+			return
+		case ev := <-sink:
+			lggr.Errorw("received already executed event", "seqNr", ev.SequenceNumber, "sourceChain", ev.SourceChainSelector)
+		}
+	}
+}
+
 // this function will create len(targetChains) new addresses, and send funds to them on every targetChain
 func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)

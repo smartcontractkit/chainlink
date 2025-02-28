@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	"math/rand"
 	"time"
@@ -191,13 +192,18 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 		return router.ClientEVM2AnyMessage{}, err
 	}
 
+	extraArgs, err := GetEVMExtraArgsV2(nil, true)
+	if err != nil {
+		m.l.Error("Error encoding extra args")
+		return router.ClientEVM2AnyMessage{}, err
+	}
 	messages := []router.ClientEVM2AnyMessage{
 		{
 			Receiver:     rcv,
 			Data:         common.Hex2Bytes("0xabcdefabcdef"),
 			TokenAmounts: nil,
 			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
+			ExtraArgs:    extraArgs,
 		},
 		{
 			Receiver: rcv,
@@ -209,7 +215,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 			},
 			Data:      common.Hex2Bytes("0xabcdefabcdef"),
 			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
+			ExtraArgs: extraArgs,
 		},
 		{
 			Receiver: rcv,
@@ -221,7 +227,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 				},
 			},
 			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
+			ExtraArgs: extraArgs,
 		},
 	}
 	// Select a random message
@@ -234,4 +240,15 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 	default:
 		return messages[2], nil
 	}
+}
+
+func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) {
+	EVMV2Tag := hexutil.MustDecode("0x181dcf10")
+
+	encodedArgs, err := utils.ABIEncode(`[{"type":"uint256"},{"type":"bool"}]`, gasLimit, allowOutOfOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(EVMV2Tag, encodedArgs...), nil
 }
