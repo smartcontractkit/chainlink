@@ -263,6 +263,10 @@ func performCommonChecks(
 	}
 
 	// Check if destChainSelector is Hedera, if so, skip fee boosting message for now due to token decimal mismatches.
+	// This is required because Hedera uses 8 decimals for its native token instead of the usual 18 and when we
+	// calculate gasLimit * gasPrice, we assume we're operating with 18 decimals. Since the multiplier in the jobspec
+	// is set to 1e10, calculateUsdPer1e18TokenAmount() will return a value of 1e28 instead of 1e18 which in turn will
+	// trigger the 'insufficient remaining fee' error below.
 	if isHederaSelector(batchCtx.destChainSelector) {
 		msgLggr.Infow("Skipping fee boosting for Hedera destination chain")
 		return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
