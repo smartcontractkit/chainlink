@@ -13,6 +13,8 @@ import (
 	context "context"
 
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
 
@@ -205,6 +207,26 @@ func (_m *Chain) Config() config.ChainScopedConfig {
 	return r0
 }
 
+// Config provides a mock function with no fields
+func (_m *Chain) ChainSelectorObj() *chainselectors.ChainSelectorsObj {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for Config")
+	}
+
+	var r0 *chainselectors.ChainSelectorsObj
+	if rf, ok := ret.Get(0).(func() *chainselectors.ChainSelectorsObj); ok {
+		r0 = rf()
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*chainselectors.ChainSelectorsObj)
+		}
+	}
+
+	return r0
+}
+
 // Chain_Config_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Config'
 type Chain_Config_Call struct {
 	*mock.Call
@@ -213,6 +235,11 @@ type Chain_Config_Call struct {
 // Config is a helper method to define mock.On call
 func (_e *Chain_Expecter) Config() *Chain_Config_Call {
 	return &Chain_Config_Call{Call: _e.mock.On("Config")}
+}
+
+// ChainSelectorObj is a helper method to define mock.On call
+func (_e *Chain_Expecter) ChainSelectorObj() *Chain_Config_Call {
+	return &Chain_Config_Call{Call: _e.mock.On("ChainSelectorObj")}
 }
 
 func (_c *Chain_Config_Call) Run(run func()) *Chain_Config_Call {

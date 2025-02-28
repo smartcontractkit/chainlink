@@ -231,6 +231,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 					ccipevm.AddressCodec{},
 					ccipsolana.AddressCodec{},
 				)),
+			d.evmConfigs,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(

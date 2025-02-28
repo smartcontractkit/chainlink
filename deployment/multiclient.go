@@ -66,7 +66,12 @@ func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiCl
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chain id: %w", err)
 		}
-		details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
+		csObj, err := chainselectors.NewChainSelectorsObj(chainselectors.ChainInfo{})
+		if err != nil {
+			return nil, err
+		}
+
+		details, err := csObj.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
 		if err != nil {
 			return nil, fmt.Errorf("failed to lookup chain details %w", err)
 		}

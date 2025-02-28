@@ -183,7 +183,11 @@ func IsValidChainSelector(cs uint64) error {
 	if cs == 0 {
 		return errors.New("chain selector must be set")
 	}
-	_, err := chain_selectors.GetSelectorFamily(cs)
+	csObj, err := chain_selectors.NewChainSelectorsObj(chain_selectors.ChainInfo{})
+	if err != nil {
+		return err
+	}
+	_, err = csObj.GetSelectorFamily(cs)
 	if err != nil {
 		return err
 	}
@@ -191,15 +195,19 @@ func IsValidChainSelector(cs uint64) error {
 }
 
 func ChainInfo(cs uint64) (chain_selectors.ChainDetails, error) {
-	id, err := chain_selectors.GetChainIDFromSelector(cs)
+	csObj, err := chain_selectors.NewChainSelectorsObj(chain_selectors.ChainInfo{})
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
 	}
-	family, err := chain_selectors.GetSelectorFamily(cs)
+	id, err := csObj.GetChainIDFromSelector(cs)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
 	}
-	info, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, family)
+	family, err := csObj.GetSelectorFamily(cs)
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
+	info, err := csObj.GetChainDetailsByChainIDAndFamily(id, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
 	}

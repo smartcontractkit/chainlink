@@ -14,8 +14,8 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
-
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -114,6 +114,7 @@ type pluginOracleCreator struct {
 	homeChainSelector     cciptypes.ChainSelector
 	relayers              map[types.RelayID]loop.Relayer
 	addressCodec          cciptypes.AddressCodec
+	evmConfig             toml.EVMConfigs
 }
 
 func NewPluginOracleCreator(
@@ -132,6 +133,7 @@ func NewPluginOracleCreator(
 	homeChainReader ccipreaderpkg.HomeChain,
 	homeChainSelector cciptypes.ChainSelector,
 	addressCodec cciptypes.AddressCodec,
+	evmConfig toml.EVMConfigs,
 ) cctypes.OracleCreator {
 	return &pluginOracleCreator{
 		ocrKeyBundles:         ocrKeyBundles,
@@ -149,6 +151,7 @@ func NewPluginOracleCreator(
 		homeChainReader:       homeChainReader,
 		homeChainSelector:     homeChainSelector,
 		addressCodec:          addressCodec,
+		evmConfig:             evmConfig,
 	}
 }
 
@@ -161,17 +164,14 @@ func (i *pluginOracleCreator) Type() cctypes.OracleType {
 func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config cctypes.OCR3ConfigWithMeta) (cctypes.CCIPOracle, error) {
 	pluginType := cctypes.PluginType(config.Config.PluginType)
 	chainSelector := uint64(config.Config.ChainSelector)
-	csobj, err := chainsel.NewChainSelectorsObj(chainsel.ChainInfo{})
-	if err != nil {
-		return nil, err
-	}
 
-	destChainFamily, err := csobj.GetSelectorFamily(chainSelector)
+	csObj := i.evmConfig.ChainSelectorsOverride()
+	destChainFamily, err := csObj.GetSelectorFamily(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family from selector %d: %w", config.Config.ChainSelector, err)
 	}
 
-	destChainID, err := csobj.GetChainIDFromSelector(chainSelector)
+	destChainID, err := csObj.GetChainIDFromSelector(chainSelector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain ID from selector %d: %w", chainSelector, err)
 	}
@@ -285,13 +285,13 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
 	var transmitter ocr3types.ContractTransmitter[[]byte]
-
-	chainID, err := chainsel.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
+	csobj := i.evmConfig.ChainSelectorsOverride()
+	chainID, err := csobj.GetChainIDFromSelector(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
 	}
 
-	chainFamily, err := chainsel.GetSelectorFamily(uint64(config.Config.ChainSelector))
+	chainFamily, err := csobj.GetSelectorFamily(uint64(config.Config.ChainSelector))
 	if err != nil {
 		return nil, nil, fmt.Errorf("unsupported chain selector %d %w", config.Config.ChainSelector, err)
 	}
@@ -396,7 +396,9 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 		execBatchGasLimit = defaultExecGasLimit
 	}
 
-	homeChainID, err := chainsel.GetChainIDFromSelector(uint64(i.homeChainSelector))
+	csobj := i.evmConfig.ChainSelectorsOverride()
+
+	homeChainID, err := csobj.GetChainIDFromSelector(uint64(i.homeChainSelector))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to get chain ID from chain selector %d: %w", i.homeChainSelector, err)
 	}
@@ -406,7 +408,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	for relayID, relayer := range i.relayers {
 		chainID := relayID.ChainID
 		relayChainFamily := relayID.Network
-		chainDetails, err1 := chainsel.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
+		chainDetails, err1 := csobj.GetChainDetailsByChainIDAndFamily(chainID, relayChainFamily)
 		chainSelector := cciptypes.ChainSelector(chainDetails.ChainSelector)
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)

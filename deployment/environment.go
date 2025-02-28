@@ -347,17 +347,21 @@ func (n Node) OCRConfigForChainDetails(details chain_selectors.ChainDetails) (OC
 }
 
 func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
-	fam, err := chain_selectors.GetSelectorFamily(chainSel)
+	csObj, err := chain_selectors.NewChainSelectorsObj(chain_selectors.ChainInfo{})
+	if err != nil {
+		return OCRConfig{}, false
+	}
+	fam, err := csObj.GetSelectorFamily(chainSel)
 	if err != nil {
 		return OCRConfig{}, false
 	}
 
-	id, err := chain_selectors.GetChainIDFromSelector(chainSel)
+	id, err := csObj.GetChainIDFromSelector(chainSel)
 	if err != nil {
 		return OCRConfig{}, false
 	}
 
-	want, err := chain_selectors.GetChainDetailsByChainIDAndFamily(id, fam)
+	want, err := csObj.GetChainDetailsByChainIDAndFamily(id, fam)
 	if err != nil {
 		return OCRConfig{}, false
 	}
@@ -578,8 +582,12 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
+	csObj, err := chain_selectors.NewChainSelectorsObj(chain_selectors.ChainInfo{})
+	if err != nil {
+		return chain_selectors.ChainDetails{}, err
+	}
 
-	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
+	details, err := csObj.GetChainDetailsByChainIDAndFamily(c.Id, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
 	}
@@ -587,7 +595,12 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 }
 
 func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error) {
-	family, err := chain_selectors.GetSelectorFamily(details.ChainSelector)
+	csObj, err := chain_selectors.NewChainSelectorsObj(chain_selectors.ChainInfo{})
+	if err != nil {
+		return nil, err
+	}
+
+	family, err := csObj.GetSelectorFamily(details.ChainSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -606,7 +619,7 @@ func detailsToChain(details chain_selectors.ChainDetails) (*nodev1.Chain, error)
 		return nil, fmt.Errorf("unsupported chain family %s", family)
 	}
 
-	id, err := chain_selectors.GetChainIDFromSelector(details.ChainSelector)
+	id, err := csObj.GetChainIDFromSelector(details.ChainSelector)
 	if err != nil {
 		return nil, err
 	}

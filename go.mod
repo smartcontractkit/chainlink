@@ -6,6 +6,7 @@ toolchain go1.23.4
 
 replace (
 	github.com/smartcontractkit/chain-selectors v1.0.40 => ../chain-selectors
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250221121938-dd0db587bff4 => ../chainlink-ccip
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250213145514-41d874782c02 => ../chainlink-integrations/evm
 )
 
