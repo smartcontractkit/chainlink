@@ -80,8 +80,17 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		newTokenAddress,
 		e.SolChains[solChain].DeployerKey.PublicKey(),
 	)
+	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	if mcms {
 		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
+		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
+			MCMS: &ccipChangeset.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+			RouterOwnedByTimelock:    true,
+			FeeQuoterOwnedByTimelock: true,
+			OffRampOwnedByTimelock:   true,
+		}
 	}
 	require.NoError(t, err)
 	remoteConfig := solBaseTokenPool.RemoteConfig{
@@ -143,6 +152,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						InboundRateLimit:    inboundConfig,
 						OutboundRateLimit:   outboundConfig,
 						PoolType:            testCase.poolType,
+						MCMSSolana:          mcmsConfig,
 					},
 				),
 			},
@@ -180,7 +190,6 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				Rate:     0,
 			}
 
-			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if mcms {
 				e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
 				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
@@ -192,17 +201,8 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						t, &e, solChain, false, false, false, false, nil, []solana.PublicKey{poolConfigPDA})
 					lockAndReleaseOwnedByTimelock[tokenAddress] = true
 				}
-				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:               true,
-					FeeQuoterOwnedByTimelock:            true,
-					OffRampOwnedByTimelock:              true,
-					BurnMintTokenPoolOwnedByTimelock:    burnAndMintOwnedByTimelock,
-					LockReleaseTokenPoolOwnedByTimelock: lockAndReleaseOwnedByTimelock,
-				}
-				require.NotNil(t, mcmsConfig)
+				mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
+				mcmsConfig.LockReleaseTokenPoolOwnedByTimelock = lockAndReleaseOwnedByTimelock
 				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
 			}
 
