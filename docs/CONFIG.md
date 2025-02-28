@@ -1858,12 +1858,11 @@ DisableRateLimiting = false # Default
 ```
 DisableRateLimiting skips ratelimiting on asset requests.
 
-### DisableRateLimiting
+### DisableSSRFProtection
 ```toml
 DisableSSRFProtection = false # Default
 ```
-Disable validation of IPs and URLs of outgoing requests.
-
+DisableSSRFProtection disables validation of IPs and URLs of outgoing requests.
 
 ## Tracing
 ```toml

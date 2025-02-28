@@ -184,7 +184,7 @@ func TestHTTPClient_Send(t *testing.T) {
 				AllowedPorts:     []int{int(portInt)},
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, false)
 			require.NoError(t, err)
 
 			tt.request.URL = server.URL + tt.request.URL
@@ -399,7 +399,7 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 				AllowedPorts:     allowedPorts,
 			}
 
-			client, err := NewHTTPClient(config, lggr)
+			client, err := NewHTTPClient(config, lggr, false)
 			require.NoError(t, err)
 
 			require.NoError(t, err)

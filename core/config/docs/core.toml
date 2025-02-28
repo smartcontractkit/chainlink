@@ -656,7 +656,7 @@ OCRDevelopmentMode = false # Default
 InfiniteDepthQueries = false # Default
 # DisableRateLimiting skips ratelimiting on asset requests.
 DisableRateLimiting = false # Default
-# Disable validation of IPs and URLs of outgoing requests.
+# DisableSSRFProtection disables validation of IPs and URLs of outgoing requests.
 DisableSSRFProtection = false # Default
 
 [Tracing]

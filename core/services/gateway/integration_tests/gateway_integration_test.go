@@ -148,7 +148,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	c, err := network.NewHTTPClient(network.HTTPClientConfig{
 		DefaultTimeout:   5 * time.Second,
 		MaxResponseBytes: 1000,
-	}, lggr)
+	}, lggr, false)
 	require.NoError(t, err)
 	gateway, err := gateway.NewGatewayFromConfig(parseGatewayConfig(t, gatewayConfig), gateway.NewHandlerFactory(nil, nil, c, lggr), lggr)
 	require.NoError(t, err)
