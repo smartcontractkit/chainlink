@@ -6,16 +6,26 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
+
+type MCMSRole string
 
 const (
 	BypasserManyChainMultisig  deployment.ContractType = "BypasserManyChainMultiSig"
 	CancellerManyChainMultisig deployment.ContractType = "CancellerManyChainMultiSig"
 	ProposerManyChainMultisig  deployment.ContractType = "ProposerManyChainMultiSig"
+	ManyChainMultisig          deployment.ContractType = "ManyChainMultiSig"
 	RBACTimelock               deployment.ContractType = "RBACTimelock"
 	CallProxy                  deployment.ContractType = "CallProxy"
+
+	// roles
+	ProposerRole  MCMSRole = "PROPOSER"
+	BypasserRole  MCMSRole = "BYPASSER"
+	CancellerRole MCMSRole = "CANCELLER"
+
 	// LinkToken is the burn/mint link token. It should be used everywhere for
 	// new deployments. Corresponds to
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/shared/generated/link_token/link_token.go#L34
@@ -26,12 +36,34 @@ const (
 	// Corresponds to the ABI
 	// https://github.com/smartcontractkit/chainlink/blob/develop/core/gethwrappers/generated/link_token_interface/link_token_interface.go#L34
 	StaticLinkToken deployment.ContractType = "StaticLinkToken"
+	// mcms Solana specific
+	ManyChainMultisigProgram         deployment.ContractType = "ManyChainMultiSigProgram"
+	RBACTimelockProgram              deployment.ContractType = "RBACTimelockProgram"
+	AccessControllerProgram          deployment.ContractType = "AccessControllerProgram"
+	ProposerAccessControllerAccount  deployment.ContractType = "ProposerAccessControllerAccount"
+	ExecutorAccessControllerAccount  deployment.ContractType = "ExecutorAccessControllerAccount"
+	CancellerAccessControllerAccount deployment.ContractType = "CancellerAccessControllerAccount"
+	BypasserAccessControllerAccount  deployment.ContractType = "BypasserAccessControllerAccount"
 )
+
+func (role MCMSRole) String() string {
+	return string(role)
+}
 
 type MCMSWithTimelockConfig struct {
 	Canceller        config.Config
 	Bypasser         config.Config
 	Proposer         config.Config
+	TimelockMinDelay *big.Int
+	Label            *string
+}
+
+// MCMSWithTimelockConfigV2 holds the configuration for an MCMS with timelock.
+// Note that this type already exists in types.go, but this one is using the new lib version.
+type MCMSWithTimelockConfigV2 struct {
+	Canceller        mcmstypes.Config
+	Bypasser         mcmstypes.Config
+	Proposer         mcmstypes.Config
 	TimelockMinDelay *big.Int
 	Label            *string
 }
@@ -70,8 +102,8 @@ func (params OCRParameters) Validate() error {
 	if params.DeltaCertifiedCommitRequest <= 0 {
 		return errors.New("deltaCertifiedCommitRequest must be positive")
 	}
-	if params.DeltaStage <= 0 {
-		return errors.New("deltaStage must be positive")
+	if params.DeltaStage < 0 {
+		return errors.New("deltaStage must be positive or 0 for disabled")
 	}
 	if params.Rmax <= 0 {
 		return errors.New("rmax must be positive")

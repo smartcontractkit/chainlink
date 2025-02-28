@@ -7,7 +7,6 @@ import {ArbitrumL1Fees} from "./ArbitrumL1Fees.sol";
 
 /// @dev VRFCoordinatorV2_5_Arbitrum combines VRFCoordinatorV2_5 base contract with
 /// @dev Arbitrum specific opcodes and L1 gas fee calculations.
-// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5, ArbitrumL1Fees {
   /// @dev ARBSYS_ADDR is the address of the ArbSys precompile on Arbitrum.
   /// @dev reference: https://github.com/OffchainLabs/nitro/blob/v2.0.14/contracts/src/precompiles/ArbSys.sol#L10

@@ -1,4 +1,4 @@
-GETH_VERSION: 1.14.11
+GETH_VERSION: 1.15.0
 aggregator_v3_interface: ../../../contracts/solc/shared/AggregatorV3Interface/AggregatorV3Interface.sol/AggregatorV3Interface.abi.json ../../../contracts/solc/shared/AggregatorV3Interface/AggregatorV3Interface.sol/AggregatorV3Interface.bin 0294226c10dd4b77239d85074fcf05c39c5cbf513b45bb07f966a8733457d2cb
 burn_mint_erc20: ../../../contracts/solc/shared/BurnMintERC20/BurnMintERC20.sol/BurnMintERC20.abi.json ../../../contracts/solc/shared/BurnMintERC20/BurnMintERC20.sol/BurnMintERC20.bin 161d4fc00d3bd8759a82a11d2d0946653ed06853e67359049ac4176288090d22
 burn_mint_erc677: ../../../contracts/solc/shared/BurnMintERC677/BurnMintERC677.sol/BurnMintERC677.abi.json ../../../contracts/solc/shared/BurnMintERC677/BurnMintERC677.sol/BurnMintERC677.bin c510542f105686f93e6287a66a6466c10cd576781063fc787ef365b4a47f5cb8

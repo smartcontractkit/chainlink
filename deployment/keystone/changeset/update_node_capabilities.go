@@ -5,11 +5,10 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -86,7 +85,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
+	resp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
@@ -123,24 +122,32 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 		if r.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		timelocksPerChain := map[uint64]common.Address{
-			c.Chain.Selector: contractSet.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			c.Chain.Selector: contractSet.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			c.Chain.Selector: contractSet.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			c.Chain.Selector: contractSet.ProposerMcm.Address().Hex(),
 		}
-
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		inspectorPerChain := map[uint64]mcmssdk.Inspector{
+			req.RegistryChainSel: inspector,
+		}
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*r.Ops},
+			inspectorPerChain,
+			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
 			req.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 	return out, nil
 }

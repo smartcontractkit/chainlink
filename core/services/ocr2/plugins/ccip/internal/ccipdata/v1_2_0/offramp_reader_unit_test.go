@@ -16,10 +16,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
@@ -112,7 +112,7 @@ func TestCachedOffRampTokens(t *testing.T) {
 	mockOffRamp.On("Address").Return(utils.RandomAddress())
 
 	lp := mocks.NewLogPoller(t)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{BlockNumber: rand.Int63()}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{BlockNumber: rand.Int63()}, nil)
 
 	offRamp := OffRamp{
 		offRampV120:    mockOffRamp,
@@ -194,7 +194,7 @@ func Test_LogsAreProperlyMarkedAsFinalized(t *testing.T) {
 
 			lp := mocks.NewLogPoller(t)
 			lp.On("LatestBlock", mock.Anything).
-				Return(logpoller.LogPollerBlock{FinalizedBlockNumber: tt.lastFinalizedBlock}, nil)
+				Return(logpoller.Block{FinalizedBlockNumber: tt.lastFinalizedBlock}, nil)
 			lp.On("IndexedLogsTopicRange", mock.Anything, ExecutionStateChangedEvent, offrampAddress, 1, logpoller.EvmWord(minSeqNr), logpoller.EvmWord(maxSeqNr), evmtypes.Confirmations(0)).
 				Return(inputLogs, nil)
 

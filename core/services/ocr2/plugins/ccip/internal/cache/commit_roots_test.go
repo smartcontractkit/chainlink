@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	commit_store_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -30,7 +30,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 		PollPeriod:               time.Hour,
 		FinalityDepth:            2,
 		BackfillBatchSize:        20,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
@@ -53,7 +53,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block2),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 2, BlockTimestamp: time.Now(), FinalizedBlockNumber: 1,
 	}))
 
@@ -100,7 +100,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, block4),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 5, 1, root5, block5),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
 	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
@@ -123,7 +123,7 @@ func Test_RootsEligibleForExecution(t *testing.T) {
 	inputLogs = []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root4, newBlock4),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
 	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
@@ -146,7 +146,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 		PollPeriod:               time.Hour,
 		FinalityDepth:            2,
 		BackfillBatchSize:        20,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
@@ -169,7 +169,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 2, root2, block2),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root3, block3),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 3, BlockTimestamp: time.Now(), FinalizedBlockNumber: 1,
 	}))
 
@@ -197,7 +197,7 @@ func Test_RootsEligibleForExecutionWithReorgs(t *testing.T) {
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 1, root2, block4),
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 4, 2, root3, block4),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 5, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
 	}))
 	roots, err = rootsCache.RootsEligibleForExecution(ctx)
@@ -220,7 +220,7 @@ func Test_BlocksWithTheSameTimestamps(t *testing.T) {
 		PollPeriod:               time.Hour,
 		FinalityDepth:            2,
 		BackfillBatchSize:        20,
-		RpcBatchSize:             10,
+		RPCBatchSize:             10,
 		KeepFinalizedBlocksDepth: 1000,
 	}
 	lp := logpoller.NewLogPoller(orm, nil, logger.TestLogger(t), nil, lpOpts)
@@ -234,7 +234,7 @@ func Test_BlocksWithTheSameTimestamps(t *testing.T) {
 	inputLogs := []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 2, 1, root1, block),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 2, BlockTimestamp: time.Now(), FinalizedBlockNumber: 2,
 	}))
 
@@ -251,7 +251,7 @@ func Test_BlocksWithTheSameTimestamps(t *testing.T) {
 	inputLogs = []logpoller.Log{
 		createReportAcceptedLog(t, chainID, commitStoreAddr, 3, 1, root2, block),
 	}
-	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.LogPollerBlock{
+	require.NoError(t, orm.InsertLogsWithBlock(ctx, inputLogs, logpoller.Block{
 		BlockHash: utils.RandomBytes32(), BlockNumber: 3, BlockTimestamp: time.Now(), FinalizedBlockNumber: 3,
 	}))
 
@@ -313,6 +313,6 @@ func createReportAcceptedLog(t testing.TB, chainID *big.Int, address common.Addr
 		EventSig:       topic0,
 		Address:        address,
 		TxHash:         utils.RandomBytes32(),
-		EvmChainId:     ubig.New(chainID),
+		EVMChainID:     ubig.New(chainID),
 	}
 }

@@ -170,6 +170,7 @@ linters-settings:
     require-specific: true
     require-explanation: true
 issues:
+  max-same-issues: 0
   exclude-rules:
     - path: test
       text: "^G404:"

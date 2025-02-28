@@ -2,38 +2,56 @@ package ccip
 
 import (
 	"context"
-	"fmt"
-	"math/big"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
-	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
 func Test_CCIPMessaging(t *testing.T) {
+	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
+	chains := []chainsel.Chain{
+		chainsel.GETH_TESTNET,  // source
+		chainsel.TEST_90000001, // dest
+	}
+	var chainIDs = []uint64{
+		chains[0].EvmChainID,
+		chains[1].EvmChainID,
+	}
 	// Setup 2 chains and a single lane.
 	ctx := testhelpers.Context(t)
-	e, _, _ := testsetups.NewIntegrationEnvironment(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithChainIDs(chainIDs),
+		testhelpers.WithCLNodeConfigOpts(memory.WithFinalityDepths(map[uint64]uint32{
+			chains[1].EvmChainID: 30, // make dest chain finality depth 30 so we can observe exec behavior
+		})),
+	)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	allChainSelectors := maps.Keys(e.Env.Chains)
 	require.Len(t, allChainSelectors, 2)
-	sourceChain := allChainSelectors[0]
-	destChain := allChainSelectors[1]
+	sourceChain := chains[0].Selector
+	destChain := chains[1].Selector
+	require.Contains(t, allChainSelectors, sourceChain)
+	require.Contains(t, allChainSelectors, destChain)
 	t.Log("All chain selectors:", allChainSelectors,
 		", home chain selector:", e.HomeChainSel,
 		", feed chain selector:", e.FeedChainSel,
@@ -60,6 +78,15 @@ func Test_CCIPMessaging(t *testing.T) {
 		)
 	)
 
+	monitorCtx, monitorCancel := context.WithCancel(ctx)
+	ms := &monitorState{}
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		monitorReExecutions(monitorCtx, t, state, destChain, ms)
+	}()
+
 	t.Run("data message to eoa", func(t *testing.T) {
 		out = mt.Run(
 			mt.TestCase{
@@ -70,6 +97,11 @@ func Test_CCIPMessaging(t *testing.T) {
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+
+					},
+				},
 			},
 		)
 	})
@@ -116,8 +148,6 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver with low exec gas", func(t *testing.T) {
-		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
-		require.NoError(t, err)
 		out = mt.Run(
 			mt.TestCase{
 				TestSetup:              setup,
@@ -130,159 +160,64 @@ func Test_CCIPMessaging(t *testing.T) {
 			},
 		)
 
-		manuallyExecute(ctx, t, latestHead.Number.Uint64(), state, destChain, out, sourceChain, e, sender)
+		err := manualexechelpers.ManuallyExecuteAll(
+			ctx,
+			e.Env.Logger,
+			state,
+			e.Env,
+			sourceChain,
+			destChain,
+			[]int64{
+				int64(out.MsgSentEvent.Message.Header.SequenceNumber), //nolint:gosec // seqNr fits in int64
+			},
+			24*time.Hour,
+			true, // reExecuteIfFailed
+		)
+		require.NoError(t, err)
 
 		t.Logf("successfully manually executed message %x",
 			out.MsgSentEvent.Message.Header.MessageId)
 	})
+
+	monitorCancel()
+	wg.Wait()
+	// there should be no re-executions.
+	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
 }
 
-func manuallyExecute(
+type monitorState struct {
+	reExecutionsObserved atomic.Int32
+}
+
+func (s *monitorState) incReExecutions() {
+	s.reExecutionsObserved.Add(1)
+}
+
+func monitorReExecutions(
 	ctx context.Context,
 	t *testing.T,
-	startBlock uint64,
 	state changeset.CCIPOnChainState,
 	destChain uint64,
-	out mt.TestCaseOutput,
-	sourceChain uint64,
-	e testhelpers.DeployedEnv,
-	sender []byte,
+	ss *monitorState,
 ) {
-	merkleRoot := getMerkleRoot(
-		ctx,
-		t,
-		state.Chains[destChain].OffRamp,
-		out.MsgSentEvent.SequenceNumber,
-		startBlock,
-	)
-	messageHash := getMessageHash(
-		ctx,
-		t,
-		state.Chains[destChain].OffRamp,
-		sourceChain,
-		out.MsgSentEvent.SequenceNumber,
-		out.MsgSentEvent.Message.Header.MessageId,
-		startBlock,
-	)
-	tree, err := merklemulti.NewTree(hashutil.NewKeccak(), [][32]byte{messageHash})
-	require.NoError(t, err)
-	proof, err := tree.Prove([]int{0})
-	require.NoError(t, err)
-	require.Equal(t, merkleRoot, tree.Root())
-
-	tx, err := state.Chains[destChain].OffRamp.ManuallyExecute(
-		e.Env.Chains[destChain].DeployerKey,
-		[]offramp.InternalExecutionReport{
-			{
-				SourceChainSelector: sourceChain,
-				Messages: []offramp.InternalAny2EVMRampMessage{
-					{
-						Header: offramp.InternalRampMessageHeader{
-							MessageId:           out.MsgSentEvent.Message.Header.MessageId,
-							SourceChainSelector: sourceChain,
-							DestChainSelector:   destChain,
-							SequenceNumber:      out.MsgSentEvent.SequenceNumber,
-							Nonce:               out.MsgSentEvent.Message.Header.Nonce,
-						},
-						Sender:       sender,
-						Data:         []byte("hello CCIPReceiver with low exec gas"),
-						Receiver:     state.Chains[destChain].Receiver.Address(),
-						GasLimit:     big.NewInt(1),
-						TokenAmounts: []offramp.InternalAny2EVMTokenTransfer{},
-					},
-				},
-				OffchainTokenData: [][][]byte{
-					{},
-				},
-				Proofs:        proof.Hashes,
-				ProofFlagBits: boolsToBitFlags(proof.SourceFlags),
-			},
-		},
-		[][]offramp.OffRampGasLimitOverride{
-			{
-				{
-					ReceiverExecutionGasLimit: big.NewInt(200_000),
-					TokenGasOverrides:         nil,
-				},
-			},
-		},
-	)
-	_, err = deployment.ConfirmIfNoError(e.Env.Chains[destChain], tx, err)
-	require.NoError(t, err, "failed to send/confirm manuallyExecute tx")
-
-	newExecutionState, err := state.Chains[destChain].OffRamp.GetExecutionState(&bind.CallOpts{Context: ctx}, sourceChain, out.MsgSentEvent.SequenceNumber)
-	require.NoError(t, err)
-	require.Equal(t, uint8(testhelpers.EXECUTION_STATE_SUCCESS), newExecutionState)
-}
-
-func getMerkleRoot(
-	ctx context.Context,
-	t *testing.T,
-	offRamp offramp.OffRampInterface,
-	seqNr,
-	startBlock uint64,
-) (merkleRoot [32]byte) {
-	iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-		Context: ctx,
-		Start:   startBlock,
-	})
-	require.NoError(t, err)
-	for iter.Next() {
-		for _, mr := range iter.Event.BlessedMerkleRoots {
-			if mr.MinSeqNr >= seqNr || mr.MaxSeqNr <= seqNr {
-				return mr.MerkleRoot
-			}
-		}
-		// todo: dedup
-		// ------------------------------
-		for _, mr := range iter.Event.UnblessedMerkleRoots {
-			if mr.MinSeqNr >= seqNr || mr.MaxSeqNr <= seqNr {
-				return mr.MerkleRoot
-			}
-		}
-		// ------------------------------
+	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
+	sub, err := state.Chains[destChain].OffRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+		Start: nil,
+	}, sink)
+	if err != nil {
+		t.Fatalf("failed to subscribe to already executed msg stream: %s", err.Error())
 	}
-	require.Fail(
-		t,
-		fmt.Sprintf("no merkle root found for seq nr %d", seqNr),
-	)
-	return merkleRoot
-}
 
-func getMessageHash(
-	ctx context.Context,
-	t *testing.T,
-	offRamp offramp.OffRampInterface,
-	sourceChainSelector,
-	seqNr uint64,
-	msgID [32]byte,
-	startBlock uint64,
-) (messageHash [32]byte) {
-	iter, err := offRamp.FilterExecutionStateChanged(
-		&bind.FilterOpts{
-			Context: ctx,
-			Start:   startBlock,
-		},
-		[]uint64{sourceChainSelector},
-		[]uint64{seqNr},
-		[][32]byte{msgID},
-	)
-	require.NoError(t, err)
-	require.True(t, iter.Next())
-	require.Equal(t, sourceChainSelector, iter.Event.SourceChainSelector)
-	require.Equal(t, seqNr, iter.Event.SequenceNumber)
-	require.Equal(t, msgID, iter.Event.MessageId)
-
-	return iter.Event.MessageHash
-}
-
-// boolsToBitFlags transforms a list of boolean flags to a *big.Int encoded number.
-func boolsToBitFlags(bools []bool) *big.Int {
-	encodedFlags := big.NewInt(0)
-	for i := 0; i < len(bools); i++ {
-		if bools[i] {
-			encodedFlags.SetBit(encodedFlags, i, 1)
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-sub.Err():
+			t.Fatalf("subscription error: %s", subErr.Error())
+		case ev := <-sink:
+			t.Logf("received an already executed event for seq nr %d and source chain %d",
+				ev.SequenceNumber, ev.SourceChainSelector)
+			ss.incReExecutions()
 		}
 	}
-	return encodedFlags
 }

@@ -7,9 +7,9 @@ import (
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -104,18 +104,22 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 	if err := c.Validate(env); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid PermaBlessCommitStoreConfig: %w", err)
 	}
+
 	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	ops := make([]timelock.BatchChainOperation, 0)
-	timelocks := make(map[uint64]common.Address)
-	proposerMCM := make(map[uint64]*gethwrappers.ManyChainMultiSig)
+
+	ops := make([]mcmstypes.BatchOperation, 0)
+	timelocks := make(map[uint64]string)
+	proposerMcms := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+
 	for destChain, cfg := range c.Configs {
 		destState := state.Chains[destChain]
 		RMN := destState.RMN
-		var removes []common.Address
-		var adds []common.Address
+
+		var removes, adds []common.Address
 		for _, sourceCfg := range cfg.Sources {
 			commitStore := destState.CommitStore[sourceCfg.SourceChainSelector]
 			if sourceCfg.PermaBless {
@@ -124,11 +128,14 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 				removes = append(removes, commitStore.Address())
 			}
 		}
+
 		txOpts := env.Chains[destChain].DeployerKey
 		if c.MCMSConfig != nil {
 			txOpts = deployment.SimTransactOpts()
 		}
 		tx, err := RMN.OwnerRemoveThenAddPermaBlessedCommitStores(txOpts, removes, adds)
+
+		// note: error check is handled below
 		if c.MCMSConfig == nil {
 			_, err = deployment.ConfirmIfNoErrorWithABI(env.Chains[destChain], tx, rmn_contract.RMNContractABI, err)
 			if err != nil {
@@ -136,26 +143,34 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 			}
 			env.Logger.Infof("PermaBlessed commit stores on chain %d removed %v, added %v", destChain, removes, adds)
 			continue
+		} else if err != nil {
+			return deployment.ChangesetOutput{}, err
 		}
-		timelocks[destChain] = destState.Timelock.Address()
-		proposerMCM[destChain] = destState.ProposerMcm
-		ops = append(ops, timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(destChain),
-			Batch: []mcms.Operation{
-				{
-					To:    RMN.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
-		})
+
+		timelocks[destChain] = destState.Timelock.Address().Hex()
+		proposerMcms[destChain] = destState.ProposerMcm.Address().Hex()
+		inspectors[destChain], err = proposalutils.McmsInspectorForChain(env, destChain)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get inspector for chain %d: %w", destChain, err)
+		}
+
+		batchOperation, err := proposalutils.BatchOperationForChain(destChain, RMN.Address().Hex(), tx.Data(), big.NewInt(0),
+			string(changeset.RMN), []string{})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for chain %d: %w", destChain, err)
+		}
+
+		ops = append(ops, batchOperation)
 	}
 	if c.MCMSConfig == nil {
 		return deployment.ChangesetOutput{}, nil
 	}
-	p, err := proposalutils.BuildProposalFromBatches(
+
+	timelockProposal, err := proposalutils.BuildProposalFromBatchesV2(
+		env,
 		timelocks,
-		proposerMCM,
+		proposerMcms,
+		inspectors,
 		ops,
 		"PermaBless commit stores on RMN",
 		c.MCMSConfig.MinDelay,
@@ -163,8 +178,9 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+
 	env.Logger.Infof("perma bless commit stores proposal created with %d operations", len(ops))
-	return deployment.ChangesetOutput{Proposals: []timelock.MCMSWithTimelockProposal{
-		*p,
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{
+		*timelockProposal,
 	}}, nil
 }

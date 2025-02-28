@@ -83,7 +83,8 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
   }
 
   function test_processMessageArgs_WitEVMExtraArgsV2() public view {
-    bytes memory extraArgs = Client._argsToBytes(Client.EVMExtraArgsV2({gasLimit: 0, allowOutOfOrderExecution: true}));
+    bytes memory extraArgs =
+      Client._argsToBytes(Client.GenericExtraArgsV2({gasLimit: 0, allowOutOfOrderExecution: true}));
 
     (
       /* uint256 msgFeeJuels */
@@ -157,7 +158,7 @@ contract FeeQuoter_processMessageArgs is FeeQuoterFeeSetup {
       DEST_CHAIN_SELECTOR,
       s_sourceTokens[0],
       0,
-      abi.encodeWithSelector(Client.EVM_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV1({gasLimit: 100})),
+      abi.encodeWithSelector(Client.GENERIC_EXTRA_ARGS_V2_TAG, Client.EVMExtraArgsV1({gasLimit: 100})),
       MESSAGE_RECEIVER
     );
   }

@@ -4,7 +4,6 @@ pragma solidity ^0.8.19;
 import {ArbitrumL1Fees} from "./ArbitrumL1Fees.sol";
 import {VRFV2PlusWrapper} from "./VRFV2PlusWrapper.sol";
 
-// solhint-disable-next-line contract-name-camelcase
 contract VRFV2PlusWrapper_Arbitrum is VRFV2PlusWrapper, ArbitrumL1Fees {
   constructor(
     address _link,

@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -189,10 +190,10 @@ func NewVRFCoordinatorUniverse(t *testing.T, keys ...ethkey.KeyV2) CoordinatorUn
 	}
 
 	var (
-		sergey = testutils.MustNewSimTransactor(t)
-		neil   = testutils.MustNewSimTransactor(t)
-		ned    = testutils.MustNewSimTransactor(t)
-		carol  = testutils.MustNewSimTransactor(t)
+		sergey = evmtestutils.MustNewSimTransactor(t)
+		neil   = evmtestutils.MustNewSimTransactor(t)
+		ned    = evmtestutils.MustNewSimTransactor(t)
+		carol  = evmtestutils.MustNewSimTransactor(t)
 	)
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},

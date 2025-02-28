@@ -261,10 +261,6 @@ func (c RawConfig) NodeNames() []string {
 }
 
 func (c RawConfig) SetDefaults() {
-	if e, ok := c["Enabled"].(bool); ok && e {
-		// already enabled by default so drop it
-		delete(c, "Enabled")
-	}
 }
 
 // TOMLString returns a TOML encoded string.
@@ -406,6 +402,14 @@ func (s *Secrets) SetFrom(f *Secrets) (err error) {
 
 	if err2 := s.Threshold.SetFrom(&f.Threshold); err2 != nil {
 		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "Threshold"))
+	}
+
+	if err2 := s.EVM.SetFrom(&f.EVM); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "EthKeys"))
+	}
+
+	if err2 := s.P2PKey.SetFrom(&f.P2PKey); err2 != nil {
+		err = multierr.Append(err, commonconfig.NamedMultiErrorList(err2, "P2PKey"))
 	}
 
 	_, err = commonconfig.MultiErrorList(err)

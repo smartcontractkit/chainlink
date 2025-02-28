@@ -34,27 +34,20 @@ import (
 func AddLanes(t *testing.T, e deployment.Environment, state changeset.CCIPOnChainState, pairs []testhelpers.SourceDestPair) deployment.Environment {
 	addLanesCfg, commitOCR2Configs, execOCR2Configs, jobspecs := LaneConfigsForChains(t, e, state, pairs)
 	var err error
-	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.DeployLanesChangeset),
-			Config: v1_5changeset.DeployLanesConfig{
-				Configs: addLanesCfg,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
-			Config: v1_5changeset.OCR2Config{
-				CommitConfigs: commitOCR2Configs,
-				ExecConfigs:   execOCR2Configs,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
-			Config: v1_5changeset.JobSpecsForLanesConfig{
-				Configs: jobspecs,
-			},
-		},
-	})
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.DeployLanesChangeset),
+			v1_5changeset.DeployLanesConfig{Configs: addLanesCfg},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.SetOCR2ConfigForTestChangeset),
+			v1_5changeset.OCR2Config{CommitConfigs: commitOCR2Configs, ExecConfigs: execOCR2Configs},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5changeset.JobSpecsForLanesChangeset),
+			v1_5changeset.JobSpecsForLanesConfig{Configs: jobspecs},
+		),
+	)
 	require.NoError(t, err)
 	return e
 }

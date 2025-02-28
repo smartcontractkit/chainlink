@@ -20,8 +20,12 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	ccipChangeSetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
@@ -51,7 +55,9 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
@@ -218,10 +224,7 @@ func CCIPSendRequest(
 	}
 
 	tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, msg)
-	if err != nil {
-		return nil, 0, errors.Wrap(err, "failed to send CCIP message")
-	}
-	blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
+	blockNum, err := deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.SourceChain], tx, router.RouterABI, err)
 	if err != nil {
 		return tx, 0, errors.Wrap(err, "failed to confirm CCIP message")
 	}
@@ -421,20 +424,69 @@ func AddLane(
 	fqCfg fee_quoter.FeeQuoterDestChainConfig,
 ) {
 	var err error
-
-	// from family
 	fromFamily, _ := chainsel.GetSelectorFamily(from)
 	toFamily, _ := chainsel.GetSelectorFamily(to)
-
-	if fromFamily != chainsel.FamilyEVM {
-		t.Fatalf("from family is not evm, %s", fromFamily)
+	changesets := []commoncs.ConfiguredChangeSet{}
+	if fromFamily == chainsel.FamilyEVM {
+		evmSrcChangesets := addEVMSrcChangesets(from, to, isTestRouter, gasprice, tokenPrices, fqCfg)
+		changesets = append(changesets, evmSrcChangesets...)
+	}
+	if toFamily == chainsel.FamilyEVM {
+		evmDstChangesets := addEVMDestChangesets(e, to, from, isTestRouter)
+		changesets = append(changesets, evmDstChangesets...)
+	}
+	if fromFamily == chainsel.FamilySolana {
+		changesets = append(changesets, addLaneSolanaChangesets(t, from, to, toFamily)...)
+	}
+	if toFamily == chainsel.FamilySolana {
+		changesets = append(changesets, addLaneSolanaChangesets(t, to, from, fromFamily)...)
 	}
 
-	changesets := []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
+	require.NoError(t, err)
+}
+
+func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+	chainFamilySelector := [4]uint8{}
+	if remoteFamily == chainsel.FamilyEVM {
+		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+		chainFamilySelector = [4]uint8{40, 18, 213, 44}
+	} else if remoteFamily == chainsel.FamilySolana {
+		// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		chainFamilySelector = [4]uint8{30, 16, 189, 196}
+	}
+	solanaChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToSolana),
+			ccipChangeSetSolana.AddRemoteChainToSolanaConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.RemoteChainConfigSolana{
+					remoteChainSelector: {
+						EnabledAsSource:         true,
+						RouterDestinationConfig: solRouter.DestChainConfig{},
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							ChainFamilySelector:         chainFamilySelector,
+						},
+					},
+				},
+			},
+		),
+	}
+	return solanaChangesets
+}
+
+func addEVMSrcChangesets(from, to uint64, isTestRouter bool, gasprice map[uint64]*big.Int, tokenPrices map[common.Address]*big.Int, fqCfg fee_quoter.FeeQuoterDestChainConfig) []commoncs.ConfiguredChangeSet {
+	evmSrcChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					from: {
 						to: {
 							IsEnabled:        true,
@@ -444,33 +496,33 @@ func AddLane(
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: map[uint64]changeset.FeeQuoterPriceUpdatePerSource{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
+				PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 					from: {
 						TokenPrices: tokenPrices,
 						GasPrices:   gasprice,
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					from: {
 						to: fqCfg,
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter: isTestRouter,
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					from: {
 						OnRampUpdates: map[uint64]bool{
@@ -479,89 +531,53 @@ func AddLane(
 					},
 				},
 			},
-		},
+		),
 	}
+	return evmSrcChangesets
+}
 
-	require.NoError(t, err)
-
-	switch toFamily {
-	case chainsel.FamilyEVM:
-		evmChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-				Config: changeset.UpdateOffRampSourcesConfig{
-					UpdatesByChain: map[uint64]map[uint64]changeset.OffRampSourceUpdate{
-						to: {
-							from: {
-								IsEnabled:                 true,
-								TestRouter:                isTestRouter,
-								IsRMNVerificationDisabled: !e.RmnEnabledSourceChains[from],
-							},
-						},
-					},
-				},
-			},
-			{
-				Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-				Config: changeset.UpdateRouterRampsConfig{
-					TestRouter: isTestRouter,
-					UpdatesByChain: map[uint64]changeset.RouterUpdates{
-						// offramp update on dest chain
-						to: {
-							OffRampUpdates: map[uint64]bool{
-								from: true,
-							},
-						},
-					},
-				},
-			},
-		}
-		changesets = append(changesets, evmChangesets...)
-	case chainsel.FamilySolana:
-		value := [28]uint8{}
-		bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
-		require.True(t, ok)
-		bigNum.FillBytes(value[:])
-		solanaChangesets := []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(changeset_solana.AddRemoteChainToSolana),
-				Config: changeset_solana.AddRemoteChainToSolanaConfig{
-					ChainSelector: to,
-					UpdatesByChain: map[uint64]changeset_solana.RemoteChainConfigSolana{
+func addEVMDestChangesets(e *DeployedEnv, to, from uint64, isTestRouter bool) []commoncs.ConfiguredChangeSet {
+	evmDstChangesets := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+					to: {
 						from: {
-							EnabledAsSource:         true,
-							RouterDestinationConfig: solRouter.DestChainConfig{},
-							FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
-								IsEnabled:                   true,
-								DefaultTxGasLimit:           200000,
-								MaxPerMsgGasLimit:           3000000,
-								MaxDataBytes:                30000,
-								MaxNumberOfTokensPerMsg:     5,
-								DefaultTokenDestGasOverhead: 5000,
-								// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
-								// TODO: do a similar test for other chain families
-								ChainFamilySelector: [4]uint8{40, 18, 213, 44},
-							},
+							IsEnabled:                 true,
+							TestRouter:                isTestRouter,
+							IsRMNVerificationDisabled: !e.RmnEnabledSourceChains[from],
 						},
 					},
 				},
 			},
-		}
-		changesets = append(changesets, solanaChangesets...)
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				TestRouter: isTestRouter,
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
+					// offramp update on dest chain
+					to: {
+						OffRampUpdates: map[uint64]bool{
+							from: true,
+						},
+					},
+				},
+			},
+		),
 	}
-
-	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
-	require.NoError(t, err)
+	return evmDstChangesets
 }
 
 // RemoveLane removes a lane between the source and destination chains in the deployed environment.
 func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter bool) {
 	var err error
-	apps := []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
-				UpdatesByChain: map[uint64]changeset.RouterUpdates{
+	apps := []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
+				UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 					// onRamp update on source chain
 					src: {
 						OnRampUpdates: map[uint64]bool{
@@ -570,21 +586,21 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					src: {
-						dest: changeset.DefaultFeeQuoterDestChainConfig(false),
+						dest: v1_6.DefaultFeeQuoterDestChainConfig(false),
 					},
 				},
 			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: map[uint64]map[uint64]changeset.OnRampDestinationUpdate{
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
+				UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 					src: {
 						dest: {
 							IsEnabled:        false,
@@ -594,25 +610,35 @@ func RemoveLane(t *testing.T, e *DeployedEnv, src, dest uint64, isTestRouter boo
 					},
 				},
 			},
-		},
+		),
 	}
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)
 	require.NoError(t, err)
 }
 
 func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState, from, to uint64, isTestRouter bool) {
-	stateChainFrom := state.Chains[from]
+	gasPrices := map[uint64]*big.Int{
+		to: DefaultGasPrice,
+	}
+	fromFamily, _ := chainsel.GetSelectorFamily(from)
+	tokenPrices := map[common.Address]*big.Int{}
+	if fromFamily == chainsel.FamilyEVM {
+		stateChainFrom := state.Chains[from]
+		tokenPrices = map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     DefaultWethPrice,
+		}
+	}
+	fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, to)
 	AddLane(
 		t,
 		e,
 		from, to,
 		isTestRouter,
-		map[uint64]*big.Int{
-			to: DefaultGasPrice,
-		}, map[common.Address]*big.Int{
-			stateChainFrom.LinkToken.Address(): DefaultLinkPrice,
-			stateChainFrom.Weth9.Address():     DefaultWethPrice,
-		}, changeset.DefaultFeeQuoterDestChainConfig(true, to))
+		gasPrices,
+		tokenPrices,
+		fqCfg,
+	)
 }
 
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
@@ -798,6 +824,159 @@ func DeployTransferableToken(
 	return srcToken, srcPool, dstToken, dstPool, nil
 }
 
+// assuming one out of the src and dst is solana and the other is evm
+func DeployTransferableTokenSolana(
+	t *testing.T,
+	lggr logger.Logger,
+	e deployment.Environment,
+	evmChainSel, solChainSel uint64,
+	evmDeployer *bind.TransactOpts,
+	addresses deployment.AddressBook,
+	evmTokenName string,
+) (*burn_mint_erc677.BurnMintERC677,
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if selectorFamily != chainsel.FamilyEVM {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("evmChainSel %d is not an evm chain", evmChainSel)
+	}
+	selectorFamily, err = chainsel.GetSelectorFamily(solChainSel)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if selectorFamily != chainsel.FamilySolana {
+		return nil, nil, solana.PublicKey{}, fmt.Errorf("solChainSel %d is not a solana chain", solChainSel)
+	}
+	state, err := changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+
+	// deploy evm token
+	evmToken, evmPool, err := deployTransferTokenOneEnd(lggr, e.Chains[evmChainSel], evmDeployer, addresses, evmTokenName)
+	if err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	if err := attachTokenToTheRegistry(e.Chains[evmChainSel], state.Chains[evmChainSel], evmDeployer, evmToken.Address(), evmPool.Address()); err != nil {
+		return nil, nil, solana.PublicKey{}, err
+	}
+	require.NoError(t, err)
+
+	// deploy solana token
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			// this makes the deployer the mint authority by default
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeploySolanaToken),
+			ccipChangeSetSolana.DeploySolanaTokenConfig{
+				ChainSelector:    solChainSel,
+				TokenProgramName: changeset.SPL2022Tokens,
+				TokenDecimals:    9,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	state, err = changeset.LoadOnchainState(e)
+	require.NoError(t, err)
+	solTokenAddress := state.SolChains[solChainSel].SPL2022Tokens[0]
+	solDeployerKey := e.SolChains[solChainSel].DeployerKey.PublicKey()
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			// create the ata for the deployerKey
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.CreateSolanaTokenATA),
+			ccipChangeSetSolana.CreateSolanaTokenATAConfig{
+				ChainSelector: solChainSel,
+				TokenPubkey:   solTokenAddress,
+				TokenProgram:  changeset.SPL2022Tokens,
+				ATAList:       []string{solDeployerKey.String()},
+			},
+		),
+		commoncs.Configure(
+			// mint the token to the deployerKey
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.MintSolanaToken),
+			ccipChangeSetSolana.MintSolanaTokenConfig{
+				ChainSelector: solChainSel,
+				TokenPubkey:   solTokenAddress.String(),
+				AmountToAddress: map[string]uint64{
+					solDeployerKey.String(): uint64(1000),
+				},
+			},
+		),
+		commoncs.Configure(
+			// deploy token pool and set the burn/mint authority to the tokenPool
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPool),
+			ccipChangeSetSolana.TokenPoolConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// configure evm
+	poolConfigPDA, err := solTokenUtil.TokenPoolConfigAddress(solTokenAddress, state.SolChains[solChainSel].BurnMintTokenPool)
+	require.NoError(t, err)
+	err = setTokenPoolCounterPart(e.Chains[evmChainSel], evmPool, evmDeployer, solChainSel, solTokenAddress.Bytes(), poolConfigPDA.Bytes())
+	require.NoError(t, err)
+
+	err = grantMintBurnPermissions(lggr, e.Chains[evmChainSel], evmToken, evmDeployer, evmPool.Address())
+	require.NoError(t, err)
+
+	// configure solana
+	e, err = commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetupTokenPoolForRemoteChain),
+			ccipChangeSetSolana.RemoteChainTokenPoolConfig{
+				SolChainSelector:    solChainSel,
+				RemoteChainSelector: evmChainSel,
+				SolTokenPubKey:      solTokenAddress.String(),
+				RemoteConfig: solTestTokenPool.RemoteConfig{
+					// this can be potentially read from the state if we are given the token symbol
+					PoolAddresses: []solTestTokenPool.RemoteAddress{
+						{
+							Address: evmPool.Address().Bytes(),
+						},
+					},
+					TokenAddress: solTestTokenPool.RemoteAddress{
+						Address: evmToken.Address().Bytes(),
+					},
+					Decimals: 9,
+				},
+				InboundRateLimit: solTestTokenPool.RateLimitConfig{
+					Enabled:  true,
+					Capacity: uint64(1000),
+					Rate:     1,
+				},
+				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
+					Enabled:  true,
+					Capacity: uint64(1000),
+					Rate:     1,
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddBillingTokenForRemoteChain),
+			ccipChangeSetSolana.BillingTokenForRemoteChainConfig{
+				ChainSelector:       solChainSel,
+				RemoteChainSelector: evmChainSel,
+				TokenPubKey:         solTokenAddress.String(),
+				Config: solFeeQuoter.TokenTransferFeeConfig{
+					MinFeeUsdcents:    800,
+					MaxFeeUsdcents:    1600,
+					DeciBps:           0,
+					DestGasOverhead:   100,
+					DestBytesOverhead: 100,
+					IsEnabled:         true,
+				},
+			},
+		),
+	)
+
+	require.NoError(t, err)
+	return evmToken, evmPool, solTokenAddress, nil
+}
+
 func deployTokenPoolsInParallel(
 	lggr logger.Logger,
 	chains map[uint64]deployment.Chain,
@@ -932,28 +1111,6 @@ func setTokenPoolCounterPart(
 	)
 	if err != nil {
 		return fmt.Errorf("failed to apply chain updates on token pool %s: %w", tokenPool.Address(), err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
-		return err
-	}
-
-	supported, err := tokenPool.IsSupportedChain(&bind.CallOpts{}, destChainSelector)
-	if err != nil {
-		return err
-	}
-	if !supported {
-		return fmt.Errorf("token pool %s is not supported on chain %d", tokenPool.Address(), destChainSelector)
-	}
-
-	tx, err = tokenPool.AddRemotePool(
-		actor,
-		destChainSelector,
-		destTokenPoolAddress,
-	)
-	if err != nil {
-		return fmt.Errorf("failed to set remote pool on token pool %s: %w", tokenPool.Address(), err)
 	}
 
 	_, err = chain.Confirm(tx)
@@ -1400,6 +1557,21 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	tv = deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipOfframpProgram.String(), tv)
 	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111111BurnMint", tv)
+	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(changeset.LockReleaseTokenPool, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111LockReLease", tv)
+	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
+	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["access_controller"], tv)
+	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
+	require.NoError(t, err)
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
@@ -1416,7 +1588,6 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
 		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
 		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
-		require.False(t, chainState.OfframpAddressLookupTable.IsZero(), "Offramp address lookup table is zero for chain %d", sel)
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
@@ -1458,6 +1629,69 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func TransferOwnershipSolana(
+	t *testing.T,
+	e *deployment.Environment,
+	solChain uint64,
+	needTimelockDeployed bool,
+	transferRouter,
+	transferFeeQuoter,
+	transferOffRamp bool,
+	burnMintTokenPools []solana.PublicKey,
+	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+	var err error
+	if needTimelockDeployed {
+		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+				map[uint64]commontypes.MCMSWithTimelockConfigV2{
+					solChain: {
+						Canceller:        proposalutils.SingleGroupMCMSV2(t),
+						Proposer:         proposalutils.SingleGroupMCMSV2(t),
+						Bypasser:         proposalutils.SingleGroupMCMSV2(t),
+						TimelockMinDelay: big.NewInt(0),
+					},
+				},
+			),
+		})
+		require.NoError(t, err)
+	}
+
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChain)
+	require.NoError(t, err)
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChain], addresses)
+	require.NoError(t, err)
+
+	// Fund signer PDAs for timelock and mcm
+	// If we don't fund, execute() calls will fail with "no funds" errors.
+	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
+		100, e.SolChains[solChain].Client)
+	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
+	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
+	// Apply transfer ownership changeset
+	*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
+			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
+				MinDelay: 1 * time.Second,
+				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
+					solChain: {
+						Router:                transferRouter,
+						FeeQuoter:             transferFeeQuoter,
+						OffRamp:               transferOffRamp,
+						BurnMintTokenPools:    burnMintTokenPools,
+						LockReleaseTokenPools: lockReleaseTokenPools,
+					},
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+	return timelockSignerPDA, mcmSignerPDA
 }
 
 func GenTestTransferOwnershipConfig(
@@ -1530,12 +1764,9 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		config = append(config, solChain1)
 	}
 
-	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(commoncs.DeployLinkToken),
-			Config:    config,
-		},
-	})
+	e, err := commoncs.Apply(t, e, nil,
+		commoncs.Configure(deployment.CreateLegacyChangeSet(commoncs.DeployLinkToken), config),
+	)
 	require.NoError(t, err)
 	addrs, err := e.ExistingAddresses.AddressesForChain(chain1)
 	require.NoError(t, err)

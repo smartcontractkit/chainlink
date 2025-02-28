@@ -15,20 +15,16 @@ import (
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/pkg/errors"
 
-	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go/rpc"
 
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
-var (
-	SolDefaultCommitment        = rpc.CommitmentConfirmed
-	SolDefaultGasLimit          = solBinary.Uint128{Lo: 3000, Hi: 0, Endianness: nil}
-	SolDefaultMaxFeeJuelsPerMsg = solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil}
-	SPL2022Tokens               = "SPL2022Tokens"
-	SPLTokens                   = "SPLTokens"
-	EnableExecutionAfter        = int64(1800) // 30min
+const (
+	ProgramIDPrefix      = "Program Id: "
+	BufferIDPrefix       = "Buffer: "
+	SolDefaultCommitment = rpc.CommitmentConfirmed
 )
 
 // SolChain represents a Solana chain.
@@ -69,24 +65,33 @@ func (c SolChain) Name() string {
 	return chainInfo.ChainName
 }
 
-func (c SolChain) DeployProgram(logger logger.Logger, programName string) (string, error) {
+func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgrade bool) (string, error) {
 	programFile := filepath.Join(c.ProgramsPath, programName+".so")
 	if _, err := os.Stat(programFile); err != nil {
 		return "", fmt.Errorf("program file not found: %w", err)
 	}
 	programKeyPair := filepath.Join(c.ProgramsPath, programName+"-keypair.json")
 
+	cliCommand := "deploy"
+	prefix := ProgramIDPrefix
+	if isUpgrade {
+		cliCommand = "write-buffer"
+		prefix = BufferIDPrefix
+	}
+
 	// Base command with required args
 	baseArgs := []string{
-		"program", "deploy",
+		"program", cliCommand,
 		programFile,                // .so file
-		"--keypair", c.KeypairPath, // program keypair
+		"--keypair", c.KeypairPath, // deployer keypair
 		"--url", c.URL, // rpc url
 	}
 
 	var cmd *exec.Cmd
-	if _, err := os.Stat(programKeyPair); err == nil {
-		// Keypair exists, include program-id
+	// We need to specify the program ID on the initial deploy but not on upgrades
+	// Upgrades happen in place so we don't need to supply the keypair
+	// It will write the .so file to a buffer and then deploy it to the existing keypair
+	if !isUpgrade {
 		logger.Infow("Deploying program with existing keypair",
 			"programFile", programFile,
 			"programKeyPair", programKeyPair)
@@ -113,7 +118,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string) (strin
 
 	// TODO: obviously need to do this better
 	time.Sleep(5 * time.Second)
-	return parseProgramID(output)
+	return parseProgramID(output, prefix)
 }
 
 func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.PublicKey, accountState interface{}) error {
@@ -125,10 +130,9 @@ func (c SolChain) GetAccountDataBorshInto(ctx context.Context, pubkey solana.Pub
 }
 
 // parseProgramID parses the program ID from the deploy output.
-func parseProgramID(output string) (string, error) {
+func parseProgramID(output string, prefix string) (string, error) {
 	// Look for the program ID in the CLI output
 	// Example output: "Program Id: <PROGRAM_ID>"
-	const prefix = "Program Id: "
 	startIdx := strings.Index(output, prefix)
 	if startIdx == -1 {
 		return "", errors.New("failed to find program ID in output")

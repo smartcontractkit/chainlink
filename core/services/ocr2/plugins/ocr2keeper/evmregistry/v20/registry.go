@@ -22,7 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
@@ -353,7 +353,7 @@ func (r *EvmRegistry) initialize(ctx context.Context) error {
 
 func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 	var latest int64
-	var end logpoller.LogPollerBlock
+	var end logpoller.Block
 	var err error
 
 	if end, err = r.poller.LatestBlock(ctx); err != nil {
