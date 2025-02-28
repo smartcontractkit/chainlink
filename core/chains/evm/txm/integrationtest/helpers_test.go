@@ -100,7 +100,6 @@ func setupNode(
 
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
-	fmt.Printf("creating config: %v\n", p2paddresses)
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
@@ -142,13 +141,13 @@ func setupNode(
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
-	fmt.Printf("backend: %v\n", backend)
+
 	if backend != nil {
 		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	} else {
 		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
 	}
-	fmt.Printf("starting app: %v\n", app)
+
 	err := app.Start(testutils.Context(t))
 	require.NoError(t, err)
 

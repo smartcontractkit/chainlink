@@ -1,11 +1,9 @@
 package llo_test
 
 import (
-	"crypto/ed25519"
-	"encoding/hex"
+	"context"
 	"fmt"
 	"math/big"
-	"strings"
 	"testing"
 	"time"
 
@@ -15,8 +13,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -34,17 +34,24 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 )
 
-// Copied from core/services/ocr2/plugins/llo/integration_test.go
+// Copied from core/services/ocr2/plugins/llo/integration_test.go + svr-contracts/test/e2e/svr_test.go
+
+/*
+	Steps to run:
+	* `docker run --name cl-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dbname -p 5432:5432 -d postgres`
+	* `make setup-testdb`
+	* `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -run ^TestIntegration_secondary_feed_transmission$ github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/integrationtest -v`
+*/
 
 var (
 	fNodes = uint8(1)
-	nNodes = 1 // number of nodes (not including bootstrap)
 )
 
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
@@ -54,14 +61,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	const salt = 100
 
-	clientCSAKeys := make([]csakey.KeyV2, nNodes)
-	clientPubKeys := make([]ed25519.PublicKey, nNodes)
-	for i := 0; i < nNodes; i++ {
-		k := big.NewInt(int64(salt + i))
-		key := csakey.MustNewV2XXXTestingOnly(k)
-		clientCSAKeys[i] = key
-		clientPubKeys[i] = key.PublicKey
-	}
+	k := big.NewInt(int64(salt))
+	key := csakey.MustNewV2XXXTestingOnly(k)
+	clientCSAKey := key
 
 	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
 	// fromBlock := 1
@@ -71,33 +73,57 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	fmt.Printf("steve: %s\n", steve.From.String())
 	fmt.Printf("verifier: %s\n", verifier.Address().Hex())
 
-	// Setup bootstrap
-	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
-	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_svr", backend, bootstrapCSAKey, nil)
-	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+	// donID := uint32(995544)
 
-	fmt.Printf("Bootstrap node: %s\n", bootstrapPeerID)
-	fmt.Printf("Bootstrap node: %s\n", bootstrapNode.ClientPubKey.String())
+	// Setup the node
+	port := freeport.GetOne(t)
+	app, _, transmitter, kb, observedLogs := setupNode(t, port, "oracle_svr", backend, clientCSAKey, nil) // TODO(gg): fix db name?
+	node := Node{app, transmitter, kb, observedLogs}
 
-	// t.Run("sends a transmission to the secondary feed", func(t *testing.T) {
+	// offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+	// require.NoError(t, err)
+	// oracles = append(oracles, confighelper.OracleIdentityExtra{
+	// 	OracleIdentity: confighelper.OracleIdentity{
+	// 		OnchainPublicKey:  offchainPublicKey,
+	// 		TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+	// 		OffchainPublicKey: kb.OffchainPublicKey(),
+	// 		PeerID:            peerID,
+	// 	},
+	// 	ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+	// })
 
-	// 	donID := uint32(995544)
+	// chainID := testutils.SimulatedChainID
 
-	// 	// Setup oracle nodes
-	// 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+	// TOOD(gg) deploy dualAggContracts
+	dualAggContractsAddresses := []string{"0xdeadbeef"}
 
-	// 	})
+	for _, contractAddress := range dualAggContractsAddresses {
+		fmt.Printf("Creating feed for %s\n", contractAddress)
+		// firstKey := node.KeyBundle.Raw().Key().ID()
 
-	// 	chainID := testutils.SimulatedChainID
-	// 	relayType := "evm"
-	// 	relayConfig := fmt.Sprintf(`
-	// 		chainID = "%s"
-	// 		fromBlock = %d
-	// 		lloDonID = %d
-	// 		lloConfigMode = "mercury"
-	// `, chainID, fromBlock, donID)
-	// 	addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
+		// TODO(gg): put this into the actual job
+		// job := fmt.Sprintf(oevJobSpec, feedNr, uuid.New().String(), contractAddress.Addresses[0].String(), "evm", firstKey, primaryAddresses[i], bootstrapPeerID.Data[0].Attributes.PeerID,
+		// strings.TrimPrefix(node.DockerP2PUrl, "http://"), chainID, fromBlock, contractAddress.Addresses[0].String(), secondaryAddresses[i])
+
+		jb := &job.Job{
+			Type:          job.OffchainReporting2,
+			SchemaVersion: 1,
+			Name:          null.StringFrom("SVR job 1"),
+			CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
+			PipelineSpec:  &pipeline.Spec{},
+			ExternalJobID: uuid.New(),
+		}
+		// err := helper.pipelineHelper.Jrm.CreateJob(testutils.Context(t), jb)
+		err := node.App.AddJobV2(context.Background(), jb)
+		require.NoError(t, err, "Failed to create feed job")
+	}
+
+	// relayType := "evm"
+	// relayConfig := fmt.Sprintf(`
+	// 			chainID = "%s"
+	// 			fromBlock = %d
+	// 	`, chainID, fromBlock, donID)
+	// addBootstrapJob(t, bootstrapNode, legacyVerifierAddr, "job-2", relayType, relayConfig)
 
 	// 	// Channel definitions
 	// 	channelDefinitions := llotypes.ChannelDefinitions{
@@ -214,7 +240,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// 		}
 
 	// 	}
-	// })
+
 }
 
 func setupBlockchain(t *testing.T) (
@@ -311,8 +337,8 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 	for _, signer := range signers {
 		onchainPubKeys = append(onchainPubKeys, signer)
 	}
-	offchainTransmitters := make([][32]byte, nNodes)
-	for i := 0; i < nNodes; i++ {
+	offchainTransmitters := make([][32]byte, 1)
+	for i := 0; i < 1; i++ {
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 	donIDPadded := llo.DonIDToBytes32(donID)
@@ -363,29 +389,6 @@ func generateBlueGreenConfig(t *testing.T, oracles []confighelper.OracleIdentity
 	return generateConfig(t, oracles, onchainConfig)
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
-	ports := freeport.GetN(t, nNodes)
-	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
-
-		nodes = append(nodes, Node{
-			app, transmitter, kb, observedLogs,
-		})
-		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
-		require.NoError(t, err)
-		oracles = append(oracles, confighelper.OracleIdentityExtra{
-			OracleIdentity: confighelper.OracleIdentity{
-				OnchainPublicKey:  offchainPublicKey,
-				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
-				OffchainPublicKey: kb.OffchainPublicKey(),
-				PeerID:            peerID,
-			},
-			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
-		})
-	}
-	return
-}
-
 func mustNewType(t string) abi.Type {
 	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
 	if err != nil {
@@ -393,3 +396,81 @@ func mustNewType(t string) abi.Type {
 	}
 	return result
 }
+
+var oevJobSpec = `
+type = "offchainreporting2"
+schemaVersion = 1
+name = "OEV job %d"
+externalJobID = "%s"
+forwardingAllowed = true
+maxTaskDuration = "0s"
+contractID = "%s"
+relay = "%s"
+ocrKeyBundleID = "%s"
+pluginType = "median"
+transmitterID = "%s"
+p2pv2Bootstrappers = ["%s@%s"]
+
+observationSource = """
+ //randomness
+    val1 [type="memo" value="10"]
+    val2 [type="memo" value="20"]
+    val3 [type="memo" value="30"]
+    val4 [type="memo" value="40"]
+    val5 [type="memo" value="50"]
+    val6 [type="memo" value="60"]
+    val7 [type="memo" value="70"]
+    val8 [type="memo" value="80"]
+    val9 [type="memo" value="90"]
+
+    random1 [type="any"]
+    random2 [type="any"]
+    random3 [type="any"]
+
+    val1 -> random1
+    val2 -> random2
+    val3 -> random3
+    val4 -> random1
+    val5 -> random2
+    val6 -> random3
+    val7 -> random1
+    val8 -> random2
+    val9 -> random3
+
+
+    // data source 1
+    ds1_multiply [type="multiply" times=100]
+
+     // data source 2
+    ds2_multiply [type="multiply" times=100]
+
+
+    // data source 3
+    ds3_multiply [type="multiply" times=100]
+
+
+    random1 -> ds1_multiply -> answer
+    random2 -> ds2_multiply -> answer
+    random3 -> ds3_multiply -> answer
+
+    answer [type=median]
+"""
+
+[relayConfig]
+chainID = %s
+fromBlock = %d
+enableDualTransmission = true
+
+[relayConfig.dualTransmission]
+contractAddress = "%s"
+transmitterAddress = "%s"
+
+[relayConfig.dualTransmission.meta]
+hint = [ "calldata" ]
+refund = [ "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90" ]
+
+[pluginConfig]
+juelsPerFeeCoinSource = """
+juels_per_fee_coin [type="sum" values=<[0]>];
+"""
+`
