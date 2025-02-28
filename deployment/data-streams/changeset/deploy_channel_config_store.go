@@ -10,6 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 )
 
+// DeployChannelConfigStore deploys ChannelConfigStore to the chains specified in the config.
+type DeployChannelConfigStore struct{}
+
 type DeployChannelConfigStoreConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 	ChainsToDeploy []uint64
@@ -27,8 +30,7 @@ func (cc DeployChannelConfigStoreConfig) Validate() error {
 	return nil
 }
 
-// DeployChannelConfigStore deploys ChannelConfigStore to the chains specified in the config.
-func DeployChannelConfigStore(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
+func (DeployChannelConfigStore) Apply(e deployment.Environment, cc DeployChannelConfigStoreConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
 	err := performDeployment(e, ab, cc)
 	if err != nil {
@@ -38,6 +40,14 @@ func DeployChannelConfigStore(e deployment.Environment, cc DeployChannelConfigSt
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
+}
+
+func (DeployChannelConfigStore) VerifyPreconditions(_ deployment.Environment, cc DeployChannelConfigStoreConfig) error {
+	if err := cc.Validate(); err != nil {
+		return fmt.Errorf("invalid DeployChannelConfigStoreConfig: %w", err)
+	}
+
+	return nil
 }
 
 func performDeployment(e deployment.Environment, ab deployment.AddressBook, cc DeployChannelConfigStoreConfig) error {

@@ -32,7 +32,7 @@ type (
 	}
 )
 
-var _ deployment.ChangeSet[DeployChannelConfigStoreConfig] = DeployChannelConfigStore
+var _ deployment.ChangeSetV2[DeployChannelConfigStoreConfig] = DeployChannelConfigStore{}
 
 // deployContract deploys a contract and saves the address to the address book.
 //

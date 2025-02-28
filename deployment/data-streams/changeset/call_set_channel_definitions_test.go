@@ -17,7 +17,7 @@ func TestCallSetChannelDefinitions(t *testing.T) {
 	deployConf := DeployChannelConfigStoreConfig{
 		ChainsToDeploy: []uint64{TestChain.Selector},
 	}
-	out, err := DeployChannelConfigStore(e, deployConf)
+	out, err := DeployChannelConfigStore{}.Apply(e, deployConf)
 	require.NoError(t, err)
 
 	ab, err := out.AddressBook.Addresses()

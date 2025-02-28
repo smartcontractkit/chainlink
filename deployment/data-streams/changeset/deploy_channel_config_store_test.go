@@ -13,7 +13,7 @@ func TestDeployChannelConfigStore(t *testing.T) {
 	cc := DeployChannelConfigStoreConfig{
 		ChainsToDeploy: []uint64{TestChain.Selector},
 	}
-	out, err := DeployChannelConfigStore(e, cc)
+	out, err := DeployChannelConfigStore{}.Apply(e, cc)
 	require.NoError(t, err)
 
 	ab, err := out.AddressBook.Addresses()
