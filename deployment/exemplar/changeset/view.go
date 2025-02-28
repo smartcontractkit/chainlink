@@ -30,7 +30,7 @@ var ViewExemplar deployment.ViewState = func(e deployment.Environment) (json.Mar
 		Chains:      make([]string, 0),
 		Addresses:   make(map[string][]string),
 	}
-	lggr.Info("e.AllChainSelectors()", e.AllChainSelectors())
+
 	// Get chain information
 	for _, chainSel := range e.AllChainSelectors() {
 		chain := e.Chains[chainSel]
