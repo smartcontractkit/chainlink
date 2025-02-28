@@ -3,9 +3,9 @@ package read_test
 import (
 	"fmt"
 	"math/big"
+	"math/rand/v2"
 	"testing"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
