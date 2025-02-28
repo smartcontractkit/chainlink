@@ -460,7 +460,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		}
 	}
 
-	// evm alway enabled for backward compatibility
+	// evm always enabled for backward compatibility
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmOpts)}
 
 	if cfg.CosmosEnabled() {
