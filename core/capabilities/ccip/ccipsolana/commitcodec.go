@@ -193,7 +193,7 @@ func decodeLEToBigInt(data []byte) cciptypes.BigInt {
 
 	// Use big.Int.SetBytes to construct the big.Int
 	bi := new(big.Int).SetBytes(data)
-	if bi.Int64() == 0 {
+	if bi.Cmp(big.NewInt(0)) == 0 {
 		return cciptypes.NewBigInt(big.NewInt(0))
 	}
 

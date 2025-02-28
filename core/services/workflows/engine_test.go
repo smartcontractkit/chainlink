@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"sync"
 	"testing"
 	"time"
 
@@ -2154,4 +2156,55 @@ func TestMerge(t *testing.T) {
 			assert.Equal(t, tc.expectedConfig, gotMap)
 		})
 	}
+}
+
+// Test_stepUpdateManager ensures that the manager is concurrency safe by sending concurrent
+// requests to send and remove a given execution ID.
+func Test_stepUpdateManager(t *testing.T) {
+	var (
+		wg             sync.WaitGroup
+		ctx            = testutils.Context(t)
+		wantExecutions = 99
+		wantSends      = wantExecutions * 2
+		buffLen        = wantSends // worst case scenario all sends go to one channel
+	)
+
+	// Setup the step update manager
+	mgr := stepUpdateManager{
+		m: make(map[string]stepUpdateChannel),
+	}
+	executionIDs := make([]string, wantExecutions)
+	stepUpdateChs := make([]stepUpdateChannel, wantExecutions)
+	for i := range wantExecutions {
+		executionIDs[i] = fmt.Sprintf("execution-%d", i+1)
+		stepUpdateCh := make(chan store.WorkflowExecutionStep, buffLen) // buffered channel so we don't have to read
+		stepUpdateChs[i] = stepUpdateChannel{
+			executionID: executionIDs[i],
+			ch:          stepUpdateCh,
+		}
+		mgr.add(executionIDs[i], stepUpdateChs[i])
+	}
+
+	// Concurrently send and remove for the same execution ID
+	for range wantSends {
+		eid := executionIDs[rand.IntN(len(executionIDs))]
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			_ = mgr.send(ctx, eid, store.WorkflowExecutionStep{
+				ExecutionID: eid,
+			})
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			mgr.remove(eid)
+		}()
+	}
+
+	wg.Wait()
 }

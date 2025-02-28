@@ -28,7 +28,7 @@ builds:
       - -trimpath
       - -buildmode=pie
 archives:
-  - format: binary
+  - formats: binary
 snapshot:
   version_template: v0.0.0-{{ .Runtime.Goarch }}-{{ .Now.Format "2006-01-02-15-04-05Z" }}
 checksum:

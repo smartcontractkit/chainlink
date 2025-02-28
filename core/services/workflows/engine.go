@@ -56,15 +56,9 @@ type stepUpdateManager struct {
 }
 
 func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
-	sucm.mu.RLock()
-	_, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
-	if ok {
-		return false
-	}
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
-	if _, ok = sucm.m[executionID]; ok {
+	if _, ok := sucm.m[executionID]; ok {
 		return false
 	}
 	sucm.m[executionID] = ch
@@ -81,9 +75,10 @@ func (sucm *stepUpdateManager) remove(executionID string) {
 }
 
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
-	sucm.mu.RLock()
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
 	stepUpdateCh, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
+
 	if !ok {
 		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
