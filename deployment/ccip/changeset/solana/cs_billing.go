@@ -534,10 +534,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
-		return err
-	}
-	return nil
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState)
 }
 
 func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (deployment.ChangesetOutput, error) {

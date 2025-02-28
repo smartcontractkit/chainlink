@@ -167,6 +167,9 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		cfg.MCMSSolana,
 		ccipChangeset.Router,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 
 	newRegistryAdminPubKey := solana.MustPublicKeyFromBase58(cfg.NewRegistryAdminPublicKey)
 
@@ -270,6 +273,9 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 		cfg.MCMSSolana,
 		ccipChangeset.Router,
 	)
+	if err != nil {
+		return fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)

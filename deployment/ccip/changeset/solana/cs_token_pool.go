@@ -417,7 +417,7 @@ func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
 	}
-	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, tokenPubKey, true)
+	return validatePoolDeployment(&e, cfg.PoolType, cfg.ChainSelector, tokenPubKey, false)
 }
 
 func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableConfig) (deployment.ChangesetOutput, error) {
@@ -791,7 +791,7 @@ const (
 )
 
 type LiquidityConfig struct {
-	Amount             uint64
+	Amount             int
 	RemoteTokenAccount solana.PublicKey
 	Type               LiquidityOperation
 }
@@ -857,11 +857,11 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to get token balance: %w", err)
 			}
-			if outVal < int(cfg.LiquidityCfg.Amount) {
+			if outVal < cfg.LiquidityCfg.Amount {
 				return deployment.ChangesetOutput{}, fmt.Errorf("insufficient token balance: %d < %d", outVal, cfg.LiquidityCfg.Amount)
 			}
 			ix1, err := solTokenUtil.TokenApproveChecked(
-				cfg.LiquidityCfg.Amount,
+				uint64(cfg.LiquidityCfg.Amount),
 				outDec,
 				tokenProgram,
 				cfg.LiquidityCfg.RemoteTokenAccount,
@@ -875,7 +875,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 				return deployment.ChangesetOutput{}, err
 			}
 			ix, err := solLockReleaseTokenPool.NewProvideLiquidityInstruction(
-				cfg.LiquidityCfg.Amount,
+				uint64(cfg.LiquidityCfg.Amount),
 				poolConfigPDA,
 				tokenProgram,
 				tokenPubKey,
@@ -890,7 +890,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 			ixns = append(ixns, ix)
 		case Withdraw:
 			ix, err := solLockReleaseTokenPool.NewWithdrawLiquidityInstruction(
-				cfg.LiquidityCfg.Amount,
+				uint64(cfg.LiquidityCfg.Amount),
 				poolConfigPDA,
 				tokenProgram,
 				tokenPubKey,

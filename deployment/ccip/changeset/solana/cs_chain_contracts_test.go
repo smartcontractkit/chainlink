@@ -481,7 +481,7 @@ func TestBilling(t *testing.T) {
 			// check that the billing account has the right amount
 			_, billingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, deployment.SolDefaultCommitment)
 			require.NoError(t, err)
-			require.Equal(t, int(1000), billingResult)
+			require.Equal(t, 1000, billingResult)
 			feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, tokenAddress, feeAggregator)
 			_, feeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, deployment.SolDefaultCommitment)
 			require.NoError(t, err)
@@ -500,10 +500,10 @@ func TestBilling(t *testing.T) {
 			require.NoError(t, err)
 			_, newBillingResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, billingSignerATA, deployment.SolDefaultCommitment)
 			require.NoError(t, err)
-			require.Equal(t, int(billingResult-1000), int(newBillingResult))
+			require.Equal(t, billingResult-1000, newBillingResult)
 			_, newFeeAggResult, err := solTokenUtil.TokenBalance(e.GetContext(), e.SolChains[solChain].Client, feeAggregatorATA, deployment.SolDefaultCommitment)
 			require.NoError(t, err)
-			require.Equal(t, int(feeAggResult+1000), int(newFeeAggResult))
+			require.Equal(t, feeAggResult+1000, newFeeAggResult)
 		})
 	}
 
