@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
 	"math"
 	"slices"
 	"sync"
@@ -115,10 +116,11 @@ func subscribeTransmitEvents(
 					dst:    event.DestChainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: header.Time,
+			}
+			if header != nil {
+				data.timestamp = header.Time
 			}
 			metricPipe <- data
-
 			csPair := testhelpers.SourceDestPair{
 				SourceChainSelector: srcChainSel,
 				DestChainSelector:   event.DestChainSelector,
@@ -230,6 +232,9 @@ func subscribeCommitEvents(
 								seqNum: i,
 							},
 							timestamp: header.Time,
+						}
+						if header != nil {
+							data.timestamp = header.Time
 						}
 						metricPipe <- data
 						seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
@@ -353,7 +358,9 @@ func subscribeExecutionEvents(
 					dst:    chainSelector,
 					seqNum: event.SequenceNumber,
 				},
-				timestamp: header.Time,
+			}
+			if header != nil {
+				data.timestamp = header.Time
 			}
 			metricPipe <- data
 			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
@@ -414,9 +421,8 @@ func subscribeExecutionEvents(
 
 func subscribeAlreadyExecuted(
 	ctx context.Context,
-	offRamp offramp.OffRamp,
+	offRamp offramp.OffRampInterface,
 	lggr logger.Logger,
-	destChain uint64,
 ) {
 	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
 	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
@@ -437,6 +443,34 @@ func subscribeAlreadyExecuted(
 			return
 		case ev := <-sink:
 			lggr.Errorw("received already executed event", "seqNr", ev.SequenceNumber, "sourceChain", ev.SourceChainSelector)
+		}
+	}
+}
+
+func subscribeSkippedIncorrectNonce(
+	ctx context.Context,
+	nm nonce_manager.NonceManagerInterface,
+	lggr logger.Logger,
+) {
+	sink := make(chan *nonce_manager.NonceManagerSkippedIncorrectNonce)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return nm.WatchSkippedIncorrectNonce(&bind.WatchOpts{
+			Context: ctx,
+			Start:   nil,
+		}, sink)
+	})
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-subscription.Err():
+			lggr.Errorw("error in skipped incorrect nonce subscription",
+				"err", subErr)
+			return
+		case ev := <-sink:
+			lggr.Errorw("received an incorrect nonce", "seqNr", ev.Nonce, "sourceChain", ev.SourceChainSelector)
 		}
 	}
 }

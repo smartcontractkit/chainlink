@@ -192,7 +192,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, er
 		return router.ClientEVM2AnyMessage{}, err
 	}
 
-	extraArgs, err := GetEVMExtraArgsV2(nil, true)
+	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), true)
 	if err != nil {
 		m.l.Error("Error encoding extra args")
 		return router.ClientEVM2AnyMessage{}, err
