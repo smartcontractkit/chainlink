@@ -4,6 +4,7 @@ run:
 linters:
   enable:
     - containedctx
+    - copyloopvar
     - depguard
     - errname
     - errorlint
