@@ -847,6 +847,9 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 		poolConfigAccount := solLockReleaseTokenPool.State{}
 		_ = chain.GetAccountDataBorshInto(context.Background(), poolConfigPDA, &poolConfigAccount)
+		if cfg.LiquidityCfg.Amount <= 0 {
+			return deployment.ChangesetOutput{}, fmt.Errorf("invalid amount: %d", cfg.LiquidityCfg.Amount)
+		}
 		switch cfg.LiquidityCfg.Type {
 		case Provide:
 			outDec, outVal, err := tokens.TokenBalance(
@@ -870,6 +873,9 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 				chain.DeployerKey.PublicKey(),
 				solana.PublicKeySlice{},
 			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to TokenApproveChecked: %w", err)
+			}
 			if err = chain.Confirm([]solana.Instruction{ix1}); err != nil {
 				e.Logger.Errorw("Failed to confirm instructions for TokenApproveChecked", "chain", chain.String(), "err", err)
 				return deployment.ChangesetOutput{}, err
