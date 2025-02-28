@@ -688,7 +688,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			&e,
 			chain,
 			cfg.MCMSSolana,
-			ccipChangeset.BurnFromMintTokenPool,
+			ccipChangeset.BurnMintTokenPool,
 			tokenPubKey)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
@@ -804,7 +804,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 			&e,
 			chain,
 			cfg.MCMSSolana,
-			ccipChangeset.BurnFromMintTokenPool,
+			ccipChangeset.BurnMintTokenPool,
 			tokenPubKey)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
