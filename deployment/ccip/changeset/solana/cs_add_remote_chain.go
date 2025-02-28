@@ -3,7 +3,6 @@ package solana
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 
 	"github.com/gagliardetto/solana-go"
@@ -166,10 +165,8 @@ func doAddRemoteChainToSolana(
 		// already verified, skipping errcheck
 		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
 		copy(onRampAddress.Bytes[:], addressBytes)
-		if len(addressBytes) > math.MaxUint32 {
-			return nil, fmt.Errorf("addressBytes length exceeds uint32 max value")
-		}
-		onRampAddress.Len = uint32(len(addressBytes))
+
+		onRampAddress.Len = uint32(len(addressBytes)) // #nosec G115
 
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
