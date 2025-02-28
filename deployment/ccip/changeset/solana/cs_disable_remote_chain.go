@@ -41,20 +41,8 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
 		return err
-	}
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
-	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
-	chain, ok := e.SolChains[cfg.ChainSelector]
-	if !ok {
-		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
-	}
-	if err := cs.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, cs.FeeQuoter); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
-	}
-	if err := cs.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, cs.OffRamp); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	var routerConfigAccount solRouter.Config
 	// already validated that router config exists

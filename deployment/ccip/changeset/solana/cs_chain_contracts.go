@@ -96,6 +96,21 @@ func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.So
 	return nil
 }
 
+func validateFeeAggregatorConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
+	if chainState.FeeAggregator.IsZero() {
+		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
+	}
+	var routerConfigAccount solRouter.Config
+	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
+	}
+	if !routerConfigAccount.FeeAggregator.Equals(chainState.FeeAggregator) {
+		return fmt.Errorf("fee aggregator %s does not match router config %s", chainState.FeeAggregator.String(), routerConfigAccount.FeeAggregator.String())
+	}
+	return nil
+}
+
 func validateFeeQuoterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)

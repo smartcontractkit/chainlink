@@ -13,13 +13,18 @@ import (
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
-func ValidateMCMSConfigSolana(e deployment.Environment, chainSelector uint64, mcms *MCMSConfigSolana) error {
+func ValidateMCMSConfigSolana(
+	e deployment.Environment,
+	mcms *MCMSConfigSolana,
+	chain deployment.SolChain,
+	chainState ccipChangeset.SolCCIPChainState) error {
 	if mcms != nil {
 		if mcms.MCMS == nil {
 			return errors.New("MCMS config is nil")
@@ -27,7 +32,18 @@ func ValidateMCMSConfigSolana(e deployment.Environment, chainSelector uint64, mc
 		if !mcms.FeeQuoterOwnedByTimelock && !mcms.RouterOwnedByTimelock && !mcms.OffRampOwnedByTimelock {
 			return errors.New("at least one of the MCMS components must be owned by the timelock")
 		}
-		return ValidateMCMSConfig(e, chainSelector, mcms.MCMS)
+		if err := ValidateMCMSConfig(e, chain.Selector, mcms.MCMS); err != nil {
+			return fmt.Errorf("failed to validate MCMS config: %w", err)
+		}
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.FeeQuoterOwnedByTimelock, chainState.FeeQuoter, cs.FeeQuoter); err != nil {
+			return fmt.Errorf("failed to validate ownership for fee quoter: %w", err)
+		}
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.RouterOwnedByTimelock, chainState.Router, cs.Router); err != nil {
+			return fmt.Errorf("failed to validate ownership for router: %w", err)
+		}
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.OffRampOwnedByTimelock, chainState.OffRamp, cs.OffRamp); err != nil {
+			return fmt.Errorf("failed to validate ownership for off ramp: %w", err)
+		}
 	}
 	return nil
 }
