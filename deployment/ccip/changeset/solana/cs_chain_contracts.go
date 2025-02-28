@@ -33,8 +33,9 @@ type MCMSConfigSolana struct {
 	RouterOwnedByTimelock    bool
 	FeeQuoterOwnedByTimelock bool
 	OffRampOwnedByTimelock   bool
-	// Assumes whatever token pool we're operating on
-	TokenPoolPDAOwnedByTimelock bool
+	// Operates as a set. Token Pool configs will owned by timelock per token (the key)
+	BurnMintTokenPoolOwnedByTimelock    map[solana.PublicKey]bool
+	LockReleaseTokenPoolOwnedByTimelock map[solana.PublicKey]bool
 }
 
 // HELPER FUNCTIONS

@@ -917,7 +917,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 		return err
 	}
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
 		return err
 	}
 
@@ -951,7 +951,8 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.Router)
+		ccipChangeset.Router,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}

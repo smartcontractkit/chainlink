@@ -56,7 +56,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", remote)
 		}
 		chain := e.SolChains[remote]
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, ccipChangeset.OffRamp); err != nil {
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, cfg.MCMS != nil, state.SolChains[remote].OffRamp, ccipChangeset.OffRamp, solana.PublicKey{}); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
 		}
 	}

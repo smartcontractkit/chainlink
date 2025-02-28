@@ -49,7 +49,7 @@ func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	if _, err := chainState.TokenToTokenProgram(tokenPubKey); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
 	// check if already setup
@@ -87,7 +87,8 @@ func AddBillingToken(
 		&e,
 		chain,
 		mcms,
-		ccipChangeset.FeeQuoter)
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
 	if err != nil {
 		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -226,7 +227,7 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
@@ -234,7 +235,8 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.FeeQuoter)
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -310,7 +312,7 @@ func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -360,7 +362,8 @@ func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (deployment.
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.FeeQuoter)
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -429,7 +432,7 @@ func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
 		return err
 	}
 	if cfg.PriceUpdater.IsZero() {
@@ -462,7 +465,8 @@ func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) 
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.FeeQuoter)
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -534,7 +538,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
 		return err
 	}
-	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState)
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey)
 }
 
 func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (deployment.ChangesetOutput, error) {
@@ -563,7 +567,8 @@ func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.Router)
+		ccipChangeset.Router,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}

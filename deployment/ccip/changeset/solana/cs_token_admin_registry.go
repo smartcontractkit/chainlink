@@ -51,7 +51,7 @@ func (cfg RegisterTokenAdminRegistryConfig) Validate(e deployment.Environment) e
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
@@ -84,7 +84,8 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.Router)
+		ccipChangeset.Router,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -158,7 +159,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
 	currentAdmin, err := GetAuthorityForIxn(
@@ -166,6 +167,7 @@ func (cfg TransferAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Envir
 		chain,
 		cfg.MCMSSolana,
 		ccipChangeset.Router,
+		solana.PublicKey{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get authority for ixn: %w", err)
@@ -211,7 +213,8 @@ func TransferAdminRoleTokenAdminRegistry(e deployment.Environment, cfg TransferA
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.Router)
+		ccipChangeset.Router,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
@@ -264,7 +267,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
 	}
 	newAdmin, err := GetAuthorityForIxn(
@@ -272,6 +275,7 @@ func (cfg AcceptAdminRoleTokenAdminRegistryConfig) Validate(e deployment.Environ
 		chain,
 		cfg.MCMSSolana,
 		ccipChangeset.Router,
+		solana.PublicKey{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get authority for ixn: %w", err)
@@ -311,7 +315,8 @@ func AcceptAdminRoleTokenAdminRegistry(e deployment.Environment, cfg AcceptAdmin
 		&e,
 		chain,
 		cfg.MCMSSolana,
-		ccipChangeset.Router)
+		ccipChangeset.Router,
+		solana.PublicKey{})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}

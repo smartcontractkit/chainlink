@@ -41,7 +41,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	if err := validateOffRampConfig(chain, chainState); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
 		return err
 	}
 	var routerConfigAccount solRouter.Config
@@ -124,7 +124,8 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			cfg.MCMSSolana,
-			cs.FeeQuoter)
+			cs.FeeQuoter,
+			solana.PublicKey{})
 		if err != nil {
 			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
@@ -152,7 +153,8 @@ func doDisableRemoteChain(
 			&e,
 			chain,
 			cfg.MCMSSolana,
-			cs.OffRamp)
+			cs.OffRamp,
+			solana.PublicKey{})
 		if err != nil {
 			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
