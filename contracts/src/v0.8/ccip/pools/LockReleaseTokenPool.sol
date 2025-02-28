@@ -85,13 +85,13 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     return interfaceId == type(ILiquidityContainer).interfaceId || super.supportsInterface(interfaceId);
   }
 
-  /// @notice Gets LiquidityManager, can be address(0) if none is configured.
+  /// @notice Gets rebalancer, can be address(0) if none is configured.
   /// @return The current liquidity manager.
   function getRebalancer() external view returns (address) {
     return s_rebalancer;
   }
 
-  /// @notice Sets the LiquidityManager address.
+  /// @notice Sets the rebalancer address.
   /// @dev Only callable by the owner.
   function setRebalancer(
     address rebalancer

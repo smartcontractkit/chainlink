@@ -2,7 +2,7 @@
 '@chainlink/contracts': patch
 ---
 
-remote liquiditymanager onchain code
+remove liquiditymanager onchain code
 
 
 PR issue: CCIP-5335
