@@ -17,6 +17,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/stretchr/testify/assert"
@@ -135,6 +136,24 @@ func TestExecutePluginCodecV1(t *testing.T) {
 				return report
 			},
 			expErr:        false,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
+		{
+			name: "reports have invalid DestTokenAddress",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].TokenAmounts[0].DestTokenAddress = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
+		{
+			name: "reports have invalid receiver",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].Receiver = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
 	}

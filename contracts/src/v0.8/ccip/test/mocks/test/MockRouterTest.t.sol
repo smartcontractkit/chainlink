@@ -72,7 +72,8 @@ contract MockRouterTest is TokenSetup {
   }
 
   function test_ccipSendWithEVMExtraArgsV2() public {
-    Client.EVMExtraArgsV2 memory extraArgs = Client.EVMExtraArgsV2({gasLimit: 500_000, allowOutOfOrderExecution: true});
+    Client.GenericExtraArgsV2 memory extraArgs =
+      Client.GenericExtraArgsV2({gasLimit: 500_000, allowOutOfOrderExecution: true});
     message.extraArgs = Client._argsToBytes(extraArgs);
     mockRouter.ccipSend{value: 0.1 ether}(MOCK_CHAIN_SELECTOR, message);
   }

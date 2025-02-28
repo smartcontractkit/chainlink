@@ -14,7 +14,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/rs/zerolog"
 
-	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -40,8 +39,8 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 		}
 	}()
 
-	for _, donTopology := range input.DonTopology.MetaDons {
-		logFiles, err := getLogFileHandles(testName, l, donTopology.NodeOutput.Output)
+	for _, debugDon := range input.DebugDons {
+		logFiles, err := getLogFileHandles(testName, l, debugDon)
 		if err != nil {
 			l.Error().Err(err).Msg("Failed to get log file handles. No debug information will be printed")
 			return
@@ -50,9 +49,9 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 		allLogFiles = append(allLogFiles, logFiles...)
 
 		// assuming one bootstrap node
-		workflowNodeCount := len(donTopology.NodeOutput.CLNodes) - 1
+		workflowNodeCount := len(debugDon.ContainerNames) - 1
 
-		if flags.HasFlag(donTopology.Flags, types.WorkflowDON) {
+		if flags.HasFlag(debugDon.Flags, types.WorkflowDON) {
 			if !checkIfWorkflowWasExecuting(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Workflow was not executing")
 				return
@@ -60,7 +59,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 			l.Info().Msg("✅ Workflow was executing")
 		}
 
-		if flags.HasFlag(donTopology.Flags, types.OCR3Capability) {
+		if flags.HasFlag(debugDon.Flags, types.OCR3Capability) {
 			if !checkIfOCRWasExecuting(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ OCR was not executing")
 				return
@@ -68,7 +67,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 			l.Info().Msg("✅ OCR was executing")
 		}
 
-		if flags.HasFlag(donTopology.Flags, types.WriteEVMCapability) {
+		if flags.HasFlag(debugDon.Flags, types.WriteEVMCapability) {
 			if !checkIfAtLeastOneReportWasSent(logFiles, workflowNodeCount) {
 				l.Error().Msg("❌ Reports were not sent")
 				return
@@ -167,21 +166,18 @@ func ReportTransmissions(logFiles []*os.File, l zerolog.Logger, wsRPCURL string)
 	}
 }
 
-func getLogFileHandles(testName string, l zerolog.Logger, ns *ns.Output) ([]*os.File, error) {
+func getLogFileHandles(testName string, l zerolog.Logger, debugDon *types.DebugDon) ([]*os.File, error) {
 	var logFiles []*os.File
 
 	var belongsToCurrentEnv = func(filePath string) bool {
-		for i, clNode := range ns.CLNodes {
-			if clNode == nil {
-				continue
-			}
-
+		for i, containerName := range debugDon.ContainerNames {
+			// TODO check corresponding flag when looking for bootstrap node
 			// skip the first node, as it's the bootstrap node
 			if i == 0 {
 				continue
 			}
 
-			if strings.EqualFold(filePath, clNode.Node.ContainerName+".log") {
+			if strings.EqualFold(filePath, containerName+".log") {
 				return true
 			}
 		}
@@ -204,7 +200,7 @@ func getLogFileHandles(testName string, l zerolog.Logger, ns *ns.Output) ([]*os.
 		return nil
 	})
 
-	expectedLogCount := len(ns.CLNodes) - 1
+	expectedLogCount := len(debugDon.ContainerNames) - 1
 	if len(logFiles) != expectedLogCount {
 		l.Warn().Int("Expected", expectedLogCount).Int("Got", len(logFiles)).Msg("Number of log files does not match number of worker nodes. Some logs might be missing.")
 	}

@@ -58,11 +58,12 @@ func CompileWorkflow(creCLICommandPath, workflowFolder string, configFile, setti
 	}, nil
 }
 
-func RegisterWorkflow(creCLICommandPath, workflowName, workflowURL, configURL string, settingsFile *os.File) error {
-	registerCmd := exec.Command(creCLICommandPath, "workflow", "register", workflowName, "-b", workflowURL, "-c", configURL, "-S", settingsFile.Name(), "-v") // #nosec G204
-	registerCmd.Stdout = os.Stdout
-	registerCmd.Stderr = os.Stderr
-	if err := registerCmd.Start(); err != nil {
+// Same command to register a workflow or update an existing one
+func DeployWorkflow(creCLICommandPath, workflowName, workflowURL, configURL string, settingsFile *os.File) error {
+	deployCmd := exec.Command(creCLICommandPath, "workflow", "deploy", workflowName, "-b", workflowURL, "-c", configURL, "-S", settingsFile.Name(), "-v") // #nosec G204
+	deployCmd.Stdout = os.Stdout
+	deployCmd.Stderr = os.Stderr
+	if err := deployCmd.Start(); err != nil {
 		return errors.Wrap(err, "failed to start register command")
 	}
 

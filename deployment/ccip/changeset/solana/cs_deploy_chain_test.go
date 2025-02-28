@@ -59,6 +59,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
+	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
 	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally if we preload addresses so we have to change where we build
 	// we also don't want to incur two builds in CI, so only do it locally
@@ -145,7 +147,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 	// Expensive to run in CI
 	if !ci {
-		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true)
+		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, nil, nil)
 		upgradeAuthority := timelockSignerPDA
 		state, err := changeset.LoadOnchainStateSolana(e)
 		require.NoError(t, err)
@@ -204,6 +206,19 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 						MCMS: &ccipChangeset.MCMSConfig{
 							MinDelay: 1 * time.Second,
 						},
+					},
+				},
+			),
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
+				ccipChangesetSolana.SetFeeAggregatorConfig{
+					ChainSelector: solChainSelectors[0],
+					FeeAggregator: feeAggregatorPubKey2.String(),
+					MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
+						MCMS: &ccipChangeset.MCMSConfig{
+							MinDelay: 1 * time.Second,
+						},
+						RouterOwnedByTimelock: true,
 					},
 				},
 			),

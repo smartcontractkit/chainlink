@@ -263,6 +263,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
+
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
 		isBootstrap := n.multiAddr != ""

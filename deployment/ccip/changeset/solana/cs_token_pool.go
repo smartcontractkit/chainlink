@@ -500,10 +500,10 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 }
 
 type SetPoolConfig struct {
-	ChainSelector                     uint64
-	TokenPubKey                       string
-	TokenAdminRegistryAdminPrivateKey string
-	WritableIndexes                   []uint8
+	ChainSelector   uint64
+	TokenPubKey     string
+	WritableIndexes []uint8
+	MCMSSolana      *MCMSConfigSolana
 }
 
 func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
@@ -516,6 +516,13 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
 	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+		return err
+	}
+	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
+		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
 	if err != nil {
@@ -537,22 +544,31 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		return deployment.ChangesetOutput{}, err
 	}
 
-	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
-	tokenAdminRegistryAdminPrivKey := solana.MustPrivateKeyFromBase58(cfg.TokenAdminRegistryAdminPrivateKey)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
 
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	var authority solana.PublicKey
+	var err error
+	if routerUsingMCMS {
+		authority, err = FetchTimelockSigner(e, cfg.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		}
+	} else {
+		authority = e.SolChains[cfg.ChainSelector].DeployerKey.PublicKey()
+	}
 	base := solRouter.NewSetPoolInstruction(
 		cfg.WritableIndexes,
 		routerConfigPDA,
 		tokenAdminRegistryPDA,
 		tokenPubKey,
 		lookupTablePubKey,
-		tokenAdminRegistryAdminPrivKey.PublicKey(),
+		authority,
 	)
 
 	base.AccountMetaSlice = append(base.AccountMetaSlice, solana.Meta(lookupTablePubKey))
@@ -561,9 +577,23 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 		return deployment.ChangesetOutput{}, err
 	}
 
-	instructions := []solana.Instruction{instruction}
-	err = chain.Confirm(instructions, solCommonUtil.AddSigners(tokenAdminRegistryAdminPrivKey))
-	if err != nil {
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to RegisterTokenAdminRegistry in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	chain := e.SolChains[cfg.ChainSelector]
+	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Set pool config", "token_pubkey", tokenPubKey.String())
@@ -575,8 +605,10 @@ type ConfigureTokenPoolAllowListConfig struct {
 	SolTokenPubKey   string
 	PoolType         solTestTokenPool.PoolType
 	Accounts         []solana.PublicKey
-	Enabled          bool
-	MCMSSolana       *MCMSConfigSolana
+	// whether or not the given accounts are being added to the allow list or removed
+	// i.e. true = add, false = remove
+	Enabled    bool
+	MCMSSolana *MCMSConfigSolana
 }
 
 func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) error {

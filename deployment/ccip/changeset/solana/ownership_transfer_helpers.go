@@ -8,6 +8,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -245,5 +247,123 @@ func transferOwnershipOffRamp(
 	}
 
 	result = append(result, tx)
+	return result, nil
+}
+
+// transferOwnershipLockMintTokenPools transfers ownership of the lock mint token pools.
+func transferOwnershipBurnMintTokenPools(
+	ccipState state2.CCIPOnChainState,
+	tokenPools []solana.PublicKey,
+	chainSelector uint64,
+	solChain deployment.SolChain,
+	timelockProgramID solana.PublicKey,
+	timelockInstanceSeed state.PDASeed,
+) ([]mcmsTypes.Transaction, error) {
+	var result []mcmsTypes.Transaction
+
+	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
+	state := ccipState.SolChains[chainSelector]
+
+	// Build specialized closures
+	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
+		burnmint.SetProgramID(state.BurnMintTokenPool)
+		return burnmint.NewTransferOwnershipInstruction(
+			proposedOwner, config, authority,
+		).ValidateAndBuild()
+	}
+	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
+		burnmint.SetProgramID(state.BurnMintTokenPool)
+		// If the router has its own accept function, use that
+		ix, err := burnmint.NewAcceptOwnershipInstruction(
+			config, newOwnerAuthority,
+		).ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		for _, acc := range ix.Accounts() {
+			if acc.PublicKey == newOwnerAuthority {
+				acc.IsSigner = false
+			}
+		}
+		return ix, nil
+	}
+
+	for _, tokenPoolConfigPDA := range tokenPools {
+		tx, err := transferAndWrapAcceptOwnership(
+			buildTransfer,
+			buildAccept,
+			state.BurnMintTokenPool,
+			timelockSignerPDA,  // timelock PDA
+			tokenPoolConfigPDA, // config PDA
+			solChain.DeployerKey.PublicKey(),
+			solChain,
+			state2.BurnMintTokenPool,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to transfer burn-mint token pool ownership: %w", err)
+		}
+
+		result = append(result, tx)
+	}
+	return result, nil
+}
+
+// transferOwnershipLockReleaseTokenPools transfers ownership of the lock mint token pools.
+func transferOwnershipLockReleaseTokenPools(
+	ccipState state2.CCIPOnChainState,
+	tokenPools []solana.PublicKey,
+	chainSelector uint64,
+	solChain deployment.SolChain,
+	timelockProgramID solana.PublicKey,
+	timelockInstanceSeed state.PDASeed,
+) ([]mcmsTypes.Transaction, error) {
+	var result []mcmsTypes.Transaction
+
+	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
+	state := ccipState.SolChains[chainSelector]
+
+	// Build specialized closures
+	buildTransfer := func(proposedOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
+		lockrelease.SetProgramID(state.LockReleaseTokenPool)
+		return lockrelease.NewTransferOwnershipInstruction(
+			proposedOwner, config, authority,
+		).ValidateAndBuild()
+	}
+	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
+		lockrelease.SetProgramID(state.LockReleaseTokenPool)
+		// If the router has its own accept function, use that
+		ix, err := lockrelease.NewAcceptOwnershipInstruction(
+			config, newOwnerAuthority,
+		).ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		for _, acc := range ix.Accounts() {
+			if acc.PublicKey == newOwnerAuthority {
+				acc.IsSigner = false
+			}
+		}
+		return ix, nil
+	}
+
+	for _, tokenPoolConfigPDA := range tokenPools {
+		tx, err := transferAndWrapAcceptOwnership(
+			buildTransfer,
+			buildAccept,
+			state.LockReleaseTokenPool,
+			timelockSignerPDA,  // timelock PDA
+			tokenPoolConfigPDA, // config PDA
+			solChain.DeployerKey.PublicKey(),
+			solChain,
+			state2.LockReleaseTokenPool,
+		)
+
+		if err != nil {
+			return nil, fmt.Errorf("failed to transfer lock-release token pool ownership: %w", err)
+		}
+
+		result = append(result, tx)
+	}
 	return result, nil
 }
