@@ -850,6 +850,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		if cfg.LiquidityCfg.Amount <= 0 {
 			return deployment.ChangesetOutput{}, fmt.Errorf("invalid amount: %d", cfg.LiquidityCfg.Amount)
 		}
+		tokenAmount := uint64(cfg.LiquidityCfg.Amount) // #nosec G115 - we check the amount above
 		switch cfg.LiquidityCfg.Type {
 		case Provide:
 			outDec, outVal, err := tokens.TokenBalance(
@@ -864,7 +865,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 				return deployment.ChangesetOutput{}, fmt.Errorf("insufficient token balance: %d < %d", outVal, cfg.LiquidityCfg.Amount)
 			}
 			ix1, err := solTokenUtil.TokenApproveChecked(
-				uint64(cfg.LiquidityCfg.Amount),
+				tokenAmount,
 				outDec,
 				tokenProgram,
 				cfg.LiquidityCfg.RemoteTokenAccount,
@@ -881,7 +882,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 				return deployment.ChangesetOutput{}, err
 			}
 			ix, err := solLockReleaseTokenPool.NewProvideLiquidityInstruction(
-				uint64(cfg.LiquidityCfg.Amount),
+				tokenAmount,
 				poolConfigPDA,
 				tokenProgram,
 				tokenPubKey,
@@ -896,7 +897,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 			ixns = append(ixns, ix)
 		case Withdraw:
 			ix, err := solLockReleaseTokenPool.NewWithdrawLiquidityInstruction(
-				uint64(cfg.LiquidityCfg.Amount),
+				tokenAmount,
 				poolConfigPDA,
 				tokenProgram,
 				tokenPubKey,
