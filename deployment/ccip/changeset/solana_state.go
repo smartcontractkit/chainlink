@@ -294,27 +294,23 @@ func ValidateOwnershipSolana(
 			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
 		}
 	case BurnMintTokenPool:
-		if tokenAddress.IsZero() {
-			return errors.New("token address is zero for BurnMintTokenPool")
-		}
 		programData := solTestTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			return nil // token pool not configured with this token address
+			e.Logger.Warnf("BurnMintTokenPool not configured with this token address: %s", tokenAddress.String())
+			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for example_burnmint_token_pool: %w", err)
 		}
 	case LockReleaseTokenPool:
-		if tokenAddress.IsZero() {
-			return errors.New("token address is zero for LockReleaseTokenPool")
-		}
 		programData := solTestTokenPool.State{}
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			return nil // token pool not configured with this token address
+			e.Logger.Warnf("LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String())
+			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for example_lockrelease_token_pool: %w", err)

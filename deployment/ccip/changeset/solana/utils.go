@@ -41,21 +41,21 @@ func ValidateMCMSConfigSolana(
 		if err := ValidateMCMSConfig(e, chain.Selector, mcms.MCMS); err != nil {
 			return fmt.Errorf("failed to validate MCMS config: %w", err)
 		}
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.FeeQuoterOwnedByTimelock, chainState.FeeQuoter, cs.FeeQuoter, tokenAddress); err != nil {
-			return fmt.Errorf("failed to validate ownership for fee quoter: %w", err)
-		}
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.RouterOwnedByTimelock, chainState.Router, cs.Router, tokenAddress); err != nil {
-			return fmt.Errorf("failed to validate ownership for router: %w", err)
-		}
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.OffRampOwnedByTimelock, chainState.OffRamp, cs.OffRamp, tokenAddress); err != nil {
-			return fmt.Errorf("failed to validate ownership for off ramp: %w", err)
-		}
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
-			return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
-		}
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
-			return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
-		}
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.FeeQuoterOwnedByTimelock, chainState.FeeQuoter, cs.FeeQuoter, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for fee quoter: %w", err)
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.RouterOwnedByTimelock, chainState.Router, cs.Router, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for router: %w", err)
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.OffRampOwnedByTimelock, chainState.OffRamp, cs.OffRamp, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for off ramp: %w", err)
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
 	}
 	return nil
 }

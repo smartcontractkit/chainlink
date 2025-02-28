@@ -87,7 +87,7 @@ func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
 }
 
 func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Debugw("Adding token pool", "token_pubkey", cfg.TokenPubKey)
+	e.Logger.Infow("Adding token pool", "token_pubkey", cfg.TokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -574,7 +574,7 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 
 // this sets the writable indexes of the token pool lookup table
 func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Debugf("Setting pool config for token %s", cfg.TokenPubKey)
+	e.Logger.Infof("Setting pool config for token %s", cfg.TokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -663,7 +663,7 @@ func (cfg ConfigureTokenPoolAllowListConfig) Validate(e deployment.Environment) 
 }
 
 func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoolAllowListConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Debugf("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
+	e.Logger.Infof("Configuring token pool allowlist for token %s", cfg.SolTokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -779,7 +779,7 @@ func (cfg RemoveFromAllowListConfig) Validate(e deployment.Environment) error {
 }
 
 func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowListConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Debugf("Removing from token pool allowlist for token %s", cfg.SolTokenPubKey)
+	e.Logger.Infof("Removing from token pool allowlist for token %s", cfg.SolTokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -907,7 +907,7 @@ func (cfg LockReleaseLiquidityOpsConfig) Validate(e deployment.Environment) erro
 }
 
 func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityOpsConfig) (deployment.ChangesetOutput, error) {
-	e.Logger.Debugf("Locking/Unlocking liquidity for token %s", cfg.SolTokenPubKey)
+	e.Logger.Infof("Locking/Unlocking liquidity for token %s", cfg.SolTokenPubKey)
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
