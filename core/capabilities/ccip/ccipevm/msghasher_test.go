@@ -114,7 +114,7 @@ func createEVM2EVMMessage(t *testing.T, messageHasher *message_hasher.MessageHas
 		})
 		require.NoError(t, err)
 	} else if evmExtraArgs.version == "v2" {
-		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV2(nil, message_hasher.ClientEVMExtraArgsV2{
+		extraArgsBytes, err = messageHasher.EncodeEVMExtraArgsV2(nil, message_hasher.ClientGenericExtraArgsV2{
 			GasLimit:                 evmExtraArgs.gasLimit,
 			AllowOutOfOrderExecution: evmExtraArgs.allowOOO,
 		})
