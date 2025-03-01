@@ -14,7 +14,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestUpdateSvmChainSelector(t *testing.T) {
+func TestGenericOps(t *testing.T) {
 	t.Parallel()
 	tests := []struct {
 		Msg  string
@@ -51,7 +51,22 @@ func TestUpdateSvmChainSelector(t *testing.T) {
 
 			e, err := commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
-					// register token admin registry for tokenAddress via admin instruction
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetDefaultCodeVersion),
+					ccipChangesetSolana.SetDefaultCodeVersionConfig{
+						ChainSelector: solChain,
+						VersionEnum:   1,
+						MCMSSolana:    mcmsConfig,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateEnableManualExecutionAfter),
+					ccipChangesetSolana.UpdateEnableManualExecutionAfterConfig{
+						ChainSelector:         solChain,
+						EnableManualExecution: 1,
+						MCMSSolana:            mcmsConfig,
+					},
+				),
+				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateSvmChainSelector),
 					ccipChangesetSolana.UpdateSvmChainSelectorConfig{
 						OldChainSelector: solChain,
