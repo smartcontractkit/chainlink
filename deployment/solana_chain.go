@@ -76,8 +76,8 @@ func (c SolChain) Name() string {
 
 // https://docs.google.com/document/d/1Fk76lOeyS2z2X6MokaNX_QTMFAn5wvSZvNXJluuNV1E/edit?tab=t.0#heading=h.uij286zaarkz
 // https://docs.google.com/document/d/1nCNuam0ljOHiOW0DUeiZf4ntHf_1Bw94Zi7ThPGoKR4/edit?tab=t.0#heading=h.hju45z55bnqd
-func GetSolanaProgramBytes() map[string]uint64 {
-	return map[string]uint64{
+func GetSolanaProgramBytes() map[string]int {
+	return map[string]int{
 		RouterProgramName:               5 * 1024 * 1024,
 		OffRampProgramName:              0,
 		FeeQuoterProgramName:            5 * 1024 * 1024,
@@ -86,7 +86,7 @@ func GetSolanaProgramBytes() map[string]uint64 {
 		AccessControllerProgramName:     1 * 1024 * 1024,
 		TimelockProgramName:             1 * 1024 * 1024,
 		McmProgramName:                  1 * 1024 * 1024,
-		RMNRemoteProgramName:            0,
+		// RMNRemoteProgramName:            0,
 	}
 }
 
@@ -123,7 +123,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 		baseArgs = append(baseArgs, "--program-id", programKeyPair)
 		totalBytes := GetSolanaProgramBytes()[programName]
 		if totalBytes > 0 {
-			baseArgs = append(baseArgs, "--max-len", strconv.FormatUint(totalBytes, 10))
+			baseArgs = append(baseArgs, "--max-len", strconv.Itoa(totalBytes))
 		}
 		cmd = exec.Command("solana", baseArgs...) // #nosec G204
 	} else {

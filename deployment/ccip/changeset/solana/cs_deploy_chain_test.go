@@ -289,6 +289,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NoError(t, err)
 		// solana verification
 		testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+		verifyProgramSizes(t, e)
 	}
 }
 
@@ -311,6 +312,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 		// deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
 	}
 	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
+		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
 		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 		programDataSize, err := ccipChangesetSolana.SolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
 		require.NoError(t, err)
