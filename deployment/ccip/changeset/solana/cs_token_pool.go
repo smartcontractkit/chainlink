@@ -1181,7 +1181,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 		}
 	case solTestTokenPool.LockAndRelease_PoolType:
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, chainState.LockReleaseTokenPool)
-		remoteChainConfigPDA, _, err := solTokenUtil.TokenPoolChainConfigPDA(cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey, chainState.LockReleaseTokenPool)
+		remoteChainConfigPDA, _, _ := solTokenUtil.TokenPoolChainConfigPDA(cfg.DeleteChainCfg.RemoteChainSelector, tokenPubKey, chainState.LockReleaseTokenPool)
 		solLockReleaseTokenPool.SetProgramID(chainState.LockReleaseTokenPool)
 		programID = chainState.LockReleaseTokenPool
 		contractType = ccipChangeset.LockReleaseTokenPool
@@ -1238,7 +1238,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 		}, nil
 	}
 
-	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+	if err := chain.Confirm(ixns); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	e.Logger.Infow("Configured token pool allowlist", "token_pubkey", tokenPubKey.String())
