@@ -870,6 +870,7 @@ type LockReleaseLiquidityOpsConfig struct {
 	SolTokenPubKey   string
 	SetCfg           *SetLiquidityConfig
 	LiquidityCfg     *LiquidityConfig
+	RebalancerCfg    *RebalancerConfig
 	MCMSSolana       *MCMSConfigSolana
 }
 
@@ -887,6 +888,10 @@ type LiquidityConfig struct {
 	Amount             int
 	RemoteTokenAccount solana.PublicKey
 	Type               LiquidityOperation
+}
+
+type RebalancerConfig struct {
+	Rebalancer solana.PublicKey
 }
 
 func (cfg LockReleaseLiquidityOpsConfig) Validate(e deployment.Environment) error {
@@ -1013,6 +1018,17 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 			}
 			ixns = append(ixns, ix)
 		}
+	}
+	if cfg.RebalancerCfg != nil {
+		ix, err := solLockReleaseTokenPool.NewSetRebalancerInstruction(
+			cfg.RebalancerCfg.Rebalancer,
+			poolConfigPDA,
+			authority,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		ixns = append(ixns, ix)
 	}
 
 	if tokenPoolUsingMcms {
