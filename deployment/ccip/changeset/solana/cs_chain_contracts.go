@@ -83,13 +83,13 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
-	if chainState.Router.IsZero() {
-		return fmt.Errorf("router not found in existing state, deploy the router first for chain %d", chain.Selector)
+func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState, testRouter bool) error {
+	_, routerConfigPDA, err := chainState.GetRouterInfo(testRouter)
+	if err != nil {
+		return err
 	}
-	// addressing errcheck in the next PR
 	var routerConfigAccount solRouter.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+	err = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
 		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
 	}
