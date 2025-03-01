@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -351,6 +352,204 @@ func UpdateEnableManualExecutionAfter(e deployment.Environment, cfg UpdateEnable
 	if len(txns) > 0 {
 		proposal, err := BuildProposalsForTxns(
 			e, cfg.ChainSelector, "proposal to UpdateEnableManualExecutionAfter in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type CCIPVersionOp int
+
+const (
+	Bump CCIPVersionOp = iota
+	Rollback
+)
+
+type ConfigureCCIPVersionConfig struct {
+	ChainSelector     uint64
+	DestChainSelector uint64
+	Operation         CCIPVersionOp
+	MCMSSolana        *MCMSConfigSolana
+}
+
+func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateRouterConfig(chain, chainState); err != nil {
+		return err
+	}
+	routerDestChainPDA, err := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
+	if err != nil {
+		return fmt.Errorf("failed to find dest chain state pda for remote chain %d: %w", cfg.DestChainSelector, err)
+	}
+	var destChainStateAccount solRouter.DestChain
+	err = chain.GetAccountDataBorshInto(context.Background(), routerDestChainPDA, &destChainStateAccount)
+	if err != nil {
+		return fmt.Errorf("remote %d is not configured on solana chain %d", cfg.DestChainSelector, cfg.ChainSelector)
+	}
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
+}
+
+func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	destChainStatePDA, _ := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
+
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	txns := make([]mcmsTypes.Transaction, 0)
+	ixns := make([]solana.Instruction, 0)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+	solRouter.SetProgramID(chainState.Router)
+	var ixn solana.Instruction
+	if cfg.Operation == Bump {
+		ixn, err = solRouter.NewBumpCcipVersionForDestChainInstruction(
+			cfg.DestChainSelector,
+			destChainStatePDA,
+			chainState.RouterConfigPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		}
+	} else if cfg.Operation == Rollback {
+		ixn, err = solRouter.NewRollbackCcipVersionForDestChainInstruction(
+			cfg.DestChainSelector,
+			destChainStatePDA,
+			chainState.RouterConfigPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+		}
+	}
+
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		txns = append(txns, *tx)
+	} else {
+		ixns = append(ixns, ixn)
+	}
+
+	if len(ixns) > 0 {
+		if err = chain.Confirm(ixns); err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	}
+
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to ConfigureCCIPVersion in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type RemoveOffRampConfig struct {
+	ChainSelector uint64
+	OffRamp       solana.PublicKey
+	MCMSSolana    *MCMSConfigSolana
+}
+
+func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateRouterConfig(chain, chainState); err != nil {
+		return err
+	}
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
+}
+
+func RemoveOffRamp(e deployment.Environment, cfg RemoveOffRampConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+	txns := make([]mcmsTypes.Transaction, 0)
+	ixns := make([]solana.Instruction, 0)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+	solRouter.SetProgramID(chainState.Router)
+	var ixn solana.Instruction
+	ixn, err = solRouter.NewRemoveOfframpInstruction(
+		cfg.ChainSelector,
+		cfg.OffRamp,
+		chainState.OffRamp,
+		chainState.RouterConfigPDA,
+		authority,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(ixn, chainState.Router.String(), ccipChangeset.Router)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		txns = append(txns, *tx)
+	} else {
+		ixns = append(ixns, ixn)
+	}
+
+	if len(ixns) > 0 {
+		if err = chain.Confirm(ixns); err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+	}
+
+	if len(txns) > 0 {
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to RemoveOffRamp in Solana", cfg.MCMSSolana.MCMS.MinDelay, txns)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
