@@ -11,9 +11,11 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -635,7 +637,7 @@ func Test_TestRouter(t *testing.T) {
 	}
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-	// evmChain := tenv.Env.AllChainSelectors()[0]
+	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 	e, testTokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
@@ -664,4 +666,109 @@ func Test_TestRouter(t *testing.T) {
 		)
 		require.NoError(t, err)
 	}
+	// run the rest of the changesets using test router
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployTestRouter),
+			ccipChangesetSolana.DeployTestRouterConfig{
+				ChainSelector:        solChain,
+				UpdateOffRamp:        true,
+				TestRouterPathSuffix: testRouterDir,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
+			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+					evmChain: {
+						EnabledAsSource:         true,
+						RouterDestinationConfig: solRouter.DestChainConfig{},
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
+						},
+					},
+				},
+				TestRouter: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPool),
+			ccipChangesetSolana.TokenPoolConfig{
+				ChainSelector: solChain,
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				TokenPubKey:   testTokenAddress.String(),
+				TestRouter:    true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+			ccipChangesetSolana.RemoteChainTokenPoolConfig{
+				SolChainSelector:    solChain,
+				RemoteChainSelector: evmChain,
+				SolTokenPubKey:      testTokenAddress.String(),
+				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
+				RemoteConfig:        solBaseTokenPool.RemoteConfig{},
+				InboundRateLimit:    solBaseTokenPool.RateLimitConfig{},
+				OutboundRateLimit:   solBaseTokenPool.RateLimitConfig{},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChain,
+				TokenPubKey:             testTokenAddress.String(),
+				TokenAdminRegistryAdmin: e.SolChains[solChain].DeployerKey.PublicKey().String(),
+				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+				TestRouter:              true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   testTokenAddress.String(),
+				TestRouter:    true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
+			ccipChangesetSolana.TokenPoolLookupTableConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   testTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				TestRouter:    true,
+			},
+		),
+		// TODO: not working, failing on confirming feeTokenConfigPDA
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+			ccipChangesetSolana.SetPoolConfig{
+				ChainSelector:   solChain,
+				TokenPubKey:     testTokenAddress.String(),
+				WritableIndexes: []uint8{3, 4, 7},
+				TestRouter:      true,
+			},
+		),
+		// TODO: make these token pool changes for DeployTransferableTokenSolana
+	)
+	require.NoError(t, err)
+
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	// test router
+	require.NotZero(t, state.SolChains[solChain].TestRouter)
+
+	// test router on offramp
+	var offRampReferenceAddresses solOffRamp.ReferenceAddresses
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(state.SolChains[solChain].OffRamp)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
+	require.NoError(t, err)
+	require.Equal(t, state.SolChains[solChain].TestRouter, offRampReferenceAddresses.Router)
 }

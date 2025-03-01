@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"path/filepath"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -1043,7 +1044,7 @@ func DeployTestRouter(
 		// deploy router
 		chainProgramsPath := chain.ProgramsPath
 		// change programs path to find test router binary in the test router directory
-		chain.ProgramsPath = chain.ProgramsPath + config.TestRouterPathSuffix
+		chain.ProgramsPath = filepath.Join(chain.ProgramsPath, config.TestRouterPathSuffix)
 		testRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, newAddresses, ccipChangeset.TestRouter, deployment.Version1_0_0, false)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
@@ -1106,7 +1107,7 @@ func DeployTestRouter(
 	instructions = append(instructions, testRouterATALinkIx)
 
 	testRouterATAWSOLIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
-		solana.Token2022ProgramID,
+		solana.TokenProgramID,
 		chainState.WSOL,
 		billingSignerPDA,
 		chain.DeployerKey.PublicKey(),
