@@ -92,17 +92,12 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
-		}
-
 		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
 		}
 
-		destGasAmount, err = extractDestGasAmountFromMap(destExecDataDecodedMap)
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("failed extract dest gas amount from decoded extradata map: %w", err)
 		}
