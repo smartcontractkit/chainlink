@@ -162,11 +162,6 @@ func doAddRemoteChainToSolana(
 	}
 
 	for remoteChainSel, update := range updates {
-		var onRampBytes [64]byte
-		// already verified, skipping errcheck
-		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
-		addressBytes = common.LeftPadBytes(addressBytes, 64)
-		copy(onRampBytes[:], addressBytes)
 
 		// verified while loading state
 		fqRemoteChainPDA, _, _ := solState.FindFqDestChainPDA(remoteChainSel, feeQuoterID)
@@ -284,9 +279,15 @@ func doAddRemoteChainToSolana(
 			ixns = append(ixns, feeQuoterIx)
 		}
 
+		var onRampBytes [64]byte
+		// already verified, skipping errcheck
+		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
+		addressBytes = common.LeftPadBytes(addressBytes, 64)
+		copy(onRampBytes[:], addressBytes)
 		solOffRamp.SetProgramID(offRampID)
 		validSourceChainConfig := solOffRamp.SourceChainConfig{
-			OnRamp:    [2][64]byte{onRampBytes, [64]byte{}},
+			// TODO: confirm this with Blaz
+			OnRamp:    [2]solOffRamp.OnRampAddress{{Bytes: onRampBytes, Len: 64}},
 			IsEnabled: update.EnabledAsSource,
 		}
 		if offRampUsingMCMS {
