@@ -31,23 +31,15 @@ import (
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
 
-const (
-	RouterProgramName    = "ccip_router"
-	OffRampProgramName   = "ccip_offramp"
-	FeeQuoterProgramName = "fee_quoter"
-	BurnMintTokenPool    = "example_burnmint_token_pool"
-	LockReleaseTokenPool = "example_lockrelease_token_pool"
-)
-
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
 
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
 	return map[deployment.ContractType]string{
-		ccipChangeset.Router:               RouterProgramName,
-		ccipChangeset.OffRamp:              OffRampProgramName,
-		ccipChangeset.FeeQuoter:            FeeQuoterProgramName,
-		ccipChangeset.BurnMintTokenPool:    BurnMintTokenPool,
-		ccipChangeset.LockReleaseTokenPool: LockReleaseTokenPool,
+		ccipChangeset.Router:               deployment.RouterProgramName,
+		ccipChangeset.OffRamp:              deployment.OffRampProgramName,
+		ccipChangeset.FeeQuoter:            deployment.FeeQuoterProgramName,
+		ccipChangeset.BurnMintTokenPool:    deployment.BurnMintTokenPoolProgramName,
+		ccipChangeset.LockReleaseTokenPool: deployment.LockReleaseTokenPoolProgramName,
 	}
 }
 
@@ -217,7 +209,7 @@ func solProgramData(e deployment.Environment, chain deployment.SolChain, program
 	return programData, nil
 }
 
-func solProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
+func SolProgramSize(e *deployment.Environment, chain deployment.SolChain, programID solana.PublicKey) (int, error) {
 	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), programID, &rpc.GetAccountInfoOpts{
 		Commitment: deployment.SolDefaultCommitment,
 	})
@@ -679,16 +671,6 @@ func generateUpgradeTxns(
 	if err := setUpgradeAuthority(&e, &chain, bufferProgram, chain.DeployerKey, config.UpgradeConfig.UpgradeAuthority.ToPointer(), true); err != nil {
 		return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
 	}
-	extendIxn, err := generateExtendIxn(
-		&e,
-		chain,
-		programID,
-		bufferProgram,
-		config.UpgradeConfig.SpillAddress,
-	)
-	if err != nil {
-		return txns, fmt.Errorf("failed to generate extend instruction: %w", err)
-	}
 	upgradeIxn, err := generateUpgradeIxn(
 		&e,
 		programID,
@@ -716,13 +698,8 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to create close transaction: %w", err)
 	}
-	if extendIxn != nil {
-		extendTx, err := BuildMCMSTxn(extendIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
-		if err != nil {
-			return txns, fmt.Errorf("failed to create extend transaction: %w", err)
-		}
-		txns = append(txns, *extendTx)
-	}
+	// We do not support extend as part of upgrades due to MCMS limitations
+	// https://docs.google.com/document/d/1Fk76lOeyS2z2X6MokaNX_QTMFAn5wvSZvNXJluuNV1E/edit?tab=t.0#heading=h.uij286zaarkz
 	txns = append(txns, *upgradeTx, *closeTx)
 	return txns, nil
 }
@@ -834,13 +811,13 @@ func generateExtendIxn(
 	// Derive the program data address
 	programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
 
-	programDataSize, err := solProgramSize(e, chain, programDataAccount)
+	programDataSize, err := SolProgramSize(e, chain, programDataAccount)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get program size: %w", err)
 	}
 	e.Logger.Debugw("Program data size", "programDataSize", programDataSize)
 
-	bufferSize, err := solProgramSize(e, chain, bufferAddress)
+	bufferSize, err := SolProgramSize(e, chain, bufferAddress)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get buffer size: %w", err)
 	}
