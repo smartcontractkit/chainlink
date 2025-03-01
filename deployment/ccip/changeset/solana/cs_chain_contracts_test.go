@@ -1,7 +1,10 @@
 package solana_test
 
 import (
+	"fmt"
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -619,5 +622,46 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, newAdmin, tokenAdminRegistry.Administrator)
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
+	}
+}
+
+// This test illustrates how we can setup the test router flow with a test token
+func Test_TestRouter(t *testing.T) {
+	// skip this in CI for now as it requires re-building the router with new keys
+	// we can fix this in CI using caching later
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	// evmChain := tenv.Env.AllChainSelectors()[0]
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	e, testTokenAddress, err := deployToken(t, tenv.Env, solChain)
+	require.NoError(t, err)
+	fmt.Println("testTokenAddress", testTokenAddress)
+	testRouterDir := "test_router"
+
+	// check if test_router dir exists in artifact dir
+	testRouterPath := filepath.Join(tenv.Env.SolChains[solChain].ProgramsPath, testRouterDir, "ccip_router.so")
+	_, err = os.Stat(testRouterPath)
+	needsBuild := os.IsNotExist(err)
+
+	// build new ccip_router under test_router if needsBuild
+	if needsBuild {
+		t.Log("Building test router program...")
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
+				ccipChangesetSolana.BuildSolanaConfig{
+					ChainSelector:        solChain,
+					GitCommitSha:         "82f6b9951ab51397e33b94391f5758260ac558d5",
+					DestinationDir:       filepath.Join(e.SolChains[solChain].ProgramsPath, testRouterDir),
+					TestRouter:           true,
+					CreateDestinationDir: true,
+				},
+			),
+		)
+		require.NoError(t, err)
 	}
 }
