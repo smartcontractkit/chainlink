@@ -151,6 +151,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		upgradeAuthority := timelockSignerPDA
 		state, err := changeset.LoadOnchainStateSolana(e)
 		require.NoError(t, err)
+		verifyProgramSizes(t, e)
 
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
