@@ -168,7 +168,7 @@ func (o *orm) AssertBridgesExist(ctx context.Context, p pipeline.Pipeline) error
 	return nil
 }
 
-// CreateJob creates the job, and it's associated spec record.
+// CreateJob creates the job, and its associated spec record.
 // Expects an unmarshalled job spec as the jb argument i.e. output from ValidatedXX.
 // Scans all persisted records back into jb
 func (o *orm) CreateJob(ctx context.Context, jb *Job) error {
@@ -1772,7 +1772,9 @@ func validateDualTransmissionRefund(vals []interface{}) error {
 }
 
 func validateDualTransmissionMeta(meta map[string]interface{}) error {
+	fmt.Printf("meta is %#v\n", meta)
 	for k, v := range meta {
+		fmt.Printf("checking k %v and v %+v %#v\n", k, v, v)
 		metaFieldValues, ok := v.([]interface{})
 		if !ok {
 			return errors.Errorf("dual transmission meta value %s is not a slice", k)

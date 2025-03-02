@@ -68,7 +68,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	clientCSAKey := key
 
 	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
-	// fromBlock := 1
+	fromBlock := 1
 	fmt.Printf("here: %s\n", verifierProxy.Address().Hex())
 	fmt.Printf("here: %s\n", configStore.Address().Hex())
 	fmt.Printf("here: %s\n", configStoreAddress.Hex())
@@ -117,7 +117,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// chainID := testutils.SimulatedChainID
 
 	// TOOD(gg) deploy dualAggContracts
-	dualAggContractsAddresses := []string{"0xdeadbeef"}
+	dualAggContractsAddresses := []string{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C"}
 
 	for _, contractAddress := range dualAggContractsAddresses {
 		fmt.Printf("Creating feed for %s\n", contractAddress)
@@ -126,62 +126,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		// TODO(gg): put this into the actual job
 		// job := fmt.Sprintf(oevJobSpec, feedNr, uuid.New().String(), contractAddress.Addresses[0].String(), "evm", firstKey, primaryAddresses[i], bootstrapPeerID.Data[0].Attributes.PeerID,
 		// strings.TrimPrefix(node.DockerP2PUrl, "http://"), chainID, fromBlock, contractAddress.Addresses[0].String(), secondaryAddresses[i])
-
-		// var oevJobSpec = `
-		// type = "offchainreporting2"
-		// schemaVersion = 1
-		// name = "OEV job %d"
-		// externalJobID = "%s"
-		// forwardingAllowed = true
-		// maxTaskDuration = "0s"
-		// contractID = "%s"
-		// relay = "%s"
-		// ocrKeyBundleID = "%s"
-		// pluginType = "median"
-		// transmitterID = "%s"
-		// p2pv2Bootstrappers = ["%s@%s"]
-
-		// observationSource = """
-		//  //randomness
-		// 	val1 [type="memo" value="10"]
-		// 	val2 [type="memo" value="20"]
-		// 	val3 [type="memo" value="30"]
-		// 	val4 [type="memo" value="40"]
-		// 	val5 [type="memo" value="50"]
-		// 	val6 [type="memo" value="60"]
-		// 	val7 [type="memo" value="70"]
-		// 	val8 [type="memo" value="80"]
-		// 	val9 [type="memo" value="90"]
-
-		// 	random1 [type="any"]
-		// 	random2 [type="any"]
-		// 	random3 [type="any"]
-
-		// 	val1 -> random1
-		// 	val2 -> random2
-		// 	val3 -> random3
-		// 	val4 -> random1
-		// 	val5 -> random2
-		// 	val6 -> random3
-		// 	val7 -> random1
-		// 	val8 -> random2
-		// 	val9 -> random3
-
-		// 	// data source 1
-		// 	ds1_multiply [type="multiply" times=100]
-
-		// 	 // data source 2
-		// 	ds2_multiply [type="multiply" times=100]
-
-		// 	// data source 3
-		// 	ds3_multiply [type="multiply" times=100]
-
-		// 	random1 -> ds1_multiply -> answer
-		// 	random2 -> ds2_multiply -> answer
-		// 	random3 -> ds3_multiply -> answer
-
-		// 	answer [type=median]
-		// """
 
 		// [relayConfig]
 		// chainID = %s
@@ -218,6 +162,22 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				PluginType:         clcommonTypes.Median,
 				TransmitterID:      null.StringFrom(secondaryTransmitterKey.Address.Hex()),
 				P2PV2Bootstrappers: []string{}, // bootstrapPeerID.Data[0].Attributes.PeerID, needed?
+				RelayConfig: map[string]any{
+					"chainID":                "1337",
+					"fromBlock":              fromBlock,
+					"enableDualTransmission": true,
+					"dualTransmission": map[string]any{
+						"contractAddress":    contractAddress,
+						"transmitterAddress": secondaryTransmitterKey.Address.Hex(),
+						"meta": map[string]any{
+							"hint":   []any{"calldata"},
+							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
+						},
+					},
+				},
+				PluginConfig: map[string]any{
+					"juelsPerFeeCoinSource": "juels_per_fee_coin [type=\"sum\" values=<[0]>]",
+				},
 			},
 		}
 		// err := helper.pipelineHelper.Jrm.CreateJob(testutils.Context(t), jb)
