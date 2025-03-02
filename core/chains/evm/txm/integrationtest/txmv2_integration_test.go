@@ -15,6 +15,7 @@ import (
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
+	clcommonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
@@ -39,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
+	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
 // Copied from core/services/ocr2/plugins/llo/integration_test.go + svr-contracts/test/e2e/svr_test.go
@@ -80,6 +82,26 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	app, _, transmitter, kb, observedLogs := setupNode(t, port, "oracle_svr", backend, clientCSAKey, nil) // TODO(gg): fix db name?
 	node := Node{app, transmitter, kb, observedLogs}
 
+	// CreateTxKey creates a tx key on the Chainlink node
+	// func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
+	// 	txKey := &TxKey{}
+	// 	framework.L.Info().Str(NodeURL, c.Config.URL).Msg("Creating Tx Key")
+	// 	resp, err := c.APIClient.R().
+	// 		SetPathParams(map[string]string{
+	// 			"chain": chain,
+	// 		}).
+	// 		SetQueryParam("evmChainID", chainId).
+	// 		SetResult(txKey).
+	// 		Post("/v2/keys/{chain}")
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// 	return txKey, resp.RawResponse, err
+	// }
+
+	secondaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+	require.NoErrorf(t, err, "could not create secondary transmitter key")
+
 	// offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 	// require.NoError(t, err)
 	// oracles = append(oracles, confighelper.OracleIdentityExtra{
@@ -99,19 +121,104 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	for _, contractAddress := range dualAggContractsAddresses {
 		fmt.Printf("Creating feed for %s\n", contractAddress)
-		// firstKey := node.KeyBundle.Raw().Key().ID()
+		firstKey := node.KeyBundle.Raw().Key().ID()
 
 		// TODO(gg): put this into the actual job
 		// job := fmt.Sprintf(oevJobSpec, feedNr, uuid.New().String(), contractAddress.Addresses[0].String(), "evm", firstKey, primaryAddresses[i], bootstrapPeerID.Data[0].Attributes.PeerID,
 		// strings.TrimPrefix(node.DockerP2PUrl, "http://"), chainID, fromBlock, contractAddress.Addresses[0].String(), secondaryAddresses[i])
 
+		// var oevJobSpec = `
+		// type = "offchainreporting2"
+		// schemaVersion = 1
+		// name = "OEV job %d"
+		// externalJobID = "%s"
+		// forwardingAllowed = true
+		// maxTaskDuration = "0s"
+		// contractID = "%s"
+		// relay = "%s"
+		// ocrKeyBundleID = "%s"
+		// pluginType = "median"
+		// transmitterID = "%s"
+		// p2pv2Bootstrappers = ["%s@%s"]
+
+		// observationSource = """
+		//  //randomness
+		// 	val1 [type="memo" value="10"]
+		// 	val2 [type="memo" value="20"]
+		// 	val3 [type="memo" value="30"]
+		// 	val4 [type="memo" value="40"]
+		// 	val5 [type="memo" value="50"]
+		// 	val6 [type="memo" value="60"]
+		// 	val7 [type="memo" value="70"]
+		// 	val8 [type="memo" value="80"]
+		// 	val9 [type="memo" value="90"]
+
+		// 	random1 [type="any"]
+		// 	random2 [type="any"]
+		// 	random3 [type="any"]
+
+		// 	val1 -> random1
+		// 	val2 -> random2
+		// 	val3 -> random3
+		// 	val4 -> random1
+		// 	val5 -> random2
+		// 	val6 -> random3
+		// 	val7 -> random1
+		// 	val8 -> random2
+		// 	val9 -> random3
+
+		// 	// data source 1
+		// 	ds1_multiply [type="multiply" times=100]
+
+		// 	 // data source 2
+		// 	ds2_multiply [type="multiply" times=100]
+
+		// 	// data source 3
+		// 	ds3_multiply [type="multiply" times=100]
+
+		// 	random1 -> ds1_multiply -> answer
+		// 	random2 -> ds2_multiply -> answer
+		// 	random3 -> ds3_multiply -> answer
+
+		// 	answer [type=median]
+		// """
+
+		// [relayConfig]
+		// chainID = %s
+		// fromBlock = %d
+		// enableDualTransmission = true
+
+		// [relayConfig.dualTransmission]
+		// contractAddress = "%s"
+		// transmitterAddress = "%s"
+
+		// [relayConfig.dualTransmission.meta]
+		// hint = [ "calldata" ]
+		// refund = [ "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90" ]
+
+		// [pluginConfig]
+		// juelsPerFeeCoinSource = """
+		// juels_per_fee_coin [type="sum" values=<[0]>];
+		// """
+		// `
+
 		jb := &job.Job{
-			Type:          job.OffchainReporting2,
-			SchemaVersion: 1,
-			Name:          null.StringFrom("SVR job 1"),
-			CronSpec:      &job.CronSpec{CronSchedule: "@every 1s"},
-			PipelineSpec:  &pipeline.Spec{},
-			ExternalJobID: uuid.New(),
+			Type:              job.OffchainReporting2,
+			SchemaVersion:     1,
+			Name:              null.StringFrom("SVR job 1"),
+			CronSpec:          &job.CronSpec{CronSchedule: "@every 1s"},
+			PipelineSpec:      &pipeline.Spec{},
+			ExternalJobID:     uuid.New(),
+			ForwardingAllowed: true,
+			MaxTaskDuration:   *models.NewInterval(0 * time.Second),
+			OCR2OracleSpec: &job.OCR2OracleSpec{
+				ContractID:         contractAddress,
+				Relay:              "evm",
+				OCRKeyBundleID:     null.StringFrom(firstKey),
+				PluginType:         clcommonTypes.Median,
+				TransmitterID:      null.StringFrom(secondaryTransmitterKey.Address.Hex()),
+				P2PV2Bootstrappers: []string{}, // bootstrapPeerID.Data[0].Attributes.PeerID, needed?
+			},
 		}
 		// err := helper.pipelineHelper.Jrm.CreateJob(testutils.Context(t), jb)
 		err := node.App.AddJobV2(context.Background(), jb)
