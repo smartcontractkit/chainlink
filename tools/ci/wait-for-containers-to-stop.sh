@@ -15,16 +15,11 @@ TARGET_COUNT=${2:-0}
 # Calculate the end time using the built-in SECONDS variable.
 end=$((SECONDS + TIMEOUT))
 
-echo "Waiting up to $TIMEOUT seconds for docker container count to reach $TARGET_COUNT..."
-
 # Loop until the current docker container count equals the target count.
 while [ "$(docker ps -q | wc -l)" -ne "$TARGET_COUNT" ]; do
   # If the timeout has been reached, exit with an error.
   if [ $SECONDS -ge $end ]; then
-    echo "Timed out after $TIMEOUT seconds waiting for container count to reach $TARGET_COUNT."
     exit 1
   fi
   sleep 1
 done
-
-echo "Docker container count is now $TARGET_COUNT."
