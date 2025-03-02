@@ -178,10 +178,13 @@ func (oc *dualContractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Ac
 }
 
 func (oc *dualContractTransmitter) lockTransmitters(ctx context.Context) error {
+	fmt.Printf("Locking primary %#v\n", oc.transmitter.FromAddress(ctx))
 	err := oc.lockPrimary(ctx)
 	if err != nil {
 		return err
 	}
+	a, err := oc.transmitter.SecondaryFromAddress(ctx)
+	fmt.Printf("Locking secondary %#v, error: %v0\n", a, err)
 	err = oc.lockSecondary(ctx)
 	if err != nil {
 		return multierr.Append(err, oc.unlockPrimary(ctx))

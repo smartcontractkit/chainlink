@@ -81,6 +81,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	port := freeport.GetOne(t)
 	app, _, transmitter, kb, observedLogs := setupNode(t, port, "oracle_svr", backend, clientCSAKey, nil) // TODO(gg): fix db name?
 	node := Node{app, transmitter, kb, observedLogs}
+	fmt.Printf("created node with transmitter %#v\n", transmitter.String())
 
 	// CreateTxKey creates a tx key on the Chainlink node
 	// func (c *ChainlinkClient) CreateTxKey(chain string, chainId string) (*TxKey, *http.Response, error) {
@@ -99,8 +100,15 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// 	return txKey, resp.RawResponse, err
 	// }
 
+	primaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+	require.NoErrorf(t, err, "could not create primary transmitter key")
 	secondaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
 	require.NoErrorf(t, err, "could not create secondary transmitter key")
+
+	keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
+	require.NoError(t, err, "could not get node's eth keystest")
+
+	fmt.Printf("Keys are %#v\n", keys)
 
 	// offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 	// require.NoError(t, err)
@@ -156,12 +164,13 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			ForwardingAllowed: true,
 			MaxTaskDuration:   *models.NewInterval(0 * time.Second),
 			OCR2OracleSpec: &job.OCR2OracleSpec{
-				ContractID:         contractAddress,
-				Relay:              "evm",
-				OCRKeyBundleID:     null.StringFrom(firstKey),
-				PluginType:         clcommonTypes.Median,
-				TransmitterID:      null.StringFrom(secondaryTransmitterKey.Address.Hex()),
-				P2PV2Bootstrappers: []string{}, // bootstrapPeerID.Data[0].Attributes.PeerID, needed?
+				ContractID:           contractAddress,
+				Relay:                "evm",
+				OCRKeyBundleID:       null.StringFrom(firstKey),
+				PluginType:           clcommonTypes.Median,
+				TransmitterID:        null.StringFrom(primaryTransmitterKey.Address.Hex()),
+				AllowNoBootstrappers: true,
+				P2PV2Bootstrappers:   []string{}, // bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 				RelayConfig: map[string]any{
 					"chainID":                "1337",
 					"fromBlock":              fromBlock,

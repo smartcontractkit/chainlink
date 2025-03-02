@@ -101,6 +101,27 @@ func setupNode(
 	p2paddresses := []string{fmt.Sprintf("127.0.0.1:%d", port)}
 
 	config, _ := heavyweight.FullTestDBV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		/**
+		  [Log]
+		  Level = 'debug'
+
+		  [Pyroscope]
+		  ServerAddress = 'http://host.docker.internal:4040'
+		  Environment = 'local'
+
+		  [WebServer]
+		  HTTPWriteTimeout = '30s'
+		  SecureCookies = false
+		  HTTPPort = {{.HTTPPort}}
+
+		  [WebServer.TLS]
+		  HTTPSPort = 0
+
+		  [JobPipeline]
+		  [JobPipeline.HTTPRequest]
+		  DefaultTimeout = '30s'
+		*/
+
 		// [JobPipeline]
 		c.JobPipeline.MaxSuccessfulRuns = ptr(uint64(0))
 		c.JobPipeline.VerboseLogging = ptr(true)
@@ -115,7 +136,8 @@ func setupNode(
 
 		// [OCR2]
 		c.OCR2.Enabled = ptr(true)
-		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(100 * time.Millisecond)
+		c.OCR2.ContractPollInterval = commonconfig.MustNewDuration(1 * time.Second)
+		c.OCR2.CaptureEATelemetry = ptr(false)
 
 		// [P2P]
 		c.P2P.PeerID = ptr(p2pKey.PeerID())
@@ -130,9 +152,10 @@ func setupNode(
 
 		// [Mercury]
 		c.Mercury.VerboseLogging = ptr(true)
+		c.Mercury.Transmitter.ReaperFrequency = commonconfig.MustNewDuration(0 * time.Millisecond)
 
 		// [Log]
-		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
+		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel))
 
 		// Optional overrides
 		if f != nil {

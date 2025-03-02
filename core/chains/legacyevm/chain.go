@@ -197,6 +197,7 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpt
 }
 
 func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
+	fmt.Printf("GEERT setting up new legacy evm\n")
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var cl client.Client
