@@ -88,7 +88,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 func setupNode(
 	t *testing.T,
 	port int,
-	dbName string,
+	nodeName string,
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
 	f func(*chainlink.Config),
@@ -166,9 +166,9 @@ func setupNode(
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())
 
 	if backend != nil {
-		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+		app = cltest.NewApplicationWithConfigV2OnSimulatedBlockchain(t, config, backend, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
 	} else {
-		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(dbName))
+		app = cltest.NewApplicationWithConfig(t, config, p2pKey, ocr2kb, csaKey, lggr.Named(nodeName))
 	}
 
 	err := app.Start(testutils.Context(t))

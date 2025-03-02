@@ -194,6 +194,40 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		require.NoError(t, err, "Failed to create feed job")
 	}
 
+	nrOfBlocks := uint64(10)
+	currentBlock, err := backend.Client().BlockNumber(context.Background())
+	require.NoError(t, err)
+
+	targetBlock := big.NewInt(int64(currentBlock + nrOfBlocks))
+	t.Logf("Current block is %d, waiting for %d blocks until targetBlock %d", currentBlock, nrOfBlocks, targetBlock)
+
+	ch := make(chan *gethtypes.Header, 50)
+	sub, err := backend.Client().SubscribeNewHead(context.Background(), ch)
+	require.NoError(t, err)
+	defer sub.Unsubscribe()
+
+	for {
+		select {
+		case <-t.Context().Done():
+			return
+		case head := <-ch:
+			t.Logf("Received block %s", head.Number.String())
+			if head.Number.Cmp(targetBlock) >= 0 {
+				t.Logf("Block %d has arrived, we're done", head.Number.Int64())
+				return
+			}
+		}
+	}
+
+	/**
+	NEXT STEPS
+
+	* contract deployment + configuration:
+	    logger.go:146: 2025-03-02T16:29:04.901Z	DEBUG	oracle_svr.OCR2.offchainreporting2.4afd738a-d7cd-42cd-88d9-ee960caa0e41	managed/track_config.go:46	TrackConfig: checking latestConfigDetails	{"version": "unset@unset", "jobID": 1, "jobName": "SVR job 1", "contractID": "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C", "transmitterID": "0xD0203286ca243762044dc5A8636c6568b31b58A3", "evmChainID": "1337"}
+	    logger.go:146: 2025-03-02T16:29:05.906Z	WARN	oracle_svr.OCR2.offchainreporting2.4afd738a-d7cd-42cd-88d9-ee960caa0e41	managed/track_config.go:110	TrackConfig: LatestConfigDetails() returned a zero configDigest. Looks like the contract has not been configured	{"version": "unset@unset", "jobID": 1, "jobName": "SVR job 1", "contractID": "0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C", "transmitterID": "0xD0203286ca243762044dc5A8636c6568b31b58A3", "evmChainID": "1337", "configDigest": "0000000000000000000000000000000000000000000000000000000000000000"}
+	* asser on events from dual transmission (similar to svr_test
+	*/
+
 	// relayType := "evm"
 	// relayConfig := fmt.Sprintf(`
 	// 			chainID = "%s"
