@@ -17,7 +17,9 @@ import (
 )
 
 var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
-var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
+var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
 var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain

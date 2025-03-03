@@ -457,13 +457,24 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 	}
 	solanaChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToSolana),
-			ccipChangeSetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToRouter),
+			ccipChangeSetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]ccipChangeSetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.RouterConfig{
 					remoteChainSelector: {
-						EnabledAsSource:         true,
-						RouterDestinationConfig: solRouter.DestChainConfig{},
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangeSetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.FeeQuoterConfig{
+					remoteChainSelector: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -473,6 +484,17 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 							DefaultTokenDestGasOverhead: 5000,
 							ChainFamilySelector:         chainFamilySelector,
 						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToOffRamp),
+			ccipChangeSetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.OffRampConfig{
+					remoteChainSelector: {
+						EnabledAsSource: true,
 					},
 				},
 			},

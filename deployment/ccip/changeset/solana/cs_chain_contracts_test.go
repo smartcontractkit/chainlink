@@ -96,15 +96,25 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
-			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
 					evmChain: {
-						EnabledAsSource: true,
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: true,
 						},
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -114,6 +124,18 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 							DefaultTokenDestGasOverhead: 5000,
 							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
 					},
 				},
 				MCMSSolana: mcmsConfig,
@@ -180,18 +202,29 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
-			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
 					evmChain: {
-						EnabledAsSource: true,
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: false,
 						},
+						IsUpdate: true,
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
-							DefaultTxGasLimit:           30000,
+							DefaultTxGasLimit:           200000,
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
@@ -199,6 +232,19 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
 						IsUpdate: true,
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
+						IsUpdate:        true,
 					},
 				},
 				MCMSSolana: mcmsConfig,
@@ -675,13 +721,25 @@ func Test_TestRouter(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
-			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
 					evmChain: {
-						EnabledAsSource:         true,
-						RouterDestinationConfig: solRouter.DestChainConfig{},
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+				TestRouter: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -691,6 +749,17 @@ func Test_TestRouter(t *testing.T) {
 							DefaultTokenDestGasOverhead: 5000,
 							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
 					},
 				},
 				TestRouter: true,
@@ -769,13 +838,27 @@ func Test_TestRouter(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, state.SolChains[solChain].TestRouter, offRampReferenceAddresses.Router)
 
-	// switch the router to the actual router
+	// switch the router to the actual router on the offramp
+	// and then add the remote chain to the router
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateOffRampRefAddresses),
 			ccipChangesetSolana.OffRampRefAddressesConfig{
 				ChainSelector: solChain,
 				Router:        state.SolChains[solChain].Router,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
+					evmChain: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
 			},
 		),
 	)
