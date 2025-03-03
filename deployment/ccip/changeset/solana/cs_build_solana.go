@@ -221,19 +221,10 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	}
 
 	if config.TestRouter {
-		// Filter files to only include those with "router" in the name
-		// ccip_router.so, ccip_router-keypair.json
-		var routerFiles []os.DirEntry
-		for _, file := range files {
-			matched, err := regexp.MatchString(`(?i)router`, file.Name())
-			if err != nil {
-				continue
-			}
-			if matched {
-				routerFiles = append(routerFiles, file)
-			}
+		files, err = filterRouterFiles(files)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to filter router files: %w", err)
 		}
-		files = routerFiles
 	}
 
 	for _, file := range files {
@@ -245,4 +236,23 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		}
 	}
 	return deployment.ChangesetOutput{}, nil
+}
+
+func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
+	// Filter files to only include those with "router" in the name
+	// ccip_router.so, ccip_router-keypair.json
+	var routerFiles []os.DirEntry
+
+	// Compile the regex pattern once
+	re, err := regexp.Compile(`(?i)router`)
+	if err != nil {
+		return nil, fmt.Errorf("failed to compile regex pattern: %w", err)
+	}
+
+	for _, file := range files {
+		if re.MatchString(file.Name()) {
+			routerFiles = append(routerFiles, file)
+		}
+	}
+	return routerFiles, nil
 }
