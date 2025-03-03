@@ -182,6 +182,7 @@ func doAddRemoteChainToSolana(
 			)
 		}
 
+		// router setup
 		solRouter.SetProgramID(ccipRouterID)
 		var authority solana.PublicKey
 		if routerUsingMCMS {
@@ -246,6 +247,7 @@ func doAddRemoteChainToSolana(
 			}
 		}
 
+		// fee quoter setup
 		solFeeQuoter.SetProgramID(feeQuoterID)
 		if feeQuoterUsingMCMS {
 			authority = timelockSigner
@@ -284,19 +286,10 @@ func doAddRemoteChainToSolana(
 			ixns = append(ixns, feeQuoterIx)
 		}
 
-		var onRampAddress solOffRamp.OnRampAddress
-		// already verified, skipping errcheck
-		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
-		copy(onRampAddress.Bytes[:], addressBytes)
-		addressBytesLen := len(addressBytes)
-		if addressBytesLen < 0 || addressBytesLen > math.MaxUint32 {
-			return txns, fmt.Errorf("address bytes length %d is outside valid uint32 range", addressBytesLen)
-		}
-		onRampAddress.Len = uint32(addressBytesLen)
-		solOffRamp.SetProgramID(offRampID)
-		validSourceChainConfig := solOffRamp.SourceChainConfig{
-			OnRamp:    [2]solOffRamp.OnRampAddress{onRampAddress, {}},
-			IsEnabled: update.EnabledAsSource,
+		// offramp setup
+		validSourceChainConfig, err := getSourceChainConfig(s, remoteChainSel, update.EnabledAsSource)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get source chain config: %w", err)
 		}
 		if offRampUsingMCMS {
 			authority = timelockSigner
@@ -304,6 +297,7 @@ func doAddRemoteChainToSolana(
 			authority = chain.DeployerKey.PublicKey()
 		}
 		var offRampIx solana.Instruction
+		solOffRamp.SetProgramID(offRampID)
 		if update.IsUpdate {
 			offRampIx, err = solOffRamp.NewUpdateSourceChainConfigInstruction(
 				remoteChainSel,
@@ -334,12 +328,15 @@ func doAddRemoteChainToSolana(
 		} else {
 			ixns = append(ixns, offRampIx)
 		}
+
+		// confirm ixns if any
 		if len(ixns) > 0 {
 			err = chain.Confirm(ixns)
 			if err != nil {
 				return txns, fmt.Errorf("failed to confirm instructions: %w", err)
 			}
 		}
+
 		if !update.IsUpdate {
 			tv := deployment.NewTypeAndVersion(ccipChangeset.RemoteDest, deployment.Version1_0_0)
 			remoteChainSelStr := strconv.FormatUint(remoteChainSel, 10)
@@ -376,4 +373,21 @@ func doAddRemoteChainToSolana(
 	}
 
 	return txns, nil
+}
+
+func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint64, enabledAsSource bool) (solOffRamp.SourceChainConfig, error) {
+	var onRampAddress solOffRamp.OnRampAddress
+	// already verified, skipping errcheck
+	addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
+	copy(onRampAddress.Bytes[:], addressBytes)
+	addressBytesLen := len(addressBytes)
+	if addressBytesLen < 0 || addressBytesLen > math.MaxUint32 {
+		return solOffRamp.SourceChainConfig{}, fmt.Errorf("address bytes length %d is outside valid uint32 range", addressBytesLen)
+	}
+	onRampAddress.Len = uint32(addressBytesLen)
+	validSourceChainConfig := solOffRamp.SourceChainConfig{
+		OnRamp:    [2]solOffRamp.OnRampAddress{onRampAddress, {}},
+		IsEnabled: enabledAsSource,
+	}
+	return validSourceChainConfig, nil
 }
