@@ -173,7 +173,7 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("update router config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("update router config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			routerIx, err = solRouter.NewAddChainSelectorInstruction(
 				remoteChainSel,
@@ -183,7 +183,7 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add router config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("add router config for remote chain", "remoteChainSel", remoteChainSel)
 		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
@@ -207,7 +207,7 @@ func doAddRemoteChainToRouter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add offramp to router for remote chain %d", remoteChainSel)
+			e.Logger.Infow("add offramp to router for remote chain", "remoteChainSel", remoteChainSel)
 			if err != nil {
 				return txns, fmt.Errorf("failed to generate instructions: %w", err)
 			}
@@ -388,7 +388,7 @@ func doAddRemoteChainToFeeQuoter(
 				fqRemoteChainPDA,
 				authority,
 			).ValidateAndBuild()
-			e.Logger.Infow("update fee quoter config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("update fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			feeQuoterIx, err = solFeeQuoter.NewAddDestChainInstruction(
 				remoteChainSel,
@@ -398,7 +398,7 @@ func doAddRemoteChainToFeeQuoter(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add fee quoter config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("add fee quoter config for remote chain", "remoteChainSel", remoteChainSel)
 		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
