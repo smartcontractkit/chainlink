@@ -779,6 +779,7 @@ func Test_TestRouter(t *testing.T) {
 			},
 		),
 	)
+	require.NoError(t, err)
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
 	require.NoError(t, err)
 	require.Equal(t, state.SolChains[solChain].Router, offRampReferenceAddresses.Router)

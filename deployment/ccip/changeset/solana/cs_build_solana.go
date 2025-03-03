@@ -244,11 +244,7 @@ func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
 	var routerFiles []os.DirEntry
 
 	// Compile the regex pattern once
-	re, err := regexp.Compile(`(?i)router`)
-	if err != nil {
-		return nil, fmt.Errorf("failed to compile regex pattern: %w", err)
-	}
-
+	re := regexp.MustCompile(`(?i)router`)
 	for _, file := range files {
 		if re.MatchString(file.Name()) {
 			routerFiles = append(routerFiles, file)

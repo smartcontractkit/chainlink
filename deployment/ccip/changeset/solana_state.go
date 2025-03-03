@@ -306,9 +306,7 @@ func ValidateOwnershipSolana(
 	return nil
 }
 
-func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (solana.PublicKey, solana.PublicKey, error) {
-	var routerConfigPDA solana.PublicKey
-	var err error
+func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (router, routerConfigPDA solana.PublicKey, err error) {
 	if testRouter {
 		if s.TestRouter.IsZero() {
 			return solana.PublicKey{}, solana.PublicKey{}, errors.New("test router not found in existing state, deploy the test router first")

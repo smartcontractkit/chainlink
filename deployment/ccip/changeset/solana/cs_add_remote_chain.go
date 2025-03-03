@@ -2,6 +2,7 @@ package solana
 
 import (
 	"context"
+	"math"
 
 	"fmt"
 	"strconv"
@@ -286,9 +287,12 @@ func doAddRemoteChainToSolana(
 		var onRampAddress solOffRamp.OnRampAddress
 		// already verified, skipping errcheck
 		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
-		// addressBytes = common.LeftPadBytes(addressBytes, 64)
 		copy(onRampAddress.Bytes[:], addressBytes)
-		onRampAddress.Len = uint32(len(addressBytes))
+		addressBytesLen := len(addressBytes)
+		if addressBytesLen < 0 || addressBytesLen > math.MaxUint32 {
+			return txns, fmt.Errorf("address bytes length %d is outside valid uint32 range", addressBytesLen)
+		}
+		onRampAddress.Len = uint32(addressBytesLen)
 		solOffRamp.SetProgramID(offRampID)
 		validSourceChainConfig := solOffRamp.SourceChainConfig{
 			OnRamp:    [2]solOffRamp.OnRampAddress{onRampAddress, {}},
