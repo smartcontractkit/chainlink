@@ -1039,7 +1039,6 @@ func DeployTestRouter(
 
 	// TEST ROUTER DEPLOY
 	var testRouterProgram solana.PublicKey
-	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.TestRouter.IsZero() {
 		// deploy router
 		chainProgramsPath := chain.ProgramsPath
