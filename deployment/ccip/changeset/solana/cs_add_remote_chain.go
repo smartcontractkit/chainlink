@@ -574,7 +574,7 @@ func doAddRemoteChainToSolana(
 				s.SolChains[chainSel].OffRampConfigPDA,
 				authority,
 			).ValidateAndBuild()
-			e.Logger.Infow("update offramp config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("update offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		} else {
 			offRampIx, err = solOffRamp.NewAddSourceChainInstruction(
 				remoteChainSel,
@@ -584,7 +584,7 @@ func doAddRemoteChainToSolana(
 				authority,
 				solana.SystemProgramID,
 			).ValidateAndBuild()
-			e.Logger.Infow("add offramp config for remote chain %d", remoteChainSel)
+			e.Logger.Infow("add offramp config for remote chain", "remoteChainSel", remoteChainSel)
 		}
 		if err != nil {
 			return txns, fmt.Errorf("failed to generate instructions: %w", err)
