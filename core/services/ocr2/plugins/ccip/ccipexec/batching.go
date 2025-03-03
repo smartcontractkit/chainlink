@@ -9,6 +9,7 @@ import (
 	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/pkg/errors"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
@@ -49,6 +50,7 @@ type BatchContext struct {
 	gasPriceEstimator          prices.GasPriceEstimatorExec
 	destWrappedNative          cciptypes.Address
 	offchainConfig             cciptypes.ExecOffchainConfig
+	destChainSelector          uint64
 }
 
 type BatchingStrategy interface {
@@ -260,6 +262,16 @@ func performCommonChecks(
 		return TokenNotInDestTokenPrices, 0, nil, nil, nil
 	}
 
+	// Check if destChainSelector is Hedera, if so, skip fee boosting message for now due to token decimal mismatches.
+	// This is required because Hedera uses 8 decimals for its native token instead of the usual 18 and when we
+	// calculate gasLimit * gasPrice, we assume we're operating with 18 decimals. Since the multiplier in the jobspec
+	// is set to 1e10, calculateUsdPer1e18TokenAmount() will return a value of 1e28 instead of 1e18 which in turn will
+	// trigger the 'insufficient remaining fee' error below.
+	if isHederaSelector(batchCtx.destChainSelector) {
+		msgLggr.Infow("Skipping fee boosting for Hedera destination chain")
+		return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
+	}
+
 	// calculating the source chain fee, dividing by 1e18 for denomination.
 	// For example:
 	// FeeToken=link; FeeTokenAmount=1e17 i.e. 0.1 link, price is 6e18 USD/link (1 USD = 1e18),
@@ -293,6 +305,11 @@ func performCommonChecks(
 	}
 
 	return SuccesfullyValidated, messageMaxGas, tokenData, msgValue, nil
+}
+
+// isHederaSelector returns true if the selector is for Hedera mainnet or testnet.
+func isHederaSelector(selector uint64) bool {
+	return selector == chainsel.HEDERA_MAINNET.Selector || selector == chainsel.HEDERA_TESTNET.Selector
 }
 
 // getTokenDataWithCappedLatency gets the token data for the provided message.
