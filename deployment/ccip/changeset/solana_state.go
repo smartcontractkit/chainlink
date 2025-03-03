@@ -307,23 +307,25 @@ func ValidateOwnershipSolana(
 }
 
 func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (solana.PublicKey, solana.PublicKey, error) {
+	var routerConfigPDA solana.PublicKey
+	var err error
 	if testRouter {
 		if s.TestRouter.IsZero() {
 			return solana.PublicKey{}, solana.PublicKey{}, errors.New("test router not found in existing state, deploy the test router first")
 		}
-		routerConfigPDA, _, err := solState.FindConfigPDA(s.TestRouter)
+		routerConfigPDA, _, err = solState.FindConfigPDA(s.TestRouter)
 		if err != nil {
 			return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
 		}
 		return s.TestRouter, routerConfigPDA, nil
-	} else {
-		if s.Router.IsZero() {
-			return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
-		}
-		routerConfigPDA, _, err := solState.FindConfigPDA(s.Router)
-		if err != nil {
-			return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
-		}
-		return s.Router, routerConfigPDA, nil
 	}
+
+	if s.Router.IsZero() {
+		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
+	}
+	routerConfigPDA, _, err = solState.FindConfigPDA(s.Router)
+	if err != nil {
+		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
+	}
+	return s.Router, routerConfigPDA, nil
 }
