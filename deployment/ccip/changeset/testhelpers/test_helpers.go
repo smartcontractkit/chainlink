@@ -931,6 +931,7 @@ func DeployTransferableTokenSolana(
 				SolChainSelector:    solChainSel,
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
+				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
 				RemoteConfig: solTestTokenPool.RemoteConfig{
 					// this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTestTokenPool.RemoteAddress{
@@ -969,6 +970,38 @@ func DeployTransferableTokenSolana(
 					DestBytesOverhead: 100,
 					IsEnabled:         true,
 				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.RegisterTokenAdminRegistry),
+			ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChainSel,
+				TokenPubKey:             solTokenAddress.String(),
+				TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
+				RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolLookupTable),
+			ccipChangeSetSolana.TokenPoolLookupTableConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
+			ccipChangeSetSolana.SetPoolConfig{
+				ChainSelector:   solChainSel,
+				TokenPubKey:     solTokenAddress.String(),
+				WritableIndexes: []uint8{3, 4, 7},
 			},
 		),
 	)

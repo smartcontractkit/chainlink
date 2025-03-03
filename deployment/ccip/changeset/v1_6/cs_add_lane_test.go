@@ -63,4 +63,5 @@ func TestAddLanesWithSolana(t *testing.T) {
 	// which adds chain1 to solana
 	// so we can not call AddRemoteChainToSolana again with chain1 again, hence using chain2 below
 	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, solChain, chain2, true)
+	testhelpers.DeployTransferableTokenSolana(t, e.Env.Logger, e.Env, chain1, solChain, e.Env.Chains[chain1].DeployerKey, e.Env.ExistingAddresses, "MY_TOKEN")
 }

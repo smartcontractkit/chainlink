@@ -754,7 +754,6 @@ func Test_TestRouter(t *testing.T) {
 		// 		TestRouter:      true,
 		// 	},
 		// ),
-		// TODO: make these token pool changes for DeployTransferableTokenSolana
 	)
 	require.NoError(t, err)
 
