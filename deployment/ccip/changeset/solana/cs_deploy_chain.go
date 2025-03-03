@@ -28,6 +28,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -39,6 +40,7 @@ const (
 	FeeQuoterProgramName = "fee_quoter"
 	BurnMintTokenPool    = "example_burnmint_token_pool"
 	LockReleaseTokenPool = "example_lockrelease_token_pool"
+	RMNRemoteProgramName = "rmn_remote"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
@@ -51,6 +53,7 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 		ccipChangeset.FeeQuoter:            FeeQuoterProgramName,
 		ccipChangeset.BurnMintTokenPool:    BurnMintTokenPool,
 		ccipChangeset.LockReleaseTokenPool: LockReleaseTokenPool,
+		ccipChangeset.RMNRemote:            RMNRemoteProgramName,
 	}
 }
 
@@ -240,6 +243,7 @@ func initializeRouter(
 	ccipRouterProgram solana.PublicKey,
 	linkTokenAddress solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
+	rmnRemoteAddress solana.PublicKey,
 ) error {
 	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
 	programData, err := solProgramData(e, chain, ccipRouterProgram)
@@ -256,6 +260,7 @@ func initializeRouter(
 		solana.PublicKey{},
 		feeQuoterAddress,
 		linkTokenAddress, // link token mint
+		rmnRemoteAddress,
 		routerConfigPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
@@ -330,6 +335,7 @@ func initializeOffRamp(
 	chain deployment.SolChain,
 	ccipRouterProgram solana.PublicKey,
 	feeQuoterAddress solana.PublicKey,
+	rmnRemoteAddress solana.PublicKey,
 	offRampAddress solana.PublicKey,
 	addressLookupTable solana.PublicKey,
 	params OffRampParams,
@@ -349,6 +355,7 @@ func initializeOffRamp(
 		offRampReferenceAddressesPDA,
 		ccipRouterProgram,
 		feeQuoterAddress,
+		rmnRemoteAddress,
 		addressLookupTable,
 		offRampStatePDA,
 		offRampExternalExecutionConfigPDA,
@@ -380,6 +387,36 @@ func initializeOffRamp(
 		return fmt.Errorf("failed to confirm initializeOffRamp: %w", err)
 	}
 	e.Logger.Infow("Initialized offRamp", "chain", chain.String())
+	return nil
+}
+
+func initializeRMNRemote(
+	e deployment.Environment,
+	chain deployment.SolChain,
+	rmnRemoteProgram solana.PublicKey,
+) error {
+	e.Logger.Debugw("Initializing rmn remote", "chain", chain.String(), "rmnRemoteProgram", rmnRemoteProgram.String())
+	programData, err := solProgramData(e, chain, rmnRemoteProgram)
+	if err != nil {
+		return fmt.Errorf("failed to get solana router program data: %w", err)
+	}
+	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteProgram)
+	rmnRemoteCursesPDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteProgram)
+	instruction, err := solRmnRemote.NewInitializeInstruction(
+		rmnRemoteConfigPDA,
+		rmnRemoteCursesPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+		rmnRemoteProgram,
+		programData.Address,
+	).ValidateAndBuild()
+	if err != nil {
+		return fmt.Errorf("failed to build instruction: %w", err)
+	}
+	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return fmt.Errorf("failed to confirm initializeRouter: %w", err)
+	}
+	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
 	return nil
 }
 
@@ -505,6 +542,21 @@ func deployChainContractsSolana(
 	}
 	solOffRamp.SetProgramID(offRampAddress)
 
+	// RMN REMOTE DEPLOY
+	var rmnRemoteAddress solana.PublicKey
+	//nolint:gocritic // this is a false positive, we need to check if the address is zero
+	if chainState.RMNRemote.IsZero() {
+		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false)
+		if err != nil {
+			return txns, fmt.Errorf("failed to deploy program: %w", err)
+		}
+		// upgrade rmn ?
+	} else {
+		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
+		rmnRemoteAddress = chainState.RMNRemote
+	}
+	solRmnRemote.SetProgramID(rmnRemoteAddress)
+
 	// FEE QUOTER INITIALIZE
 	var fqConfig solFeeQuoter.Config
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
@@ -523,7 +575,7 @@ func deployChainContractsSolana(
 	routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress); err2 != nil {
+		if err2 := initializeRouter(e, chain, ccipRouterProgram, chainState.LinkToken, feeQuoterAddress, rmnRemoteAddress); err2 != nil {
 			return txns, err2
 		}
 	} else {
@@ -552,7 +604,7 @@ func deployChainContractsSolana(
 		if err2 != nil {
 			return txns, fmt.Errorf("failed to create address lookup table: %w", err)
 		}
-		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, offRampAddress, table, params.OffRampParams); err2 != nil {
+		if err2 := initializeOffRamp(e, chain, ccipRouterProgram, feeQuoterAddress, rmnRemoteAddress, offRampAddress, table, params.OffRampParams); err2 != nil {
 			return txns, err2
 		}
 		// Initializing a new offramp means we need a new lookup table and need to fully populate it
@@ -571,6 +623,18 @@ func deployChainContractsSolana(
 		}...)
 	} else {
 		e.Logger.Infow("Offramp already initialized, skipping initialization", "chain", chain.String())
+	}
+
+	// RMN REMOTE INITIALIZE
+	var rmnRemoteConfigAccount solRmnRemote.Config
+	rmnRemoteConfigPDA, _, _ := solState.FindRMNRemoteConfigPDA(rmnRemoteAddress)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), rmnRemoteConfigPDA, &rmnRemoteConfigAccount)
+	if err != nil {
+		if err2 := initializeRMNRemote(e, chain, rmnRemoteAddress); err2 != nil {
+			return txns, err2
+		}
+	} else {
+		e.Logger.Infow("RMN remote already initialized, skipping initialization", "chain", chain.String())
 	}
 
 	var burnMintTokenPool solana.PublicKey
@@ -1061,7 +1125,8 @@ func DeployTestRouter(
 	routerConfigPDA, _, _ := solState.FindConfigPDA(testRouterProgram)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		if err2 := initializeRouter(e, chain, testRouterProgram, chainState.LinkToken, chainState.FeeQuoter); err2 != nil {
+		// do i need to send in rmn remote for test router ??
+		if err2 := initializeRouter(e, chain, testRouterProgram, chainState.LinkToken, chainState.FeeQuoter, chainState.RMNRemote); err2 != nil {
 			return deployment.ChangesetOutput{}, err2
 		}
 	} else {
@@ -1082,6 +1147,7 @@ func DeployTestRouter(
 			testRouterProgram, // switch to test router
 			referenceAddressesAccount.FeeQuoter,
 			referenceAddressesAccount.OfframpLookupTable,
+			referenceAddressesAccount.RmnRemote,
 			chainState.OffRampConfigPDA,
 			offRampReferenceAddressesPDA,
 			chain.DeployerKey.PublicKey(),

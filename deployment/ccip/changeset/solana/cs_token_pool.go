@@ -112,7 +112,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
-
+	rmnRemoteAddress := chainState.RMNRemote
 	// ata for token pool
 	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
 		tokenprogramID,
@@ -131,6 +131,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		// initialize token pool for token
 		poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
 			routerProgramAddress,
+			rmnRemoteAddress,
 			poolConfigPDA,
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
@@ -140,6 +141,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 		// initialize token pool for token
 		poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
 			routerProgramAddress,
+			rmnRemoteAddress,
 			poolConfigPDA,
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
