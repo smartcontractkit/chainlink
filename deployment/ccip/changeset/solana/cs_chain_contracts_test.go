@@ -1,7 +1,6 @@
 package solana_test
 
 import (
-	"fmt"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -641,7 +640,6 @@ func Test_TestRouter(t *testing.T) {
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 	e, testTokenAddress, err := deployToken(t, tenv.Env, solChain)
 	require.NoError(t, err)
-	fmt.Println("testTokenAddress", testTokenAddress)
 	testRouterDir := "test_router"
 
 	// check if test_router dir exists in artifact dir
@@ -747,15 +745,15 @@ func Test_TestRouter(t *testing.T) {
 			},
 		),
 		// TODO: not working, failing on confirming feeTokenConfigPDA
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
-			ccipChangesetSolana.SetPoolConfig{
-				ChainSelector:   solChain,
-				TokenPubKey:     testTokenAddress.String(),
-				WritableIndexes: []uint8{3, 4, 7},
-				TestRouter:      true,
-			},
-		),
+		// commonchangeset.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+		// 	ccipChangesetSolana.SetPoolConfig{
+		// 		ChainSelector:   solChain,
+		// 		TokenPubKey:     testTokenAddress.String(),
+		// 		WritableIndexes: []uint8{3, 4, 7},
+		// 		TestRouter:      true,
+		// 	},
+		// ),
 		// TODO: make these token pool changes for DeployTransferableTokenSolana
 	)
 	require.NoError(t, err)
@@ -771,4 +769,19 @@ func Test_TestRouter(t *testing.T) {
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
 	require.NoError(t, err)
 	require.Equal(t, state.SolChains[solChain].TestRouter, offRampReferenceAddresses.Router)
+
+	// switch the router to the actual router
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateOffRampRefAddresses),
+			ccipChangesetSolana.OffRampRefAddressesConfig{
+				ChainSelector: solChain,
+				Router:        state.SolChains[solChain].Router,
+			},
+		),
+	)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
+	require.NoError(t, err)
+	require.Equal(t, state.SolChains[solChain].Router, offRampReferenceAddresses.Router)
+	require.NoError(t, err)
 }
