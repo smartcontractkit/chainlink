@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strconv"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
@@ -284,15 +283,15 @@ func doAddRemoteChainToSolana(
 			ixns = append(ixns, feeQuoterIx)
 		}
 
-		var onRampBytes [64]byte
+		var onRampAddress solOffRamp.OnRampAddress
 		// already verified, skipping errcheck
 		addressBytes, _ := s.GetOnRampAddressBytes(remoteChainSel)
-		addressBytes = common.LeftPadBytes(addressBytes, 64)
-		copy(onRampBytes[:], addressBytes)
+		// addressBytes = common.LeftPadBytes(addressBytes, 64)
+		copy(onRampAddress.Bytes[:], addressBytes)
+		onRampAddress.Len = uint32(len(addressBytes))
 		solOffRamp.SetProgramID(offRampID)
 		validSourceChainConfig := solOffRamp.SourceChainConfig{
-			// TODO: confirm this with Blaz
-			OnRamp:    [2]solOffRamp.OnRampAddress{{Bytes: onRampBytes, Len: 64}},
+			OnRamp:    [2]solOffRamp.OnRampAddress{onRampAddress, {}},
 			IsEnabled: update.EnabledAsSource,
 		}
 		if offRampUsingMCMS {
