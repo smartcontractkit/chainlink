@@ -56,7 +56,7 @@ Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as require
 # 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
 ChaosMode = 1
 
-# works only with Load.CCIP.ChaosMode = 0
+# works only with Load.CCIP.ChaosMode = 1
 RPCLatency = "400ms"
 RPCJitter = "50ms"
 ```

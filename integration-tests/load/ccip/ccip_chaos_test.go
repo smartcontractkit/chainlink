@@ -2,11 +2,11 @@ package ccip
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 	framework "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"os"
@@ -33,14 +33,14 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.A
 	return a
 }
 
-func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.NamespaceScopedChaosRunner, *framework.Client) {
+func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner, *framework.Client) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
 	require.NoError(t, err)
 
-	config, err := tc.GetConfig([]string{"Chaos"}, tc.CCIP)
+	config, err := tc.GetConfig([]string{"Load"}, tc.CCIP)
 	require.NoError(t, err)
-	cfg := config.CCIP.Chaos
+	cfg := config.CCIP
 	cr := havoc.NewNamespaceRunner(l, c, true)
 
 	gc := framework.NewGrafanaClient(os.Getenv("GRAFANA_URL"), os.Getenv("GRAFANA_TOKEN"))
@@ -48,7 +48,8 @@ func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.NamespaceScopedChaosR
 }
 
 func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration) {
-	cfg, cr, gc := prepareChaos(t)
+	config, cr, gc := prepareChaos(t)
+	cfg := config.Chaos
 
 	testCases := []struct {
 		name     string
@@ -90,8 +91,44 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 	}
 }
 
+func TestChaos(t *testing.T) {
+	runFullChaosSuite(t)
+}
+
+type cribNetworkConfig []struct {
+	HTTPRPCs []struct {
+		External string `json:"External"`
+		Internal string `json:"Internal"`
+	} `json:"HTTPRPCs"`
+}
+
+func readCRIBConfig(t *testing.T, cfg *ccip.Config) cribNetworkConfig {
+	f, err := os.ReadFile(fmt.Sprintf("%s/ccip-v2-scripts-chains-details.json", *cfg.Load.CribEnvDirectory))
+	var cribNetworkConfig cribNetworkConfig
+	err = json.Unmarshal(f, &cribNetworkConfig)
+	require.NoError(t, err)
+	return cribNetworkConfig
+}
+
 func runFullChaosSuite(t *testing.T) {
-	cfg, cr, gc := prepareChaos(t)
+	config, cr, gc := prepareChaos(t)
+	chaosCfg := config.Chaos
+	//cnc := readCRIBConfig(t, config)
+	//reorgFunc := func(cncs cribNetworkConfig, blocks int) {
+	//	for _, cnc := range cncs {
+	//		t.Logf("Reorg: %d", blocks)
+	//		r := rpc.New(cnc.HTTPRPCs[0].External, nil)
+	//		tcName := fmt.Sprintf("%s-%d-blocks", cnc.HTTPRPCs[0].External, blocks)
+	//		t.Run(tcName, func(t *testing.T) {
+	//			n := time.Now()
+	//			err := r.GethSetHead(blocks)
+	//			require.NoError(t, err)
+	//			time.Sleep(chaosCfg.GetExperimentInterval())
+	//			_, _, err = gc.Annotate(a(chaosCfg.Namespace, tcName, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
+	//			require.NoError(t, err)
+	//		})
+	//	}
+	//}
 
 	testCases := []struct {
 		name     string
@@ -99,386 +136,147 @@ func runFullChaosSuite(t *testing.T) {
 		validate func(t *testing.T)
 	}{
 		// pod failures
-		{
-			name: "Fail src chain",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "instance",
-						LabelValues:       []string{"geth-1337"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail dst chain",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "instance",
-						LabelValues:       []string{"geth-2337"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail one CL node",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"ccip-0"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail two CL nodes",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"ccip-0", "ccip-1"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail one CL node DB",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"chainlink-don-db-0"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail one RMN node",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"rmn-0"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Fail two RMN nodes",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodFail(context.Background(),
-					havoc.PodFailCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"rmn-0", "rmn-1"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		// network delay
-		{
-			name: "Both chains are slow 400ms/20ms jitter",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"geth-1337", "geth-2337"},
-						Latency:           400 * time.Millisecond,
-						Jitter:            20 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Slow src chain",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"geth-1337"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Slow dst chain",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"geth-2337"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "One slow CL node",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"ccip-0"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Two slow CL nodes",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"ccip-0", "ccip-1"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "One slow CL node DB",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"chainlink-don-db-0"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "One slow RMN node",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"rmn-0"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Two slow RMN nodes",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodDelay(context.Background(),
-					havoc.PodDelayCfg{
-						Namespace:         cfg.Namespace,
-						LabelKey:          "app.kubernetes.io/instance",
-						LabelValues:       []string{"rmn-0", "rmn-1"},
-						Latency:           200 * time.Millisecond,
-						Jitter:            200 * time.Millisecond,
-						Correlation:       "0",
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
+		//{
+		//	name: "Fail three chains",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodFail(context.Background(),
+		//			havoc.PodFailCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "instance",
+		//				LabelValues:       []string{"geth-1337", "geth-2337", "geth-90000001"},
+		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+		//			})
+		//		require.NoError(t, err)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
+		//{
+		//	name: "Fail 3 CL nodes",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodFail(context.Background(),
+		//			havoc.PodFailCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "app.kubernetes.io/instance",
+		//				LabelValues:       []string{"ccip-0", "ccip-1", "ccip-2"},
+		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+		//			})
+		//		require.NoError(t, err)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
+		//{
+		//	name: "Fail three CL node DB",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodFail(context.Background(),
+		//			havoc.PodFailCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "app.kubernetes.io/instance",
+		//				LabelValues:       []string{"chainlink-don-db-0", "chainlink-don-db-1", "chainlink-don-db-2"},
+		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+		//			})
+		//		require.NoError(t, err)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
+		//// network delay
+		//{
+		//	name: "Three slow CL nodes",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodDelay(context.Background(),
+		//			havoc.PodDelayCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "app.kubernetes.io/instance",
+		//				LabelValues:       []string{"ccip-0", "ccip-1", "ccip-2"},
+		//				Latency:           200 * time.Millisecond,
+		//				Jitter:            200 * time.Millisecond,
+		//				Correlation:       "0",
+		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+		//			})
+		//		require.NoError(t, err)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
+		//{
+		//	name: "Three slow CL node DB",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodDelay(context.Background(),
+		//			havoc.PodDelayCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "app.kubernetes.io/instance",
+		//				LabelValues:       []string{"chainlink-don-db-0", "chainlink-don-db-1", "chainlink-don-db-2"},
+		//				Latency:           200 * time.Millisecond,
+		//				Jitter:            200 * time.Millisecond,
+		//				Correlation:       "0",
+		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+		//			})
+		//		require.NoError(t, err)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
 		// network partition
 		{
-			name: "CL node <> CL nodes partition",
+			name: "4 nodes partition",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodPartition(context.Background(),
 					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
+						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"ccip-0"},
-						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"ccip-1", "ccip-2", "ccip-3"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+						LabelFromValues:   []string{"ccip-0", "ccip-1", "ccip-2", "ccip-3"},
+						LabelToKey:        "app.kubernetes.io/name",
+						LabelToValues:     []string{"chainlink-don"},
+						InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
 					})
 				require.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
 		{
-			name: "2 CL nodes <> 2 CL nodes partition",
+			name: "8-8 CL nodes split brain",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodPartition(context.Background(),
 					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
+						Namespace:         chaosCfg.Namespace,
 						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"ccip-0", "ccip-1"},
+						LabelFromValues:   []string{"ccip-0", "ccip-1", "ccip-2", "ccip-3", "ccip-4", "ccip-5", "ccip-6", "ccip-7"},
 						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"ccip-2", "ccip-3"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
+						LabelToValues:     []string{"ccip-8", "ccip-9", "ccip-10", "ccip-11", "ccip-12", "ccip-13", "ccip-14", "ccip-15"},
+						InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
 					})
 				require.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
-		{
-			name: "CL node <> DB partition",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
-					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
-						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"ccip-0"},
-						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"chainlink-don-db-0"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "RMN node <> RMN node",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
-					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
-						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"rmn-0"},
-						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"rmn-1", "rmn-2", "rmn-3"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "2 RMN nodes <> 2 RMN nodes partition",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
-					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
-						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"rmn-0", "rmn-1"},
-						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"rmn-2", "rmn-3"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "2 CL nodes <> 2 RMN nodes partition",
-			run: func(t *testing.T) {
-				_, err := cr.RunPodPartition(context.Background(),
-					havoc.PodPartitionCfg{
-						Namespace:         cfg.Namespace,
-						LabelFromKey:      "app.kubernetes.io/instance",
-						LabelFromValues:   []string{"ccip-0", "ccip-1"},
-						LabelToKey:        "app.kubernetes.io/instance",
-						LabelToValues:     []string{"rmn-2", "rmn-3"},
-						InjectionDuration: cfg.GetExperimentInjectionInterval(),
-					})
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		// reorgs
-		{
-			name: "Reorg src chain below finality",
-			run: func(t *testing.T) {
-				r := rpc.New(cfg.SrcChainURL, nil)
-				err := r.GethSetHead(cfg.ReorgDepthBelowFinality)
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Reorg dst chain below finality",
-			run: func(t *testing.T) {
-				r := rpc.New(cfg.DstChainURL, nil)
-				err := r.GethSetHead(cfg.ReorgDepthBelowFinality)
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Reorg src chain above finality",
-			run: func(t *testing.T) {
-				r := rpc.New(cfg.SrcChainURL, nil)
-				err := r.GethSetHead(cfg.ReorgDepthAboveFinality)
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
-		{
-			name: "Reorg dst chain above finality",
-			run: func(t *testing.T) {
-				r := rpc.New(cfg.DstChainURL, nil)
-				err := r.GethSetHead(cfg.ReorgDepthAboveFinality)
-				require.NoError(t, err)
-			},
-			validate: func(t *testing.T) {},
-		},
+		//reorgs
+		//{
+		//	name: "Rand chain reorgs below finality",
+		//	run: func(t *testing.T) {
+		//		_, err := cr.RunPodDelay(context.Background(),
+		//			havoc.PodDelayCfg{
+		//				Namespace:         chaosCfg.Namespace,
+		//				LabelKey:          "app.kubernetes.io/instance",
+		//				LabelValues:       []string{"geth-1337", "geth-2337", "geth-90000001", "geth-90000002", "geth-90000003", "geth-90000004"},
+		//				Latency:           400 * time.Millisecond,
+		//				Jitter:            20 * time.Millisecond,
+		//				Correlation:       "0",
+		//				InjectionDuration: 2 * time.Hour,
+		//			})
+		//		require.NoError(t, err)
+		//
+		//		reorgFunc(cnc, 120)
+		//	},
+		//	validate: func(t *testing.T) {},
+		//},
 	}
 
-	t.Logf("Starting chaos tests in %s", cfg.GetWaitBeforeStart().String())
-	time.Sleep(cfg.GetWaitBeforeStart())
+	t.Logf("Starting chaos tests in %s", chaosCfg.GetWaitBeforeStart().String())
+	time.Sleep(chaosCfg.GetWaitBeforeStart())
 
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			n := time.Now()
 			testCase.run(t)
-			time.Sleep(cfg.GetExperimentInterval())
-			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
+			time.Sleep(chaosCfg.GetExperimentInterval())
+			_, _, err := gc.Annotate(a(chaosCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
 			require.NoError(t, err)
 			testCase.validate(t)
 		})
