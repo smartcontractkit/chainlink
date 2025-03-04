@@ -30,7 +30,7 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.0.0-salt-fix
-	github.com/smartcontractkit/chain-selectors v1.0.40
+	github.com/smartcontractkit/chain-selectors v1.0.43
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250212131315-e9b53b05b02a
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250211204327-6aca485891a7
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250205141137-8f50d72601bb
