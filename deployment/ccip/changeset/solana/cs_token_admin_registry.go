@@ -29,6 +29,7 @@ type RegisterTokenAdminRegistryConfig struct {
 	TokenPubKey             string
 	TokenAdminRegistryAdmin string
 	RegisterType            RegisterTokenAdminRegistryType
+	Override                bool
 	MCMSSolana              *MCMSConfigSolana
 }
 
@@ -92,29 +93,57 @@ func RegisterTokenAdminRegistry(e deployment.Environment, cfg RegisterTokenAdmin
 	switch cfg.RegisterType {
 	// the ccip admin signs and makes tokenAdminRegistryAdmin the authority of the tokenAdminRegistry PDA
 	case ViaGetCcipAdminInstruction:
-		instruction, err = solRouter.NewCcipAdminProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
-			chainState.RouterConfigPDA,
-			tokenAdminRegistryPDA, // this gets created
-			tokenPubKey,
-			authority,
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		if cfg.Override {
+			instruction, err = solRouter.NewCcipAdminOverridePendingAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				chainState.RouterConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		} else {
+			instruction, err = solRouter.NewCcipAdminProposeAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				chainState.RouterConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 		}
 	case ViaOwnerInstruction:
-		// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
-		instruction, err = solRouter.NewOwnerProposeAdministratorInstruction(
-			tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
-			chainState.RouterConfigPDA,
-			tokenAdminRegistryPDA, // this gets created
-			tokenPubKey,
-			authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
-			solana.SystemProgramID,
-		).ValidateAndBuild()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+		if cfg.Override {
+			instruction, err = solRouter.NewOwnerOverridePendingAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				chainState.RouterConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority,
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
+		} else {
+			// the token mint authority signs and makes itself the authority of the tokenAdminRegistry PDA
+			instruction, err = solRouter.NewOwnerProposeAdministratorInstruction(
+				tokenAdminRegistryAdmin, // admin of the tokenAdminRegistry PDA
+				chainState.RouterConfigPDA,
+				tokenAdminRegistryPDA, // this gets created
+				tokenPubKey,
+				authority, // (token mint authority) becomes the authority of the tokenAdminRegistry PDA
+				solana.SystemProgramID,
+			).ValidateAndBuild()
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+			}
 		}
 	}
 	if routerUsingMCMS {
