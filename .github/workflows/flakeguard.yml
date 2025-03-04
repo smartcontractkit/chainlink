@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e106a654baf346d62b8db4ec11c47ec091ab4bec # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -335,7 +335,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e106a654baf346d62b8db4ec11c47ec091ab4bec # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -424,7 +424,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@e106a654baf346d62b8db4ec11c47ec091ab4bec # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
