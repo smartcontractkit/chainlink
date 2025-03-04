@@ -1530,7 +1530,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	testutils.AssertCount(t, ds, tableName, expected)
 }
 
