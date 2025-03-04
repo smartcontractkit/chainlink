@@ -90,6 +90,25 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput) error {
 		}
 
 		// Add support for new capabilities here as needed
+		if flags.HasFlag(donMetadata.Flags, types.MockCapability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "streams-trigger",
+					Version:        "1.0.0",
+					CapabilityType: 0, // TARGET
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "write_ethereum",
+					Version:        "1.0.0",
+					CapabilityType: 3, // TARGET
+					ResponseType:   1, // OBSERVATION_IDENTICAL
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
 
 		workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{
 			Key:   node.NodeTypeKey,

@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"strings"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -12,7 +13,7 @@ import (
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 
 	keystoneflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	types "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 var SupportedJobs = []types.JobDescription{
@@ -25,6 +26,7 @@ var SupportedJobs = []types.JobDescription{
 	{Flag: types.GatewayDON, NodeType: types.GatewayDON},
 
 	// add more jobs as needed
+	{Flag: types.MockCapability, NodeType: types.WorkerNode},
 }
 
 func checkForUnknownJobs(jobSpecs types.DonJobs) error {
@@ -65,7 +67,7 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 					go func(jobReq *jobv1.ProposeJobRequest) {
 						defer wg.Done()
 						_, err := offChainClient.ProposeJob(context.Background(), jobReq)
-						if err != nil {
+						if err != nil && !strings.Contains(err.Error(), "cannot approve an approved spec") {
 							errCh <- errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
 						}
 					}(jobReq)

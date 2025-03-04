@@ -209,6 +209,29 @@ func generateDonJobSpecs(
 				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
 			}
 		}
+
+		if creflags.HasFlag(donWithMetadata.Flags, types.MockCapability) {
+			jobSpec := jobs.MockCapabilities(nodeID)
+			jobDesc := types.JobDescription{Flag: types.MockCapability, NodeType: types.WorkerNode}
+
+			if _, ok := jobSpecs[jobDesc]; !ok {
+				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
+			} else {
+				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+			}
+		}
+
+		if creflags.HasFlag(donWithMetadata.Flags, types.MockCapability) {
+			jobSpec := jobs.TextWorkflow(nodeID)
+			jobDesc := types.JobDescription{Flag: types.MockCapability, NodeType: types.WorkerNode}
+
+			if _, ok := jobSpecs[jobDesc]; !ok {
+				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
+			} else {
+				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+			}
+		}
+
 	}
 
 	return jobSpecs, nil

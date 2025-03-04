@@ -17,6 +17,7 @@ const (
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
 	// Add more capabilities as needed
+	MockCapability CapabilityFlag = "mock"
 )
 
 var (
