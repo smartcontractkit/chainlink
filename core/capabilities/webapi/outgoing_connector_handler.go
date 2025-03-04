@@ -56,6 +56,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 // HandleSingleNodeRequest sends a request to first available gateway node and blocks until response is received
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
+	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 	// set default timeout if not provided for all outgoing requests
 	if req.TimeoutMs == 0 {
 		req.TimeoutMs = defaultFetchTimeoutMs
@@ -78,8 +79,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 	defer c.responses.cleanup(messageID)
 
-	l := logger.With(c.lggr, "messageID", messageID)
-	l.Debugw("sending request to gateway")
+	lggr.Debugw("sending request to gateway")
 
 	body := &api.MessageBody{
 		MessageId: messageID,
@@ -93,7 +93,9 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		return nil, fmt.Errorf("failed to select gateway: %w", err)
 	}
 
-	l.Infow("selected gateway, awaiting connection", "gatewayID", selectedGateway)
+	lggr = logger.With(lggr, "gatewayID", selectedGateway)
+
+	lggr.Infow("selected gateway, awaiting connection")
 
 	if err := c.gc.AwaitConnection(ctx, selectedGateway); err != nil {
 		return nil, errors.Wrap(err, "await connection canceled")
@@ -105,7 +107,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 
 	select {
 	case resp := <-ch:
-		l.Debugw("received response from gateway", "gatewayID", selectedGateway)
+		lggr.Debugw("received response from gateway")
 		return resp, nil
 	case <-ctx.Done():
 		return nil, ctx.Err()
@@ -115,12 +117,20 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
-	if !c.rateLimiter.Allow(body.Sender) {
-		// error is logged here instead of warning because if a message from gateway is rate-limited,
-		// the workflow will eventually fail with timeout as there are no retries in place yet
-		c.lggr.Errorw("request rate-limited")
+
+	var req capabilities.Request
+	if err := json.Unmarshal(body.Payload, &req); err != nil {
+		l.Errorw("failed to unmarshal req from payload", "payload", body.Payload)
 		return
 	}
+
+	if !c.rateLimiter.Allow(body.Sender, req.WorkflowID) {
+		// error is logged here instead of warning because if a message from gateway is rate-limited,
+		// the workflow will eventually fail with timeout as there are no retries in place yet
+		l.Errorw("request rate-limited")
+		return
+	}
+
 	l.Debugw("handling gateway request")
 	switch body.Method {
 	case capabilities.MethodWebAPITarget, capabilities.MethodComputeAction, capabilities.MethodWorkflowSyncer:
