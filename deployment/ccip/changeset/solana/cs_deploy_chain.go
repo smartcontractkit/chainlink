@@ -492,10 +492,7 @@ func deployChainContractsSolana(
 	var offRampAddress solana.PublicKey
 	// gather lookup table keys from other deploys
 	lookupTableKeys := make([]solana.PublicKey, 0)
-	needFQinLookupTable := false
-	needRouterinLookupTable := false
-	needTokenPoolinLookupTable := false
-	needRMNRemoteinLookupTable := false
+	createLookupTable := false
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
@@ -609,10 +606,7 @@ func deployChainContractsSolana(
 			return txns, err2
 		}
 		// Initializing a new offramp means we need a new lookup table and need to fully populate it
-		needFQinLookupTable = true
-		needRouterinLookupTable = true
-		needTokenPoolinLookupTable = true
-		needRMNRemoteinLookupTable = true
+		createLookupTable = true
 		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
@@ -646,7 +640,6 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
-		needTokenPoolinLookupTable = true
 	} else {
 		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPool.String())
 		burnMintTokenPool = chainState.BurnMintTokenPool
@@ -658,7 +651,6 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
-		needTokenPoolinLookupTable = true
 	} else {
 		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPool.String())
 		lockReleaseTokenPool = chainState.LockReleaseTokenPool
@@ -673,7 +665,8 @@ func deployChainContractsSolana(
 		}
 	}
 
-	if needFQinLookupTable {
+	if createLookupTable {
+		// fee quoter enteries
 		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)
 		wsolFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.WSOL, feeQuoterAddress)
 		feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
@@ -684,35 +677,29 @@ func deployChainContractsSolana(
 			linkFqBillingConfigPDA,
 			wsolFqBillingConfigPDA,
 		}...)
-	}
 
-	if needRouterinLookupTable {
+		// router entries
 		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(ccipRouterProgram)
 		externalTokenPoolsSignerPDA, _, _ := solState.FindExternalTokenPoolsSignerPDA(ccipRouterProgram)
 		routerConfigPDA, _, _ := solState.FindConfigPDA(ccipRouterProgram)
 		feeBillingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(ccipRouterProgram)
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			// router
 			ccipRouterProgram,
 			routerConfigPDA,
 			externalExecutionConfigPDA,
 			externalTokenPoolsSignerPDA,
 			feeBillingSignerPDA,
 		}...)
-	}
 
-	if needTokenPoolinLookupTable {
+		// token pools entries
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			// token pools
 			burnMintTokenPool,
 			lockReleaseTokenPool,
 		}...)
-	}
 
-	if needRMNRemoteinLookupTable {
+		// rmn remote entries
 		rmnRemoteCursePDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteAddress)
 		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
-			// rmn remote
 			rmnRemoteAddress,
 			rmnRemoteConfigPDA,
 			rmnRemoteCursePDA,
