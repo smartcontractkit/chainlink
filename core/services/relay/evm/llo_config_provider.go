@@ -39,7 +39,7 @@ func (l *lloConfigProvider) OffchainConfigDigester() ocrtypes.OffchainConfigDige
 func (l *lloConfigProvider) ContractConfigTracker() ocrtypes.ContractConfigTracker {
 	// FIXME: Only return Blue for now. This is a hack to make the bootstrap
 	// job work, needs to support multiple config trackers here
-	// MERC-5954
+	// MERC-6839
 	return l.cps[0]
 }
 

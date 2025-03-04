@@ -30,7 +30,6 @@
     "src/v0.8/shared/interfaces/AccessControllerInterface.sol",
     "src/v0.8/shared/token/**/*.sol",
     "src/v0.8/shared/util/SortedSetValidationUtil.sol",
-    "src/v0.8/liquiditymanager/interfaces/ILiquidityContainer.sol",
     "src/v0.8/keystone/interfaces/**/*",
     "src/v0.8/keystone/KeystoneFeedsPermissionHandler.sol",
     "src/v0.8/keystone/lib/KeystoneFeedDefaultMetadataLib.sol",

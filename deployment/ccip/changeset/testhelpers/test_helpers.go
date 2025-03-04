@@ -457,13 +457,24 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 	}
 	solanaChangesets := []commoncs.ConfiguredChangeSet{
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToSolana),
-			ccipChangeSetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToRouter),
+			ccipChangeSetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChainSelector,
-				UpdatesByChain: map[uint64]ccipChangeSetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.RouterConfig{
 					remoteChainSelector: {
-						EnabledAsSource:         true,
-						RouterDestinationConfig: solRouter.DestChainConfig{},
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangeSetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.FeeQuoterConfig{
+					remoteChainSelector: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -473,6 +484,17 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 							DefaultTokenDestGasOverhead: 5000,
 							ChainFamilySelector:         chainFamilySelector,
 						},
+					},
+				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddRemoteChainToOffRamp),
+			ccipChangeSetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangeSetSolana.OffRampConfig{
+					remoteChainSelector: {
+						EnabledAsSource: true,
 					},
 				},
 			},
@@ -931,6 +953,7 @@ func DeployTransferableTokenSolana(
 				SolChainSelector:    solChainSel,
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
+				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
 				RemoteConfig: solTestTokenPool.RemoteConfig{
 					// this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTestTokenPool.RemoteAddress{
@@ -969,6 +992,38 @@ func DeployTransferableTokenSolana(
 					DestBytesOverhead: 100,
 					IsEnabled:         true,
 				},
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.RegisterTokenAdminRegistry),
+			ccipChangeSetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChainSel,
+				TokenPubKey:             solTokenAddress.String(),
+				TokenAdminRegistryAdmin: e.SolChains[solChainSel].DeployerKey.PublicKey().String(),
+				RegisterType:            ccipChangeSetSolana.ViaGetCcipAdminInstruction,
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangeSetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenPoolLookupTable),
+			ccipChangeSetSolana.TokenPoolLookupTableConfig{
+				ChainSelector: solChainSel,
+				TokenPubKey:   solTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+			},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.SetPool),
+			ccipChangeSetSolana.SetPoolConfig{
+				ChainSelector:   solChainSel,
+				TokenPubKey:     solTokenAddress.String(),
+				WritableIndexes: []uint8{3, 4, 7},
 			},
 		),
 	)
@@ -1548,9 +1603,6 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipLogicReceiver.String(), tv)
 	require.NoError(t, err)
-	tv = deployment.NewTypeAndVersion(changeset.TokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipTokenPoolProgram.String(), tv)
-	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.FeeQuoterProgram.String(), tv)
 	require.NoError(t, err)
@@ -1636,7 +1688,11 @@ func TransferOwnershipSolana(
 	e *deployment.Environment,
 	solChain uint64,
 	needTimelockDeployed bool,
-	transferRouter, transferFeeQuoter, transferOffRamp bool) (solana.PublicKey, solana.PublicKey) {
+	transferRouter,
+	transferFeeQuoter,
+	transferOffRamp bool,
+	burnMintTokenPools []solana.PublicKey,
+	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
@@ -1662,8 +1718,8 @@ func TransferOwnershipSolana(
 
 	// Fund signer PDAs for timelock and mcm
 	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
+	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
 		100, e.SolChains[solChain].Client)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
@@ -1676,9 +1732,11 @@ func TransferOwnershipSolana(
 				MinDelay: 1 * time.Second,
 				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
 					solChain: {
-						Router:    transferRouter,
-						FeeQuoter: transferFeeQuoter,
-						OffRamp:   transferOffRamp,
+						Router:                transferRouter,
+						FeeQuoter:             transferFeeQuoter,
+						OffRamp:               transferOffRamp,
+						BurnMintTokenPools:    burnMintTokenPools,
+						LockReleaseTokenPools: lockReleaseTokenPools,
 					},
 				},
 			},

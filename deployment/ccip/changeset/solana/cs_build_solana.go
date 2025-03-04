@@ -133,10 +133,16 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment) error {
+func buildProject(e deployment.Environment, testRouter bool) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	output, err := runCommand("make", []string{"docker-build-contracts"}, solanaDir)
+	var args string
+	if testRouter {
+		args = "ANCHOR_BUILD_ARGS=-p ccip_router"
+	} else {
+		args = ""
+	}
+	output, err := runCommand("make", []string{"docker-build-contracts", args}, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
@@ -152,6 +158,7 @@ type BuildSolanaConfig struct {
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
 	UpgradeKeys map[deployment.ContractType]string
+	TestRouter  bool
 }
 
 func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
@@ -184,7 +191,7 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	}
 
 	// Build the project with Anchor
-	if err := buildProject(e); err != nil {
+	if err := buildProject(e, config.TestRouter); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %w", err)
 	}
 
@@ -213,6 +220,13 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to read deploy directory: %w", err)
 	}
 
+	if config.TestRouter {
+		files, err = filterRouterFiles(files)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to filter router files: %w", err)
+		}
+	}
+
 	for _, file := range files {
 		filePath := filepath.Join(deployFilePath, file.Name())
 		e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
@@ -222,4 +236,19 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		}
 	}
 	return deployment.ChangesetOutput{}, nil
+}
+
+func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
+	// Filter files to only include those with "router" in the name
+	// ccip_router.so, ccip_router-keypair.json
+	var routerFiles []os.DirEntry
+
+	// Compile the regex pattern once
+	re := regexp.MustCompile(`(?i)router`)
+	for _, file := range files {
+		if re.MatchString(file.Name()) {
+			routerFiles = append(routerFiles, file)
+		}
+	}
+	return routerFiles, nil
 }

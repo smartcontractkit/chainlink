@@ -107,13 +107,13 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			{Name: "baseMarketDepth", Type: mustNewABIType("int192")},
 			{Name: "quoteMarketDepth", Type: mustNewABIType("int192")},
 		})
-		runTest := func(sampleFeedID common.Hash, sampleObservationsTimestamp, sampleValidAfterSeconds, sampleExpirationWindow uint32, priceMultiplier, marketDepthMultiplier *ubig.Big, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleDexBasedAssetPrice, sampleBaseMarketDepth, sampleQuoteMarketDepth decimal.Decimal) bool {
+		runTest := func(sampleFeedID common.Hash, sampleObservationTimestampNanoseconds, sampleValidAfterNanoseconds uint64, sampleExpirationWindow uint32, priceMultiplier, marketDepthMultiplier *ubig.Big, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleDexBasedAssetPrice, sampleBaseMarketDepth, sampleQuoteMarketDepth decimal.Decimal) bool {
 			report := llo.Report{
-				ConfigDigest:                types.ConfigDigest{0x01},
-				SeqNr:                       0x02,
-				ChannelID:                   llotypes.ChannelID(0x03),
-				ValidAfterSeconds:           sampleValidAfterSeconds,
-				ObservationTimestampSeconds: sampleObservationsTimestamp,
+				ConfigDigest:                    types.ConfigDigest{0x01},
+				SeqNr:                           0x02,
+				ChannelID:                       llotypes.ChannelID(0x03),
+				ValidAfterNanoseconds:           sampleValidAfterNanoseconds,
+				ObservationTimestampNanoseconds: sampleObservationTimestampNanoseconds,
 				Values: []llo.StreamValue{
 					&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: sampleLinkBenchmarkPrice, Ask: decimal.NewFromFloat(8.2332)},  // Link price
 					&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: sampleNativeBenchmarkPrice, Ask: decimal.NewFromFloat(11.33)}, // Native price
@@ -199,11 +199,11 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 
 			return AllTrue([]bool{
 				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                                                                  //nolint:testifylint // false positive // feedId
-				assert.Equal(t, sampleValidAfterSeconds+1, values[1].(uint32)),                                                                      // validFromTimestamp
-				assert.Equal(t, sampleObservationsTimestamp, values[2].(uint32)),                                                                    // observationsTimestamp
+				assert.Equal(t, uint32(sampleValidAfterNanoseconds/1e9)+1, values[1].(uint32)),                                                      //nolint:gosec // G115 // validFromTimestamp
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9), values[2].(uint32)),                                              //nolint:gosec // G115 // observationsTimestamp
 				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                                                            // linkFee
 				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),                                                          // nativeFee
-				assert.Equal(t, sampleObservationsTimestamp+sampleExpirationWindow, values[5].(uint32)),                                             // expiresAt
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9)+sampleExpirationWindow, values[5].(uint32)),                       //nolint:gosec // G115 generator ensures it wont overflow
 				assert.Equal(t, sampleDexBasedAssetPrice.Mul(decimal.NewFromBigInt(priceMultiplier.ToInt(), 0)).BigInt(), values[6].(*big.Int)),     // price
 				assert.Equal(t, sampleBaseMarketDepth.Mul(decimal.NewFromBigInt(marketDepthMultiplier.ToInt(), 0)).BigInt(), values[7].(*big.Int)),  // baseMarketDepth
 				assert.Equal(t, sampleQuoteMarketDepth.Mul(decimal.NewFromBigInt(marketDepthMultiplier.ToInt(), 0)).BigInt(), values[8].(*big.Int)), // quoteMarketDepth
@@ -213,8 +213,8 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 		properties.Property("Encodes values", prop.ForAll(
 			runTest,
 			genFeedID(),
-			genObservationsTimestamp(),
-			genValidAfterSeconds(),
+			genObservationTimestampNanoseconds(),
+			genValidAfterNanoseconds(),
 			genExpirationWindow(),
 			genPriceMultiplier(),
 			genMarketDepthMultiplier(),
@@ -240,13 +240,13 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			{Name: "marketStatus", Type: mustNewABIType("uint32")},
 		})
 
-		runTest := func(sampleFeedID common.Hash, sampleObservationsTimestamp, sampleValidAfterSeconds, sampleExpirationWindow uint32, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleMarketStatus decimal.Decimal) bool {
+		runTest := func(sampleFeedID common.Hash, sampleObservationTimestampNanoseconds, sampleValidAfterNanoseconds uint64, sampleExpirationWindow uint32, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleMarketStatus decimal.Decimal) bool {
 			report := llo.Report{
-				ConfigDigest:                types.ConfigDigest{0x01},
-				SeqNr:                       0x02,
-				ChannelID:                   llotypes.ChannelID(0x03),
-				ValidAfterSeconds:           sampleValidAfterSeconds,
-				ObservationTimestampSeconds: sampleObservationsTimestamp,
+				ConfigDigest:                    types.ConfigDigest{0x01},
+				SeqNr:                           0x02,
+				ChannelID:                       llotypes.ChannelID(0x03),
+				ValidAfterNanoseconds:           sampleValidAfterNanoseconds,
+				ObservationTimestampNanoseconds: sampleObservationTimestampNanoseconds,
 				Values: []llo.StreamValue{
 					&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: sampleLinkBenchmarkPrice, Ask: decimal.NewFromFloat(8.2332)},  // Link price
 					&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: sampleNativeBenchmarkPrice, Ask: decimal.NewFromFloat(11.33)}, // Native price
@@ -316,21 +316,21 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			require.Error(t, err)
 
 			return AllTrue([]bool{
-				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                      //nolint:testifylint // false positive // feedId
-				assert.Equal(t, sampleValidAfterSeconds+1, values[1].(uint32)),                          // validFromTimestamp
-				assert.Equal(t, sampleObservationsTimestamp, values[2].(uint32)),                        // observationsTimestamp
-				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                // linkFee
-				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),              // nativeFee
-				assert.Equal(t, sampleObservationsTimestamp+sampleExpirationWindow, values[5].(uint32)), // expiresAt
-				assert.Equal(t, uint32(sampleMarketStatus.BigInt().Int64()), values[6].(uint32)),        //nolint:gosec // G115 // market status
+				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                                            //nolint:testifylint // false positive // feedId
+				assert.Equal(t, uint32(sampleValidAfterNanoseconds/1e9)+1, values[1].(uint32)),                                //nolint:gosec // G115 // validFromTimestamp
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9), values[2].(uint32)),                        //nolint:gosec // G115 //  observationsTimestamp
+				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                                      // linkFee
+				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),                                    // nativeFee
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9)+sampleExpirationWindow, values[5].(uint32)), //nolint:gosec // G115 // expiresAt
+				assert.Equal(t, uint32(sampleMarketStatus.BigInt().Int64()), values[6].(uint32)),                              //nolint:gosec // G115 // market status
 			})
 		}
 
 		properties.Property("Encodes values", prop.ForAll(
 			runTest,
 			genFeedID(),
-			genObservationsTimestamp(),
-			genValidAfterSeconds(),
+			genObservationTimestampNanoseconds(),
+			genValidAfterNanoseconds(),
 			genExpirationWindow(),
 			genBaseUSDFee(),
 			genLinkBenchmarkPrice(),
@@ -351,13 +351,13 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			{Name: "expiresAt", Type: mustNewABIType("uint32")},
 			{Name: "price", Type: mustNewABIType("int192")},
 		})
-		runTest := func(sampleFeedID common.Hash, sampleObservationsTimestamp, sampleValidAfterSeconds, sampleExpirationWindow uint32, priceMultiplier, marketDepthMultiplier *ubig.Big, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleBenchmarkPrice decimal.Decimal) bool {
+		runTest := func(sampleFeedID common.Hash, sampleObservationTimestampNanoseconds, sampleValidAfterNanoseconds uint64, sampleExpirationWindow uint32, priceMultiplier, marketDepthMultiplier *ubig.Big, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleBenchmarkPrice decimal.Decimal) bool {
 			report := llo.Report{
-				ConfigDigest:                types.ConfigDigest{0x01},
-				SeqNr:                       0x02,
-				ChannelID:                   llotypes.ChannelID(0x03),
-				ValidAfterSeconds:           sampleValidAfterSeconds,
-				ObservationTimestampSeconds: sampleObservationsTimestamp,
+				ConfigDigest:                    types.ConfigDigest{0x01},
+				SeqNr:                           0x02,
+				ChannelID:                       llotypes.ChannelID(0x03),
+				ValidAfterNanoseconds:           sampleValidAfterNanoseconds,
+				ObservationTimestampNanoseconds: sampleObservationTimestampNanoseconds,
 				Values: []llo.StreamValue{
 					&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: sampleLinkBenchmarkPrice, Ask: decimal.NewFromFloat(8.2332)},  // Link price
 					&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: sampleNativeBenchmarkPrice, Ask: decimal.NewFromFloat(11.33)}, // Native price
@@ -421,11 +421,11 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 
 			return AllTrue([]bool{
 				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                                                          //nolint:testifylint // false positive // feedId
-				assert.Equal(t, sampleValidAfterSeconds+1, values[1].(uint32)),                                                              // validFromTimestamp
-				assert.Equal(t, sampleObservationsTimestamp, values[2].(uint32)),                                                            // observationsTimestamp
+				assert.Equal(t, uint32(sampleValidAfterNanoseconds/1e9)+1, values[1].(uint32)),                                              //nolint:gosec // G115 // validFromTimestamp
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9), values[2].(uint32)),                                      //nolint:gosec // G115 //  observationsTimestamp
 				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                                                    // linkFee
 				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),                                                  // nativeFee
-				assert.Equal(t, sampleObservationsTimestamp+sampleExpirationWindow, values[5].(uint32)),                                     // expiresAt
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9)+sampleExpirationWindow, values[5].(uint32)),               //nolint:gosec // G115 // expiresAt
 				assert.Equal(t, sampleBenchmarkPrice.Mul(decimal.NewFromBigInt(priceMultiplier.ToInt(), 0)).BigInt(), values[6].(*big.Int)), // price
 			})
 		}
@@ -433,8 +433,8 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 		properties.Property("Encodes values", prop.ForAll(
 			runTest,
 			genFeedID(),
-			genObservationsTimestamp(),
-			genValidAfterSeconds(),
+			genObservationTimestampNanoseconds(),
+			genValidAfterNanoseconds(),
 			genExpirationWindow(),
 			genPriceMultiplier(),
 			genMarketDepthMultiplier(),
@@ -463,13 +463,13 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			{Name: "deribitFundingIntervalHours", Type: mustNewABIType("uint32")},
 		})
 
-		runTest := func(sampleFeedID common.Hash, sampleObservationsTimestamp, sampleValidAfterSeconds, sampleExpirationWindow uint32, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleBinanceFundingRate, sampleBinanceFundingTime, sampleBinanceFundingIntervalHours, sampleDeribitFundingRate, sampleDeribitFundingTime, sampleDeribitFundingIntervalHours decimal.Decimal) bool {
+		runTest := func(sampleFeedID common.Hash, sampleObservationTimestampNanoseconds, sampleValidAfterNanoseconds uint64, sampleExpirationWindow uint32, sampleBaseUSDFee, sampleLinkBenchmarkPrice, sampleNativeBenchmarkPrice, sampleBinanceFundingRate, sampleBinanceFundingTime, sampleBinanceFundingIntervalHours, sampleDeribitFundingRate, sampleDeribitFundingTime, sampleDeribitFundingIntervalHours decimal.Decimal) bool {
 			report := llo.Report{
-				ConfigDigest:                types.ConfigDigest{0x01},
-				SeqNr:                       0x02,
-				ChannelID:                   llotypes.ChannelID(0x03),
-				ValidAfterSeconds:           sampleValidAfterSeconds,
-				ObservationTimestampSeconds: sampleObservationsTimestamp,
+				ConfigDigest:                    types.ConfigDigest{0x01},
+				SeqNr:                           0x02,
+				ChannelID:                       llotypes.ChannelID(0x03),
+				ValidAfterNanoseconds:           sampleValidAfterNanoseconds,
+				ObservationTimestampNanoseconds: sampleObservationTimestampNanoseconds,
 				Values: []llo.StreamValue{
 					&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: sampleLinkBenchmarkPrice, Ask: decimal.NewFromFloat(8.2332)},  // Link price
 					&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: sampleNativeBenchmarkPrice, Ask: decimal.NewFromFloat(11.33)}, // Native price
@@ -545,26 +545,26 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 			require.Error(t, err)
 
 			return AllTrue([]bool{
-				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                               //nolint:testifylint // false positive // feedId
-				assert.Equal(t, sampleValidAfterSeconds+1, values[1].(uint32)),                                   // validFromTimestamp
-				assert.Equal(t, sampleObservationsTimestamp, values[2].(uint32)),                                 // observationsTimestamp
-				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                         // linkFee
-				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),                       // nativeFee
-				assert.Equal(t, sampleObservationsTimestamp+sampleExpirationWindow, values[5].(uint32)),          // expiresAt
-				assert.Equal(t, sampleBinanceFundingRate.BigInt().String(), values[6].(*big.Int).String()),       // binanceFundingRate
-				assert.Equal(t, uint32(sampleBinanceFundingTime.BigInt().Int64()), values[7].(uint32)),           //nolint:gosec // G115 // binanceFundingTime
-				assert.Equal(t, uint32(sampleBinanceFundingIntervalHours.BigInt().Int64()), values[8].(uint32)),  //nolint:gosec // G115 // binanceFundingIntervalHours
-				assert.Equal(t, sampleDeribitFundingRate.BigInt().String(), values[9].(*big.Int).String()),       // deribitFundingRate
-				assert.Equal(t, uint32(sampleDeribitFundingTime.BigInt().Int64()), values[10].(uint32)),          //nolint:gosec // G115 // deribitFundingTime
-				assert.Equal(t, uint32(sampleDeribitFundingIntervalHours.BigInt().Int64()), values[11].(uint32)), //nolint:gosec // G115 // deribitFundingIntervalHours
+				assert.Equal(t, sampleFeedID, (common.Hash)(values[0].([32]byte))),                                            //nolint:testifylint // false positive // feedId
+				assert.Equal(t, uint32(sampleValidAfterNanoseconds/1e9)+1, values[1].(uint32)),                                //nolint:gosec // G115 // validFromTimestamp
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9), values[2].(uint32)),                        //nolint:gosec // G115 //  observationsTimestamp
+				assert.Equal(t, expectedLinkFee.String(), values[3].(*big.Int).String()),                                      // linkFee
+				assert.Equal(t, expectedNativeFee.String(), values[4].(*big.Int).String()),                                    // nativeFee
+				assert.Equal(t, uint32(sampleObservationTimestampNanoseconds/1e9)+sampleExpirationWindow, values[5].(uint32)), //nolint:gosec // G115 // expiresAt
+				assert.Equal(t, sampleBinanceFundingRate.BigInt().String(), values[6].(*big.Int).String()),                    // binanceFundingRate
+				assert.Equal(t, uint32(sampleBinanceFundingTime.BigInt().Int64()), values[7].(uint32)),                        //nolint:gosec // G115 // binanceFundingTime
+				assert.Equal(t, uint32(sampleBinanceFundingIntervalHours.BigInt().Int64()), values[8].(uint32)),               //nolint:gosec // G115 // binanceFundingIntervalHours
+				assert.Equal(t, sampleDeribitFundingRate.BigInt().String(), values[9].(*big.Int).String()),                    // deribitFundingRate
+				assert.Equal(t, uint32(sampleDeribitFundingTime.BigInt().Int64()), values[10].(uint32)),                       //nolint:gosec // G115 // deribitFundingTime
+				assert.Equal(t, uint32(sampleDeribitFundingIntervalHours.BigInt().Int64()), values[11].(uint32)),              //nolint:gosec // G115 // deribitFundingIntervalHours
 			})
 		}
 
 		properties.Property("Encodes values", prop.ForAll(
 			runTest,
 			genFeedID(),
-			genObservationsTimestamp(),
-			genValidAfterSeconds(),
+			genObservationTimestampNanoseconds(),
+			genValidAfterNanoseconds(),
 			genExpirationWindow(),
 			genBaseUSDFee(),
 			genLinkBenchmarkPrice(),
@@ -584,11 +584,11 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 func TestReportCodecEVMABIEncodeUnpacked_Encode(t *testing.T) {
 	t.Run("ABI and values length mismatch error", func(t *testing.T) {
 		report := llo.Report{
-			ConfigDigest:                types.ConfigDigest{0x01},
-			SeqNr:                       0x02,
-			ChannelID:                   llotypes.ChannelID(0x03),
-			ValidAfterSeconds:           0x04,
-			ObservationTimestampSeconds: 0x05,
+			ConfigDigest:                    types.ConfigDigest{0x01},
+			SeqNr:                           0x02,
+			ChannelID:                       llotypes.ChannelID(0x03),
+			ValidAfterNanoseconds:           0x04,
+			ObservationTimestampNanoseconds: 0x05,
 			Values: []llo.StreamValue{
 				&llo.Quote{Bid: decimal.NewFromFloat(6.1), Benchmark: decimal.NewFromFloat(7.4), Ask: decimal.NewFromFloat(8.2332)},
 				&llo.Quote{Bid: decimal.NewFromFloat(9.4), Benchmark: decimal.NewFromFloat(10.0), Ask: decimal.NewFromFloat(11.33)},
@@ -649,12 +649,18 @@ func genFeedID() gopter.Gen {
 	}
 }
 
-func genObservationsTimestamp() gopter.Gen {
-	return gen.UInt32()
+func genObservationTimestampNanoseconds() gopter.Gen {
+	return genTimestampThatFitsUint32Seconds()
 }
 
-func genValidAfterSeconds() gopter.Gen {
-	return gen.UInt32()
+func genValidAfterNanoseconds() gopter.Gen {
+	return genTimestampThatFitsUint32Seconds()
+}
+
+func genTimestampThatFitsUint32Seconds() gopter.Gen {
+	return gen.UInt32().Map(func(i uint32) uint64 {
+		return uint64(i) * 1e9
+	})
 }
 
 func genExpirationWindow() gopter.Gen {
