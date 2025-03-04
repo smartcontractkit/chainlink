@@ -59,7 +59,7 @@ func curseExists(e deployment.Environment, chain deployment.SolChain, curseSubje
 		return false, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
-		// if err that means curse already exists
+		e.Logger.Info("Curse already exists", "curseSubject", curseSubject)
 		return true, nil
 	}
 	return false, nil
