@@ -495,6 +495,7 @@ func deployChainContractsSolana(
 	needFQinLookupTable := false
 	needRouterinLookupTable := false
 	needTokenPoolinLookupTable := false
+	needRMNRemoteinLookupTable := false
 	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.OffRamp.IsZero() {
 		// deploy offramp
@@ -611,6 +612,7 @@ func deployChainContractsSolana(
 		needFQinLookupTable = true
 		needRouterinLookupTable = true
 		needTokenPoolinLookupTable = true
+		needRMNRemoteinLookupTable = true
 		offRampConfigPDA, _, _ := solState.FindOfframpConfigPDA(offRampAddress)
 		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(offRampAddress)
 		offRampBillingSignerPDA, _, _ := solState.FindOfframpBillingSignerPDA(offRampAddress)
@@ -637,6 +639,7 @@ func deployChainContractsSolana(
 		e.Logger.Infow("RMN remote already initialized, skipping initialization", "chain", chain.String())
 	}
 
+	// TOKEN POOLS DEPLOY
 	var burnMintTokenPool solana.PublicKey
 	if chainState.BurnMintTokenPool.IsZero() {
 		burnMintTokenPool, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.BurnMintTokenPool, deployment.Version1_0_0, false)
@@ -661,6 +664,7 @@ func deployChainContractsSolana(
 		lockReleaseTokenPool = chainState.LockReleaseTokenPool
 	}
 
+	// BILLING
 	for _, billingConfig := range params.FeeQuoterParams.BillingConfig {
 		if _, err := AddBillingToken(
 			e, chain, chainState, billingConfig, nil, false,
@@ -702,6 +706,16 @@ func deployChainContractsSolana(
 			// token pools
 			burnMintTokenPool,
 			lockReleaseTokenPool,
+		}...)
+	}
+
+	if needRMNRemoteinLookupTable {
+		rmnRemoteCursePDA, _, _ := solState.FindRMNRemoteCursesPDA(rmnRemoteAddress)
+		lookupTableKeys = append(lookupTableKeys, []solana.PublicKey{
+			// rmn remote
+			rmnRemoteAddress,
+			rmnRemoteConfigPDA,
+			rmnRemoteCursePDA,
 		}...)
 	}
 
