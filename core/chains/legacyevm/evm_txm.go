@@ -4,14 +4,16 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas/rollups"
 )
 
 func newEvmTxm(
@@ -23,7 +25,7 @@ func newEvmTxm(
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
 	opts ChainRelayOpts,
-	headTracker httypes.HeadTracker,
+	headTracker evmheads.Tracker,
 	estimator gas.EvmFeeEstimator,
 ) (txm txmgr.TxManager,
 	err error,

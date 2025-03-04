@@ -4,9 +4,9 @@ import (
 	"math/big"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_router"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 
 	"github.com/stretchr/testify/assert"
 )

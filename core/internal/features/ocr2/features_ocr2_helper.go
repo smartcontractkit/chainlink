@@ -35,6 +35,9 @@ import (
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
@@ -51,8 +54,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type Node struct {
@@ -64,7 +65,7 @@ type Node struct {
 }
 
 func SetupOCR2Contracts(t *testing.T) (*bind.TransactOpts, *simulated.Backend, common.Address, *ocr2aggregator.OCR2Aggregator) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 	sb := new(big.Int)
 	sb, _ = sb.SetString("100000000000000000000", 10) // 1 eth
 	genesisData := types.GenesisAlloc{owner.From: {Balance: sb}}

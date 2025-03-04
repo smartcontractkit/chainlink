@@ -10,7 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

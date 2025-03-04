@@ -6,11 +6,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/s4"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 
 	"github.com/stretchr/testify/assert"
 )

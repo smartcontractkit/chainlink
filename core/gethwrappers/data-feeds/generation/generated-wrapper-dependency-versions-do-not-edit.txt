@@ -1,0 +1,3 @@
+GETH_VERSION: 1.15.3
+bundle_aggregator_proxy: ../../../contracts/solc/data-feeds/BundleAggregatorProxy/BundleAggregatorProxy.sol/BundleAggregatorProxy.abi.json ../../../contracts/solc/data-feeds/BundleAggregatorProxy/BundleAggregatorProxy.sol/BundleAggregatorProxy.bin b28fb697d1d846523f4552143dc7fb162054d3d387d110c02500203b7cd08b7c
+data_feeds_cache: ../../../contracts/solc/data-feeds/DataFeedsCache/DataFeedsCache.sol/DataFeedsCache.abi.json ../../../contracts/solc/data-feeds/DataFeedsCache/DataFeedsCache.sol/DataFeedsCache.bin dc334adf5274f87e5c05e5e6e794b22b1e313d6e8fda18e33699ab07e993cc27

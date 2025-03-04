@@ -16,3 +16,4 @@ package gethwrappers
 
 //go:generate go run ../generation/wrap.go vendor ERC20 erc20
 //go:generate go run ../generation/wrap.go vendor Multicall3 multicall3
+//go:generate go run ../generation/wrap.go vendor WETH9 weth9

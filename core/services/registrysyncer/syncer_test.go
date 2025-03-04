@@ -22,14 +22,15 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -39,7 +40,6 @@ import (
 	syncerMocks "github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 var writeChainCapability = kcr.CapabilitiesRegistryCapability{
@@ -49,7 +49,7 @@ var writeChainCapability = kcr.CapabilitiesRegistryCapability{
 }
 
 func startNewChainWithRegistry(t *testing.T) (*kcr.CapabilitiesRegistry, common.Address, *bind.TransactOpts, *simulated.Backend) {
-	owner := testutils.MustNewSimTransactor(t)
+	owner := evmtestutils.MustNewSimTransactor(t)
 
 	i := &big.Int{}
 	oneEth, _ := i.SetString("100000000000000000000", 10)
@@ -99,7 +99,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend)
 	)
 	db := pgtest.NewSqlxDB(t)
 	const finalityDepth = 2
-	ht := headtracker.NewSimulatedHeadTracker(client, false, finalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(client, false, finalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr),
 		client,
@@ -109,7 +109,7 @@ func newContractReaderFactory(t *testing.T, simulatedBackend *simulated.Backend)
 			PollPeriod:               100 * time.Millisecond,
 			FinalityDepth:            finalityDepth,
 			BackfillBatchSize:        3,
-			RpcBatchSize:             2,
+			RPCBatchSize:             2,
 			KeepFinalizedBlocksDepth: 1000,
 		},
 	)

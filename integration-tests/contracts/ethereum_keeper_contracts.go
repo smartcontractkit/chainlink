@@ -10,12 +10,12 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 
+	cltypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	registrar21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_registrar_wrapper2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	cltypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var compatibleUtils = cltypes.MustGetABI(ac.AutomationCompatibleUtilsABI)

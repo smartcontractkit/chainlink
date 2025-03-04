@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -14,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (
@@ -60,7 +61,9 @@ type ReportFormatEVMABIEncodeOpts struct {
 }
 
 func (r *ReportFormatEVMABIEncodeOpts) Decode(opts []byte) error {
-	return json.Unmarshal(opts, r)
+	decoder := json.NewDecoder(bytes.NewReader(opts))
+	decoder.DisallowUnknownFields() // Error on unrecognized fields
+	return decoder.Decode(r)
 }
 
 func (r *ReportFormatEVMABIEncodeOpts) Encode() ([]byte, error) {
@@ -100,13 +103,18 @@ func (r ReportCodecEVMABIEncodeUnpacked) Encode(ctx context.Context, report llo.
 		return nil, fmt.Errorf("failed to decode opts; got: '%s'; %w", cd.Opts, err)
 	}
 
+	validAfterSeconds, observationTimestampSeconds, err := ExtractTimestamps(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract timestamps; %w", err)
+	}
+
 	rf := BaseReportFields{
 		FeedID:             opts.FeedID,
-		ValidFromTimestamp: report.ValidAfterSeconds + 1,
-		Timestamp:          report.ObservationTimestampSeconds,
+		ValidFromTimestamp: validAfterSeconds + 1,
+		Timestamp:          observationTimestampSeconds,
 		NativeFee:          CalculateFee(nativePrice, opts.BaseUSDFee),
 		LinkFee:            CalculateFee(linkPrice, opts.BaseUSDFee),
-		ExpiresAt:          report.ObservationTimestampSeconds + opts.ExpirationWindow,
+		ExpiresAt:          observationTimestampSeconds + opts.ExpirationWindow,
 	}
 
 	header, err := r.buildHeader(ctx, rf)
@@ -120,6 +128,27 @@ func (r ReportCodecEVMABIEncodeUnpacked) Encode(ctx context.Context, report llo.
 	}
 
 	return append(header, payload...), nil
+}
+
+func (r ReportCodecEVMABIEncodeUnpacked) Verify(_ context.Context, cd llotypes.ChannelDefinition) error {
+	opts := new(ReportFormatEVMABIEncodeOpts)
+	if err := opts.Decode(cd.Opts); err != nil {
+		return fmt.Errorf("invalid Opts, got: %q; %w", cd.Opts, err)
+	}
+	if opts.BaseUSDFee.IsNegative() {
+		return errors.New("baseUSDFee must be non-negative")
+	}
+	if opts.FeedID == (common.Hash{}) {
+		return errors.New("feedID must not be zero")
+	}
+	if len(cd.Streams) < 3 {
+		return fmt.Errorf("expected at least 3 streams; got: %d", len(cd.Streams))
+	}
+	// NOTE: First two streams are always expected to be native/link price
+	if len(opts.ABI) != len(cd.Streams)-2 {
+		return fmt.Errorf("ABI length mismatch; expected: %d, got: %d", len(cd.Streams)-2, len(opts.ABI))
+	}
+	return nil
 }
 
 // BaseSchema represents the fixed base schema that remains unchanged for all

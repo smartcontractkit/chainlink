@@ -39,13 +39,18 @@ import (
 
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	evmUtils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp_1_2_0"
+	commit_store_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store"
+	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
@@ -69,10 +74,6 @@ import (
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
-	evmUtils "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -444,7 +445,7 @@ func setupNodeCCIP(
 	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
 	evmOpts := chainlink.EVMFactoryConfig{
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			ListenerConfig: config.Database().Listener(),
 			FeatureConfig:  config.Feature(),

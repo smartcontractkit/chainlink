@@ -23,13 +23,13 @@ import (
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	v1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/solidity_vrf_coordinator_interface"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestFactory(t *testing.T) {

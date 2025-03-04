@@ -21,4 +21,5 @@ type OCR2 interface {
 	DefaultTransactionQueueDepth() uint32
 	SimulateTransactions() bool
 	CaptureAutomationCustomTelemetry() bool
+	AllowNoBootstrappers() bool
 }

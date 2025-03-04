@@ -16,10 +16,11 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/osutil"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/testsetups"
@@ -250,7 +251,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				tc.lane.Source.Common.ChainClient.GetDefaultWallet(), src.Common.Router.Address(), src.TransferAmount[0]),
 			)
 			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
-			failedTx, _, _, err := tc.lane.Source.SendRequest(
+			failedTx, _, _, _, err := tc.lane.Source.SendRequest(
 				tc.lane.Dest.ReceiverDapp.EthAddress,
 				big.NewInt(actions.DefaultDestinationGasLimit),
 			)
@@ -278,7 +279,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			// try to send again with amount more than the amount refilled by rate and
 			// this should fail, as the refill rate is not enough to refill the capacity
 			src.TransferAmount[0] = new(big.Int).Mul(AggregatedRateLimitRate, big.NewInt(10))
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			tc.lane.Logger.Info().Str("tokensToSend", src.TransferAmount[0].String()).Msg("More than Aggregated Rate")
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
@@ -342,7 +343,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 			src.TransferAmount[0] = tokensToSend
 			tc.lane.Logger.Info().Str("tokensToSend", tokensToSend.String()).Msg("More than Token Pool Capacity")
 
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -374,7 +375,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 				src.Common.ChainClient.GetDefaultWallet(), src.Common.Router.Address(), src.TransferAmount[0]),
 			)
 			require.NoError(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.NoError(t, err)
 			require.Error(t, tc.lane.Source.Common.ChainClient.WaitForEvents())
 			errReason, v, err = tc.lane.Source.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
@@ -508,7 +509,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 			src.TransferAmount[bpsTokenIndex] = big.NewInt(0)
 			src.TransferAmount[aggRateTokenIndex] = overCapacityAmount
 			src.TransferAmount[bpsAndAggTokenIndex] = big.NewInt(0)
-			failedTx, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Limited token transfer should immediately revert")
 			errReason, _, err := src.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
 			require.NoError(t, err)
@@ -520,7 +521,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 
 			src.TransferAmount[aggRateTokenIndex] = big.NewInt(0)
 			src.TransferAmount[bpsAndAggTokenIndex] = overCapacityAmount
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Limited token transfer should immediately revert")
 			errReason, _, err = src.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
 			require.NoError(t, err)
@@ -568,7 +569,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 			src.TransferAmount[bpsTokenIndex] = big.NewInt(0)
 			src.TransferAmount[aggRateTokenIndex] = capacityLimit
 			src.TransferAmount[bpsAndAggTokenIndex] = big.NewInt(0)
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Aggregate rate limited token transfer should immediately revert")
 			errReason, _, err = src.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
 			require.NoError(t, err)
@@ -580,7 +581,7 @@ func TestSmokeCCIPOnRampLimits(t *testing.T) {
 
 			src.TransferAmount[aggRateTokenIndex] = big.NewInt(0)
 			src.TransferAmount[bpsAndAggTokenIndex] = capacityLimit
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Aggregate rate limited token transfer should immediately revert")
 			errReason, _, err = src.Common.ChainClient.RevertReasonFromTx(failedTx, evm_2_evm_onramp.EVM2EVMOnRampABI)
 			require.NoError(t, err)
@@ -701,7 +702,7 @@ func TestSmokeCCIPTokenPoolRateLimits(t *testing.T) {
 			// Send limited token over capacity and ensure it fails
 			src.TransferAmount[freeTokenIndex] = big.NewInt(0)
 			src.TransferAmount[limitedTokenIndex] = overCapacityAmount
-			failedTx, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err := tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Limited token transfer should immediately revert")
 			errReason, _, err := src.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
 			require.NoError(t, err)
@@ -732,7 +733,7 @@ func TestSmokeCCIPTokenPoolRateLimits(t *testing.T) {
 			// Send limited token over rate limit and ensure it fails
 			src.TransferAmount[freeTokenIndex] = big.NewInt(0)
 			src.TransferAmount[limitedTokenIndex] = capacityLimit
-			failedTx, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
+			failedTx, _, _, _, err = tc.lane.Source.SendRequest(tc.lane.Dest.ReceiverDapp.EthAddress, big.NewInt(actions.DefaultDestinationGasLimit))
 			require.Error(t, err, "Limited token transfer should immediately revert")
 			errReason, _, err = src.Common.ChainClient.RevertReasonFromTx(failedTx, lock_release_token_pool.LockReleaseTokenPoolABI)
 			require.NoError(t, err)

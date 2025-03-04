@@ -35,7 +35,7 @@ ENV CL_MEDIAN_CMD=${CL_MEDIAN_CMD} \
   CL_STARKNET_CMD=${CL_STARKNET_CMD}
 
 # CCIP specific
-COPY ./cci[p]/confi[g] /chainlink/ccip-config
+COPY ./cci[p]/confi[g] /ccip-config
 ARG CL_CHAIN_DEFAULTS
 ENV CL_CHAIN_DEFAULTS=${CL_CHAIN_DEFAULTS}
 

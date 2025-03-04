@@ -7,7 +7,6 @@ import {VRFV2PlusClient} from "../libraries/VRFV2PlusClient.sol";
 
 /// @dev this contract is only meant for testing migration
 /// @dev it is a simplified example of future version (V2) of VRFCoordinatorV2Plus
-// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2Plus_V2Example is IVRFCoordinatorV2PlusMigration {
   error SubscriptionIDCollisionFound();
 

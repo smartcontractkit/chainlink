@@ -4,8 +4,6 @@ package heavyweight
 
 import (
 	"os"
-	"path"
-	"runtime"
 	"strings"
 	"testing"
 
@@ -14,10 +12,11 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	pgcommon "github.com/smartcontractkit/chainlink-common/pkg/sqlutil/pg"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/store"
 
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pg"
@@ -28,32 +27,27 @@ import (
 // FullTestDBV2 creates a pristine DB which runs in a separate database than the normal
 // unit tests, so you can do things like use other Postgres connection types with it.
 func FullTestDBV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return KindFixtures.PrepareDB(t, overrideFn)
+	cfg, db := FullTestDBNoFixturesV2(t, overrideFn)
+	_, err := db.Exec(store.FixturesSQL())
+	require.NoError(t, err)
+	return cfg, db
 }
 
 // FullTestDBNoFixturesV2 is the same as FullTestDB, but it does not load fixtures.
 func FullTestDBNoFixturesV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return KindTemplate.PrepareDB(t, overrideFn)
+	return prepareDB(t, true, overrideFn)
 }
 
 // FullTestDBEmptyV2 creates an empty DB (without migrations).
 func FullTestDBEmptyV2(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
-	return KindEmpty.PrepareDB(t, overrideFn)
+	return prepareDB(t, false, overrideFn)
 }
 
 func generateName() string {
-	return strings.ReplaceAll(uuid.New().String(), "-", "")
+	return strings.ReplaceAll(uuid.NewString(), "-", "")
 }
 
-type Kind int
-
-const (
-	KindEmpty Kind = iota
-	KindTemplate
-	KindFixtures
-)
-
-func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
+func prepareDB(t testing.TB, withTemplate bool, overrideFn func(c *chainlink.Config, s *chainlink.Secrets)) (chainlink.GeneralConfig, *sqlx.DB) {
 	tests.SkipShort(t, "FullTestDB")
 
 	gcfg := configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -64,35 +58,21 @@ func (c Kind) PrepareDB(t testing.TB, overrideFn func(c *chainlink.Config, s *ch
 	})
 
 	require.NoError(t, os.MkdirAll(gcfg.RootDir(), 0700))
-	migrationTestDBURL, err := testdb.CreateOrReplace(gcfg.Database().URL(), generateName(), c != KindEmpty)
-	require.NoError(t, err)
-	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL, pgcommon.DriverPostgres, gcfg.Database())
-	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, db.Close()) // must close before dropping
-		require.NoError(t, testdb.Drop(*testutils.MustParseURL(t, migrationTestDBURL)))
-		os.RemoveAll(gcfg.RootDir())
-	})
+	t.Cleanup(func() { os.RemoveAll(gcfg.RootDir()) })
 
+	migrationTestDBURL := testdb.CreateOrReplace(t, gcfg.Database().URL(), generateName(), withTemplate)
+	db, err := pg.NewConnection(tests.Context(t), migrationTestDBURL.String(), pgcommon.DriverPostgres, gcfg.Database())
+	require.NoError(t, err)
+	t.Cleanup(func() { require.NoError(t, db.Close()) }) // must close before dropping
+
+	// reset with new URL
 	gcfg = configtest.NewGeneralConfigSimulated(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Database.DriverName = pgcommon.DriverPostgres
-		s.Database.URL = models.MustSecretURL(migrationTestDBURL)
+		s.Database.URL = models.NewSecretURL((*commoncfg.URL)(&migrationTestDBURL))
 		if overrideFn != nil {
 			overrideFn(c, s)
 		}
 	})
-
-	if c == KindFixtures {
-		_, filename, _, ok := runtime.Caller(1)
-		if !ok {
-			t.Fatal("could not get runtime.Caller(1)")
-		}
-		filepath := path.Join(path.Dir(filename), "../../../store/fixtures/fixtures.sql")
-		fixturesSQL, err := os.ReadFile(filepath)
-		require.NoError(t, err)
-		_, err = db.Exec(string(fixturesSQL))
-		require.NoError(t, err)
-	}
 
 	return gcfg, db
 }

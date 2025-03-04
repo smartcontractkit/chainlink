@@ -17,26 +17,27 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	evmheads "github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	configtoml "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
-func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.ChainScopedConfig {
+func NewChainScopedConfig(t testing.TB, cfg configtoml.HasEVMConfigs) evmconfig.ChainScopedConfig {
 	var evmCfg *configtoml.EVMConfig
 	if len(cfg.EVMConfigs()) > 0 {
 		evmCfg = cfg.EVMConfigs()[0]
@@ -48,18 +49,18 @@ func NewChainScopedConfig(t testing.TB, cfg legacyevm.AppConfig) evmconfig.Chain
 		}
 	}
 
-	return evmconfig.NewTOMLChainScopedConfig(evmCfg, logger.TestLogger(t))
+	return evmconfig.NewTOMLChainScopedConfig(evmCfg)
 }
 
 type TestChainOpts struct {
 	Client         evmclient.Client
 	LogBroadcaster log.Broadcaster
 	LogPoller      logpoller.LogPoller
-	GeneralConfig  legacyevm.AppConfig
+	ChainConfigs   configtoml.EVMConfigs
 	DatabaseConfig txmgr.DatabaseConfig
 	FeatureConfig  legacyevm.FeatureConfig
 	ListenerConfig txmgr.ListenerConfig
-	HeadTracker    httypes.HeadTracker
+	HeadTracker    evmheads.Tracker
 	DB             sqlutil.DataSource
 	TxManager      txmgr.TxManager
 	KeyStore       keystore.Eth
@@ -90,7 +91,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		Logger:   lggr,
 		KeyStore: testopts.KeyStore,
 		ChainOpts: legacyevm.ChainOpts{
-			AppConfig:      testopts.GeneralConfig,
+			ChainConfigs:   testopts.ChainConfigs,
 			DatabaseConfig: testopts.DatabaseConfig,
 			ListenerConfig: testopts.ListenerConfig,
 			FeatureConfig:  testopts.FeatureConfig,
@@ -103,7 +104,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		if testopts.Client != nil {
 			return testopts.Client
 		}
-		return evmclient.NewNullClient(MustGetDefaultChainID(t, testopts.GeneralConfig.EVMConfigs()), logger.TestLogger(t))
+		return evmclient.NewNullClient(MustGetDefaultChainID(t, testopts.ChainConfigs), logger.TestLogger(t))
 	}
 	if testopts.LogBroadcaster != nil {
 		opts.GenLogBroadcaster = func(*big.Int) log.Broadcaster {
@@ -116,7 +117,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		}
 	}
 	if testopts.HeadTracker != nil {
-		opts.GenHeadTracker = func(*big.Int, httypes.HeadBroadcaster) httypes.HeadTracker {
+		opts.GenHeadTracker = func(*big.Int, evmheads.Broadcaster) evmheads.Tracker {
 			return testopts.HeadTracker
 		}
 	}
@@ -301,10 +302,12 @@ func nodeStatus(n *configtoml.Node, chainID string) (types.NodeStatus, error) {
 	return s, nil
 }
 
+// Deprecated: use clienttest.NewClient
 func NewEthClientMock(t *testing.T) *clienttest.Client {
 	return clienttest.NewClient(t)
 }
 
+// Deprecated: use clienttest.NewClientWithDefaultChainID
 func NewEthClientMockWithDefaultChain(t *testing.T) *clienttest.Client {
 	c := NewEthClientMock(t)
 	c.On("ConfiguredChainID").Return(testutils.FixtureChainID).Maybe()

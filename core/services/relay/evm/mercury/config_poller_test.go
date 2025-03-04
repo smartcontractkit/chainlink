@@ -15,9 +15,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/umbracle/ethgo/abi"
 
+	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	evmutils "github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func TestMercuryConfigPoller(t *testing.T) {

@@ -9,13 +9,13 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	proof2 "github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/solidity_cross_tests"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrftesthelpers"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 const defaultGasLimit uint32 = 500000

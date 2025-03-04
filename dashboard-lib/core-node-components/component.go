@@ -114,7 +114,7 @@ func generalInfoRow(p Props) []dashboard.Option {
 				),
 				timeseries.WithPrometheusTarget(
 					`up{`+p.PlatformOpts.LabelQuery+`}`,
-					//prometheus.Legend(""),
+					// prometheus.Legend(""),
 					prometheus.Legend("Team: {{team}} env: {{env}} cluster: {{cluster}} namespace: {{namespace}} job: {{job}} blockchain: {{blockchain}} product: {{product}} networkType: {{network_type}} component: {{component}} service: {{service}}"),
 				),
 			),

@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
-	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal/test"
+	kstest "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -95,7 +95,7 @@ func TestAppendNodeCapabilities(t *testing.T) {
 			setupResp := kstest.SetupTestRegistry(t, lggr, tt.args.initialState)
 
 			tt.args.req.Chain = setupResp.Chain
-			tt.args.req.ContractSet = setupResp.ContractSet
+			tt.args.req.CapabilitiesRegistry = setupResp.CapabilitiesRegistry
 
 			got, err := internal.AppendNodeCapabilitiesImpl(tt.args.lggr, tt.args.req)
 			if (err != nil) != tt.wantErr {

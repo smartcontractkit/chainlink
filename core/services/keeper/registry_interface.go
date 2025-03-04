@@ -11,12 +11,12 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/pkg/errors"
 
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/type_and_version"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type RegistryVersion int32

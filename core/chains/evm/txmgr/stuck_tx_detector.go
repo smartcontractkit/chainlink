@@ -20,10 +20,10 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 )
 
 type stuckTxDetectorGasEstimator interface {

@@ -10,13 +10,16 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
@@ -24,6 +27,22 @@ const (
 	LocalTokenDecimals                       = 18
 	TestTokenSymbol    changeset.TokenSymbol = "TEST"
 )
+
+// CreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
+func CreateSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
+	return v1_5_1.RateLimiterConfig{
+		Inbound: token_pool.RateLimiterConfig{
+			IsEnabled: rate != 0 || capacity != 0,
+			Rate:      big.NewInt(rate),
+			Capacity:  big.NewInt(capacity),
+		},
+		Outbound: token_pool.RateLimiterConfig{
+			IsEnabled: rate != 0 || capacity != 0,
+			Rate:      big.NewInt(rate),
+			Capacity:  big.NewInt(capacity),
+		},
+	}
+}
 
 // SetupTwoChainEnvironmentWithTokens preps the environment for token pool deployment testing.
 func SetupTwoChainEnvironmentWithTokens(
@@ -44,9 +63,9 @@ func SetupTwoChainEnvironmentWithTokens(
 		}
 	}
 
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, selector := range selectors {
-		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfig(t)
+		mcmsCfg[selector] = proposalutils.SingleGroupTimelockConfigV2(t)
 	}
 
 	// Deploy one burn-mint token per chain to use in the tests
@@ -76,18 +95,16 @@ func SetupTwoChainEnvironmentWithTokens(
 	}
 
 	// Deploy MCMS setup & prerequisite contracts
-	e, err := commoncs.ApplyChangesets(t, e, nil, []commoncs.ChangesetApplication{
-		{
-			Changeset: commoncs.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		},
-		{
-			Changeset: commoncs.WrapChangeSet(commoncs.DeployMCMSWithTimelock),
-			Config:    mcmsCfg,
-		},
-	})
+	e, err := commoncs.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{Configs: prereqCfg},
+		),
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(commoncs.DeployMCMSWithTimelockV2),
+			mcmsCfg,
+		),
+	)
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(e)
@@ -110,15 +127,15 @@ func SetupTwoChainEnvironmentWithTokens(
 
 	if transferToTimelock {
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.ApplyChangesets(t, e, timelockContracts, []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
-				Config: commoncs.TransferToMCMSWithTimelockConfig{
+		e, err = commoncs.Apply(t, e, timelockContracts,
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MinDelay:         0,
 				},
-			},
-		})
+			),
+		)
 		require.NoError(t, err)
 	}
 
@@ -142,20 +159,20 @@ func getPoolsOwnedByDeployer[T commonchangeset.Ownable](t *testing.T, contracts 
 func DeployTestTokenPools(
 	t *testing.T,
 	e deployment.Environment,
-	newPools map[uint64]changeset.DeployTokenPoolInput,
+	newPools map[uint64]v1_5_1.DeployTokenPoolInput,
 	transferToTimelock bool,
 ) deployment.Environment {
 	selectors := e.AllChainSelectors()
 
-	e, err := commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			Config: changeset.DeployTokenPoolContractsConfig{
+	e, err := commonchangeset.Apply(t, e, nil,
+		commoncs.Configure(
+			deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: TestTokenSymbol,
 				NewPools:    newPools,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	state, err := changeset.LoadOnchainState(e)
@@ -188,15 +205,15 @@ func DeployTestTokenPools(
 		}
 
 		// Transfer ownership of token admin registry to the Timelock
-		e, err = commoncs.ApplyChangesets(t, e, timelockContracts, []commoncs.ChangesetApplication{
-			{
-				Changeset: commoncs.WrapChangeSet(commoncs.TransferToMCMSWithTimelock),
-				Config: commoncs.TransferToMCMSWithTimelockConfig{
+		e, err = commoncs.Apply(t, e, timelockContracts,
+			commoncs.Configure(
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MinDelay:         0,
 				},
-			},
-		})
+			),
+		)
 		require.NoError(t, err)
 	}
 

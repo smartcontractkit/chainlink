@@ -42,6 +42,10 @@ func Test_RetirementReportCache_ORM(t *testing.T) {
 
 		err = orm.StoreConfig(ctx, cd2, signers, 2)
 		require.NoError(t, err)
+
+		// overwriting does nothing, the 255 is ignored
+		err = orm.StoreConfig(ctx, cd2, signers, 255)
+		require.NoError(t, err)
 	})
 	t.Run("LoadConfigs", func(t *testing.T) {
 		configs, err := orm.LoadConfigs(ctx)

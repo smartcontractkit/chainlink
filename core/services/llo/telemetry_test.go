@@ -1,6 +1,7 @@
 package llo
 
 import (
+	"encoding/hex"
 	"errors"
 	"testing"
 	"time"
@@ -9,15 +10,18 @@ import (
 	"github.com/smartcontractkit/libocr/commontypes"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
-	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	legacytelem "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 )
 
@@ -106,8 +110,8 @@ var trrs = pipeline.TaskRunResults{
 	},
 }
 
-func Test_Telemeter(t *testing.T) {
-	lggr := logger.Test(t)
+func Test_Telemeter_v3PremiumLegacy(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	m := &mockMonitoringEndpoint{}
 
 	run := &pipeline.Run{ID: 42}
@@ -132,7 +136,7 @@ func Test_Telemeter(t *testing.T) {
 
 			var i int
 			for log := range m.chLogs {
-				decoded := &telem.EnhancedEAMercury{}
+				decoded := &legacytelem.EnhancedEAMercury{}
 				require.NoError(t, proto.Unmarshal(log, decoded))
 				assert.True(t, decoded.DpInvariantViolationDetected)
 				if i == 2 {
@@ -150,10 +154,10 @@ func Test_Telemeter(t *testing.T) {
 
 		var i int
 		for log := range m.chLogs {
-			decoded := &telem.EnhancedEAMercury{}
+			decoded := &legacytelem.EnhancedEAMercury{}
 			require.NoError(t, proto.Unmarshal(log, decoded))
 			assert.Equal(t, int(1003), int(decoded.Version))
-			assert.Equal(t, float64(123456.123456789), decoded.DpBenchmarkPrice)
+			assert.InDelta(t, float64(123456.123456789), decoded.DpBenchmarkPrice, 0.0000000001)
 			assert.Zero(t, decoded.DpBid)
 			assert.Zero(t, decoded.DpAsk)
 			assert.False(t, decoded.DpInvariantViolationDetected)
@@ -200,7 +204,7 @@ func Test_Telemeter(t *testing.T) {
 
 		var i int
 		for log := range m.chLogs {
-			decoded := &telem.EnhancedEAMercury{}
+			decoded := &legacytelem.EnhancedEAMercury{}
 			require.NoError(t, proto.Unmarshal(log, decoded))
 			assert.Equal(t, int64(103), decoded.ObservationBenchmarkPrice)
 			assert.Equal(t, "103.32", decoded.ObservationBenchmarkPriceString)
@@ -216,3 +220,107 @@ func Test_Telemeter(t *testing.T) {
 		}
 	})
 }
+
+func Test_Telemeter_observationTelemetry(t *testing.T) {
+	lggr := logger.TestLogger(t)
+
+	donID := uint32(1)
+
+	opts := &mockOpts{}
+
+	t.Run("transmits *pipeline.BridgeTelemetry", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
+		tm := newTelemeter(lggr, m, donID)
+		servicetest.Run(t, tm)
+		ch := tm.MakeTelemChannel(opts, 100)
+
+		ch <- &pipeline.BridgeTelemetry{
+			Name:                   "test-bridge-1",
+			RequestData:            []byte(`foo`),
+			ResponseData:           []byte(`bar`),
+			ResponseError:          ptr("test error"),
+			ResponseStatusCode:     200,
+			RequestStartTimestamp:  time.Unix(1, 1),
+			RequestFinishTimestamp: time.Unix(2, 1),
+			LocalCacheHit:          true,
+			SpecID:                 3,
+			StreamID:               ptr(uint32(135)),
+			DotID:                  "ds1",
+		}
+
+		log := <-m.chLogs
+		decoded := &telem.LLOBridgeTelemetry{}
+		require.NoError(t, proto.Unmarshal(log, decoded))
+		assert.Equal(t, "test-bridge-1", decoded.BridgeAdapterName)
+		assert.Equal(t, []byte(`foo`), decoded.BridgeRequestData)
+		assert.Equal(t, []byte(`bar`), decoded.BridgeResponseData)
+		require.NotNil(t, decoded.BridgeResponseError)
+		assert.Equal(t, "test error", *decoded.BridgeResponseError)
+		assert.Equal(t, int32(200), decoded.BridgeResponseStatusCode)
+		assert.Equal(t, int64(1000000001), decoded.RequestStartTimestamp)
+		assert.Equal(t, int64(2000000001), decoded.RequestFinishTimestamp)
+		assert.True(t, decoded.LocalCacheHit)
+		assert.Equal(t, int32(3), decoded.SpecId)
+		require.NotNil(t, decoded.StreamId)
+		assert.Equal(t, uint32(135), *decoded.StreamId)
+		assert.Equal(t, "ds1", decoded.DotId)
+
+		// added by telemeter
+		assert.Equal(t, donID, decoded.DonId)
+		assert.Equal(t, opts.SeqNr(), decoded.SeqNr)
+		assert.Equal(t, opts.ConfigDigest().Hex(), hex.EncodeToString(decoded.ConfigDigest))
+		assert.Equal(t, opts.ObservationTimestamp().UnixNano(), decoded.ObservationTimestamp)
+	})
+	t.Run("transmits *telem.LLOObservationTelemetry", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
+		tm := newTelemeter(lggr, m, donID)
+		servicetest.Run(t, tm)
+		ch := tm.MakeTelemChannel(opts, 100)
+
+		ch <- &telem.LLOObservationTelemetry{
+			StreamId:              135,
+			StreamValueType:       1,
+			StreamValueBinary:     []byte{0x01, 0x02, 0x03},
+			StreamValueText:       "stream value text",
+			ObservationError:      ptr("test error"),
+			ObservationTimestamp:  time.Unix(1, 1).UnixNano(),
+			ObservationFinishedAt: time.Unix(2, 1).UnixNano(),
+			SeqNr:                 42,
+			ConfigDigest:          []byte{0x01, 0x02, 0x03},
+		}
+
+		log := <-m.chLogs
+		decoded := &telem.LLOObservationTelemetry{}
+		require.NoError(t, proto.Unmarshal(log, decoded))
+		assert.Equal(t, uint32(135), decoded.StreamId)
+		assert.Equal(t, int32(1), decoded.StreamValueType)
+		assert.Equal(t, []byte{0x01, 0x02, 0x03}, decoded.StreamValueBinary)
+		assert.Equal(t, "stream value text", decoded.StreamValueText)
+		require.NotNil(t, decoded.ObservationError)
+		assert.Equal(t, "test error", *decoded.ObservationError)
+		assert.Equal(t, int64(1000000001), decoded.ObservationTimestamp)
+		assert.Equal(t, int64(2000000001), decoded.ObservationFinishedAt)
+		assert.Equal(t, uint64(42), decoded.SeqNr)
+		assert.Equal(t, []byte{0x01, 0x02, 0x03}, decoded.ConfigDigest)
+
+		// telemeter adds don ID
+		assert.Equal(t, donID, decoded.DonId)
+	})
+
+	t.Run("ignores unknown telemetry type", func(t *testing.T) {
+		t.Parallel()
+		m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
+		obsLggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
+		tm := newTelemeter(obsLggr, m, donID)
+		servicetest.Run(t, tm)
+		ch := tm.MakeTelemChannel(opts, 100)
+
+		ch <- struct{}{}
+
+		testutils.WaitForLogMessage(t, observedLogs, "Unknown telemetry type")
+	})
+}
+
+func ptr[T any](t T) *T { return &t }

@@ -70,12 +70,10 @@ func (s *StreamService) Start(_ context.Context) error {
 	if s.jb.PipelineSpec == nil {
 		return errors.New("pipeline spec unexpectedly missing for stream")
 	}
-	s.lggr.Debugw("Registering stream", "jobID", s.jb.ID)
 	return s.registry.Register(s.jb, s.rrs)
 }
 
 func (s *StreamService) Close() error {
-	s.lggr.Debugw("Unregistering stream", "jobID", s.jb.ID)
 	s.registry.Unregister(s.jb.ID)
 	return nil
 }

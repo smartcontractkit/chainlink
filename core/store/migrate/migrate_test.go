@@ -15,7 +15,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -26,8 +28,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/migrate"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 type OffchainReporting2OracleSpec100 struct {
@@ -432,7 +432,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 			}}
 		})
 
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig.EVMConfigs()))
 
 		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
@@ -442,7 +442,7 @@ func TestSetMigrationENVVars(t *testing.T) {
 		chainID := ubig.New(big.NewInt(1337))
 		testConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) { c.EVM = nil })
 
-		require.NoError(t, migrate.SetMigrationENVVars(testConfig))
+		require.NoError(t, migrate.SetMigrationENVVars(testConfig.EVMConfigs()))
 
 		actualChainID := os.Getenv(env.EVMChainIDNotNullMigration0195)
 		require.Equal(t, actualChainID, chainID.String())
@@ -570,10 +570,10 @@ func BenchmarkBackfillingRecordsWithMigration202(b *testing.B) {
 
 	for j := 0; j < chainCount; j++ {
 		// Insert 100_000 block to database, can't do all at once, so batching by 10k
-		var blocks []logpoller.LogPollerBlock
+		var blocks []logpoller.Block
 		for i := 0; i < maxLogsSize; i++ {
-			blocks = append(blocks, logpoller.LogPollerBlock{
-				EvmChainId:           ubig.NewI(int64(j + 1)),
+			blocks = append(blocks, logpoller.Block{
+				EVMChainID:           ubig.NewI(int64(j + 1)),
 				BlockHash:            testutils.Random32Byte(),
 				BlockNumber:          int64(i + 1000),
 				FinalizedBlockNumber: 0,

@@ -4,10 +4,13 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/shopspring/decimal"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -33,6 +36,7 @@ type execution struct {
 }
 
 type observationContext struct {
+	l logger.Logger
 	r Registry
 	t Telemeter
 
@@ -41,16 +45,17 @@ type observationContext struct {
 	executions map[streams.Pipeline]*execution
 }
 
-func NewObservationContext(r Registry, t Telemeter) ObservationContext {
-	return newObservationContext(r, t)
+func NewObservationContext(l logger.Logger, r Registry, t Telemeter) ObservationContext {
+	return newObservationContext(l, r, t)
 }
 
-func newObservationContext(r Registry, t Telemeter) *observationContext {
-	return &observationContext{r, t, sync.Mutex{}, make(map[streams.Pipeline]*execution)}
+func newObservationContext(l logger.Logger, r Registry, t Telemeter) *observationContext {
+	return &observationContext{l, r, t, sync.Mutex{}, make(map[streams.Pipeline]*execution)}
 }
 
 func (oc *observationContext) Observe(ctx context.Context, streamID streams.StreamID, opts llo.DSOpts) (val llo.StreamValue, err error) {
 	run, trrs, err := oc.run(ctx, streamID)
+	observationFinishedAt := time.Now()
 	if err != nil {
 		// FIXME: This is a hack specific for V3 telemetry, future schemas should
 		// use a generic stream value telemetry instead
@@ -59,25 +64,65 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 		return nil, err
 	}
 	// Extract stream value based on streamID attribute
+	found := false
 	for _, trr := range trrs {
 		if trr.Task.TaskStreamID() != nil && *trr.Task.TaskStreamID() == streamID {
 			val, err = resultToStreamValue(trr.Result.Value)
 			if err != nil {
 				return nil, fmt.Errorf("failed to convert result to StreamValue for streamID %d: %w", streamID, err)
 			}
-			return val, nil
+			if trr.FinishedAt.Valid {
+				observationFinishedAt = trr.FinishedAt.Time
+			}
+			found = true
+			break
 		}
 	}
 	// If no streamID attribute is found in the task results, then assume the
 	// final output is the stream ID and return that. This is safe to do since
 	// the registry will never return a spec that doesn't match either by tag
 	// or by spec streamID.
-
-	val, err = extractFinalResultAsStreamValue(trrs)
-	// FIXME: This is a hack specific for V3 telemetry, future schemas should
-	// use a generic stream value telemetry instead
-	// https://smartcontract-it.atlassian.net/browse/MERC-6290
-	oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+	if !found {
+		// FIXME: This is a hack specific for V3 telemetry, future schemas should
+		// use the generic stream value telemetry instead
+		// https://smartcontract-it.atlassian.net/browse/MERC-6290
+		val, err = extractFinalResultAsStreamValue(trrs)
+		oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+	}
+	if ch := pipeline.GetTelemetryCh(ctx); ch != nil {
+		cd := opts.ConfigDigest()
+		ot := &telem.LLOObservationTelemetry{
+			StreamId:              streamID,
+			ObservationTimestamp:  opts.ObservationTimestamp().UnixNano(),
+			ObservationFinishedAt: observationFinishedAt.UnixNano(),
+			SeqNr:                 opts.SeqNr(),
+			ConfigDigest:          cd[:],
+		}
+		if err != nil {
+			ot.ObservationError = new(string)
+			*ot.ObservationError = err.Error()
+		}
+		if val != nil {
+			ot.StreamValueType = int32(val.Type())
+			b, err := val.MarshalBinary()
+			if err != nil {
+				oc.l.Errorw("failed to MarshalBinary on stream value", "error", err)
+			} else {
+				ot.StreamValueBinary = b
+			}
+			s, err := val.MarshalText()
+			if err != nil {
+				oc.l.Errorw("failed to MarshalText on stream value", "error", err)
+			} else {
+				ot.StreamValueText = string(s)
+			}
+		}
+		select {
+		case ch <- ot:
+		default:
+			oc.l.Error("telemetry channel is full, dropping observation telemetry")
+		}
+	}
 	return
 }
 

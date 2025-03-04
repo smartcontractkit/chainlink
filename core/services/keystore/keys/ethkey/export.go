@@ -5,8 +5,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type EncryptedEthKeyExport struct {

@@ -11,11 +11,14 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -36,10 +39,6 @@ func Test_AddChain(t *testing.T) {
 		testhelpers.WithPrerequisiteDeploymentOnly(nil),
 		testhelpers.WithNumOfUsersPerChain(usersPerChain),
 		testhelpers.WithNoJobsAndContracts(),
-		testhelpers.WithOCRConfigOverride(func(params *ccipcs.CCIPOCRParams) {
-			// Only 1 boost (=OCR round) is enough to cover the fee
-			params.ExecuteOffChainConfig.RelativeBoostPerWaitHour = 1
-		}),
 	)
 
 	allChains := maps.Keys(e.Env.Chains)
@@ -432,23 +431,23 @@ func setupInboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOffRampSourcesChangeset),
-			Config: ccipcs.UpdateOffRampSourcesConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+			v1_6.UpdateOffRampSourcesConfig{
 				UpdatesByChain: offRampSourceUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
-			Config: ccipcs.UpdateRouterRampsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOffRampUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -473,37 +472,37 @@ func setupOutboundWiring(
 	}
 
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateOnRampsDestsChangeset),
-			Config: ccipcs.UpdateOnRampDestsConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+			v1_6.UpdateOnRampDestsConfig{
 				UpdatesByChain: onRampDestUpdates(t, newChains, sources, testRouterEnabled),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterPricesChangeset),
-			Config: ccipcs.UpdateFeeQuoterPricesConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+			v1_6.UpdateFeeQuoterPricesConfig{
 				PricesByChain: feeQuoterPricesByChain(t, newChains, sources),
 				MCMS:          mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateFeeQuoterDestsChangeset),
-			Config: ccipcs.UpdateFeeQuoterDestsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+			v1_6.UpdateFeeQuoterDestsConfig{
 				UpdatesByChain: feeQuoterDestUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.UpdateRouterRampsChangeset),
-			Config: ccipcs.UpdateRouterRampsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+			v1_6.UpdateRouterRampsConfig{
 				TestRouter:     testRouterEnabled,
 				UpdatesByChain: routerOnRampUpdates(t, newChains, sources),
 				MCMS:           mcmsConfig,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -517,14 +516,14 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 
 	// Need to update what the RMNProxy is pointing to, otherwise plugin will not work.
 	var err error
-	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(ccipcs.SetRMNRemoteOnRMNProxyChangeset),
-			Config: ccipcs.SetRMNRemoteOnRMNProxyConfig{
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chains,
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	return e
@@ -618,13 +617,13 @@ func assertChainWiringOutbound(
 }
 
 // routerOffRampUpdates adds the provided sources to the router of the provided dest chain.
-func routerOffRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]ccipcs.RouterUpdates) {
-	updates = make(map[uint64]ccipcs.RouterUpdates)
+func routerOffRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]v1_6.RouterUpdates) {
+	updates = make(map[uint64]v1_6.RouterUpdates)
 	for _, source := range sources {
 		for _, dest := range dests {
 			require.NotEqual(t, source, dest)
 			if _, ok := updates[dest]; !ok {
-				updates[dest] = ccipcs.RouterUpdates{
+				updates[dest] = v1_6.RouterUpdates{
 					OffRampUpdates: map[uint64]bool{
 						source: true,
 					},
@@ -639,13 +638,13 @@ func routerOffRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updat
 
 // routerOnRampUpdates sets each dest selector in the given dest chains slice on the router
 // to point to the local onramp on each source chain.
-func routerOnRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]ccipcs.RouterUpdates) {
-	updates = make(map[uint64]ccipcs.RouterUpdates)
+func routerOnRampUpdates(t *testing.T, dests []uint64, sources []uint64) (updates map[uint64]v1_6.RouterUpdates) {
+	updates = make(map[uint64]v1_6.RouterUpdates)
 	for _, source := range sources {
 		for _, dest := range dests {
 			require.NotEqual(t, source, dest)
 			if _, ok := updates[source]; !ok {
-				updates[source] = ccipcs.RouterUpdates{
+				updates[source] = v1_6.RouterUpdates{
 					OnRampUpdates: map[uint64]bool{
 						dest: true,
 					},
@@ -667,17 +666,17 @@ func feeQuoterDestUpdates(t *testing.T, dests []uint64, sources []uint64) (updat
 			if _, ok := updates[source]; !ok {
 				updates[source] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
 			}
-			updates[source][dest] = ccipcs.DefaultFeeQuoterDestChainConfig(true)
+			updates[source][dest] = v1_6.DefaultFeeQuoterDestChainConfig(true)
 		}
 	}
 	return
 }
 
 // feeQuoterPricesByChain sets the gas price for the provided dests on the fee quoters in the provided sources.
-func feeQuoterPricesByChain(t *testing.T, dests []uint64, sources []uint64) (prices map[uint64]ccipcs.FeeQuoterPriceUpdatePerSource) {
-	prices = make(map[uint64]ccipcs.FeeQuoterPriceUpdatePerSource)
+func feeQuoterPricesByChain(t *testing.T, dests []uint64, sources []uint64) (prices map[uint64]v1_6.FeeQuoterPriceUpdatePerSource) {
+	prices = make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
 	for _, source := range sources {
-		prices[source] = ccipcs.FeeQuoterPriceUpdatePerSource{
+		prices[source] = v1_6.FeeQuoterPriceUpdatePerSource{
 			GasPrices: make(map[uint64]*big.Int),
 		}
 		for _, dest := range dests {
@@ -689,20 +688,20 @@ func feeQuoterPricesByChain(t *testing.T, dests []uint64, sources []uint64) (pri
 }
 
 // onRampDestUpdates adds the provided dests as destination chains to the onRamps on the provided sources.
-func onRampDestUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]ccipcs.OnRampDestinationUpdate) {
-	updates = make(map[uint64]map[uint64]ccipcs.OnRampDestinationUpdate)
+func onRampDestUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]v1_6.OnRampDestinationUpdate) {
+	updates = make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
 	for _, source := range sources {
 		for _, dest := range dests {
 			require.NotEqual(t, source, dest)
 			if _, ok := updates[source]; !ok {
-				updates[source] = map[uint64]ccipcs.OnRampDestinationUpdate{
+				updates[source] = map[uint64]v1_6.OnRampDestinationUpdate{
 					dest: {
 						IsEnabled:  true,
 						TestRouter: testRouterEnabled,
 					},
 				}
 			} else {
-				updates[source][dest] = ccipcs.OnRampDestinationUpdate{
+				updates[source][dest] = v1_6.OnRampDestinationUpdate{
 					IsEnabled:  true,
 					TestRouter: testRouterEnabled,
 				}
@@ -713,17 +712,18 @@ func onRampDestUpdates(t *testing.T, dests []uint64, sources []uint64, testRoute
 }
 
 // offRampSourceUpdates adds the provided sources to the offRamp on the provided dest chains.
-func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]ccipcs.OffRampSourceUpdate) {
-	updates = make(map[uint64]map[uint64]ccipcs.OffRampSourceUpdate)
+func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRouterEnabled bool) (updates map[uint64]map[uint64]v1_6.OffRampSourceUpdate) {
+	updates = make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
 	for _, source := range sources {
 		for _, dest := range dests {
 			require.NotEqual(t, source, dest)
 			if _, ok := updates[dest]; !ok {
-				updates[dest] = make(map[uint64]ccipcs.OffRampSourceUpdate)
+				updates[dest] = make(map[uint64]v1_6.OffRampSourceUpdate)
 			}
-			updates[dest][source] = ccipcs.OffRampSourceUpdate{
-				IsEnabled:  true,
-				TestRouter: testRouterEnabled,
+			updates[dest][source] = v1_6.OffRampSourceUpdate{
+				IsEnabled:                 true,
+				TestRouter:                testRouterEnabled,
+				IsRMNVerificationDisabled: true,
 			}
 		}
 	}
@@ -757,7 +757,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	state ccipcs.CCIPOnChainState,
 	onlyChainContracts bool,
 ) {
-	apps := make([]commonchangeset.ChangesetApplication, 0, len(chains)+1)
+	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)
 	cfg := testhelpers.GenTestTransferOwnershipConfig(e, chains, state)
 	if onlyChainContracts {
 		// filter out the home chain contracts from e.HomeChainSel
@@ -774,17 +774,17 @@ func transferToMCMSAndRenounceTimelockDeployer(
 		}
 		cfg.ContractsByChain[e.HomeChainSel] = chainContracts
 	}
-	apps = append(apps, commonchangeset.ChangesetApplication{
-		Changeset: commonchangeset.WrapChangeSet(commonchangeset.TransferToMCMSWithTimelock),
-		Config:    cfg,
-	})
+	apps = append(apps, commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
+		cfg,
+	))
 	for _, chain := range chains {
-		apps = append(apps, commonchangeset.ChangesetApplication{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.RenounceTimelockDeployer),
-			Config: commonchangeset.RenounceTimelockDeployerConfig{
+		apps = append(apps, commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.RenounceTimelockDeployer),
+			commonchangeset.RenounceTimelockDeployerConfig{
 				ChainSel: chain,
 			},
-		})
+		))
 	}
 	var err error
 	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, e.TimelockContracts(t), apps)

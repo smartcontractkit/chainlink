@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
@@ -200,13 +201,24 @@ func nopsToNodes(donInfos []DonInfo, dons []DonCapabilities, chainSelector uint6
 	return out, nil
 }
 
-// mapDonsToCaps converts a list of DonCapabilities to a map of don name to capabilities
-func mapDonsToCaps(dons []DonInfo) map[string][]DONCapabilityWithConfig {
-	out := make(map[string][]DONCapabilityWithConfig)
+func mapDonsToCaps(registry *kcr.CapabilitiesRegistry, dons []DonInfo) (map[string][]RegisteredCapability, error) {
+	out := make(map[string][]RegisteredCapability)
 	for _, don := range dons {
-		out[don.Name] = don.Capabilities
+		var caps []RegisteredCapability
+		for _, c := range don.Capabilities {
+			id, err := registry.GetHashedCapabilityId(nil, c.Capability.LabelledName, c.Capability.Version)
+			if err != nil {
+				return nil, fmt.Errorf("failed to call GetHashedCapabilityId: %w", err)
+			}
+			caps = append(caps, RegisteredCapability{
+				ID:                             id,
+				CapabilitiesRegistryCapability: c.Capability,
+				Config:                         c.Config,
+			})
+		}
+		out[don.Name] = caps
 	}
-	return out
+	return out, nil
 }
 
 // mapDonsToNodes returns a map of don name to simplified representation of their nodes
@@ -254,6 +266,10 @@ func NewRegisteredDon(env deployment.Environment, cfg RegisteredDonConfig) (*Reg
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 	capReg := r.ContractSets[cfg.RegistryChainSel].CapabilitiesRegistry
+
+	if capReg == nil {
+		return nil, errors.New("capabilities registry not found in contract sets")
+	}
 
 	di, err := capReg.GetDONs(nil)
 	if err != nil {

@@ -20,16 +20,16 @@ import (
 	clcommontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmtxmgr "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/chain_reader_tester"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	_ "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest" // force binding for tx type
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 
 	. "github.com/smartcontractkit/chainlink-common/pkg/types/interfacetests" //nolint:revive // dot-imports
 )

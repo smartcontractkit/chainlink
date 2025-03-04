@@ -25,7 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/counter"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/weth9_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 
 	contractsethereum "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_coordinator"
@@ -1481,22 +1481,22 @@ func (e *EthereumFunctionsLoadTestClient) SendRequestWithDONHostedSecrets(times 
 // EthereumWETHToken represents a WETH address
 type EthereumWETHToken struct {
 	client   *seth.Client
-	instance *weth9_wrapper.WETH9
+	instance *weth9.WETH9
 	address  common.Address
 	l        zerolog.Logger
 }
 
 func DeployWETHTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumWETHToken, error) {
-	wethTokenAbi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	wethTokenAbi, err := weth9.WETH9MetaData.GetAbi()
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
 	}
-	wethDeploymentData, err := client.DeployContract(client.NewTXOpts(), "WETHToken", *wethTokenAbi, common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+	wethDeploymentData, err := client.DeployContract(client.NewTXOpts(), "WETHToken", *wethTokenAbi, common.FromHex(weth9.WETH9MetaData.Bin))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("WETH token instance deployment failed: %w", err)
 	}
 
-	wethToken, err := weth9_wrapper.NewWETH9(wethDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
+	wethToken, err := weth9.NewWETH9(wethDeploymentData.Address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
 	}
@@ -1510,15 +1510,15 @@ func DeployWETHTokenContract(l zerolog.Logger, client *seth.Client) (*EthereumWE
 }
 
 func LoadWETHTokenContract(l zerolog.Logger, client *seth.Client, address common.Address) (*EthereumWETHToken, error) {
-	abi, err := weth9_wrapper.WETH9MetaData.GetAbi()
+	abi, err := weth9.WETH9MetaData.GetAbi()
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to get WETH token ABI: %w", err)
 	}
 
 	client.ContractStore.AddABI("WETHToken", *abi)
-	client.ContractStore.AddBIN("WETHToken", common.FromHex(weth9_wrapper.WETH9MetaData.Bin))
+	client.ContractStore.AddBIN("WETHToken", common.FromHex(weth9.WETH9MetaData.Bin))
 
-	wethToken, err := weth9_wrapper.NewWETH9(address, wrappers.MustNewWrappedContractBackend(nil, client))
+	wethToken, err := weth9.NewWETH9(address, wrappers.MustNewWrappedContractBackend(nil, client))
 	if err != nil {
 		return &EthereumWETHToken{}, fmt.Errorf("failed to instantiate WETHToken instance: %w", err)
 	}

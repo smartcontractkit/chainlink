@@ -5,8 +5,7 @@ import (
 	"os"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/keystone"
-	ksdeploy "github.com/smartcontractkit/chainlink/deployment/keystone"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 )
 
 type generateLocalOCR3Config struct{}
@@ -67,7 +66,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"CSAPublicKey": "csa_1b874ac2d54b966cec5a8358678ca6f030261aabf3372ce9dbea2d4eb9cdab3d"
 	}]`)
 
-	var pubKeys []ksdeploy.NodeKeys
+	var pubKeys []changeset.NodeKeys
 	err := json.Unmarshal(publicKeys, &pubKeys)
 	if err != nil {
 		panic(err)
@@ -77,7 +76,7 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxQueryLengthBytes": 1000000,
 		"MaxObservationLengthBytes": 1000000,
 		"MaxReportLengthBytes": 1000000,
-		"MaxRequestBatchSize": 1000,
+		"MaxBatchSize": 20,
 		"UniqueReports": true,
 		"DeltaProgressMillis": 5000,
 		"DeltaResendMillis": 5000,
@@ -91,16 +90,16 @@ func (g *generateLocalOCR3Config) Run(args []string) {
 		"MaxDurationQueryMillis": 1000,
 		"MaxDurationObservationMillis": 1000,
 		"MaxDurationReportMillis": 1000,
-		"MaxDurationAcceptMillis": 1000,
-		"MaxDurationTransmitMillis": 1000,
+		"MaxDurationShouldAcceptMillis": 1000,
+		"MaxDurationShouldTransmitMillis": 1000,
 		"MaxFaultyOracles": 1}`)
-	var cfg keystone.OracleConfig
+	var cfg changeset.OracleConfig
 	err = json.Unmarshal(config, &cfg)
 	if err != nil {
 		panic(err)
 	}
 
-	ocrConfig, err := ksdeploy.GenerateOCR3Config(cfg, pubKeys, deployment.XXXGenerateTestOCRSecrets())
+	ocrConfig, err := changeset.GenerateOCR3Config(cfg, pubKeys, deployment.XXXGenerateTestOCRSecrets())
 	if err != nil {
 		panic(err)
 	}

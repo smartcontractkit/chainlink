@@ -17,18 +17,18 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	ksmocks "github.com/smartcontractkit/chainlink-integrations/evm/keystore/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	ksmocks "github.com/smartcontractkit/chainlink/v2/evm/keystore/mocks"
-	testutils2 "github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func NewEvmAddress() gethcommon.Address {
-	return testutils2.NewAddress()
+	return testutils.NewAddress()
 }
 
 type feeConfig struct {
@@ -175,7 +175,7 @@ func TestTxm_NewDynamicFeeTx(t *testing.T) {
 		for _, tt := range cases {
 			test := tt
 			t.Run(test.name, func(t *testing.T) {
-				cfg := testutils2.NewTestChainScopedConfig(t, test.setCfg)
+				cfg := testutils.NewTestChainScopedConfig(t, test.setCfg)
 				cks := txmgr.NewEvmTxAttemptBuilder(*big.NewInt(1), cfg.EVM().GasEstimator(), kst, nil)
 				dynamicFee := gas.DynamicFee{GasTipCap: test.tipcap, GasFeeCap: test.feecap}
 				_, _, err := cks.NewCustomTxAttempt(tests.Context(t), txmgr.Tx{Sequence: &n, FromAddress: addr}, gas.EvmFee{

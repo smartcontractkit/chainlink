@@ -28,9 +28,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
 var (
@@ -290,7 +290,7 @@ func Test_CCIPReorg_GreaterThanFinality_OnSource(t *testing.T) {
 		var found bool
 	outer:
 		for it.Next() {
-			for _, mr := range it.Event.MerkleRoots {
+			for _, mr := range it.Event.UnblessedMerkleRoots {
 				if mr.SourceChainSelector == reorgSource {
 					found = true
 					break outer
@@ -429,7 +429,7 @@ func checkFinalityViolations(
 					d.Attributes.Output == commontypes.ErrFinalityViolated.Error() &&
 					d.Attributes.Status == "failing"
 				isHeadTrackerFailing := d.Attributes.Name == headTrackerServiceName &&
-					strings.Contains(d.Attributes.Output, "got very old block with number") &&
+					strings.Contains(d.Attributes.Output, commontypes.ErrFinalityViolated.Error()) &&
 					d.Attributes.Status == "failing"
 				if isLogPollerFailing {
 					logPollerViolated++

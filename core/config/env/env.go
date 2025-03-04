@@ -26,6 +26,7 @@ var (
 var (
 	MedianPlugin   = NewPlugin("median")
 	MercuryPlugin  = NewPlugin("mercury")
+	AptosPlugin    = NewPlugin("aptos")
 	CosmosPlugin   = NewPlugin("cosmos")
 	SolanaPlugin   = NewPlugin("solana")
 	StarknetPlugin = NewPlugin("starknet")
@@ -63,6 +64,8 @@ func (e Secret) Get() models.Secret { return models.Secret(os.Getenv(string(e)))
 type Plugin struct {
 	Cmd Var
 	Env Var
+
+	CmdDefault string
 }
 
 func NewPlugin(kind string) Plugin {
@@ -70,5 +73,7 @@ func NewPlugin(kind string) Plugin {
 	return Plugin{
 		Cmd: Var(fmt.Sprintf("CL_%s_CMD", kind)),
 		Env: Var(fmt.Sprintf("CL_%s_ENV", kind)),
+
+		CmdDefault: "chainlink-" + strings.ToLower(kind),
 	}
 }

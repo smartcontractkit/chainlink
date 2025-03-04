@@ -32,17 +32,17 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
-	config := proposalutils.SingleGroupMCMS(t)
+	config := proposalutils.SingleGroupMCMSV2(t)
 
 	// Deploy MCMS and Timelock
-	env, err := changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
-		{
-			Changeset: changeset.WrapChangeSet(changeset.DeployLinkToken),
-			Config:    []uint64{chainSelector},
-		},
-		{
-			Changeset: changeset.WrapChangeSet(changeset.DeployMCMSWithTimelock),
-			Config: map[uint64]types.MCMSWithTimelockConfig{
+	env, err := changeset.Apply(t, env, nil,
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployLinkToken),
+			[]uint64{chainSelector},
+		),
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
 					Canceller:        config,
 					Bypasser:         config,
@@ -50,8 +50,8 @@ func setupLinkTransferTestEnv(t *testing.T) deployment.Environment {
 					TimelockMinDelay: big.NewInt(0),
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 	return env
 }
@@ -94,12 +94,12 @@ func TestLinkTransferMCMS(t *testing.T) {
 		},
 	}
 	// Apply the changeset
-	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
+	_, err = changeset.Apply(t, env, timelocks,
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
-		{
-			Changeset: changeset.WrapChangeSet(example.LinkTransfer),
-			Config: &example.LinkTransferConfig{
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(example.LinkTransfer),
+			&example.LinkTransferConfig{
 				From: timelockAddress,
 				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {
@@ -114,8 +114,8 @@ func TestLinkTransferMCMS(t *testing.T) {
 					OverrideRoot: true,
 				},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// Check new balances
@@ -169,12 +169,12 @@ func TestLinkTransfer(t *testing.T) {
 	}
 
 	// Apply the changeset
-	_, err = changeset.ApplyChangesets(t, env, timelocks, []changeset.ChangesetApplication{
+	_, err = changeset.Apply(t, env, timelocks,
 		// the changeset produces proposals, ApplyChangesets will sign & execute them.
 		// in practice, signing and executing are separated processes.
-		{
-			Changeset: changeset.WrapChangeSet(example.LinkTransfer),
-			Config: &example.LinkTransferConfig{
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(example.LinkTransfer),
+			&example.LinkTransferConfig{
 				From: chain.DeployerKey.From,
 				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {
@@ -186,8 +186,8 @@ func TestLinkTransfer(t *testing.T) {
 				},
 				// No MCMSConfig here means we'll execute the txs directly.
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	// Check new balances
@@ -369,4 +369,77 @@ func TestValidate(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLinkTransferMCMSV2(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+
+	env := setupLinkTransferTestEnv(t)
+	chainSelector := env.AllChainSelectors()[0]
+	chain := env.Chains[chainSelector]
+	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
+	require.NoError(t, err)
+	require.Len(t, addrs, 6)
+
+	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
+	require.NoError(t, err)
+	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
+	require.NoError(t, err)
+	timelockAddress := mcmsState.Timelock.Address()
+
+	// Mint some funds
+	// grant minter permissions
+	tx, err := linkState.LinkToken.GrantMintRole(chain.DeployerKey, chain.DeployerKey.From)
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, timelockAddress, big.NewInt(750))
+	require.NoError(t, err)
+	_, err = deployment.ConfirmIfNoError(chain, tx, err)
+	require.NoError(t, err)
+
+	timelocks := map[uint64]*proposalutils.TimelockExecutionContracts{
+		chainSelector: {
+			Timelock:  mcmsState.Timelock,
+			CallProxy: mcmsState.CallProxy,
+		},
+	}
+	// Apply the changeset
+	_, err = changeset.Apply(t, env, timelocks,
+		// the changeset produces proposals, ApplyChangesets will sign & execute them.
+		// in practice, signing and executing are separated processes.
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(example.LinkTransferV2),
+			&example.LinkTransferConfig{
+				From: timelockAddress,
+				Transfers: map[uint64][]example.TransferConfig{
+					chainSelector: {
+						{
+							To:    chain.DeployerKey.From,
+							Value: big.NewInt(500),
+						},
+					},
+				},
+				McmsConfig: &example.MCMSConfig{
+					MinDelay:     0,
+					OverrideRoot: true,
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+
+	// Check new balances
+	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
+	require.NoError(t, err)
+	expectedBalance := big.NewInt(500)
+	require.Equal(t, expectedBalance, endBalance)
+
+	// check timelock balance
+	endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, timelockAddress)
+	require.NoError(t, err)
+	expectedBalance = big.NewInt(250)
+	require.Equal(t, expectedBalance, endBalance)
 }

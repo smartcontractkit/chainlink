@@ -10,6 +10,9 @@ import (
 	"github.com/graph-gophers/graphql-go/gqltesting"
 	"github.com/stretchr/testify/mock"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	evmConfigMocks "github.com/smartcontractkit/chainlink-integrations/evm/config/mocks"
+	evmMonMocks "github.com/smartcontractkit/chainlink-integrations/evm/monitor/mocks"
 	bridgeORMMocks "github.com/smartcontractkit/chainlink/v2/core/bridges/mocks"
 	evmtxmgrmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
 	legacyEvmORMMocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
@@ -29,9 +32,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/web/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/web/loader"
 	"github.com/smartcontractkit/chainlink/v2/core/web/schema"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	evmConfigMocks "github.com/smartcontractkit/chainlink/v2/evm/config/mocks"
-	evmMonMocks "github.com/smartcontractkit/chainlink/v2/evm/monitor/mocks"
 )
 
 type mocks struct {

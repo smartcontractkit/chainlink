@@ -3,7 +3,6 @@ pragma solidity ^0.8.4;
 
 import {VRFCoordinatorV2_5_Arbitrum} from "../VRFCoordinatorV2_5_Arbitrum.sol";
 
-// solhint-disable-next-line contract-name-camelcase
 contract ExposedVRFCoordinatorV2_5_Arbitrum is VRFCoordinatorV2_5_Arbitrum {
   constructor(address blockhashStore) VRFCoordinatorV2_5_Arbitrum(blockhashStore) {}
 

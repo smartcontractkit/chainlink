@@ -26,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/types"
 	"github.com/smartcontractkit/chainlink/integration-tests/types/config/node"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 )
 
 func CreateVRFV2PlusJob(

@@ -13,6 +13,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
@@ -166,7 +167,7 @@ func (jd JobDistributor) ProposeJob(ctx context.Context, in *jobv1.ProposeJobReq
 		return res, nil
 	}
 	for _, node := range jd.don.Nodes {
-		if node.NodeId != in.NodeId {
+		if node.NodeID != in.NodeId {
 			continue
 		}
 		// TODO : is there a way to accept the job with proposal id?
