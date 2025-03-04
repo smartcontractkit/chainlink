@@ -45,6 +45,7 @@ type TokenPoolConfig struct {
 	ChainSelector uint64
 	PoolType      solTestTokenPool.PoolType
 	TokenPubKey   string
+	TestRouter    bool
 }
 
 func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
@@ -110,6 +111,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
 
 	// ata for token pool
 	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -128,7 +130,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	case solTestTokenPool.BurnAndMint_PoolType:
 		// initialize token pool for token
 		poolInitI, err = solBurnMintTokenPool.NewInitializeInstruction(
-			chainState.Router,
+			routerProgramAddress,
 			poolConfigPDA,
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
@@ -137,7 +139,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	case solTestTokenPool.LockAndRelease_PoolType:
 		// initialize token pool for token
 		poolInitI, err = solLockReleaseTokenPool.NewInitializeInstruction(
-			chainState.Router,
+			routerProgramAddress,
 			poolConfigPDA,
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
@@ -423,6 +425,7 @@ type TokenPoolLookupTableConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
 	PoolType      solTestTokenPool.PoolType
+	TestRouter    bool
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
@@ -456,7 +459,8 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	} else if cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
 		tokenPool = chainState.LockReleaseTokenPool
 	}
-	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	tokenPoolChainConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
 	tokenProgram, _ := chainState.TokenToTokenProgram(tokenPubKey)
@@ -504,6 +508,7 @@ type SetPoolConfig struct {
 	TokenPubKey     string
 	WritableIndexes []uint8
 	MCMSSolana      *MCMSConfigSolana
+	TestRouter      bool
 }
 
 func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
@@ -514,23 +519,26 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
 		return err
 	}
 	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
 		return err
 	}
 	routerUsingMcms := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
+	if !cfg.TestRouter {
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMcms, chainState.Router, ccipChangeset.Router); err != nil {
+			return fmt.Errorf("failed to validate ownership: %w", err)
+		}
 	}
-	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	if err != nil {
-		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), chainState.Router.String(), err)
+		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
 	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
-		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), chainState.Router.String())
+		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 	}
 	if _, ok := chainState.TokenPoolLookupTable[tokenPubKey]; !ok {
 		return fmt.Errorf("token pool lookup table not found for (mint: %s)", tokenPubKey.String())
@@ -547,8 +555,9 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
-	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, chainState.Router)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	solRouter.SetProgramID(routerProgramAddress)
+	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
 
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
@@ -578,7 +587,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	}
 
 	if routerUsingMCMS {
-		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
+		tx, err := BuildMCMSTxn(instruction, routerProgramAddress.String(), ccipChangeset.Router)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
 		}

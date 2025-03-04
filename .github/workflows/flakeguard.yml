@@ -478,7 +478,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/all-test-results.json
-          name: all-test-results.json
+          name: all-test-results-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
       - name: Upload Failed Test Results as Artifact
@@ -486,7 +486,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results.json
-          name: failed-test-results.json
+          name: failed-test-results-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
       - name: Upload Failed Test Results With Logs as Artifact
@@ -494,7 +494,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/failed-test-results-with-logs.json
-          name: failed-test-results-with-logs.json
+          name: failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
       - name: Generate Flakeguard Reports
@@ -519,7 +519,7 @@ jobs:
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
+              --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json" \
               --generate-pr-comment \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
@@ -533,7 +533,7 @@ jobs:
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs.json" \
+              --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json" \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
