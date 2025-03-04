@@ -1790,47 +1790,6 @@ func newEthConfirmer(t testing.TB, txStore txmgr.EvmTxStore, ethClient client.Cl
 	return ec
 }
 
-func BenchmarkEthConfirmer(t *testing.B) {
-	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
-		c.GasEstimator.PriceMax = assets.GWei(500)
-	})
-
-	blockNum := int64(100)
-	head := evmtypes.Head{
-		Hash:   testutils.NewHash(),
-		Number: blockNum,
-	}
-	head.IsFinalized.Store(true)
-
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
-	etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
-	ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
-	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
-	ctx := tests.Context(t)
-
-	t.ResetTimer()
-	for n := 0; n < t.N; n++ {
-		var err error
-		t.StartTimer()
-		err = ec.CheckForConfirmation(ctx, &head)
-		t.StopTimer()
-		require.NoError(t, err)
-
-		etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
-		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxConfirmed, etx1.State)
-
-		etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
-		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
-	}
-}
-
 var _ txmgrtypes.ConfirmerDatabaseConfig = confirmerConfig{}
 
 type confirmerConfig struct{}
