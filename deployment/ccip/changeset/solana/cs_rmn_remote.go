@@ -31,10 +31,10 @@ func (cfg CurseConfig) Validate(e deployment.Environment) error {
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	if cfg.GlobalCurse && cfg.RemoteChainSelector != 0 {
-		return fmt.Errorf("remote chain selector must be 0 if global curse is true")
+		return fmt.Errorf("remote chain selector must be 0 if global curse is true. chain: %d", cfg.ChainSelector)
 	}
 	if !cfg.GlobalCurse && cfg.RemoteChainSelector == 0 {
-		return fmt.Errorf("remote chain selector must be non-zero if global curse is false")
+		return fmt.Errorf("remote chain selector must be non-zero if global curse is false. chain: %d", cfg.ChainSelector)
 	}
 	if !cfg.GlobalCurse {
 		routerDestChainPDA, err := solState.FindDestChainStatePDA(cfg.RemoteChainSelector, chainState.Router)
@@ -89,8 +89,8 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if global curse exists: %w", err)
 		}
 		if exists {
-			e.Logger.Info("Global curse is already in place")
-			return deployment.ChangesetOutput{}, fmt.Errorf("global curse already exists")
+			e.Logger.Info("Global curse is already in place for chain", "chainSelector", cfg.ChainSelector)
+			return deployment.ChangesetOutput{}, fmt.Errorf("global curse already exists for chain %d", cfg.ChainSelector)
 		}
 		e.Logger.Info("Applying global curse")
 	} else {

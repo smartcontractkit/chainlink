@@ -233,7 +233,6 @@ func Test_DecodingExecuteReport(t *testing.T) {
 						DestGasAmount: destGasAmount,
 					},
 				},
-				OnRampAddress: onRampAddr.PublicKey().Bytes(),
 			},
 		}
 

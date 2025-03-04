@@ -542,7 +542,6 @@ func deployChainContractsSolana(
 
 	// RMN REMOTE DEPLOY
 	var rmnRemoteAddress solana.PublicKey
-	//nolint:gocritic // this is a false positive, we need to check if the address is zero
 	if chainState.RMNRemote.IsZero() {
 		rmnRemoteAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.RMNRemote, deployment.Version1_0_0, false)
 		if err != nil {

@@ -97,6 +97,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 			},
 		),
 	})
+	require.NoError(t, err)
 
 	for _, testCase := range testCases {
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
