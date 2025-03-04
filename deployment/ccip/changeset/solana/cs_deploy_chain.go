@@ -548,7 +548,6 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
-		// upgrade rmn ?
 	} else {
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
