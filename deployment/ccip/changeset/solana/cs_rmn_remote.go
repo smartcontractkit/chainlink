@@ -59,7 +59,7 @@ func curseExists(e deployment.Environment, chain deployment.SolChain, curseSubje
 		return false, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
-		e.Logger.Info("Curse already exists", "curseSubject", curseSubject)
+		e.Logger.Infof("Curse already exists for chain %d and curse subject %v", chain.Selector, curseSubject)
 		return true, nil
 	}
 	return false, nil
@@ -89,7 +89,7 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to check if global curse exists: %w", err)
 		}
 		if exists {
-			e.Logger.Info("Global curse is already in place for chain", "chainSelector", cfg.ChainSelector)
+			e.Logger.Infof("Global curse is already in place for chain %d", cfg.ChainSelector)
 			return deployment.ChangesetOutput{}, fmt.Errorf("global curse already exists for chain %d", cfg.ChainSelector)
 		}
 		e.Logger.Info("Applying global curse")
@@ -103,7 +103,7 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 		}
 		if exists {
 			e.Logger.Infow("Remote chain curse is already in place", "remoteChainSelector", cfg.RemoteChainSelector)
-			return deployment.ChangesetOutput{}, fmt.Errorf("remote chain curse already exists")
+			return deployment.ChangesetOutput{}, fmt.Errorf("remote chain curse already exists for chain %d", cfg.RemoteChainSelector)
 		}
 		e.Logger.Infow("Applying remote chain curse for chain", "remoteChainSelector", cfg.RemoteChainSelector)
 	}
@@ -152,7 +152,7 @@ func RemoveCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changese
 		}
 		if !exists {
 			e.Logger.Info("Global curse is not in place")
-			return deployment.ChangesetOutput{}, fmt.Errorf("global curse is not in place")
+			return deployment.ChangesetOutput{}, fmt.Errorf("global curse is not in place for chain %d", cfg.ChainSelector)
 		}
 		e.Logger.Info("Applying global curse")
 	} else {
@@ -165,7 +165,7 @@ func RemoveCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changese
 		}
 		if !exists {
 			e.Logger.Infow("Remote chain curse is not in place", "remoteChainSelector", cfg.RemoteChainSelector)
-			return deployment.ChangesetOutput{}, fmt.Errorf("remote chain curse is not in place")
+			return deployment.ChangesetOutput{}, fmt.Errorf("remote chain curse is not in place for chain %d", cfg.RemoteChainSelector)
 		}
 		e.Logger.Infow("Removing remote chain curse for chain", "remoteChainSelector", cfg.RemoteChainSelector)
 	}
