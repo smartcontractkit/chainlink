@@ -134,7 +134,7 @@ type OffRampRefAddressesConfig struct {
 	Router             solana.PublicKey
 	FeeQuoter          solana.PublicKey
 	AddressLookupTable solana.PublicKey
-	RmnRemote          solana.PublicKey
+	RMNRemote          solana.PublicKey
 	MCMSSolana         *MCMSConfigSolana
 }
 
@@ -197,9 +197,9 @@ func UpdateOffRampRefAddresses(
 		addressLookupTableToSet = config.AddressLookupTable
 	}
 	rmnRemoteToSet := referenceAddressesAccount.RmnRemote
-	if !config.RmnRemote.IsZero() {
-		e.Logger.Infof("setting rmn remote on offramp to %s", config.RmnRemote.String())
-		rmnRemoteToSet = config.RmnRemote
+	if !config.RMNRemote.IsZero() {
+		e.Logger.Infof("setting rmn remote on offramp to %s", config.RMNRemote.String())
+		rmnRemoteToSet = config.RMNRemote
 	}
 
 	offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock

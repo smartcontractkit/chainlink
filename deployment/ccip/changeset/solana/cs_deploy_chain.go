@@ -1125,7 +1125,6 @@ func DeployTestRouter(
 	routerConfigPDA, _, _ := solState.FindConfigPDA(testRouterProgram)
 	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
-		// do i need to send in rmn remote for test router ??
 		if err2 := initializeRouter(e, chain, testRouterProgram, chainState.LinkToken, chainState.FeeQuoter, chainState.RMNRemote); err2 != nil {
 			return deployment.ChangesetOutput{}, err2
 		}
@@ -1147,7 +1146,10 @@ func DeployTestRouter(
 			testRouterProgram, // switch to test router
 			referenceAddressesAccount.FeeQuoter,
 			referenceAddressesAccount.OfframpLookupTable,
+<<<<<<< HEAD
 			referenceAddressesAccount.RmnRemote,
+=======
+>>>>>>> 50ae585cabbd85e964e53a7d1e83b9451e3f76b5
 			chainState.OffRampConfigPDA,
 			offRampReferenceAddressesPDA,
 			chain.DeployerKey.PublicKey(),
