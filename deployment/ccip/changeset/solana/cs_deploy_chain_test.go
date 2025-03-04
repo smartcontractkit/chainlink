@@ -14,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
@@ -24,6 +23,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -151,6 +151,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		upgradeAuthority := timelockSignerPDA
 		state, err := changeset.LoadOnchainStateSolana(e)
 		require.NoError(t, err)
+		verifyProgramSizes(t, e)
 
 		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 			commonchangeset.Configure(
@@ -174,13 +175,13 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
 					ChainSelector:       solChainSelectors[0],
-					GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+					GitCommitSha:        "cb6d70c3a8666879f48685dc2e18331ded67bc0c",
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,
 					CleanGitDir:         true,
 					UpgradeKeys: map[deployment.ContractType]string{
-						cs.Router:    state.SolChains[solChainSelectors[0]].Router.String(),
-						cs.FeeQuoter: state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+						ccipChangeset.Router:    state.SolChains[solChainSelectors[0]].Router.String(),
+						ccipChangeset.FeeQuoter: state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
 					},
 				},
 			),
@@ -218,7 +219,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 						MCMS: &ccipChangeset.MCMSConfig{
 							MinDelay: 1 * time.Second,
 						},
-						RouterOwnedByTimelock: true,
+						RouterOwnedByTimelock:    true,
+						FeeQuoterOwnedByTimelock: true,
+						OffRampOwnedByTimelock:   true,
 					},
 				},
 			),
@@ -286,5 +289,33 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		require.NoError(t, err)
 		// solana verification
 		testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+		verifyProgramSizes(t, e)
+	}
+}
+
+func verifyProgramSizes(t *testing.T, e deployment.Environment) {
+	state, err := changeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+	require.NoError(t, err)
+	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
+	require.NoError(t, err)
+	programsToState := map[string]solana.PublicKey{
+		deployment.RouterProgramName:               state.SolChains[e.AllChainSelectorsSolana()[0]].Router,
+		deployment.OffRampProgramName:              state.SolChains[e.AllChainSelectorsSolana()[0]].OffRamp,
+		deployment.FeeQuoterProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].FeeQuoter,
+		deployment.BurnMintTokenPoolProgramName:    state.SolChains[e.AllChainSelectorsSolana()[0]].BurnMintTokenPool,
+		deployment.LockReleaseTokenPoolProgramName: state.SolChains[e.AllChainSelectorsSolana()[0]].LockReleaseTokenPool,
+		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
+		deployment.TimelockProgramName:             chainState.TimelockProgram,
+		deployment.McmProgramName:                  chainState.McmProgram,
+		// deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
+	}
+	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
+		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)
+		programDataAccount, _, _ := solana.FindProgramAddress([][]byte{programsToState[program].Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+		programDataSize, err := ccipChangesetSolana.SolProgramSize(&e, e.SolChains[e.AllChainSelectorsSolana()[0]], programDataAccount)
+		require.NoError(t, err)
+		require.GreaterOrEqual(t, programDataSize, sizeBytes)
 	}
 }
