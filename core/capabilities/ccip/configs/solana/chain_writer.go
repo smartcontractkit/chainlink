@@ -248,18 +248,12 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 						},
 					},
 					Seeds: []chainwriter.Seed{
-						{Static: []byte(fromAddress)},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}}},
-						{Dynamic: chainwriter.Lookup{
-							AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-								LookupTableName: "PoolLookupTable",
-								IncludeIndexes:  []int{6},
-							}},
-						},
+						{Static: solana.TokenProgramID.Bytes()},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 					},
 					IsSigner:   false,
-					IsWritable: false,
+					IsWritable: true,
 				},
 				Optional: true,
 			},
