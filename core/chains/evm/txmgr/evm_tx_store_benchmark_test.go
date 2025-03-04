@@ -50,9 +50,8 @@ func BenchmarkCreateTransaction(b *testing.B) {
 			Strategy:       strategy,
 		}, ethClient.ConfiguredChainID())
 		b.StopTimer()
-		assert.NoError(b, err)
-		txCount++
 
+		assert.NoError(b, err)
 		assert.Greater(b, etx.ID, int64(0))
 		assert.Equal(b, etx.State, txmgrcommon.TxUnstarted)
 		assert.Equal(b, gasLimit, etx.FeeLimit)
