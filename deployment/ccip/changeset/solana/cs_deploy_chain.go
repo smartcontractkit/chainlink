@@ -1146,10 +1146,7 @@ func DeployTestRouter(
 			testRouterProgram, // switch to test router
 			referenceAddressesAccount.FeeQuoter,
 			referenceAddressesAccount.OfframpLookupTable,
-<<<<<<< HEAD
 			referenceAddressesAccount.RmnRemote,
-=======
->>>>>>> 50ae585cabbd85e964e53a7d1e83b9451e3f76b5
 			chainState.OffRampConfigPDA,
 			offRampReferenceAddressesPDA,
 			chain.DeployerKey.PublicKey(),
