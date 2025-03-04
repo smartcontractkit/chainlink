@@ -71,6 +71,7 @@ type SolCCIPChainState struct {
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
+	RMNRemoteConfigPDA   solana.PublicKey
 }
 
 func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
@@ -212,6 +213,11 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case RMNRemote:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.RMNRemote = pub
+			rmnRemoteConfigPDA, _, err := solState.FindRMNRemoteConfigPDA(state.RMNRemote)
+			if err != nil {
+				return state, err
+			}
+			state.RMNRemoteConfigPDA = rmnRemoteConfigPDA
 		default:
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
