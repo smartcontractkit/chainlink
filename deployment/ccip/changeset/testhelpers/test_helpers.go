@@ -993,12 +993,12 @@ func DeployTransferableTokenSolana(
 				},
 				InboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
-					Capacity: uint64(1000),
+					Capacity: uint64(1000e9),
 					Rate:     1,
 				},
 				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
-					Capacity: uint64(1000),
+					Capacity: uint64(1000e9),
 					Rate:     1,
 				},
 			},
@@ -1570,7 +1570,13 @@ func WaitForTokenBalances(
 					// TODO: need to pass env rather than chains
 					token := solana.PublicKeyFromBytes(id.token)
 					receiver := solana.PublicKeyFromBytes(id.receiver)
-					WaitForTheTokenBalanceSol(ctx, t, token, receiver, env.SolChains[chainSelector], expectedBalance)
+					// TODO: could be spl instead of spl2022
+					// TODO: receiver is actually the receiver's ATA
+					tokenReceiver, _, err := solTokenUtil.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, receiver)
+					if err != nil {
+						return err
+					}
+					WaitForTheTokenBalanceSol(ctx, t, token, tokenReceiver, env.SolChains[chainSelector], expectedBalance)
 				default:
 				}
 				return nil
