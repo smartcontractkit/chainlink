@@ -7,12 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 type KeystoneChainView struct {
@@ -154,24 +155,37 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 	}, nil
 }
 
-func GenerateForwarderView(ctx context.Context, f *ForwarderContract) ([]ForwarderView, error) {
-	var deploymentBlock uint64
-	lblPrefix := internal.DeploymentBlockLabel + ": "
-	for lbl := range f.TypeAndVersion.Labels {
-		if strings.HasPrefix(lbl, lblPrefix) {
-			// Extract the block number part after the prefix
-			blockStr := strings.TrimPrefix(lbl, lblPrefix)
-			blockNum, err := strconv.ParseUint(blockStr, 10, 64)
-			if err == nil {
-				deploymentBlock = blockNum
-				break
+func GenerateForwarderView(ctx context.Context, f *ForwarderContract, prevViews []ForwarderView) ([]ForwarderView, error) {
+	startBlock := uint64(0)
+
+	if len(prevViews) > 0 {
+		// Sort `prevViews` by block number in ascending order, we make sure the last item has the highest block number
+		sort.Slice(prevViews, func(i, j int) bool {
+			return prevViews[i].BlockNumber < prevViews[j].BlockNumber
+		})
+
+		// If we have previous views, we will start from the last block number +1 of the previous views
+		startBlock = prevViews[len(prevViews)-1].BlockNumber + 1
+	} else {
+		// If we don't have previous views, we will start from the deployment block number
+		// which is stored in the forwarder's type and version labels.
+		var deploymentBlock uint64
+		lblPrefix := internal.DeploymentBlockLabel + ": "
+		for lbl := range f.TypeAndVersion.Labels {
+			if strings.HasPrefix(lbl, lblPrefix) {
+				// Extract the block number part after the prefix
+				blockStr := strings.TrimPrefix(lbl, lblPrefix)
+				blockNum, err := strconv.ParseUint(blockStr, 10, 64)
+				if err == nil {
+					deploymentBlock = blockNum
+					break
+				}
 			}
 		}
-	}
 
-	startBlock := uint64(0)
-	if deploymentBlock > 0 {
-		startBlock = deploymentBlock
+		if deploymentBlock > 0 {
+			startBlock = deploymentBlock
+		}
 	}
 
 	// Let's fetch the `SetConfig` events since the deployment block, since we don't have specific block numbers
@@ -200,7 +214,8 @@ func GenerateForwarderView(ctx context.Context, f *ForwarderContract) ([]Forward
 		return nil, ErrForwarderNotConfigured
 	}
 
-	var forwarderViews []ForwarderView
+	// We now create a slice with all previous views and the new views, so they get all added to the final view.
+	forwarderViews := append([]ForwarderView{}, prevViews...)
 	for _, configSet := range configSets {
 		var readableSigners []string
 		for _, s := range configSet.Signers {

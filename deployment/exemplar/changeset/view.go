@@ -20,7 +20,7 @@ func (v *ExemplarView) MarshalJSON() ([]byte, error) {
 }
 
 // ViewExemplar extracts basic information from the environment
-var ViewExemplar deployment.ViewState = func(e deployment.Environment) (json.Marshaler, error) {
+var ViewExemplar deployment.ViewState = func(e deployment.Environment, _ []byte) (json.Marshaler, error) {
 	lggr := e.Logger
 	lggr.Info("Generating exemplar state view")
 

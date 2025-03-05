@@ -13,7 +13,7 @@ import (
 
 var _ deployment.ViewState = ViewKeystone
 
-func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
+func ViewKeystone(e deployment.Environment, previousView []byte) (json.Marshaler, error) {
 	lggr := e.Logger
 	state, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
@@ -23,6 +23,14 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
+	var prevView KeystoneView
+	if previousView == nil || len(previousView) == 0 {
+		prevView.Chains = make(map[string]KeystoneChainView)
+	} else if err = json.Unmarshal(previousView, &prevView); err != nil {
+		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)
+		prevView.Chains = make(map[string]KeystoneChainView)
+	}
+
 	var viewErrs error
 	chainViews := make(map[string]KeystoneChainView)
 	for chainSel, contracts := range state.ContractSets {
@@ -40,7 +48,7 @@ func ViewKeystone(e deployment.Environment) (json.Marshaler, error) {
 			viewErrs = errors.Join(viewErrs, err2)
 			continue
 		}
-		v, err := contracts.View(e.GetContext(), e.Logger)
+		v, err := contracts.View(e.GetContext(), prevView.Chains[chainName], e.Logger)
 		if err != nil {
 			err2 := fmt.Errorf("failed to view chain %s: %w", chainName, err)
 			lggr.Error(err2)

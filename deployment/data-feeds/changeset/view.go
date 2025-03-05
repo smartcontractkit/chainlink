@@ -10,7 +10,7 @@ import (
 
 var _ deployment.ViewState = ViewDataFeeds
 
-func ViewDataFeeds(e deployment.Environment) (json.Marshaler, error) {
+func ViewDataFeeds(e deployment.Environment, _ []byte) (json.Marshaler, error) {
 	state, err := LoadOnchainState(e)
 	fmt.Println(state)
 	if err != nil {

@@ -80,7 +80,7 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 
 // View is a view of the keystone chain
 // It is best-effort and logs errors
-func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneChainView, error) {
+func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
@@ -121,7 +121,20 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 	}
 
 	if cs.Forwarder != nil {
-		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
+		fwrAddr := cs.Forwarder.Contract.Address().String()
+		var prevViews []ForwarderView
+		if prevView.Forwarders != nil {
+			pv, ok := prevView.Forwarders[fwrAddr]
+			if !ok {
+				prevViews = []ForwarderView{}
+			} else {
+				prevViews = pv
+			}
+		} else {
+			prevViews = []ForwarderView{}
+		}
+
+		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
 		if fwrErr != nil {
 			// don't block view on single forwarder not being configured
 			if errors.Is(fwrErr, ErrForwarderNotConfigured) {
@@ -131,7 +144,7 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 				lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
 			}
 		}
-		out.Forwarders[cs.Forwarder.Contract.Address().String()] = fwrView
+		out.Forwarders[fwrAddr] = fwrView
 	}
 
 	return out, allErrs
