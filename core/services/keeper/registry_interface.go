@@ -14,8 +14,6 @@ import (
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	registry1_1 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	registry1_3 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/type_and_version"
 )
 
@@ -55,8 +53,6 @@ type RegistryWrapper struct {
 	Address     evmtypes.EIP55Address
 	Version     RegistryVersion
 	contract1_1 *registry1_1.KeeperRegistry
-	contract1_2 *registry1_2.KeeperRegistry
-	contract1_3 *registry1_3.KeeperRegistry
 	evmClient   evmclient.Client
 }
 
@@ -80,27 +76,10 @@ func NewRegistryWrapper(address evmtypes.EIP55Address, evmClient evmclient.Clien
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to create keeper registry 1_1 contract wrapper")
 	}
-	contract1_2, err := registry1_2.NewKeeperRegistry(
-		address.Address(),
-		evmClient,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create keeper registry 1_2 contract wrapper")
-	}
-	contract1_3, err := registry1_3.NewKeeperRegistry(
-		address.Address(),
-		evmClient,
-	)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to create keeper registry 1_3 contract wrapper")
-	}
-
 	return &RegistryWrapper{
 		Address:     address,
 		Version:     *version,
 		contract1_1: contract1_1,
-		contract1_2: contract1_2,
-		contract1_3: contract1_3,
 		evmClient:   evmClient,
 	}, nil
 }
@@ -120,12 +99,6 @@ func getRegistryVersion(contract *type_and_version.ITypeAndVersion) (*RegistryVe
 	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.1"):
 		version := RegistryVersion_1_1
 		return &version, nil
-	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.2"):
-		version := RegistryVersion_1_2
-		return &version, nil
-	case strings.HasPrefix(typeAndVersion, "KeeperRegistry 1.3"):
-		version := RegistryVersion_1_3
-		return &version, nil
 	default:
 		return nil, errors.Errorf("Registry type and version %s not supported", typeAndVersion)
 	}
@@ -144,18 +117,6 @@ func (rw *RegistryWrapper) getUpkeepCount(opts *bind.CallOpts) (*big.Int, error)
 			return nil, errors.Wrap(err, "failed to get upkeep count")
 		}
 		return upkeepCount, nil
-	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(opts)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", opts.BlockNumber.Int64())
-		}
-		return state.State.NumUpkeeps, nil
-	case RegistryVersion_1_3:
-		state, err := rw.contract1_3.GetState(opts)
-		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get contract state at block number %d", opts.BlockNumber.Int64())
-		}
-		return state.State.NumUpkeeps, nil
 	default:
 		return nil, newUnsupportedVersionError("getUpkeepCount", rw.Version)
 	}
@@ -200,27 +161,6 @@ func (rw *RegistryWrapper) GetActiveUpkeepIDs(ctx context.Context, opts *bind.Ca
 			}
 		}
 		return activeUpkeeps, nil
-	case RegistryVersion_1_2, RegistryVersion_1_3:
-		activeUpkeepIDs := make([]*big.Int, 0)
-		var activeUpkeepIDBatch []*big.Int
-		for int64(len(activeUpkeepIDs)) < upkeepCount.Int64() {
-			startIndex := int64(len(activeUpkeepIDs))
-			maxCount := upkeepCount.Int64() - int64(len(activeUpkeepIDs))
-			if maxCount > ActiveUpkeepIDBatchSize {
-				maxCount = ActiveUpkeepIDBatchSize
-			}
-			if rw.Version == RegistryVersion_1_2 {
-				activeUpkeepIDBatch, err = rw.contract1_2.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
-			} else {
-				activeUpkeepIDBatch, err = rw.contract1_3.GetActiveUpkeepIDs(opts, big.NewInt(startIndex), big.NewInt(maxCount))
-			}
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get active upkeep IDs from index %d to %d (both inclusive)", startIndex, startIndex+maxCount-1)
-			}
-			activeUpkeepIDs = append(activeUpkeepIDs, activeUpkeepIDBatch...)
-		}
-
-		return activeUpkeepIDs, nil
 	default:
 		return nil, newUnsupportedVersionError("GetActiveUpkeepIDs", rw.Version)
 	}
@@ -236,26 +176,6 @@ func (rw *RegistryWrapper) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepC
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		upkeep, err := rw.contract1_1.GetUpkeep(opts, id)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get upkeep config")
-		}
-		return &UpkeepConfig{
-			ExecuteGas: upkeep.ExecuteGas,
-			CheckData:  upkeep.CheckData,
-			LastKeeper: upkeep.LastKeeper,
-		}, nil
-	case RegistryVersion_1_2:
-		upkeep, err := rw.contract1_2.GetUpkeep(opts, id)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get upkeep config")
-		}
-		return &UpkeepConfig{
-			ExecuteGas: upkeep.ExecuteGas,
-			CheckData:  upkeep.CheckData,
-			LastKeeper: upkeep.LastKeeper,
-		}, nil
-	case RegistryVersion_1_3:
-		upkeep, err := rw.contract1_3.GetUpkeep(opts, id)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get upkeep config")
 		}
@@ -294,28 +214,6 @@ func (rw *RegistryWrapper) GetConfig(opts *bind.CallOpts) (*RegistryConfig, erro
 			CheckGas:          config.CheckGasLimit,
 			KeeperAddresses:   keeperAddresses,
 		}, nil
-	case RegistryVersion_1_2:
-		state, err := rw.contract1_2.GetState(opts)
-		if err != nil {
-			return nil, errors.Errorf("%s [%s]: getState %s", ErrContractCallFailure, err, rw.Version)
-		}
-
-		return &RegistryConfig{
-			BlockCountPerTurn: int32(state.Config.BlockCountPerTurn.Int64()),
-			CheckGas:          state.Config.CheckGasLimit,
-			KeeperAddresses:   state.Keepers,
-		}, nil
-	case RegistryVersion_1_3:
-		state, err := rw.contract1_3.GetState(opts)
-		if err != nil {
-			return nil, errors.Errorf("%s [%s]: getState %s", ErrContractCallFailure, err, rw.Version)
-		}
-
-		return &RegistryConfig{
-			BlockCountPerTurn: int32(state.Config.BlockCountPerTurn.Int64()),
-			CheckGas:          state.Config.CheckGasLimit,
-			KeeperAddresses:   state.Keepers,
-		}, nil
 	default:
 		return nil, newUnsupportedVersionError("GetConfig", rw.Version)
 	}
@@ -325,10 +223,6 @@ func (rw *RegistryWrapper) SetKeepers(opts *bind.TransactOpts, keepers []common.
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rw.contract1_1.SetKeepers(opts, keepers, payees)
-	case RegistryVersion_1_2:
-		return rw.contract1_2.SetKeepers(opts, keepers, payees)
-	case RegistryVersion_1_3:
-		return rw.contract1_3.SetKeepers(opts, keepers, payees)
 	default:
 		return nil, newUnsupportedVersionError("SetKeepers", rw.Version)
 	}
@@ -338,10 +232,6 @@ func (rw *RegistryWrapper) RegisterUpkeep(opts *bind.TransactOpts, target common
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rw.contract1_1.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
-	case RegistryVersion_1_2:
-		return rw.contract1_2.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
-	case RegistryVersion_1_3:
-		return rw.contract1_3.RegisterUpkeep(opts, target, gasLimit, admin, checkData)
 	default:
 		return nil, newUnsupportedVersionError("RegisterUpkeep", rw.Version)
 	}
@@ -351,10 +241,6 @@ func (rw *RegistryWrapper) AddFunds(opts *bind.TransactOpts, id *big.Int, amount
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rw.contract1_1.AddFunds(opts, id, amount)
-	case RegistryVersion_1_2:
-		return rw.contract1_2.AddFunds(opts, id, amount)
-	case RegistryVersion_1_3:
-		return rw.contract1_3.AddFunds(opts, id, amount)
 	default:
 		return nil, newUnsupportedVersionError("AddFunds", rw.Version)
 	}
@@ -364,10 +250,6 @@ func (rw *RegistryWrapper) PerformUpkeep(opts *bind.TransactOpts, id *big.Int, p
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rw.contract1_1.PerformUpkeep(opts, id, performData)
-	case RegistryVersion_1_2:
-		return rw.contract1_2.PerformUpkeep(opts, id, performData)
-	case RegistryVersion_1_3:
-		return rw.contract1_3.PerformUpkeep(opts, id, performData)
 	default:
 		return nil, newUnsupportedVersionError("PerformUpkeep", rw.Version)
 	}
@@ -377,10 +259,6 @@ func (rw *RegistryWrapper) CancelUpkeep(opts *bind.TransactOpts, id *big.Int) (*
 	switch rw.Version {
 	case RegistryVersion_1_0, RegistryVersion_1_1:
 		return rw.contract1_1.CancelUpkeep(opts, id)
-	case RegistryVersion_1_2:
-		return rw.contract1_2.CancelUpkeep(opts, id)
-	case RegistryVersion_1_3:
-		return rw.contract1_3.CancelUpkeep(opts, id)
 	default:
 		return nil, newUnsupportedVersionError("CancelUpkeep", rw.Version)
 	}

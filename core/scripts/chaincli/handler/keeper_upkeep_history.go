@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/rpc"
 
 	registry11 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 )
 
@@ -32,7 +31,6 @@ var (
 	checkUpkeepArguments1 abi.Arguments
 	checkUpkeepArguments2 abi.Arguments
 	registry11ABI         = keeper.Registry1_1ABI
-	registry12ABI         = keeper.Registry1_2ABI
 )
 
 type result struct {
@@ -50,7 +48,6 @@ type result struct {
 
 func init() {
 	checkUpkeepArguments1 = registry11ABI.Methods["checkUpkeep"].Outputs
-	checkUpkeepArguments2 = registry12ABI.Methods["checkUpkeep"].Outputs
 }
 
 // UpkeepHistory prints the checkUpkeep status and keeper responsibility for a given upkeep in a set block range
@@ -61,14 +58,11 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 	}
 
 	var keeperRegistry11 *registry11.KeeperRegistry
-	var keeperRegistry12 *registry12.KeeperRegistry
 	// var keeperRegistry20 *registry20.KeeperRegistry
 
 	switch k.cfg.RegistryVersion {
 	case keeper.RegistryVersion_1_1:
 		_, keeperRegistry11 = k.getRegistry11(ctx)
-	case keeper.RegistryVersion_1_2:
-		_, keeperRegistry12 = k.getRegistry12(ctx)
 	default:
 		panic("unsupported registry version")
 	}
@@ -108,21 +102,6 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 				log.Fatal("failed to fetch the upkeep: ", err2)
 			}
 			lastKeeper = upkeep.LastKeeper
-
-		case keeper.RegistryVersion_1_2:
-			state, err2 := keeperRegistry12.GetState(callOpts)
-			if err2 != nil {
-				log.Fatal("failed to fetch registry state: ", err2)
-			}
-			bcpt = state.Config.BlockCountPerTurn.Uint64()
-			keepers = state.Keepers
-
-			upkeep, err2 := keeperRegistry12.GetUpkeep(callOpts, upkeepId)
-			if err2 != nil {
-				log.Fatal("failed to fetch the upkeep: ", err2)
-			}
-			lastKeeper = upkeep.LastKeeper
-
 		default:
 			panic("unsupported registry version")
 		}
@@ -154,11 +133,6 @@ func (k *Keeper) UpkeepHistory(ctx context.Context, upkeepId *big.Int, from, to,
 		switch k.cfg.RegistryVersion {
 		case keeper.RegistryVersion_1_1:
 			payload, err2 = registry11ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
-			if err2 != nil {
-				log.Fatal("failed to pack checkUpkeep: ", err2)
-			}
-		case keeper.RegistryVersion_1_2:
-			payload, err2 = registry12ABI.Pack("checkUpkeep", upkeepId, keepers[keeperIndex])
 			if err2 != nil {
 				log.Fatal("failed to pack checkUpkeep: ", err2)
 			}
