@@ -84,7 +84,7 @@ type RMNHomeSourceChain struct {
 }
 
 type RMNHomeNode struct {
-	PeerId            string `json:"peerId"`
+	PeerID            string `json:"peerId"`
 	OffchainPublicKey []byte `json:"offchainPublicKey"`
 }
 
@@ -93,9 +93,9 @@ type DigestFunc func(*bind.CallOpts) ([32]byte, error)
 func mapNodes(nodes []rmn_home.RMNHomeNode) []RMNHomeNode {
 	result := make([]RMNHomeNode, len(nodes))
 	for i, node := range nodes {
-		peerId := p2pkey.PeerID(node.PeerId)
+		peerID := p2pkey.PeerID(node.PeerId)
 		result[i] = RMNHomeNode{
-			PeerId:            peerId.String(),
+			PeerID:            peerID.String(),
 			OffchainPublicKey: node.OffchainPublicKey[:],
 		}
 	}

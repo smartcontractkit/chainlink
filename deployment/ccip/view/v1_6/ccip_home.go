@@ -151,9 +151,9 @@ func toGetAllConfigsView(cfg ccip_home.GetAllConfigs) GetAllConfigs {
 func toCCIPHomeVersionedConfig(cfg ccip_home.CCIPHomeVersionedConfig) CCIPHomeVersionedConfig {
 	var nodes []CCIPHomeOCR3Node
 	for _, n := range cfg.Config.Nodes {
-		peerId := p2pkey.PeerID(n.P2pId)
+		peerID := p2pkey.PeerID(n.P2pId)
 		nodes = append(nodes, CCIPHomeOCR3Node{
-			P2pId:          peerId.String(),
+			P2pId:          peerID.String(),
 			SignerKey:      ccipocr3.UnknownAddress(n.SignerKey).String(),
 			TransmitterKey: ccipocr3.UnknownAddress(n.TransmitterKey).String(),
 		})
