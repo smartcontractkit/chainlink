@@ -39,7 +39,7 @@ type CCIPHomeOCR3Config struct {
 }
 
 type CCIPHomeOCR3Node struct {
-	P2pId          string `json:",omitempty"`
+	P2pID          string `json:",omitempty"`
 	SignerKey      string `json:",omitempty"`
 	TransmitterKey string `json:",omitempty"`
 }
@@ -153,7 +153,7 @@ func toCCIPHomeVersionedConfig(cfg ccip_home.CCIPHomeVersionedConfig) CCIPHomeVe
 	for _, n := range cfg.Config.Nodes {
 		peerID := p2pkey.PeerID(n.P2pId)
 		nodes = append(nodes, CCIPHomeOCR3Node{
-			P2pId:          peerID.String(),
+			P2pID:          peerID.String(),
 			SignerKey:      ccipocr3.UnknownAddress(n.SignerKey).String(),
 			TransmitterKey: ccipocr3.UnknownAddress(n.TransmitterKey).String(),
 		})
