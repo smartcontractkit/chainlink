@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"sync"
 	"os"
+	"sync"
 
 	"github.com/rs/zerolog"
 	xerrgroup "golang.org/x/sync/errgroup"
@@ -631,7 +631,7 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 }
 
 type RMNNodeConfig struct {
-	changeset.RMNNopConfig
+	v1_6.RMNNopConfig
 	RageProxyKeystore string
 	RMNKeystore       string
 	Passphrase        string
@@ -651,7 +651,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		}
 	}
 
-	_, err = changeset.SetRMNHomeCandidateConfigChangeset(*e, changeset.SetRMNHomeCandidateConfig{
+	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(*e, v1_6.SetRMNHomeCandidateConfig{
 		HomeChainSelector: homeChainSel,
 		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 			Nodes:          rmnNodes,
@@ -673,7 +673,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return err
 	}
 
-	_, err = changeset.PromoteRMNHomeCandidateConfigChangeset(*e, changeset.PromoteRMNHomeCandidateConfig{
+	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(*e, v1_6.PromoteRMNHomeCandidateConfig{
 		HomeChainSelector: homeChainSel,
 		DigestToPromote:   configDigest,
 	})
@@ -691,14 +691,14 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	g, ctx := xerrgroup.WithContext(context.Background())
 	for _, chain := range allChains {
 		g.Go(func() error {
-			rmnRemoteConfig := map[uint64]changeset.RMNRemoteConfig{
+			rmnRemoteConfig := map[uint64]v1_6.RMNRemoteConfig{
 				chain: {
 					Signers: signers,
 					F:       1,
 				},
 			}
 
-			_, err := changeset.SetRMNRemoteConfigChangeset(*e, changeset.SetRMNRemoteConfig{
+			_, err := v1_6.SetRMNRemoteConfigChangeset(*e, v1_6.SetRMNRemoteConfig{
 				HomeChainSelector: homeChainSel,
 				RMNRemoteConfigs:  rmnRemoteConfig,
 			})
@@ -709,15 +709,14 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return err
 	}
 
-	updates := make(map[uint64]changeset.OffRampParams)
+	updates := make(map[uint64]v1_6.OffRampParams)
 	for _, chainIdx := range allChains {
-		updates[chainIdx] = changeset.OffRampParams{
-			IsRMNVerificationDisabled:               false,
+		updates[chainIdx] = v1_6.OffRampParams{
 			PermissionLessExecutionThresholdSeconds: 86400,
 		}
 	}
 
-	_, err = changeset.UpdateDynamicConfigOffRampChangeset(*e, changeset.UpdateDynamicConfigOffRampConfig{
+	_, err = v1_6.UpdateDynamicConfigOffRampChangeset(*e, v1_6.UpdateDynamicConfigOffRampConfig{
 		Updates: updates,
 	})
 
@@ -750,7 +749,7 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 		}
 
 		rmnNodeConfigs[i] = RMNNodeConfig{
-			RMNNopConfig: changeset.RMNNopConfig{
+			RMNNopConfig: v1_6.RMNNopConfig{
 				NodeIndex:           uint64(i),
 				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
 				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
