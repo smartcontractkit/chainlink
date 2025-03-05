@@ -9,6 +9,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -18,7 +19,7 @@ import (
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -223,7 +224,7 @@ func TestTokenTransfer(t *testing.T) {
 }
 
 func TestTokenTransfer_Solana(t *testing.T) {
-	// lggr := logger.TestLogger(t)
+	lggr := logger.TestLogger(t)
 	ctx := tests.Context(t)
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
@@ -246,23 +247,20 @@ func TestTokenTransfer_Solana(t *testing.T) {
 	// selfServeSrcTokenPoolDeployer := tenv.Users[sourceChain][1]
 	// selfServeDestTokenPoolDeployer := tenv.Users[destChain][1]
 
-	oneE18 := new(big.Int).SetUint64(1e18)
+	oneE9 := new(big.Int).SetUint64(1e9)
 
 	// Deploy tokens and pool by CCIP Owner
-	var srcToken *burn_mint_erc677.BurnMintERC677
-	var destToken solana.PublicKey
-	// TODO:
-	// srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
-	// 	t,
-	// 	lggr,
-	// 	e,
-	// 	sourceChain,
-	// 	destChain,
-	// 	ownerSourceChain,
-	// 	e.ExistingAddresses,
-	// 	"OWNER_TOKEN",
-	// )
-	// require.NoError(t, err)
+	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
+		t,
+		lggr,
+		e,
+		sourceChain,
+		destChain,
+		ownerSourceChain,
+		e.ExistingAddresses,
+		"OWNER_TOKEN",
+	)
+	require.NoError(t, err)
 
 	// TODO: we need to initialize ATA for receiver?
 
@@ -279,8 +277,9 @@ func TestTokenTransfer_Solana(t *testing.T) {
 	// 	"SELF_SERVE_TOKEN",
 	// )
 	// require.NoError(t, err)
-	//
-	testhelpers.AddLanesForAll(t, &tenv, state)
+
+	// testhelpers.AddLanesForAll(t, &tenv, state) TODO: doesn't work with Solana: "UnsupportedDestinationChain" args [12463857294658392847]
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &tenv, state, sourceChain, destChain, false)
 
 	testhelpers.MintAndAllow(
 		t,
@@ -298,6 +297,13 @@ func TestTokenTransfer_Solana(t *testing.T) {
 		},
 	)
 	// TODO: how to do MintAndAllow on Solana?
+	tokenReceiver, _, ferr := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, destToken, state.SolChains[destChain].Receiver)
+	require.NoError(t, ferr)
+
+	extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+		TokenReceiver: tokenReceiver,
+		// Accounts: accounts,
+	})
 
 	tcs := []testhelpers.TestTransferRequest{
 		{
@@ -307,13 +313,14 @@ func TestTokenTransfer_Solana(t *testing.T) {
 			Tokens: []router.ClientEVMTokenAmount{
 				{
 					Token:  srcToken.Address(),
-					Amount: oneE18,
+					Amount: oneE9,
 				},
 			},
-			Receiver: state.Chains[destChain].Receiver.Address().Bytes(),
+			Receiver: state.SolChains[destChain].Receiver.Bytes(),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{destToken.Bytes(), oneE18},
+				{destToken.Bytes(), oneE9},
 			},
+			ExtraArgs:      extraArgs,
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		// {
@@ -323,15 +330,15 @@ func TestTokenTransfer_Solana(t *testing.T) {
 		// 	Tokens: []router.ClientEVMTokenAmount{
 		// 		{
 		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
+		// 			Amount: oneE9,
 		// 		},
 		// 		{
 		// 			Token:  destToken.Address(),
-		// 			Amount: oneE18,
+		// 			Amount: oneE9,
 		// 		},
 		// 		{
 		// 			Token:  selfServeDestToken.Address(),
-		// 			Amount: oneE18,
+		// 			Amount: oneE9,
 		// 		},
 		// 	},
 		// 	Receiver:  state.Chains[sourceChain].Receiver.Address().Bytes(),
