@@ -9,7 +9,6 @@ echo " └───────────────────────�
 PROJECT="functions"
 
 CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
-echo "Contracts directory: $CONTRACTS_DIR"
 
 export FOUNDRY_PROFILE="$PROJECT"
 
