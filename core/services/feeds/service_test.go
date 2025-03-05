@@ -672,6 +672,7 @@ func Test_Service_CreateChainConfig(t *testing.T) {
 			actual, err := svc.CreateChainConfig(testutils.Context(t), cfg)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedID, actual)
+			waitSyncNodeInfoCall(t, svc.logs)
 		})
 	}
 }
@@ -730,6 +731,7 @@ func Test_Service_DeleteChainConfig(t *testing.T) {
 	actual, err := svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
 	require.NoError(t, err)
 	assert.Equal(t, int64(1), actual)
+	waitSyncNodeInfoCall(t, svc.logs)
 }
 
 func Test_Service_ListChainConfigsByManagerIDs(t *testing.T) {
@@ -838,6 +840,7 @@ func Test_Service_UpdateChainConfig(t *testing.T) {
 			actual, err := svc.UpdateChainConfig(testutils.Context(t), cfg)
 			require.NoError(t, err)
 			assert.Equal(t, int64(1), actual)
+			waitSyncNodeInfoCall(t, svc.logs)
 		})
 	}
 }
@@ -4941,4 +4944,10 @@ func logMessages(logEntries []observer.LoggedEntry) []string {
 	}
 
 	return messages
+}
+
+func waitSyncNodeInfoCall(t *testing.T, logs *observer.ObservedLogs) {
+	assert.EventuallyWithT(t, func(collect *assert.CollectT) {
+		assert.Contains(collect, logMessages(logs.All()), "successfully synced node info")
+	}, 1*time.Second, 5*time.Millisecond)
 }
