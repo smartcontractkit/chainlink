@@ -30,7 +30,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
@@ -554,23 +553,4 @@ func performReorg(
 
 	require.Less(t, postReorgBlock, preReorgBlock,
 		"Block number should decrease after reorg")
-}
-
-// confirmCommit verifies commit confirmation on destination chain
-func confirmCommit(
-	t *testing.T,
-	sourceSelector uint64,
-	destChain deployment.Chain,
-	offRamp *offramp.OffRamp,
-) {
-	_, err := testhelpers.ConfirmCommitWithExpectedSeqNumRange(
-		t,
-		sourceSelector,
-		destChain,
-		offRamp,
-		nil, // startBlock
-		ccipocr3.NewSeqNumRange(1, 1),
-		false, // enforceSingleCommit
-	)
-	require.NoError(t, err, "Commit verification failed")
 }
