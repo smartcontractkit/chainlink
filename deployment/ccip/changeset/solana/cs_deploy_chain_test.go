@@ -187,7 +187,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
 					},
-					RouterOwnedByTimelock: true,
+					RouterOwnedByTimelock:    true,
+					FeeQuoterOwnedByTimelock: true,
+					OffRampOwnedByTimelock:   true,
 				},
 			},
 		),

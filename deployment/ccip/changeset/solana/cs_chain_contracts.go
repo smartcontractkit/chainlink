@@ -11,6 +11,8 @@ import (
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -211,19 +213,20 @@ func UpdateOffRampRefAddresses(
 		e.Logger.Infof("setting rmn remote on offramp to %s", config.RMNRemote.String())
 		rmnRemoteToSet = config.RMNRemote
 	}
+	if err := ValidateMCMSConfigSolana(e, config.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
 	offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock
-	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		config.MCMSSolana,
+		ccipChangeset.OffRamp,
+		solana.PublicKey{})
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
-	var authority solana.PublicKey
-	if offRampUsingMCMS {
-		authority = timelockSigner
-	} else {
-		authority = chain.DeployerKey.PublicKey()
-	}
-
 	solOffRamp.SetProgramID(chainState.OffRamp)
 	ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
 		routerToSet,
@@ -238,6 +241,21 @@ func UpdateOffRampRefAddresses(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
 
+	if offRampUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, chainState.OffRamp.String(), ccipChangeset.OffRamp)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, config.ChainSelector, "proposal to UpdateOffRampRefAddresses in Solana", config.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
@@ -246,7 +264,7 @@ func UpdateOffRampRefAddresses(
 
 type SetUpgradeAuthorityConfig struct {
 	ChainSelector       uint64
-	NewUpgradeAuthority solana.PublicKey // if set, sets router and fee quoter upgrade authority
+	NewUpgradeAuthority solana.PublicKey
 }
 
 func SetUpgradeAuthorityChangeset(

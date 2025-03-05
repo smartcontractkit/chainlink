@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // Configuration
@@ -23,9 +24,16 @@ const (
 // Map program names to their Rust file paths (relative to the Anchor project root)
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
-	cs.Router:    "programs/ccip-router/src/lib.rs",
-	cs.FeeQuoter: "programs/fee-quoter/src/lib.rs",
-	
+	cs.Router:                      "programs/ccip-router/src/lib.rs",
+	cs.TestRouter:                  "programs/ccip-router/src/lib.rs",
+	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
+	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
+	cs.BurnMintTokenPool:           "programs/example-burnmint-token-pool/src/lib.rs",
+	cs.LockReleaseTokenPool:        "programs/example-lockrelease-token-pool/src/lib.rs",
+	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
+	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
+	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
+	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
 // Run a command in a specific directory
@@ -35,7 +43,6 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
-	fmt.Println("Running command", cmd.String())
 	err := cmd.Run()
 	if err != nil {
 		return stderr.String(), err
@@ -90,7 +97,6 @@ func replaceKeys(e deployment.Environment) error {
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
-		fmt.Println(output)
 		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
 	}
 	return nil
@@ -173,18 +179,6 @@ func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
 }
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
-	// _, ok := e.SolChains[config.ChainSelector]
-	// if !ok {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", config.ChainSelector)
-	// }
-	// family, err := chainsel.GetSelectorFamily(config.ChainSelector)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, err
-	// }
-	// if family != chainsel.FamilySolana {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("chain is not solana chain %d", config.ChainSelector)
-	// }
-
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)

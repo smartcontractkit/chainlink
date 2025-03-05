@@ -415,7 +415,7 @@ func initializeRMNRemote(
 		return fmt.Errorf("failed to build instruction: %w", err)
 	}
 	if err := chain.Confirm([]solana.Instruction{instruction}); err != nil {
-		return fmt.Errorf("failed to confirm initializeRouter: %w", err)
+		return fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
 	}
 	e.Logger.Infow("Initialized rmn remote", "chain", chain.String())
 	return nil
@@ -715,16 +715,6 @@ func deployChainContractsSolana(
 			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
 	}
-
-	// set upgrade authority
-	// if config.NewUpgradeAuthority != nil {
-	// 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
-	// 	for _, programID := range []solana.PublicKey{ccipRouterProgram, feeQuoterAddress} {
-	// 		if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
-	// 			return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
-	// 		}
-	// 	}
-	// }
 
 	return txns, nil
 }
