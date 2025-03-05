@@ -7,6 +7,7 @@ import (
 	"math"
 	"testing"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
@@ -155,7 +156,9 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
 	env = deployment.Environment{
-		GetContext:        t.Context,
+		GetContext: func() context.Context {
+			return testcontext.Get(t)
+		},
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
