@@ -1,11 +1,14 @@
 package txmgr_test
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -23,12 +26,12 @@ import (
 )
 
 // happy path
-func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.B) {
-	db := testutils.NewSqlxDB(t)
-	ctx := tests.Context(t)
-	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(b *testing.B) {
+	db := testutils.NewSqlxDB(b)
+	ctx := tests.Context(b)
+	txStore := cltest.NewTestTxStore(b, db)
+	ethKeyStore := cltest.NewKeyStore(b, db).Eth()
+	_, fromAddress := cltest.MustInsertRandomKey(b, ethKeyStore)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 
@@ -45,23 +48,38 @@ func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(t *testing.B) {
 		State:          txmgrcommon.TxUnstarted,
 	}
 
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	evmcfg := configtest.NewChainScopedConfig(t, nil)
+	ethClient := clienttest.NewClientWithDefaultChainID(b)
+	evmcfg := configtest.NewChainScopedConfig(b, nil)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
-	lggr := logger.Test(t)
+	lggr := logger.Test(b)
 	nonceTracker := txmgr.NewNonceTracker(lggr, txStore, txmgr.NewEvmTxmClient(ethClient, nil))
 
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil)
 
-	eb := NewTestEthBroadcaster(t, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
+	eb := NewTestEthBroadcaster(b, txStore, ethClient, ethKeyStore, dbListenerCfg, evmcfg.EVM(), checkerFactory, false, nonceTracker)
 
 	ethClient.On("SendTransactionReturnCode", mock.Anything, mock.Anything, fromAddress).Return(multinode.Successful, nil)
 
-	// Insertion order deliberately reversed to test ordering
-	require.NoError(t, txStore.InsertTx(ctx, &expensiveEthTx))
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		// Insertion order deliberately reversed to test ordering
+		require.NoError(b, txStore.InsertTx(ctx, &expensiveEthTx))
+		b.StartTimer()
 
-	t.ResetTimer()
-	for i := 0; i < t.N; i++ {
-		eb.ProcessUnstartedTxs(tests.Context(t), fromAddress)
+		eb.ProcessUnstartedTxs(tests.Context(b), fromAddress)
+		b.StopTimer()
+		deleteTx(ctx, b, &expensiveEthTx, db)
+		b.StartTimer()
 	}
+}
+
+func deleteTx(ctx context.Context, b *testing.B, etx *txmgr.Tx, db *sqlx.DB) {
+	var dbTx txmgr.DbEthTx
+	dbTx.FromTx(etx)
+	txID := dbTx.ID
+	require.NotNil(b, txID)
+	deleteTxQuery := fmt.Sprintf("DELETE FROM evm.txes WHERE id = %d", dbTx.ID)
+	_ = deleteTxQuery
+	db.Exec(deleteTxQuery)
 }

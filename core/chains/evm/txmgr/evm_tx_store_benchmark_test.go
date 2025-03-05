@@ -21,7 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
-func BenchmarkCreateTransaction(b *testing.B) {
+func BenchmarkCreateTransactionTxStore(b *testing.B) {
 	db := testutils.NewSqlxDB(b)
 	txStore := newTxStore(b, db)
 	kst := cltest.NewKeyStore(b, db)
