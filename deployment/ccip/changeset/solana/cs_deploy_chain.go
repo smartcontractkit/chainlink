@@ -58,7 +58,6 @@ type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
 	ContractParamsPerChain map[uint64]ChainContractParams
 	UpgradeConfig          UpgradeConfig
-	NewUpgradeAuthority    *solana.PublicKey // if set, sets router and fee quoter upgrade authority
 	BuildConfig            BuildSolanaConfig
 }
 
@@ -660,14 +659,14 @@ func deployChainContractsSolana(
 	}
 
 	// set upgrade authority
-	if config.NewUpgradeAuthority != nil {
-		e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
-		for _, programID := range []solana.PublicKey{ccipRouterProgram, feeQuoterAddress} {
-			if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
-				return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
-			}
-		}
-	}
+	// if config.NewUpgradeAuthority != nil {
+	// 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
+	// 	for _, programID := range []solana.PublicKey{ccipRouterProgram, feeQuoterAddress} {
+	// 		if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, config.NewUpgradeAuthority, false); err != nil {
+	// 			return txns, fmt.Errorf("failed to set upgrade authority: %w", err)
+	// 		}
+	// 	}
+	// }
 
 	return txns, nil
 }
@@ -763,44 +762,6 @@ func DeployAndMaybeSaveToAddressBook(
 		}
 	}
 	return address, nil
-}
-
-// setUpgradeAuthority creates a transaction to set the upgrade authority for a program
-func setUpgradeAuthority(
-	e *deployment.Environment,
-	chain *deployment.SolChain,
-	programID solana.PublicKey,
-	currentUpgradeAuthority *solana.PrivateKey,
-	newUpgradeAuthority *solana.PublicKey,
-	isBuffer bool,
-) error {
-	// Buffers use the program account as the program data account
-	programDataSlice := solana.NewAccountMeta(programID, true, false)
-	if !isBuffer {
-		// Actual program accounts use the program data account
-		programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
-		programDataSlice = solana.NewAccountMeta(programDataAddress, true, false)
-	}
-
-	keys := solana.AccountMetaSlice{
-		programDataSlice, // Program account (writable)
-		solana.NewAccountMeta(currentUpgradeAuthority.PublicKey(), false, true), // Current upgrade authority (signer)
-		solana.NewAccountMeta(*newUpgradeAuthority, false, false),               // New upgrade authority
-	}
-
-	instruction := solana.NewInstruction(
-		solana.BPFLoaderUpgradeableProgramID,
-		keys,
-		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L72
-		[]byte{4, 0, 0, 0}, // 4-byte SetAuthority instruction identifier
-	)
-
-	if err := chain.Confirm([]solana.Instruction{instruction}, solCommonUtil.AddSigners(*currentUpgradeAuthority)); err != nil {
-		return fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
-	}
-	e.Logger.Infow("Set upgrade authority", "programID", programID.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
-
-	return nil
 }
 
 func generateUpgradeIxn(
@@ -1017,6 +978,7 @@ type DeployTestRouterConfig struct {
 	ChainSelector        uint64
 	UpdateOffRamp        bool
 	TestRouterPathSuffix string
+	BuildConfig          BuildSolanaConfig
 }
 
 func DeployTestRouter(
@@ -1043,6 +1005,13 @@ func DeployTestRouter(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp address for chain %s", chain.String())
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
+
+	if config.BuildConfig.GitCommitSha != "" {
+		err = BuildSolana(e, config.BuildConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+		}
+	}
 
 	// TEST ROUTER DEPLOY
 	var testRouterProgram solana.PublicKey
