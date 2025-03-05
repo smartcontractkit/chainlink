@@ -12,8 +12,6 @@ import (
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[BuildSolanaConfig] = BuildSolanaChangeset
-
 // Configuration
 const (
 	repoURL   = "https://github.com/smartcontractkit/chainlink-ccip.git"
@@ -157,13 +155,6 @@ type BuildSolanaConfig struct {
 	CleanGitDir bool
 	UpgradeKeys map[deployment.ContractType]string
 	TestRouter  bool
-}
-
-func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
-	if err := BuildSolana(e, config); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
-	}
-	return deployment.ChangesetOutput{}, nil
 }
 
 func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
