@@ -3,6 +3,7 @@ package capabilities
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -43,8 +44,9 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 
@@ -1121,14 +1123,26 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 	require.NoError(t, mocksClient.HookExecutables(testLogger))
 
+	//Get ocr key
 	kb := make([]ocr2key.KeyBundle, 0)
-	for range 4 {
-		k, err := ocr2key.New(chaintype.EVM)
-		if err != nil {
-			panic(err)
+	for _, don := range setupOutput.donTopology.DonsWithMetadata {
+		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
+			for i, n := range don.DON.Nodes {
+				if i == 0 {
+					continue // Skip bootstrap node
+				}
+
+				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
+				require.NoError(t, err)
+				b, err2 := json.Marshal(key)
+				require.NoError(t, err2)
+				kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+				require.NoError(t, err2)
+				kb = append(kb, kk)
+			}
 		}
-		kb = append(kb, k)
 	}
+
 	go sendReports(t.Context(), t, mocksClient, testLogger, kb) //TODO @george-dorin: Fix me!!!
 	time.Sleep(time.Minute * 10)
 
