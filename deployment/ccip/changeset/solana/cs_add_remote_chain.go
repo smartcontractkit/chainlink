@@ -44,22 +44,17 @@ func (cfg AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
-		return err
-	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
-
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
+	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+		return err
+	}
+
 	if !cfg.TestRouter {
-		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, routerUsingMCMS, chainState.Router, ccipChangeset.Router); err != nil {
-			return fmt.Errorf("failed to validate ownership: %w", err)
+		if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+			return err
 		}
 	}
 	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
@@ -139,10 +134,6 @@ func doAddRemoteChainToRouter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	timelockSigner, err := FetchTimelockSigner(e, chainSel)
-	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 	for remoteChainSel, update := range updates {
 		// verified while loading state
 		routerRemoteStatePDA, _ := solState.FindDestChainStatePDA(remoteChainSel, ccipRouterID)
@@ -156,14 +147,16 @@ func doAddRemoteChainToRouter(
 
 		// router setup
 		solRouter.SetProgramID(ccipRouterID)
-		var authority solana.PublicKey
-		if routerUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
-		}
 		var routerIx solana.Instruction
-		var err error
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.Router,
+			solana.PublicKey{})
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
+		}
 		if update.IsUpdate {
 			routerIx, err = solRouter.NewUpdateDestChainConfigInstruction(
 				remoteChainSel,
@@ -272,21 +265,16 @@ func (cfg AddRemoteChainToFeeQuoterConfig) Validate(e deployment.Environment) er
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-
-	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
-		return err
-	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, ccipChangeset.FeeQuoter); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
+
+	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return err
 	}
 	supportedChains := state.SupportedChains()
 	for remote := range cfg.UpdatesByChain {
@@ -357,10 +345,6 @@ func doAddRemoteChainToFeeQuoter(
 	offRampID := s.SolChains[chainSel].OffRamp
 	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	timelockSigner, err := FetchTimelockSigner(e, chainSel)
-	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	for remoteChainSel, update := range updates {
 		// verified while loading state
@@ -373,11 +357,14 @@ func doAddRemoteChainToFeeQuoter(
 
 		// fee quoter setup
 		solFeeQuoter.SetProgramID(feeQuoterID)
-		var authority solana.PublicKey
-		if feeQuoterUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.FeeQuoter,
+			solana.PublicKey{})
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		var feeQuoterIx solana.Instruction
 		if update.IsUpdate {
@@ -456,22 +443,18 @@ func (cfg AddRemoteChainToOffRampConfig) Validate(e deployment.Environment) erro
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
-	chain := e.SolChains[cfg.ChainSelector]
-
-	if err := validateOffRampConfig(chain, chainState); err != nil {
-		return err
-	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
 	chain, ok := e.SolChains[cfg.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, ccipChangeset.OffRamp); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
+
+	if err := validateOffRampConfig(chain, chainState); err != nil {
+		return err
 	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return err
+	}
+
 	supportedChains := state.SupportedChains()
 	for remote := range cfg.UpdatesByChain {
 		if _, ok := supportedChains[remote]; !ok {
@@ -540,10 +523,6 @@ func doAddRemoteChainToSolana(
 	offRampID := s.SolChains[chainSel].OffRamp
 	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
-	timelockSigner, err := FetchTimelockSigner(e, chainSel)
-	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
 	for remoteChainSel, update := range updates {
 		// verified while loading state
@@ -553,16 +532,20 @@ func doAddRemoteChainToSolana(
 				offRampRemoteStatePDA,
 			)
 		}
+
 		// offramp setup
 		validSourceChainConfig, err := getSourceChainConfig(s, remoteChainSel, update.EnabledAsSource)
 		if err != nil {
 			return txns, fmt.Errorf("failed to get source chain config: %w", err)
 		}
-		var authority solana.PublicKey
-		if offRampUsingMCMS {
-			authority = timelockSigner
-		} else {
-			authority = chain.DeployerKey.PublicKey()
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			cfg.MCMSSolana,
+			ccipChangeset.OffRamp,
+			solana.PublicKey{})
+		if err != nil {
+			return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 		}
 		var offRampIx solana.Instruction
 		solOffRamp.SetProgramID(offRampID)

@@ -341,8 +341,8 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250228192734-cb6d70c3a866 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250225130625-4a632b0b1e61 // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250302020946-0f2d5f4a8326 // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250302020946-0f2d5f4a8326 // indirect
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250228151513-8777dbcefd5c // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250228145850-f846693a6fd5 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
@@ -356,7 +356,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250219165127-be60782e4448 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
-	github.com/smartcontractkit/mcms v0.12.2 // indirect
+	github.com/smartcontractkit/mcms v0.12.3-0.20250304193016-008aec734962 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.3 // indirect

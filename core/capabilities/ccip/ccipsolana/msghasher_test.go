@@ -45,7 +45,7 @@ func TestMessageHasher_Any2SVM(t *testing.T) {
 	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
-	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
+	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, msgAccounts)
 	require.NoError(t, err)
 	require.Equal(t, expectedHash, actualHash[:32])
 }

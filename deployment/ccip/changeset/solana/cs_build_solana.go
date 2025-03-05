@@ -25,6 +25,7 @@ const (
 var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:    "programs/ccip-router/src/lib.rs",
 	cs.FeeQuoter: "programs/fee-quoter/src/lib.rs",
+	
 }
 
 // Run a command in a specific directory
@@ -34,6 +35,7 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	fmt.Println("Running command", cmd.String())
 	err := cmd.Run()
 	if err != nil {
 		return stderr.String(), err
@@ -132,13 +134,11 @@ func copyFile(srcFile string, destDir string) error {
 func buildProject(e deployment.Environment, testRouter bool) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	var args string
+	args := []string{"docker-build-contracts"}
 	if testRouter {
-		args = "ANCHOR_BUILD_ARGS=-p ccip_router"
-	} else {
-		args = ""
+		args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
 	}
-	output, err := runCommand("make", []string{"docker-build-contracts", args}, solanaDir)
+	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
