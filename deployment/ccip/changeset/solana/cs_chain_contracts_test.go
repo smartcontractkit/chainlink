@@ -2,15 +2,19 @@ package solana_test
 
 import (
 	"math/big"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
@@ -92,15 +96,25 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
-			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
 					evmChain: {
-						EnabledAsSource: true,
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: true,
 						},
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
 							DefaultTxGasLimit:           200000,
@@ -110,6 +124,18 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 							DefaultTokenDestGasOverhead: 5000,
 							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
 					},
 				},
 				MCMSSolana: mcmsConfig,
@@ -176,18 +202,29 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToSolana),
-			ccipChangesetSolana.AddRemoteChainToSolanaConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
 				ChainSelector: solChain,
-				UpdatesByChain: map[uint64]ccipChangesetSolana.RemoteChainConfigSolana{
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
 					evmChain: {
-						EnabledAsSource: true,
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: false,
 						},
+						IsUpdate: true,
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
 						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
 							IsEnabled:                   true,
-							DefaultTxGasLimit:           30000,
+							DefaultTxGasLimit:           200000,
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
@@ -195,6 +232,19 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
 						},
 						IsUpdate: true,
+					},
+				},
+				MCMSSolana: mcmsConfig,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
+						IsUpdate:        true,
 					},
 				},
 				MCMSSolana: mcmsConfig,
@@ -620,4 +670,201 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
 	}
+}
+
+// This test illustrates how we can setup the test router flow with a test token
+func Test_TestRouter(t *testing.T) {
+	// skip this in CI for now as it requires re-building the router with new keys
+	// we can fix this in CI using caching later
+	ci := os.Getenv("CI") == "true"
+	if ci {
+		return
+	}
+	t.Parallel()
+	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
+	evmChain := tenv.Env.AllChainSelectors()[0]
+	solChain := tenv.Env.AllChainSelectorsSolana()[0]
+	e, testTokenAddress, err := deployToken(t, tenv.Env, solChain)
+	require.NoError(t, err)
+	testRouterDir := "test_router"
+
+	// check if test_router dir exists in artifact dir
+	testRouterPath := filepath.Join(tenv.Env.SolChains[solChain].ProgramsPath, testRouterDir, "ccip_router.so")
+	_, err = os.Stat(testRouterPath)
+	needsBuild := os.IsNotExist(err)
+
+	// build new ccip_router under test_router if needsBuild
+	if needsBuild {
+		t.Log("Building test router program...")
+		e, err = commonchangeset.Apply(t, e, nil,
+			commonchangeset.Configure(
+				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
+				ccipChangesetSolana.BuildSolanaConfig{
+					ChainSelector:        solChain,
+					GitCommitSha:         "82f6b9951ab51397e33b94391f5758260ac558d5",
+					DestinationDir:       filepath.Join(e.SolChains[solChain].ProgramsPath, testRouterDir),
+					TestRouter:           true,
+					CreateDestinationDir: true,
+				},
+			),
+		)
+		require.NoError(t, err)
+	}
+	// run the rest of the changesets using test router
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployTestRouter),
+			ccipChangesetSolana.DeployTestRouterConfig{
+				ChainSelector:        solChain,
+				UpdateOffRamp:        true,
+				TestRouterPathSuffix: testRouterDir,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
+					evmChain: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+				TestRouter: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					evmChain: {
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							ChainFamilySelector:         [4]uint8{40, 18, 213, 44},
+						},
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					evmChain: {
+						EnabledAsSource: true,
+					},
+				},
+				TestRouter: true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPool),
+			ccipChangesetSolana.TokenPoolConfig{
+				ChainSelector: solChain,
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				TokenPubKey:   testTokenAddress.String(),
+				TestRouter:    true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetupTokenPoolForRemoteChain),
+			ccipChangesetSolana.RemoteChainTokenPoolConfig{
+				SolChainSelector:    solChain,
+				RemoteChainSelector: evmChain,
+				SolTokenPubKey:      testTokenAddress.String(),
+				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
+				RemoteConfig:        solBaseTokenPool.RemoteConfig{},
+				InboundRateLimit:    solBaseTokenPool.RateLimitConfig{},
+				OutboundRateLimit:   solBaseTokenPool.RateLimitConfig{},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.RegisterTokenAdminRegistry),
+			ccipChangesetSolana.RegisterTokenAdminRegistryConfig{
+				ChainSelector:           solChain,
+				TokenPubKey:             testTokenAddress.String(),
+				TokenAdminRegistryAdmin: e.SolChains[solChain].DeployerKey.PublicKey().String(),
+				RegisterType:            ccipChangesetSolana.ViaGetCcipAdminInstruction,
+				TestRouter:              true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistry),
+			ccipChangesetSolana.AcceptAdminRoleTokenAdminRegistryConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   testTokenAddress.String(),
+				TestRouter:    true,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenPoolLookupTable),
+			ccipChangesetSolana.TokenPoolLookupTableConfig{
+				ChainSelector: solChain,
+				TokenPubKey:   testTokenAddress.String(),
+				PoolType:      solTestTokenPool.BurnAndMint_PoolType,
+				TestRouter:    true,
+			},
+		),
+		// TODO: not working, failing on confirming feeTokenConfigPDA
+		// commonchangeset.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetPool),
+		// 	ccipChangesetSolana.SetPoolConfig{
+		// 		ChainSelector:   solChain,
+		// 		TokenPubKey:     testTokenAddress.String(),
+		// 		WritableIndexes: []uint8{3, 4, 7},
+		// 		TestRouter:      true,
+		// 	},
+		// ),
+	)
+	require.NoError(t, err)
+
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	// test router
+	require.NotZero(t, state.SolChains[solChain].TestRouter)
+
+	// test router on offramp
+	var offRampReferenceAddresses solOffRamp.ReferenceAddresses
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(state.SolChains[solChain].OffRamp)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
+	require.NoError(t, err)
+	require.Equal(t, state.SolChains[solChain].TestRouter, offRampReferenceAddresses.Router)
+
+	// switch the router to the actual router on the offramp
+	// and then add the remote chain to the router
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.UpdateOffRampRefAddresses),
+			ccipChangesetSolana.OffRampRefAddressesConfig{
+				ChainSelector: solChain,
+				Router:        state.SolChains[solChain].Router,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
+				ChainSelector: solChain,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
+					evmChain: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &offRampReferenceAddresses)
+	require.NoError(t, err)
+	require.Equal(t, state.SolChains[solChain].Router, offRampReferenceAddresses.Router)
+	require.NoError(t, err)
 }

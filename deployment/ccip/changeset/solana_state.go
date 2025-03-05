@@ -42,19 +42,25 @@ const (
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
-	LinkToken                 solana.PublicKey
-	Router                    solana.PublicKey
-	OfframpAddressLookupTable solana.PublicKey
-	Receiver                  solana.PublicKey // for tests only
-	SPL2022Tokens             []solana.PublicKey
-	SPLTokens                 []solana.PublicKey
-	// TokenPool                 solana.PublicKey
-	BurnMintTokenPool    solana.PublicKey
-	LockReleaseTokenPool solana.PublicKey
-	WSOL                 solana.PublicKey
+	// tokens
+	LinkToken     solana.PublicKey
+	WSOL          solana.PublicKey
+	SPL2022Tokens []solana.PublicKey
+	SPLTokens     []solana.PublicKey
+
+	// ccip programs
+	Router               solana.PublicKey
 	FeeQuoter            solana.PublicKey
 	OffRamp              solana.PublicKey
-	FeeAggregator        solana.PublicKey
+	BurnMintTokenPool    solana.PublicKey
+	LockReleaseTokenPool solana.PublicKey
+
+	// fee aggregator
+	FeeAggregator solana.PublicKey
+
+	// test programs
+	TestRouter solana.PublicKey
+	Receiver   solana.PublicKey // for tests only
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -124,6 +130,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
+		case TestRouter:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -295,4 +304,26 @@ func ValidateOwnershipSolana(
 		return fmt.Errorf("unsupported contract type: %s", contractType)
 	}
 	return nil
+}
+
+func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (router, routerConfigPDA solana.PublicKey, err error) {
+	if testRouter {
+		if s.TestRouter.IsZero() {
+			return solana.PublicKey{}, solana.PublicKey{}, errors.New("test router not found in existing state, deploy the test router first")
+		}
+		routerConfigPDA, _, err = solState.FindConfigPDA(s.TestRouter)
+		if err != nil {
+			return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
+		}
+		return s.TestRouter, routerConfigPDA, nil
+	}
+
+	if s.Router.IsZero() {
+		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
+	}
+	routerConfigPDA, _, err = solState.FindConfigPDA(s.Router)
+	if err != nil {
+		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
+	}
+	return s.Router, routerConfigPDA, nil
 }

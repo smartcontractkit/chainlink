@@ -17,7 +17,9 @@ import (
 )
 
 var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
-var _ deployment.ChangeSet[AddRemoteChainToSolanaConfig] = AddRemoteChainToSolana
+var _ deployment.ChangeSet[AddRemoteChainToRouterConfig] = AddRemoteChainToRouter
+var _ deployment.ChangeSet[AddRemoteChainToOffRampConfig] = AddRemoteChainToOffRamp
+var _ deployment.ChangeSet[AddRemoteChainToFeeQuoterConfig] = AddRemoteChainToFeeQuoter
 var _ deployment.ChangeSet[DisableRemoteChainConfig] = DisableRemoteChain
 var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
@@ -25,6 +27,10 @@ var _ deployment.ChangeSet[RegisterTokenAdminRegistryConfig] = RegisterTokenAdmi
 var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = TransferAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
+var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
+var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
+var _ deployment.ChangeSet[DeployTestRouterConfig] = DeployTestRouter
+var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
 
 type MCMSConfigSolana struct {
 	MCMS *ccipChangeset.MCMSConfig
@@ -83,13 +89,13 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
-	if chainState.Router.IsZero() {
-		return fmt.Errorf("router not found in existing state, deploy the router first for chain %d", chain.Selector)
+func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState, testRouter bool) error {
+	_, routerConfigPDA, err := chainState.GetRouterInfo(testRouter)
+	if err != nil {
+		return err
 	}
-	// addressing errcheck in the next PR
 	var routerConfigAccount solRouter.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+	err = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
 	if err != nil {
 		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
 	}
@@ -120,4 +126,103 @@ func validateOffRampConfig(chain deployment.SolChain, chainState ccipChangeset.S
 		return fmt.Errorf("offramp config not found in existing state, initialize the offramp first %d", chain.Selector)
 	}
 	return nil
+}
+
+// The user is not required to provide all the addresses, only the ones they want to update
+type OffRampRefAddressesConfig struct {
+	ChainSelector      uint64
+	Router             solana.PublicKey
+	FeeQuoter          solana.PublicKey
+	AddressLookupTable solana.PublicKey
+	MCMSSolana         *MCMSConfigSolana
+}
+
+func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
+	chain := e.SolChains[cfg.ChainSelector]
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+		return err
+	}
+	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, ccipChangeset.OffRamp); err != nil {
+		return fmt.Errorf("failed to validate ownership: %w", err)
+	}
+	return nil
+}
+
+func UpdateOffRampRefAddresses(
+	e deployment.Environment,
+	config OffRampRefAddressesConfig,
+) (deployment.ChangesetOutput, error) {
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	chain := e.SolChains[config.ChainSelector]
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
+	}
+	if chainState.OffRamp.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp address for chain %s", chain.String())
+	}
+
+	var referenceAddressesAccount solOffRamp.ReferenceAddresses
+	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(chainState.OffRamp)
+	if err = chain.GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &referenceAddressesAccount); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
+	}
+	routerToSet := referenceAddressesAccount.Router
+	if !config.Router.IsZero() {
+		e.Logger.Infof("setting router on offramp to %s", config.Router.String())
+		routerToSet = config.Router
+	}
+	feeQuoterToSet := referenceAddressesAccount.FeeQuoter
+	if !config.FeeQuoter.IsZero() {
+		e.Logger.Infof("setting fee quoter on offramp to %s", config.FeeQuoter.String())
+		feeQuoterToSet = config.FeeQuoter
+	}
+	addressLookupTableToSet := referenceAddressesAccount.OfframpLookupTable
+	if !config.AddressLookupTable.IsZero() {
+		e.Logger.Infof("setting address lookup table on offramp to %s", config.AddressLookupTable.String())
+		addressLookupTableToSet = config.AddressLookupTable
+	}
+
+	offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock
+	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
+	}
+	var authority solana.PublicKey
+	if offRampUsingMCMS {
+		authority = timelockSigner
+	} else {
+		authority = chain.DeployerKey.PublicKey()
+	}
+
+	solOffRamp.SetProgramID(chainState.OffRamp)
+	ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
+		routerToSet,
+		feeQuoterToSet,
+		addressLookupTableToSet,
+		chainState.OffRampConfigPDA,
+		offRampReferenceAddressesPDA,
+		authority,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+	return deployment.ChangesetOutput{}, nil
 }

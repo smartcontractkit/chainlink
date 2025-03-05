@@ -1721,20 +1721,20 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      256,
+		MaxDataBytes:                      30_000,
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           1,
+		DefaultTokenFeeUSDCents:           25,
 		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
 		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
 		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    100,
+		DestGasPerDataAvailabilityByte:    16,
 		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       125_000,
+		DefaultTokenDestGasOverhead:       90_000,
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                1,
+		NetworkFeeUSDCents:                10,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
 }
