@@ -27,6 +27,11 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+const (
+	OldSha = "3da552ac9d30b821310718b8b67e6a298335a485"
+	NewSha = "cb6d70c3a8666879f48685dc2e18331ded67bc0c"
+)
+
 func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
@@ -72,7 +77,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
 					ChainSelector:       solChainSelectors[0],
-					GitCommitSha:        "3da552ac9d30b821310718b8b67e6a298335a485",
+					GitCommitSha:        OldSha,
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,
 				},
@@ -175,7 +180,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
 					ChainSelector:       solChainSelectors[0],
-					GitCommitSha:        "cb6d70c3a8666879f48685dc2e18331ded67bc0c",
+					GitCommitSha:        NewSha,
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,
 					CleanGitDir:         true,

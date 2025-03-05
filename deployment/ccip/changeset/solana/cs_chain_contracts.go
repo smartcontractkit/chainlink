@@ -164,10 +164,7 @@ func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
-		return err
-	}
-	return nil
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
 }
 
 func UpdateOffRampRefAddresses(
