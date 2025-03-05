@@ -44,31 +44,34 @@ func BenchmarkFinalizer(b *testing.B) {
 	finalizer := txmgr.NewEvmFinalizer(logger.Test(b), testutils.FixtureChainID, rpcBatchSize, false, txStore, txmClient, ht)
 	servicetest.Run(b, finalizer)
 
-	idempotencyKey := uuid.New().String()
 	_, fromAddress := cltest.MustInsertRandomKey(b, ethKeyStore)
-	nonce := types.Nonce(0)
+	
 	broadcast := time.Now()
-	tx := &txmgr.Tx{
-		Sequence:           &nonce,
-		IdempotencyKey:     &idempotencyKey,
-		FromAddress:        fromAddress,
-		EncodedPayload:     []byte{1, 2, 3},
-		FeeLimit:           feeLimit,
-		State:              txmgrcommon.TxConfirmed,
-		BroadcastAt:        &broadcast,
-		InitialBroadcastAt: &broadcast,
-	}
-	attemptHash := insertTxAndAttemptWithIdempotencyKey(b, txStore, tx, idempotencyKey)
-	// Insert receipt for finalized block num
-	mustInsertEthReceipt(b, txStore, head.Parent.Load().Number, head.Parent.Load().Hash, attemptHash)
 	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
 	ethClient.On("LatestFinalizedBlock", mock.Anything).Return(head.Parent.Load(), nil)
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
+		b.StopTimer()
+		idempotencyKey := uuid.New().String()
+		nonce := types.Nonce(i)
+		tx := &txmgr.Tx{
+			Sequence:           &nonce,
+			IdempotencyKey:     &idempotencyKey,
+			FromAddress:        fromAddress,
+			EncodedPayload:     []byte{1, 2, 3},
+			FeeLimit:           feeLimit,
+			State:              txmgrcommon.TxConfirmed,
+			BroadcastAt:        &broadcast,
+			InitialBroadcastAt: &broadcast,
+		}
+		attemptHash := insertTxAndAttemptWithIdempotencyKey(b, txStore, tx, idempotencyKey)
+		// Insert receipt for finalized block num
+		mustInsertEthReceipt(b, txStore, head.Parent.Load().Number, head.Parent.Load().Hash, attemptHash)
 		b.StartTimer()
 		err := finalizer.ProcessHead(ctx, head)
 		b.StopTimer()
 		require.NoError(b, err)
+		deleteTx(ctx, b, tx, db)
 	}
 }
