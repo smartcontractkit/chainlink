@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -79,73 +81,119 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best-effort and logs errors
+// It is best-effort, logs errors and generates the views in parallel.
 func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
+	var wg sync.WaitGroup
+	errCh := make(chan error, 4) // We are generating 4 views concurrently
+
+	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	defer cancel()
+
 	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-		if err != nil {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Warn("failed to generate capability registry view: %w", err)
-		}
-		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+			if err != nil {
+				lggr.Warn("failed to generate capability registry view: %w", err)
+				errCh <- err
+			}
+			out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+		}()
 	}
 
 	if cs.OCR3 != nil {
-		for addr, ocr3Cap := range cs.OCR3 {
-			oc := *ocr3Cap
-			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(ctx, oc)
-			if err != nil {
-				// don't block view on single OCR3 not being configured
-				if errors.Is(err, ErrOCR3NotConfigured) {
-					lggr.Warnf("ocr3 not configured for address %s", addr)
-				} else {
-					allErrs = errors.Join(allErrs, err)
-					lggr.Errorf("failed to generate OCR3 config view: %v", err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for addr, ocr3Cap := range cs.OCR3 {
+				select {
+				case <-ctx.Done():
+					return
+				default:
+					oc := *ocr3Cap
+					addrCopy := addr
+					ocrView, err := GenerateOCR3ConfigView(ctx, oc)
+					if err != nil {
+						// don't block view on single OCR3 not being configured
+						if errors.Is(err, ErrOCR3NotConfigured) {
+							lggr.Warnf("ocr3 not configured for address %s", addr)
+						} else {
+							lggr.Errorf("failed to generate OCR3 config view: %v", err)
+							errCh <- err
+						}
+					}
+					out.OCRContracts[addrCopy.String()] = ocrView
 				}
 			}
-			out.OCRContracts[addrCopy.String()] = ocrView
-		}
+		}()
 	}
 
 	// Process the workflow registry and print if WorkflowRegistryError errors.
 	if cs.WorkflowRegistry != nil {
-		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-		for _, err := range wrErrs {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Errorf("WorkflowRegistry error: %v", err)
-		}
-		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+			for _, err := range wrErrs {
+				lggr.Errorf("WorkflowRegistry error: %v", err)
+				errCh <- err
+			}
+			out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+		}()
 	}
 
 	if cs.Forwarder != nil {
-		fwrAddr := cs.Forwarder.Contract.Address().String()
-		var prevViews []ForwarderView
-		if prevView.Forwarders != nil {
-			pv, ok := prevView.Forwarders[fwrAddr]
-			if !ok {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fwrAddr := cs.Forwarder.Contract.Address().String()
+			var prevViews []ForwarderView
+			if prevView.Forwarders != nil {
+				pv, ok := prevView.Forwarders[fwrAddr]
+				if !ok {
+					prevViews = []ForwarderView{}
+				} else {
+					prevViews = pv
+				}
+			} else {
 				prevViews = []ForwarderView{}
-			} else {
-				prevViews = pv
 			}
-		} else {
-			prevViews = []ForwarderView{}
-		}
 
-		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
-		if fwrErr != nil {
-			// don't block view on single forwarder not being configured
-			if errors.Is(fwrErr, ErrForwarderNotConfigured) {
-				lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
-			} else {
-				allErrs = errors.Join(allErrs, fwrErr)
-				lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
+				if fwrErr != nil {
+					// don't block view on single forwarder not being configured
+					if errors.Is(fwrErr, ErrForwarderNotConfigured) {
+						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
+					} else if errors.Is(fwrErr, context.Canceled) || errors.Is(fwrErr, context.DeadlineExceeded) {
+						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Contract.Address())
+						errCh <- fwrErr
+					} else {
+						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+						errCh <- fwrErr
+					}
+				}
+				out.Forwarders[fwrAddr] = fwrView
 			}
-		}
-		out.Forwarders[fwrAddr] = fwrView
+		}()
 	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errList []error
+	// Collect all errors
+	for err := range errCh {
+		errList = append(errList, err)
+	}
+	allErrs = errors.Join(errList...)
 
 	return out, allErrs
 }
