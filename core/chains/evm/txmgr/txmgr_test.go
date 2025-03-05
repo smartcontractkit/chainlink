@@ -390,33 +390,31 @@ func TestTxm_CreateTransaction(t *testing.T) {
 }
 
 func BenchmarkCreateTransaction(b *testing.B) {
-
-	var t testing.TB = b
 	db := testutils.NewSqlxDB(b)
 	//txStore := cltest.NewTestTxStore(t, db)
-	kst := cltest.NewKeyStore(t, db)
+	kst := cltest.NewKeyStore(b, db)
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, kst.Eth())
+	_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
 	toAddress := testutils.NewAddress()
 	gasLimit := uint64(1000)
 	payload := []byte{1, 2, 3}
 
-	config, dbConfig, evmConfig := txmgr.MakeTestConfigsEx()
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(b)
 
-	ethClient := clienttest.NewClient(t)
+	ethClient := clienttest.NewClient(b)
 	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
 
-	estimator, err := gas.NewEstimator(logger.Test(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
-	require.NoError(t, err)
-	txm, err := makeTestEvmTxm(t, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
-	require.NoError(t, err)
+	estimator, err := gas.NewEstimator(logger.Test(b), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
+	require.NoError(b, err)
+	txm, err := makeTestEvmTxm(b, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
+	require.NoError(b, err)
 
 	subject := uuid.New()
-	strategy := newMockTxStrategy(t)
+	strategy := newMockTxStrategy(b)
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 	strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
 	for n := 0; n < b.N; n++ {
-		txm.CreateTransaction(tests.Context(t), txmgr.TxRequest{
+		txm.CreateTransaction(tests.Context(b), txmgr.TxRequest{
 			FromAddress:    fromAddress,
 			ToAddress:      toAddress,
 			EncodedPayload: payload,
