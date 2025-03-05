@@ -63,7 +63,7 @@ contract PingPongDemo is CCIPReceiver, Ownable2StepMsgSender, ITypeAndVersion {
       data: abi.encode(pingPongCount),
       tokenAmounts: new Client.EVMTokenAmount[](0),
       extraArgs: Client._argsToBytes(
-        Client.EVMExtraArgsV2({gasLimit: uint256(DEFAULT_GAS_LIMIT), allowOutOfOrderExecution: s_outOfOrderExecution})
+        Client.GenericExtraArgsV2({gasLimit: uint256(DEFAULT_GAS_LIMIT), allowOutOfOrderExecution: s_outOfOrderExecution})
       ),
       feeToken: address(s_feeToken)
     });

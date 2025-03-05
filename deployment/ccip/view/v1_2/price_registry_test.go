@@ -11,7 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

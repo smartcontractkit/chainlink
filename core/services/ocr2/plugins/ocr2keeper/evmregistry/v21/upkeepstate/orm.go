@@ -8,7 +8,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 )
 
 type orm struct {

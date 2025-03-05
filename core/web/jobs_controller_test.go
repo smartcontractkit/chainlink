@@ -26,6 +26,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -38,9 +41,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/tomlutils"
 	"github.com/smartcontractkit/chainlink/v2/core/web"
 	"github.com/smartcontractkit/chainlink/v2/core/web/presenters"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestJobsController_Create_ValidationFailure_OffchainReportingSpec(t *testing.T) {

@@ -13,13 +13,14 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 // Send the following messages
@@ -71,9 +72,9 @@ func Test_OutOfOrderExecution(t *testing.T) {
 	srcUSDC, destUSDC, err := testhelpers.ConfigureUSDCTokenPools(lggr, e.Chains, sourceChain, destChain, state)
 	require.NoError(t, err)
 
-	err = testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[sourceChain], state.Chains[sourceChain], destChain, srcUSDC)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[sourceChain], destChain)
 	require.NoError(t, err)
-	err = testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[destChain], state.Chains[destChain], sourceChain, destUSDC)
+	err = testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[destChain], sourceChain)
 	require.NoError(t, err)
 
 	testhelpers.MintAndAllow(

@@ -126,7 +126,7 @@ func (js *spawner) HealthReport() map[string]error {
 
 func (js *spawner) startAllServices(ctx context.Context) {
 	// TODO: rename to find AllJobs
-	specs, _, err := js.orm.FindJobs(ctx, 0, math.MaxUint32)
+	jbs, _, err := js.orm.FindJobs(ctx, 0, math.MaxUint32)
 	if err != nil {
 		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %v", err)
 		js.lggr.Critical(werr.Error())
@@ -134,17 +134,23 @@ func (js *spawner) startAllServices(ctx context.Context) {
 		return
 	}
 
+	jobIDs := make([]int32, len(jbs))
+	for i, jb := range jbs {
+		jobIDs[i] = jb.ID
+	}
+	js.lggr.Debugw("Starting jobs...", "jobIDs", jobIDs)
 	wg := sync.WaitGroup{}
-	wg.Add(len(specs))
-	for _, spec := range specs {
-		go func(spec Job) {
+	wg.Add(len(jbs))
+	for _, jb := range jbs {
+		go func(jb Job) {
 			defer wg.Done()
-			if err = js.StartService(ctx, spec); err != nil {
-				js.lggr.Errorf("Couldn't start service %q: %v", spec.Name.ValueOrZero(), err)
+			if err = js.StartService(ctx, jb); err != nil {
+				js.lggr.Errorw("Couldn't start job", "jobID", jb.ID, "jobName", jb.Name.ValueOrZero(), "err", err)
 			}
-		}(spec)
+		}(jb)
 	}
 	wg.Wait()
+	js.lggr.Debugw("Started jobs", "jobIDs", jobIDs)
 	// Log Broadcaster fully starts after all initial Register calls are done from other starting services
 	// to make sure the initial backfill covers those subscribers.
 	for _, lbd := range js.lbDependentAwaiters {
@@ -155,6 +161,7 @@ func (js *spawner) startAllServices(ctx context.Context) {
 func (js *spawner) stopAllServices() {
 	jobIDs := js.activeJobIDs()
 	wg := sync.WaitGroup{}
+	js.lggr.Debugw("Stopping jobs...", "jobIDs", jobIDs)
 	wg.Add(len(jobIDs))
 	for _, jobID := range jobIDs {
 		go func(jobID int32) {
@@ -163,13 +170,13 @@ func (js *spawner) stopAllServices() {
 		}(jobID)
 	}
 	wg.Wait()
+	js.lggr.Debugw("Stopped jobs", "jobIDs", jobIDs)
 }
 
 // stopService removes the job from memory and stop the services.
 // It will always delete the job from memory even if closing the services fail.
 func (js *spawner) stopService(jobID int32) {
 	lggr := js.lggr.With("jobID", jobID)
-	lggr.Debug("Stopping services for job")
 	js.activeJobsMu.Lock()
 	defer js.activeJobsMu.Unlock()
 
@@ -186,11 +193,8 @@ func (js *spawner) stopService(jobID int32) {
 		if err := service.Close(); err != nil {
 			sLggr.Criticalw("Error stopping job service", "err", err)
 			js.SvcErrBuffer.Append(pkgerrors.Wrap(err, "error stopping job service"))
-		} else {
-			sLggr.Debug("Stopped job service")
 		}
 	}
-	lggr.Debug("Stopped all services for job")
 
 	delete(js.activeJobs, jobID)
 }
@@ -229,8 +233,6 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		return pkgerrors.Wrapf(err, "failed to create services for job: %d", jb.ID)
 	}
 
-	lggr.Debugw("JobSpawner: Starting services for job", "count", len(srvs))
-
 	var ms services.MultiStart
 	for _, srv := range srvs {
 		err = ms.Start(ctx, srv)
@@ -247,7 +249,6 @@ func (js *spawner) StartService(ctx context.Context, jb Job) error {
 		}
 		aj.services = append(aj.services, srv)
 	}
-	lggr.Debugw("JobSpawner: Finished starting services for job", "count", len(srvs))
 	js.activeJobs[jb.ID] = aj
 	return nil
 }
@@ -322,9 +323,7 @@ func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID i
 		}
 	}
 
-	lggr.Debugw("Callback: BeforeDeleteJob")
 	aj.delegate.BeforeJobDeleted(aj.spec)
-	lggr.Debugw("Callback: BeforeDeleteJob done")
 
 	err := sqlutil.Transact(ctx, js.orm.WithDataSource, ds, nil, func(tx ORM) error {
 		err := tx.DeleteJob(ctx, jobID, aj.spec.Type)
@@ -335,13 +334,11 @@ func (js *spawner) DeleteJob(ctx context.Context, ds sqlutil.DataSource, jobID i
 		// This comes after calling orm.DeleteJob(), so that any non-db side effects inside it only get executed if
 		// we know the DELETE will succeed.  The DELETE will be finalized only if all db transactions in OnDeleteJob()
 		// succeed.  If either of those fails, the job will not be stopped and everything will be rolled back.
-		lggr.Debugw("Callback: OnDeleteJob")
 		err = aj.delegate.OnDeleteJob(ctx, aj.spec)
 		if err != nil {
 			return err
 		}
 
-		lggr.Debugw("Callback: OnDeleteJob done")
 		return nil
 	})
 

@@ -23,6 +23,7 @@ typechain
 **/vendor
 src/v0.8/ccip/**
 src/v0.8/workflow/**
+src/v0.8/data-feeds/**
 
 # Ignore TS definition and map files
 **/**.d.ts

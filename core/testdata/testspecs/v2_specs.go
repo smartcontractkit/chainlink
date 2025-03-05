@@ -11,13 +11,13 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 var (

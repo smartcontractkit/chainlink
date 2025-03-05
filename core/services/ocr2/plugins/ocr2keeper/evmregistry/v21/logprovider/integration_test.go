@@ -17,9 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/log_upkeep_counter_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -28,9 +32,6 @@ import (
 	evmregistry21 "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/logprovider"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestIntegration_LogEventProvider(t *testing.T) {
@@ -457,10 +458,10 @@ func setupDependencies(t *testing.T, db *sqlx.DB, backend evmtypes.Backend) (log
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        2,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(lorm, ethClient, pollerLggr, ht, lpOpts)
 	servicetest.Run(t, lp)
 	return lp, ethClient
@@ -479,9 +480,9 @@ func setup(lggr logger.Logger, poller logpoller.LogPoller, c evmclient.Client, s
 }
 
 func setupBackend(t *testing.T) (backend evmtypes.Backend, stop func(), opts []*bind.TransactOpts) {
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+	steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+	carrol := evmtestutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000000000000000000).ToInt()},
 		steve.From:  {Balance: assets.Ether(1000000000000000000).ToInt()},

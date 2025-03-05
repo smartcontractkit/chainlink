@@ -10,9 +10,9 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
 
 var randomAddress = types.MustEIP55Address(utils.RandomAddress().String())

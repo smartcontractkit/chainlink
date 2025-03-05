@@ -60,7 +60,7 @@ contract FeeQuoterHelper is FeeQuoter {
   function parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 destChainSelector
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
     return _parseEVMExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
@@ -73,7 +73,7 @@ contract FeeQuoterHelper is FeeQuoter {
     bytes calldata extraArgs,
     uint64 destChainSelector,
     bool enforceOutOfOrder
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
     return _parseEVMExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
@@ -91,9 +91,10 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function processChainFamilySelector(
     uint64 chainFamilySelector,
+    bytes calldata messageReceiver,
     bytes calldata extraArgs
-  ) external view returns (bytes memory, bool) {
-    return _processChainFamilySelector(chainFamilySelector, extraArgs);
+  ) external view returns (bytes memory, bool, bytes memory) {
+    return _processChainFamilySelector(chainFamilySelector, messageReceiver, extraArgs);
   }
 
   function validateDestFamilyAddress(

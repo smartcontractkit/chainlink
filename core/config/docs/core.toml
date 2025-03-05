@@ -452,9 +452,9 @@ GlobalRPS = 200 # Default
 # GlobalBurst is the global burst limit for the dispatcher.
 GlobalBurst = 200 # Default
 # PerSenderRPS is the per-sender rate limit for the dispatcher.
-PerSenderRPS = 100 # Default
+PerSenderRPS = 200 # Default
 # PerSenderBurst is the per-sender burst limit for the dispatcher.
-PerSenderBurst = 100 # Default
+PerSenderBurst = 200 # Default
 
 [Capabilities.WorkflowRegistry]
 # Address is the address for the workflow registry contract.
@@ -469,6 +469,13 @@ MaxBinarySize = '20.00mb' # Default
 MaxEncryptedSecretsSize = '26.40kb' # Default
 # MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 MaxConfigSize = '50.00kb' # Default
+
+[Workflows]
+[Workflows.Limits]
+# Global is the maximum number of workflows that can be registered globally.
+Global = 200 # Default
+# PerOwner is the maximum number of workflows that can be registered per owner.
+PerOwner = 200 # Default
 
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.
@@ -709,14 +716,14 @@ CertFile = "/path/to/client/certs.pem" # Example
 # Options are either:
 # - "wsrpc" for the legacy websocket protocol
 # - "grpc" for the gRPC protocol
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 # TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 # per OCR instance. If the queue is full, the transmitter will start dropping
 # the oldest messages in order to make space.
 #
 # This is useful if mercury server goes offline and the nop needs to buffer
 # transmissions.
-TransmitQueueMaxSize = 100_000 # Default
+TransmitQueueMaxSize = 250_000 # Default
 # TransmitTimeout controls how long the transmitter will wait for a response
 # when sending a message to the mercury server, before aborting and considering
 # the transmission to be failed.

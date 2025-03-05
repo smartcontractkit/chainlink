@@ -21,6 +21,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -30,9 +33,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 var (

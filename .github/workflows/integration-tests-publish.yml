@@ -21,7 +21,7 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha || github.sha }}
@@ -34,6 +34,7 @@ jobs:
         uses: smartcontractkit/.github/actions/ctf-build-test-image@6781e048ecc1aadf7d605722c32e8068a5f829ce # ctf-build-test-image@0.2.0
         with:
           other_tags: ${{ steps.tags.outputs.other_tags }}
+          suites: 'chaos migration reorg smoke soak benchmark load ccip-tests/load ccip-tests/smoke ccip-tests/chaos'
           QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
           QA_AWS_ACCOUNT_NUMBER: ${{ secrets.QA_AWS_ACCOUNT_NUMBER }}
@@ -67,7 +68,7 @@ jobs:
     runs-on: ubuntu22.04-8cores-32GB
     steps:
       - name: Checkout the repo
-        uses: actions/checkout@v4.2.1
+        uses: actions/checkout@v4
         with:
           persist-credentials: false
           ref: ${{ github.sha }}

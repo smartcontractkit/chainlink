@@ -14,10 +14,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2plus_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

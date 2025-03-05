@@ -22,9 +22,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
 
 var _ Finalizer = (*evmFinalizer)(nil)

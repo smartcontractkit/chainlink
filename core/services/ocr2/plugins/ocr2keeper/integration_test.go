@@ -31,8 +31,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
@@ -56,9 +60,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (
@@ -210,9 +211,9 @@ func runKeeperPluginBasic(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+	steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+	carrol := evmtestutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},
 		steve.From:  {Balance: assets.Ether(1000).ToInt()},
@@ -464,9 +465,9 @@ func TestIntegration_KeeperPluginForwarderEnabled(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+	steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+	carrol := evmtestutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(1000).ToInt()},
 		steve.From:  {Balance: assets.Ether(1000).ToInt()},

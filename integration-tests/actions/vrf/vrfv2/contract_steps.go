@@ -21,9 +21,9 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	testconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/vrfv2"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_owner"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func DeployVRFV2Contracts(

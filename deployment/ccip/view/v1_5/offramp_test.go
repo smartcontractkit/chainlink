@@ -2,6 +2,7 @@ package v1_5
 
 import (
 	"encoding/json"
+	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -10,12 +11,10 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"math/big"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

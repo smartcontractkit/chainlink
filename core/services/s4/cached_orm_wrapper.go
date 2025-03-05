@@ -9,8 +9,8 @@ import (
 
 	"github.com/patrickmn/go-cache"
 
+	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	ubig "github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 const (

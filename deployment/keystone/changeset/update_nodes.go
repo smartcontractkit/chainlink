@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -55,7 +55,7 @@ func (r UpdateNodesRequest) UseMCMS() bool {
 
 type NodeUpdate = internal.NodeUpdate
 
-// UpdateNodes updates the a set of nodes.
+// UpdateNodes updates a set of nodes.
 // The nodes and capabilities in the request must already exist in the registry contract.
 func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deployment.ChangesetOutput, error) {
 	// extract the registry contract and chain from the environment
@@ -63,7 +63,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -90,24 +90,33 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 		if resp.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		timelocksPerChain := map[uint64]common.Address{
-			req.RegistryChainSel: contracts.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			req.RegistryChainSel: contracts.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			req.RegistryChainSel: contracts.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			req.RegistryChainSel: contracts.ProposerMcm.Address().Hex(),
+		}
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		inspectorPerChain := map[uint64]sdk.Inspector{
+			req.RegistryChainSel: inspector,
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*resp.Ops},
+			inspectorPerChain,
+			[]types.BatchOperation{*resp.Ops},
 			"proposal to set update nodes",
 			req.MCMSConfig.MinDuration,
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal}
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 
 	return out, nil

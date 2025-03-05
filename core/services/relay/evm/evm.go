@@ -39,6 +39,7 @@ import (
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -68,7 +69,6 @@ import (
 	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (
@@ -739,7 +739,7 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			switch r.mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
 				client = grpc.NewClient(grpc.ClientOpts{
-					Logger:        lggr.Named(server.URL),
+					Logger:        lggr.Named(fmt.Sprintf("%q", server.URL)).With("serverURL", server.URL),
 					ClientPrivKey: privKey.PrivateKey(),
 					ServerPubKey:  ed25519.PublicKey(server.PubKey),
 					ServerURL:     server.URL,
@@ -755,22 +755,30 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			}
 			clients[server.URL] = client
 		}
-		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
+		// FIXME: The transmitter instantiation really ought to be moved out of
+		// the evm relay into llo package
+		// https://smartcontract-it.atlassian.net/browse/MERC-6847
+		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
 			Lggr:           lggr,
+			DonID:          lloCfg.DonID,
 			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:           lggr,
-				Registerer:     r.registerer,
-				VerboseLogging: r.mercuryCfg.VerboseLogging(),
-				Cfg:            r.mercuryCfg.Transmitter(),
-				Clients:        clients,
-				FromAccount:    privKey.PublicKey,
-				DonID:          relayConfig.LLODONID,
-				ORM:            mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				Lggr:                 lggr,
+				VerboseLogging:       r.mercuryCfg.VerboseLogging(),
+				Cfg:                  r.mercuryCfg.Transmitter(),
+				Clients:              clients,
+				FromAccount:          privKey.PublicKey,
+				DonID:                lloCfg.DonID,
+				ORM:                  mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				CapabilitiesRegistry: r.capabilitiesRegistry,
 			},
+			Subtransmitters:       lloCfg.Transmitters,
 			RetirementReportCache: r.retirementReportCache,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)
+		}
 	}
 
 	cdcFactory, err := r.cdcFactory()

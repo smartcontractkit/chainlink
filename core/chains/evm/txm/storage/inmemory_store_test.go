@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
 )
 
 func TestAbandonPendingTransactions(t *testing.T) {

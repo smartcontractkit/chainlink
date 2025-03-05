@@ -10,13 +10,13 @@ import (
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 func Test_createDON(t *testing.T) {

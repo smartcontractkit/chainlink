@@ -23,16 +23,18 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 type mockHTTPClient struct {
@@ -131,7 +133,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	const ETHMainnetChainSelector uint64 = 5009297550715157269
 	orm := llo.NewChainScopedORM(db, ETHMainnetChainSelector)
 
-	steve := testutils.MustNewSimTransactor(t) // config contract deployer and owner
+	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
 	genesisData := types.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit() // ensure starting block number at least 1
@@ -147,10 +149,10 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 		PollPeriod:               100 * time.Millisecond,
 		FinalityDepth:            1,
 		BackfillBatchSize:        3,
-		RpcBatchSize:             2,
+		RPCBatchSize:             2,
 		KeepFinalizedBlocksDepth: 1000,
 	}
-	ht := headtracker.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
+	ht := headstest.NewSimulatedHeadTracker(ethClient, lpOpts.UseFinalityTag, lpOpts.FinalityDepth)
 	lp := logpoller.NewLogPoller(
 		logpoller.NewORM(testutils.SimulatedChainID, db, lggr), ethClient, lggr, ht, lpOpts)
 	servicetest.Run(t, lp)

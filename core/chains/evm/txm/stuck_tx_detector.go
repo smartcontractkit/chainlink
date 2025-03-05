@@ -12,8 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
 )
 
 type StuckTxDetectorConfig struct {

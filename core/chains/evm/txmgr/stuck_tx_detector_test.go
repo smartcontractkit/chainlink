@@ -17,20 +17,20 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/configtest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/gas"
-	gasmocks "github.com/smartcontractkit/chainlink/v2/evm/gas/mocks"
-	"github.com/smartcontractkit/chainlink/v2/evm/testutils"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

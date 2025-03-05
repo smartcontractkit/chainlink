@@ -24,6 +24,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
 
@@ -103,9 +104,10 @@ var _ Transmitter = (*transmitter)(nil)
 
 type Config interface {
 	Protocol() config.MercuryTransmitterProtocol
+	ReaperMaxAge() commonconfig.Duration
+	TransmitConcurrency() uint32
 	TransmitQueueMaxSize() uint32
 	TransmitTimeout() commonconfig.Duration
-	TransmitConcurrency() uint32
 }
 
 type transmitter struct {
@@ -114,9 +116,8 @@ type transmitter struct {
 	verboseLogging bool
 	cfg            Config
 
-	orm        ORM
-	servers    map[string]*server
-	registerer prometheus.Registerer
+	orm     ORM
+	servers map[string]*server
 
 	donID       uint32
 	fromAccount string
@@ -126,14 +127,14 @@ type transmitter struct {
 }
 
 type Opts struct {
-	Lggr           logger.Logger
-	Registerer     prometheus.Registerer
-	VerboseLogging bool
-	Cfg            Config
-	Clients        map[string]grpc.Client
-	FromAccount    ed25519.PublicKey
-	DonID          uint32
-	ORM            ORM
+	Lggr                 logger.Logger
+	VerboseLogging       bool
+	Cfg                  Config
+	Clients              map[string]grpc.Client
+	FromAccount          ed25519.PublicKey
+	DonID                uint32
+	ORM                  ORM
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
 func New(opts Opts) Transmitter {
@@ -144,7 +145,7 @@ func newTransmitter(opts Opts) *transmitter {
 	sugared := logger.Sugared(opts.Lggr).Named("LLOMercuryTransmitter")
 	servers := make(map[string]*server, len(opts.Clients))
 	for serverURL, client := range opts.Clients {
-		sLggr := sugared.Named(serverURL).With("serverURL", serverURL)
+		sLggr := sugared.Named(fmt.Sprintf("%q", serverURL)).With("serverURL", serverURL)
 		servers[serverURL] = newServer(sLggr, opts.VerboseLogging, opts.Cfg, client, opts.ORM, serverURL)
 	}
 	return &transmitter{
@@ -154,7 +155,6 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
-		opts.Registerer,
 		opts.DonID,
 		fmt.Sprintf("%x", opts.FromAccount),
 		make(services.StopChan),

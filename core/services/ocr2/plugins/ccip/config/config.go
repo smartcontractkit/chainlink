@@ -12,7 +12,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/bytes"
 
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
 
 // CommitPluginJobSpecConfig contains the plugin specific variables for the ccip.CCIPCommit plugin.

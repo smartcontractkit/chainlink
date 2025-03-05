@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
 	"google.golang.org/protobuf/proto"
 
@@ -25,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	kf "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
@@ -315,7 +317,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 			return fmt.Errorf("failed to get contract set for chain %d", chainSel)
 		}
 
-		contract, err := contracts.GetOCR3Contract(nil)
+		contract, err := contracts.getOCR3Contract(nil)
 		if err != nil {
 			env.Logger.Errorf("failed to get OCR3 contract: %s", err)
 			return fmt.Errorf("failed to get OCR3 contract: %w", err)
@@ -337,7 +339,7 @@ func ConfigureOCR3Contract(env *deployment.Environment, chainSel uint64, dons []
 
 type ConfigureOCR3Resp struct {
 	OCR2OracleConfig
-	Ops *timelock.BatchChainOperation
+	Ops *mcmstypes.BatchOperation
 }
 
 type ConfigureOCR3Config struct {
@@ -373,7 +375,7 @@ func ConfigureOCR3ContractFromJD(env *deployment.Environment, cfg ConfigureOCR3C
 		return nil, fmt.Errorf("failed to get contract set for chain %d", cfg.ChainSel)
 	}
 
-	contract, err := contracts.GetOCR3Contract(cfg.Address)
+	contract, err := contracts.getOCR3Contract(cfg.Address)
 	if err != nil {
 		env.Logger.Errorf("%sfailed to get OCR3 contract at %s : %s", prefix, cfg.Address, err)
 		return nil, fmt.Errorf("failed to get OCR3 contract: %w", err)
@@ -544,9 +546,10 @@ type RegisterNodesRequest struct {
 	Nops                  []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded
 	UseMCMS               bool
 }
+
 type RegisterNodesResponse struct {
 	nodeIDToParams map[string]capabilities_registry.CapabilitiesRegistryNodeParams
-	Ops            *timelock.BatchChainOperation
+	Ops            *mcmstypes.BatchOperation
 }
 
 // registerNodes registers the nodes with the registry. it assumes that the deployer key in the Chain
@@ -577,18 +580,7 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 		}
 	}
 
-	// TODO: deduplicate everywhere
-	registryChainID, err := chainsel.ChainIdFromSelector(registryChain.Selector)
-	if err != nil {
-		return nil, err
-	}
-	registryChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(registryChainID)), chainsel.FamilyEVM)
-	if err != nil {
-		return nil, err
-	}
-
 	nodeIDToParams := make(map[string]capabilities_registry.CapabilitiesRegistryNodeParams)
-	nodeIDToDon := make(map[string]string)
 	for don, nodes := range req.DonToNodes {
 		caps, ok := req.DonToCapabilities[don]
 		if !ok {
@@ -615,19 +607,15 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 			params, ok := nodeIDToParams[n.NodeID]
 
 			if !ok {
-				evmCC, exists := n.SelToOCRConfig[registryChainDetails]
-				if !exists {
-					return nil, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", registryChain.Selector, n.NodeID, n.Name)
+				signer, enc, err := extractSignerEncryptionKeys(n, registryChain.Selector)
+				if err != nil {
+					return nil, fmt.Errorf("failed to extract signer and encryption keys for node %s: %w", n.NodeID, err)
 				}
-				var signer [32]byte
-				copy(signer[:], evmCC.OnchainPublicKey)
-				var csakey [32]byte
-				copy(csakey[:], evmCC.ConfigEncryptionPublicKey[:])
 				params = capabilities_registry.CapabilitiesRegistryNodeParams{
 					NodeOperatorId:      nop.NodeOperatorId,
 					Signer:              signer,
 					P2pId:               n.PeerID,
-					EncryptionPublicKey: csakey,
+					EncryptionPublicKey: enc,
 					HashedCapabilityIds: hashedCapabilityIDs,
 				}
 			} else {
@@ -648,12 +636,77 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 				params.HashedCapabilityIds = append(params.HashedCapabilityIds, newCapIDs...)
 			}
 			nodeIDToParams[n.NodeID] = params
-			nodeIDToDon[n.NodeID] = don
 		}
 	}
+	addResp, err := AddNodes(lggr, &AddNodesRequest{
+		RegistryChain:        registryChain,
+		NodeParams:           nodeIDToParams,
+		UseMCMS:              req.UseMCMS,
+		CapabilitiesRegistry: registry,
+	})
+	if err != nil {
+		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
+		return nil, fmt.Errorf("failed to call AddNodes: %w", err)
+	}
 
-	lggr.Debugw("checking for existing nodes", "count", len(nodeIDToParams))
+	return &RegisterNodesResponse{
+		nodeIDToParams: nodeIDToParams,
+		Ops:            addResp.Ops,
+	}, nil
+}
 
+// chainSel must be an evm chain; it ought to be the registry chain
+// the signer is the onchain public key
+// the enc is the encryption public key
+func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32]byte, enc [32]byte, err error) {
+	wfKey, err := hex.DecodeString(n.WorkflowKey)
+	if err != nil {
+		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
+	}
+	chainID, err := chainsel.ChainIdFromSelector(chainSel)
+	if err != nil {
+		return signer, enc, fmt.Errorf("error getting chain id for selector %d: %w", chainSel, err)
+	}
+	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chainID, 10), chainsel.FamilyEVM)
+	if err != nil {
+		return signer, enc, fmt.Errorf("error getting chain details for selector %d, chain id %d: %w", chainSel, chainID, err)
+	}
+
+	evmCC, exists := n.SelToOCRConfig[chainDetails]
+	if !exists {
+		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
+	}
+	copy(signer[:], evmCC.OnchainPublicKey)
+	copy(enc[:], wfKey)
+	return signer, enc, nil
+}
+
+type AddNodesResponse struct {
+	// AddedNodes is only populated if UseMCMS is false
+	// It may be empty if no nodes were added
+	AddedNodes []capabilities_registry.CapabilitiesRegistryNodeParams
+	// Ops is only populated if UseMCMS is true
+	Ops *mcmstypes.BatchOperation
+}
+
+type AddNodesRequest struct {
+	RegistryChain        deployment.Chain
+	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
+	NodeParams           map[string]capabilities_registry.CapabilitiesRegistryNodeParams // the node id to the node params may be any node-unique identifier such as p2p, csa, etc
+
+	// If true, a batch proposal is created and returned. No transaction is confirmed on chain.
+	UseMCMS bool
+}
+
+// AddNodes adds the nodes to the registry
+//
+// It is idempotent.
+//
+// It is an error if there are duplicate nodes in the request.
+// It is an error if the referenced capabilities or nops are not already registered. See AddCapabilities, AddNops.
+func AddNodes(lggr logger.Logger, req *AddNodesRequest) (*AddNodesResponse, error) {
+	registry := req.CapabilitiesRegistry
+	nodeIDToParams := req.NodeParams
 	nodes2Add, err := getNodesToRegister(registry, nodeIDToParams)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get nodes to register: %w", err)
@@ -663,61 +716,37 @@ func RegisterNodes(lggr logger.Logger, req *RegisterNodesRequest) (*RegisterNode
 
 	if len(nodes2Add) == 0 {
 		lggr.Debug("no new nodes to register")
-		return &RegisterNodesResponse{
-			nodeIDToParams: nodeIDToParams,
-		}, nil
+		return &AddNodesResponse{}, nil
 	}
 
 	lggr.Debugw("unique node params to add after deduplication", "count", len(nodes2Add), "params", nodes2Add)
 
 	if req.UseMCMS {
-		ops, err := addNodesMCMSProposal(registry, nodes2Add, registryChain)
+		ops, err := addNodesMCMSProposal(registry, nodes2Add, req.RegistryChain.Selector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to generate proposal to add nodes: %w", err)
 		}
 
-		return &RegisterNodesResponse{
-			nodeIDToParams: nodeIDToParams,
-			Ops:            ops,
+		return &AddNodesResponse{
+			Ops: ops,
 		}, nil
 	}
 
-	tx, err := registry.AddNodes(registryChain.DeployerKey, nodes2Add)
+	tx, err := registry.AddNodes(req.RegistryChain.DeployerKey, nodes2Add)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		// no typed errors in the abi, so we have to do string matching
 		// try to add all nodes in one go, if that fails, fall back to 1-by-1
-		if !strings.Contains(err.Error(), "NodeAlreadyExists") {
-			return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
-		}
-		lggr.Warn("nodes already exist, falling back to 1-by-1")
-		for _, singleNodeParams := range nodes2Add {
-			tx, err = registry.AddNodes(registryChain.DeployerKey, []capabilities_registry.CapabilitiesRegistryNodeParams{singleNodeParams})
-			if err != nil {
-				err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
-				if strings.Contains(err.Error(), "NodeAlreadyExists") {
-					lggr.Warnw("node already exists, skipping", "p2pid", hex.EncodeToString(singleNodeParams.P2pId[:]))
-					continue
-				}
-				return nil, fmt.Errorf("failed to call AddNode for node with p2pid %v: %w", singleNodeParams.P2pId, err)
-			}
-			// 1-by-1 tx is pending and we need to wait for it to be mined
-			_, err = registryChain.Confirm(tx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to confirm AddNode of p2pid node %v transaction %s: %w", singleNodeParams.P2pId, tx.Hash().String(), err)
-			}
-			lggr.Debugw("registered node", "p2pid", singleNodeParams.P2pId)
-		}
-	} else {
-		// the bulk add tx is pending and we need to wait for it to be mined
-		_, err = registryChain.Confirm(tx)
-		if err != nil {
-			return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
-		}
+		return nil, fmt.Errorf("failed to call AddNodes for bulk add nodes: %w", err)
+	}
+	// the bulk add tx is pending and we need to wait for it to be mined
+	_, err = req.RegistryChain.Confirm(tx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to confirm AddNode confirm transaction %s: %w", tx.Hash().String(), err)
 	}
 
-	return &RegisterNodesResponse{
-		nodeIDToParams: nodeIDToParams,
+	return &AddNodesResponse{
+		AddedNodes: nodes2Add,
 	}, nil
 }
 
@@ -734,6 +763,9 @@ func getNodesToRegister(
 		)
 		if ni, err = registry.GetNode(&bind.CallOpts{}, nodeParams.P2pId); err != nil {
 			if err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err); strings.Contains(err.Error(), "NodeDoesNotExist") {
+				if nodeParams.EncryptionPublicKey == ([32]byte{}) {
+					return nil, fmt.Errorf("invalid workflow key (cannot be empty or zero) for nodeID: %s", nodeID)
+				}
 				nodes2Add = append(nodes2Add, nodeParams)
 				continue
 			}
@@ -750,23 +782,19 @@ func getNodesToRegister(
 }
 
 // addNodesMCMSProposal generates a single call to AddNodes for all the node params at once.
-func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+func addNodesMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, params []capabilities_registry.CapabilitiesRegistryNodeParams, regChainSel uint64) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddNodes(deployment.SimTransactOpts(), params)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to simulate call to AddNodes: %w", err)
 	}
 
-	return &timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
-		Batch: []mcms.Operation{
-			{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			},
-		},
-	}, nil
+	ops, err := proposalutils.BatchOperationForChain(regChainSel, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	return &ops, nil
 }
 
 type DONToRegister struct {
@@ -787,7 +815,7 @@ type RegisterDonsRequest struct {
 
 type RegisterDonsResponse struct {
 	DonInfos map[string]capabilities_registry.CapabilitiesRegistryDONInfo
-	Ops      *timelock.BatchChainOperation
+	Ops      *mcmstypes.BatchOperation
 }
 
 func sortedHash(p2pids [][32]byte) string {
@@ -823,7 +851,7 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 	lggr.Infow("fetched existing DONs...", "len", len(donInfos), "lenByNodesHash", len(existingDONs))
 
-	mcmsOps := make([]mcms.Operation, 0)
+	transactions := make([]mcmstypes.Transaction, 0)
 	for _, don := range req.DonsToRegister {
 		var p2pIds [][32]byte
 		for _, n := range don.Nodes {
@@ -884,12 +912,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 
 		if req.UseMCMS {
 			lggr.Debugw("adding mcms op for DON", "don", don.Name)
-			op := mcms.Operation{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
+			transaction, txErr := proposalutils.TransactionForChain(req.RegistryChainSelector, registry.Address().Hex(), tx.Data(), big.NewInt(0), "", nil)
+			if txErr != nil {
+				return nil, fmt.Errorf("failed to create transaction for chain %d: %w", req.RegistryChainSelector, txErr)
 			}
-			mcmsOps = append(mcmsOps, op)
+			transactions = append(transactions, transaction)
 			continue
 		}
 
@@ -902,11 +929,11 @@ func RegisterDons(lggr logger.Logger, req RegisterDonsRequest) (*RegisterDonsRes
 	}
 
 	if req.UseMCMS {
-		if len(mcmsOps) > 0 {
+		if len(transactions) > 0 {
 			return &RegisterDonsResponse{
-				Ops: &timelock.BatchChainOperation{
-					ChainIdentifier: mcms.ChainIdentifier(registryChain.Selector),
-					Batch:           mcmsOps,
+				Ops: &mcmstypes.BatchOperation{
+					ChainSelector: mcmstypes.ChainSelector(registryChain.Selector),
+					Transactions:  transactions,
 				},
 			}, nil
 		}

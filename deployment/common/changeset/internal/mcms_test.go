@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -63,7 +63,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)
 	require.Len(t, addresses, 5)
-	mcmsState, err := changeset.MaybeLoadMCMSWithTimelockChainState(chains[chainsel.TEST_90000001.Selector], addresses)
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockChainState(chains[chainsel.TEST_90000001.Selector], addresses)
 	require.NoError(t, err)
 	v, err := mcmsState.GenerateMCMSWithTimelockView()
 	b, err := json.MarshalIndent(v, "", "  ")

@@ -6,8 +6,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
 // NewTestBroadcaster creates a broadcaster with Pause/Resume enabled.

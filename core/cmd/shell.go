@@ -194,7 +194,7 @@ type ChainlinkAppFactory struct{}
 
 // NewApplication returns a new instance of the node with the given config.
 func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.GeneralConfig, appLggr logger.Logger, appRegisterer prometheus.Registerer, db *sqlx.DB, keyStoreAuthenticator TerminalKeyStoreAuthenticator) (app chainlink.Application, err error) {
-	err = migrate.SetMigrationENVVars(cfg)
+	err = migrate.SetMigrationENVVars(cfg.EVMConfigs())
 	if err != nil {
 		return nil, err
 	}
@@ -272,12 +272,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 	initOps := []chainlink.CoreRelayerChainInitFunc{chainlink.InitDummy(ctx, relayerFactory), chainlink.InitEVM(ctx, relayerFactory, evmFactoryCfg)}
 
 	if cfg.CosmosEnabled() {
-		cosmosCfg := chainlink.CosmosFactoryConfig{
-			Keystore:    keyStore.Cosmos(),
-			TOMLConfigs: cfg.CosmosConfigs(),
-			DS:          ds,
-		}
-		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, cosmosCfg))
+		initOps = append(initOps, chainlink.InitCosmos(ctx, relayerFactory, keyStore.Cosmos(), cfg.CosmosConfigs()))
 	}
 	if cfg.SolanaEnabled() {
 		solanaCfg := chainlink.SolanaFactoryConfig{
@@ -288,25 +283,13 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		initOps = append(initOps, chainlink.InitSolana(ctx, relayerFactory, solanaCfg))
 	}
 	if cfg.StarkNetEnabled() {
-		starkCfg := chainlink.StarkNetFactoryConfig{
-			Keystore:    keyStore.StarkNet(),
-			TOMLConfigs: cfg.StarknetConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, starkCfg))
+		initOps = append(initOps, chainlink.InitStarknet(ctx, relayerFactory, keyStore.StarkNet(), cfg.StarknetConfigs()))
 	}
 	if cfg.AptosEnabled() {
-		aptosCfg := chainlink.AptosFactoryConfig{
-			Keystore:    keyStore.Aptos(),
-			TOMLConfigs: cfg.AptosConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, aptosCfg))
+		initOps = append(initOps, chainlink.InitAptos(ctx, relayerFactory, keyStore.Aptos(), cfg.AptosConfigs()))
 	}
 	if cfg.TronEnabled() {
-		tronCfg := chainlink.TronFactoryConfig{
-			Keystore:    keyStore.Tron(),
-			TOMLConfigs: cfg.TronConfigs(),
-		}
-		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, tronCfg))
+		initOps = append(initOps, chainlink.InitTron(ctx, relayerFactory, keyStore.Tron(), cfg.TronConfigs()))
 	}
 
 	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
@@ -322,7 +305,12 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 
 	restrictedClient := clhttp.NewRestrictedHTTPClient(cfg.Database(), appLggr)
 	externalInitiatorManager := webhook.NewExternalInitiatorManager(ds, unrestrictedClient)
+	creOpts := chainlink.CREOpts{
+		CapabilitiesRegistry: capabilitiesRegistry,
+	}
 	return chainlink.NewApplication(chainlink.ApplicationOpts{
+		CREOpts: creOpts,
+
 		Config:                     cfg,
 		DS:                         ds,
 		KeyStore:                   keyStore,
@@ -340,7 +328,6 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		MercuryPool:                mercuryPool,
 		RetirementReportCache:      retirementReportCache,
 		LLOTransmissionReaper:      lloReaper,
-		CapabilitiesRegistry:       capabilitiesRegistry,
 	})
 }
 

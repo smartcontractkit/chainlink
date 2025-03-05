@@ -17,10 +17,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 /*
@@ -92,7 +93,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 		},
 	)
 
-	err = updateFeeQuoters(lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
+	err = updateFeeQuoters(t, lggr, e, state, chainA, chainB, chainC, aChainUSDC, bChainUSDC, cChainUSDC)
 	require.NoError(t, err)
 
 	// MockE2EUSDCTransmitter always mint 1, see MockE2EUSDCTransmitter.sol for more details
@@ -236,6 +237,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 }
 
 func updateFeeQuoters(
+	t *testing.T,
 	lggr logger.Logger,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
@@ -244,17 +246,17 @@ func updateFeeQuoters(
 ) error {
 	updateFeeQtrGrp := errgroup.Group{}
 	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainA], state.Chains[chainA], chainC, aChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainA], chainC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainB], state.Chains[chainB], chainC, bChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainB], chainC)
 	})
 	updateFeeQtrGrp.Go(func() error {
-		err1 := testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainA, cChainUSDC)
+		err1 := testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainA)
 		if err1 != nil {
 			return err1
 		}
-		return testhelpers.UpdateFeeQuoterForUSDC(lggr, e.Chains[chainC], state.Chains[chainC], chainB, cChainUSDC)
+		return testhelpers.UpdateFeeQuoterForUSDC(t, e, lggr, e.Chains[chainC], chainB)
 	})
 	return updateFeeQtrGrp.Wait()
 }

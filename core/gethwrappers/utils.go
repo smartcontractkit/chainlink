@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-
-	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
+	"strings"
 )
 
 // VersionHash is the hash used to detect changes in the underlying contract
@@ -65,22 +63,30 @@ func TempDir(dirPrefix string) (string, func()) {
 	}
 }
 
-func DeepCopyLog(l types.Log) types.Log {
-	var cpy types.Log
-	cpy.Address = l.Address
-	if l.Topics != nil {
-		cpy.Topics = make([]common.Hash, len(l.Topics))
-		copy(cpy.Topics, l.Topics)
+// BoxOutput formats its arguments as fmt.Printf, and encloses them in a box of
+// arrows pointing at their content, in order to better highlight it. See
+// ExampleBoxOutput
+func BoxOutput(errorMsgTemplate string, errorMsgValues ...interface{}) string {
+	errorMsgTemplate = fmt.Sprintf(errorMsgTemplate, errorMsgValues...)
+	lines := strings.Split(errorMsgTemplate, "\n")
+	maxlen := 0
+	for _, line := range lines {
+		if len(line) > maxlen {
+			maxlen = len(line)
+		}
 	}
-	if l.Data != nil {
-		cpy.Data = make([]byte, len(l.Data))
-		copy(cpy.Data, l.Data)
+	internalLength := maxlen + 4
+	output := "↘" + strings.Repeat("↓", internalLength) + "↙\n" // top line
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	readme := strings.Repeat("README ", maxlen/7)
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	for _, line := range lines {
+		output += "→  " + line + strings.Repeat(" ", maxlen-len(line)) + "  ←\n"
 	}
-	cpy.BlockNumber = l.BlockNumber
-	cpy.TxHash = l.TxHash
-	cpy.TxIndex = l.TxIndex
-	cpy.BlockHash = l.BlockHash
-	cpy.Index = l.Index
-	cpy.Removed = l.Removed
-	return cpy
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	output += "→  " + readme + strings.Repeat(" ", maxlen-len(readme)) + "  ←\n"
+	output += "→  " + strings.Repeat(" ", maxlen) + "  ←\n"
+	return "\n" + output + "↗" + strings.Repeat("↑", internalLength) + "↖" + // bottom line
+		"\n\n"
 }

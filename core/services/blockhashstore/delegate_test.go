@@ -10,7 +10,9 @@ import (
 	"go.uber.org/zap/zapcore"
 	"go.uber.org/zap/zaptest/observer"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	mocklp "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -24,8 +26,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils/big"
 )
 
 func TestDelegate_JobType(t *testing.T) {
@@ -58,7 +58,7 @@ func createTestDelegate(t *testing.T) (*blockhashstore.Delegate, *testData) {
 	sendingKey, _ := cltest.MustInsertRandomKey(t, kst)
 	lp := &mocklp.LogPoller{}
 	lp.On("RegisterFilter", mock.Anything, mock.Anything).Return(nil)
-	lp.On("LatestBlock", mock.Anything).Return(logpoller.LogPollerBlock{}, nil)
+	lp.On("LatestBlock", mock.Anything).Return(logpoller.Block{}, nil)
 
 	legacyChains := evmtest.NewLegacyChains(
 		t,

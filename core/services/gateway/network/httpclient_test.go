@@ -180,7 +180,7 @@ func TestHTTPClient_Send(t *testing.T) {
 			config := HTTPClientConfig{
 				MaxResponseBytes: tt.giveMaxRespBytes,
 				DefaultTimeout:   5 * time.Second,
-				allowedIPs:       []string{hostname},
+				AllowedIPs:       []string{hostname},
 				AllowedPorts:     []int{int(portInt)},
 			}
 

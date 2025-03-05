@@ -23,10 +23,12 @@ import (
 	"github.com/scylladb/go-reflectx"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
+	cltypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	ctf_concurrency "github.com/smartcontractkit/chainlink-testing-framework/lib/concurrency"
 	ctf_test_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
@@ -39,11 +41,9 @@ import (
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	lp_config "github.com/smartcontractkit/chainlink/integration-tests/testconfig/log_poller"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
 	le "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 	core_logger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	cltypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var (

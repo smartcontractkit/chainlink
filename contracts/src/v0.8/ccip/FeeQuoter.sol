@@ -169,7 +169,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   /// @dev The decimals that Keystone reports prices in.
   uint256 public constant KEYSTONE_PRICE_DECIMALS = 18;
 
-  string public constant override typeAndVersion = "FeeQuoter 1.6.0-dev";
+  string public constant override typeAndVersion = "FeeQuoter 1.6.0";
 
   /// @dev The gas price per unit of gas for a given destination chain, in USD with 18 decimals. Multiple gas prices can
   /// be encoded into the same value. Each price takes {Internal.GAS_PRICE_BITS} bits. For example, if Optimism is the
@@ -929,8 +929,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 defaultTxGasLimit,
     uint256 maxPerMsgGasLimit,
     bool enforceOutOfOrder
-  ) internal pure returns (Client.EVMExtraArgsV2 memory) {
-    Client.EVMExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
+  ) internal pure returns (Client.GenericExtraArgsV2 memory) {
+    Client.GenericExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
 
     if (evmExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
 
@@ -951,21 +951,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function _parseUnvalidatedEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 defaultTxGasLimit
-  ) private pure returns (Client.EVMExtraArgsV2 memory) {
+  ) private pure returns (Client.GenericExtraArgsV2 memory) {
     if (extraArgs.length == 0) {
       // If extra args are empty, generate default values.
-      return Client.EVMExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
     }
 
     bytes4 extraArgsTag = bytes4(extraArgs);
     bytes memory argsData = extraArgs[4:];
 
-    if (extraArgsTag == Client.EVM_EXTRA_ARGS_V2_TAG) {
-      return abi.decode(argsData, (Client.EVMExtraArgsV2));
+    if (extraArgsTag == Client.GENERIC_EXTRA_ARGS_V2_TAG) {
+      return abi.decode(argsData, (Client.GenericExtraArgsV2));
     } else if (extraArgsTag == Client.EVM_EXTRA_ARGS_V1_TAG) {
       // EVMExtraArgsV1 originally included a second boolean (strict) field which has been deprecated.
       // Clients may still include it but it will be ignored.
-      return Client.EVMExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
     }
     revert InvalidExtraArgsTag();
   }
@@ -1029,8 +1029,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     address feeToken,
     uint256 feeTokenAmount,
     bytes calldata extraArgs,
-    Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
-    Client.EVMTokenAmount[] calldata sourceTokenAmounts
+    bytes calldata messageReceiver
   )
     external
     view
@@ -1038,7 +1037,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
       uint256 msgFeeJuels,
       bool isOutOfOrderExecution,
       bytes memory convertedExtraArgs,
-      bytes[] memory destExecDataPerToken
+      bytes memory tokenReceiver
     )
   {
     // Convert feeToken to link if not already in link.
@@ -1050,11 +1049,10 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
 
     if (msgFeeJuels > i_maxFeeJuelsPerMsg) revert MessageFeeTooHigh(msgFeeJuels, i_maxFeeJuelsPerMsg);
 
-    (convertedExtraArgs, isOutOfOrderExecution) = _processChainFamilySelector(destChainSelector, extraArgs);
+    (convertedExtraArgs, isOutOfOrderExecution, tokenReceiver) =
+      _processChainFamilySelector(destChainSelector, messageReceiver, extraArgs);
 
-    destExecDataPerToken = _processPoolReturnData(destChainSelector, onRampTokenTransfers, sourceTokenAmounts);
-
-    return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, destExecDataPerToken);
+    return (msgFeeJuels, isOutOfOrderExecution, convertedExtraArgs, tokenReceiver);
   }
 
   /// @notice Parses the extra Args based on the chain family selector. Isolated into a separate function
@@ -1062,37 +1060,39 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   // solhint-disable-next-line chainlink-solidity/explicit-returns
   function _processChainFamilySelector(
     uint64 destChainSelector,
+    bytes calldata messageReceiver,
     bytes calldata extraArgs
-  ) internal view returns (bytes memory validatedExtraArgs, bool allowOutOfOrderExecution) {
+  ) internal view returns (bytes memory validatedExtraArgs, bool allowOutOfOrderExecution, bytes memory tokenReceiver) {
     // Since this function is called after getFee, which already validates the params, no validation is necessary.
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      Client.EVMExtraArgsV2 memory parsedExtraArgs =
+      Client.GenericExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
-      return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution);
+      return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution, messageReceiver);
     }
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_SVM) {
       // If extraArgs passes the parsing it's valid and can be returned unchanged.
-      _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder);
-
       // ExtraArgs are required on SVM, meaning the supplied extraArgs are either invalid and we would have reverted
       // or we have valid extraArgs and we can return them without having to re-encode them.
-      return (extraArgs, true);
+      return (
+        extraArgs,
+        true,
+        abi.encode(
+          _parseSVMExtraArgsFromBytes(extraArgs, destChainConfig.maxPerMsgGasLimit, destChainConfig.enforceOutOfOrder)
+            .tokenReceiver
+        )
+      );
     }
     revert InvalidChainFamilySelector(destChainConfig.chainFamilySelector);
   }
 
-  /// @notice Validates pool return data.
-  /// @param destChainSelector Destination chain selector to which the token amounts are sent to.
-  /// @param onRampTokenTransfers Token amounts with populated pool return data.
-  /// @param sourceTokenAmounts Token amounts originally sent in a Client.EVM2AnyMessage message.
-  /// @return destExecDataPerToken Destination chain execution data.
-  function _processPoolReturnData(
+  /// @inheritdoc IFeeQuoter
+  function processPoolReturnData(
     uint64 destChainSelector,
     Internal.EVM2AnyTokenTransfer[] calldata onRampTokenTransfers,
     Client.EVMTokenAmount[] calldata sourceTokenAmounts
-  ) internal view returns (bytes[] memory destExecDataPerToken) {
+  ) external view returns (bytes[] memory destExecDataPerToken) {
     bytes4 chainFamilySelector = s_destChainConfigs[destChainSelector].chainFamilySelector;
     destExecDataPerToken = new bytes[](onRampTokenTransfers.length);
     for (uint256 i = 0; i < onRampTokenTransfers.length; ++i) {
