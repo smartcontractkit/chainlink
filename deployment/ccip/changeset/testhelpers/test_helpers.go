@@ -979,8 +979,8 @@ func DeployTransferableTokenSolana(
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddBillingTokenForRemoteChain),
-			ccipChangeSetSolana.BillingTokenForRemoteChainConfig{
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
+			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChainSel,
 				RemoteChainSelector: evmChainSel,
 				TokenPubKey:         solTokenAddress.String(),
