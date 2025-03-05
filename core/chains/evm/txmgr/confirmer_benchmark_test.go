@@ -33,14 +33,15 @@ func BenchmarkEthConfirmer(t *testing.B) {
 
 	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
 	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
-	etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
 	ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
 	ctx := tests.Context(t)
 
 	t.ResetTimer()
 	for n := 0; n < t.N; n++ {
+		etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
+		etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
+
 		var err error
 		t.StartTimer()
 		err = ec.CheckForConfirmation(ctx, &head)
@@ -54,5 +55,8 @@ func BenchmarkEthConfirmer(t *testing.B) {
 		etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
 		require.NoError(t, err)
 		require.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
+
+		deleteTx(ctx, t, &etx1, db)
+		deleteTx(ctx, t, &etx2, db)
 	}
 }
