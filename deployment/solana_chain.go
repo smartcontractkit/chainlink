@@ -86,7 +86,7 @@ func GetSolanaProgramBytes() map[string]int {
 		AccessControllerProgramName:     1 * 1024 * 1024,
 		TimelockProgramName:             1 * 1024 * 1024,
 		McmProgramName:                  1 * 1024 * 1024,
-		// RMNRemoteProgramName:            0,
+		RMNRemoteProgramName:            3 * 1024 * 1024,
 	}
 }
 
@@ -110,6 +110,11 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 		programFile,                // .so file
 		"--keypair", c.KeypairPath, // deployer keypair
 		"--url", c.URL, // rpc url
+	}
+
+	// For test router deployments, add --use-rpc flag
+	if strings.Contains(c.ProgramsPath, "test_router") {
+		baseArgs = append(baseArgs, "--use-rpc")
 	}
 
 	var cmd *exec.Cmd

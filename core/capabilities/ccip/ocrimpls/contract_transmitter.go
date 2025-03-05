@@ -54,7 +54,7 @@ func NewToCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataFu
 		}
 
 		method = defaultMethod
-		if priceOnlyMethod != "" && len(info.MerkleRoots) == 0 && len(info.TokenPrices) > 0 {
+		if priceOnlyMethod != "" && len(info.MerkleRoots) == 0 && len(info.TokenPriceUpdates) > 0 {
 			method = priceOnlyMethod
 		}
 

@@ -32,7 +32,7 @@ func (cfg DisableRemoteChainConfig) Validate(e deployment.Environment) error {
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState); err != nil {
+	if err := validateRouterConfig(chain, chainState, false); err != nil {
 		return err
 	}
 	if err := validateFeeQuoterConfig(chain, chainState); err != nil {

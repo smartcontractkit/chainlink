@@ -189,8 +189,8 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 		if in.WorkflowConfig.ShouldCompileNewWorkflow {
 			gistWriteToken := os.Getenv("GIST_WRITE_TOKEN")
 			require.NotEmpty(t, gistWriteToken, "GIST_WRITE_TOKEN must be set to use CRE CLI to compile workflows. It requires gist:read and gist:write permissions")
-			err := os.Setenv("GITHUB_API_TOKEN", gistWriteToken)
-			require.NoError(t, err, "failed to set GITHUB_API_TOKEN env var")
+			err := os.Setenv("CRE_GITHUB_API_TOKEN", gistWriteToken)
+			require.NoError(t, err, "failed to set CRE_GITHUB_API_TOKEN env var")
 		}
 	}
 }
