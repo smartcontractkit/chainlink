@@ -98,11 +98,11 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 			addrCopy := addr
 			ocrView, err := GenerateOCR3ConfigView(ctx, oc)
 			if err != nil {
-				allErrs = errors.Join(allErrs, err)
 				// don't block view on single OCR3 not being configured
 				if errors.Is(err, ErrOCR3NotConfigured) {
 					lggr.Warnf("ocr3 not configured for address %s", addr)
 				} else {
+					allErrs = errors.Join(allErrs, err)
 					lggr.Errorf("failed to generate OCR3 config view: %v", err)
 				}
 			}
@@ -123,10 +123,11 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 	if cs.Forwarder != nil {
 		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
 		if fwrErr != nil {
-			allErrs = errors.Join(allErrs, fwrErr)
+			// don't block view on single forwarder not being configured
 			if errors.Is(fwrErr, ErrForwarderNotConfigured) {
 				lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
 			} else {
+				allErrs = errors.Join(allErrs, fwrErr)
 				lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
 			}
 		}
