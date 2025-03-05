@@ -79,7 +79,7 @@ func TestKeystoneView(t *testing.T) {
 		_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
 		require.NoError(t, err)
 
-		a, err := changeset.ViewKeystone(env.Env)
+		a, err := changeset.ViewKeystone(env.Env, nil)
 		require.NoError(t, err)
 		b, err := a.MarshalJSON()
 		require.NoError(t, err)
@@ -107,7 +107,7 @@ func TestKeystoneView(t *testing.T) {
 		require.NotNil(t, resp)
 		require.NoError(t, env.Env.ExistingAddresses.Merge(resp.AddressBook))
 
-		_, err = changeset.ViewKeystone(env.Env)
+		_, err = changeset.ViewKeystone(env.Env, nil)
 		require.ErrorContains(t, err, "failed to view chain")
 		require.ErrorContains(t, err, "OCR3 not configured")
 	})
@@ -128,7 +128,7 @@ func TestKeystoneView(t *testing.T) {
 		}
 		_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
 		require.NoError(t, err)
-		_, err = changeset.ViewKeystone(env.Env)
+		_, err = changeset.ViewKeystone(env.Env, nil)
 		require.ErrorContains(t, err, "failed to view chain")
 		require.ErrorContains(t, err, "DeltaRound (0s) must be less than DeltaProgress (0s)")
 	})

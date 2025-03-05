@@ -12,6 +12,6 @@ import (
 func TestSmokeView(t *testing.T) {
 	t.Parallel()
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
-	_, err := changeset.ViewCCIP(tenv.Env)
+	_, err := changeset.ViewCCIP(tenv.Env, nil)
 	require.NoError(t, err)
 }
