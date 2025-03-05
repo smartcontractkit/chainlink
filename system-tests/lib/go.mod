@@ -351,7 +351,7 @@ require (
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250219165127-be60782e4448 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
-	github.com/smartcontractkit/mcms v0.12.3-0.20250304193016-008aec734962 // indirect
+	github.com/smartcontractkit/mcms v0.13.0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.3 // indirect
