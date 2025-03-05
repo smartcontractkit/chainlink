@@ -24,7 +24,7 @@ func ViewKeystone(e deployment.Environment, previousView []byte) (json.Marshaler
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
 	var prevView KeystoneView
-	if previousView == nil || len(previousView) == 0 {
+	if len(previousView) == 0 {
 		prevView.Chains = make(map[string]KeystoneChainView)
 	} else if err = json.Unmarshal(previousView, &prevView); err != nil {
 		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)

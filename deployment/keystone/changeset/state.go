@@ -170,12 +170,13 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 				fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
 				if fwrErr != nil {
 					// don't block view on single forwarder not being configured
-					if errors.Is(fwrErr, ErrForwarderNotConfigured) {
+					switch {
+					case errors.Is(fwrErr, ErrForwarderNotConfigured):
 						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
-					} else if errors.Is(fwrErr, context.Canceled) || errors.Is(fwrErr, context.DeadlineExceeded) {
+					case errors.Is(fwrErr, context.Canceled), errors.Is(fwrErr, context.DeadlineExceeded):
 						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Contract.Address())
 						errCh <- fwrErr
-					} else {
+					default:
 						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
 						errCh <- fwrErr
 					}
