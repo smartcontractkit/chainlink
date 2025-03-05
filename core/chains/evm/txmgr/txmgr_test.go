@@ -50,7 +50,7 @@ import (
 )
 
 func makeTestEvmTxm(
-	t *testing.T, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
+	t testing.TB, db *sqlx.DB, ethClient evmclient.Client, estimator gas.EvmFeeEstimator, ccfg txmgr.ChainConfig, fcfg txmgr.FeeConfig, txConfig evmconfig.Transactions, dbConfig txmgr.DatabaseConfig, listenerConfig txmgr.ListenerConfig, keyStore keystore.Eth) (txmgr.TxManager, error) {
 	lggr := logger.Test(t)
 	lpOpts := logpoller.Opts{
 		PollPeriod:               100 * time.Millisecond,
@@ -387,6 +387,42 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 		assert.Equal(t, tx1.GetID(), tx2.GetID())
 	})
+}
+
+func BenchmarkCreateTransaction(b *testing.B) {
+	db := testutils.NewSqlxDB(b)
+	//txStore := cltest.NewTestTxStore(t, db)
+	kst := cltest.NewKeyStore(b, db)
+
+	_, fromAddress := cltest.MustInsertRandomKey(b, kst.Eth())
+	toAddress := testutils.NewAddress()
+	gasLimit := uint64(1000)
+	payload := []byte{1, 2, 3}
+
+	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(b)
+
+	ethClient := clienttest.NewClient(b)
+	ethClient.On("ConfiguredChainID").Return(big.NewInt(0)).Maybe()
+
+	estimator, err := gas.NewEstimator(logger.Test(b), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
+	require.NoError(b, err)
+	txm, err := makeTestEvmTxm(b, db, ethClient, estimator, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), dbConfig, dbConfig.Listener(), kst.Eth())
+	require.NoError(b, err)
+
+	subject := uuid.New()
+	strategy := newMockTxStrategy(b)
+	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
+	strategy.On("PruneQueue", mock.Anything, mock.Anything).Return(nil, nil)
+	for n := 0; n < b.N; n++ {
+		txm.CreateTransaction(tests.Context(b), txmgr.TxRequest{
+			FromAddress:    fromAddress,
+			ToAddress:      toAddress,
+			EncodedPayload: payload,
+			FeeLimit:       gasLimit,
+			Meta:           nil,
+			Strategy:       strategy,
+		})
+	}
 }
 
 func newMockTxStrategy(t testing.TB) *commontxmmocks.TxStrategy {
