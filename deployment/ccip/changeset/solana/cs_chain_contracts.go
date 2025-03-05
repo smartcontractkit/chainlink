@@ -9,6 +9,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -31,6 +32,7 @@ var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
 var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
 var _ deployment.ChangeSet[DeployTestRouterConfig] = DeployTestRouter
 var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
+var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {
 	MCMS *ccipChangeset.MCMSConfig
@@ -225,4 +227,73 @@ func UpdateOffRampRefAddresses(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 	return deployment.ChangesetOutput{}, nil
+}
+
+type SetUpgradeAuthorityConfig struct {
+	ChainSelector       uint64
+	NewUpgradeAuthority solana.PublicKey // if set, sets router and fee quoter upgrade authority
+}
+
+func SetUpgradeAuthorityChangeset(
+	e deployment.Environment,
+	config SetUpgradeAuthorityConfig,
+) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[config.ChainSelector]
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	if err != nil {
+		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	chainState, chainExists := state.SolChains[chain.Selector]
+	if !chainExists {
+		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
+	}
+	if chainState.Router.IsZero() || chainState.FeeQuoter.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get router or fee quoter address for chain %s", chain.String())
+	}
+	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
+	for _, programID := range []solana.PublicKey{chainState.Router, chainState.FeeQuoter} {
+		if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, &config.NewUpgradeAuthority, false); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set upgrade authority: %w", err)
+		}
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+// setUpgradeAuthority creates a transaction to set the upgrade authority for a program
+func setUpgradeAuthority(
+	e *deployment.Environment,
+	chain *deployment.SolChain,
+	programID solana.PublicKey,
+	currentUpgradeAuthority *solana.PrivateKey,
+	newUpgradeAuthority *solana.PublicKey,
+	isBuffer bool,
+) error {
+	// Buffers use the program account as the program data account
+	programDataSlice := solana.NewAccountMeta(programID, true, false)
+	if !isBuffer {
+		// Actual program accounts use the program data account
+		programDataAddress, _, _ := solana.FindProgramAddress([][]byte{programID.Bytes()}, solana.BPFLoaderUpgradeableProgramID)
+		programDataSlice = solana.NewAccountMeta(programDataAddress, true, false)
+	}
+
+	keys := solana.AccountMetaSlice{
+		programDataSlice, // Program account (writable)
+		solana.NewAccountMeta(currentUpgradeAuthority.PublicKey(), false, true), // Current upgrade authority (signer)
+		solana.NewAccountMeta(*newUpgradeAuthority, false, false),               // New upgrade authority
+	}
+
+	instruction := solana.NewInstruction(
+		solana.BPFLoaderUpgradeableProgramID,
+		keys,
+		// https://github.com/solana-playground/solana-playground/blob/2998d4cf381aa319d26477c5d4e6d15059670a75/vscode/src/commands/deploy/bpf-upgradeable/bpf-upgradeable.ts#L72
+		[]byte{4, 0, 0, 0}, // 4-byte SetAuthority instruction identifier
+	)
+
+	if err := chain.Confirm([]solana.Instruction{instruction}, solCommonUtil.AddSigners(*currentUpgradeAuthority)); err != nil {
+		return fmt.Errorf("failed to confirm setUpgradeAuthority: %w", err)
+	}
+	e.Logger.Infow("Set upgrade authority", "programID", programID.String(), "newUpgradeAuthority", newUpgradeAuthority.String())
+
+	return nil
 }
