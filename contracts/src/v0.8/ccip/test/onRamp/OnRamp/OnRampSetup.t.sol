@@ -111,7 +111,7 @@ contract OnRampSetup is FeeQuoterFeeSetup {
     bytes32 metadataHash,
     TokenAdminRegistry tokenAdminRegistry
   ) internal view returns (Internal.EVM2AnyRampMessage memory) {
-    Client.EVMExtraArgsV2 memory extraArgs =
+    Client.GenericExtraArgsV2 memory extraArgs =
       s_feeQuoter.parseEVMExtraArgsFromBytes(message.extraArgs, DEST_CHAIN_SELECTOR);
 
     Internal.EVM2AnyRampMessage memory messageEvent = Internal.EVM2AnyRampMessage({

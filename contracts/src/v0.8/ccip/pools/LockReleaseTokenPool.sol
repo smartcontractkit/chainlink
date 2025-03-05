@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ILiquidityContainer} from "../../liquiditymanager/interfaces/ILiquidityContainer.sol";
 import {ITypeAndVersion} from "../../shared/interfaces/ITypeAndVersion.sol";
+import {ILiquidityContainer} from "../interfaces/ILiquidityContainer.sol";
 
 import {Pool} from "../libraries/Pool.sol";
 import {TokenPool} from "./TokenPool.sol";
@@ -85,13 +85,13 @@ contract LockReleaseTokenPool is TokenPool, ILiquidityContainer, ITypeAndVersion
     return interfaceId == type(ILiquidityContainer).interfaceId || super.supportsInterface(interfaceId);
   }
 
-  /// @notice Gets LiquidityManager, can be address(0) if none is configured.
+  /// @notice Gets rebalancer, can be address(0) if none is configured.
   /// @return The current liquidity manager.
   function getRebalancer() external view returns (address) {
     return s_rebalancer;
   }
 
-  /// @notice Sets the LiquidityManager address.
+  /// @notice Sets the rebalancer address.
   /// @dev Only callable by the owner.
   function setRebalancer(
     address rebalancer
