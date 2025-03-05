@@ -6,17 +6,19 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/mcms"
-	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 var _ deployment.ChangeSet[v1_6.SetOCR3OffRampConfig] = SetOCR3ConfigSolana
@@ -263,8 +265,12 @@ func UpdateOffRampRefAddresses(
 }
 
 type SetUpgradeAuthorityConfig struct {
-	ChainSelector       uint64
-	NewUpgradeAuthority solana.PublicKey
+	ChainSelector         uint64
+	NewUpgradeAuthority   solana.PublicKey
+	SetAfterInitialDeploy bool // set all of the programs after the initial deploy
+	SetOffRamp            bool // offramp not upgraded in place, so may need to set separately
+	SetTestRouter         bool // test router not upgraded in place, so may need to set separately
+	SetMCMSPrograms       bool // these all deploy at once so just set them all
 }
 
 func SetUpgradeAuthorityChangeset(
@@ -281,11 +287,35 @@ func SetUpgradeAuthorityChangeset(
 	if !chainExists {
 		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	if chainState.Router.IsZero() || chainState.FeeQuoter.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get router or fee quoter address for chain %s", chain.String())
+	programs := make([]solana.PublicKey, 0)
+	if config.SetAfterInitialDeploy {
+		programs = append(programs, chainState.Router, chainState.FeeQuoter, chainState.RMNRemote, chainState.BurnMintTokenPool, chainState.LockReleaseTokenPool)
+	}
+	if config.SetOffRamp {
+		programs = append(programs, chainState.OffRamp)
+	}
+	if config.SetTestRouter {
+		programs = append(programs, chainState.TestRouter)
+	}
+	if config.SetMCMSPrograms {
+		addresses, err := e.ExistingAddresses.AddressesForChain(config.ChainSelector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+		}
+		mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+		}
+		programs = append(programs, mcmState.AccessControllerProgram, mcmState.TimelockProgram, mcmState.McmProgram)
+	}
+	// We do two loops here just to catch any errors before we get partway through the process
+	for _, program := range programs {
+		if program.IsZero() {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get program address for chain %s", chain.String())
+		}
 	}
 	e.Logger.Infow("Setting upgrade authority", "newUpgradeAuthority", config.NewUpgradeAuthority.String())
-	for _, programID := range []solana.PublicKey{chainState.Router, chainState.FeeQuoter} {
+	for _, programID := range programs {
 		if err := setUpgradeAuthority(&e, &chain, programID, chain.DeployerKey, &config.NewUpgradeAuthority, false); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set upgrade authority: %w", err)
 		}

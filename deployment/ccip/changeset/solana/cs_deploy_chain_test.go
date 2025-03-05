@@ -146,8 +146,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
 			ccipChangesetSolana.SetUpgradeAuthorityConfig{
-				ChainSelector:       solChainSelectors[0],
-				NewUpgradeAuthority: upgradeAuthority,
+				ChainSelector:         solChainSelectors[0],
+				NewUpgradeAuthority:   upgradeAuthority,
+				SetAfterInitialDeploy: true,
+				SetMCMSPrograms:       true,
 			},
 		),
 		// build the upgraded contracts and deploy/replace them onchain
