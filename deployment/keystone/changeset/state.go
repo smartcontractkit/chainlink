@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
@@ -33,10 +34,15 @@ type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
+type ForwarderContract struct {
+	Contract       *forwarder.KeystoneForwarder
+	TypeAndVersion deployment.TypeAndVersion
+}
+
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
-	Forwarder            *forwarder.KeystoneForwarder
+	Forwarder            *ForwarderContract
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
@@ -46,7 +52,7 @@ func (cs ContractSet) Convert() internal.ContractSet {
 		MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
 			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
 		},
-		Forwarder:            cs.Forwarder,
+		Forwarder:            cs.Forwarder.Contract,
 		WorkflowRegistry:     cs.WorkflowRegistry,
 		OCR3:                 cs.OCR3,
 		CapabilitiesRegistry: cs.CapabilitiesRegistry,
@@ -61,7 +67,7 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 		}
 	}
 	if cs.Forwarder != nil {
-		out = append(out, cs.Forwarder.Address())
+		out = append(out, cs.Forwarder.Contract.Address())
 	}
 	if cs.CapabilitiesRegistry != nil {
 		out = append(out, cs.CapabilitiesRegistry.Address())
@@ -73,8 +79,8 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best effort and logs errors
-func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
+// It is best-effort and logs errors
+func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
@@ -90,7 +96,7 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 		for addr, ocr3Cap := range cs.OCR3 {
 			oc := *ocr3Cap
 			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(oc)
+			ocrView, err := GenerateOCR3ConfigView(ctx, oc)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				// don't block view on single OCR3 not being configured
@@ -112,6 +118,15 @@ func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 			lggr.Errorf("WorkflowRegistry error: %v", err)
 		}
 		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+	}
+
+	if cs.Forwarder != nil {
+		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
+		if fwrErr != nil {
+			allErrs = errors.Join(allErrs, fwrErr)
+			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+		}
+		out.Forwarders[cs.Forwarder.Contract.Address().String()] = fwrView
 	}
 
 	return out, allErrs
@@ -179,7 +194,10 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 			if err != nil {
 				return nil, fmt.Errorf("failed to create forwarder contract from address %s: %w", addr, err)
 			}
-			out.Forwarder = c
+			out.Forwarder = &ForwarderContract{
+				Contract:       c,
+				TypeAndVersion: tv,
+			}
 		case OCR3Capability:
 			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
 			if err != nil {
