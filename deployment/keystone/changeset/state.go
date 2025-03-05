@@ -124,6 +124,7 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 							lggr.Errorf("failed to generate OCR3 config view: %v", err)
 							errCh <- err
 						}
+						continue
 					}
 					out.OCRContracts[addrCopy.String()] = ocrView
 				}
@@ -180,8 +181,9 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
 						errCh <- fwrErr
 					}
+				} else {
+					out.Forwarders[fwrAddr] = fwrView
 				}
-				out.Forwarders[fwrAddr] = fwrView
 			}
 		}()
 	}
