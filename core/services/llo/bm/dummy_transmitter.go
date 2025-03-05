@@ -74,8 +74,8 @@ func (t *transmitter) Transmit(
 					"report.Report.ConfigDigest", r.ConfigDigest,
 					"report.Report.SeqNr", r.SeqNr,
 					"report.Report.ChannelID", r.ChannelID,
-					"report.Report.ValidAfterSeconds", r.ValidAfterSeconds,
-					"report.Report.ObservationTimestampSeconds", r.ObservationTimestampSeconds,
+					"report.Report.ValidAfterNanoseconds", r.ValidAfterNanoseconds,
+					"report.Report.ObservationTimestampNanoseconds", r.ObservationTimestampNanoseconds,
 					"report.Report.Values", r.Values,
 					"report.Report.Specimen", r.Specimen,
 				)

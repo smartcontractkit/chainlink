@@ -329,7 +329,7 @@ func BuildOCR3ConfigForCCIPHome(
 	if err != nil {
 		return nil, fmt.Errorf("can't get chain config for %d: %w", destSelector, err)
 	}
-	p2pIDs := nodes.PeerIDs()
+	var p2pIDs [][32]byte
 	// Get OCR3 Config from helper
 	var schedule []int
 	var oracles []confighelper.OracleIdentityExtra
@@ -339,6 +339,7 @@ func BuildOCR3ConfigForCCIPHome(
 		if !exists {
 			return nil, fmt.Errorf("no OCR config for chain %d", destSelector)
 		}
+		p2pIDs = append(p2pIDs, node.PeerID)
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  cfg.OnchainPublicKey,

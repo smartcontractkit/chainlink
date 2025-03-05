@@ -1,6 +1,9 @@
 package jobs
 
-import "github.com/pelletier/go-toml/v2"
+import (
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml/v2"
+)
 
 var _ JobSpec = &BootstrapSpec{}
 
@@ -25,6 +28,21 @@ var (
 type RelayConfig struct {
 	ChainID   string `toml:"chainID"`
 	FromBlock uint64 `toml:"fromBlock,omitempty"`
+}
+
+func NewBootstrapSpec(contractID string, donID uint64, relay RelayType, relayConfig RelayConfig) *BootstrapSpec {
+	return &BootstrapSpec{
+		Base: Base{
+			Name:          "bootstrap",
+			Type:          JobSpecTypeBootstrap,
+			SchemaVersion: 1,
+			ExternalJobID: uuid.New(),
+		},
+		ContractID:  contractID,
+		DonID:       donID,
+		Relay:       relay,
+		RelayConfig: relayConfig,
+	}
 }
 
 func (b *BootstrapSpec) MarshalTOML() ([]byte, error) {

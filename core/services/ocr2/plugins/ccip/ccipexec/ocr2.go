@@ -17,6 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
@@ -84,6 +85,7 @@ type ExecutionReportingPlugin struct {
 	onRampReader                ccipdata.OnRampReader
 
 	// Dest
+	destChainSelector      uint64
 	commitStoreReader      ccipdata.CommitStoreReader
 	destPriceRegistry      ccipdata.PriceRegistryReader
 	destWrappedNative      cciptypes.Address
@@ -300,6 +302,7 @@ func (r *ExecutionReportingPlugin) buildBatch(
 		r.gasPriceEstimator,
 		r.destWrappedNative,
 		r.offchainConfig,
+		r.destChainSelector,
 	}
 
 	return r.batchingStrategy.BuildBatch(ctx, batchCtx)

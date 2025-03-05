@@ -104,10 +104,11 @@ type ChangesetOutput struct {
 	JobSpecs map[string][]string `deprecated:"true"`
 	Jobs     []ProposedJob
 	// Deprecated: Prefer MCMSTimelockProposals instead, will be removed in future
-	Proposals             []timelock.MCMSWithTimelockProposal
-	MCMSTimelockProposals []mcms.TimelockProposal
-	MCMSProposals         []mcms.Proposal
-	AddressBook           AddressBook
+	Proposals                  []timelock.MCMSWithTimelockProposal
+	MCMSTimelockProposals      []mcms.TimelockProposal
+	DescribedTimelockProposals []string
+	MCMSProposals              []mcms.Proposal
+	AddressBook                AddressBook
 }
 
 // ViewState produces a product specific JSON representation of

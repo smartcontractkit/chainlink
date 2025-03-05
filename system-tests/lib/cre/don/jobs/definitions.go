@@ -2,22 +2,17 @@ package jobs
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 var (
-	NoExtraAllowedPorts = []int{}
-	NoExtraAllowedIPs   = []string{}
-
 	DefaultAllowedPorts = []int{80, 443}
 )
 
@@ -46,16 +41,36 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	}
 }
 
-func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
-	var gatewayMembers string
-	for i := 1; i < len(don.Nodes); i++ {
-		gatewayMembers += fmt.Sprintf(`
+func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+	var gatewayDons string
+
+	for _, don := range gatewayConnectorData.Dons {
+		var gatewayMembers string
+
+		for i := 0; i < len(don.MembersEthAddresses); i++ {
+			gatewayMembers += fmt.Sprintf(`
 	[[gatewayConfig.Dons.Members]]
 	Address = "%s"
 	Name = "Node %d"`,
-			don.Nodes[i].AccountAddr[chainID],
-			i,
-		)
+				don.MembersEthAddresses[i],
+				i+1,
+			)
+		}
+
+		gatewayDons += fmt.Sprintf(`
+		[[gatewayConfig.Dons]]
+		DonId = "%d"
+		F = 1
+		HandlerName = "web-api-capabilities"
+			[gatewayConfig.Dons.HandlerConfig]
+			MaxAllowedMessageAgeSec = 1_000
+				[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
+				GlobalBurst = 10
+				GlobalRPS = 50
+				PerSenderBurst = 10
+				PerSenderRPS = 10
+			%s
+		`, don.ID, gatewayMembers)
 	}
 
 	uuid := uuid.NewString()
@@ -71,18 +86,7 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 	AuthGatewayId = "por_gateway"
 	AuthTimestampToleranceSec = 5
 	HeartbeatIntervalSec = 20
-	[[gatewayConfig.Dons]]
-	DonId = "%s"
-	F = 1
-	HandlerName = "web-api-capabilities"
-		[gatewayConfig.Dons.HandlerConfig]
-		MaxAllowedMessageAgeSec = 1_000
-			[gatewayConfig.Dons.HandlerConfig.NodeRateLimiter]
-			GlobalBurst = 10
-			GlobalRPS = 50
-			PerSenderBurst = 10
-			PerSenderRPS = 10
-		%s
+	%s
 	[gatewayConfig.NodeServerConfig]
 	HandshakeTimeoutMillis = 1_000
 	MaxRequestBytes = 100_000
@@ -106,8 +110,7 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 `,
 		uuid,
 		uuid[0:8],
-		strconv.FormatUint(uint64(donID), 10),
-		gatewayMembers,
+		gatewayDons,
 		gatewayConnectorData.Path,
 		gatewayConnectorData.Port,
 	)
@@ -140,7 +143,7 @@ func BootstrapGateway(don *devenv.DON, chainID uint64, donID uint32, extraAllowe
 	}
 
 	return &jobv1.ProposeJobRequest{
-		NodeId: don.Nodes[0].NodeID,
+		NodeId: bootstrapNodeID,
 		Spec:   gatewayJobSpec,
 	}
 }
@@ -174,7 +177,7 @@ func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.Propo
 	}
 }
 
-func WorkerOCR3(nodeID string, ocr3CapabilityAddress, nodeEthAddress common.Address, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
+func WorkerOCR3(nodeID string, ocr3CapabilityAddress common.Address, nodeEthAddress, ocr2KeyBundleID string, ocrPeeringData types.OCRPeeringData, chainID uint64) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 
 	return &jobv1.ProposeJobRequest{

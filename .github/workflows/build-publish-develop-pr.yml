@@ -23,6 +23,10 @@ on:
         required: false
         default: "false"
 
+concurrency:
+  group: "build-publish-${{ github.ref_name }}-${{ github.sha }}"
+  cancel-in-progress: true
+
 env:
   # Use github.sha here otherwise a race condition exists if
   # a commit is pushed to develop before merge is run.
@@ -94,7 +98,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
-          fetch-depth: 0
+          # nightly builds require a full clone for goreleaser to work
+          fetch-depth: ${{ needs.image-tag.outputs.release-type == 'nightly' && '0' || '1' }}
 
       - name: Setup Github Token
         id: token

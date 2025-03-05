@@ -8,7 +8,6 @@ import (
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	view "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -20,7 +19,32 @@ import (
 // It is public for use in product specific packages.
 // Either all fields are nil or all fields are non-nil.
 type MCMSWithTimelockState struct {
-	*proposalutils.MCMSWithTimelockContracts
+	CancellerMcm *bindings.ManyChainMultiSig
+	BypasserMcm  *bindings.ManyChainMultiSig
+	ProposerMcm  *bindings.ManyChainMultiSig
+	Timelock     *bindings.RBACTimelock
+	CallProxy    *bindings.CallProxy
+}
+
+// Validate checks that all fields are non-nil, ensuring it's ready
+// for use generating views or interactions.
+func (state MCMSWithTimelockState) Validate() error {
+	if state.Timelock == nil {
+		return errors.New("timelock not found")
+	}
+	if state.CancellerMcm == nil {
+		return errors.New("canceller not found")
+	}
+	if state.ProposerMcm == nil {
+		return errors.New("proposer not found")
+	}
+	if state.BypasserMcm == nil {
+		return errors.New("bypasser not found")
+	}
+	if state.CallProxy == nil {
+		return errors.New("call proxy not found")
+	}
+	return nil
 }
 
 func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (view.MCMSWithTimelockView, error) {
@@ -61,9 +85,7 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
 func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockState, error) {
-	state := MCMSWithTimelockState{
-		MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
-	}
+	state := MCMSWithTimelockState{}
 	// We expect one of each contract on the chain.
 	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
 	callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)

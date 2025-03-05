@@ -6,9 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
+	solBinary "github.com/gagliardetto/binary"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
+
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -18,19 +24,17 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	solanachangesets "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // TODO: remove. These should be deployed as part of the test once deployment changesets are ready.
@@ -245,11 +249,18 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangesetSolana),
-			solanachangesets.DeployChainContractsConfigSolana{
-				DeployChainContractsConfig: v1_6.DeployChainContractsConfig{
-					HomeChainSelector:      homeChainSel,
-					ContractParamsPerChain: contractParams,
+			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
+			solanachangesets.DeployChainContractsConfig{
+				HomeChainSelector: homeChainSel,
+				ContractParamsPerChain: map[uint64]solanachangesets.ChainContractParams{
+					solChain1: {
+						FeeQuoterParams: solanachangesets.FeeQuoterParams{
+							DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+						},
+						OffRampParams: solanachangesets.OffRampParams{
+							EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+						},
+					},
 				},
 			},
 		),
@@ -257,7 +268,15 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			deployment.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
 			solanachangesets.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: deployment.SPL2022Tokens,
+				TokenProgramName: changeset.SPL2022Tokens,
+				TokenDecimals:    9,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solanachangesets.DeploySolanaToken),
+			solanachangesets.DeploySolanaTokenConfig{
+				ChainSelector:    solChain1,
+				TokenProgramName: changeset.SPL2022Tokens,
 				TokenDecimals:    9,
 			},
 		),
@@ -279,17 +298,24 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 	state, err := changeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
-	tokenAddress := state.SolChains[solChain1].SPL2022Tokens[0]
+	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
+	tokenAddressBurnMint := state.SolChains[solChain1].SPL2022Tokens[1]
 
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
 			solanachangesets.TokenPoolConfig{
-				ChainSelector:    solChain1,
-				TokenPubKey:      tokenAddress.String(),
-				TokenProgramName: deployment.SPL2022Tokens,
-				PoolType:         test_token_pool.LockAndRelease_PoolType,
-				Authority:        e.SolChains[solChain1].DeployerKey.PublicKey().String(),
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddressLockRelease.String(),
+				PoolType:      test_token_pool.LockAndRelease_PoolType,
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(solanachangesets.AddTokenPool),
+			solanachangesets.TokenPoolConfig{
+				ChainSelector: solChain1,
+				TokenPubKey:   tokenAddressBurnMint.String(),
+				PoolType:      test_token_pool.BurnAndMint_PoolType,
 			},
 		),
 	})
@@ -301,37 +327,23 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 	e, state := prepareEnvironmentForOwnershipTransfer(t)
 	solChain1 := e.AllChainSelectorsSolana()[0]
 	solChain := e.SolChains[solChain1]
-	// tokenAddress := state.SolChains[solChain1].SPL2022Tokens[0]
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChain1)
-	require.NoError(t, err)
-	mcmState, err := commonState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[solChain1], addresses)
-	require.NoError(t, err)
 
-	// Fund signer PDAs for timelock and mcm
-	// If we don't fund, execute() calls will fail with "no funds" errors.
-	timelockSignerPDA := commonState.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
-	mcmSignerPDA := commonState.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
-		100, solChain.Client)
-	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
-	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
-	// Apply transfer ownership changeset
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(solanachangesets.TransferCCIPToMCMSWithTimelockSolana),
-			solanachangesets.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MinDelay: 1 * time.Second,
-				ContractsByChain: map[uint64]solanachangesets.CCIPContractsToTransfer{
-					solChain1: {
-						Router:    true,
-						FeeQuoter: true,
-						OffRamp:   true,
-					},
-				},
-			},
-		),
-	})
-	require.NoError(t, err)
+	tokenAddressLockRelease := state.SolChains[solChain1].SPL2022Tokens[0]
+
+	tokenAddressBurnMint := state.SolChains[solChain1].SPL2022Tokens[1]
+	burnMintPoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressBurnMint, state.SolChains[solChain1].BurnMintTokenPool)
+	lockReleasePoolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddressLockRelease, state.SolChains[solChain1].LockReleaseTokenPool)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(
+		t,
+		&e,
+		solChain1,
+		false,
+		true,
+		true,
+		true,
+		[]solana.PublicKey{burnMintPoolConfigPDA},
+		[]solana.PublicKey{lockReleasePoolConfigPDA},
+	)
 
 	// 5. Now verify on-chain that each contract’s “config account” authority is the Timelock PDA.
 	//    Typically, each contract has its own config account: RouterConfigPDA, FeeQuoterConfigPDA,
@@ -343,7 +355,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		routerConfigPDA := state.SolChains[solChain1].RouterConfigPDA
 		t.Logf("Checking Router Config PDA ownership data configPDA: %s", routerConfigPDA.String())
 		programData := ccip_router.Config{}
-		err = solChain.GetAccountDataBorshInto(ctx, routerConfigPDA, &programData)
+		err := solChain.GetAccountDataBorshInto(ctx, routerConfigPDA, &programData)
+		require.NoError(t, err)
 		return timelockSignerPDA.String() == programData.Owner.String()
 	}, 30*time.Second, 5*time.Second, "Router config PDA owner was not changed to timelock signer PDA")
 
@@ -352,7 +365,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		feeQuoterConfigPDA := state.SolChains[solChain1].FeeQuoterConfigPDA
 		t.Logf("Checking Fee Quoter PDA ownership data configPDA: %s", feeQuoterConfigPDA.String())
 		programData := fee_quoter.Config{}
-		err = solChain.GetAccountDataBorshInto(ctx, feeQuoterConfigPDA, &programData)
+		err := solChain.GetAccountDataBorshInto(ctx, feeQuoterConfigPDA, &programData)
 		require.NoError(t, err)
 		return timelockSignerPDA.String() == programData.Owner.String()
 	}, 30*time.Second, 5*time.Second, "Fee Quoter config PDA owner was not changed to timelock signer PDA")
@@ -362,8 +375,26 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		offRampConfigPDA := state.SolChains[solChain1].OffRampConfigPDA
 		programData := ccip_offramp.Config{}
 		t.Logf("Checking Off Ramp PDA ownership data configPDA: %s", offRampConfigPDA.String())
-		err = solChain.GetAccountDataBorshInto(ctx, offRampConfigPDA, &programData)
+		err := solChain.GetAccountDataBorshInto(ctx, offRampConfigPDA, &programData)
 		require.NoError(t, err)
 		return timelockSignerPDA.String() == programData.Owner.String()
 	}, 30*time.Second, 5*time.Second, "OffRamp config PDA owner was not changed to timelock signer PDA")
+
+	// (D) Check BurnMintTokenPools ownership:
+	require.Eventually(t, func() bool {
+		programData := burnmint.State{}
+		t.Logf("Checking BurnMintTokenPools ownership data. configPDA: %s", burnMintPoolConfigPDA.String())
+		err := solChain.GetAccountDataBorshInto(ctx, burnMintPoolConfigPDA, &programData)
+		require.NoError(t, err)
+		return timelockSignerPDA.String() == programData.Config.Owner.String()
+	}, 30*time.Second, 5*time.Second, "BurnMintTokenPool owner was not changed to timelock signer PDA")
+
+	// (E) Check LockReleaseTokenPools ownership:
+	require.Eventually(t, func() bool {
+		programData := lockrelease.State{}
+		t.Logf("Checking LockReleaseTokenPools ownership data. configPDA: %s", lockReleasePoolConfigPDA.String())
+		err := solChain.GetAccountDataBorshInto(ctx, lockReleasePoolConfigPDA, &programData)
+		require.NoError(t, err)
+		return timelockSignerPDA.String() == programData.Config.Owner.String()
+	}, 30*time.Second, 5*time.Second, "LockReleaseTokenPool owner was not changed to timelock signer PDA")
 }

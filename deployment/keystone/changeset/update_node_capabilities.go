@@ -85,7 +85,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := internal.GetContractSets(e.Logger, &internal.GetContractSetsRequest{
+	resp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
@@ -136,7 +136,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			req.RegistryChainSel: inspector,
 		}
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
 			inspectorPerChain,

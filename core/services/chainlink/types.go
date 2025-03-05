@@ -5,6 +5,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 )
 
 type GeneralConfig interface {
@@ -17,4 +18,12 @@ type GeneralConfig interface {
 	TronConfigs() RawConfigs
 	// ConfigTOML returns both the user provided and effective configuration as TOML.
 	ConfigTOML() (user, effective string)
+	ImportedSecretConfig
+}
+
+// ImportedSecretConfig is a configuration for imported secrets
+// to be imported into the keystore upon startup.
+type ImportedSecretConfig interface {
+	ImportedP2PKey() coreconfig.ImportableKey
+	ImportedEthKeys() coreconfig.ImportableEthKeyLister
 }

@@ -49,7 +49,7 @@ func BootstrapEVM(donBootstrapNodePeerID string, chainID uint64, capabilitiesReg
 	)
 }
 
-func BoostrapDon2DonPeering(peeringData types.PeeringData) string {
+func BoostrapDon2DonPeering(peeringData types.CapabilitiesPeeringData) string {
 	return fmt.Sprintf(`
 	[Capabilities.Peering.V2]
 	Enabled = true
@@ -71,7 +71,7 @@ func BoostrapDon2DonPeering(peeringData types.PeeringData) string {
 //
 // so that we are future-proof (for bootstrap too!)
 // we'd need to have capabilitiesRegistryChainID too
-func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.PeeringData, chainID uint64, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
+func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData types.CapabilitiesPeeringData, chainID uint64, capabilitiesRegistryAddress common.Address, httpRPC, wsRPC string) string {
 	return fmt.Sprintf(`
 	[Feature]
 	LogPoller = true
@@ -93,6 +93,7 @@ func WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost string, peeringData 
 
 	[[EVM]]
 	ChainID = '%d'
+	AutoCreateKey = false
 
 	[[EVM.Nodes]]
 	Name = 'anvil'

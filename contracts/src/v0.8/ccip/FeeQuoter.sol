@@ -929,8 +929,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     uint32 defaultTxGasLimit,
     uint256 maxPerMsgGasLimit,
     bool enforceOutOfOrder
-  ) internal pure returns (Client.EVMExtraArgsV2 memory) {
-    Client.EVMExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
+  ) internal pure returns (Client.GenericExtraArgsV2 memory) {
+    Client.GenericExtraArgsV2 memory evmExtraArgs = _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, defaultTxGasLimit);
 
     if (evmExtraArgs.gasLimit > maxPerMsgGasLimit) revert MessageGasLimitTooHigh();
 
@@ -951,21 +951,21 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   function _parseUnvalidatedEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 defaultTxGasLimit
-  ) private pure returns (Client.EVMExtraArgsV2 memory) {
+  ) private pure returns (Client.GenericExtraArgsV2 memory) {
     if (extraArgs.length == 0) {
       // If extra args are empty, generate default values.
-      return Client.EVMExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: false});
     }
 
     bytes4 extraArgsTag = bytes4(extraArgs);
     bytes memory argsData = extraArgs[4:];
 
-    if (extraArgsTag == Client.EVM_EXTRA_ARGS_V2_TAG) {
-      return abi.decode(argsData, (Client.EVMExtraArgsV2));
+    if (extraArgsTag == Client.GENERIC_EXTRA_ARGS_V2_TAG) {
+      return abi.decode(argsData, (Client.GenericExtraArgsV2));
     } else if (extraArgsTag == Client.EVM_EXTRA_ARGS_V1_TAG) {
       // EVMExtraArgsV1 originally included a second boolean (strict) field which has been deprecated.
       // Clients may still include it but it will be ignored.
-      return Client.EVMExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: abi.decode(argsData, (uint256)), allowOutOfOrderExecution: false});
     }
     revert InvalidExtraArgsTag();
   }
@@ -1066,7 +1066,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
     // Since this function is called after getFee, which already validates the params, no validation is necessary.
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
     if (destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM) {
-      Client.EVMExtraArgsV2 memory parsedExtraArgs =
+      Client.GenericExtraArgsV2 memory parsedExtraArgs =
         _parseUnvalidatedEVMExtraArgsFromBytes(extraArgs, destChainConfig.defaultTxGasLimit);
 
       return (Client._argsToBytes(parsedExtraArgs), parsedExtraArgs.allowOutOfOrderExecution, messageReceiver);
