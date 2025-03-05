@@ -20,9 +20,6 @@ import (
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
 
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
-var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
-
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
 	ChainSelector uint64
@@ -80,6 +77,7 @@ func AddBillingToken(
 	txns := make([]mcmsTypes.Transaction, 0)
 	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
 	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
+	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
 	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
@@ -218,6 +216,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 	return nil
 }
 
+// TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
 func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err

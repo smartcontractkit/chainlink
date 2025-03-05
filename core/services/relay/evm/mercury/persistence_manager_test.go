@@ -1,10 +1,10 @@
 package mercury
 
 import (
+	"math/rand/v2"
 	"testing"
 	"time"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/jmoiron/sqlx"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
