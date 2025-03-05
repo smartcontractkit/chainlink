@@ -44,6 +44,7 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 
@@ -1063,7 +1064,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			},
 			{
 				Input:              input[1],
-				Capabilities:       []string{keystonetypes.MockCapability, keystonetypes.OCR3Capability},
+				Capabilities:       []string{keystonetypes.MockCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: 0,
 			},
@@ -1114,21 +1115,21 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
-	//mocksClient := newCapProxyClient()
-	//require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
-	//
-	//testLogger.Info().Msg("Hooking into mock executable capabilities")
-	//require.NoError(t, mocksClient.HookExecutables(testLogger))
-	//
-	//kb := make([]ocr2key.KeyBundle, 0)
-	//for range 4 {
-	//	k, err := ocr2key.New(chaintype.EVM)
-	//	if err != nil {
-	//		panic(err)
-	//	}
-	//	kb = append(kb, k)
-	//}
-	//go sendReports(t.Context(), t, mocksClient, testLogger, kb) //TODO @george-dorin: Fix me!!!
+	mocksClient := newCapProxyClient()
+	require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
+
+	testLogger.Info().Msg("Hooking into mock executable capabilities")
+	require.NoError(t, mocksClient.HookExecutables(testLogger))
+
+	kb := make([]ocr2key.KeyBundle, 0)
+	for range 4 {
+		k, err := ocr2key.New(chaintype.EVM)
+		if err != nil {
+			panic(err)
+		}
+		kb = append(kb, k)
+	}
+	go sendReports(t.Context(), t, mocksClient, testLogger, kb) //TODO @george-dorin: Fix me!!!
 	time.Sleep(time.Minute * 10)
 
 }
@@ -1140,7 +1141,7 @@ func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zer
 		case <-ctx.Done():
 			lggr.Error().Msg("reports context canceled")
 			return
-		case <-time.After(time.Second * 30):
+		case <-time.After(time.Second * 10):
 			r1 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
 			r2 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", keyBundles)
 			r3 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca", keyBundles)
@@ -1313,6 +1314,7 @@ func mapToBytes(m *values.Map) ([]byte, error) {
 	if m == nil {
 		return nil, nil
 	}
+
 	pm := make(map[string]*pb2.Value)
 	for k, v := range m.Underlying {
 		pm[k] = values.Proto(v)
@@ -1322,24 +1324,4 @@ func mapToBytes(m *values.Map) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
-}
-func bytesToMap(b []byte) (*values.Map, error) {
-	var o pb2.Value
-	if err := proto.Unmarshal(b, &o); err != nil {
-		return nil, err
-	}
-
-	vm := values.Map{Underlying: make(map[string]values.Value)}
-	if o.Value == nil {
-		return &vm, nil
-	}
-	for k, v := range o.GetMapValue().Fields {
-		val, err := values.FromProto(v)
-		if err != nil {
-			return nil, err
-		}
-		vm.Underlying[k] = val
-	}
-
-	return &vm, nil
 }

@@ -221,9 +221,9 @@ func generateDonJobSpecs(
 			}
 		}
 
-		if creflags.HasFlag(donWithMetadata.Flags, types.MockCapability) {
+		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
 			jobSpec := jobs.TextWorkflow(nodeID)
-			jobDesc := types.JobDescription{Flag: types.MockCapability, NodeType: types.WorkerNode}
+			jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
 
 			if _, ok := jobSpecs[jobDesc]; !ok {
 				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
