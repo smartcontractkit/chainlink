@@ -124,7 +124,11 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
 		if fwrErr != nil {
 			allErrs = errors.Join(allErrs, fwrErr)
-			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+			if errors.Is(fwrErr, ErrForwarderNotConfigured) {
+				lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
+			} else {
+				lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+			}
 		}
 		out.Forwarders[cs.Forwarder.Contract.Address().String()] = fwrView
 	}
