@@ -71,7 +71,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:       solChainSelectors[0],
 					GitCommitSha:        "3da552ac9d30b821310718b8b67e6a298335a485",
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,
@@ -173,7 +172,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:       solChainSelectors[0],
 					GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,

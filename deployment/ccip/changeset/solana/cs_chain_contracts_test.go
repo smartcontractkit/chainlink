@@ -700,7 +700,6 @@ func Test_TestRouter(t *testing.T) {
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
 				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:        solChain,
 					GitCommitSha:         "82f6b9951ab51397e33b94391f5758260ac558d5",
 					DestinationDir:       filepath.Join(e.SolChains[solChain].ProgramsPath, testRouterDir),
 					TestRouter:           true,

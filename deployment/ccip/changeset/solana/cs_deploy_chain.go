@@ -59,6 +59,7 @@ type DeployChainContractsConfig struct {
 	ContractParamsPerChain map[uint64]ChainContractParams
 	UpgradeConfig          UpgradeConfig
 	NewUpgradeAuthority    *solana.PublicKey // if set, sets router and fee quoter upgrade authority
+	BuildConfig            BuildSolanaConfig
 }
 
 type ChainContractParams struct {
@@ -115,7 +116,6 @@ func (c DeployChainContractsConfig) Validate() error {
 }
 
 func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
-	// c := config.DeployChainContractsConfig
 	if err := c.Validate(); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
@@ -129,6 +129,13 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
+	}
+
+	if c.BuildConfig.GitCommitSha != "" {
+		err = BuildSolana(e, c.BuildConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+		}
 	}
 
 	timelocks := map[uint64]string{}
