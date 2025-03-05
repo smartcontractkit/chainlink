@@ -185,7 +185,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 }
 
 // ADD BILLING TOKEN FOR REMOTE CHAIN
-type BillingTokenForRemoteChainConfig struct {
+type TokenTransferFeeForRemoteChainConfig struct {
 	ChainSelector       uint64
 	RemoteChainSelector uint64
 	Config              solFeeQuoter.TokenTransferFeeConfig
@@ -193,7 +193,7 @@ type BillingTokenForRemoteChainConfig struct {
 	MCMSSolana          *MCMSConfigSolana
 }
 
-func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -217,7 +217,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 }
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
-func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
+func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransferFeeForRemoteChainConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

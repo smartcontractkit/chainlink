@@ -362,8 +362,8 @@ func TestBilling(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenForRemoteChain),
-					ccipChangesetSolana.BillingTokenForRemoteChainConfig{
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
+					ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 						ChainSelector:       solChain,
 						RemoteChainSelector: evmChain,
 						TokenPubKey:         tokenAddress.String(),
