@@ -30,9 +30,6 @@ compileContract () {
 }
 
 compileContract automation/upkeeps/CronUpkeepFactory.sol
-compileContract automation/v1_2/KeeperRegistrar1_2.sol
-compileContract automation/v1_2/KeeperRegistry1_2.sol
-compileContract automation/v1_2/KeeperRegistryCheckUpkeepGasUsageWrapper1_2.sol
 compileContract automation/v1_3/KeeperRegistry1_3.sol
 compileContract automation/v1_3/KeeperRegistryLogic1_3.sol
 compileContract automation/v2_0/KeeperRegistrar2_0.sol
