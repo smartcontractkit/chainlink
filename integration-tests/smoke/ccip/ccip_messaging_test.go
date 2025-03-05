@@ -11,10 +11,15 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -248,10 +253,21 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 	// }
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		latestSlot, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
-		require.NoError(t, err)
-		receiver := state.SolChains[destChain].Receiver.Bytes()
-		extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{}) // SVM doesn't allow an empty extraArgs
+		receiverProgram := state.SolChains[destChain].Receiver
+		receiver := receiverProgram.Bytes()
+		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
+
+		accounts := [][32]byte{
+			receiverProgram,
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+		extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+			// Accounts: accounts,
+		})
+
 		require.NoError(t, err)
 		out = mt.Run(
 			mt.TestCase{
@@ -264,16 +280,10 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						// TODO: lookup event state, assert counter incremented
-						// state.SolChains[destChain].Receiver
-						// TODO: fix up, use the same code event filter does
-						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
-							Context: ctx,
-							Start:   latestSlot,
-						})
-						require.NoError(t, err)
-						require.True(t, iter.Next())
-						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+						var receiverCounterAccount test_ccip_receiver.Counter
+						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint64(1), receiverCounterAccount.Value)
 					},
 				},
 			},
