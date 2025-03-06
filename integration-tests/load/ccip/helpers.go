@@ -421,6 +421,7 @@ func subscribeExecutionEvents(
 
 func subscribeAlreadyExecuted(
 	ctx context.Context,
+	destChain uint64,
 	offRamp offramp.OffRampInterface,
 	lggr logger.Logger,
 ) {
@@ -439,16 +440,20 @@ func subscribeAlreadyExecuted(
 			return
 		case subErr := <-subscription.Err():
 			lggr.Errorw("error in alreadyExecuted subscription",
+				"destChain", destChain,
 				"err", subErr)
 			return
 		case ev := <-sink:
-			lggr.Errorw("received already executed event", "seqNr", ev.SequenceNumber, "sourceChain", ev.SourceChainSelector)
+			lggr.Errorw("received already executed event", "seqNr", ev.SequenceNumber,
+				"destChain", destChain,
+				"sourceChain", ev.SourceChainSelector)
 		}
 	}
 }
 
 func subscribeSkippedIncorrectNonce(
 	ctx context.Context,
+	destChain uint64,
 	nm nonce_manager.NonceManagerInterface,
 	lggr logger.Logger,
 ) {
@@ -467,10 +472,13 @@ func subscribeSkippedIncorrectNonce(
 			return
 		case subErr := <-subscription.Err():
 			lggr.Errorw("error in skipped incorrect nonce subscription",
+				"destChain", destChain,
 				"err", subErr)
 			return
 		case ev := <-sink:
-			lggr.Errorw("received an incorrect nonce", "seqNr", ev.Nonce, "sourceChain", ev.SourceChainSelector)
+			lggr.Errorw("received an incorrect nonce", "seqNr", ev.Nonce,
+				"destChain", destChain,
+				"sourceChain", ev.SourceChainSelector)
 		}
 	}
 }

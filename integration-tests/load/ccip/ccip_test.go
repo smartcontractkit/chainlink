@@ -183,11 +183,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		// error watchers
 		go subscribeSkippedIncorrectNonce(
 			ctx,
+			cs,
 			state.Chains[cs].NonceManager,
 			lggr)
 
 		go subscribeAlreadyExecuted(
 			ctx,
+			cs,
 			state.Chains[cs].OffRamp,
 			lggr)
 	}
