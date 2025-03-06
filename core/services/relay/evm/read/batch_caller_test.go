@@ -3,7 +3,6 @@ package read_test
 import (
 	"fmt"
 	"math/big"
-	"math/rand/v2"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
