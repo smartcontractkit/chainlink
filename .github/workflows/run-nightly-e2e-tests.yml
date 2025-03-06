@@ -16,6 +16,22 @@ on:
         description: 'Notify on Slack after tests'
         required: false
         type: string
+      require_chainlink_image_versions_in_qa_ecr:
+        description:
+          'Check Chainlink image versions to be present in QA ECR. If not, build
+          and push the image to QA ECR. Takes comma separated list of Chainlink
+          image versions. Example:
+          "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string        
+      require_chainlink_plugin_versions_in_qa_ecr:
+        description:
+          'Check Chainlink plugins versions to be present in QA ECR. If not,
+          build and push the image to QA ECR. Takes comma separated list of
+          Chainlink image versions. Example:
+          "5733cdcda9a9fc6da6343798b119b2ae136146cd,0b7d2c497a508efa5a827714780d908b7b8eda19"'
+        required: false
+        type: string        
       extraArgs:
         required: false
         type: string
@@ -25,7 +41,7 @@ on:
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@70a84a2a8546ea6dd8778217df16558e9a5afba3
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@498b8f8303bb6928cad1293467332cda528e2db8
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/e2e-tests.yml
@@ -33,6 +49,8 @@ jobs:
       slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
       slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       slack_notification_after_tests_name: Nightly E2E Tests
+      require_chainlink_image_versions_in_qa_ecr: ${{ inputs.require_chainlink_image_versions_in_qa_ecr || '' }}
+      require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
       extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}

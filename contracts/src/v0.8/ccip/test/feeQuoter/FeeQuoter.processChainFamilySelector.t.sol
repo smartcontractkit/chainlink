@@ -36,7 +36,8 @@ contract FeeQuoter_processChainFamilySelector is FeeQuoterSetup {
   }
 
   function test_processChainFamilySelector_EVM() public {
-    Client.EVMExtraArgsV2 memory evmArgs = Client.EVMExtraArgsV2({gasLimit: 400_000, allowOutOfOrderExecution: true});
+    Client.GenericExtraArgsV2 memory evmArgs =
+      Client.GenericExtraArgsV2({gasLimit: 400_000, allowOutOfOrderExecution: true});
     bytes memory encodedEvmArgs = Client._argsToBytes(evmArgs);
 
     (bytes memory resultBytes, bool outOfOrder, bytes memory tokenReceiver) =

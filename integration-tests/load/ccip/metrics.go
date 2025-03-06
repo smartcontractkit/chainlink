@@ -35,6 +35,7 @@ type MetricManager struct {
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
 	testLabel string
+	ErrorChan chan error
 }
 
 type metricState struct {
@@ -68,6 +69,7 @@ func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig
 		InputChan: make(chan messageData),
 		state:     make(map[srcDstSeqNum]metricState),
 		testLabel: testLabel,
+		ErrorChan: make(chan error),
 	}
 }
 
@@ -101,6 +103,17 @@ func (mm *MetricManager) Start(ctx context.Context) {
 				})
 			}
 			return
+		//case e := <-mm.ErrorChan:
+		//	lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
+		//	if err != nil {
+		//		mm.lggr.Error("error setting loki labels", "error", err)
+		//	}
+		//	SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+		//		TransmitTime:   data.timestamp,
+		//		ExecDuration:   0,
+		//		CommitDuration: 0,
+		//		SequenceNumber: 0,
+		//	})
 		case data := <-mm.InputChan:
 			if _, ok := mm.state[data.srcDstSeqNum]; !ok {
 				mm.state[data.srcDstSeqNum] = metricState{

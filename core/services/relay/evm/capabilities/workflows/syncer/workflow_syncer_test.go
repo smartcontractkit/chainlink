@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,11 @@ var rlConfig = ratelimiter.Config{
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,
 	PerSenderBurst: 30,
+}
+
+var wlConfig = syncerlimiter.Config{
+	Global:   200,
+	PerOwner: 200,
 }
 
 type testEvtHandler struct {
@@ -354,9 +360,13 @@ func Test_SecretsWorker(t *testing.T) {
 
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
+
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -515,8 +525,12 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
+
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
+		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -615,6 +629,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
 		lggr,
 		orm,
@@ -625,6 +641,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
 		rl,
+		wl,
 		syncer.WithEngineRegistry(er),
 		syncer.WithEngineFactoryFn(mf.new),
 	)

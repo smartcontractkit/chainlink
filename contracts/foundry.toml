@@ -77,13 +77,6 @@ src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
 
-[profile.liquiditymanager]
-optimizer_runs = 1000000
-src = 'src/v0.8/liquiditymanager'
-test = 'src/v0.8/liquiditymanager/test'
-solc_version = '0.8.24'
-evm_version = 'paris'
-
 [profile.keystone]
 optimizer_runs = 1_000_000
 solc_version = '0.8.24'

@@ -3,6 +3,7 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
 	"math"
 	"slices"
 	"sync"
@@ -44,7 +45,7 @@ const (
 )
 
 var (
-	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(9e18)) // 900 eth
+	fundingAmount = new(big.Int).Mul(deployment.UBigInt(100_000), deployment.UBigInt(1e18)) // 100K eth
 )
 
 type finalSeqNrReport struct {
@@ -108,31 +109,30 @@ func subscribeTransmitEvents(
 			if err != nil {
 				lggr.Errorw("error getting header by number")
 			}
+			data := messageData{
+				eventType: transmitted,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    srcChainSel,
+					dst:    event.DestChainSelector,
+					seqNum: event.SequenceNumber,
+				},
+			}
 			if header != nil {
-				data := messageData{
-					eventType: transmitted,
-					srcDstSeqNum: srcDstSeqNum{
-						src:    srcChainSel,
-						dst:    event.DestChainSelector,
-						seqNum: event.SequenceNumber,
-					},
-					timestamp: header.Time,
-				}
-				metricPipe <- data
+				data.timestamp = header.Time
+			}
+			metricPipe <- data
+			csPair := testhelpers.SourceDestPair{
+				SourceChainSelector: srcChainSel,
+				DestChainSelector:   event.DestChainSelector,
+			}
+			// always store the lowest seen number as the start seq num
+			if event.SequenceNumber < seqNums[csPair].Start.Load() {
+				seqNums[csPair].Start.Store(event.SequenceNumber)
+			}
 
-				csPair := testhelpers.SourceDestPair{
-					SourceChainSelector: srcChainSel,
-					DestChainSelector:   event.DestChainSelector,
-				}
-				// always store the lowest seen number as the start seq num
-				if event.SequenceNumber < seqNums[csPair].Start.Load() {
-					seqNums[csPair].Start.Store(event.SequenceNumber)
-				}
-
-				// always store the greatest sequence number we have seen as the maximum
-				if event.SequenceNumber > seqNums[csPair].End.Load() {
-					seqNums[csPair].End.Store(event.SequenceNumber)
-				}
+			// always store the greatest sequence number we have seen as the maximum
+			if event.SequenceNumber > seqNums[csPair].End.Load() {
+				seqNums[csPair].End.Store(event.SequenceNumber)
 			}
 		case <-ctx.Done():
 			lggr.Errorw("received context cancel signal for transmit watcher",
@@ -206,9 +206,8 @@ func subscribeCommitEvents(
 
 	for {
 		select {
-		case subErr := <-subscription.Err():
-			lggr.Errorw("error in commit subscription",
-				"err", subErr)
+		case <-subscription.Err():
+			return
 		case report := <-sink:
 			if len(report.BlessedMerkleRoots)+len(report.UnblessedMerkleRoots) > 0 {
 				for _, mr := range append(report.BlessedMerkleRoots, report.UnblessedMerkleRoots...) {
@@ -225,19 +224,20 @@ func subscribeCommitEvents(
 						if err != nil {
 							lggr.Errorw("error getting header by number")
 						}
-						if header != nil {
-							data := messageData{
-								eventType: committed,
-								srcDstSeqNum: srcDstSeqNum{
-									src:    mr.SourceChainSelector,
-									dst:    chainSelector,
-									seqNum: i,
-								},
-								timestamp: header.Time,
-							}
-							metricPipe <- data
-							seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
+						data := messageData{
+							eventType: committed,
+							srcDstSeqNum: srcDstSeqNum{
+								src:    mr.SourceChainSelector,
+								dst:    chainSelector,
+								seqNum: i,
+							},
+							timestamp: header.Time,
 						}
+						if header != nil {
+							data.timestamp = header.Time
+						}
+						metricPipe <- data
+						seenMessages[mr.SourceChainSelector] = append(seenMessages[mr.SourceChainSelector], i)
 					}
 				}
 			}
@@ -338,6 +338,7 @@ func subscribeExecutionEvents(
 		case subErr := <-subscription.Err():
 			lggr.Errorw("error in execution subscription",
 				"err", subErr)
+			return
 		case event := <-sink:
 			lggr.Debugw("received execution event for",
 				"destChain", chainSelector,
@@ -350,20 +351,20 @@ func subscribeExecutionEvents(
 			if err != nil {
 				lggr.Errorw("error getting header by number")
 			}
-			if header != nil {
-				data := messageData{
-					eventType: executed,
-					srcDstSeqNum: srcDstSeqNum{
-						src:    event.SourceChainSelector,
-						dst:    chainSelector,
-						seqNum: event.SequenceNumber,
-					},
-					timestamp: header.Time,
-				}
-				metricPipe <- data
-				seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
-
+			data := messageData{
+				eventType: executed,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    event.SourceChainSelector,
+					dst:    chainSelector,
+					seqNum: event.SequenceNumber,
+				},
 			}
+			if header != nil {
+				data.timestamp = header.Time
+			}
+			metricPipe <- data
+			seenMessages[event.SourceChainSelector] = append(seenMessages[event.SourceChainSelector], event.SequenceNumber)
+
 		case <-ctx.Done():
 			lggr.Errorw("timed out waiting for execution event",
 				"destChain", chainSelector,
@@ -414,6 +415,70 @@ func subscribeExecutionEvents(
 					"destChain", chainSelector)
 				return
 			}
+		}
+	}
+}
+
+func subscribeAlreadyExecuted(
+	ctx context.Context,
+	destChain uint64,
+	offRamp offramp.OffRampInterface,
+	lggr logger.Logger,
+) {
+	sink := make(chan *offramp.OffRampSkippedAlreadyExecutedMessage)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return offRamp.WatchSkippedAlreadyExecutedMessage(&bind.WatchOpts{
+			Context: ctx,
+			Start:   nil,
+		}, sink)
+	})
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-subscription.Err():
+			lggr.Errorw("error in alreadyExecuted subscription",
+				"destChain", destChain,
+				"err", subErr)
+			return
+		case ev := <-sink:
+			lggr.Errorw("received already executed event", "seqNr", ev.SequenceNumber,
+				"destChain", destChain,
+				"sourceChain", ev.SourceChainSelector)
+		}
+	}
+}
+
+func subscribeSkippedIncorrectNonce(
+	ctx context.Context,
+	destChain uint64,
+	nm nonce_manager.NonceManagerInterface,
+	lggr logger.Logger,
+) {
+	sink := make(chan *nonce_manager.NonceManagerSkippedIncorrectNonce)
+	subscription := event.Resubscribe(SubscriptionTimeout, func(_ context.Context) (event.Subscription, error) {
+		return nm.WatchSkippedIncorrectNonce(&bind.WatchOpts{
+			Context: ctx,
+			Start:   nil,
+		}, sink)
+	})
+	defer subscription.Unsubscribe()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case subErr := <-subscription.Err():
+			lggr.Errorw("error in skipped incorrect nonce subscription",
+				"destChain", destChain,
+				"err", subErr)
+			return
+		case ev := <-sink:
+			lggr.Errorw("received an incorrect nonce", "seqNr", ev.Nonce,
+				"destChain", destChain,
+				"sourceChain", ev.SourceChainSelector)
 		}
 	}
 }

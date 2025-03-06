@@ -23,9 +23,11 @@ var _ deployment.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = Transfe
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.
 type CCIPContractsToTransfer struct {
-	Router    bool
-	FeeQuoter bool
-	OffRamp   bool
+	Router                bool
+	FeeQuoter             bool
+	OffRamp               bool
+	LockReleaseTokenPools []solana.PublicKey
+	BurnMintTokenPools    []solana.PublicKey
 }
 
 type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
@@ -194,6 +196,41 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of offRamp: %w", err)
+			}
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+				Transactions:  mcmsTxs,
+			})
+		}
+		if len(contractsToTransfer.LockReleaseTokenPools) > 0 {
+			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
+				ccipState,
+				contractsToTransfer.LockReleaseTokenPools,
+				chainSelector,
+				solChain,
+				mcmState.TimelockProgram,
+				mcmState.TimelockSeed,
+			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+			}
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+				Transactions:  mcmsTxs,
+			})
+		}
+
+		if len(contractsToTransfer.BurnMintTokenPools) > 0 {
+			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
+				ccipState,
+				contractsToTransfer.BurnMintTokenPools,
+				chainSelector,
+				solChain,
+				mcmState.TimelockProgram,
+				mcmState.TimelockSeed,
+			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),

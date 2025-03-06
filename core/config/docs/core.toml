@@ -470,6 +470,13 @@ MaxEncryptedSecretsSize = '26.40kb' # Default
 # MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
 MaxConfigSize = '50.00kb' # Default
 
+[Workflows]
+[Workflows.Limits]
+# Global is the maximum number of workflows that can be registered globally.
+Global = 200 # Default
+# PerOwner is the maximum number of workflows that can be registered per owner.
+PerOwner = 200 # Default
+
 [Capabilities.ExternalRegistry]
 # Address is the address for the capabilities registry contract.
 Address = '0x0' # Example

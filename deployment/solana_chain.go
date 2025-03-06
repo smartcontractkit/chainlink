@@ -87,6 +87,11 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 		"--url", c.URL, // rpc url
 	}
 
+	// For test router deployments, add --use-rpc flag
+	if strings.Contains(c.ProgramsPath, "test_router") {
+		baseArgs = append(baseArgs, "--use-rpc")
+	}
+
 	var cmd *exec.Cmd
 	// We need to specify the program ID on the initial deploy but not on upgrades
 	// Upgrades happen in place so we don't need to supply the keypair
