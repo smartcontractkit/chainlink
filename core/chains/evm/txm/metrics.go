@@ -49,7 +49,7 @@ type txmMetrics struct {
 	timeUntilTxConfirmed metric.Float64Histogram
 }
 
-func NewTxmMetrics(chainID *big.Int, lggr logger.Logger) (*txmMetrics, error) {
+func NewTxmMetrics(lggr logger.Logger, chainID *big.Int) (*txmMetrics, error) {
 	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("txm_num_broadcasted_transactions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number: %w", err)

@@ -179,7 +179,7 @@ func TestBroadcastTransaction(t *testing.T) {
 		require.NoError(t, txStore.Add(address))
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		txm.setNonce(address, 8)
-		metrics, err := NewTxmMetrics(testutils.FixtureChainID, lggr)
+		metrics, err := NewTxmMetrics(lggr, testutils.FixtureChainID)
 		require.NoError(t, err)
 		txm.metrics = metrics
 		IDK := "IDK"
@@ -254,7 +254,7 @@ func TestBackfillTransactions(t *testing.T) {
 		ab := newMockAttemptBuilder(t)
 		c := Config{EIP1559: false, BlockTime: 10 * time.Minute, RetryBlockThreshold: 10, EmptyTxLimitDefault: 22000}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
-		emptyMetrics, err := NewTxmMetrics(testutils.FixtureChainID, lggr)
+		emptyMetrics, err := NewTxmMetrics(lggr, testutils.FixtureChainID)
 		require.NoError(t, err)
 		txm.metrics = emptyMetrics
 
@@ -304,7 +304,7 @@ func TestBackfillTransactions(t *testing.T) {
 		ab := newMockAttemptBuilder(t)
 		c := Config{EIP1559: false, BlockTime: 1 * time.Second, RetryBlockThreshold: 1, EmptyTxLimitDefault: 22000}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
-		emptyMetrics, err := NewTxmMetrics(testutils.FixtureChainID, lggr)
+		emptyMetrics, err := NewTxmMetrics(lggr, testutils.FixtureChainID)
 		require.NoError(t, err)
 		txm.metrics = emptyMetrics
 
