@@ -175,11 +175,11 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 		m.l.Error("Error encoding receiver address")
 		return router.ClientEVM2AnyMessage{}, 0, err
 	}
-	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), true)
-	if err != nil {
-		m.l.Error("Error encoding extra args")
-		return router.ClientEVM2AnyMessage{}, 0, err
-	}
+	//extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), true)
+	//if err != nil {
+	//	m.l.Error("Error encoding extra args")
+	//	return router.ClientEVM2AnyMessage{}, 0, err
+	//}
 
 	// Select a message type based on ratio
 	randomValue := mathrand.Intn(100)
@@ -203,7 +203,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	message := router.ClientEVM2AnyMessage{
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
-		ExtraArgs: extraArgs,
+		ExtraArgs: nil,
 	}
 
 	// Set data length if it's a data transfer
