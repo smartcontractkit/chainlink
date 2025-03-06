@@ -31,12 +31,16 @@ func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedP
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to remove a feed proxy mapping from cache", c.ChainSelector, []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
+		proposalConfig := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: contract.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+
+		proposal, err := BuildMultiChainProposals(env, "proposal to remove a feed proxy mapping from cache", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

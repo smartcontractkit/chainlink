@@ -33,12 +33,16 @@ func confirmAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to confirm a new aggregator", c.ChainSelector, []ProposalData{
-			{
-				contract: aggregatorProxy.Address().Hex(),
-				tx:       tx,
+		proposalConfig := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: aggregatorProxy.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+
+		proposal, err := BuildMultiChainProposals(env, "proposal to confirm a new aggregator", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

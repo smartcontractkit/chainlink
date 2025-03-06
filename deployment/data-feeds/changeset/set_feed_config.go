@@ -31,12 +31,15 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to set feed config on a cache", c.ChainSelector, []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
+		proposals := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: contract.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+		proposal, err := BuildMultiChainProposals(env, "proposal to set feed config on a cache", proposals, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

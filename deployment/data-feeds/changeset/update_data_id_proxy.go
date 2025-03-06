@@ -31,12 +31,16 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to update proxy-dataId mapping on a cache", c.ChainSelector, []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
+		proposals := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: contract.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+
+		proposal, err := BuildMultiChainProposals(env, "proposal to update proxy-dataId mapping on a cache", proposals, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
