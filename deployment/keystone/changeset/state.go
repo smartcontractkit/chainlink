@@ -88,7 +88,9 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 	var wg sync.WaitGroup
 	errCh := make(chan error, 4) // We are generating 4 views concurrently
 
-	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
+	// Not sure if we want the timeout here... As more blocks are added, the timeout will be reached for Forwarders...
+	// TODO: If we keep the timeout, we need to make it configurable via ENV or params.
+	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
 	defer cancel()
 
 	if cs.CapabilitiesRegistry != nil {

@@ -11,9 +11,9 @@ import (
 	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
 )
 
-var _ deployment.ViewState = ViewKeystone
+var _ deployment.ViewStateV2 = ViewKeystone
 
-func ViewKeystone(e deployment.Environment, previousView []byte) (json.Marshaler, error) {
+func ViewKeystone(e deployment.Environment, previousView json.Marshaler) (json.Marshaler, error) {
 	lggr := e.Logger
 	state, err := GetContractSets(e.Logger, &GetContractSetsRequest{
 		Chains:      e.Chains,
@@ -23,10 +23,16 @@ func ViewKeystone(e deployment.Environment, previousView []byte) (json.Marshaler
 	if err != nil {
 		return nil, fmt.Errorf("failed to get contract sets: %w", err)
 	}
+
+	prevViewBytes, err := previousView.MarshalJSON()
+	if err != nil {
+		// just log the error, we don't need to stop the execution since the previous view is optional
+		lggr.Warnf("failed to marshal previous keystone view: %v", err)
+	}
 	var prevView KeystoneView
-	if len(previousView) == 0 {
+	if len(prevViewBytes) == 0 {
 		prevView.Chains = make(map[string]KeystoneChainView)
-	} else if err = json.Unmarshal(previousView, &prevView); err != nil {
+	} else if err = json.Unmarshal(prevViewBytes, &prevView); err != nil {
 		lggr.Warnf("failed to unmarshal previous keystone view: %v", err)
 		prevView.Chains = make(map[string]KeystoneChainView)
 	}

@@ -211,7 +211,13 @@ func GenerateForwarderView(ctx context.Context, f *ForwarderContract, prevViews 
 		configSets = append(configSets, configIterator.Event)
 	}
 	if len(configSets) == 0 {
-		return nil, ErrForwarderNotConfigured
+		// Forwarder is not configured only if we don't have any previous configuration events.
+		if len(prevViews) == 0 {
+			return nil, ErrForwarderNotConfigured
+		}
+
+		// If we don't have any new config sets, we return the previous views as is.
+		return prevViews, nil
 	}
 
 	// We now create a slice with all previous views and the new views, so they get all added to the final view.

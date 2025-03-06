@@ -11,7 +11,7 @@ import (
 
 var _ deployment.ViewState = ViewCCIP
 
-func ViewCCIP(e deployment.Environment, _ []byte) (json.Marshaler, error) {
+func ViewCCIP(e deployment.Environment) (json.Marshaler, error) {
 	state, err := LoadOnchainState(e)
 	if err != nil {
 		return nil, err
