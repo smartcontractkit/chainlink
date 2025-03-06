@@ -125,6 +125,17 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// chainID := testutils.SimulatedChainID
 
 	// TOOD(gg) deploy dualAggContracts
+	/** from Link:
+		Thank you for providing the new address!
+	Next, please complete the following steps to update your forwarder transmitters with the new EVM Chain Account address:
+	1. Call setAuthorizedSendersOn on your operator contract:
+	Using your Admin EOA, you need to submit the following values to the setAuthorizedSendersOn method on your operator contract 0xD58dd13774d6150Bc51027e3A2B46Ad5059b0EA7 on Ethereum mainnet
+	https://etherscan.io/address/0xD58dd13774d6150Bc51027e3A2B46Ad5059b0EA7#writeContract#F15
+	Ensure you enter all senders exactly as shown below
+	targets: 0x6D53d5E35F5226a1613877e071b81217387aC6B5
+	senders: 0x7663C5790E1eBf04197245d541279D13f3c2f362,0x4B2f95d9952AEd5D7Db733EF58eEdE069979f64c,0x76C07fADC35e29F0223584Fc9609Ee199b0BfC5c,0x16DBF7F4Ed84cBbA104a9305c9e614b4C20b3209
+	Please reply with the tx hash. Let me know if you have questions, and thank you again.
+	*/
 	dualAggContractsAddresses := []string{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C"}
 
 	for _, contractAddress := range dualAggContractsAddresses {
