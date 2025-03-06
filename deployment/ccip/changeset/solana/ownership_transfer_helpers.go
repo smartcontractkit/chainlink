@@ -388,10 +388,10 @@ func transferOwnershipRMNRemote(
 	rmnRemoteCursesPDA := state.RMNRemoteCursesPDA
 
 	// Build specialized closures
-	buildTransfer := func(newOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
+	buildTransfer := func(newOwner, config, cursesConfig, authority solana.PublicKey) (solana.Instruction, error) {
 		rmn_remote.SetProgramID(rmnRemoteProgramID)
 		return rmn_remote.NewTransferOwnershipInstruction(
-			newOwner, config, rmnRemoteCursesPDA, authority,
+			newOwner, config, cursesConfig, authority,
 		).ValidateAndBuild()
 	}
 	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
@@ -411,21 +411,38 @@ func transferOwnershipRMNRemote(
 		return ix, nil
 	}
 
-	tx, err := transferAndWrapAcceptOwnership(
-		buildTransfer,
-		buildAccept,
-		rmnRemoteProgramID,
-		timelockSignerPDA,  // timelock PDA
-		rmnRemoteConfigPDA, // config PDA
-		solChain.DeployerKey.PublicKey(),
-		solChain,
-		state2.Router,
-	)
+	programID := rmnRemoteProgramID
+	proposedOwner := timelockSignerPDA
+	configPDA := rmnRemoteConfigPDA
+	deployer := solChain.DeployerKey.PublicKey()
+	label := state2.RMNRemote
 
+	// We can't reuse the generic transferAndWrapAcceptOwnership function here
+	// because the RMNRemote has an additional cursesConfig account that needs to be transferred.
+
+	// 1. Build the instruction that transfers ownership to the timelock
+	ixTransfer, err := buildTransfer(proposedOwner, configPDA, rmnRemoteCursesPDA, deployer)
 	if err != nil {
-		return nil, fmt.Errorf("failed to transfer rmnremote ownership: %w", err)
+		return nil, fmt.Errorf("%s: failed to create transfer ownership instruction: %w", label, err)
 	}
 
-	result = append(result, tx)
+	// 2. Confirm on-chain
+	if err := solChain.Confirm([]solana.Instruction{ixTransfer}); err != nil {
+		return nil, fmt.Errorf("%s: failed to confirm transfer on-chain: %w", label, err)
+	}
+
+	// 3. Build the “accept ownership” instruction
+	ixAccept, err := buildAccept(configPDA, proposedOwner)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to create accept ownership instruction: %w", label, err)
+	}
+
+	// 4. Wrap in MCMS transaction
+	mcmsTx, err := BuildMCMSTxn(ixAccept, programID.String(), label)
+	if err != nil {
+		return nil, fmt.Errorf("%s: failed to create MCMS transaction: %w", label, err)
+	}
+
+	result = append(result, *mcmsTx)
 	return result, nil
 }

@@ -82,7 +82,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	)
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, true, nil, nil)
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, false, nil, nil)
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 			MCMS: &ccipChangeset.MCMSConfig{
 				MinDelay: 1 * time.Second,

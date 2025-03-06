@@ -136,7 +136,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		return
 	}
 
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, true, nil, nil)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, false, nil, nil)
 	upgradeAuthority := timelockSignerPDA
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
