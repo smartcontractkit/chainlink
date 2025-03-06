@@ -1063,6 +1063,7 @@ type DeployTestRouterConfig struct {
 	UpdateOffRamp        bool
 	TestRouterPathSuffix string
 	BuildConfig          BuildSolanaConfig
+	MCMSSolana           *MCMSConfigSolana
 }
 
 func DeployTestRouter(
@@ -1131,6 +1132,7 @@ func DeployTestRouter(
 	instructions := []solana.Instruction{}
 
 	// turn offramp to test router
+	var proposal *mcms.TimelockProposal
 	if config.UpdateOffRamp {
 		var referenceAddressesAccount solOffRamp.ReferenceAddresses
 		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(chainState.OffRamp)
@@ -1138,6 +1140,16 @@ func DeployTestRouter(
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
 		}
 		solOffRamp.SetProgramID(chainState.OffRamp)
+		offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock
+		authority, err := GetAuthorityForIxn(
+			&e,
+			chain,
+			config.MCMSSolana,
+			ccipChangeset.OffRamp,
+			solana.PublicKey{})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+		}
 		ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
 			testRouterProgram, // switch to test router
 			referenceAddressesAccount.FeeQuoter,
@@ -1145,12 +1157,24 @@ func DeployTestRouter(
 			referenceAddressesAccount.RmnRemote,
 			chainState.OffRampConfigPDA,
 			offRampReferenceAddressesPDA,
-			chain.DeployerKey.PublicKey(),
+			authority,
 		).ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 		}
-		instructions = append(instructions, ix)
+		if offRampUsingMCMS {
+			tx, err := BuildMCMSTxn(ix, chainState.OffRamp.String(), ccipChangeset.OffRamp)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+			}
+			proposal, err = BuildProposalsForTxns(
+				e, chain.Selector, "proposal to UpdateReferenceAddresses in Solana", config.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+			}
+		} else {
+			instructions = append(instructions, ix)
+		}
 	}
 
 	// create ata for test router for wsol and link token
@@ -1180,8 +1204,11 @@ func DeployTestRouter(
 	if err := chain.Confirm(instructions); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
-
-	return deployment.ChangesetOutput{
+	out := deployment.ChangesetOutput{
 		AddressBook: newAddresses,
-	}, nil
+	}
+	if proposal != nil {
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
+	}
+	return out, nil
 }

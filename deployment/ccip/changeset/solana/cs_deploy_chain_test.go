@@ -136,7 +136,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		return
 	}
 
-	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, nil, nil)
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, true, nil, nil)
 	upgradeAuthority := timelockSignerPDA
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
@@ -165,12 +165,12 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParamsPerChain,
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewFeeQuoterVersion:            &deployment.Version1_1_0,
-					NewRouterVersion:               &deployment.Version1_1_0,
-					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
-					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
-					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
+					NewFeeQuoterVersion: &deployment.Version1_1_0,
+					NewRouterVersion:    &deployment.Version1_1_0,
+					// for some reason, we can't upgrade mcm alongside timelock + access_controller
+					NewMCMVersion:    &deployment.Version1_1_0,
+					UpgradeAuthority: upgradeAuthority,
+					SpillAddress:     upgradeAuthority,
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -201,13 +201,28 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParamsPerChain,
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
+					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+					NewRMNRemoteVersion:            &deployment.Version1_1_0,
+					UpgradeAuthority:               upgradeAuthority,
+					SpillAddress:                   upgradeAuthority,
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+				},
+			},
+		),
+		// Split the upgrade to avoid txn size limits. No need to build again.
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			ccipChangesetSolana.DeployChainContractsConfig{
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParamsPerChain,
+				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewAccessControllerVersion: &deployment.Version1_1_0,
 					NewTimelockVersion:         &deployment.Version1_1_0,
-					// MCM upgrade not working (need to followup)
-					// NewMCMVersion:              &deployment.Version1_1_0,
-					NewRMNRemoteVersion: &deployment.Version1_1_0,
-					UpgradeAuthority:    upgradeAuthority,
-					SpillAddress:        upgradeAuthority,
+					UpgradeAuthority:           upgradeAuthority,
+					SpillAddress:               upgradeAuthority,
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
 					},

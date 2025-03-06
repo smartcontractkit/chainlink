@@ -1701,6 +1701,7 @@ func TransferOwnershipSolana(
 	transferRouter,
 	transferFeeQuoter,
 	transferOffRamp bool,
+	transferRMNRemote bool,
 	burnMintTokenPools []solana.PublicKey,
 	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
@@ -1745,6 +1746,7 @@ func TransferOwnershipSolana(
 						Router:                transferRouter,
 						FeeQuoter:             transferFeeQuoter,
 						OffRamp:               transferOffRamp,
+						RMNRemote:             transferRMNRemote,
 						BurnMintTokenPools:    burnMintTokenPools,
 						LockReleaseTokenPools: lockReleaseTokenPools,
 					},

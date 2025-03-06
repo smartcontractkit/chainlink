@@ -11,6 +11,7 @@ import (
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -365,5 +366,66 @@ func transferOwnershipLockReleaseTokenPools(
 
 		result = append(result, tx)
 	}
+	return result, nil
+}
+
+// transferOwnershipRMNRemote transfers ownership of the RMNRemote to the timelock.
+func transferOwnershipRMNRemote(
+	ccipState state2.CCIPOnChainState,
+	chainSelector uint64,
+	solChain deployment.SolChain,
+	timelockProgramID solana.PublicKey,
+	timelockInstanceSeed state.PDASeed,
+) ([]mcmsTypes.Transaction, error) {
+	var result []mcmsTypes.Transaction
+
+	timelockSignerPDA := state.GetTimelockSignerPDA(timelockProgramID, timelockInstanceSeed)
+	state := ccipState.SolChains[chainSelector]
+
+	// The relevant on-chain addresses
+	rmnRemoteProgramID := state.RMNRemote
+	rmnRemoteConfigPDA := state.RMNRemoteConfigPDA
+	rmnRemoteCursesPDA := state.RMNRemoteCursesPDA
+
+	// Build specialized closures
+	buildTransfer := func(newOwner, config, authority solana.PublicKey) (solana.Instruction, error) {
+		rmn_remote.SetProgramID(rmnRemoteProgramID)
+		return rmn_remote.NewTransferOwnershipInstruction(
+			newOwner, config, rmnRemoteCursesPDA, authority,
+		).ValidateAndBuild()
+	}
+	buildAccept := func(config, newOwnerAuthority solana.PublicKey) (solana.Instruction, error) {
+		rmn_remote.SetProgramID(rmnRemoteProgramID)
+		// If the router has its own accept function, use that
+		ix, err := rmn_remote.NewAcceptOwnershipInstruction(
+			config, newOwnerAuthority,
+		).ValidateAndBuild()
+		if err != nil {
+			return nil, err
+		}
+		for _, acc := range ix.Accounts() {
+			if acc.PublicKey == newOwnerAuthority {
+				acc.IsSigner = false
+			}
+		}
+		return ix, nil
+	}
+
+	tx, err := transferAndWrapAcceptOwnership(
+		buildTransfer,
+		buildAccept,
+		rmnRemoteProgramID,
+		timelockSignerPDA,  // timelock PDA
+		rmnRemoteConfigPDA, // config PDA
+		solChain.DeployerKey.PublicKey(),
+		solChain,
+		state2.Router,
+	)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to transfer rmnremote ownership: %w", err)
+	}
+
+	result = append(result, tx)
 	return result, nil
 }

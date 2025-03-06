@@ -71,7 +71,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	var err error
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, true, nil, nil)
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 			MCMS: &ccipChangeset.MCMSConfig{
 				MinDelay: 1 * time.Second,
@@ -284,7 +284,7 @@ func TestSetOcr3(t *testing.T) {
 	evmSelectors := tenv.Env.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true, true, true, true, nil, nil)
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true, true, true, true, true, nil, nil)
 
 	tenv.Env, err = commonchangeset.ApplyChangesetsV2(t, tenv.Env, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
@@ -335,7 +335,7 @@ func TestBilling(t *testing.T) {
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			testPriceUpdater := e.SolChains[solChain].DeployerKey.PublicKey()
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, true, nil, nil)
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
@@ -613,7 +613,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, true, nil, nil)
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
@@ -746,7 +746,7 @@ func TestPoolLookupTable(t *testing.T) {
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			newAdmin := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true, nil, nil)
+				_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true, true, nil, nil)
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,

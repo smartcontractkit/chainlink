@@ -12,6 +12,7 @@ import (
 
 	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
 	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/gagliardetto/solana-go"
@@ -341,6 +342,7 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		true,
 		true,
 		true,
+		true,
 		[]solana.PublicKey{burnMintPoolConfigPDA},
 		[]solana.PublicKey{lockReleasePoolConfigPDA},
 	)
@@ -397,4 +399,14 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		require.NoError(t, err)
 		return timelockSignerPDA.String() == programData.Config.Owner.String()
 	}, 30*time.Second, 5*time.Second, "LockReleaseTokenPool owner was not changed to timelock signer PDA")
+
+	// (F) Check RMNRemote ownership
+	require.Eventually(t, func() bool {
+		rmnRemoteConfigPDA := state.SolChains[solChain1].RMNRemoteConfigPDA
+		t.Logf("Checking RMNRemote PDA ownership data configPDA: %s", rmnRemoteConfigPDA.String())
+		programData := rmn_remote.Config{}
+		err := solChain.GetAccountDataBorshInto(ctx, rmnRemoteConfigPDA, &programData)
+		require.NoError(t, err)
+		return timelockSignerPDA.String() == programData.Owner.String()
+	}, 30*time.Second, 5*time.Second, "RMNRemote config PDA owner was not changed to timelock signer PDA")
 }
