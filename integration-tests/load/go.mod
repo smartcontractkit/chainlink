@@ -437,7 +437,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v0.0.0-20250123084029-58cce9b32112 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250225213110-ccfb7026763d // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250228231533-c20246255e2b // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8-0.20250225210020-fc215b29321e // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
