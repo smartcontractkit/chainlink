@@ -39,7 +39,8 @@ func BenchmarkCreateTransactionTxStore(b *testing.B) {
 	strategy.On("Subject").Return(uuid.NullUUID{UUID: subject, Valid: true})
 
 	b.ResetTimer()
-	for txCount := 1; txCount <= b.N; txCount++ {
+	for n := 0; n < b.N; n++ {
+		txCount := n+1
 		b.StartTimer()
 		etx, err := txStore.CreateTransaction(tests.Context(b), txmgr.TxRequest{
 			FromAddress:    fromAddress,
