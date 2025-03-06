@@ -167,7 +167,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
-					// for some reason, we can't upgrade mcm alongside timelock + access_controller
 					NewMCMVersion:    &deployment.Version1_1_0,
 					UpgradeAuthority: upgradeAuthority,
 					SpillAddress:     upgradeAuthority,

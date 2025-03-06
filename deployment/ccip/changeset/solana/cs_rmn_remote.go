@@ -78,10 +78,7 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 	chainState := state.SolChains[cfg.ChainSelector]
 	rmnRemoteConfigPDA := chainState.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(chainState.RMNRemote)
-	rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(chainState.RMNRemote)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find rmn remote curses pda: %w", err)
-	}
+	rmnRemoteCursesPDA := chainState.RMNRemoteCursesPDA
 
 	// validate curse subject
 	var curseSubject solRmnRemote.CurseSubject
@@ -165,10 +162,7 @@ func RemoveCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changese
 	chainState := state.SolChains[cfg.ChainSelector]
 	rmnRemoteConfigPDA := chainState.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(chainState.RMNRemote)
-	rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(chainState.RMNRemote)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find rmn remote curses pda: %w", err)
-	}
+	rmnRemoteCursesPDA := chainState.RMNRemoteCursesPDA
 
 	// validate curse subject
 	var curseSubject solRmnRemote.CurseSubject
