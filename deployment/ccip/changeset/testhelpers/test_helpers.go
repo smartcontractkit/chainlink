@@ -54,6 +54,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -1624,6 +1625,9 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
 	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.RMNRemoteProgram.String(), tv)
+	require.NoError(t, err)
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
@@ -1640,6 +1644,7 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
 		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
 		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
+		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
@@ -1655,6 +1660,11 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		var offRampConfigAccount solOffRamp.Config
 		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
 		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+
+		// Get rmn remote config
+		var rmnRemoteConfigAccount solRmnRemote.Config
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
 
 	}
 }

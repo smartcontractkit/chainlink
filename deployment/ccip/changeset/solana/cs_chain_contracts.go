@@ -39,8 +39,9 @@ type MCMSConfigSolana struct {
 	RouterOwnedByTimelock    bool
 	FeeQuoterOwnedByTimelock bool
 	OffRampOwnedByTimelock   bool
-	// Assumes whatever token pool we're operating on
-	TokenPoolPDAOwnedByTimelock bool
+	// Operates as a set. Token Pool configs will owned by timelock per token (the key)
+	BurnMintTokenPoolOwnedByTimelock    map[solana.PublicKey]bool
+	LockReleaseTokenPoolOwnedByTimelock map[solana.PublicKey]bool
 }
 
 // HELPER FUNCTIONS
@@ -102,6 +103,21 @@ func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.So
 	return nil
 }
 
+func validateFeeAggregatorConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
+	if chainState.FeeAggregator.IsZero() {
+		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
+	}
+	var routerConfigAccount solRouter.Config
+	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
+	if err != nil {
+		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
+	}
+	if !routerConfigAccount.FeeAggregator.Equals(chainState.FeeAggregator) {
+		return fmt.Errorf("fee aggregator %s does not match router config %s", chainState.FeeAggregator.String(), routerConfigAccount.FeeAggregator.String())
+	}
+	return nil
+}
+
 func validateFeeQuoterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
 	if chainState.FeeQuoter.IsZero() {
 		return fmt.Errorf("fee quoter not found in existing state, deploy the fee quoter first for chain %d", chain.Selector)
@@ -134,6 +150,7 @@ type OffRampRefAddressesConfig struct {
 	Router             solana.PublicKey
 	FeeQuoter          solana.PublicKey
 	AddressLookupTable solana.PublicKey
+	RMNRemote          solana.PublicKey
 	MCMSSolana         *MCMSConfigSolana
 }
 
@@ -147,14 +164,7 @@ func (cfg OffRampRefAddressesConfig) Validate(e deployment.Environment) error {
 	if !chainExists {
 		return fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
-		return err
-	}
-	offRampUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.OffRampOwnedByTimelock
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, offRampUsingMCMS, chainState.OffRamp, ccipChangeset.OffRamp); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
-	}
-	return nil
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
 }
 
 func UpdateOffRampRefAddresses(
@@ -195,6 +205,11 @@ func UpdateOffRampRefAddresses(
 		e.Logger.Infof("setting address lookup table on offramp to %s", config.AddressLookupTable.String())
 		addressLookupTableToSet = config.AddressLookupTable
 	}
+	rmnRemoteToSet := referenceAddressesAccount.RmnRemote
+	if !config.RMNRemote.IsZero() {
+		e.Logger.Infof("setting rmn remote on offramp to %s", config.RMNRemote.String())
+		rmnRemoteToSet = config.RMNRemote
+	}
 
 	offRampUsingMCMS := config.MCMSSolana != nil && config.MCMSSolana.OffRampOwnedByTimelock
 	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
@@ -213,6 +228,7 @@ func UpdateOffRampRefAddresses(
 		routerToSet,
 		feeQuoterToSet,
 		addressLookupTableToSet,
+		rmnRemoteToSet,
 		chainState.OffRampConfigPDA,
 		offRampReferenceAddressesPDA,
 		authority,
