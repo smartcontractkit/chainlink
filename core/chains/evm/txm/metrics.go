@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -13,8 +14,10 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	svrv1 "github.com/smartcontractkit/chainlink-protos/svr/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
 var (
@@ -39,13 +42,14 @@ var (
 type txmMetrics struct {
 	metrics.Labeler
 	chainID              *big.Int
+	lggr                 logger.Logger
 	numBroadcastedTxs    metric.Int64Counter
 	numConfirmedTxs      metric.Int64Counter
 	numNonceGaps         metric.Int64Counter
 	timeUntilTxConfirmed metric.Float64Histogram
 }
 
-func NewTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
+func NewTxmMetrics(chainID *big.Int, lggr logger.Logger) (*txmMetrics, error) {
 	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("txm_num_broadcasted_transactions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number: %w", err)
@@ -68,6 +72,7 @@ func NewTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
 
 	return &txmMetrics{
 		chainID:              chainID,
+		lggr:                 logger.Sugared(logger.Named(lggr, "TxmMetrics")),
 		Labeler:              metrics.NewLabeler().With("chainID", chainID.String()),
 		numBroadcastedTxs:    numBroadcastedTxs,
 		numConfirmedTxs:      numConfirmedTxs,
@@ -96,17 +101,22 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 	m.timeUntilTxConfirmed.Record(ctx, duration)
 }
 
-func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress, toAddress, forwardedAddress common.Address, nonce string) error {
+func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, fromAddress common.Address, tx *types.Transaction) error {
+
+	destAddress, err := m.getDestinationAddress(tx)
+	if err != nil {
+		m.lggr.Warnf("Failed to get destination address from tx %s: %v", txHash, err)
+		destAddress = &common.Address{}
+	}
 
 	message := &svrv1.TxMessage{
-		Hash:        tx.String(),
+		Hash:        txHash.String(),
 		FromAddress: fromAddress.String(),
-		ToAddress:   toAddress.String(),
-		Nonce:       nonce,
+		ToAddress:   tx.ToAddress.String(),
+		Nonce:       strconv.FormatUint(*tx.Nonce, 10),
 		CreatedAt:   time.Now().UnixMicro(),
 		ChainId:     m.chainID.String(),
-		FeedAddress: forwardedAddress.String(),
-		// FeedName:    m.Get("feedName"),
+		FeedAddress: destAddress.String(),
 	}
 	fmt.Printf("Emitting tx message: %v\n", message) // TODO(gg): remove
 
@@ -120,6 +130,23 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddr
 		messageBytes,
 		"beholder_domain", "svr",
 		"beholder_entity", "svr.v1.TxMessage",
-		"beholder_data_schema", "/beholder-tx-message/versions/1",
+		"beholder_data_schema", "/beholder-tx-message/versions/2",
 	)
+}
+
+func (m *txmMetrics) getDestinationAddress(tx *types.Transaction) (*common.Address, error) {
+	meta, err := tx.GetMeta()
+	if err != nil {
+		return nil, err
+	}
+
+	if meta == nil {
+		return nil, fmt.Errorf("no meta found")
+	}
+
+	if meta.FwdrDestAddress == nil {
+		return nil, fmt.Errorf("no FwdrDestAddress found")
+	}
+
+	return meta.FwdrDestAddress, nil
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math/big"
-	"strconv"
 	"sync"
 	"time"
 
@@ -111,7 +110,7 @@ func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder 
 
 func (t *Txm) Start(ctx context.Context) error {
 	return t.StartOnce("Txm", func() error {
-		tm, err := NewTxmMetrics(t.chainID)
+		tm, err := NewTxmMetrics(t.chainID, t.lggr)
 		if err != nil {
 			return err
 		}
@@ -340,7 +339,7 @@ func (t *Txm) createAndSendAttempt(ctx context.Context, tx *types.Transaction, a
 	return t.sendTransactionWithError(ctx, tx, attempt, address)
 }
 
-func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transaction, attempt *types.Attempt, address common.Address) (err error) {
+func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transaction, attempt *types.Attempt, fromAddress common.Address) (err error) {
 	if tx.Nonce == nil {
 		return fmt.Errorf("nonce for txID: %v is empty", tx.ID)
 	}
@@ -353,7 +352,7 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 			return
 		}
 	} else if txErr != nil {
-		pendingNonce, err := t.client.PendingNonceAt(ctx, address)
+		pendingNonce, err := t.client.PendingNonceAt(ctx, fromAddress)
 		if err != nil {
 			return err
 		}
@@ -363,21 +362,11 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 	}
 
 	t.metrics.IncrementNumBroadcastedTxs(ctx)
-
-	// get destination address from meta if it exists, to improve txMessage
-	meta, _ := tx.GetMeta()
-	fmt.Printf("Meta is %+v\n", meta)
-
-	destAddress := common.Address{}
-	if meta != nil && meta.FwdrDestAddress != nil {
-		destAddress = *meta.FwdrDestAddress
-	}
-
-	if err = t.metrics.EmitTxMessage(ctx, attempt.Hash, address, tx.ToAddress, destAddress, strconv.FormatUint(*tx.Nonce, 10)); err != nil {
+	if err = t.metrics.EmitTxMessage(ctx, attempt.Hash, fromAddress, tx); err != nil {
 		t.lggr.Errorw("Beholder error emitting tx message", "err", err)
 	}
 
-	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, address)
+	return t.txStore.UpdateTransactionBroadcast(ctx, attempt.TxID, *tx.Nonce, attempt.Hash, fromAddress)
 }
 
 func (t *Txm) backfillTransactions(ctx context.Context, address common.Address) (bool, error) {
