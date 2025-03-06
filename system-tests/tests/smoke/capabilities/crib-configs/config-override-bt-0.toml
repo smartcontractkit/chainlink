@@ -1,0 +1,33 @@
+[Capabilities]
+[Capabilities.ExternalRegistry]
+Address = '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0'
+ChainID = '1337'
+NetworkID = 'evm'
+
+[Capabilities.Peering]
+[Capabilities.Peering.V2]
+DefaultBootstrappers = ['12D3KooWNk5sEfjQxGK7RysRwnSBKJib2d3HF3ftCUSqNpY2dRRF@localhost:6690']
+Enabled = true
+ListenAddresses = ['0.0.0.0:6690']
+
+[[EVM]]
+ChainID = '1337'
+
+[[EVM.Nodes]]
+HTTPURL = 'http://geth-1337:8544'
+Name = 'anvil'
+WSURL = 'ws://geth-1337:8546'
+
+[Feature]
+LogPoller = true
+
+[OCR2]
+ContractPollInterval = '1s'
+DatabaseTimeout = '1s'
+Enabled = true
+
+[P2P]
+[P2P.V2]
+DefaultBootstrappers = ['12D3KooWNk5sEfjQxGK7RysRwnSBKJib2d3HF3ftCUSqNpY2dRRF@localhost:5001']
+Enabled = true
+ListenAddresses = ['0.0.0.0:5001']

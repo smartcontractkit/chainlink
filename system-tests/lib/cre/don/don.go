@@ -1,7 +1,7 @@
 package don
 
 import (
-	"fmt"
+	"os"
 	"regexp"
 	"strconv"
 
@@ -16,6 +16,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/crypto"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error {
@@ -37,7 +39,7 @@ func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error
 	return nil
 }
 
-func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes.Topology, error) {
+func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraDetails types.InfraDetails) (*cretypes.Topology, error) {
 	topology := &cretypes.Topology{}
 	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
 
@@ -82,9 +84,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes
 				Value: nodeType,
 			})
 
-			// TODO this will only work with Docker, for CRIB we need a different approach
-			// that will need to be aware of namespace name and node naming pattern
-			host := fmt.Sprintf("%s-node%d", donMetadata.Name, j)
+			host := infra.Host(j, nodeType, donMetadata.Name, infraDetails)
 
 			if nodeSetInput[i].GatewayNodeIndex != -1 && j == nodeSetInput[i].GatewayNodeIndex {
 				nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
@@ -92,10 +92,15 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet) (*cretypes
 					Value: cretypes.GatewayNode,
 				})
 
+				gatewayHost := host
+				if os.Getenv("CRIB") == "true" {
+					gatewayHost += "-gtwnode"
+				}
+
 				topology.GatewayConnectorOutput = &cretypes.GatewayConnectorOutput{
 					Path: "/node",
 					Port: 5003,
-					Host: host,
+					Host: gatewayHost,
 					// do not set gateway connector dons, they will be resolved automatically
 				}
 			}

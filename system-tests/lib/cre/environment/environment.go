@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput) (*types.FullCLDEnvironmentOutput, error) {
+func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -40,7 +40,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		jdConfig := devenv.JDConfig{
 			GRPC:     input.JdOutput.HostGRPCUrl,
 			WSRPC:    input.JdOutput.DockerWSRPCUrl,
-			Creds:    insecure.NewCredentials(),
+			Creds:    credentials,
 			NodeInfo: nodeInfo,
 		}
 
@@ -98,16 +98,23 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 	}
 
-	// Create a JD client that can interact with all the nodes, otherwise if it has node IDs of nodes that belong only to one Don,
-	// it will still propose jobs to unknown nodes, but won't accept them automatically
-	jd, err := devenv.NewJDClient(context.Background(), devenv.JDConfig{
-		GRPC:     input.JdOutput.HostGRPCUrl,
-		WSRPC:    input.JdOutput.DockerWSRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: allNodesInfo,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create JD client")
+	var jd deployment.OffchainClient
+	var err error
+
+	if len(input.NodeSetOutput) > 0 {
+		// Create a JD client that can interact with all the nodes, otherwise if it has node IDs of nodes that belong only to one Don,
+		// it will still propose jobs to unknown nodes, but won't accept them automatically
+		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
+			GRPC:     input.JdOutput.HostGRPCUrl,
+			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			Creds:    credentials,
+			NodeInfo: allNodesInfo,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create JD client")
+		}
+	} else {
+		jd = envs[0].Offchain
 	}
 
 	// we assume that all DONs run on the same chain and that there's only one chain
