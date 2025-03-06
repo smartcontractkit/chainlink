@@ -56,7 +56,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 		validate func(t *testing.T)
 	}{
 		{
-			name: "Both chains are slow 400ms/20ms jitter",
+			name: "RPC latency on all chains",
 			run: func(t *testing.T) {
 				_, err := cr.RunPodDelay(context.Background(),
 					havoc.PodDelayCfg{
