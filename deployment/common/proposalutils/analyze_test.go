@@ -35,7 +35,7 @@ func Test_AnalyzeRmnHomeSetConfig(t *testing.T) {
 						StructArgument{
 							Fields: []NamedArgument{
 								{
-									Name:  "PeerID",
+									Name:  "PeerId",
 									Value: BytesArgument{Value: hexutil.MustDecode("0xe98702d28f71e1d61ec514fe067781b4144aac68519488e80d70b2e7ccb53d43")},
 								},
 								{
@@ -47,7 +47,7 @@ func Test_AnalyzeRmnHomeSetConfig(t *testing.T) {
 						StructArgument{
 							Fields: []NamedArgument{
 								{
-									Name:  "PeerID",
+									Name:  "PeerId",
 									Value: BytesArgument{Value: hexutil.MustDecode("0x49978bab3172a2740e5e63c2521d53ed2358786624cec1b714c788eedade101b")},
 								},
 								{
@@ -59,7 +59,7 @@ func Test_AnalyzeRmnHomeSetConfig(t *testing.T) {
 						StructArgument{
 							Fields: []NamedArgument{
 								{
-									Name:  "PeerID",
+									Name:  "PeerId",
 									Value: BytesArgument{Value: hexutil.MustDecode("0x8001e4afa8fa061833dfee29d286f7dfe0b78a767f1fa1f152bcda4d53415061")},
 								},
 								{
