@@ -17,7 +17,6 @@ type OnRampView struct {
 	types.ContractMetaData
 	DynamicConfig         onramp.OnRampDynamicConfig        `json:"dynamicConfig"`
 	StaticConfig          onramp.OnRampStaticConfig         `json:"staticConfig"`
-	Owner                 common.Address                    `json:"owner"`
 	SourceTokenToPool     map[common.Address]common.Address `json:"sourceTokenToPool"`
 	DestChainSpecificData map[uint64]DestChainSpecificData  `json:"destChainSpecificData"`
 }
@@ -47,10 +46,6 @@ func GenerateOnRampView(
 		return OnRampView{}, fmt.Errorf("failed to get static config: %w", err)
 	}
 
-	owner, err := onRampContract.Owner(nil)
-	if err != nil {
-		return OnRampView{}, fmt.Errorf("failed to get owner: %w", err)
-	}
 	// populate destChainSelectors from router
 	destChainSelectors, err := v1_2.GetRemoteChainSelectors(routerContract)
 	if err != nil {
@@ -95,7 +90,6 @@ func GenerateOnRampView(
 		ContractMetaData:      tv,
 		DynamicConfig:         dynamicConfig,
 		StaticConfig:          staticConfig,
-		Owner:                 owner,
 		SourceTokenToPool:     sourceTokenToPool,
 		DestChainSpecificData: destChainSpecificData,
 	}, nil

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/hex"
 	"maps"
+	"strconv"
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -268,6 +269,7 @@ func Test_RegisterNodes(t *testing.T) {
 								SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 									{
 										ChainSelector: chain.Selector,
+										ChainName:     strconv.FormatUint(chain.Selector, 10),
 									}: {
 										OnchainPublicKey:          tc.input.Signer[:],
 										ConfigEncryptionPublicKey: tc.input.EncryptionPublicKey,
@@ -328,6 +330,7 @@ func Test_RegisterNodes(t *testing.T) {
 						SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 							{
 								ChainSelector: chain.Selector,
+								ChainName:     strconv.FormatUint(chain.Selector, 10),
 							}: {},
 						},
 						WorkflowKey: hex.EncodeToString(registeredNodeParams[0].EncryptionPublicKey[:]),
