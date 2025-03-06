@@ -73,8 +73,14 @@ type OffRampParams struct {
 	EnableExecutionAfter int64
 }
 type UpgradeConfig struct {
-	NewFeeQuoterVersion *semver.Version
-	NewRouterVersion    *semver.Version
+	NewFeeQuoterVersion            *semver.Version
+	NewRouterVersion               *semver.Version
+	NewRMNRemoteVersion            *semver.Version
+	NewBurnMintTokenPoolVersion    *semver.Version
+	NewLockReleaseTokenPoolVersion *semver.Version
+	NewAccessControllerVersion     *semver.Version
+	NewMCMVersion                  *semver.Version
+	NewTimelockVersion             *semver.Version
 	// Offramp is redeployed with the existing deployer key while the other programs are upgraded in place
 	NewOffRampVersion *semver.Version
 	// SpillAddress and UpgradeAuthority must be set
@@ -429,12 +435,12 @@ func deployChainContractsSolana(
 ) ([]mcmsTypes.Transaction, error) {
 	// we may need to gather instructions and submit them as part of MCMS
 	txns := make([]mcmsTypes.Transaction, 0)
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	s, err := ccipChangeset.LoadOnchainStateSolana(e)
 	if err != nil {
 		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
 		return txns, err
 	}
-	chainState, chainExists := state.SolChains[chain.Selector]
+	chainState, chainExists := s.SolChains[chain.Selector]
 	if !chainExists {
 		return txns, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
 	}
@@ -548,6 +554,13 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
+	} else if config.UpgradeConfig.NewRMNRemoteVersion != nil {
+		rmnRemoteAddress = chainState.RMNRemote
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewRMNRemoteVersion, chainState.RMNRemote, ccipChangeset.RMNRemote)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		txns = append(txns, newTxns...)
 	} else {
 		e.Logger.Infow("Using existing rmn remote", "addr", chainState.RMNRemote.String())
 		rmnRemoteAddress = chainState.RMNRemote
@@ -639,6 +652,13 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
+	} else if config.UpgradeConfig.NewBurnMintTokenPoolVersion != nil {
+		burnMintTokenPool = chainState.BurnMintTokenPool
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewBurnMintTokenPoolVersion, chainState.BurnMintTokenPool, ccipChangeset.BurnMintTokenPool)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		txns = append(txns, newTxns...)
 	} else {
 		e.Logger.Infow("Using existing burn mint token pool", "addr", chainState.BurnMintTokenPool.String())
 		burnMintTokenPool = chainState.BurnMintTokenPool
@@ -650,9 +670,50 @@ func deployChainContractsSolana(
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy program: %w", err)
 		}
+	} else if config.UpgradeConfig.NewLockReleaseTokenPoolVersion != nil {
+		lockReleaseTokenPool = chainState.LockReleaseTokenPool
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewLockReleaseTokenPoolVersion, chainState.LockReleaseTokenPool, ccipChangeset.LockReleaseTokenPool)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+		}
+		txns = append(txns, newTxns...)
 	} else {
 		e.Logger.Infow("Using existing lock release token pool", "addr", chainState.LockReleaseTokenPool.String())
 		lockReleaseTokenPool = chainState.LockReleaseTokenPool
+	}
+
+	if config.UpgradeConfig.NewAccessControllerVersion != nil ||
+		config.UpgradeConfig.NewTimelockVersion != nil ||
+		config.UpgradeConfig.NewMCMVersion != nil {
+		addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+		if err != nil {
+			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+		}
+		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		if err != nil {
+			return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+		}
+		if config.UpgradeConfig.NewAccessControllerVersion != nil {
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			}
+			txns = append(txns, newTxns...)
+		}
+		if config.UpgradeConfig.NewTimelockVersion != nil {
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			}
+			txns = append(txns, newTxns...)
+		}
+		if config.UpgradeConfig.NewMCMVersion != nil {
+			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+			if err != nil {
+				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
+			}
+			txns = append(txns, newTxns...)
+		}
 	}
 
 	// BILLING
@@ -706,12 +767,8 @@ func deployChainContractsSolana(
 	}
 
 	if len(lookupTableKeys) > 0 {
-		addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, offRampAddress)
-		if err != nil {
-			return txns, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-		}
-		e.Logger.Debugw("Populating lookup table", "lookupTable", addressLookupTable.String(), "keys", lookupTableKeys)
-		if err := solCommonUtil.ExtendLookupTable(e.GetContext(), chain.Client, addressLookupTable, *chain.DeployerKey, lookupTableKeys); err != nil {
+		e.Logger.Debugw("Populating lookup table", "keys", lookupTableKeys)
+		if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
 	}

@@ -11,6 +11,8 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -139,6 +141,10 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	verifyProgramSizes(t, e)
+	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+	require.NoError(t, err)
+	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
+	require.NoError(t, err)
 
 	// deploy the contracts
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -159,10 +165,12 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParamsPerChain,
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewFeeQuoterVersion: &deployment.Version1_1_0,
-					NewRouterVersion:    &deployment.Version1_1_0,
-					UpgradeAuthority:    upgradeAuthority,
-					SpillAddress:        upgradeAuthority,
+					NewFeeQuoterVersion:            &deployment.Version1_1_0,
+					NewRouterVersion:               &deployment.Version1_1_0,
+					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
+					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+					UpgradeAuthority:               upgradeAuthority,
+					SpillAddress:                   upgradeAuthority,
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
 					},
@@ -174,8 +182,34 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					CleanDestinationDir: true,
 					CleanGitDir:         true,
 					UpgradeKeys: map[deployment.ContractType]string{
-						ccipChangeset.Router:    state.SolChains[solChainSelectors[0]].Router.String(),
-						ccipChangeset.FeeQuoter: state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+						ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
+						ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+						ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
+						ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
+						types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
+						types.RBACTimelockProgram:          chainState.TimelockProgram.String(),
+						types.ManyChainMultisigProgram:     chainState.McmProgram.String(),
+						ccipChangeset.RMNRemote:            state.SolChains[solChainSelectors[0]].RMNRemote.String(),
+					},
+				},
+			},
+		),
+		// Split the upgrade to avoid txn size limits. No need to build again.
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			ccipChangesetSolana.DeployChainContractsConfig{
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParamsPerChain,
+				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+					NewAccessControllerVersion: &deployment.Version1_1_0,
+					NewTimelockVersion:         &deployment.Version1_1_0,
+					// MCM upgrade not working (need to followup)
+					// NewMCMVersion:              &deployment.Version1_1_0,
+					NewRMNRemoteVersion: &deployment.Version1_1_0,
+					UpgradeAuthority:    upgradeAuthority,
+					SpillAddress:        upgradeAuthority,
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
 					},
 				},
 			},
@@ -237,7 +271,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 
 	// Verify router and fee quoter upgraded in place
 	// and offramp had 2nd address added
-	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	addresses, err = e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	numRouters := 0
 	numFeeQuoters := 0
