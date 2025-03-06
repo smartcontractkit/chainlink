@@ -637,11 +637,13 @@ type RMNNodeConfig struct {
 	Passphrase        string
 }
 
-func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, nodes []RMNNodeConfig) error {
+func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, nodes []RMNNodeConfig) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to create environment: %w", err)
 	}
+
+	e.ExistingAddresses = ab
 
 	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
 	for i, node := range nodes {
@@ -650,36 +652,45 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 			OffchainPublicKey: node.OffchainPublicKey,
 		}
 	}
-
-	_, err = v1_6.SetRMNHomeCandidateConfigChangeset(*e, v1_6.SetRMNHomeCandidateConfig{
-		HomeChainSelector: homeChainSel,
-		RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
-			Nodes:          rmnNodes,
-			OffchainConfig: []byte{},
-		},
-	})
+	env, err := commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNHomeCandidateConfigChangeset),
+			v1_6.SetRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+					Nodes:          rmnNodes,
+					OffchainConfig: []byte{},
+				},
+			},
+		),
+	)
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn node candidate: %w", err)
 	}
 
-	state, err := changeset.LoadOnchainState(*e)
+	state, err := changeset.LoadOnchainState(env)
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load chain state: %w", err)
 	}
 
 	configDigest, err := state.Chains[homeChainSel].RMNHome.GetCandidateDigest(nil)
 
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn home candidate digest: %w", err)
 	}
 
-	_, err = v1_6.PromoteRMNHomeCandidateConfigChangeset(*e, v1_6.PromoteRMNHomeCandidateConfig{
-		HomeChainSelector: homeChainSel,
-		DigestToPromote:   configDigest,
-	})
-
+	env, err = commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.PromoteRMNHomeCandidateConfigChangeset),
+			v1_6.PromoteRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				DigestToPromote:   configDigest,
+			},
+		),
+	)
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to promote rmn node candidate: %w", err)
 	}
 
 	signers := make([]rmn_remote.RMNRemoteSigner, len(nodes))
@@ -706,7 +717,7 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
 	}
 
 	updates := make(map[uint64]v1_6.OffRampParams)
@@ -721,10 +732,17 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	})
 
 	if err != nil {
-		return err
+		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
 	}
 
-	return nil
+	addresses, err := env.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
 }
 
 func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyImageTag, afn2proxyImageURI,
