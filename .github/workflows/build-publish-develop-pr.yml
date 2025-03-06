@@ -98,7 +98,8 @@ jobs:
         with:
           persist-credentials: false
           ref: ${{ env.CHECKOUT_REF }}
-          fetch-depth: 0
+          # nightly builds require a full clone for goreleaser to work
+          fetch-depth: ${{ needs.image-tag.outputs.release-type == 'nightly' && '0' || '1' }}
 
       - name: Setup Github Token
         id: token

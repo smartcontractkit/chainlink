@@ -108,7 +108,6 @@ core/scripts/gateway @smartcontractkit/dev-services
 /core/gethwrappers/ccip @smartcontractkit/ccip-onchain
 /core/gethwrappers/functions @smartcontractkit/dev-services
 /core/gethwrappers/keystone @smartcontractkit/keystone
-/core/gethwrappers/liquiditymanager @smartcontractkit/ccip-onchain
 /core/gethwrappers/llo-feeds @smartcontractkit/data-streams-engineers
 /core/gethwrappers/operatorforwarder @smartcontractkit/data-feeds-engineers
 /core/gethwrappers/data-feeds @smartcontractkit/data-feeds-engineers
@@ -126,7 +125,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 # Remove changeset files from the codeowners
 /contracts/.changeset
 # Gas snapshots are always checked by the CI so they don't need codeowners.
-/contracts/gas-snapshots 
+/contracts/gas-snapshots
 
 # At the end, match any files missed by the patterns above
 /contracts/scripts/native_solc_compile_all_events_mock @smartcontractkit/dev-services
@@ -149,6 +148,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

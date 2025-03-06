@@ -90,7 +90,7 @@ func JobSpecsForLanesChangeset(env deployment.Environment, c JobSpecsForLanesCon
 				// JOBID will be empty if the proposal failed.
 				return deployment.ChangesetOutput{
 					Jobs: Jobs,
-				}, fmt.Errorf("failed to propose job: %w", err)
+				}, fmt.Errorf("failed to propose job %s: %w", job, err)
 			}
 			Jobs[len(Jobs)-1].JobID = res.Proposal.JobId
 		}

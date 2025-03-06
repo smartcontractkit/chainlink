@@ -29,7 +29,7 @@ builds:
       - -trimpath
       - -buildmode=pie
 archives:
-  - format: binary
+  - formats: binary
 snapshot:
   version_template: "{{ .Env.VERSION }}-{{ .ShortCommit }}"
 checksum:

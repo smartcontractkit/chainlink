@@ -194,8 +194,8 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
 
     Client.EVM2AnyMessage memory message = _generateEmptyMessage();
     message.extraArgs = abi.encodeWithSelector(
-      Client.EVM_EXTRA_ARGS_V2_TAG,
-      Client.EVMExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: allowOutOfOrderExecution})
+      Client.GENERIC_EXTRA_ARGS_V2_TAG,
+      Client.GenericExtraArgsV2({gasLimit: GAS_LIMIT * 2, allowOutOfOrderExecution: allowOutOfOrderExecution})
     );
 
     // If enforcement is on, only true should be allowed.

@@ -103,13 +103,18 @@ func (r ReportCodecEVMABIEncodeUnpacked) Encode(ctx context.Context, report llo.
 		return nil, fmt.Errorf("failed to decode opts; got: '%s'; %w", cd.Opts, err)
 	}
 
+	validAfterSeconds, observationTimestampSeconds, err := ExtractTimestamps(report)
+	if err != nil {
+		return nil, fmt.Errorf("failed to extract timestamps; %w", err)
+	}
+
 	rf := BaseReportFields{
 		FeedID:             opts.FeedID,
-		ValidFromTimestamp: report.ValidAfterSeconds + 1,
-		Timestamp:          report.ObservationTimestampSeconds,
+		ValidFromTimestamp: validAfterSeconds + 1,
+		Timestamp:          observationTimestampSeconds,
 		NativeFee:          CalculateFee(nativePrice, opts.BaseUSDFee),
 		LinkFee:            CalculateFee(linkPrice, opts.BaseUSDFee),
-		ExpiresAt:          report.ObservationTimestampSeconds + opts.ExpirationWindow,
+		ExpiresAt:          observationTimestampSeconds + opts.ExpirationWindow,
 	}
 
 	header, err := r.buildHeader(ctx, rf)

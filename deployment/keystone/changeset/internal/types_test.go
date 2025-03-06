@@ -27,6 +27,9 @@ func Test_toNodeKeys(t *testing.T) {
 	if err != nil {
 		panic(err)
 	}
+	if registryChainDetails.ChainName == "" {
+		registryChainDetails.ChainName = strconv.FormatUint(registryChainDetails.ChainSelector, 10)
+	}
 	aptosChainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.Itoa(int(1)), chainsel.FamilyAptos)
 	if err != nil {
 		panic(err)

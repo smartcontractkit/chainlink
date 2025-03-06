@@ -236,11 +236,18 @@ func (c CCIPChainState) LinkTokenAddress() (common.Address, error) {
 func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.Router != nil {
-		routerView, err := v1_2.GenerateRouterView(c.Router)
+		routerView, err := v1_2.GenerateRouterView(c.Router, false)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate router view for router %s", c.Router.Address().String())
 		}
 		chainView.Router[c.Router.Address().Hex()] = routerView
+	}
+	if c.TestRouter != nil {
+		testRouterView, err := v1_2.GenerateRouterView(c.TestRouter, true)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate router view for test router %s", c.TestRouter.Address().String())
+		}
+		chainView.Router[c.TestRouter.Address().Hex()] = testRouterView
 	}
 	if c.TokenAdminRegistry != nil {
 		taView, err := viewv1_5.GenerateTokenAdminRegistryView(c.TokenAdminRegistry)
@@ -255,7 +262,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
@@ -264,7 +273,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
@@ -273,7 +284,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
@@ -282,8 +295,15 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.LockReleaseTokenPool = helpers.AddValueToNestedMap(chainView.LockReleaseTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 		}
+	}
+	for _, pool := range c.USDCTokenPools {
+		tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(pool)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
+		}
+		chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
 	}
 	if c.NonceManager != nil {
 		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
@@ -718,8 +738,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.ABIByAddress[address] = gethwrappers.CallProxyABI
 		case deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String(),
 			deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String(),
-			deployment.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0).String():
+			deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		case deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0).String():
 			state.ABIByAddress[address] = link_token.LinkTokenABI
@@ -1043,6 +1062,14 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.MockRMN = mockRMN
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
 		default:
+			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
+			// bypasser, proposer and canceller
+			// if you try to compare tvStr.String() you will have to compare all combinations of labels
+			// so we will compare the type and version only
+			if tvStr.Type == commontypes.ManyChainMultisig && tvStr.Version == deployment.Version1_0_0 {
+				state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
+				continue
+			}
 			return state, fmt.Errorf("unknown contract %s", tvStr)
 		}
 	}

@@ -6,63 +6,137 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
-	keystoneflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	creflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
+
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpecs, error) {
+	if input == nil {
+		return nil, errors.New("input is nil")
+	}
+	if err := input.Validate(); err != nil {
+		return nil, errors.Wrap(err, "input validation failed")
+	}
+	donToJobSpecs := make(types.DonsToJobSpecs)
+
+	gatewayConnectorData := input.GatewayConnectorOutput
+
+	// we need to iterate over all DONs to see which need gateway connector and create a map of Don IDs and ETH addresses (which identify nodes that can use the connector)
+	// This map will be used to configure the gateway job on the node that runs it. Ccurrently, we support only a single gateway connector, even if CRE supports multiple
+	for _, donWithMetadata := range input.DonsWithMetadata {
+		// if it's a workflow DON or it has custom compute capability, it needs access to gateway connector
+		if creflags.HasFlag(donWithMetadata.Flags, types.WorkflowDON) || creflags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
+			workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to find worker nodes")
+			}
+
+			ethAddresses := make([]string, len(workflowNodeSet))
+			var ethAddressErr error
+			for i, n := range workflowNodeSet {
+				ethAddresses[i], ethAddressErr = node.FindLabelValue(n, node.EthAddressKey)
+				if ethAddressErr != nil {
+					return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
+				}
+			}
+			gatewayConnectorData.Dons = append(gatewayConnectorData.Dons, types.GatewayConnectorDons{
+				MembersEthAddresses: ethAddresses,
+				ID:                  donWithMetadata.DonMetadata.ID,
+			})
+		}
+	}
+
+	for _, donWithMetadata := range input.DonsWithMetadata {
+		jobSpecs, err := generateDonJobSpecs(
+			input.BlockchainOutput,
+			donWithMetadata,
+			input.OCR3CapabilityAddress,
+			input.CronCapBinName,
+			input.ExtraAllowedPorts,
+			input.ExtraAllowedIPs,
+			gatewayConnectorData,
+		)
+		if err != nil {
+			return nil, errors.Wrapf(err, "failed to generate job specs for don %d", donWithMetadata.DonMetadata.ID)
+		}
+
+		donToJobSpecs[donWithMetadata.DonMetadata.ID] = jobSpecs
+	}
+
+	return donToJobSpecs, nil
+}
 
 // If we wanted to by fancy we could also accept map[JobDescription]string that would get us the job spec
 // if there's no job spec for the given JobDescription we would use the standard one, that could be easier
 // than having to define the job spec for each JobDescription manually, in case someone wants to change one parameter
-func GenerateJobSpecs(input types.GeneratePoRJobSpecsInput) (types.DonJobs, error) {
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
+func generateDonJobSpecs(
+	blockchainOutput *blockchain.Output,
+	donWithMetadata *types.DonWithMetadata,
+	oCR3CapabilityAddress common.Address,
+	cronCapBinName string,
+	extraAllowedPorts []int,
+	extraAllowedIPs []string,
+	gatewayConnectorOutput types.GatewayConnectorOutput,
+) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs)
 
-	chainIDInt, err := strconv.Atoi(input.BlockchainOutput.ChainID)
+	chainIDInt, err := strconv.Atoi(blockchainOutput.ChainID)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to convert chain ID to int")
 	}
 	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
 
-	bootstrapNode, err := node.FindOneWithLabel(input.Don, &ptypes.Label{Key: node.RoleLabelKey, Value: ptr.Ptr(types.BootstrapNode)})
+	// create job specs for the gateway node
+	if creflags.HasFlag(donWithMetadata.Flags, types.GatewayDON) {
+		gatewayNode, nodeErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.ExtraRolesKey, Value: types.GatewayNode}, node.LabelContains)
+		if nodeErr != nil {
+			return nil, errors.Wrap(nodeErr, "failed to find bootstrap node")
+		}
+
+		gatewayNodeID, gatewayErr := node.FindLabelValue(gatewayNode, node.NodeIDKey)
+		if gatewayErr != nil {
+			return nil, errors.Wrap(gatewayErr, "failed to get gateway node id from labels")
+		}
+
+		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, gatewayConnectorOutput)}
+	}
+
+	// if it's only a gateway node, we don't need to create any other job specs
+	if creflags.HasOnlyOneFlag(donWithMetadata.Flags, types.GatewayDON) {
+		return jobSpecs, nil
+	}
+
+	// look for boostrap node and then for required values in its labels
+	bootstrapNode, err := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.BootstrapNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find bootstrap node")
 	}
 
-	donBootstrapNodePeerID, err := node.ToP2PID(*bootstrapNode, node.KeyExtractingTransformFn)
+	donBootstrapNodePeerID, err := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get bootstrap node peer ID")
 	}
 
-	var donBootstrapNodeHost string
-	for _, label := range bootstrapNode.Labels() {
-		if label.Key == node.HostLabelKey {
-			donBootstrapNodeHost = *label.Value
-			break
-		}
+	donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
+	if hostErr != nil {
+		return nil, errors.Wrap(hostErr, "failed to get bootstrap node host from labels")
 	}
 
-	if donBootstrapNodeHost == "" {
-		return nil, errors.New("failed to get bootstrap node host from labels")
+	bootstrapNodeID, nodeIDErr := node.FindLabelValue(bootstrapNode, node.NodeIDKey)
+	if nodeIDErr != nil {
+		return nil, errors.Wrap(nodeIDErr, "failed to get bootstrap node id from labels")
 	}
 
-	// configuration of bootstrap node
-	if keystoneflags.HasFlag(input.Flags, types.OCR3Capability) {
-		jobSpecs[types.JobDescription{Flag: types.OCR3Capability, NodeType: types.BootstrapNode}] = []*jobv1.ProposeJobRequest{jobs.BootstrapOCR3(bootstrapNode.NodeID, input.OCR3CapabilityAddress, chainIDUint64)}
-	}
-
-	// if it's a workflow DON or it has custom compute capability, we need to create a gateway job
-	if keystoneflags.HasFlag(input.Flags, types.WorkflowDON) || keystoneflags.HasFlag(input.Flags, types.CustomComputeCapability) {
-		jobSpecs[types.JobDescription{Flag: types.WorkflowDON, NodeType: types.BootstrapNode}] = []*jobv1.ProposeJobRequest{jobs.BootstrapGateway(input.Don, chainIDUint64, input.DonID, input.ExtraAllowedPorts, input.ExtraAllowedIPs, input.GatewayConnectorOutput)}
+	// create job specs for the bootstrap node
+	if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
+		jobSpecs[types.JobDescription{Flag: types.OCR3Capability, NodeType: types.BootstrapNode}] = []*jobv1.ProposeJobRequest{jobs.BootstrapOCR3(bootstrapNodeID, oCR3CapabilityAddress, chainIDUint64)}
 	}
 
 	ocrPeeringData := types.OCRPeeringData{
@@ -71,15 +145,21 @@ func GenerateJobSpecs(input types.GeneratePoRJobSpecsInput) (types.DonJobs, erro
 		Port:                 5001,
 	}
 
-	workflowNodeSet, err := node.FindManyWithLabel(input.Don, &ptypes.Label{Key: node.RoleLabelKey, Value: ptr.Ptr(types.WorkerNode)})
+	// create job specs for the worker nodes
+	workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.WorkerNode}, node.EqualLabels)
 	if err != nil {
+		// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
 
-	// configuration of worker nodes
-	for _, node := range workflowNodeSet {
-		if keystoneflags.HasFlag(input.Flags, types.CronCapability) {
-			jobSpec := jobs.WorkerStandardCapability(node.NodeID, "cron-capabilities", jobs.ExternalCapabilityPath(input.CronCapBinName), jobs.EmptyStdCapConfig)
+	for _, workerNode := range workflowNodeSet {
+		nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+		if nodeIDErr != nil {
+			return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+		}
+
+		if creflags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
+			jobSpec := jobs.WorkerStandardCapability(nodeID, "cron-capability", jobs.ExternalCapabilityPath(cronCapBinName), jobs.EmptyStdCapConfig)
 			jobDesc := types.JobDescription{Flag: types.CronCapability, NodeType: types.WorkerNode}
 
 			if _, ok := jobSpecs[jobDesc]; !ok {
@@ -89,7 +169,7 @@ func GenerateJobSpecs(input types.GeneratePoRJobSpecsInput) (types.DonJobs, erro
 			}
 		}
 
-		if keystoneflags.HasFlag(input.Flags, types.CustomComputeCapability) {
+		if creflags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
 			config := `"""
 				NumWorkers = 3
 				[rateLimiter]
@@ -99,7 +179,7 @@ func GenerateJobSpecs(input types.GeneratePoRJobSpecsInput) (types.DonJobs, erro
 				perSenderBurst = 5
 				"""`
 
-			jobSpec := jobs.WorkerStandardCapability(node.NodeID, "custom-compute", "__builtin_custom-compute-action", config)
+			jobSpec := jobs.WorkerStandardCapability(nodeID, "custom-compute", "__builtin_custom-compute-action", config)
 			jobDesc := types.JobDescription{Flag: types.CustomComputeCapability, NodeType: types.WorkerNode}
 
 			if _, ok := jobSpecs[jobDesc]; !ok {
@@ -109,8 +189,18 @@ func GenerateJobSpecs(input types.GeneratePoRJobSpecsInput) (types.DonJobs, erro
 			}
 		}
 
-		if keystoneflags.HasFlag(input.Flags, types.OCR3Capability) {
-			jobSpec := jobs.WorkerOCR3(node.NodeID, input.OCR3CapabilityAddress, common.HexToAddress(node.AccountAddr[chainIDUint64]), node.Ocr2KeyBundleID, ocrPeeringData, chainIDUint64)
+		nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.EthAddressKey)
+		if ethErr != nil {
+			return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
+		}
+
+		ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
+		if ocr2Err != nil {
+			return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
+		}
+
+		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
+			jobSpec := jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64)
 			jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
 
 			if _, ok := jobSpecs[jobDesc]; !ok {
