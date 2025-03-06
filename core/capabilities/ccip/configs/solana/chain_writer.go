@@ -97,6 +97,9 @@ func buildCommitAccountsList(fromAddress, offrampProgramAddress string, priceOnl
 		getFeeQuoterProgramAccount(offrampProgramAddress),
 		getFeeQuoterAllowedPriceUpdater(offrampProgramAddress),
 		getFeeQuoterConfigLookup(offrampProgramAddress),
+		getRMNRemoteProgramAccount(offrampProgramAddress),
+		getRMNRemoteCursesLookup(offrampProgramAddress),
+		getRMNRemoteConfigLookup(offrampProgramAddress),
 		getGlobalStateConfig(offrampProgramAddress),
 		getBillingTokenConfig(offrampProgramAddress),
 		getChainConfigGasPriceConfig(offrampProgramAddress),
@@ -230,6 +233,9 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					IsWritable: false,
 				},
 			},
+			getRMNRemoteProgramAccount(offrampProgramAddress),
+			getRMNRemoteCursesLookup(offrampProgramAddress),
+			getRMNRemoteConfigLookup(offrampProgramAddress),
 			{
 				AccountLookup: &chainwriter.AccountLookup{
 					Name:       "UserAccounts",
@@ -457,6 +463,54 @@ func getFeeQuoterConfigLookup(offrampProgramAddress string) chainwriter.Lookup {
 			Name: "FeeQuoterConfig",
 			// Fetch fee quoter public key to use as program ID for PDA
 			PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
+			Seeds: []chainwriter.Seed{
+				{Static: []byte("config")},
+			},
+			IsSigner:   false,
+			IsWritable: false,
+		},
+	}
+}
+
+func getRMNRemoteProgramAccount(offrampProgramAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{
+		PDALookups: &chainwriter.PDALookups{
+			Name:      ccipconsts.ContractNameRMNRemote,
+			PublicKey: getAddressConstant(offrampProgramAddress),
+			Seeds: []chainwriter.Seed{
+				{Static: []byte("reference_addresses")},
+			},
+			IsSigner:   false,
+			IsWritable: false,
+			// Reads the address from the reference addresses account
+			InternalField: chainwriter.InternalField{
+				TypeName: "ReferenceAddresses",
+				Location: "RmnRemote",
+				IDL:      ccipOfframpIDL,
+			},
+		},
+	}
+}
+
+func getRMNRemoteCursesLookup(offrampProgramAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{
+		PDALookups: &chainwriter.PDALookups{
+			Name:      "RMNRemoteCurses",
+			PublicKey: getRMNRemoteProgramAccount(offrampProgramAddress),
+			Seeds: []chainwriter.Seed{
+				{Static: []byte("curses")},
+			},
+			IsSigner:   false,
+			IsWritable: false,
+		},
+	}
+}
+
+func getRMNRemoteConfigLookup(offrampProgramAddress string) chainwriter.Lookup {
+	return chainwriter.Lookup{
+		PDALookups: &chainwriter.PDALookups{
+			Name: "RMNRemoteConfig",
+			PublicKey: getRMNRemoteProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("config")},
 			},
