@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	mathrand "math/rand"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 

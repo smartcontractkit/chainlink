@@ -3,11 +3,12 @@ package ccip
 import (
 	"context"
 	"fmt"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
 	"math"
 	"slices"
 	"sync"
 	"time"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
 
 	"go.uber.org/atomic"
 

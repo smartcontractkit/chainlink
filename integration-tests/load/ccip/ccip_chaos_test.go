@@ -3,15 +3,17 @@ package ccip
 import (
 	"context"
 	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
+
 	framework "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-	"os"
-	"testing"
-	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -84,7 +86,9 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 			testCase.run(t)
 			time.Sleep(testDuration)
 			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			require.NoError(t, err)
+			if err != nil {
+				t.Error(err)
+			}
 			testCase.validate(t)
 		})
 	}
@@ -479,7 +483,9 @@ func runFullChaosSuite(t *testing.T) {
 			testCase.run(t)
 			time.Sleep(cfg.GetExperimentInterval())
 			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			require.NoError(t, err)
+			if err != nil {
+				t.Error(err)
+			}
 			testCase.validate(t)
 		})
 	}
