@@ -13,6 +13,7 @@ import (
 
 var ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
 var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
+var ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
 
 // TODO add events when Querying is finished
 func DestContractReaderConfig() (config.ContractReader, error) {
@@ -24,6 +25,11 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	var feeQuoterIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
+	}
+
+	var rmnRemoteIDL solanacodec.IDL
+	if err := json.Unmarshal([]byte(ccipRmnRemoteIDL), &rmnRemoteIDL); err != nil {
+		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP RMN Remote IDL, error: %w", err)
 	}
 
 	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
@@ -343,6 +349,33 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								"DestinationChainSelector": "SourceChainSelector",
 								"Authority":                "Sender",
 							}}},
+					},
+				},
+			},
+			consts.ContractNameRMNRemote: {
+				IDL: rmnRemoteIDL,
+				Reads: map[string]config.ReadDefinition{
+					// TODO: need to have definition or it'll complain
+					consts.MethodNameGetVersionedConfig: {
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+					},
+					consts.MethodNameGetReportDigestHeader: {
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+					},
+					consts.MethodNameGetCursedSubjects: {
+						ChainSpecificName: "Curses",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("curses"),
+						},
 					},
 				},
 			},
