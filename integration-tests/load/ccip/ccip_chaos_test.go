@@ -15,8 +15,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
-	"github.com/stretchr/testify/require"
-
+	"github.com/stretchr/testify/assert"
+	
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
@@ -38,10 +38,10 @@ func a(ns, text string, dashboardUIDs []string, from, to *time.Time) framework.A
 func prepareChaos(t *testing.T) (*ccip.ChaosConfig, *havoc.NamespaceScopedChaosRunner, *framework.Client) {
 	l := log.Output(zerolog.ConsoleWriter{Out: os.Stderr}).Level(zerolog.DebugLevel)
 	c, err := havoc.NewChaosMeshClient()
-	require.NoError(t, err)
+	assert.NoError(t, err)
 
 	config, err := tc.GetConfig([]string{"Chaos"}, tc.CCIP)
-	require.NoError(t, err)
+	assert.NoError(t, err)
 	cfg := config.CCIP.Chaos
 	cr := havoc.NewNamespaceRunner(l, c, true)
 
@@ -70,7 +70,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 						Correlation:       "0",
 						InjectionDuration: testDuration,
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -86,9 +86,7 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 			testCase.run(t)
 			time.Sleep(testDuration)
 			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			if err != nil {
-				t.Error(err)
-			}
+			assert.NoError(t, err)
 			testCase.validate(t)
 		})
 	}
@@ -113,7 +111,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"geth-1337"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -127,7 +125,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"geth-2337"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -141,7 +139,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"ccip-0"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -155,7 +153,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"ccip-0", "ccip-1"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -169,7 +167,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"chainlink-don-db-0"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -183,7 +181,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"rmn-0"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -197,7 +195,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelValues:       []string{"rmn-0", "rmn-1"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -215,7 +213,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -232,7 +230,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -249,7 +247,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -266,7 +264,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -283,7 +281,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -300,7 +298,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -317,7 +315,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -334,7 +332,7 @@ func runFullChaosSuite(t *testing.T) {
 						Correlation:       "0",
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -351,7 +349,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"ccip-1", "ccip-2", "ccip-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -367,7 +365,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"ccip-2", "ccip-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -383,7 +381,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"chainlink-don-db-0"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -399,7 +397,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"rmn-1", "rmn-2", "rmn-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -415,7 +413,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"rmn-2", "rmn-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -431,7 +429,7 @@ func runFullChaosSuite(t *testing.T) {
 						LabelToValues:     []string{"rmn-2", "rmn-3"},
 						InjectionDuration: cfg.GetExperimentInjectionInterval(),
 					})
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -441,7 +439,7 @@ func runFullChaosSuite(t *testing.T) {
 			run: func(t *testing.T) {
 				r := rpc.New(cfg.SrcChainURL, nil)
 				err := r.GethSetHead(cfg.ReorgDepthBelowFinality)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -450,7 +448,7 @@ func runFullChaosSuite(t *testing.T) {
 			run: func(t *testing.T) {
 				r := rpc.New(cfg.DstChainURL, nil)
 				err := r.GethSetHead(cfg.ReorgDepthBelowFinality)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -459,7 +457,7 @@ func runFullChaosSuite(t *testing.T) {
 			run: func(t *testing.T) {
 				r := rpc.New(cfg.SrcChainURL, nil)
 				err := r.GethSetHead(cfg.ReorgDepthAboveFinality)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -468,7 +466,7 @@ func runFullChaosSuite(t *testing.T) {
 			run: func(t *testing.T) {
 				r := rpc.New(cfg.DstChainURL, nil)
 				err := r.GethSetHead(cfg.ReorgDepthAboveFinality)
-				require.NoError(t, err)
+				assert.NoError(t, err)
 			},
 			validate: func(t *testing.T) {},
 		},
@@ -483,9 +481,7 @@ func runFullChaosSuite(t *testing.T) {
 			testCase.run(t)
 			time.Sleep(cfg.GetExperimentInterval())
 			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			if err != nil {
-				t.Error(err)
-			}
+			assert.NoError(t, err)
 			testCase.validate(t)
 		})
 	}
