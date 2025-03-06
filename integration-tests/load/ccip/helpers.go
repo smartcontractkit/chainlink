@@ -231,7 +231,6 @@ func subscribeCommitEvents(
 								dst:    chainSelector,
 								seqNum: i,
 							},
-							timestamp: header.Time,
 						}
 						if header != nil {
 							data.timestamp = header.Time
