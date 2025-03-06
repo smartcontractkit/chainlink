@@ -88,7 +88,8 @@ func TestKeystoneView(t *testing.T) {
 		_, err = changeset.ConfigureOCR3Contract(env.Env, cfg)
 		require.NoError(t, err)
 
-		a, err := changeset.ViewKeystone(env.Env, nil)
+		var prevView json.RawMessage = []byte("{}")
+		a, err := changeset.ViewKeystone(env.Env, prevView)
 		require.NoError(t, err)
 		b, err := a.MarshalJSON()
 		require.NoError(t, err)
