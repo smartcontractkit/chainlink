@@ -326,7 +326,7 @@ func GetSolanaChainWriterConfig(offrampProgramAddress string, fromAddress string
 	}
 	// validate CCIP Router IDL, errors not expected
 	var routerIDL solanacodec.IDL
-	if err = json.Unmarshal([]byte(ccipOfframpIDL), &routerIDL); err != nil {
+	if err = json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return chainwriter.ChainWriterConfig{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 	solConfig := chainwriter.ChainWriterConfig{
@@ -509,7 +509,7 @@ func getRMNRemoteCursesLookup(offrampProgramAddress string) chainwriter.Lookup {
 func getRMNRemoteConfigLookup(offrampProgramAddress string) chainwriter.Lookup {
 	return chainwriter.Lookup{
 		PDALookups: &chainwriter.PDALookups{
-			Name: "RMNRemoteConfig",
+			Name:      "RMNRemoteConfig",
 			PublicKey: getRMNRemoteProgramAccount(offrampProgramAddress),
 			Seeds: []chainwriter.Seed{
 				{Static: []byte("config")},
