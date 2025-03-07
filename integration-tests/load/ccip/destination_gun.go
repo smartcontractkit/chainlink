@@ -115,11 +115,14 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		acc.Value = fee
 	}
+	msgWithoutData := msg
+	msgWithoutData.Data = nil
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
 		"fee", fee,
-		"msg", msg)
+		"msg size", len(msg.Data),
+		"msgWithoutData", msgWithoutData)
 	tx, err := r.CcipSend(
 		acc,
 		m.chainSelector,
