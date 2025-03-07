@@ -54,9 +54,10 @@ func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
 	}, nil
 }
 
-// Allow checks that the sender is not rate limited.  If a workflow ID is passed, then
-// Allow also requires that the workflow not be rate limited.  Additional IDs beyond the
-// first are ignored.
+// Allow checks that the sender is not rate limited.
+// If a workflow ID is passed, then Allow also requires that the workflow not be rate limited.
+//
+// Additional IDs beyond the first are ignored.
 func (rl *RateLimiter) Allow(sender string, ids ...string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()

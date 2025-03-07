@@ -24,7 +24,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -63,7 +63,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -113,7 +113,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -155,7 +155,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -192,11 +192,66 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		assert.False(t, found)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
+
+	t.Run("rate limits outgoing traffic by workflow", func(t *testing.T) {
+		ctx := tests.Context(t)
+		msgID := "msgID"
+		testURL := "http://localhost:8080"
+		var config = ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:        100.0,
+				GlobalBurst:      100,
+				PerSenderRPS:     100.0,
+				PerSenderBurst:   100,
+				PerWorkflowRPS:   1.0,
+				PerWorkflowBurst: 1,
+			},
+		}
+		connector, connectorHandler := newFunction(
+			t,
+			func(gc *gcmocks.GatewayConnector) {
+				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+			},
+			config,
+		)
+
+		// build the expected body with the default timeout
+		req := ghcapabilities.Request{
+			URL:       testURL,
+			TimeoutMs: defaultFetchTimeoutMs,
+		}
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		expectedBody := &api.MessageBody{
+			MessageId: msgID,
+			DonId:     connector.DonID(),
+			Method:    ghcapabilities.MethodComputeAction,
+			Payload:   payload,
+		}
+
+		// expect the request body to contain the default timeout
+		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
+		}).Return(nil).Times(2)
+
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL: testURL,
+		})
+		require.NoError(t, err)
+
+		// Second request should error
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL: testURL,
+		})
+		require.Error(t, err)
+	})
+
 }
 
-func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
-	log := logger.TestLogger(t)
-	connector := gcmocks.NewGatewayConnector(t)
+func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
 	var defaultConfig = ServiceConfig{
 		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
@@ -205,10 +260,16 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks
 			PerSenderBurst: 100,
 		},
 	}
+	return newFunction(t, mockFn, defaultConfig)
+}
+
+func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceConfig ServiceConfig) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
+	log := logger.TestLogger(t)
+	connector := gcmocks.NewGatewayConnector(t)
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, defaultConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 	return connector, connectorHandler
 }

@@ -772,8 +772,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
-
-	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
 }
 
