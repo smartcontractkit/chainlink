@@ -397,7 +397,7 @@ func SkipShortDB(tb testing.TB) {
 	tests.SkipShort(tb, "DB dependency")
 }
 
-func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	t.Helper()
 	ctx := Context(t)
 	var count int64

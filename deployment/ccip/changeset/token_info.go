@@ -18,6 +18,10 @@ import (
 
 type TokenSymbol string
 
+func (ts TokenSymbol) String() string {
+	return string(ts)
+}
+
 const (
 	LinkSymbol   TokenSymbol = "LINK"
 	WethSymbol   TokenSymbol = "WETH"

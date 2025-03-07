@@ -366,8 +366,8 @@ func TestBilling(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddBillingTokenForRemoteChain),
-					ccipChangesetSolana.BillingTokenForRemoteChainConfig{
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddTokenTransferFeeForRemoteChain),
+					ccipChangesetSolana.TokenTransferFeeForRemoteChainConfig{
 						ChainSelector:       solChain,
 						RemoteChainSelector: evmChain,
 						TokenPubKey:         tokenAddress.String(),
@@ -842,6 +842,12 @@ func Test_TestRouter(t *testing.T) {
 	require.NoError(t, err)
 	testRouterDir := "test_router"
 
+	deployConfig := ccipChangesetSolana.DeployTestRouterConfig{
+		ChainSelector:        solChain,
+		UpdateOffRamp:        true,
+		TestRouterPathSuffix: testRouterDir,
+	}
+
 	// check if test_router dir exists in artifact dir
 	testRouterPath := filepath.Join(tenv.Env.SolChains[solChain].ProgramsPath, testRouterDir, "ccip_router.so")
 	_, err = os.Stat(testRouterPath)
@@ -849,30 +855,18 @@ func Test_TestRouter(t *testing.T) {
 
 	// build new ccip_router under test_router if needsBuild
 	if needsBuild {
-		t.Log("Building test router program...")
-		e, err = commonchangeset.Apply(t, e, nil,
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
-				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:        solChain,
-					GitCommitSha:         "82f6b9951ab51397e33b94391f5758260ac558d5",
-					DestinationDir:       filepath.Join(e.SolChains[solChain].ProgramsPath, testRouterDir),
-					TestRouter:           true,
-					CreateDestinationDir: true,
-				},
-			),
-		)
-		require.NoError(t, err)
+		deployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
+			GitCommitSha:         "e5f38e1c557eda4bc4a0436b69646a534ae16d39",
+			DestinationDir:       filepath.Join(e.SolChains[solChain].ProgramsPath, testRouterDir),
+			TestRouter:           true,
+			CreateDestinationDir: true,
+		}
 	}
 	// run the rest of the changesets using test router
 	e, err = commonchangeset.Apply(t, e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployTestRouter),
-			ccipChangesetSolana.DeployTestRouterConfig{
-				ChainSelector:        solChain,
-				UpdateOffRamp:        true,
-				TestRouterPathSuffix: testRouterDir,
-			},
+			deployConfig,
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),

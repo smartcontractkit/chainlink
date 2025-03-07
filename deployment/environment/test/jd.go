@@ -10,6 +10,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -341,7 +342,8 @@ func (s *UnimplementedJobServiceClient) GetProposal(ctx context.Context, in *job
 
 // ListJobs implements job.JobServiceClient.
 func (s *UnimplementedJobServiceClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
-	panic("unimplemented")
+	// returns blank response
+	return &jobv1.ListJobsResponse{}, nil
 }
 
 // ListProposals implements job.JobServiceClient.

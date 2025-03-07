@@ -11,7 +11,6 @@ import (
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -148,19 +147,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 	if !cfg.IsUpdate {
 		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 		tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
-
-		addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-		}
-
-		if err := solCommonUtil.ExtendLookupTable(
-			e.GetContext(),
-			chain.Client,
-			addressLookupTable,
-			*chain.DeployerKey,
-			[]solana.PublicKey{tokenBillingPDA},
-		); err != nil {
+		if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{tokenBillingPDA}); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
 		e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
@@ -182,7 +169,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 }
 
 // ADD BILLING TOKEN FOR REMOTE CHAIN
-type BillingTokenForRemoteChainConfig struct {
+type TokenTransferFeeForRemoteChainConfig struct {
 	ChainSelector       uint64
 	RemoteChainSelector uint64
 	Config              solFeeQuoter.TokenTransferFeeConfig
@@ -190,7 +177,7 @@ type BillingTokenForRemoteChainConfig struct {
 	MCMSSolana          *MCMSConfigSolana
 }
 
-func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -214,7 +201,7 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 }
 
 // TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
-func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
+func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransferFeeForRemoteChainConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -256,19 +243,7 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
-
-	addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-	}
-
-	if err := solCommonUtil.ExtendLookupTable(
-		e.GetContext(),
-		chain.Client,
-		addressLookupTable,
-		*chain.DeployerKey,
-		[]solana.PublicKey{remoteBillingPDA},
-	); err != nil {
+	if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{remoteBillingPDA}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
 

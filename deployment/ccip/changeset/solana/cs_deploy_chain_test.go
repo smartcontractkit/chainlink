@@ -11,8 +11,9 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -28,8 +29,8 @@ import (
 )
 
 const (
-	OldSha = "3da552ac9d30b821310718b8b67e6a298335a485"
-	NewSha = "cb6d70c3a8666879f48685dc2e18331ded67bc0c"
+	OldSha = "e5f38e1c557eda4bc4a0436b69646a534ae16d39"
+	NewSha = "ed22f75fe8de58634a46a137b386d4c508fde14f"
 )
 
 func TestDeployChainContractsChangesetSolana(t *testing.T) {
@@ -66,23 +67,34 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
+
+	contractParamsPerChain := map[uint64]ccipChangesetSolana.ChainContractParams{
+		solChainSelectors[0]: {
+			FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
+				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+			},
+			OffRampParams: ccipChangesetSolana.OffRampParams{
+				EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
+			},
+		},
+	}
+
+	initialDeployConfig := ccipChangesetSolana.DeployChainContractsConfig{
+		HomeChainSelector:      homeChainSel,
+		ContractParamsPerChain: contractParamsPerChain,
+	}
+
 	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally if we preload addresses so we have to change where we build
 	// we also don't want to incur two builds in CI, so only do it locally
 	if ci {
 		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
 	} else {
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
-				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:       solChainSelectors[0],
-					GitCommitSha:        OldSha,
-					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-					CleanDestinationDir: true,
-				},
-			),
-		})
+		initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
+			GitCommitSha:        OldSha,
+			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+			CleanDestinationDir: true,
+		}
 		require.NoError(t, err)
 	}
 
@@ -101,29 +113,130 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			e.AllChainSelectors(),
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			e.AllChainSelectorsSolana(),
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			cfg,
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			initialDeployConfig,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeset.DeployPrerequisitesChangeset),
-			ccipChangeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
+			ccipChangesetSolana.SetFeeAggregatorConfig{
+				ChainSelector: solChainSelectors[0],
+				FeeAggregator: feeAggregatorPubKey.String(),
 			},
 		),
+	})
+	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+
+	// test upgrade flow
+	if ci {
+		// Expensive to run in CI
+		return
+	}
+
+	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, nil, nil)
+	upgradeAuthority := timelockSignerPDA
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	verifyProgramSizes(t, e)
+	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
+	require.NoError(t, err)
+	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
+	require.NoError(t, err)
+
+	// deploy the contracts
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		// upgrade authority
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
+			ccipChangesetSolana.SetUpgradeAuthorityConfig{
+				ChainSelector:         solChainSelectors[0],
+				NewUpgradeAuthority:   upgradeAuthority,
+				SetAfterInitialDeploy: true,
+				SetMCMSPrograms:       true,
+			},
+		),
+		// build the upgraded contracts and deploy/replace them onchain
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParams,
+				ContractParamsPerChain: contractParamsPerChain,
+				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+					NewFeeQuoterVersion:            &deployment.Version1_1_0,
+					NewRouterVersion:               &deployment.Version1_1_0,
+					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
+					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+					UpgradeAuthority:               upgradeAuthority,
+					SpillAddress:                   upgradeAuthority,
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+				},
+				// build the contracts for upgrades
+				BuildConfig: ccipChangesetSolana.BuildSolanaConfig{
+					GitCommitSha:        NewSha,
+					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
+					CleanDestinationDir: true,
+					CleanGitDir:         true,
+					UpgradeKeys: map[deployment.ContractType]string{
+						ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
+						ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+						ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
+						ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
+						types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
+						types.RBACTimelockProgram:          chainState.TimelockProgram.String(),
+						types.ManyChainMultisigProgram:     chainState.McmProgram.String(),
+						ccipChangeset.RMNRemote:            state.SolChains[solChainSelectors[0]].RMNRemote.String(),
+					},
+				},
 			},
 		),
+		// Split the upgrade to avoid txn size limits. No need to build again.
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+			ccipChangesetSolana.DeployChainContractsConfig{
+				HomeChainSelector:      homeChainSel,
+				ContractParamsPerChain: contractParamsPerChain,
+				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+					NewAccessControllerVersion: &deployment.Version1_1_0,
+					NewTimelockVersion:         &deployment.Version1_1_0,
+					// MCM upgrade not working (need to followup)
+					// NewMCMVersion:              &deployment.Version1_1_0,
+					NewRMNRemoteVersion: &deployment.Version1_1_0,
+					UpgradeAuthority:    upgradeAuthority,
+					SpillAddress:        upgradeAuthority,
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
+			ccipChangesetSolana.SetFeeAggregatorConfig{
+				ChainSelector: solChainSelectors[0],
+				FeeAggregator: feeAggregatorPubKey2.String(),
+				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+					RouterOwnedByTimelock:    true,
+					FeeQuoterOwnedByTimelock: true,
+					OffRampOwnedByTimelock:   true,
+				},
+			},
+		),
+	})
+	require.NoError(t, err)
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
+	state, err = ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
+	// add a second offramp address
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
@@ -138,168 +251,52 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 						},
 					},
 				},
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
-			ccipChangesetSolana.SetFeeAggregatorConfig{
-				ChainSelector: solChainSelectors[0],
-				FeeAggregator: feeAggregatorPubKey.String(),
+				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+					NewOffRampVersion: &deployment.Version1_1_0,
+					UpgradeAuthority:  upgradeAuthority,
+					SpillAddress:      upgradeAuthority,
+					MCMS: &ccipChangeset.MCMSConfig{
+						MinDelay: 1 * time.Second,
+					},
+				},
 			},
 		),
 	})
 	require.NoError(t, err)
-	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-	// Expensive to run in CI
-	if !ci {
-		timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], true, true, true, true, nil, nil)
-		upgradeAuthority := timelockSignerPDA
-		state, err := changeset.LoadOnchainStateSolana(e)
-		require.NoError(t, err)
-		verifyProgramSizes(t, e)
+	// verify the offramp address is different
+	state, err = ccipChangeset.LoadOnchainStateSolana(e)
+	require.NoError(t, err)
+	newOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
+	require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
 
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-				ccipChangesetSolana.DeployChainContractsConfig{
-					HomeChainSelector: homeChainSel,
-					ContractParamsPerChain: map[uint64]ccipChangesetSolana.ChainContractParams{
-						solChainSelectors[0]: {
-							FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-								DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-							},
-							OffRampParams: ccipChangesetSolana.OffRampParams{
-								EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-							},
-						},
-					},
-					NewUpgradeAuthority: &upgradeAuthority,
-				},
-			),
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.BuildSolanaChangeset),
-				ccipChangesetSolana.BuildSolanaConfig{
-					ChainSelector:       solChainSelectors[0],
-					GitCommitSha:        NewSha,
-					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-					CleanDestinationDir: true,
-					CleanGitDir:         true,
-					UpgradeKeys: map[deployment.ContractType]string{
-						ccipChangeset.Router:    state.SolChains[solChainSelectors[0]].Router.String(),
-						ccipChangeset.FeeQuoter: state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
-					},
-				},
-			),
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-				ccipChangesetSolana.DeployChainContractsConfig{
-					HomeChainSelector: homeChainSel,
-					ContractParamsPerChain: map[uint64]ccipChangesetSolana.ChainContractParams{
-						solChainSelectors[0]: {
-							FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-								DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-							},
-							OffRampParams: ccipChangesetSolana.OffRampParams{
-								EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-							},
-						},
-					},
-					UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-						NewFeeQuoterVersion: &deployment.Version1_1_0,
-						NewRouterVersion:    &deployment.Version1_1_0,
-						UpgradeAuthority:    upgradeAuthority,
-						SpillAddress:        upgradeAuthority,
-						MCMS: &ccipChangeset.MCMSConfig{
-							MinDelay: 1 * time.Second,
-						},
-					},
-				},
-			),
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
-				ccipChangesetSolana.SetFeeAggregatorConfig{
-					ChainSelector: solChainSelectors[0],
-					FeeAggregator: feeAggregatorPubKey2.String(),
-					MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-						MCMS: &ccipChangeset.MCMSConfig{
-							MinDelay: 1 * time.Second,
-						},
-						RouterOwnedByTimelock:    true,
-						FeeQuoterOwnedByTimelock: true,
-						OffRampOwnedByTimelock:   true,
-					},
-				},
-			),
-		})
-		require.NoError(t, err)
-		testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-		state, err = changeset.LoadOnchainStateSolana(e)
-		require.NoError(t, err)
-		oldOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
-		// add a second offramp address
-		e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-			commonchangeset.Configure(
-				deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-				ccipChangesetSolana.DeployChainContractsConfig{
-					HomeChainSelector: homeChainSel,
-					ContractParamsPerChain: map[uint64]ccipChangesetSolana.ChainContractParams{
-						solChainSelectors[0]: {
-							FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-								DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-							},
-							OffRampParams: ccipChangesetSolana.OffRampParams{
-								EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-							},
-						},
-					},
-					UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-						NewOffRampVersion: &deployment.Version1_1_0,
-						UpgradeAuthority:  upgradeAuthority,
-						SpillAddress:      upgradeAuthority,
-						MCMS: &ccipChangeset.MCMSConfig{
-							MinDelay: 1 * time.Second,
-						},
-					},
-				},
-			),
-		})
-		require.NoError(t, err)
-		// verify the offramp address is different
-		state, err = changeset.LoadOnchainStateSolana(e)
-		require.NoError(t, err)
-		newOffRampAddress := state.SolChains[solChainSelectors[0]].OffRamp
-		require.NotEqual(t, oldOffRampAddress, newOffRampAddress)
-
-		// Verify router and fee quoter upgraded in place
-		// and offramp had 2nd address added
-		addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
-		require.NoError(t, err)
-		numRouters := 0
-		numFeeQuoters := 0
-		numOffRamps := 0
-		for _, address := range addresses {
-			if address.Type == ccipChangeset.Router {
-				numRouters++
-			}
-			if address.Type == ccipChangeset.FeeQuoter {
-				numFeeQuoters++
-			}
-			if address.Type == ccipChangeset.OffRamp {
-				numOffRamps++
-			}
+	// Verify router and fee quoter upgraded in place
+	// and offramp had 2nd address added
+	addresses, err = e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	require.NoError(t, err)
+	numRouters := 0
+	numFeeQuoters := 0
+	numOffRamps := 0
+	for _, address := range addresses {
+		if address.Type == ccipChangeset.Router {
+			numRouters++
 		}
-		require.Equal(t, 1, numRouters)
-		require.Equal(t, 1, numFeeQuoters)
-		require.Equal(t, 2, numOffRamps)
-		require.NoError(t, err)
-		// solana verification
-		testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-		verifyProgramSizes(t, e)
+		if address.Type == ccipChangeset.FeeQuoter {
+			numFeeQuoters++
+		}
+		if address.Type == ccipChangeset.OffRamp {
+			numOffRamps++
+		}
 	}
+	require.Equal(t, 1, numRouters)
+	require.Equal(t, 1, numFeeQuoters)
+	require.Equal(t, 2, numOffRamps)
+	require.NoError(t, err)
+	// solana verification
+	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
-	state, err := changeset.LoadOnchainStateSolana(e)
+	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
 	require.NoError(t, err)
@@ -314,7 +311,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 		deployment.AccessControllerProgramName:     chainState.AccessControllerProgram,
 		deployment.TimelockProgramName:             chainState.TimelockProgram,
 		deployment.McmProgramName:                  chainState.McmProgram,
-		// deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
+		deployment.RMNRemoteProgramName:            state.SolChains[e.AllChainSelectorsSolana()[0]].RMNRemote,
 	}
 	for program, sizeBytes := range deployment.GetSolanaProgramBytes() {
 		t.Logf("Verifying program %s size is at least %d bytes", program, sizeBytes)

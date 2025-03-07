@@ -720,15 +720,22 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
 	}
 
-	updates := make(map[uint64]v1_6.OffRampParams)
+	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	updates := make(map[uint64]v1_6.OffRampSourceUpdate)
+
 	for _, chainIdx := range allChains {
-		updates[chainIdx] = v1_6.OffRampParams{
-			PermissionLessExecutionThresholdSeconds: 86400,
+		updates[chainIdx] = v1_6.OffRampSourceUpdate{
+			IsRMNVerificationDisabled: false,
+			IsEnabled:                 true,
 		}
 	}
 
-	_, err = v1_6.UpdateDynamicConfigOffRampChangeset(*e, v1_6.UpdateDynamicConfigOffRampConfig{
-		Updates: updates,
+	for _, chainIdx := range allChains {
+		allUpdates[chainIdx] = updates
+	}
+
+	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
+		UpdatesByChain: allUpdates,
 	})
 
 	if err != nil {

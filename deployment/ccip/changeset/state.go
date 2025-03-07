@@ -262,7 +262,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
@@ -271,7 +273,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
@@ -280,7 +284,9 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.BurnMintTokenPool = helpers.AddValueToNestedMap(chainView.BurnMintTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+				TokenPoolView: tokenPoolView,
+			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
@@ -289,8 +295,15 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 			}
-			chainView.LockReleaseTokenPool = helpers.AddValueToNestedMap(chainView.LockReleaseTokenPool, tokenPool.Address().Hex(), string(tokenSymbol), tokenPoolView)
+			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
 		}
+	}
+	for _, pool := range c.USDCTokenPools {
+		tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(pool)
+		if err != nil {
+			return chainView, errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
+		}
+		chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
 	}
 	if c.NonceManager != nil {
 		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
