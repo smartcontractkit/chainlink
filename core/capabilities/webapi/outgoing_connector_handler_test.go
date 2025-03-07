@@ -235,7 +235,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		// expect the request body to contain the default timeout
 		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
 			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
-		}).Return(nil).Times(2)
+		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
 			URL: testURL,
@@ -247,6 +247,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			URL: testURL,
 		})
 		require.Error(t, err)
+		require.ErrorContains(t, err, "exceeded limit of gateways requests")
 	})
 
 }

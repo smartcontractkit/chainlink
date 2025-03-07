@@ -39,9 +39,9 @@ func TestRateLimiter_PerWorkflow(t *testing.T) {
 	}
 	rl, err := common.NewRateLimiter(config)
 	require.NoError(t, err)
-	require.True(t, rl.Allow("user1"), "workflowID1")
-	require.True(t, rl.Allow("user2"), "workflowID2")
-	require.True(t, rl.Allow("user3"), "workflowID1")
-	require.False(t, rl.Allow("user4"), "workflowID1")
-	require.False(t, rl.Allow("user5"), "workflowID3")
+	require.True(t, rl.AllowWorkflow("user1"), "workflowID1")
+	require.True(t, rl.AllowWorkflow("user2"), "workflowID2")
+	require.True(t, rl.AllowWorkflow("user3"), "workflowID1")
+	require.False(t, rl.AllowWorkflow("user4"), "workflowID1")
+	require.False(t, rl.AllowWorkflow("user5"), "workflowID3")
 }

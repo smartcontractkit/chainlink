@@ -57,6 +57,11 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
+
+	if !c.rateLimiter.AllowWorkflow(req.WorkflowID) {
+		return nil, errors.New("exceeded limit of gateways requests")
+	}
+
 	// set default timeout if not provided for all outgoing requests
 	if req.TimeoutMs == 0 {
 		req.TimeoutMs = defaultFetchTimeoutMs
@@ -114,17 +119,13 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 }
 
+// HandleGatewayMessage processes incoming messages from the Gateway,
+// which are in response to a HandleSingleNodeRequest call.
 func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayID string, msg *api.Message) {
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 
-	var req capabilities.Request
-	if err := json.Unmarshal(body.Payload, &req); err != nil {
-		l.Errorw("failed to unmarshal req from payload", "payload", body.Payload)
-		return
-	}
-
-	if !c.rateLimiter.Allow(body.Sender, req.WorkflowID) {
+	if !c.rateLimiter.Allow(body.Sender) {
 		// error is logged here instead of warning because if a message from gateway is rate-limited,
 		// the workflow will eventually fail with timeout as there are no retries in place yet
 		l.Errorw("request rate-limited")

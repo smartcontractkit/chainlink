@@ -55,10 +55,7 @@ func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
 }
 
 // Allow checks that the sender is not rate limited.
-// If a workflow ID is passed, then Allow also requires that the workflow not be rate limited.
-//
-// Additional IDs beyond the first are ignored.
-func (rl *RateLimiter) Allow(sender string, ids ...string) bool {
+func (rl *RateLimiter) Allow(sender string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -68,20 +65,19 @@ func (rl *RateLimiter) Allow(sender string, ids ...string) bool {
 		rl.perSender[sender] = senderLimiter
 	}
 
-	var wfID string
-	if len(ids) == 1 {
-		wfID = ids[0]
-	}
+	return senderLimiter.Allow() && rl.global.Allow()
+}
 
-	if wfID == "" {
-		return senderLimiter.Allow() && rl.global.Allow()
-	}
+// AllowWorkflow checks that the workflow is not rate limited.
+func (rl *RateLimiter) AllowWorkflow(ID string) bool {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
 
-	wfLimiter, ok := rl.perWorkflow[wfID]
+	wfLimiter, ok := rl.perWorkflow[ID]
 	if !ok {
 		wfLimiter = rate.NewLimiter(rate.Limit(rl.config.PerWorkflowRPS), rl.config.PerWorkflowBurst)
-		rl.perWorkflow[wfID] = wfLimiter
+		rl.perWorkflow[ID] = wfLimiter
 	}
 
-	return wfLimiter.Allow() && senderLimiter.Allow() && rl.global.Allow()
+	return wfLimiter.Allow() && rl.global.Allow()
 }
