@@ -69,14 +69,14 @@ func (rl *RateLimiter) Allow(sender string) bool {
 }
 
 // AllowWorkflow checks that the workflow is not rate limited.
-func (rl *RateLimiter) AllowWorkflow(ID string) bool {
+func (rl *RateLimiter) AllowWorkflow(id string) bool {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
-	wfLimiter, ok := rl.perWorkflow[ID]
+	wfLimiter, ok := rl.perWorkflow[id]
 	if !ok {
 		wfLimiter = rate.NewLimiter(rate.Limit(rl.config.PerWorkflowRPS), rl.config.PerWorkflowBurst)
-		rl.perWorkflow[ID] = wfLimiter
+		rl.perWorkflow[id] = wfLimiter
 	}
 
 	return wfLimiter.Allow() && rl.global.Allow()
