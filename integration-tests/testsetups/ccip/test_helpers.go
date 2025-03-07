@@ -122,11 +122,11 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 }
 
 func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
-	nodesById := make(map[string]devenv.Node)
+	nodesByID := make(map[string]devenv.Node)
 	for _, n := range l.DON.Nodes {
-		nodesById[n.NodeID] = n
+		nodesByID[n.NodeID] = n
 	}
-	for id, node := range nodesById {
+	for id, node := range nodesByID {
 		if jobsToDelete, ok := jobIDs[id]; ok {
 			for _, jobToDelete := range jobsToDelete {
 				err := node.DeleteJob(ctx, jobToDelete)

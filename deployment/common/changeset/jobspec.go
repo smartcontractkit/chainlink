@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -47,15 +48,15 @@ func revokeJobsLogic(env deployment.Environment, jobIDs []string) (deployment.Ch
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to revoke job %s: %w", jobID, err)
 		}
 		if res == nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("revoke job response is nil")
+			return deployment.ChangesetOutput{}, errors.New("revoke job response is nil")
 		}
 		if res.Proposal == nil || res.Proposal.Status != jobv1.ProposalStatus_PROPOSAL_STATUS_REVOKED {
-			return deployment.ChangesetOutput{}, fmt.Errorf("revoke job response is not in cancelled state")
+			return deployment.ChangesetOutput{}, errors.New("revoke job response is not in cancelled state")
 		}
 		successfullyRevoked = append(successfullyRevoked, jobID)
 	}
 	if len(successfullyRevoked) == 0 {
-		return deployment.ChangesetOutput{}, fmt.Errorf("no jobs were revoked")
+		return deployment.ChangesetOutput{}, errors.New("no jobs were revoked")
 	}
 	if len(successfullyRevoked) != len(jobIDs) {
 		return deployment.ChangesetOutput{}, fmt.Errorf("not all jobs were revoked, successfully revoked %s, expected %s", successfullyRevoked, jobIDs)

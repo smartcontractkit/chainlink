@@ -343,10 +343,11 @@ func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]
 		if jobsToDelete, ok := jobIDs[id]; ok {
 			for _, jobToDelete := range jobsToDelete {
 				// delete job
-				jobID, err := strconv.ParseInt(jobToDelete, 10, 64)
+				jobID, err := strconv.ParseInt(jobToDelete, 10, 32)
 				if err != nil {
 					return err
 				}
+				//nolint:gosec // disable G115
 				err = node.App.DeleteJob(ctx, int32(jobID))
 				if err != nil {
 					return fmt.Errorf("failed to delete job %s: %w", jobToDelete, err)

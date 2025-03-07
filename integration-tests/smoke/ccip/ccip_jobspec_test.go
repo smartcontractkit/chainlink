@@ -42,7 +42,7 @@ func TestDeleteCCIPJobs(t *testing.T) {
 	nopsView, err = view.GenerateNopsView(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 	for _, nop := range nopsView {
-		require.Equal(t, 0, len(nop.ApprovedJobspecs))
+		require.Empty(t, nop.ApprovedJobspecs)
 	}
 }
 
