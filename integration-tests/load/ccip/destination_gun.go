@@ -114,7 +114,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		acc.Value = fee
-		defer func() { acc.Value = nil }()
 	}
 	m.l.Debugw("sending message ",
 		"srcChain", src,
