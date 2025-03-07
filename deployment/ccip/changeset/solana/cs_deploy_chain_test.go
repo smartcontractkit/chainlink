@@ -167,9 +167,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
-					NewMCMVersion:    &deployment.Version1_1_0,
-					UpgradeAuthority: upgradeAuthority,
-					SpillAddress:     upgradeAuthority,
+					NewMCMVersion:       &deployment.Version1_1_0,
+					UpgradeAuthority:    upgradeAuthority,
+					SpillAddress:        upgradeAuthority,
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,
 					},
