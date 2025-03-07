@@ -38,7 +38,12 @@ func TestGenericOps(t *testing.T) {
 
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, false, nil, nil)
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+					ccipChangesetSolana.CCIPContractsToTransfer{
+						Router:    true,
+						FeeQuoter: true,
+						OffRamp:   true,
+					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 					MCMS: &ccipChangeset.MCMSConfig{
 						MinDelay: 1 * time.Second,

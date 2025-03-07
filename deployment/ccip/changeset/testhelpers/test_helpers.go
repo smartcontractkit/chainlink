@@ -1698,12 +1698,8 @@ func TransferOwnershipSolana(
 	e *deployment.Environment,
 	solChain uint64,
 	needTimelockDeployed bool,
-	transferRouter,
-	transferFeeQuoter,
-	transferOffRamp bool,
-	transferRMNRemote bool,
-	burnMintTokenPools []solana.PublicKey,
-	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+	contractsToTransfer ccipChangeSetSolana.CCIPContractsToTransfer,
+) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
@@ -1742,14 +1738,7 @@ func TransferOwnershipSolana(
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				MinDelay: 1 * time.Second,
 				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
-					solChain: {
-						Router:                transferRouter,
-						FeeQuoter:             transferFeeQuoter,
-						OffRamp:               transferOffRamp,
-						RMNRemote:             transferRMNRemote,
-						BurnMintTokenPools:    burnMintTokenPools,
-						LockReleaseTokenPools: lockReleaseTokenPools,
-					},
+					solChain: contractsToTransfer,
 				},
 			},
 		),

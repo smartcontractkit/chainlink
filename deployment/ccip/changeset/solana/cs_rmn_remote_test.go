@@ -34,7 +34,13 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	require.NoError(t, err)
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true, true, true, true, true, nil, nil)
+		_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+			ccipChangesetSolana.CCIPContractsToTransfer{
+				Router:    true,
+				FeeQuoter: true,
+				OffRamp:   true,
+				RMNRemote: true,
+			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 			MCMS: &ccipChangeset.MCMSConfig{
 				MinDelay: 1 * time.Second,
