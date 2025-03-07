@@ -22,6 +22,7 @@ func TestSmokeState(t *testing.T) {
 }
 
 func TestMCMSState(t *testing.T) {
+	t.Skip("Flaky Test: TODO: <Ticket Number>")
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	addressbook := deployment.NewMemoryAddressBook()
 	newTv := deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)

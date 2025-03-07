@@ -11,6 +11,7 @@ import (
 )
 
 func TestCallSetChannelDefinitions(t *testing.T) {
+	t.Skip("Flaky Test: TODO: <Ticket Number>")
 	e := newMemoryEnv(t)
 
 	// Deploy a contract

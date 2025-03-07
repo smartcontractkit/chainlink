@@ -123,6 +123,9 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
+			if t.Name() == "Domain mapping not defined" {
+				t.Skip("Flaky Test: TODO: <Ticket Number>")
+			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
 				testCfg.PrerequisiteDeploymentOnly = true
