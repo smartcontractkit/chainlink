@@ -836,7 +836,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case capabilities.ErrStopExecution.Is(err):
+	case err != nil && capabilities.ErrStopExecution.Is(err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
