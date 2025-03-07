@@ -126,3 +126,4 @@ it would be beneficial to make it idempotent so that if anything goes wrong
 you can re-run it without side effects. However, it's possible that the onchain contract
 design doesn't allow for idempotency so in that case you'd have to be prepared
 with recovery changesets if something goes wrong as re-running it would not be an option.
+TEST
