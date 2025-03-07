@@ -148,6 +148,14 @@ func (r *SpecResolver) ToStreamSpec() (*StreamSpecResolver, bool) {
 	return res, true
 }
 
+func (r *SpecResolver) ToCCIPSpec() (*CCIPSpecResolver, bool) {
+	if r.j.Type != job.CCIP {
+		return nil, false
+	}
+
+	return &CCIPSpecResolver{spec: *r.j.CCIPSpec}, true
+}
+
 type CronSpecResolver struct {
 	spec job.CronSpec
 }
@@ -1076,4 +1084,54 @@ type StreamSpecResolver struct {
 
 func (r *StreamSpecResolver) StreamID() *string {
 	return r.streamID
+}
+
+type CCIPSpecResolver struct {
+	spec job.CCIPSpec
+}
+
+func (r *CCIPSpecResolver) CreatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.CreatedAt}
+}
+
+func (r *CCIPSpecResolver) UpdatedAt() graphql.Time {
+	return graphql.Time{Time: r.spec.UpdatedAt}
+}
+
+func (r *CCIPSpecResolver) ID() graphql.ID {
+	return graphql.ID(stringutils.FromInt32(r.spec.ID))
+}
+
+func (r *CCIPSpecResolver) CapabilityLabelledName() string {
+	return r.spec.CapabilityLabelledName
+}
+
+func (r *CCIPSpecResolver) CapabilityVersion() string {
+	return r.spec.CapabilityVersion
+}
+
+func (r *CCIPSpecResolver) P2PV2Bootstrappers() *[]string {
+	if len(r.spec.P2PV2Bootstrappers) == 0 {
+		return nil
+	}
+
+	peers := []string(r.spec.P2PV2Bootstrappers)
+
+	return &peers
+}
+
+func (r *CCIPSpecResolver) OCRKeyBundleIDs() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.OCRKeyBundleIDs)
+}
+
+func (r *CCIPSpecResolver) RelayConfigs() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.RelayConfigs)
+}
+
+func (r *CCIPSpecResolver) PluginConfig() gqlscalar.Map {
+	return gqlscalar.Map(r.spec.PluginConfig)
+}
+
+func (r *CCIPSpecResolver) P2PKeyID() string {
+	return r.spec.P2PKeyID
 }

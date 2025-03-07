@@ -121,6 +121,24 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
 }
 
+func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	nodesById := make(map[string]devenv.Node)
+	for _, n := range l.DON.Nodes {
+		nodesById[n.NodeID] = n
+	}
+	for id, node := range nodesById {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				err := node.DeleteJob(ctx, jobToDelete)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
 	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
 	require.NoError(t, err)
