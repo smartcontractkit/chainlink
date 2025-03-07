@@ -1065,7 +1065,8 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			state.ABIByAddress[address] = mock_rmn_contract.MockRMNContractABI
 		case deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_5_0).String(),
 			deployment.NewTypeAndVersion(FiredrillEntrypointType, deployment.Version1_6_0).String():
-			// Ignore
+			// Ignore firedrill contracts
+			// Firedrill contracts are unknown to core and their state is being loaded separately
 		default:
 			// ManyChainMultiSig 1.0.0 can have any of these labels, it can have either 1,2 or 3 of these -
 			// bypasser, proposer and canceller
