@@ -77,7 +77,7 @@ func NewChain() ChainView {
 	}
 }
 
-func (v ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
+func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
 	v.tpUpdateMu.Lock()
 	defer v.tpUpdateMu.Unlock()
 	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
