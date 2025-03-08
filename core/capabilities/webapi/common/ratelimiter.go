@@ -52,8 +52,9 @@ func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
 	}, nil
 }
 
-// Allow checks that the workflow is not rate limited.
-func (rl *RateLimiter) Allow(id string) bool {
+// Allow checks that the workflow is not rate limited,
+// and that there is not a global rate limit.
+func (rl *RateLimiter) Allow(id string) (workflowAllow bool, globalAllow bool) {
 	rl.mu.Lock()
 	defer rl.mu.Unlock()
 
@@ -63,5 +64,5 @@ func (rl *RateLimiter) Allow(id string) bool {
 		rl.perWorkflow[id] = wfLimiter
 	}
 
-	return wfLimiter.Allow() && rl.global.Allow()
+	return wfLimiter.Allow(), rl.global.Allow()
 }

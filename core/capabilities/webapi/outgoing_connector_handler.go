@@ -19,7 +19,11 @@ import (
 )
 
 const (
-	defaultFetchTimeoutMs = 20_000
+	defaultFetchTimeoutMs             = 20_000
+	error_outgoing_ratelimit_global   = "global limit of gateways requests has been exceeded"
+	error_outgoing_ratelimit_workflow = "workflow exceeded limit of gateways requests"
+	error_incoming_ratelimit_global   = "message from gateway exceeded global rate limit"
+	error_incoming_ratelimit_sender   = "message from gateway exceeded per sender rate limit"
 )
 
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
@@ -66,8 +70,12 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 
-	if !c.outgoingRateLimiter.Allow(req.WorkflowID) {
-		return nil, errors.New("exceeded limit of gateways requests")
+	workflowAllow, globalAllow := c.outgoingRateLimiter.Allow(req.WorkflowID)
+	if !workflowAllow {
+		return nil, errors.New(error_outgoing_ratelimit_workflow)
+	}
+	if !globalAllow {
+		return nil, errors.New(error_outgoing_ratelimit_global)
 	}
 
 	// set default timeout if not provided for all outgoing requests
@@ -120,8 +128,19 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 
 	select {
 	case resp := <-ch:
-		lggr.Debugw("received response from gateway")
-		return resp, nil
+		switch resp.Body.Method {
+		case api.Method_InternalError:
+			var errPayload api.JsonRPCError
+			err := json.Unmarshal(resp.Body.Payload, errPayload)
+			if err != nil {
+				lggr.Errorw("failed to unmarshal err payload", "err", err)
+				return nil, errors.New("unknown internal error")
+			}
+			return nil, errors.New(errPayload.Message)
+		default:
+			lggr.Debugw("received response from gateway")
+			return resp, nil
+		}
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
@@ -133,10 +152,38 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 
-	if !c.incomingRateLimiter.Allow(body.Sender) {
-		// error is logged here instead of warning because if a message from gateway is rate-limited,
-		// the workflow will eventually fail with timeout as there are no retries in place yet
+	ch, ok := c.responses.get(body.MessageId)
+	if !ok {
+		l.Warnw("no response channel found; this may indicate that the node timed out the request")
+		return
+	}
+
+	senderAllow, globalAllow := c.incomingRateLimiter.AllowVerbose(body.Sender)
+	errJson := api.JsonRPCError{
+		Code:    500,
+		Message: "",
+	}
+	if !senderAllow {
+		errJson.Message = error_incoming_ratelimit_sender
+	}
+	if !globalAllow {
+		errJson.Message = errJson.Message + error_incoming_ratelimit_global
+	}
+
+	if errJson.Message != "" {
 		l.Errorw("request rate-limited")
+		errPayload, err := json.Marshal(errJson)
+		if err != nil {
+			l.Errorw("failed to marshal err payload", "err", err)
+		}
+		errMsg := api.Message{
+			Body: api.MessageBody{
+				MessageId: body.MessageId,
+				Method:    api.Method_InternalError,
+				Payload:   errPayload,
+			},
+		}
+		ch <- &errMsg
 		return
 	}
 
@@ -148,11 +195,6 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		err := json.Unmarshal(body.Payload, &payload)
 		if err != nil {
 			l.Errorw("failed to unmarshal payload", "err", err)
-			return
-		}
-		ch, ok := c.responses.get(body.MessageId)
-		if !ok {
-			l.Warnw("no response channel found; this may indicate that the node timed out the request")
 			return
 		}
 		select {

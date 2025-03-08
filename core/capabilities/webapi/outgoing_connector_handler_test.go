@@ -193,14 +193,14 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
 
-	t.Run("rate limits outgoing traffic by workflow", func(t *testing.T) {
+	t.Run("rate limits outgoing traffic", func(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		var config = ServiceConfig{
 			OutgoingRateLimiter: common.RateLimiterConfig{
-				GlobalRPS:        100.0,
-				GlobalBurst:      100,
+				GlobalRPS:        2.0,
+				GlobalBurst:      2,
 				PerWorkflowRPS:   1.0,
 				PerWorkflowBurst: 1,
 			},
@@ -223,8 +223,9 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 		// build the expected body with the default timeout
 		req := ghcapabilities.Request{
-			URL:       testURL,
-			TimeoutMs: defaultFetchTimeoutMs,
+			URL:        testURL,
+			WorkflowID: "1",
+			TimeoutMs:  defaultFetchTimeoutMs,
 		}
 		payload, err := json.Marshal(req)
 		require.NoError(t, err)
@@ -242,18 +243,27 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
-			URL: testURL,
+			URL:        testURL,
+			WorkflowID: "1",
 		})
 		require.NoError(t, err)
 
-		// Second request should error
+		// Second request should error from workflow ratelimit
 		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
-			URL: testURL,
+			URL:        testURL,
+			WorkflowID: "1",
 		})
 		require.Error(t, err)
-		require.ErrorContains(t, err, "exceeded limit of gateways requests")
-	})
+		require.ErrorContains(t, err, error_outgoing_ratelimit_workflow)
 
+		// Third request should error from global ratelimit
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL:        testURL,
+			WorkflowID: "2",
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, error_outgoing_ratelimit_global)
+	})
 }
 
 func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
