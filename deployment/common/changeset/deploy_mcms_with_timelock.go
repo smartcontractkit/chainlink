@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
@@ -32,6 +33,20 @@ func DeployMCMSWithTimelock(e deployment.Environment, cfgByChain map[uint64]type
 		return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 	}
 	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+}
+
+func DeployInternalMCMSWithTimelockV2ForEVM(env deployment.Environment,
+	lggr logger.Logger,
+	ab deployment.AddressBook,
+	cfgByChain map[uint64]types.MCMSWithTimelockConfigV2) error {
+	for chainSel, cfg := range cfgByChain {
+		_, err := evminternal.DeployMCMSWithTimelockContractsEVM(lggr, env.Chains[chainSel], ab, cfg)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts

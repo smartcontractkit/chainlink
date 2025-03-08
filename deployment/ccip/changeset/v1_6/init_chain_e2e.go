@@ -7,6 +7,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
@@ -15,6 +17,7 @@ var (
 
 type InitChaine2eConfig struct {
 	HomeChainSelector uint64
+	McmsConfig        map[uint64]types.MCMSWithTimelockConfigV2
 	// RMNRemoteConfigs       map[uint64]RMNRemoteConfig
 	PreReqConfig           changeset.DeployPrerequisiteConfig
 	ContractParamsPerChain map[uint64]ChainContractParams
@@ -25,93 +28,52 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 
 	// Searches through the addressbook and check if that contract exist onchain (type and version)
 	// We need a way to pass in previous deployed addressBook here
-	// State only returns contracts from addressbook
-
+	// State only returns contracts from addressbook and check it's online state
 	// state, err := changeset.LoadOnchainState(env)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	// }
-
-	// fmt.Println("state: ", state)
 
 	addressBook := deployment.NewMemoryAddressBook()
 	// batches := make([]mcmstypes.BatchOperation, 0)
 
-	// correct ordering for new chain integration
-	// err := internal.DeployMCMSWithTimelockContractsBatch(
-	// 	e.Logger, e.Chains, newAddresses, cfgByChain,
-	// )
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-	// }
-
-	err := changeset.DeployPrerequisiteChainContracts(env, addressBook, cfg.PreReqConfig)
+	// Correct ordering for new chain integration
+	err := commonchangeset.DeployInternalMCMSWithTimelockV2ForEVM(env, env.Logger, addressBook, cfg.McmsConfig)
 	if err != nil {
-		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", addressBook)
-		return deployment.ChangesetOutput{
-			AddressBook: addressBook,
-		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
+		return deployment.ChangesetOutput{AddressBook: addressBook}, err
 	}
 
-	fmt.Println("ADDRESSBOOK0: ", addressBook)
 	err = MergeAddress(env, env.ExistingAddresses, addressBook)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// Note: simpler to declare new memory addressbook for each changeset rather than filtering address from addressbook to merge
 	addressBook1 := deployment.NewMemoryAddressBook()
-	err = deployChainContractsForChains(env, addressBook1, cfg.HomeChainSelector, cfg.ContractParamsPerChain)
+	err = changeset.DeployPrerequisiteChainContracts(env, addressBook1, cfg.PreReqConfig)
 	if err != nil {
-		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", addressBook1)
-		return deployment.ChangesetOutput{AddressBook: addressBook1}, deployment.MaybeDataErr(err)
+		env.Logger.Errorw("Failed to deploy prerequisite contracts", "err", err, "addressBook", addressBook1)
+		return deployment.ChangesetOutput{
+			AddressBook: addressBook1,
+		}, fmt.Errorf("failed to deploy prerequisite contracts: %w", err)
 	}
 
-	fmt.Println("ADDRESSBOOK1: ", addressBook1)
 	err = MergeAddress(env, env.ExistingAddresses, addressBook1)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
-	// remote, ok := rmnRemotePerChain[chain]
-	// if !ok {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
-	// }
+	// Note: simpler to declare new memory addressbook for each changeset rather than filtering address from addressbook to merge
+	addressBook2 := deployment.NewMemoryAddressBook()
+	err = deployChainContractsForChains(env, addressBook2, cfg.HomeChainSelector, cfg.ContractParamsPerChain)
+	if err != nil {
+		env.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", addressBook2)
+		return deployment.ChangesetOutput{AddressBook: addressBook2}, deployment.MaybeDataErr(err)
+	}
 
-	// deployer := getDeployer(e, chain, config.MCMSConfig)
-	// tx, err := remote.SetConfig(deployer, newConfig)
+	err = MergeAddress(env, env.ExistingAddresses, addressBook2)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 
-	// batchOperation, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
-	// }
+	// TODO handle MCMS proposals
 
-	// tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
-	// if cfg.MCMS == nil {
-	// 	_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
-	// 	if err != nil {
-	// 		return deployment.ChangesetOutput{}, err
-	// 	}
-	// 	e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
-	// 	return deployment.ChangesetOutput{}, nil
-	// }
-
-	// AddDonAndSetCandidateChangeset(
-	// 	e deployment.Environment,
-	// 	cfg AddDonAndSetCandidateChangesetConfig,
-	// ) (deployment.ChangesetOutput, error) {}
-
-	// SetCandidateChangeset(
-	// 	e deployment.Environment,
-	// 	cfg SetCandidateChangesetConfig,
-	// ) (deployment.ChangesetOutput, error) {}
-
-	// PromoteCandidateChangeset(
-	// 		e deployment.Environment,
-	// 		cfg PromoteCandidateChangesetConfig,
-	// ) (deployment.ChangesetOutput, error) {}
-
-	// SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) { }
 	return deployment.ChangesetOutput{}, nil
 }
 
@@ -141,3 +103,44 @@ func WriteFile(path string, data any) error {
 
 	return os.WriteFile(path, b, 0644)
 }
+
+// Order of operations
+// remote, ok := rmnRemotePerChain[chain]
+// if !ok {
+// 	return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
+// }
+
+// deployer := getDeployer(e, chain, config.MCMSConfig)
+// tx, err := remote.SetConfig(deployer, newConfig)
+
+// batchOperation, err := setRMNRemoteOnRMNProxyOp(txOpts, chain, state.Chains[sel], cfg.MCMSConfig != nil)
+// if err != nil {
+// 	return deployment.ChangesetOutput{}, fmt.Errorf("failed to set RMNRemote on RMNProxy for chain %s: %w", chain.String(), err)
+// }
+
+// tx, err := state.Chains[cfg.HomeChainSelector].CCIPHome.ApplyChainConfigUpdates(txOpts, cfg.RemoteChainRemoves, adds)
+// if cfg.MCMS == nil {
+// 	_, err = deployment.ConfirmIfNoErrorWithABI(e.Chains[cfg.HomeChainSelector], tx, ccip_home.CCIPHomeABI, err)
+// 	if err != nil {
+// 		return deployment.ChangesetOutput{}, err
+// 	}
+// 	e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
+// 	return deployment.ChangesetOutput{}, nil
+// }
+
+// AddDonAndSetCandidateChangeset(
+// 	e deployment.Environment,
+// 	cfg AddDonAndSetCandidateChangesetConfig,
+// ) (deployment.ChangesetOutput, error) {}
+
+// SetCandidateChangeset(
+// 	e deployment.Environment,
+// 	cfg SetCandidateChangesetConfig,
+// ) (deployment.ChangesetOutput, error) {}
+
+// PromoteCandidateChangeset(
+// 		e deployment.Environment,
+// 		cfg PromoteCandidateChangesetConfig,
+// ) (deployment.ChangesetOutput, error) {}
+
+// SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig) (deployment.ChangesetOutput, error) { }
