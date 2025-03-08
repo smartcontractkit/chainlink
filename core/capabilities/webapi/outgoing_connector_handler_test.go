@@ -10,13 +10,13 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 func TestHandleSingleNodeRequest(t *testing.T) {
@@ -198,13 +198,17 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		var config = ServiceConfig{
-			RateLimiter: common.RateLimiterConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
 				GlobalRPS:        100.0,
 				GlobalBurst:      100,
-				PerSenderRPS:     100.0,
-				PerSenderBurst:   100,
 				PerWorkflowRPS:   1.0,
 				PerWorkflowBurst: 1,
+			},
+			IncomingRateLimiter: gwcommon.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
 			},
 		}
 		connector, connectorHandler := newFunction(
@@ -254,7 +258,13 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 
 func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
 	var defaultConfig = ServiceConfig{
-		RateLimiter: common.RateLimiterConfig{
+		OutgoingRateLimiter: common.RateLimiterConfig{
+			GlobalRPS:        100.0,
+			GlobalBurst:      100,
+			PerWorkflowRPS:   100.0,
+			PerWorkflowBurst: 100,
+		},
+		IncomingRateLimiter: gwcommon.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
 			PerSenderRPS:   100.0,

@@ -11,10 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	common "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -25,16 +26,22 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 
 type OutgoingConnectorHandler struct {
 	services.StateMachine
-	gc              connector.GatewayConnector
-	gatewaySelector *RoundRobinSelector
-	method          string
-	lggr            logger.Logger
-	rateLimiter     *common.RateLimiter
-	responses       *responses
+	gc                  connector.GatewayConnector
+	gatewaySelector     *RoundRobinSelector
+	method              string
+	lggr                logger.Logger
+	incomingRateLimiter *gwcommon.RateLimiter
+	outgoingRateLimiter *common.RateLimiter
+	responses           *responses
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
-	rateLimiter, err := common.NewRateLimiter(config.RateLimiter)
+	outgoingRateLimiter, err := common.NewRateLimiter(config.OutgoingRateLimiter)
+	if err != nil {
+		return nil, err
+	}
+
+	incomingRateLimiter, err := gwcommon.NewRateLimiter(config.IncomingRateLimiter)
 	if err != nil {
 		return nil, err
 	}
@@ -44,12 +51,13 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 	}
 
 	return &OutgoingConnectorHandler{
-		gc:              gc,
-		gatewaySelector: NewRoundRobinSelector(gc.GatewayIDs()),
-		method:          method,
-		responses:       newResponses(),
-		rateLimiter:     rateLimiter,
-		lggr:            lgger,
+		gc:                  gc,
+		gatewaySelector:     NewRoundRobinSelector(gc.GatewayIDs()),
+		method:              method,
+		responses:           newResponses(),
+		outgoingRateLimiter: outgoingRateLimiter,
+		incomingRateLimiter: incomingRateLimiter,
+		lggr:                lgger,
 	}, nil
 }
 
@@ -58,7 +66,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 
-	if !c.rateLimiter.AllowWorkflow(req.WorkflowID) {
+	if !c.outgoingRateLimiter.Allow(req.WorkflowID) {
 		return nil, errors.New("exceeded limit of gateways requests")
 	}
 
@@ -125,7 +133,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	body := &msg.Body
 	l := logger.With(c.lggr, "gatewayID", gatewayID, "method", body.Method, "messageID", msg.Body.MessageId)
 
-	if !c.rateLimiter.Allow(body.Sender) {
+	if !c.incomingRateLimiter.Allow(body.Sender) {
 		// error is logged here instead of warning because if a message from gateway is rate-limited,
 		// the workflow will eventually fail with timeout as there are no retries in place yet
 		l.Errorw("request rate-limited")

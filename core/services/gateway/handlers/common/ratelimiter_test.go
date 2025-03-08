@@ -25,23 +25,3 @@ func TestRateLimiter_PerSender(t *testing.T) {
 	require.False(t, rl.Allow("user1"))
 	require.False(t, rl.Allow("user3"))
 }
-
-func TestRateLimiter_PerWorkflow(t *testing.T) {
-	t.Parallel()
-
-	config := common.RateLimiterConfig{
-		GlobalRPS:        3.0,
-		GlobalBurst:      3,
-		PerSenderRPS:     1.0,
-		PerSenderBurst:   2,
-		PerWorkflowRPS:   1.0,
-		PerWorkflowBurst: 2,
-	}
-	rl, err := common.NewRateLimiter(config)
-	require.NoError(t, err)
-	require.True(t, rl.AllowWorkflow("user1"), "workflowID1")
-	require.True(t, rl.AllowWorkflow("user2"), "workflowID2")
-	require.True(t, rl.AllowWorkflow("user3"), "workflowID1")
-	require.False(t, rl.AllowWorkflow("user4"), "workflowID1")
-	require.False(t, rl.AllowWorkflow("user5"), "workflowID3")
-}
