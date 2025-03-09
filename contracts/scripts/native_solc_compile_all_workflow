@@ -13,7 +13,7 @@ export FOUNDRY_PROFILE="$PROJECT"
 
 compileContract () {
   local contract
-  contract=$(basename "$1" ".sol")
+  contract=$(basename "$1")
   echo "Compiling" "$contract"
 
   local command
