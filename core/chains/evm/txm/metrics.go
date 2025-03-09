@@ -118,7 +118,6 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, from
 		ChainId:     m.chainID.String(),
 		FeedAddress: destAddress.String(),
 	}
-	fmt.Printf("Emitting tx message: %v\n", message) // TODO(gg): remove
 
 	messageBytes, err := proto.Marshal(message)
 	if err != nil {

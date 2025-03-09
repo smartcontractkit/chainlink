@@ -225,7 +225,6 @@ func TestBackfillTransactions(t *testing.T) {
 	config := Config{}
 	address := testutils.NewAddress()
 	keystore := newMockKeystore(t)
-	destinationAddress := testutils.NewAddress()
 
 	t.Run("fails if latest nonce fetching fails", func(t *testing.T) {
 		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
@@ -258,19 +257,11 @@ func TestBackfillTransactions(t *testing.T) {
 		require.NoError(t, err)
 		txm.metrics = emptyMetrics
 
-		txMeta := &txmgrtypes.TxMeta[common.Address, common.Hash]{
-			FwdrDestAddress: &destinationAddress,
-		}
-		raw, err := json.Marshal(txMeta)
-		require.NoError(t, err)
-		meta := sqlutil.JSON(raw)
-
 		// Add a new transaction that will be assigned with nonce = 1. Nonce = 0 is not being tracked by the txStore. This will trigger a nonce gap.
 		txRequest := &types.TxRequest{
 			ChainID:     testutils.FixtureChainID,
 			FromAddress: address,
 			ToAddress:   testutils.NewAddress(),
-			Meta:        &meta,
 		}
 		_, err = txm.CreateTransaction(tests.Context(t), txRequest)
 		require.NoError(t, err)
@@ -308,13 +299,6 @@ func TestBackfillTransactions(t *testing.T) {
 		require.NoError(t, err)
 		txm.metrics = emptyMetrics
 
-		txMeta := &txmgrtypes.TxMeta[common.Address, common.Hash]{
-			FwdrDestAddress: &destinationAddress,
-		}
-		raw, err := json.Marshal(txMeta)
-		require.NoError(t, err)
-		meta := sqlutil.JSON(raw)
-
 		IDK := "IDK"
 		txRequest := &types.TxRequest{
 			Data:              []byte{100, 200},
@@ -323,7 +307,6 @@ func TestBackfillTransactions(t *testing.T) {
 			FromAddress:       address,
 			ToAddress:         testutils.NewAddress(),
 			SpecifiedGasLimit: 22000,
-			Meta:              &meta,
 		}
 		tx, err := txm.CreateTransaction(tests.Context(t), txRequest)
 		require.NoError(t, err)

@@ -151,8 +151,6 @@ func (m *InMemoryStore) CreateTransaction(txRequest *types.TxRequest) *types.Tra
 		SignalCallback:    txRequest.SignalCallback,
 	}
 
-	fmt.Printf("Storing tx: %v\n", tx) // TODO: remove
-
 	uLen := len(m.UnstartedTransactions)
 	if uLen >= maxQueuedTransactions {
 		m.lggr.Warnw(fmt.Sprintf("Unstarted transactions queue for address: %v reached max limit of: %d. Dropping oldest transactions", m.address, maxQueuedTransactions),

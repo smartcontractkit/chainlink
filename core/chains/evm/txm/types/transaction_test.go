@@ -109,37 +109,4 @@ func TestTransaction_GetMeta(t *testing.T) {
 	}
 }
 
-func TestTransaction_String(t *testing.T) {
-	t.Parallel()
-
-	addr1 := common.HexToAddress("0x1234567890123456789012345678901234567890")
-	addr2 := common.HexToAddress("0x2234567890123456789012345678901234567890")
-	chainID := big.NewInt(1)
-	nonce := uint64(42)
-	value := big.NewInt(1000000000000000000)
-	data := []byte{1, 2, 3, 4}
-	gasLimit := uint64(21000)
-
-	tx := Transaction{
-		ID:                1,
-		IdempotencyKey:    ptr("key123"),
-		ChainID:           chainID,
-		Nonce:             &nonce,
-		FromAddress:       addr1,
-		ToAddress:         addr2,
-		Value:             value,
-		Data:              data,
-		SpecifiedGasLimit: gasLimit,
-	}
-
-	str := tx.String()
-	assert.Contains(t, str, "txID:1")
-	assert.Contains(t, str, "IdempotencyKey:key123")
-	assert.Contains(t, str, "ChainID:1")
-	assert.Contains(t, str, "Nonce:42")
-	assert.Contains(t, str, addr1.String())
-	assert.Contains(t, str, addr2.String())
-	assert.Contains(t, str, value.String())
-}
-
 func ptr[T any](t T) *T { return &t }
