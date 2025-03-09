@@ -2,7 +2,6 @@ package types
 
 import (
 	"encoding/json"
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
