@@ -47,11 +47,11 @@ func TestMain(m *testing.M) {
 var (
 	// Temporary workaround for skipping flaky tests as we improve our tracking process
 	skipFlakyTests = map[string]string{ // test name: issue number
-		"TestScripts/nodes/evm/list/list":       "TODO: <Ticket Num>",
-		"TestScripts/keys/eth/list/unavailable": "TODO: <Ticket Num>",
-		"TestScripts/nodes/solana/list/list":    "TODO: <Ticket Num>",
-		"TestScripts/health/multi-chain":        "TODO: <Ticket Num>",
-		"TestScripts/health/default":            "TODO: <Ticket Num>",
+		"TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
+		"TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
+		"TestScripts/nodes/solana/list/list":    "https://smartcontract-it.atlassian.net/browse/CRE-155",
+		"TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
+		"TestScripts/health/default":            "https://smartcontract-it.atlassian.net/browse/DX-109",
 	}
 )
 

@@ -17,7 +17,7 @@ import (
 )
 
 func TestDeployForwarder(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-111")
 	t.Parallel()
 
 	lggr := logger.Test(t)

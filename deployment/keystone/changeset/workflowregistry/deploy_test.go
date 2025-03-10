@@ -13,7 +13,7 @@ import (
 )
 
 func Test_Deploy(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-101")
 	t.Parallel()
 	lggr := logger.Test(t)
 	cfg := memory.MemoryEnvironmentConfig{

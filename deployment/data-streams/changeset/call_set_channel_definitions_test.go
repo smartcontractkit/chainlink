@@ -11,7 +11,7 @@ import (
 )
 
 func TestCallSetChannelDefinitions(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-105")
 	e := newMemoryEnv(t)
 
 	// Deploy a contract

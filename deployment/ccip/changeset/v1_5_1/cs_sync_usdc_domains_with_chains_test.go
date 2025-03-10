@@ -123,8 +123,8 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
-			if t.Name() == "Domain mapping not defined" {
-				t.Skip("Flaky Test: TODO: <Ticket Number>")
+			if t.Name() == "TestValidateSyncUSDCDomainsWithChainsConfig/Domain_mapping_not_defined" {
+				t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-113")
 			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
@@ -182,6 +182,9 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 		}
 
 		t.Run(msg, func(t *testing.T) {
+			if t.Name() == "TestSyncUSDCDomainsWithChainsChangeset/Sync_domains_without_MCMS" {
+				t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-112")
+			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
 				testCfg.PrerequisiteDeploymentOnly = true

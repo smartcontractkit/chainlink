@@ -42,7 +42,6 @@ func TestTriggerPublisher_Register(t *testing.T) {
 }
 
 func TestTriggerPublisher_ReceiveTriggerEvents_NoBatching(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
 	ctx := testutils.Context(t)
 	capabilityDONID, workflowDONID := uint32(1), uint32(2)
 

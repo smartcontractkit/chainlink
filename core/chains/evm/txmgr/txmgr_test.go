@@ -519,7 +519,6 @@ func TestTxm_CreateTransaction_OutOfEth(t *testing.T) {
 }
 
 func TestTxm_Lifecycle(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
 	db := testutils.NewSqlxDB(t)
 
 	ethClient := clienttest.NewClientWithDefaultChainID(t)

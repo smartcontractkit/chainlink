@@ -27,7 +27,7 @@ import (
 )
 
 func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
-	t.Skip("Flaky Test: TODO: <Ticket Number>")
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-108")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
