@@ -29,7 +29,7 @@ import (
 )
 
 const (
-	OldSha = "e5f38e1c557eda4bc4a0436b69646a534ae16d39"
+	OldSha = "9713793a350fa06d4303d29c23e9b096539c189c"
 	NewSha = "ed22f75fe8de58634a46a137b386d4c508fde14f"
 )
 
@@ -94,6 +94,7 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			GitCommitSha:        OldSha,
 			DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 			CleanDestinationDir: true,
+			VerifiedBuild:       true,
 		}
 		require.NoError(t, err)
 	}
@@ -153,6 +154,15 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 
 	// deploy the contracts
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
+		// try verification
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.VerifyBuild),
+			ccipChangesetSolana.VerifyBuildConfig{
+				ChainSelector:   solChainSelectors[0],
+				GitCommitSha:    OldSha,
+				VerifyFeeQuoter: true,
+			},
+		),
 		// upgrade authority
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetUpgradeAuthorityChangeset),
@@ -184,7 +194,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 					GitCommitSha:        NewSha,
 					DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 					CleanDestinationDir: true,
-					CleanGitDir:         true,
 					UpgradeKeys: map[deployment.ContractType]string{
 						ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
 						ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
