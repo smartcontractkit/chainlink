@@ -2051,7 +2051,7 @@ func TestORM_Abandon(t *testing.T) {
 	require.Empty(t, etx3.TxAttempts)
 }
 
-func mustInsertTerminallyStuckTxWithAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonceInt int64, broadcastBeforeBlockNum int64) txmgr.Tx {
+func mustInsertTerminallyStuckTxWithAttempt(t testing.TB, txStore txmgr.TestEvmTxStore, fromAddress common.Address, nonceInt int64, broadcastBeforeBlockNum int64) txmgr.Tx {
 	ctx := tests.Context(t)
 	broadcast := time.Now()
 	nonce := types.Nonce(nonceInt)

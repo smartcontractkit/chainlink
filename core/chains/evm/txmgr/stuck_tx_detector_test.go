@@ -530,7 +530,7 @@ func TestStuckTxDetector_DetectStuckTransactionsScroll(t *testing.T) {
 	})
 }
 
-func mustInsertUnconfirmedTxWithBroadcastAttempts(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestBroadcastBlockNum int64, latestGasPrice *assets.Wei) txmgr.Tx {
+func mustInsertUnconfirmedTxWithBroadcastAttempts(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, numAttempts uint32, latestBroadcastBlockNum int64, latestGasPrice *assets.Wei) txmgr.Tx {
 	ctx := tests.Context(t)
 	etx := cltest.MustInsertUnconfirmedEthTx(t, txStore, nonce, fromAddress)
 	// Insert attempts from oldest to newest

@@ -8,13 +8,10 @@ import (
 	"path/filepath"
 	"regexp"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
-
-var _ deployment.ChangeSet[BuildSolanaConfig] = BuildSolanaChangeset
 
 // Configuration
 const (
@@ -27,8 +24,16 @@ const (
 // Map program names to their Rust file paths (relative to the Anchor project root)
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
-	cs.Router:    "programs/ccip-router/src/lib.rs",
-	cs.FeeQuoter: "programs/fee-quoter/src/lib.rs",
+	cs.Router:                      "programs/ccip-router/src/lib.rs",
+	cs.TestRouter:                  "programs/ccip-router/src/lib.rs",
+	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
+	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
+	cs.BurnMintTokenPool:           "programs/example-burnmint-token-pool/src/lib.rs",
+	cs.LockReleaseTokenPool:        "programs/example-lockrelease-token-pool/src/lib.rs",
+	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
+	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
+	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
+	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
 // Run a command in a specific directory
@@ -92,7 +97,6 @@ func replaceKeys(e deployment.Environment) error {
 	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
 	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
 	if err != nil {
-		fmt.Println(output)
 		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
 	}
 	return nil
@@ -133,10 +137,14 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment) error {
+func buildProject(e deployment.Environment, testRouter bool) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	output, err := runCommand("make", []string{"docker-build-contracts"}, solanaDir)
+	args := []string{"docker-build-contracts"}
+	if testRouter {
+		args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
+	}
+	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
@@ -144,65 +152,69 @@ func buildProject(e deployment.Environment) error {
 }
 
 type BuildSolanaConfig struct {
-	ChainSelector        uint64
-	GitCommitSha         string
+	GitCommitSha string
+	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
 	DestinationDir       string
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
 	UpgradeKeys map[deployment.ContractType]string
+	TestRouter  bool
 }
 
-func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (deployment.ChangesetOutput, error) {
-	_, ok := e.SolChains[config.ChainSelector]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not found in environment", config.ChainSelector)
-	}
-	family, err := chainsel.GetSelectorFamily(config.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, err
-	}
-	if family != chainsel.FamilySolana {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain is not solana chain %d", config.ChainSelector)
-	}
+func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
+	// Filter files to only include those with "router" in the name
+	// ccip_router.so, ccip_router-keypair.json
+	var routerFiles []os.DirEntry
 
+	// Compile the regex pattern once
+	re := regexp.MustCompile(`(?i)router`)
+	for _, file := range files {
+		if re.MatchString(file.Name()) {
+			routerFiles = append(routerFiles, file)
+		}
+	}
+	return routerFiles, nil
+}
+
+func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error cloning repo: %w", err)
+		return fmt.Errorf("error cloning repo: %w", err)
 	}
 
 	// Replace keys in Rust files using anchor keys sync
 	if err := replaceKeys(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys: %w", err)
+		return fmt.Errorf("error replacing keys: %w", err)
 	}
 
 	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
 	// We need to do this so the keys will match the existing deployed program
 	if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error replacing keys for upgrade: %w", err)
+		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
 	// Build the project with Anchor
-	if err := buildProject(e); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("error building project: %w", err)
+	if err := buildProject(e, config.TestRouter); err != nil {
+		return fmt.Errorf("error building project: %w", err)
 	}
 
 	if config.CleanDestinationDir {
 		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
 		if err := os.RemoveAll(config.DestinationDir); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error cleaning build folder: %w", err)
+			return fmt.Errorf("error cleaning build folder: %w", err)
 		}
 		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err = os.MkdirAll(config.DestinationDir, os.ModePerm)
+		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
+			return fmt.Errorf("failed to create build directory: %w", err)
 		}
 	} else if config.CreateDestinationDir {
 		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
 		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create build directory: %w", err)
+			return fmt.Errorf("failed to create build directory: %w", err)
 		}
 	}
 
@@ -210,7 +222,14 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 	e.Logger.Debugw("Reading deploy directory", "deployFilePath", deployFilePath)
 	files, err := os.ReadDir(deployFilePath)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to read deploy directory: %w", err)
+		return fmt.Errorf("failed to read deploy directory: %w", err)
+	}
+
+	if config.TestRouter {
+		files, err = filterRouterFiles(files)
+		if err != nil {
+			return fmt.Errorf("failed to filter router files: %w", err)
+		}
 	}
 
 	for _, file := range files {
@@ -218,8 +237,8 @@ func BuildSolanaChangeset(e deployment.Environment, config BuildSolanaConfig) (d
 		e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
 		err := copyFile(filePath, config.DestinationDir)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to copy file: %w", err)
+			return fmt.Errorf("failed to copy file: %w", err)
 		}
 	}
-	return deployment.ChangesetOutput{}, nil
+	return nil
 }

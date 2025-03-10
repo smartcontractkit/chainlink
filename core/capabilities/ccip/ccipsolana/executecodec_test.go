@@ -17,6 +17,7 @@ import (
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	"github.com/stretchr/testify/assert"
@@ -137,6 +138,24 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			expErr:        false,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
+		{
+			name: "reports have invalid DestTokenAddress",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].TokenAmounts[0].DestTokenAddress = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
+		{
+			name: "reports have invalid receiver",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].Receiver = []byte{0, 0}
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
 	}
 
 	ctx := testutils.Context(t)
@@ -189,8 +208,6 @@ func Test_DecodingExecuteReport(t *testing.T) {
 	}, nil)
 	t.Run("decode on-chain execute report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
-		onRampAddr, err := solanago.NewRandomPrivateKey()
-		require.NoError(t, err)
 
 		destGasAmount := uint32(10)
 		tokenAmount := big.NewInt(rand.Int63())
@@ -214,13 +231,12 @@ func Test_DecodingExecuteReport(t *testing.T) {
 						DestGasAmount: destGasAmount,
 					},
 				},
-				OnRampAddress: onRampAddr.PublicKey().Bytes(),
 			},
 		}
 
 		var extraArgsBuf bytes.Buffer
 		encoder := agbinary.NewBorshEncoder(&extraArgsBuf)
-		err = extraArgs.MarshalWithEncoder(encoder)
+		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
 		var buf bytes.Buffer

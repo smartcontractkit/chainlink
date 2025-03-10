@@ -41,6 +41,7 @@ optimizer_runs = 80_000
 via_ir = true
 
 [profile.functions]
+optimizer_runs = 1_000_000
 solc_version = '0.8.19'
 evm_version = 'paris'
 src = 'src/v0.8/functions'
@@ -76,13 +77,6 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
-
-[profile.liquiditymanager]
-optimizer_runs = 1000000
-src = 'src/v0.8/liquiditymanager'
-test = 'src/v0.8/liquiditymanager/test'
-solc_version = '0.8.24'
-evm_version = 'paris'
 
 [profile.keystone]
 optimizer_runs = 1_000_000

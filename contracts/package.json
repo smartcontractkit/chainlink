@@ -26,8 +26,7 @@
   "files": [
     "src/v0.8",
     "abi/v0.8",
-    "!src/*/ccip/**",
-    "!src/*/liquiditymanager/**"
+    "!src/*/ccip/**"
   ],
   "pnpm": {
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
@@ -84,7 +83,6 @@
   },
   "dependencies": {
     "@arbitrum/nitro-contracts": "1.1.1",
-    "@arbitrum/token-bridge-contracts": "1.1.2",
     "@changesets/cli": "~2.27.12",
     "@changesets/get-github-info": "^0.6.0",
     "@eth-optimism/contracts": "0.6.0",
