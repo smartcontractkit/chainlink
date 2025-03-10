@@ -332,12 +332,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 
 		dstProvider, err2 := d.ccipCommitGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
 		if err2 != nil {
-			return err
+			return err2
 		}
 
 		srcProvider, _, err2 := d.ccipCommitGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
 		if err2 != nil {
-			return err
+			return err2
 		}
 		err2 = ccipcommit.UnregisterCommitPluginLpFilters(srcProvider, dstProvider)
 		if err2 != nil {
@@ -355,12 +355,12 @@ func (d *Delegate) cleanupEVM(ctx context.Context, jb job.Job, relayID types.Rel
 
 		dstProvider, err2 := d.ccipExecGetDstProvider(ctx, jb, pluginJobSpecConfig, transmitterID)
 		if err2 != nil {
-			return err
+			return err2
 		}
 
 		srcProvider, _, err2 := d.ccipExecGetSrcProvider(ctx, jb, pluginJobSpecConfig, transmitterID, dstProvider)
 		if err2 != nil {
-			return err
+			return err2
 		}
 		err2 = ccipexec.UnregisterExecPluginLpFilters(srcProvider, dstProvider)
 		if err2 != nil {

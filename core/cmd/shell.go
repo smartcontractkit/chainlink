@@ -661,7 +661,7 @@ func (h *authenticatedHTTPClient) doRequest(ctx context.Context, verb, path stri
 		var cookieerr error
 		cookie, cookieerr = h.cookieAuth.Authenticate(ctx, h.sessionRequest)
 		if cookieerr != nil {
-			return response, err
+			return response, cookieerr
 		}
 		request.Header.Set("Cookie", "")
 		request.AddCookie(cookie)
