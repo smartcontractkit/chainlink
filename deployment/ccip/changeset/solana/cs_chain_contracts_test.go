@@ -10,6 +10,8 @@ import (
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 
+	solToken "github.com/gagliardetto/solana-go/programs/token"
+
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
@@ -663,9 +665,19 @@ func TestTokenAdminRegistry(t *testing.T) {
 					},
 				),
 				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenMintAuthority),
-					ccipChangesetSolana.SetTokenMintAuthorityConfig{
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+					ccipChangesetSolana.SetTokenAuthorityConfig{
 						ChainSelector: solChain,
+						AuthorityType: solToken.AuthorityMintTokens,
+						TokenPubkey:   linkTokenAddress,
+						NewAuthority:  newTokenAdmin,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetTokenAuthority),
+					ccipChangesetSolana.SetTokenAuthorityConfig{
+						ChainSelector: solChain,
+						AuthorityType: solToken.AuthorityFreezeAccount,
 						TokenPubkey:   linkTokenAddress,
 						NewAuthority:  newTokenAdmin,
 					},
