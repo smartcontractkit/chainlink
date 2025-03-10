@@ -17,13 +17,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
-	registry12 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	registry20 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
@@ -171,32 +168,6 @@ func (k *Keeper) LaunchAndTest(ctx context.Context, withdraw, printLogs, force, 
 		switch k.cfg.RegistryVersion {
 		case keeper.RegistryVersion_1_1:
 			if err := k.cancelAndWithdrawUpkeeps(ctx, big.NewInt(upkeepCount), deployer); err != nil {
-				log.Fatal("Failed to cancel upkeeps: ", err)
-			}
-		case keeper.RegistryVersion_1_2:
-			registry, err := registry12.NewKeeperRegistry(
-				registryAddr,
-				k.client,
-			)
-			if err != nil {
-				log.Fatal("Registry failed: ", err)
-			}
-
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
-			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
-				log.Fatal("Failed to cancel upkeeps: ", err)
-			}
-		case keeper.RegistryVersion_2_0:
-			registry, err := registry20.NewKeeperRegistry(
-				registryAddr,
-				k.client,
-			)
-			if err != nil {
-				log.Fatal("Registry failed: ", err)
-			}
-
-			activeUpkeepIds := k.getActiveUpkeepIds(ctx, registry, big.NewInt(0), big.NewInt(0))
-			if err := k.cancelAndWithdrawActiveUpkeeps(ctx, activeUpkeepIds, deployer); err != nil {
 				log.Fatal("Failed to cancel upkeeps: ", err)
 			}
 		case keeper.RegistryVersion_2_1:
