@@ -230,7 +230,7 @@ func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	tokenIx := &solTokenUtil.TokenInstruction{ix, tokenprogramID}
+	tokenIx := &solTokenUtil.TokenInstruction{Instruction: ix, Program: tokenprogramID}
 
 	// confirm instructions
 	if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
