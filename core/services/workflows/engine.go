@@ -540,7 +540,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 				return
 			}
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
-			e.logger.Debugw("received step update for execution %s", stepUpdate.ExecutionID,
+			e.logger.Debugw("received step update for execution",
 				platform.KeyWorkflowExecutionID, stepUpdate.ExecutionID, platform.KeyStepRef, stepUpdate.Ref)
 			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
