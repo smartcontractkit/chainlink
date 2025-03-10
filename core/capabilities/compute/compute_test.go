@@ -249,7 +249,7 @@ func TestComputeFetch(t *testing.T) {
 	assert.EqualValues(t, expected, actual)
 }
 
-func TestComputeFetchMaxFetchResponseSizeBytes(t *testing.T) {
+func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	t.Parallel()
 	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
 	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
@@ -263,7 +263,7 @@ func TestComputeFetchMaxFetchResponseSizeBytes(t *testing.T) {
 				PerSenderBurst: 100,
 			},
 		},
-		MaxFetchResponseSizeBytes: 1 * 1024,
+		MaxResponseSizeBytes: 1 * 1024,
 	})
 
 	th.connector.EXPECT().DonID().Return("don-id")
