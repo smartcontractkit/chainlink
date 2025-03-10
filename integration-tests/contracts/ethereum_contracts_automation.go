@@ -50,7 +50,6 @@ import (
 	iregistry21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_consumer_performance_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic2_0"
 	registrylogica21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_a_wrapper_2_1"
 	registrylogicb21 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic_b_wrapper_2_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
@@ -223,10 +222,6 @@ func (v *EthereumKeeperRegistry) SetConfigTypeSafe(ocrConfig OCRv2Config) error 
 
 func (v *EthereumKeeperRegistry) SetConfig(config KeeperRegistrySettings, ocrConfig OCRv2Config) error {
 	txOpts := v.client.NewTXOpts()
-	callOpts := bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: nil,
-	}
 
 	switch v.version {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
@@ -293,10 +288,6 @@ func (v *EthereumKeeperRegistry) SetRegistrar(registrarAddr string) error {
 	}
 
 	txOpts := v.client.NewTXOpts()
-	callOpts := bind.CallOpts{
-		From:    v.client.MustGetRootKeyAddress(),
-		Context: nil,
-	}
 
 	switch v.version {
 	case ethereum.RegistryVersion_1_0, ethereum.RegistryVersion_1_1:
@@ -836,145 +827,6 @@ func deployRegistry10_11(client *seth.Client, opts *KeeperRegistryOpts) (KeeperR
 		client:      client,
 		version:     eth_contracts.RegistryVersion_1_1,
 		registry1_1: instance,
-		registry1_2: nil,
-		registry1_3: nil,
-		address:     &data.Address,
-	}, err
-}
-
-func deployRegistry12(client *seth.Client, opts *KeeperRegistryOpts) (KeeperRegistry, error) {
-	abi, err := keeper_registry_wrapper1_2.KeeperRegistryMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry1_2 ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistry1_2", *abi, common.FromHex(keeper_registry_wrapper1_2.KeeperRegistryMetaData.Bin),
-		common.HexToAddress(opts.LinkAddr),
-		common.HexToAddress(opts.ETHFeedAddr),
-		common.HexToAddress(opts.GasFeedAddr),
-		keeper_registry_wrapper1_2.Config{
-			PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
-			FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
-			BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
-			CheckGasLimit:        opts.Settings.CheckGasLimit,
-			StalenessSeconds:     opts.Settings.StalenessSeconds,
-			GasCeilingMultiplier: opts.Settings.GasCeilingMultiplier,
-			MinUpkeepSpend:       opts.Settings.MinUpkeepSpend,
-			MaxPerformGas:        opts.Settings.MaxPerformGas,
-			FallbackGasPrice:     opts.Settings.FallbackGasPrice,
-			FallbackLinkPrice:    opts.Settings.FallbackLinkPrice,
-			Transcoder:           common.HexToAddress(opts.TranscoderAddr),
-			Registrar:            common.HexToAddress(opts.RegistrarAddr),
-		},
-	)
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistry1_2 instance deployment have failed: %w", err)
-	}
-
-	instance, err := keeper_registry_wrapper1_2.NewKeeperRegistry(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry1_2 instance: %w", err)
-	}
-	return &EthereumKeeperRegistry{
-		client:      client,
-		version:     eth_contracts.RegistryVersion_1_2,
-		registry1_1: nil,
-		registry1_2: instance,
-		registry1_3: nil,
-		address:     &data.Address,
-	}, err
-}
-
-func deployRegistry13(client *seth.Client, opts *KeeperRegistryOpts, mode uint8, registryGasOverhead *big.Int) (KeeperRegistry, error) {
-	logicAbi, err := keeper_registry_logic1_3.KeeperRegistryLogicMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistryLogic1_3 ABI: %w", err)
-	}
-	logicData, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistryLogic1_3", *logicAbi, common.FromHex(keeper_registry_logic1_3.KeeperRegistryLogicMetaData.Bin),
-		mode,                // Default payment model
-		registryGasOverhead, // Registry gas overhead
-		common.HexToAddress(opts.LinkAddr),
-		common.HexToAddress(opts.ETHFeedAddr),
-		common.HexToAddress(opts.GasFeedAddr),
-	)
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistryLogic1_3 instance deployment have failed: %w", err)
-	}
-
-	abi, err := keeper_registry_wrapper1_3.KeeperRegistryMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry1_3 ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistry1_3", *abi, common.FromHex(keeper_registry_wrapper1_3.KeeperRegistryMetaData.Bin),
-		logicData.Address,
-		keeper_registry_wrapper1_3.Config{
-			PaymentPremiumPPB:    opts.Settings.PaymentPremiumPPB,
-			FlatFeeMicroLink:     opts.Settings.FlatFeeMicroLINK,
-			BlockCountPerTurn:    opts.Settings.BlockCountPerTurn,
-			CheckGasLimit:        opts.Settings.CheckGasLimit,
-			StalenessSeconds:     opts.Settings.StalenessSeconds,
-			GasCeilingMultiplier: opts.Settings.GasCeilingMultiplier,
-			MinUpkeepSpend:       opts.Settings.MinUpkeepSpend,
-			MaxPerformGas:        opts.Settings.MaxPerformGas,
-			FallbackGasPrice:     opts.Settings.FallbackGasPrice,
-			FallbackLinkPrice:    opts.Settings.FallbackLinkPrice,
-			Transcoder:           common.HexToAddress(opts.TranscoderAddr),
-			Registrar:            common.HexToAddress(opts.RegistrarAddr),
-		},
-	)
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistry1_3 instance deployment have failed: %w", err)
-	}
-
-	instance, err := keeper_registry_wrapper1_3.NewKeeperRegistry(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry1_3 instance: %w", err)
-	}
-
-	return &EthereumKeeperRegistry{
-		client:      client,
-		version:     eth_contracts.RegistryVersion_1_3,
-		registry1_1: nil,
-		registry1_2: nil,
-		registry1_3: instance,
-		address:     &data.Address,
-	}, err
-}
-
-func deployRegistry20(client *seth.Client, opts *KeeperRegistryOpts, mode uint8) (KeeperRegistry, error) {
-	logicAbi, err := keeper_registry_logic2_0.KeeperRegistryLogicMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistryLogic2_0 ABI: %w", err)
-	}
-	logicData, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistryLogic2_0", *logicAbi, common.FromHex(keeper_registry_logic2_0.KeeperRegistryLogicMetaData.Bin),
-		mode, // Default payment model
-		common.HexToAddress(opts.LinkAddr),
-		common.HexToAddress(opts.ETHFeedAddr),
-		common.HexToAddress(opts.GasFeedAddr),
-	)
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistryLogic2_0 instance deployment have failed: %w", err)
-	}
-
-	abi, err := keeper_registry_wrapper2_0.KeeperRegistryMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to get KeeperRegistry1_3 ABI: %w", err)
-	}
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistry2_0", *abi, common.FromHex(keeper_registry_wrapper2_0.KeeperRegistryMetaData.Bin),
-		logicData.Address,
-	)
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("KeeperRegistry2_0 instance deployment have failed: %w", err)
-	}
-
-	instance, err := keeper_registry_wrapper2_0.NewKeeperRegistry(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperRegistry{}, fmt.Errorf("failed to instantiate KeeperRegistry2_0 instance: %w", err)
-	}
-
-	return &EthereumKeeperRegistry{
-		client:      client,
-		version:     eth_contracts.RegistryVersion_2_0,
-		registry2_0: instance,
 		address:     &data.Address,
 	}, err
 }
