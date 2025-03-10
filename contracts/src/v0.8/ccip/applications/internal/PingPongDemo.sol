@@ -1,11 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import {IRouter} from "../../interfaces/IRouter.sol";
-
-import {FeeQuoter} from "../../FeeQuoter.sol";
 import {Client} from "../../libraries/Client.sol";
-import {OnRamp} from "../../onRamp/OnRamp.sol";
 import {CCIPClient} from "../external/CCIPClient.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
@@ -28,12 +24,10 @@ contract PingPongDemo is CCIPClient {
 
   bool private s_allowOutOfOrderExecution;
 
+  string public constant typeAndVersion = "PingPongDemo 1.6.0-dev";
+
   // CCIPClient will handle the token approval so there's no need to do it in the constructor
   constructor(address router, IERC20 feeToken) CCIPClient(router, feeToken, true) {}
-
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "PingPongDemo 1.6.0-dev";
-  }
 
   function startPingPong() external onlyOwner {
     s_isPaused = false;
@@ -123,34 +117,5 @@ contract PingPongDemo is CCIPClient {
   /// @return The out of order execution flag.
   function getOutOfOrderExecution() external view virtual returns (bool) {
     return s_allowOutOfOrderExecution;
-  }
-
-  /// @notice Set the out of order execution flag as part of the extraArgsBytes for the chain configuration.
-  /// @dev The OOO execution is part of a chain's extraArgsBytes, which is set for the counterpartChainSelector also using
-  /// the OnRamp's default gas limit.
-  /// @param outOfOrderExecution The new out of order execution flag.
-  function setOutOfOrderExecution(
-    bool outOfOrderExecution
-  ) external virtual onlyOwner {
-    // An additional storage slot is used for code simplicity. The current storage value can be
-    // retrieved by parsing the extraArgsBytes field of the chain configuration, but this is not recommended
-    // as it is more expensive and error-prone by requiring additional parsing logic in raw assembly.
-    s_allowOutOfOrderExecution = outOfOrderExecution;
-
-    address onRamp = IRouter(s_ccipRouter).getOnRamp(s_counterpartChainSelector);
-
-    // Get the destination chain selector's default gas limit from the on-ramp, and apply it to the chain configuration's
-    // extraArgsBytes field.
-    address feeQuoter = OnRamp(onRamp).getDynamicConfig().feeQuoter;
-    uint64 defaultTxGasLimit = FeeQuoter(feeQuoter).getDestChainConfig(s_counterpartChainSelector).defaultTxGasLimit;
-
-    // Enabling out of order execution also requires setting a manual gas limit, therefore the on-ramp default
-    // gas limit is used to ensure consistency, but can be overwritten manually by the contract owner using
-    // the applyChainUpdates function.
-    s_chainConfigs[s_counterpartChainSelector].extraArgsBytes = Client._argsToBytes(
-      Client.GenericExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: outOfOrderExecution})
-    );
-
-    emit OutOfOrderExecutionChange(outOfOrderExecution);
   }
 }

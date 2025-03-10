@@ -49,10 +49,6 @@ abstract contract CCIPReceiverLegacy is IAny2EVMMessageReceiver, IERC165 {
     Client.Any2EVMMessage memory message
   ) internal virtual;
 
-  /////////////////////////////////////////////////////////////////////
-  // Plumbing
-  /////////////////////////////////////////////////////////////////////
-
   /// @notice Return the current router
   /// @return CCIP router address
   function getRouter() public view virtual returns (address) {

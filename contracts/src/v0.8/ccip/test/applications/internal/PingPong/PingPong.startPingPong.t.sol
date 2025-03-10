@@ -13,12 +13,6 @@ contract PingPong_startPingPong is PingPongDappSetup {
     _assertPingPongSuccess();
   }
 
-  function test_StartPingPong_With_OOO() public {
-    s_pingPong.setOutOfOrderExecution(true);
-
-    _assertPingPongSuccess();
-  }
-
   function _assertPingPongSuccess() internal {
     vm.expectEmit();
     emit PingPongDemo.Ping(s_pingPongNumber);

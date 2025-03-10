@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {IRouterClient} from "../../interfaces/IRouterClient.sol";
 
@@ -34,10 +34,6 @@ contract CCIPClient is CCIPReceiver {
     if (address(feeToken) != address(0)) {
       IERC20(feeToken).safeApprove(s_ccipRouter, type(uint256).max);
     }
-  }
-
-  function typeAndVersion() external pure virtual override returns (string memory) {
-    return "CCIPClient 1.6.0-dev";
   }
 
   /// @notice sends a message through CCIP to the router.

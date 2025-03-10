@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {IAny2EVMMessageReceiver} from "../../interfaces/IAny2EVMMessageReceiver.sol";
 
@@ -36,10 +36,6 @@ contract CCIPReceiver is CCIPBase, IAny2EVMMessageReceiver {
   constructor(
     address router
   ) CCIPBase(router) {}
-
-  function typeAndVersion() external pure virtual returns (string memory) {
-    return "CCIPReceiver 1.6.0-dev";
-  }
 
   // ================================================================
   // │                  Incoming Message Processing                 |
@@ -151,7 +147,7 @@ contract CCIPReceiver is CCIPBase, IAny2EVMMessageReceiver {
   }
 
   // ================================================================
-  // │                  Message Tracking                            │
+  // │                      Message Tracking                        │
   // ================================================================
 
   /// @notice Retrieve the contents of a message delivered by the CCIP Router.

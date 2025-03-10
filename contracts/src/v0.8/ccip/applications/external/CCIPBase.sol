@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.24;
 
 import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
 
@@ -174,7 +174,7 @@ abstract contract CCIPBase is OwnerIsCreator {
 
       if (!chain.allowed) {
         // The existence of a recipient is used to denote a chain enablement, so deleting the recipient will disable the chain.
-        delete s_chainConfigs[chain.chainSelector].recipient;
+        delete s_chainConfigs[chain.chainSelector];
         emit ChainRemoved(chain.chainSelector);
       } else {
         // The existence of a stored recipient is used to denote a chain being enabled, so the length here cannot be zero.
