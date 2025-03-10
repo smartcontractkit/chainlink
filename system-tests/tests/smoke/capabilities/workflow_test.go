@@ -17,7 +17,6 @@ import (
 	"github.com/go-playground/validator/v10"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -28,6 +27,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
