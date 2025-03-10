@@ -589,6 +589,7 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 	for _, chainSelector := range chains {
 		var name string
 		var chainView view.ChainView
+		chainSelector := chainSelector
 		grp.Go(func() error {
 			chainInfo, err := deployment.ChainInfo(chainSelector)
 			if err != nil {
