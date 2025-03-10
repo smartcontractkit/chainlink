@@ -148,7 +148,7 @@ contract PingPongDemo is CCIPClient {
     // gas limit is used to ensure consistency, but can be overwritten manually by the contract owner using
     // the applyChainUpdates function.
     s_chainConfigs[s_counterpartChainSelector].extraArgsBytes = Client._argsToBytes(
-      Client.EVMExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: outOfOrderExecution})
+      Client.GenericExtraArgsV2({gasLimit: defaultTxGasLimit, allowOutOfOrderExecution: outOfOrderExecution})
     );
 
     emit OutOfOrderExecutionChange(outOfOrderExecution);

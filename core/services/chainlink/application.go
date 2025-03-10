@@ -30,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -40,7 +41,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -78,6 +78,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/ldapauth"
 	"github.com/smartcontractkit/chainlink/v2/core/sessions/localauth"
@@ -135,7 +136,7 @@ type Application interface {
 	SecretGenerator() SecretGenerator
 
 	// FindLCA - finds last common ancestor for LogPoller's chain available in the database and RPC chain
-	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error)
+	FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error)
 	// DeleteLogPollerDataAfter - delete LogPoller state starting from the specified block
 	DeleteLogPollerDataAfter(ctx context.Context, chainID *big.Int, start int64) error
 }
@@ -284,6 +285,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		DS:                   opts.DS,
 		CREOpts:              opts.CREOpts,
 		capabilityCfg:        cfg.Capabilities(),
+		workflowsCfg:         cfg.Workflows(),
 		logger:               globalLogger,
 		relayerChainInterops: relayerChainInterops,
 		keystore:             keyStore,
@@ -488,6 +490,7 @@ func NewApplication(opts ApplicationOpts) (Application, error) {
 		opts.CapabilitiesRegistry,
 		workflowORM,
 		creServices.workflowRateLimiter,
+		creServices.workflowLimits,
 	)
 
 	// Flux monitor requires ethereum just to boot, silence errors with a null delegate
@@ -707,6 +710,7 @@ type creServiceConfig struct {
 	CREOpts
 
 	capabilityCfg        config.Capabilities
+	workflowsCfg         config.Workflows
 	keystore             creKeystore
 	logger               logger.Logger
 	relayerChainInterops *CoreRelayerChainInteroperators
@@ -717,6 +721,11 @@ type CREServices struct {
 	// workflowRateLimiter is the rate limiter for workflows
 	// it is exposed because there are contingent services in the application
 	workflowRateLimiter *ratelimiter.RateLimiter
+
+	// workflowLimits is the syncer limiter for workflows
+	// it will specify the amount of global an per owner workflows that can be registered
+	workflowLimits *syncerlimiter.Limits
+
 	// gatewayConnectorWrapper is the wrapper for the gateway connector
 	// it is exposed because there are contingent services in the application
 	gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
@@ -727,6 +736,7 @@ type CREServices struct {
 func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	var (
 		capCfg               = cscfg.capabilityCfg
+		wCfg                 = cscfg.workflowsCfg
 		globalLogger         = cscfg.logger
 		keyStore             = cscfg.keystore
 		relayerChainInterops = cscfg.relayerChainInterops
@@ -742,6 +752,14 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
+	}
+
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		Global:   wCfg.Limits().Global(),
+		PerOwner: wCfg.Limits().PerOwner(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
 	}
 
 	var gatewayConnectorWrapper *gatewayconnector.ServiceWrapper
@@ -849,6 +867,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 					clockwork.NewRealClock(),
 					keys[0],
 					workflowRateLimiter,
+					workflowLimits,
 					syncer.WithMaxArtifactSize(
 						syncer.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
@@ -886,6 +905,7 @@ func newCREServices(cscfg creServiceConfig) (*CREServices, error) {
 	}
 	return &CREServices{
 		workflowRateLimiter:     workflowRateLimiter,
+		workflowLimits:          workflowLimits,
 		gatewayConnectorWrapper: gatewayConnectorWrapper,
 		srvs:                    srvcs,
 	}, nil
@@ -1225,7 +1245,7 @@ func (app *ChainlinkApplication) ID() uuid.UUID {
 }
 
 // FindLCA - finds last common ancestor
-func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.LogPollerBlock, error) {
+func (app *ChainlinkApplication) FindLCA(ctx context.Context, chainID *big.Int) (*logpoller.Block, error) {
 	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
 	if err != nil {
 		return nil, err

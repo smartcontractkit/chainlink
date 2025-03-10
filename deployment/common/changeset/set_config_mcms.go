@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
@@ -16,20 +17,29 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	mcmslib "github.com/smartcontractkit/mcms"
-	"github.com/smartcontractkit/mcms/sdk"
 	"github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
+// Deprecated: use ConfigPerRoleV2 instead
 type ConfigPerRole struct {
 	Proposer  config.Config
 	Canceller config.Config
 	Bypasser  config.Config
 }
+
+type ConfigPerRoleV2 struct {
+	Proposer  mcmstypes.Config
+	Canceller mcmstypes.Config
+	Bypasser  mcmstypes.Config
+}
+
 type TimelockConfig struct {
 	MinDelay time.Duration // delay for timelock worker to execute the transfers.
 }
@@ -39,7 +49,13 @@ type MCMSConfig struct {
 	ProposalConfig  *TimelockConfig
 }
 
+type MCMSConfigV2 struct {
+	ConfigsPerChain map[uint64]ConfigPerRoleV2
+	ProposalConfig  *TimelockConfig
+}
+
 var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
+var _ deployment.ChangeSet[MCMSConfigV2] = SetConfigMCMSV2
 
 // Validate checks that the MCMSConfig is valid
 func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) error {
@@ -80,7 +96,59 @@ func (cfg MCMSConfig) Validate(e deployment.Environment, selectors []uint64) err
 	return nil
 }
 
+// Validate checks that the MCMSConfigV2 is valid
+func (cfg MCMSConfigV2) Validate(e deployment.Environment, selectors []uint64) error {
+	if len(cfg.ConfigsPerChain) == 0 {
+		return errors.New("no chain configs provided")
+	}
+
+	err := deployment.ValidateSelectorsInEnvironment(e, selectors)
+	if err != nil {
+		return err
+	}
+
+	for chainSelector, c := range cfg.ConfigsPerChain {
+		family, err := chain_selectors.GetSelectorFamily(chainSelector)
+		if err != nil {
+			return err
+		}
+
+		switch family {
+		case chain_selectors.FamilyEVM:
+			state, err := MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			if err != nil {
+				return err
+			}
+			_, ok := state[chainSelector]
+			if !ok {
+				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
+			}
+		case chain_selectors.FamilySolana:
+			state, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
+			if err != nil {
+				return err
+			}
+			_, ok := state[chainSelector]
+			if !ok {
+				return fmt.Errorf("chain selector: %d not found for MCMS state", chainSelector)
+			}
+		}
+
+		if err := c.Proposer.Validate(); err != nil {
+			return err
+		}
+		if err := c.Canceller.Validate(); err != nil {
+			return err
+		}
+		if err := c.Bypasser.Validate(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // setConfigOrTxData executes set config tx or gets the tx data for the MCMS proposal
+// Deprecated: Use setConfigOrTxDataV2 instead.
 func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg config.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := cfg.ExtractSetConfigInputs()
 	opts := deployment.SimTransactOpts()
@@ -102,6 +170,31 @@ func setConfigOrTxData(ctx context.Context, lggr logger.Logger, chain deployment
 	return tx, nil
 }
 
+// setConfigOrTxDataV2 executes set config tx or gets the tx data for the MCMS proposal
+func setConfigOrTxDataV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg mcmstypes.Config, contract *gethwrappers.ManyChainMultiSig, useMCMS bool) (*types.Transaction, error) {
+	opts := deployment.SimTransactOpts()
+	if !useMCMS {
+		opts = chain.DeployerKey
+	}
+	opts.Context = ctx
+
+	configurer := evm.NewConfigurer(chain.Client, opts)
+	res, err := configurer.SetConfig(ctx, contract.Address().Hex(), &cfg, false)
+	if err != nil {
+		return nil, err
+	}
+
+	transaction := res.RawData.(*types.Transaction)
+	if !useMCMS {
+		_, err = deployment.ConfirmIfNoErrorWithABI(chain, transaction, gethwrappers.ManyChainMultiSigABI, err)
+		if err != nil {
+			return nil, err
+		}
+		lggr.Infow("SetConfigMCMS tx confirmed", "txHash", res.Hash)
+	}
+	return transaction, nil
+}
+
 type setConfigTxs struct {
 	proposerTx  *types.Transaction
 	cancellerTx *types.Transaction
@@ -109,6 +202,7 @@ type setConfigTxs struct {
 }
 
 // setConfigPerRole sets the configuration for each of the MCMS contract roles on the mcmsState.
+// Deprecated: Use setConfigPerRoleV2 instead.
 func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRole, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
 	// Proposer set config
 	proposerTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
@@ -122,6 +216,31 @@ func setConfigPerRole(ctx context.Context, lggr logger.Logger, chain deployment.
 	}
 	// Bypasser set config
 	bypasserTx, err := setConfigOrTxData(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+
+	return setConfigTxs{
+		proposerTx:  proposerTx,
+		cancellerTx: cancellerTx,
+		bypasserTx:  bypasserTx,
+	}, nil
+}
+
+// setConfigPerRoleV2 sets the configuration for each of the MCMS contract roles on the mcmsState.
+func setConfigPerRoleV2(ctx context.Context, lggr logger.Logger, chain deployment.Chain, cfg ConfigPerRoleV2, mcmsState *MCMSWithTimelockState, useMCMS bool) (setConfigTxs, error) {
+	// Proposer set config
+	proposerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Proposer, mcmsState.ProposerMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+	// Canceller set config
+	cancellerTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Canceller, mcmsState.CancellerMcm, useMCMS)
+	if err != nil {
+		return setConfigTxs{}, err
+	}
+	// Bypasser set config
+	bypasserTx, err := setConfigOrTxDataV2(ctx, lggr, chain, cfg.Bypasser, mcmsState.BypasserMcm, useMCMS)
 	if err != nil {
 		return setConfigTxs{}, err
 	}
@@ -212,7 +331,7 @@ func SetConfigMCMS(e deployment.Environment, cfg MCMSConfig) (deployment.Changes
 }
 
 // SetConfigMCMSV2 is a reimplementation of SetConfigMCMS that uses the new MCMS library.
-func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfig) (deployment.ChangesetOutput, error) {
+func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.ChangesetOutput, error) {
 	selectors := []uint64{}
 	lggr := e.Logger
 	ctx := e.GetContext()
@@ -227,32 +346,50 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfig) (deployment.Chang
 
 	var batches []mcmstypes.BatchOperation
 	timelockAddressesPerChain := map[uint64]string{}
-	inspectorPerChain := map[uint64]sdk.Inspector{}
 	proposerMcmsPerChain := map[uint64]string{}
-
-	mcmsStatePerChain, err := MaybeLoadMCMSWithTimelockState(e, selectors)
+	inspectorPerChain, err := proposalutils.McmsInspectors(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
 
 	for chainSelector, c := range cfg.ConfigsPerChain {
-		chain := e.Chains[chainSelector]
-		state := mcmsStatePerChain[chainSelector]
-		timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
-		proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
-		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
-		setConfigTxsChain, err := setConfigPerRole(ctx, lggr, chain, c, state, useMCMS)
+		family, err := chain_selectors.GetSelectorFamily(chainSelector)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		if useMCMS {
-			batch := addTxsToProposalBatchV2(setConfigTxsChain, chainSelector, *state)
-			batches = append(batches, batch)
+
+		switch family {
+		case chain_selectors.FamilyEVM:
+			chain := e.Chains[chainSelector]
+			mcmsStatePerChain, err := MaybeLoadMCMSWithTimelockState(e, []uint64{chainSelector})
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			state := mcmsStatePerChain[chainSelector]
+			timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
+			proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
+			setConfigTxsChain, err := setConfigPerRoleV2(ctx, lggr, chain, c, state, useMCMS)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+			if useMCMS {
+				batch := addTxsToProposalBatchV2(setConfigTxsChain, chainSelector, *state)
+				batches = append(batches, batch)
+			}
+		case chain_selectors.FamilySolana:
+			batch, err := setConfigSolana(e, chainSelector, c, timelockAddressesPerChain, proposerMcmsPerChain, useMCMS)
+			if err != nil {
+				return deployment.ChangesetOutput{}, err
+			}
+
+			if useMCMS {
+				batches = append(batches, batch...)
+			}
 		}
 	}
 
 	if useMCMS {
-		proposal, err := proposalutils.BuildProposalFromBatchesV2(e.GetContext(), timelockAddressesPerChain,
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
 			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", cfg.ProposalConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
@@ -281,4 +418,84 @@ func addTxsToProposalBatchV2(setConfigTxsChain setConfigTxs, chainSelector uint6
 		evm.NewTransaction(state.BypasserMcm.Address(),
 			setConfigTxsChain.bypasserTx.Data(), big.NewInt(0), string(commontypes.BypasserManyChainMultisig), nil))
 	return result
+}
+
+func setConfigSolana(
+	e deployment.Environment, chainSelector uint64, cfg ConfigPerRoleV2,
+	timelockAddressesPerChain, proposerMcmsPerChain map[uint64]string, useMCMS bool,
+) ([]mcmstypes.BatchOperation, error) {
+	chain := e.SolChains[chainSelector]
+	mcmsStatePerChain, err := commonState.MaybeLoadMCMSWithTimelockStateSolana(e, []uint64{chainSelector})
+	if err != nil {
+		return nil, err
+	}
+	solState := mcmsStatePerChain[chainSelector]
+	timelockAddressesPerChain[chainSelector] = solana.ContractAddress(solState.TimelockProgram, solana.PDASeed(solState.TimelockSeed))
+	proposerMcmsPerChain[chainSelector] = solana.ContractAddress(solState.McmProgram, solana.PDASeed(solState.ProposerMcmSeed))
+	cancellerAddress := solana.ContractAddress(solState.McmProgram, solana.PDASeed(solState.CancellerMcmSeed))
+	bypasserAddress := solana.ContractAddress(solState.McmProgram, solana.PDASeed(solState.BypasserMcmSeed))
+	proposerAddress := solana.ContractAddress(solState.McmProgram, solana.PDASeed(solState.ProposerMcmSeed))
+
+	timelockSignerPDA, err := solana.FindTimelockSignerPDA(solState.TimelockProgram, solana.PDASeed(solState.TimelockSeed))
+	if err != nil {
+		return nil, err
+	}
+
+	batches := []mcmstypes.BatchOperation{}
+	// broken into single batch per role (total 3 batches) due to size constraints on solana when all instructions were in the same single batch
+	proposerOps, err := setConfigForRole(e, chain, cfg.Proposer, proposerAddress, string(commontypes.ProposerManyChainMultisig), useMCMS, timelockSignerPDA)
+	if err != nil {
+		return nil, err
+	}
+	batches = append(batches, proposerOps)
+
+	cancellerOps, err := setConfigForRole(e, chain, cfg.Canceller, cancellerAddress, string(commontypes.CancellerManyChainMultisig), useMCMS, timelockSignerPDA)
+	if err != nil {
+		return nil, err
+	}
+	batches = append(batches, cancellerOps)
+	bypasserOps, err := setConfigForRole(e, chain, cfg.Bypasser, bypasserAddress, string(commontypes.BypasserManyChainMultisig), useMCMS, timelockSignerPDA)
+	if err != nil {
+		return nil, err
+	}
+	batches = append(batches, bypasserOps)
+
+	return batches, nil
+}
+
+func setConfigForRole(e deployment.Environment, chain deployment.SolChain, cfg mcmstypes.Config, mcmAddress string, contractType string, useMCMS bool, timelockSignerPDA solanasdk.PublicKey) (mcmstypes.BatchOperation, error) {
+	var configurer *solana.Configurer
+
+	if useMCMS {
+		configurer = solana.NewConfigurer(chain.Client, *chain.DeployerKey, mcmstypes.ChainSelector(chain.Selector),
+			solana.WithDoNotSendInstructionsOnChain(), solana.WithAuthorityAccount(timelockSignerPDA))
+	} else {
+		configurer = solana.NewConfigurer(chain.Client, *chain.DeployerKey, mcmstypes.ChainSelector(chain.Selector))
+	}
+
+	res, err := configurer.SetConfig(e.GetContext(), mcmAddress, &cfg, false)
+	if err != nil {
+		return mcmstypes.BatchOperation{}, err
+	}
+
+	if useMCMS {
+		instructions := res.RawData.([]solanasdk.Instruction)
+
+		txs := make([]mcmstypes.Transaction, 0, len(instructions))
+		for _, ix := range instructions {
+			tx, err := solana.NewTransactionFromInstruction(ix, contractType, []string{})
+			if err != nil {
+				return mcmstypes.BatchOperation{}, err
+			}
+			txs = append(txs, tx)
+		}
+
+		return mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chain.Selector),
+			Transactions:  txs,
+		}, nil
+	}
+
+	e.Logger.Infow("SetConfig tx confirmed", "txHash", res.Hash)
+	return mcmstypes.BatchOperation{}, nil
 }

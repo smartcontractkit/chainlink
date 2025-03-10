@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
@@ -32,8 +33,9 @@ func TestSolanaTokenOps(t *testing.T) {
 			deployment.CreateLegacyChangeSet(changeset_solana.DeploySolanaToken),
 			changeset_solana.DeploySolanaTokenConfig{
 				ChainSelector:    solChain1,
-				TokenProgramName: deployment.SPL2022Tokens,
+				TokenProgramName: ccipChangeset.SPL2022Tokens,
 				TokenDecimals:    9,
+				TokenSymbol:      "TEST_TOKEN",
 			},
 		),
 	)
@@ -54,7 +56,6 @@ func TestSolanaTokenOps(t *testing.T) {
 			changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
-				TokenProgram:  deployment.SPL2022Tokens,
 				ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
 			},
 		),
@@ -63,8 +64,7 @@ func TestSolanaTokenOps(t *testing.T) {
 			deployment.CreateLegacyChangeSet(changeset_solana.MintSolanaToken),
 			changeset_solana.MintSolanaTokenConfig{
 				ChainSelector: solChain1,
-				TokenPubkey:   tokenAddress,
-				TokenProgram:  deployment.SPL2022Tokens,
+				TokenPubkey:   tokenAddress.String(),
 				AmountToAddress: map[string]uint64{
 					deployerKey.String():    uint64(1000),
 					testUserPubKey.String(): uint64(1000),
@@ -86,13 +86,11 @@ func TestSolanaTokenOps(t *testing.T) {
 	// test if minting was done correctly
 	outDec, outVal, err := solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, deployerATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
-	t.Logf("outDec: %d, outVal: %d", outDec, outVal)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 
 	outDec, outVal, err = solTokenUtil.TokenBalance(context.Background(), e.SolChains[solChain1].Client, testUserATA, solRpc.CommitmentConfirmed)
 	require.NoError(t, err)
-	t.Logf("outDec: %d, outVal: %d", outDec, outVal)
 	require.Equal(t, int(1000), outVal)
 	require.Equal(t, 9, int(outDec))
 }

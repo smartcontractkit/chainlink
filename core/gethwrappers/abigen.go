@@ -14,7 +14,7 @@ import (
 	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	gethParams "github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/version"
 	"golang.org/x/tools/go/ast/astutil"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -24,6 +24,8 @@ const headerComment = `// Code generated - DO NOT EDIT.
 // This file is a generated binding and any manual changes will be lost.
 
 `
+
+var GethVersion = fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch)
 
 // AbigenArgs is the arguments to the abigen executable. E.g., Bin is the -bin
 // arg.
@@ -49,11 +51,9 @@ func Abigen(a AbigenArgs) {
 	}
 	version := string(regexp.MustCompile(`[0-9]+\.[0-9]+\.[0-9]+`).Find(
 		versionResponse.Bytes()))
-	if version != gethParams.Version {
+	if version != GethVersion {
 		Exit(fmt.Sprintf("wrong version (%s) of abigen; install the correct one "+
-			"(%s) with `make abigen` in the chainlink root dir", version,
-			gethParams.Version),
-			nil)
+			"(%s) with `make abigen` in the chainlink root dir", version, GethVersion), nil)
 	}
 	args := []string{
 		"-abi", a.ABI,

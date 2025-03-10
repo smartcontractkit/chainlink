@@ -2,21 +2,28 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
+
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
+
+	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -32,6 +39,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -43,10 +51,16 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
+
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 )
 
 type Node struct {
@@ -58,6 +72,14 @@ type Node struct {
 	IsBoostrap bool
 }
 
+func (n Node) MultiAddr() string {
+	a := ""
+	if n.IsBoostrap {
+		a = fmt.Sprintf("%s@%s", strings.TrimPrefix(n.Keys.PeerID.String(), "p2p_"), n.Addr.String())
+	}
+	return a
+}
+
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
@@ -66,6 +88,115 @@ func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 		}
 	}
 	return nil
+}
+
+// DeploymentNode is an adapter for deployment.Node
+func (n Node) DeploymentNode() (deployment.Node, error) {
+	jdChainConfigs, err := n.JDChainConfigs()
+	if err != nil {
+		return deployment.Node{}, err
+	}
+	selMap, err := deployment.ChainConfigsToOCRConfig(jdChainConfigs)
+	if err != nil {
+		return deployment.Node{}, err
+	}
+	// arbitrarily set the first evm chain as the transmitter
+	var admin string
+	for _, k := range n.Keys.Transmitters {
+		admin = k
+		break
+	}
+	return deployment.Node{
+		NodeID:         n.Keys.PeerID.String(),
+		Name:           n.Keys.PeerID.String(),
+		SelToOCRConfig: selMap,
+		CSAKey:         n.Keys.CSA.ID(),
+		PeerID:         n.Keys.PeerID,
+		AdminAddr:      admin,
+		MultiAddr:      n.MultiAddr(),
+		IsBootstrap:    n.IsBoostrap,
+	}, nil
+}
+
+func (n Node) JDChainConfigs() ([]*nodev1.ChainConfig, error) {
+	var chainConfigs []*nodev1.ChainConfig
+	for _, selector := range n.Chains {
+		family, err := chainsel.GetSelectorFamily(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		// NOTE: this supports non-EVM too
+		chainID, err := chainsel.GetChainIDFromSelector(selector)
+		if err != nil {
+			return nil, err
+		}
+
+		var ocrtype chaintype.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ocrtype = chaintype.EVM
+		case chainsel.FamilySolana:
+			ocrtype = chaintype.Solana
+		case chainsel.FamilyStarknet:
+			ocrtype = chaintype.StarkNet
+		case chainsel.FamilyCosmos:
+			ocrtype = chaintype.Cosmos
+		case chainsel.FamilyAptos:
+			ocrtype = chaintype.Aptos
+		default:
+			return nil, fmt.Errorf("Unsupported chain family %v", family)
+		}
+
+		bundle := n.Keys.OCRKeyBundles[ocrtype]
+		offpk := bundle.OffchainPublicKey()
+		cpk := bundle.ConfigEncryptionPublicKey()
+
+		keyBundle := &nodev1.OCR2Config_OCRKeyBundle{
+			BundleId:              bundle.ID(),
+			ConfigPublicKey:       common.Bytes2Hex(cpk[:]),
+			OffchainPublicKey:     common.Bytes2Hex(offpk[:]),
+			OnchainSigningAddress: bundle.OnChainPublicKey(),
+		}
+
+		var ctype nodev1.ChainType
+		switch family {
+		case chainsel.FamilyEVM:
+			ctype = nodev1.ChainType_CHAIN_TYPE_EVM
+		case chainsel.FamilySolana:
+			ctype = nodev1.ChainType_CHAIN_TYPE_SOLANA
+		case chainsel.FamilyStarknet:
+			ctype = nodev1.ChainType_CHAIN_TYPE_STARKNET
+		case chainsel.FamilyAptos:
+			ctype = nodev1.ChainType_CHAIN_TYPE_APTOS
+		default:
+			panic(fmt.Sprintf("Unsupported chain family %v", family))
+		}
+
+		transmitter := n.Keys.Transmitters[selector]
+
+		chainConfigs = append(chainConfigs, &nodev1.ChainConfig{
+			Chain: &nodev1.Chain{
+				Id:   chainID,
+				Type: ctype,
+			},
+			AccountAddress: transmitter,
+			AdminAddress:   transmitter,
+			Ocr1Config:     nil,
+			Ocr2Config: &nodev1.OCR2Config{
+				Enabled:     true,
+				IsBootstrap: n.IsBoostrap,
+				P2PKeyBundle: &nodev1.OCR2Config_P2PKeyBundle{
+					PeerId: n.Keys.PeerID.String(),
+				},
+				OcrKeyBundle:     keyBundle,
+				Multiaddr:        n.MultiAddr(),
+				Plugins:          nil, // TODO: programmatic way to list these from the embedded chainlink.Application?
+				ForwarderAddress: ptr(""),
+			},
+		})
+	}
+	return chainConfigs, nil
 }
 
 type ConfigOpt func(c *chainlink.Config)
@@ -184,7 +315,8 @@ func NewNode(
 		eks: &EthKeystoreSim{
 			Eth: master.Eth(),
 		},
-		csa: master.CSA(),
+		csa:      master.CSA(),
+		workflow: master.Workflow(),
 	}
 
 	// Build evm factory using clients + keystore.
@@ -218,6 +350,7 @@ func NewNode(
 	ctx := tests.Context(t)
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
+	require.NoError(t, master.Workflow().EnsureKey(ctx))
 	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
 	require.NoError(t, err)
 
@@ -257,6 +390,9 @@ func NewNode(
 	})
 	keys := CreateKeys(t, app, chains, solchains)
 
+	// JD
+
+	setupJD(t, app)
 	return &Node{
 		App: app,
 		Chains: slices.Concat(
@@ -272,6 +408,7 @@ func NewNode(
 type Keys struct {
 	PeerID        p2pkey.PeerID
 	CSA           csakey.KeyV2
+	WorkflowKey   workflowkey.Key
 	Transmitters  map[uint64]string // chainSelector => address
 	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
@@ -467,8 +604,9 @@ func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx 
 }
 
 type KeystoreSim struct {
-	eks keystore.Eth
-	csa keystore.CSA
+	eks      keystore.Eth
+	csa      keystore.CSA
+	workflow keystore.Workflow
 }
 
 func (e KeystoreSim) Eth() keystore.Eth {
@@ -477,4 +615,55 @@ func (e KeystoreSim) Eth() keystore.Eth {
 
 func (e KeystoreSim) CSA() keystore.CSA {
 	return e.csa
+}
+
+func setupJD(t *testing.T, app chainlink.Application) {
+	secret := randomBytes32(t)
+	pkey, err := crypto.PublicKeyFromHex(hex.EncodeToString(secret))
+	require.NoError(t, err)
+	m := feeds2.RegisterManagerParams{
+		Name:      "In memory env test",
+		URI:       "http://dev.null:8080",
+		PublicKey: *pkey,
+	}
+	f := app.GetFeedsService()
+	connManager := feedsMocks.NewConnectionsManager(t)
+	connManager.On("Connect", mock.Anything).Maybe()
+	connManager.On("GetClient", mock.Anything).Maybe().Return(noopFeedsClient{}, nil)
+	connManager.On("Close").Maybe().Return()
+	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
+	f.Unsafe_SetConnectionsManager(connManager)
+
+	_, err = f.RegisterManager(testutils.Context(t), m)
+	require.NoError(t, err)
+}
+
+func randomBytes32(t *testing.T) []byte {
+	t.Helper()
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	require.NoError(t, err)
+	return b
+}
+
+type noopFeedsClient struct{}
+
+func (n noopFeedsClient) ApprovedJob(context.Context, *pb.ApprovedJobRequest) (*pb.ApprovedJobResponse, error) {
+	return &pb.ApprovedJobResponse{}, nil
+}
+
+func (n noopFeedsClient) Healthcheck(context.Context, *pb.HealthcheckRequest) (*pb.HealthcheckResponse, error) {
+	return &pb.HealthcheckResponse{}, nil
+}
+
+func (n noopFeedsClient) UpdateNode(context.Context, *pb.UpdateNodeRequest) (*pb.UpdateNodeResponse, error) {
+	return &pb.UpdateNodeResponse{}, nil
+}
+
+func (n noopFeedsClient) RejectedJob(context.Context, *pb.RejectedJobRequest) (*pb.RejectedJobResponse, error) {
+	return &pb.RejectedJobResponse{}, nil
+}
+
+func (n noopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
+	return &pb.CancelledJobResponse{}, nil
 }

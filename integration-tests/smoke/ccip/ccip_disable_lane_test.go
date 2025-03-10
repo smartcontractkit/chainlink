@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
@@ -132,7 +133,7 @@ func TestDisableLane(t *testing.T) {
 				state.Chains[pair.SourceChainSelector].LinkToken.Address(): linkPrice,
 				state.Chains[pair.SourceChainSelector].Weth9.Address():     wethPrice,
 			},
-			changeset.DefaultFeeQuoterDestChainConfig(true))
+			v1_6.DefaultFeeQuoterDestChainConfig(true))
 	}
 	// send a message in all the lane including re-enabled lanes
 	for _, pair := range pairs {

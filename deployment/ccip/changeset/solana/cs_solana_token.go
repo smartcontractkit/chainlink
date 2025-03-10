@@ -5,8 +5,10 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/gagliardetto/solana-go/rpc"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -15,13 +17,15 @@ import (
 var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
 var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
 var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
+var _ deployment.ChangeSet[SetTokenMintAuthorityConfig] = SetTokenMintAuthority
 
 // TODO: add option to set token mint authority by taking in its public key
 // might need to take authority private key if it needs to sign that
 type DeploySolanaTokenConfig struct {
 	ChainSelector    uint64
-	TokenProgramName string
+	TokenProgramName deployment.ContractType
 	TokenDecimals    uint8
+	TokenSymbol      string
 }
 
 func NewTokenInstruction(chain deployment.SolChain, cfg DeploySolanaTokenConfig) ([]solana.Instruction, solana.PrivateKey, error) {
@@ -59,18 +63,18 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	// TODO:does the mint need to be added as a signer here ?
 	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mintPrivKey))
 	if err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for link token deployment", "chain", chain.String(), "err", err)
+		e.Logger.Errorw("Failed to confirm instructions for token deployment", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
 	newAddresses := deployment.NewMemoryAddressBook()
 	tv := deployment.NewTypeAndVersion(deployment.ContractType(cfg.TokenProgramName), deployment.Version1_0_0)
+	tv.AddLabel(cfg.TokenSymbol)
 	err = newAddresses.Save(cfg.ChainSelector, mint.String(), tv)
 	if err != nil {
-		e.Logger.Errorw("Failed to save link token", "chain", chain.String(), "err", err)
+		e.Logger.Errorw("Failed to save token", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
 
@@ -81,25 +85,55 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	}, nil
 }
 
-// TODO: there is no validation done around if the token is already deployed
-// https://smartcontract-it.atlassian.net/browse/INTAUTO-439
 type MintSolanaTokenConfig struct {
 	ChainSelector   uint64
-	TokenProgram    string
-	TokenPubkey     solana.PublicKey
+	TokenPubkey     string
 	AmountToAddress map[string]uint64 // address -> amount
 }
 
-func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
-	// get chain
+func (cfg MintSolanaTokenConfig) Validate(e deployment.Environment) error {
 	chain := e.SolChains[cfg.ChainSelector]
-	// get addresses
-	tokenAddress := cfg.TokenPubkey
-	// get token program id
-	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
+	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return err
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	tokenprogramID, err := chainState.TokenToTokenProgram(tokenAddress)
+	if err != nil {
+		return err
+	}
+
+	accountInfo, err := chain.Client.GetAccountInfoWithOpts(e.GetContext(), tokenAddress, &rpc.GetAccountInfoOpts{
+		Commitment: deployment.SolDefaultCommitment,
+	})
+	if err != nil {
+		fmt.Println("error getting account info", err)
+		return err
+	}
+	if accountInfo == nil || accountInfo.Value == nil {
+		return fmt.Errorf("token address %s not found", tokenAddress.String())
+	}
+	if accountInfo.Value.Owner != tokenprogramID {
+		return fmt.Errorf("token address %s is not owned by the SPL token program", tokenAddress.String())
+	}
+	return nil
+}
+
+func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deployment.ChangesetOutput, error) {
+	err := cfg.Validate(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	// get chain
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	// get addresses
+	tokenAddress := solana.MustPublicKeyFromBase58(cfg.TokenPubkey)
+	// get token program id
+	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenAddress)
+
 	// get mint instructions
 	instructions := []solana.Instruction{}
 	for toAddress, amount := range cfg.AmountToAddress {
@@ -119,21 +153,24 @@ func MintSolanaToken(e deployment.Environment, cfg MintSolanaTokenConfig) (deplo
 		e.Logger.Errorw("Failed to confirm instructions for token minting", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String())
+	e.Logger.Infow("Minted tokens on", "chain", cfg.ChainSelector, "for token", tokenAddress.String())
+
 	return deployment.ChangesetOutput{}, nil
 }
 
 type CreateSolanaTokenATAConfig struct {
 	ChainSelector uint64
 	TokenPubkey   solana.PublicKey
-	TokenProgram  string
+	TokenProgram  deployment.ContractType
 	ATAList       []string // addresses to create ATAs for
 }
 
 func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
 
-	tokenprogramID, err := GetTokenProgramID(cfg.TokenProgram)
+	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -160,6 +197,42 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 		return deployment.ChangesetOutput{}, err
 	}
 	e.Logger.Infow("Created ATAs on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "numATAs", len(cfg.ATAList))
+
+	return deployment.ChangesetOutput{}, nil
+}
+
+type SetTokenMintAuthorityConfig struct {
+	ChainSelector uint64
+	TokenPubkey   solana.PublicKey
+	NewAuthority  solana.PublicKey
+}
+
+func SetTokenMintAuthority(e deployment.Environment, cfg SetTokenMintAuthorityConfig) (deployment.ChangesetOutput, error) {
+	chain := e.SolChains[cfg.ChainSelector]
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+
+	tokenprogramID, err := chainState.TokenToTokenProgram(cfg.TokenPubkey)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	ix, err := solTokenUtil.SetTokenMintAuthority(
+		tokenprogramID,
+		cfg.NewAuthority,
+		cfg.TokenPubkey,
+		chain.DeployerKey.PublicKey(),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	// confirm instructions
+	if err = chain.Confirm([]solana.Instruction{ix}); err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
+		return deployment.ChangesetOutput{}, err
+	}
+	e.Logger.Infow("Set token mint authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String())
 
 	return deployment.ChangesetOutput{}, nil
 }

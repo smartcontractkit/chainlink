@@ -289,6 +289,16 @@ func (trrs *TaskRunResults) GetNextTaskOf(task TaskRunResult) *TaskRunResult {
 	return nil
 }
 
+func (trrs TaskRunResults) AllErrors() error {
+	var errs []error
+	for _, trr := range trrs {
+		if trr.Result.Error != nil {
+			errs = append(errs, trr.Result.Error)
+		}
+	}
+	return errors.Join(errs...)
+}
+
 type TaskType string
 
 func (t TaskType) String() string {

@@ -75,9 +75,6 @@ type DeployPrerequisiteConfig struct {
 type DeployPrerequisiteConfigPerChain struct {
 	ChainSelector uint64
 	Opts          []PrerequisiteOpt
-	// TODO handle tokens and feeds in prerequisite config
-	Tokens map[TokenSymbol]common.Address
-	Feeds  map[TokenSymbol]common.Address
 }
 
 func (c DeployPrerequisiteConfig) Validate() error {
@@ -165,29 +162,31 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var rmnAddr common.Address
 	// if we are setting up 1.5 version, deploy RMN contract based on the config provided
 	// else deploy the mock RMN contract
-	if deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil {
-		if chainState.RMN == nil {
-			rmn, err := deployment.DeployContract(lggr, chain, ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
-					rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
-						chain.DeployerKey,
-						chain.Client,
-						*deployOpts.LegacyDeploymentCfg.RMNConfig,
-					)
-					return deployment.ContractDeploy[*rmn_contract.RMNContract]{
-						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
-					}
-				})
-			if err != nil {
-				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
-				return err
-			}
-			rmnAddr = rmn.Address
-		} else {
-			lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
-			rmnAddr = chainState.RMN.Address()
+	switch {
+	// if RMN is found in state use that
+	case chainState.RMN != nil && chainState.RMN.Address() != (common.Address{}):
+		lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
+		rmnAddr = chainState.RMN.Address()
+	// if RMN is not found in state and LegacyDeploymentCfg is provided, deploy RMN contract based on the config
+	case deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil:
+		rmn, err := deployment.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
+				rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
+					chain.DeployerKey,
+					chain.Client,
+					*deployOpts.LegacyDeploymentCfg.RMNConfig,
+				)
+				return deployment.ContractDeploy[*rmn_contract.RMNContract]{
+					Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
+				}
+			})
+		if err != nil {
+			lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
+			return err
 		}
-	} else {
+		rmnAddr = rmn.Address
+	default:
+		// otherwise deploy the mock RMN contract
 		if chainState.MockRMN == nil {
 			rmn, err := deployment.DeployContract(lggr, chain, ab,
 				func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
@@ -548,7 +547,7 @@ func deployUSDC(
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1),
 				Err:      err2,
 			}
 		})

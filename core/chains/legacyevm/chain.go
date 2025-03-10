@@ -23,12 +23,12 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -240,7 +240,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 				UseFinalityTag:           cfg.EVM().FinalityTagEnabled(),
 				FinalityDepth:            int64(cfg.EVM().FinalityDepth()),
 				BackfillBatchSize:        int64(cfg.EVM().LogBackfillBatchSize()),
-				RpcBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
+				RPCBatchSize:             int64(cfg.EVM().RPCDefaultBatchSize()),
 				KeepFinalizedBlocksDepth: int64(cfg.EVM().LogKeepBlocksDepth()),
 				LogPrunePageSize:         int64(cfg.EVM().LogPrunePageSize()),
 				BackupPollerBlockDelay:   int64(cfg.EVM().BackupLogPollerBlockDelay()),
