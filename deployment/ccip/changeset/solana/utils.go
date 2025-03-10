@@ -34,6 +34,7 @@ func ValidateMCMSConfigSolana(
 		if !mcms.FeeQuoterOwnedByTimelock &&
 			!mcms.RouterOwnedByTimelock &&
 			!mcms.OffRampOwnedByTimelock &&
+			!mcms.RMNRemoteOwnedByTimelock &&
 			!mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress] &&
 			!mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress] {
 			return errors.New("at least one of the MCMS components must be owned by the timelock")
@@ -50,6 +51,9 @@ func ValidateMCMSConfigSolana(
 	}
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.OffRampOwnedByTimelock, chainState.OffRamp, cs.OffRamp, tokenAddress); err != nil {
 		return fmt.Errorf("failed to validate ownership for off ramp: %w", err)
+	}
+	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.RMNRemoteOwnedByTimelock, chainState.RMNRemote, cs.RMNRemote, tokenAddress); err != nil {
+		return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 	}
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
 		return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
@@ -196,6 +200,11 @@ func GetAuthorityForIxn(
 		return chain.DeployerKey.PublicKey(), nil
 	case cs.LockReleaseTokenPool:
 		if mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress] {
+			return timelockSigner, nil
+		}
+		return chain.DeployerKey.PublicKey(), nil
+	case cs.RMNRemote:
+		if mcms.RMNRemoteOwnedByTimelock {
 			return timelockSigner, nil
 		}
 		return chain.DeployerKey.PublicKey(), nil

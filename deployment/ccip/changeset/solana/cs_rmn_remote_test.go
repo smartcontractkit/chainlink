@@ -2,6 +2,7 @@ package solana_test
 
 import (
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 
@@ -14,14 +15,42 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
 
-func TestRMNRemoteCurse(t *testing.T) {
+func TestRMNRemoteCurseWithoutMCMS(t *testing.T) {
 	t.Parallel()
+	doTestRMNRemoteCurse(t, false)
+}
+
+func TestRMNRemoteCurseWithMCMS(t *testing.T) {
+	t.Parallel()
+	doTestRMNRemoteCurse(t, true)
+}
+
+func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	solChain := tenv.Env.AllChainSelectorsSolana()[0]
 
 	_, err := ccipChangeset.LoadOnchainStateSolana(tenv.Env)
 	require.NoError(t, err)
+	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	if mcms {
+		_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+			ccipChangesetSolana.CCIPContractsToTransfer{
+				Router:    true,
+				FeeQuoter: true,
+				OffRamp:   true,
+				RMNRemote: true,
+			})
+		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
+			MCMS: &ccipChangeset.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+			RouterOwnedByTimelock:    true,
+			FeeQuoterOwnedByTimelock: true,
+			OffRampOwnedByTimelock:   true,
+			RMNRemoteOwnedByTimelock: true,
+		}
+	}
 
 	testCases := []struct {
 		curseConfig ccipChangesetSolana.CurseConfig
@@ -33,6 +62,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 				ChainSelector:       solChain,
 				GlobalCurse:         true,
 				RemoteChainSelector: evmChain,
+				MCMSSolana:          mcmsConfig,
 			},
 			shouldError: true, // incorrect config
 			cs:          ccipChangesetSolana.ApplyCurse,
@@ -41,6 +71,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 			curseConfig: ccipChangesetSolana.CurseConfig{
 				ChainSelector: solChain,
 				GlobalCurse:   false,
+				MCMSSolana:    mcmsConfig,
 			},
 			shouldError: true, // incorrect config
 			cs:          ccipChangesetSolana.ApplyCurse,
@@ -49,6 +80,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 			curseConfig: ccipChangesetSolana.CurseConfig{
 				ChainSelector: solChain,
 				GlobalCurse:   true,
+				MCMSSolana:    mcmsConfig,
 			},
 			shouldError: false, // apply global curse
 			cs:          ccipChangesetSolana.ApplyCurse,
@@ -57,6 +89,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 			curseConfig: ccipChangesetSolana.CurseConfig{
 				ChainSelector: solChain,
 				GlobalCurse:   true,
+				MCMSSolana:    mcmsConfig,
 			},
 			shouldError: false, // remove global curse
 			cs:          ccipChangesetSolana.RemoveCurse,
@@ -66,6 +99,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 				ChainSelector:       solChain,
 				GlobalCurse:         false,
 				RemoteChainSelector: evmChain,
+				MCMSSolana:          mcmsConfig,
 			},
 			shouldError: false, // apply chain curse
 			cs:          ccipChangesetSolana.ApplyCurse,
@@ -75,6 +109,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 				ChainSelector:       solChain,
 				GlobalCurse:         false,
 				RemoteChainSelector: evmChain,
+				MCMSSolana:          mcmsConfig,
 			},
 			shouldError: false, // remove chain curse
 			cs:          ccipChangesetSolana.RemoveCurse,
@@ -94,6 +129,7 @@ func TestRMNRemoteCurse(t *testing.T) {
 						},
 					},
 				},
+				MCMSSolana: mcmsConfig,
 			},
 		),
 	})

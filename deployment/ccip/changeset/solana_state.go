@@ -16,6 +16,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -74,6 +75,7 @@ type SolCCIPChainState struct {
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
 	RMNRemoteConfigPDA   solana.PublicKey
+	RMNRemoteCursesPDA   solana.PublicKey
 }
 
 func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
@@ -220,6 +222,11 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RMNRemoteConfigPDA = rmnRemoteConfigPDA
+			rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(state.RMNRemote)
+			if err != nil {
+				return state, err
+			}
+			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
@@ -334,6 +341,15 @@ func ValidateOwnershipSolana(
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for example_lockrelease_token_pool: %w", err)
+		}
+	case RMNRemote:
+		programData := rmn_remote.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 		}
 	default:
 		return fmt.Errorf("unsupported contract type: %s", contractType)

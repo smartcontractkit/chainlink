@@ -432,7 +432,6 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 			destChainStatePDA,
 			chainState.RouterConfigPDA,
 			authority,
-			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
@@ -443,7 +442,6 @@ func ConfigureCCIPVersion(e deployment.Environment, cfg ConfigureCCIPVersionConf
 			destChainStatePDA,
 			chainState.RouterConfigPDA,
 			authority,
-			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)

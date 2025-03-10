@@ -69,15 +69,17 @@ func AddBillingToken(
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *MCMSConfigSolana,
 	isUpdate bool,
+	feeQuoterAddress solana.PublicKey,
+	routerAddress solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
-	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
+	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, feeQuoterAddress)
 	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
-	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
+	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
-	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(chainState.FeeQuoter)
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	feeQuoterUsingMCMS := mcms != nil && mcms.FeeQuoterOwnedByTimelock
 
 	authority, err := GetAuthorityForIxn(
@@ -139,7 +141,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
 
-	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMSSolana, cfg.IsUpdate)
+	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMSSolana, cfg.IsUpdate, chainState.FeeQuoter, chainState.Router)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
