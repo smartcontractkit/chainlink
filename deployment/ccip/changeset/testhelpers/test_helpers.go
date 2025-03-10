@@ -462,17 +462,17 @@ func AddLane(
 		changesets = append(changesets, evmDstChangesets...)
 	}
 	if fromFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, from, to, toFamily)...)
+		changesets = append(changesets, addLaneSolanaChangesets(t, e, from, to, toFamily)...)
 	}
 	if toFamily == chainsel.FamilySolana {
-		changesets = append(changesets, addLaneSolanaChangesets(t, to, from, fromFamily)...)
+		changesets = append(changesets, addLaneSolanaChangesets(t, e, to, from, fromFamily)...)
 	}
 
 	e.Env, err = commoncs.ApplyChangesets(t, e.Env, e.TimelockContracts(t), changesets)
 	require.NoError(t, err)
 }
 
-func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
+func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, remoteChainSelector uint64, remoteFamily string) []commoncs.ConfiguredChangeSet {
 	chainFamilySelector := [4]uint8{}
 	if remoteFamily == chainsel.FamilyEVM {
 		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
@@ -490,6 +490,7 @@ func addLaneSolanaChangesets(t *testing.T, solChainSelector, remoteChainSelector
 					remoteChainSelector: {
 						RouterDestinationConfig: solRouter.DestChainConfig{
 							AllowListEnabled: true,
+							AllowedSenders:   []solana.PublicKey{e.Env.SolChains[solChainSelector].DeployerKey.PublicKey()},
 						},
 					},
 				},
