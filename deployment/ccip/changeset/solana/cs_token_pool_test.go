@@ -82,7 +82,12 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	)
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+			ccipChangesetSolana.CCIPContractsToTransfer{
+				Router:    true,
+				FeeQuoter: true,
+				OffRamp:   true,
+			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
 			MCMS: &ccipChangeset.MCMSConfig{
 				MinDelay: 1 * time.Second,
@@ -194,11 +199,17 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
 				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
 					_, _ = testhelpers.TransferOwnershipSolana(
-						t, &e, solChain, false, false, false, false, []solana.PublicKey{poolConfigPDA}, nil)
+						t, &e, solChain, false,
+						ccipChangesetSolana.CCIPContractsToTransfer{
+							BurnMintTokenPools: []solana.PublicKey{poolConfigPDA},
+						})
 					burnAndMintOwnedByTimelock[tokenAddress] = true
 				} else {
 					_, _ = testhelpers.TransferOwnershipSolana(
-						t, &e, solChain, false, false, false, false, nil, []solana.PublicKey{poolConfigPDA})
+						t, &e, solChain, false,
+						ccipChangesetSolana.CCIPContractsToTransfer{
+							LockReleaseTokenPools: []solana.PublicKey{poolConfigPDA},
+						})
 					lockAndReleaseOwnedByTimelock[tokenAddress] = true
 				}
 				mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
