@@ -168,6 +168,7 @@ type BuildSolanaConfig struct {
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
+	ReplaceKeys bool
 	UpgradeKeys map[deployment.ContractType]string
 	TestRouter  bool
 	// https://solana.com/developers/guides/advanced/verified-builds
@@ -211,16 +212,18 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 		return fmt.Errorf("error cloning repo: %w", err)
 	}
 
-	// // Replace keys in Rust files using anchor keys sync
-	// if err := replaceKeys(e); err != nil {
-	// 	return fmt.Errorf("error replacing keys: %w", err)
-	// }
+	if config.ReplaceKeys {
+		// Replace keys in Rust files using anchor keys sync
+		if err := replaceKeys(e); err != nil {
+			return fmt.Errorf("error replacing keys: %w", err)
+		}
 
-	// // Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
-	// // We need to do this so the keys will match the existing deployed program
-	// if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
-	// 	return fmt.Errorf("error replacing keys for upgrade: %w", err)
-	// }
+		// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
+		// We need to do this so the keys will match the existing deployed program
+		if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
+			return fmt.Errorf("error replacing keys for upgrade: %w", err)
+		}
+	}
 
 	// Build the project with Anchor
 	if err := buildProject(e, config.TestRouter, config.VerifiedBuild); err != nil {
