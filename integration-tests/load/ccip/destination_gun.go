@@ -2,10 +2,11 @@ package ccip
 
 import (
 	"context"
+	"crypto/rand"
 	"errors"
 	"fmt"
 	"math/big"
-	"math/rand"
+	mathrand "math/rand"
 	"time"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -67,27 +68,7 @@ func NewDestinationGun(
 		metricPipe:    metricPipe,
 	}
 
-	err := dg.Validate()
-	if err != nil {
-		return nil, err
-	}
-
 	return &dg, nil
-}
-
-func (m *DestinationGun) Validate() error {
-	if len(*m.testConfig.MessageTypeWeights) != 3 {
-		return errors.New(
-			"message type must have 3 weights corresponding to message only, token only, token with message")
-	}
-	sum := 0
-	for _, weight := range *m.testConfig.MessageTypeWeights {
-		sum += weight
-	}
-	if sum != 100 {
-		return errors.New("message type weights must sum to 100")
-	}
-	return nil
 }
 
 func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
@@ -109,9 +90,14 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 	r := state.Chains[src].Router
 
-	msg, err := m.GetMessage(src)
+	msg, gasLimit, err := m.GetMessage(src)
 	if err != nil {
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
+	}
+	// Set the gas limit for this tx
+	if gasLimit != 0 {
+		//nolint:gosec // it's okay here
+		acc.GasLimit = uint64(gasLimit)
 	}
 
 	fee, err := r.GetFee(
@@ -128,9 +114,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 		acc.Value = fee
 		defer func() { acc.Value = nil }()
 	}
-	// todo: remove once CCIP-5143 is implemented
-	acc.GasLimit = *m.testConfig.GasLimit
-	
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
@@ -184,54 +167,74 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 }
 
 // GetMessage will return the message to be sent while considering expected load of different messages
-func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, error) {
+// returns the message, gas limit
+func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, int64, error) {
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
-		return router.ClientEVM2AnyMessage{}, err
+		return router.ClientEVM2AnyMessage{}, 0, err
 	}
 
-	messages := []router.ClientEVM2AnyMessage{
-		{
-			Receiver:     rcv,
-			Data:         common.Hex2Bytes("0xabcdefabcdef"),
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    nil,
-		},
-		{
-			Receiver: rcv,
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  m.state.Chains[src].LinkToken.Address(),
-					Amount: big.NewInt(1),
-				},
-			},
-			Data:      common.Hex2Bytes("0xabcdefabcdef"),
-			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
-		},
-		{
-			Receiver: rcv,
-			Data:     common.Hex2Bytes("message with token"),
-			TokenAmounts: []router.ClientEVMTokenAmount{
-				{
-					Token:  m.state.Chains[src].LinkToken.Address(),
-					Amount: big.NewInt(1),
-				},
-			},
-			FeeToken:  common.HexToAddress("0x0"),
-			ExtraArgs: nil,
-		},
+	// Select a message type based on ratio
+	randomValue := mathrand.Intn(100)
+	accumulatedRatio := 0
+	var selectedMsgDetails *ccip.MsgDetails
+
+	for _, msg := range *m.testConfig.MessageDetails {
+		accumulatedRatio += *msg.Ratio
+		if randomValue < accumulatedRatio {
+			selectedMsgDetails = &msg
+			break
+		}
 	}
-	// Select a random message
-	randomValue := rand.Intn(100)
-	switch {
-	case randomValue < (*m.testConfig.MessageTypeWeights)[0]:
-		return messages[0], nil
-	case randomValue < (*m.testConfig.MessageTypeWeights)[0]+(*m.testConfig.MessageTypeWeights)[1]:
-		return messages[1], nil
-	default:
-		return messages[2], nil
+
+	if selectedMsgDetails == nil {
+		return router.ClientEVM2AnyMessage{}, 0, errors.New("failed to select message type")
 	}
+
+	m.l.Infow("Selected message type", "msgType", *selectedMsgDetails.MsgType)
+
+	message := router.ClientEVM2AnyMessage{
+		Receiver:  rcv,
+		FeeToken:  common.HexToAddress("0x0"),
+		ExtraArgs: nil,
+	}
+
+	// Set data length if it's a data transfer
+	if selectedMsgDetails.IsDataTransfer() {
+		dataLength := *selectedMsgDetails.DataLengthBytes
+		data := make([]byte, dataLength)
+		_, err2 := rand.Read(data)
+		if err2 != nil {
+			return router.ClientEVM2AnyMessage{}, 0, err2
+		}
+		message.Data = data
+	}
+
+	// When it's not a programmable token transfer the receiver can be an EOA, we use a random address to denote that
+	if selectedMsgDetails.IsTokenOnlyTransfer() {
+		receiver, err := utils.ABIEncode(`[{"type":"address"}]`, common.HexToAddress(utils.RandomAddress().Hex()))
+		if err != nil {
+			m.l.Error("Error encoding receiver address")
+			return router.ClientEVM2AnyMessage{}, 0, err
+		}
+		message.Receiver = receiver
+	}
+
+	// Set token amounts if it's a token transfer
+	if selectedMsgDetails.IsTokenTransfer() {
+		message.TokenAmounts = []router.ClientEVMTokenAmount{
+			{
+				Token:  m.state.Chains[src].LinkToken.Address(),
+				Amount: big.NewInt(1),
+			},
+		}
+	}
+
+	gasLimit := int64(0)
+	if selectedMsgDetails.DestGasLimit != nil {
+		gasLimit = *selectedMsgDetails.DestGasLimit
+	}
+
+	return message, gasLimit, nil
 }

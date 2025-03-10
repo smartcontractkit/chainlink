@@ -297,10 +297,24 @@ func manuallyExecuteSingle(
 
 	lggr.Debugw("got hashes and flags", "hashes", hashes, "flags", flags)
 
+	// since we're only executing one message, we need to only include that message
+	// in the report.
+	var filteredMsgSentEvents []onramp.OnRampCCIPMessageSent
+	for i, event := range ccipMessageSentEvents {
+		if event.Message.Header.SequenceNumber == msgSeqNr && event.Message.Header.SourceChainSelector == srcChainSel {
+			filteredMsgSentEvents = append(filteredMsgSentEvents, ccipMessageSentEvents[i])
+		}
+	}
+
+	// sanity check, should not be possible at this point.
+	if len(filteredMsgSentEvents) == 0 {
+		return fmt.Errorf("no message found for seqNr %d", msgSeqNr)
+	}
+
 	execReport, err := manualexeclib.CreateExecutionReport(
 		srcChainSel,
 		onRampAddress,
-		ccipMessageSentEvents,
+		filteredMsgSentEvents,
 		hashes,
 		flags,
 	)

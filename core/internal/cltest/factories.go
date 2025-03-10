@@ -162,7 +162,7 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	return types.NewTx(&tx)
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
 	for _, opt := range opts {
@@ -202,7 +202,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+func MustInsertConfirmedEthTxWithLegacyAttempt(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
 	ctx := testutils.Context(t)
@@ -222,7 +222,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	return etx
 }
 
-func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
+func NewLegacyEthTxAttempt(t testing.TB, etxID int64) txmgr.TxAttempt {
 	gasPrice := assets.NewWeiI(1)
 	return txmgr.TxAttempt{
 		ChainSpecificFeeLimit: 42,
