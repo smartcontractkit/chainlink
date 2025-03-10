@@ -255,7 +255,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				FeeToken:     common.HexToAddress(feeToken).Bytes(),
 				TokenAmounts: []cciptypes.RampTokenAmount{},
 			}
-			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg)
+			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg, sourceChainSelector)
 		)
 
 		onchainHash, err := msghasher.Hash(&bind.CallOpts{
@@ -328,7 +328,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				TokenAmounts:   tokenAmounts,
 			}
 
-			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg)
+			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg, sourceChainSelector)
 		)
 
 		const (
@@ -363,7 +363,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 
 		for _, msg := range msgs {
-			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg)
+			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg, msg.Header.SourceChainSelector)
 
 			onchainHash, err := msghasher.Hash(&bind.CallOpts{
 				Context: tests.Context(t),
@@ -379,7 +379,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 	})
 }
 
-func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message) message_hasher.InternalAny2EVMRampMessage {
+func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) message_hasher.InternalAny2EVMRampMessage {
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
 		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
@@ -394,7 +394,9 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message) message_hasher
 		})
 	}
 
-	gasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+	decodedMap, err := ExtraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
+	require.NoError(t, err)
+	gasLimit, err := parseExtraDataMap(decodedMap)
 	require.NoError(t, err)
 
 	return message_hasher.InternalAny2EVMRampMessage{
@@ -418,11 +420,4 @@ func mustBytes32FromString(t *testing.T, str string) cciptypes.Bytes32 {
 	b, err := cciptypes.NewBytes32FromString(str)
 	require.NoError(t, err)
 	return b
-}
-
-func mustEncodeAddress(t *testing.T, addr common.Address) []byte {
-	t.Helper()
-	enc, err := abiEncodeAddress(addr)
-	require.NoError(t, err)
-	return enc
 }

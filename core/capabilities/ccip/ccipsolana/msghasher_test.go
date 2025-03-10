@@ -89,7 +89,7 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 
 func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
 	messageID := utils.RandomBytes32()
-	sourceChain := 5009297550715157269 // evm mainnet
+	sourceChain := uint64(5009297550715157269) // evm mainnet
 	seqNum := rand.Uint64()
 	nonce := rand.Uint64()
 	destChain := rand.Uint64()
@@ -137,7 +137,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	any2SolanaMsg := ccip_offramp.Any2SVMRampMessage{
 		Header: ccip_offramp.RampMessageHeader{
 			MessageId:           messageID,
-			SourceChainSelector: uint64(sourceChain),
+			SourceChainSelector: sourceChain,
 			DestChainSelector:   destChain,
 			SequenceNumber:      seqNum,
 			Nonce:               nonce,
