@@ -71,6 +71,7 @@ solc_version = '0.8.24'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/l2ep'
 test = 'src/v0.8/l2ep/test'
+evm_version = 'paris'
 
 [profile.llo-feeds]
 optimizer_runs = 1_000_000
