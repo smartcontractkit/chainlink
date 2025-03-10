@@ -136,20 +136,3 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, from
 		"beholder_data_schema", "/beholder-tx-message/versions/2",
 	)
 }
-
-func (m *txmMetrics) getDestinationAddress(tx *types.Transaction) (*common.Address, error) {
-	meta, err := tx.GetMeta()
-	if err != nil {
-		return nil, err
-	}
-
-	if meta == nil {
-		return nil, fmt.Errorf("no meta found")
-	}
-
-	if meta.FwdrDestAddress == nil {
-		return nil, fmt.Errorf("no FwdrDestAddress found")
-	}
-
-	return meta.FwdrDestAddress, nil
-}
