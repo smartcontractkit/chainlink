@@ -14,7 +14,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	svrv1 "github.com/smartcontractkit/chainlink-protos/svr/v1"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
@@ -42,14 +41,13 @@ var (
 type txmMetrics struct {
 	metrics.Labeler
 	chainID              *big.Int
-	lggr                 logger.Logger
 	numBroadcastedTxs    metric.Int64Counter
 	numConfirmedTxs      metric.Int64Counter
 	numNonceGaps         metric.Int64Counter
 	timeUntilTxConfirmed metric.Float64Histogram
 }
 
-func NewTxmMetrics(lggr logger.Logger, chainID *big.Int) (*txmMetrics, error) {
+func NewTxmMetrics(chainID *big.Int) (*txmMetrics, error) {
 	numBroadcastedTxs, err := beholder.GetMeter().Int64Counter("txm_num_broadcasted_transactions")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register broadcasted txs number: %w", err)
@@ -72,7 +70,6 @@ func NewTxmMetrics(lggr logger.Logger, chainID *big.Int) (*txmMetrics, error) {
 
 	return &txmMetrics{
 		chainID:              chainID,
-		lggr:                 logger.Sugared(logger.Named(lggr, "TxmMetrics")),
 		Labeler:              metrics.NewLabeler().With("chainID", chainID.String()),
 		numBroadcastedTxs:    numBroadcastedTxs,
 		numConfirmedTxs:      numConfirmedTxs,

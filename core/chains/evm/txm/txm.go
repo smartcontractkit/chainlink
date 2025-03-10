@@ -110,7 +110,7 @@ func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder 
 
 func (t *Txm) Start(ctx context.Context) error {
 	return t.StartOnce("Txm", func() error {
-		tm, err := NewTxmMetrics(t.lggr, t.chainID)
+		tm, err := NewTxmMetrics(t.chainID)
 		if err != nil {
 			return err
 		}
