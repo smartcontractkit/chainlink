@@ -15,6 +15,7 @@ import (
 	"gopkg.in/guregu/null.v4"
 
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
@@ -233,7 +234,7 @@ func Test_Telemeter_observationTelemetry(t *testing.T) {
 		m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
 		tm := newTelemeter(lggr, m, donID)
 		servicetest.Run(t, tm)
-		ch := tm.MakeTelemChannel(opts, 100)
+		ch := tm.MakeObservationTelemetryCh(opts, 100)
 
 		ch <- &pipeline.BridgeTelemetry{
 			Name:                   "test-bridge-1",
@@ -277,7 +278,7 @@ func Test_Telemeter_observationTelemetry(t *testing.T) {
 		m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
 		tm := newTelemeter(lggr, m, donID)
 		servicetest.Run(t, tm)
-		ch := tm.MakeTelemChannel(opts, 100)
+		ch := tm.MakeObservationTelemetryCh(opts, 100)
 
 		ch <- &telem.LLOObservationTelemetry{
 			StreamId:              135,
@@ -315,11 +316,86 @@ func Test_Telemeter_observationTelemetry(t *testing.T) {
 		obsLggr, observedLogs := logger.TestLoggerObserved(t, zapcore.WarnLevel)
 		tm := newTelemeter(obsLggr, m, donID)
 		servicetest.Run(t, tm)
-		ch := tm.MakeTelemChannel(opts, 100)
+		ch := tm.MakeObservationTelemetryCh(opts, 100)
 
 		ch <- struct{}{}
 
 		testutils.WaitForLogMessage(t, observedLogs, "Unknown telemetry type")
+	})
+}
+
+func Test_Telemeter_reportTelemetry(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.TestLogger(t)
+	donID := uint32(1)
+	m := &mockMonitoringEndpoint{chLogs: make(chan []byte, 100)}
+	tm := newTelemeter(lggr, m, donID)
+	servicetest.Run(t, tm)
+	ch := tm.GetReportTelemetryCh()
+
+	t.Run("transmits *datastreamsllo.LLOReportTelemetry", func(t *testing.T) {
+		t.Run("zero values", func(t *testing.T) {
+			orig := &datastreamsllo.LLOReportTelemetry{}
+			ch <- orig
+
+			log := <-m.chLogs
+			decoded := &datastreamsllo.LLOReportTelemetry{}
+			require.NoError(t, proto.Unmarshal(log, decoded))
+			assert.Zero(t, decoded.ChannelId)
+			assert.Zero(t, decoded.ValidAfterNanoseconds)
+			assert.Zero(t, decoded.ObservationTimestampNanoseconds)
+			assert.Zero(t, decoded.ReportFormat)
+			assert.False(t, decoded.Specimen)
+			assert.Empty(t, decoded.StreamDefinitions)
+			assert.Empty(t, decoded.StreamValues)
+			assert.Empty(t, decoded.ChannelOpts)
+			assert.Zero(t, decoded.SeqNr)
+			assert.Empty(t, decoded.ConfigDigest)
+		})
+		t.Run("with values", func(t *testing.T) {
+			orig := &datastreamsllo.LLOReportTelemetry{
+				ChannelId:                       1,
+				ValidAfterNanoseconds:           2,
+				ObservationTimestampNanoseconds: 3,
+				ReportFormat:                    4,
+				Specimen:                        true,
+				StreamDefinitions: []*datastreamsllo.LLOStreamDefinition{
+					{
+						StreamID:   5,
+						Aggregator: 6,
+					},
+				},
+				StreamValues: []*datastreamsllo.LLOStreamValue{
+					{
+						Type:  7,
+						Value: []byte{8},
+					},
+				},
+				ChannelOpts:  []byte{9},
+				SeqNr:        10,
+				ConfigDigest: []byte{11},
+			}
+			ch <- orig
+
+			log := <-m.chLogs
+			decoded := &datastreamsllo.LLOReportTelemetry{}
+			require.NoError(t, proto.Unmarshal(log, decoded))
+			assert.Equal(t, uint32(1), decoded.ChannelId)
+			assert.Equal(t, uint64(2), decoded.ValidAfterNanoseconds)
+			assert.Equal(t, uint64(3), decoded.ObservationTimestampNanoseconds)
+			assert.Equal(t, uint32(4), decoded.ReportFormat)
+			assert.True(t, decoded.Specimen)
+			assert.Len(t, decoded.StreamDefinitions, 1)
+			assert.Equal(t, uint32(5), decoded.StreamDefinitions[0].StreamID)
+			assert.Equal(t, uint32(6), decoded.StreamDefinitions[0].Aggregator)
+			assert.Len(t, decoded.StreamValues, 1)
+			assert.Equal(t, llo.LLOStreamValue_Type(7), decoded.StreamValues[0].Type)
+			assert.Equal(t, []byte{8}, decoded.StreamValues[0].Value)
+			assert.Equal(t, []byte{9}, decoded.ChannelOpts)
+			assert.Equal(t, uint64(10), decoded.SeqNr)
+			assert.Equal(t, []byte{11}, decoded.ConfigDigest)
+		})
 	})
 }
 

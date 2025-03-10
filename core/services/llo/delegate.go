@@ -39,7 +39,7 @@ type delegate struct {
 
 	src   datastreamsllo.ShouldRetireCache
 	ds    datastreamsllo.DataSource
-	telem services.Service
+	telem TelemeterService
 
 	oracles []Closer
 }
@@ -155,15 +155,18 @@ func (d *delegate) Start(ctx context.Context) error {
 				OnchainKeyring:               d.cfg.OnchainKeyring,
 				ReportingPluginFactory: promwrapper.NewReportingPluginFactory(
 					datastreamsllo.NewPluginFactory(
-						d.cfg.ReportingPluginConfig,
-						psrrc,
-						d.src,
-						d.cfg.RetirementReportCodec,
-						d.cfg.ChannelDefinitionCache,
-						d.ds,
-						logger.Named(lggr, "ReportingPlugin"),
-						llo.EVMOnchainConfigCodec{},
-						d.reportCodecs,
+						datastreamsllo.PluginFactoryParams{
+							Config:                           d.cfg.ReportingPluginConfig,
+							PredecessorRetirementReportCache: psrrc,
+							ShouldRetireCache:                d.src,
+							RetirementReportCodec:            d.cfg.RetirementReportCodec,
+							ChannelDefinitionCache:           d.cfg.ChannelDefinitionCache,
+							DataSource:                       d.ds,
+							Logger:                           logger.Named(lggr, "ReportingPlugin"),
+							OnchainConfigCodec:               llo.EVMOnchainConfigCodec{},
+							ReportCodecs:                     d.reportCodecs,
+							ReportTelemetryCh:                d.telem.GetReportTelemetryCh(),
+						},
 					),
 					lggr,
 					d.cfg.ChainID,

@@ -119,7 +119,7 @@ func (d *dataSource) Observe(ctx context.Context, streamValues llo.StreamValues,
 		// Size needs to accommodate the max number of telemetry events that could be generated
 		// Standard case might be about 3 bridge requests per spec and one stream<=>spec
 		// Overallocate for safety (to avoid dropping packets)
-		telemCh := d.t.MakeTelemChannel(opts, 10*len(streamValues))
+		telemCh := d.t.MakeObservationTelemetryCh(opts, 10*len(streamValues))
 		if telemCh != nil {
 			ctx = pipeline.WithTelemetryCh(ctx, telemCh)
 			// After all Observations have returned, nothing else will be sent to the
