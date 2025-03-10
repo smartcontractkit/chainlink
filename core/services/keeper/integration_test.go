@@ -25,10 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -74,62 +71,6 @@ func deployKeeperRegistry(
 			1,
 			big.NewInt(60000000000),
 			big.NewInt(20000000000000000),
-		)
-		require.NoError(t, err)
-	case keeper.RegistryVersion_1_2:
-		var err error
-		regAddr, _, _, err = keeper_registry_wrapper1_2.DeployKeeperRegistry(
-			auth,
-			backend,
-			linkAddr,
-			linkFeedAddr,
-			gasFeedAddr,
-			keeper_registry_wrapper1_2.Config{
-				PaymentPremiumPPB:    250_000_000,
-				FlatFeeMicroLink:     0,
-				BlockCountPerTurn:    big.NewInt(1),
-				CheckGasLimit:        20_000_000,
-				StalenessSeconds:     big.NewInt(3600),
-				GasCeilingMultiplier: 1,
-				MinUpkeepSpend:       big.NewInt(0),
-				MaxPerformGas:        5_000_000,
-				FallbackGasPrice:     big.NewInt(60000000000),
-				FallbackLinkPrice:    big.NewInt(20000000000000000),
-				Transcoder:           testutils.NewAddress(),
-				Registrar:            testutils.NewAddress(),
-			},
-		)
-		require.NoError(t, err)
-	case keeper.RegistryVersion_1_3:
-		logicAddr, _, _, err := keeper_registry_logic1_3.DeployKeeperRegistryLogic(
-			auth,
-			backend,
-			0,
-			big.NewInt(80000),
-			linkAddr,
-			linkFeedAddr,
-			gasFeedAddr)
-		require.NoError(t, err)
-		backend.Commit()
-
-		regAddr, _, _, err = keeper_registry_wrapper1_3.DeployKeeperRegistry(
-			auth,
-			backend,
-			logicAddr,
-			keeper_registry_wrapper1_3.Config{
-				PaymentPremiumPPB:    250_000_000,
-				FlatFeeMicroLink:     0,
-				BlockCountPerTurn:    big.NewInt(1),
-				CheckGasLimit:        20_000_000,
-				StalenessSeconds:     big.NewInt(3600),
-				GasCeilingMultiplier: 1,
-				MinUpkeepSpend:       big.NewInt(0),
-				MaxPerformGas:        5_000_000,
-				FallbackGasPrice:     big.NewInt(60000000000),
-				FallbackLinkPrice:    big.NewInt(20000000000000000),
-				Transcoder:           testutils.NewAddress(),
-				Registrar:            testutils.NewAddress(),
-			},
 		)
 		require.NoError(t, err)
 	default:

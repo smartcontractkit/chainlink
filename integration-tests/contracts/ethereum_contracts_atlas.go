@@ -11,8 +11,6 @@ import (
 	eth_contracts "github.com/smartcontractkit/chainlink/integration-tests/contracts/ethereum"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/functions/generated/functions_v1_events_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/gas_wrapper_mock"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registrar_wrapper1_2_mock"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1_mock"
 )
 
@@ -213,100 +211,6 @@ func DeployKeeperRegistry11Mock(client *seth.Client) (KeeperRegistry11Mock, erro
 		client:       client,
 		registryMock: instance,
 		address:      &data.Address,
-	}, nil
-}
-
-// EthereumKeeperRegistrar12Mock represents the basic keeper registrar 1.2 mock contract
-type EthereumKeeperRegistrar12Mock struct {
-	client        *seth.Client
-	registrarMock *keeper_registrar_wrapper1_2_mock.KeeperRegistrarMock
-	address       *common.Address
-}
-
-func (f *EthereumKeeperRegistrar12Mock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) error {
-	_, err := f.client.Decode(f.registrarMock.EmitRegistrationRequested(f.client.NewTXOpts(), hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source))
-	return err
-}
-
-func (f *EthereumKeeperRegistrar12Mock) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) error {
-	_, err := f.client.Decode(f.registrarMock.EmitRegistrationApproved(f.client.NewTXOpts(), hash, displayName, upkeepId))
-	return err
-}
-
-func (f *EthereumKeeperRegistrar12Mock) SetRegistrationConfig(autoApproveConfigType uint8, autoApproveMaxAllowed uint32, approvedCount uint32, keeperRegistry common.Address, minLINKJuels *big.Int) error {
-	_, err := f.client.Decode(f.registrarMock.SetRegistrationConfig(f.client.NewTXOpts(), autoApproveConfigType, autoApproveMaxAllowed, approvedCount, keeperRegistry, minLINKJuels))
-	return err
-}
-
-func DeployKeeperRegistrar12Mock(client *seth.Client) (KeeperRegistrar12Mock, error) {
-	abi, err := keeper_registrar_wrapper1_2_mock.KeeperRegistrarMockMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperRegistrar12Mock{}, fmt.Errorf("failed to get KeeperRegistrar12Mock ABI: %w", err)
-	}
-	client.ContractStore.AddABI("KeeperRegistrar12Mock", *abi)
-	client.ContractStore.AddBIN("KeeperRegistrar12Mock", common.FromHex(keeper_registrar_wrapper1_2_mock.KeeperRegistrarMockMetaData.Bin))
-
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperRegistrar12Mock", *abi, common.FromHex(keeper_registrar_wrapper1_2_mock.KeeperRegistrarMockMetaData.Bin))
-
-	if err != nil {
-		return &EthereumKeeperRegistrar12Mock{}, fmt.Errorf("KeeperRegistrar12Mock instance deployment have failed: %w", err)
-	}
-
-	instance, err := keeper_registrar_wrapper1_2_mock.NewKeeperRegistrarMock(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperRegistrar12Mock{}, fmt.Errorf("failed to instantiate KeeperRegistrar12Mock instance: %w", err)
-	}
-
-	return &EthereumKeeperRegistrar12Mock{
-		client:        client,
-		registrarMock: instance,
-		address:       &data.Address,
-	}, nil
-}
-
-// EthereumKeeperGasWrapperMock represents the basic keeper gas wrapper mock contract
-type EthereumKeeperGasWrapperMock struct {
-	client         *seth.Client
-	gasWrapperMock *gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMock
-	address        *common.Address
-}
-
-func (f *EthereumKeeperGasWrapperMock) Address() string {
-	return f.address.Hex()
-}
-
-func (f *EthereumKeeperGasWrapperMock) SetMeasureCheckGasResult(result bool, payload []byte, gas *big.Int) error {
-	_, err := f.client.Decode(f.gasWrapperMock.SetMeasureCheckGasResult(f.client.NewTXOpts(), result, payload, gas))
-	return err
-}
-
-func DeployKeeperGasWrapperMock(client *seth.Client) (KeeperGasWrapperMock, error) {
-	abi, err := gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMockMetaData.GetAbi()
-	if err != nil {
-		return &EthereumKeeperGasWrapperMock{}, fmt.Errorf("failed to get KeeperGasWrapperMock ABI: %w", err)
-	}
-	client.ContractStore.AddABI("KeeperGasWrapperMock", *abi)
-	client.ContractStore.AddBIN("KeeperGasWrapperMock", common.FromHex(gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMockMetaData.Bin))
-
-	data, err := client.DeployContract(client.NewTXOpts(), "KeeperGasWrapperMock", *abi, common.FromHex(gas_wrapper_mock.KeeperRegistryCheckUpkeepGasUsageWrapperMockMetaData.Bin))
-
-	if err != nil {
-		return &EthereumKeeperGasWrapperMock{}, fmt.Errorf("KeeperGasWrapperMock instance deployment have failed: %w", err)
-	}
-
-	instance, err := gas_wrapper_mock.NewKeeperRegistryCheckUpkeepGasUsageWrapperMock(data.Address, wrappers.MustNewWrappedContractBackend(nil, client))
-	if err != nil {
-		return &EthereumKeeperGasWrapperMock{}, fmt.Errorf("failed to instantiate KeeperGasWrapperMock instance: %w", err)
-	}
-
-	return &EthereumKeeperGasWrapperMock{
-		client:         client,
-		gasWrapperMock: instance,
-		address:        &data.Address,
 	}, nil
 }
 
