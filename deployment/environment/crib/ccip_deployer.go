@@ -645,6 +645,32 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 
 	e.ExistingAddresses = ab
 
+	allChains := e.AllChainSelectors()
+	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	for _, chainIdx := range allChains {
+		updates := make(map[uint64]v1_6.OffRampSourceUpdate)
+
+		for _, subChainId := range allChains {
+			if subChainId == chainIdx {
+				continue
+			}
+			updates[subChainId] = v1_6.OffRampSourceUpdate{
+				IsRMNVerificationDisabled: false,
+				IsEnabled:                 true,
+			}
+		}
+
+		allUpdates[chainIdx] = updates
+	}
+
+	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
+		UpdatesByChain: allUpdates,
+	})
+
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
+	}
+
 	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
 	for i, node := range nodes {
 		rmnNodes[i] = rmn_home.RMNHomeNode{
@@ -698,7 +724,6 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 		signers[i] = node.ToRMNRemoteSigner()
 	}
 
-	allChains := e.AllChainSelectors()
 	g, ctx := xerrgroup.WithContext(context.Background())
 	for _, chain := range allChains {
 		g.Go(func() error {
@@ -718,28 +743,6 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	}
 	if err := g.Wait(); err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
-	}
-
-	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
-	updates := make(map[uint64]v1_6.OffRampSourceUpdate)
-
-	for _, chainIdx := range allChains {
-		updates[chainIdx] = v1_6.OffRampSourceUpdate{
-			IsRMNVerificationDisabled: false,
-			IsEnabled:                 true,
-		}
-	}
-
-	for _, chainIdx := range allChains {
-		allUpdates[chainIdx] = updates
-	}
-
-	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
-		UpdatesByChain: allUpdates,
-	})
-
-	if err != nil {
-		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
 	}
 
 	addresses, err := env.ExistingAddresses.Addresses()
