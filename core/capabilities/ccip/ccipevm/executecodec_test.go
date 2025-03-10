@@ -11,6 +11,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
+	agbinary "github.com/gagliardetto/binary"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
@@ -108,7 +109,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 		"destgasamount": destGasAmount,
 	}, nil)
 	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
-		"gasLimit":                utils.RandUint256(),
+		"gasLimit":                agbinary.Uint128{Lo: 5000, Hi: 0},
 		"accountIsWritableBitmap": gasLimit,
 	}, nil)
 

@@ -1,8 +1,10 @@
 package ccipevm
 
 import (
+	"bytes"
 	"context"
 	cryptorand "crypto/rand"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -17,6 +19,9 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core"
 	"github.com/ethereum/go-ethereum/core/types"
+	agbinary "github.com/gagliardetto/binary"
+	solanago "github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
@@ -349,6 +354,100 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
 	})
 
+	t.Run("solana vector", func(t *testing.T) {
+		key, err := solanago.NewRandomPrivateKey()
+		require.NoError(t, err)
+
+		// Borsh encoded extra args
+		ea := fee_quoter.EVMExtraArgsV2{
+			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
+			AllowOutOfOrderExecution: false,
+		}
+
+		var extraArgsbuf bytes.Buffer
+		encoder := agbinary.NewBorshEncoder(&extraArgsbuf)
+		err = ea.MarshalWithEncoder(encoder)
+		require.NoError(t, err)
+
+		destGasAmount := uint32(10)
+		destExecData := make([]byte, 4)
+		binary.LittleEndian.PutUint32(destExecData, destGasAmount)
+
+		var (
+			// header fields
+			messageID           = mustBytes32FromString(t, "0xcdad95e113e35cf691295c1f42455d41062ba9a1b96a6280c1a5a678ef801721")
+			sourceChainSelector = cciptypes.ChainSelector(124615329519749607)   // solana
+			destChainSelector   = cciptypes.ChainSelector(16015286601757825753) // sepolia
+			sequenceNumber      = cciptypes.SeqNum(386)
+			nonce               = uint64(1)
+			// message fields
+			// sender is parsed unpadded since its emitted unpadded from EVM.
+			senderAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x269895AC2a2eC6e1Df37F68AcfbBDa53e62b71B1"))
+			// onRampAddress is parsed padded because its set as a padded address in the offRamp
+			onRampAddress = key.PublicKey().Bytes()
+			dataField     = "0x"
+			// receiver address is parsed padded because its emitted as padded from EVM.
+			receiverAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"))
+			// feeToken is parsed unpadded since its emitted unpadded from EVM.
+			// however, it isn't used in the hash. its just set for completion.
+			feeToken       = common.HexToAddress("0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534")
+			feeTokenAmount = big.NewInt(114310554250104)
+			feeValueJuels  = big.NewInt(16499514422603741)
+			tokenAmounts   = []cciptypes.RampTokenAmount{
+				{
+					// parsed unpadded since its emitted unpadded from SVM.
+					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().Bytes()),
+					// parsed padded because its emitted padded from EVM.
+					DestTokenAddress: cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000b8d6a6a41d5dd732aec3c438e91523b7613b963b")),
+					// extra data always abi-encoded
+					ExtraData: cciptypes.Bytes(hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000012")),
+					Amount:    cciptypes.NewBigInt(big.NewInt(100000000000000000)),
+					// dest exec data always abi-encoded
+					DestExecData: destExecData,
+				},
+			}
+
+			msg = cciptypes.Message{
+				Header: cciptypes.RampMessageHeader{
+					MessageID:           messageID,
+					SourceChainSelector: sourceChainSelector,
+					DestChainSelector:   destChainSelector,
+					SequenceNumber:      sequenceNumber,
+					Nonce:               nonce,
+					MsgHash:             cciptypes.Bytes32{},
+					OnRamp:              onRampAddress,
+				},
+				Sender:         senderAddress,
+				Data:           hexutil.MustDecode(dataField),
+				Receiver:       receiverAddress,
+				ExtraArgs:      append(evmExtraArgsV2Tag, extraArgsbuf.Bytes()...),
+				FeeToken:       feeToken.Bytes(),
+				FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
+				FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),
+				TokenAmounts:   tokenAmounts,
+			}
+
+			any2EVMMessage = ccipMsgToAny2EVMMessage(t, msg, sourceChainSelector)
+		)
+
+		//const (
+		//	rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
+		//)
+
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
+		msgH, err := h.Hash(tests.Context(t), msg)
+		require.NoError(t, err)
+
+		msgHashOnchain, err := msghasher.Hash(&bind.CallOpts{
+			Context: tests.Context(t),
+		}, any2EVMMessage, onRampAddress)
+		require.NoError(t, err)
+
+		//t.Logf("rmn hash: %s, onchain hash: %s, my hash: %s", rmnMsgHash, hexutil.Encode(msgHashOnchain[:]), msgH.String())
+		require.Equal(t, msgHashOnchain, [32]byte(msgH), "my hash and onchain hash should match")
+		//require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
+	})
+
 	t.Run("other vectors", func(t *testing.T) {
 		// These test vectors are from real ccip transactions on sepolia.
 		// onramp address: 0x89559ce6904d4c4b0f6aab9065ad02b1ed531be4
@@ -382,7 +481,9 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) message_hasher.InternalAny2EVMRampMessage {
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		decodedMap, err := ExtraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, sourceSelector)
+		require.NoError(t, err)
+		gasAmount, err := extractDestGasAmountFromMap(decodedMap)
 		require.NoError(t, err)
 
 		tokenAmounts = append(tokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
@@ -390,7 +491,7 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 			DestTokenAddress:  common.BytesToAddress(rta.DestTokenAddress),
 			ExtraData:         rta.ExtraData[:],
 			Amount:            rta.Amount.Int,
-			DestGasAmount:     destGasAmount,
+			DestGasAmount:     gasAmount,
 		})
 	}
 
