@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
@@ -48,7 +49,7 @@ import (
 /*
 	Steps to run:
 	* `docker run --name cl-postgres -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=dbname -p 5432:5432 -d postgres`
-	* `make setup-testdb`
+	* `make setup-testdb` (password is 'postgres')
 	* `CL_DATABASE_URL=postgresql://chainlink_dev:insecurepassword@localhost:5432/chainlink_development_test?sslmode=disable go test -run ^TestIntegration_secondary_feed_transmission$ github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/integrationtest -v`
 */
 
@@ -106,9 +107,23 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoErrorf(t, err, "could not create secondary transmitter key")
 
 	keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
-	require.NoError(t, err, "could not get node's eth keystest")
+	require.NoError(t, err, "could not get node's eth keys")
 
 	fmt.Printf("Keys are %#v\n", keys)
+
+	// 3. Restart the nodes so TXMv2 can load the key for the secondary address // TODO(gg): needed?
+
+	// 4. Fund addresses // TODO(gg): needed?
+
+	// 5. Deploy the LINK token contract // TODO(gg): needed?
+
+	// 6. Deploy forwarder contracts
+	var operators []common.Address
+	operators, forwarders, _ := actions.DeployForwarderContracts(
+		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
+	)
+	require.Equal(t, len(workerNodes), len(operators), "Number of operators does not match the number of nodes")
+	require.Equal(t, len(workerNodes), len(forwarders), "Number of authorized forwarders does not match the number of nodes")
 
 	// offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 	// require.NoError(t, err)
@@ -124,7 +139,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// chainID := testutils.SimulatedChainID
 
-	// TOOD(gg) deploy dualAggContracts
 	/** from Link:
 		Thank you for providing the new address!
 	Next, please complete the following steps to update your forwarder transmitters with the new EVM Chain Account address:
@@ -376,37 +390,30 @@ func setupBlockchain(t *testing.T) (
 	*channel_config_store.ChannelConfigStore,
 	common.Address,
 ) {
-	steve := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := gethtypes.GenesisAlloc{steve.From: {Balance: assets.Ether(1000).ToInt()}}
+	transactor := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
+	genesisData := gethtypes.GenesisAlloc{transactor.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
 
-	// Configurator
-	configuratorAddress, _, configurator, err := configurator.DeployConfigurator(steve, backend.Client())
-	require.NoError(t, err)
-	backend.Commit()
-
-	// DestinationVerifierProxy
-	destinationVerifierProxyAddr, _, verifierProxy, err := destination_verifier_proxy.DeployDestinationVerifierProxy(steve, backend.Client())
-	require.NoError(t, err)
-	backend.Commit()
-	// DestinationVerifier
-	destinationVerifierAddr, _, destinationVerifier, err := destination_verifier.DeployDestinationVerifier(steve, backend.Client(), destinationVerifierProxyAddr)
-	require.NoError(t, err)
-	backend.Commit()
-	// AddVerifier
-	_, err = verifierProxy.SetVerifier(steve, destinationVerifierAddr)
-	require.NoError(t, err)
-	backend.Commit()
-
+	// // Configurator
+	// configuratorAddress, _, configurator, err := configurator.DeployConfigurator(transactor, backend.Client())
+	// require.NoError(t, err)
+	// backend.Commit()
 	// ChannelConfigStore
-	configStoreAddress, _, configStore, err := channel_config_store.DeployChannelConfigStore(steve, backend.Client())
+
+	// Deploy link adcdress?
+
+	_, _, opFact, err := operator_factory.DeployOperatorFactory(transactor, backend.Client(), transactor.From) // actually: linkAddress)
+	require.NoError(t, err)
+	backend.Commit()
+
+	_, err = opFact.DeployNewOperatorAndForwarder(transactor)
 	require.NoError(t, err)
 
 	backend.Commit()
 
-	return steve, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress
+	return transactor, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress
 }
 
 func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, inOnchainConfig []byte) (
