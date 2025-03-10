@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	defaultFetchTimeoutMs             = 20_000
-	error_outgoing_ratelimit_global   = "global limit of gateways requests has been exceeded"
-	error_outgoing_ratelimit_workflow = "workflow exceeded limit of gateways requests"
-	error_incoming_ratelimit_global   = "message from gateway exceeded global rate limit"
-	error_incoming_ratelimit_sender   = "message from gateway exceeded per sender rate limit"
+	defaultFetchTimeoutMs          = 20_000
+	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
+	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
+	errorIncomingRatelimitGlobal   = "message from gateway exceeded global rate limit"
+	errorIncomingRatelimitSender   = "message from gateway exceeded per sender rate limit"
 )
 
 var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
@@ -72,10 +72,10 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 
 	workflowAllow, globalAllow := c.outgoingRateLimiter.Allow(req.WorkflowID)
 	if !workflowAllow {
-		return nil, errors.New(error_outgoing_ratelimit_workflow)
+		return nil, errors.New(errorOutgoingRatelimitWorkflow)
 	}
 	if !globalAllow {
-		return nil, errors.New(error_outgoing_ratelimit_global)
+		return nil, errors.New(errorOutgoingRatelimitGlobal)
 	}
 
 	// set default timeout if not provided for all outgoing requests
@@ -131,7 +131,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		switch resp.Body.Method {
 		case api.Method_InternalError:
 			var errPayload api.JsonRPCError
-			err := json.Unmarshal(resp.Body.Payload, errPayload)
+			err := json.Unmarshal(resp.Body.Payload, &errPayload)
 			if err != nil {
 				lggr.Errorw("failed to unmarshal err payload", "err", err)
 				return nil, errors.New("unknown internal error")
@@ -159,20 +159,20 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 	}
 
 	senderAllow, globalAllow := c.incomingRateLimiter.AllowVerbose(body.Sender)
-	errJson := api.JsonRPCError{
+	errJSON := api.JsonRPCError{
 		Code:    500,
 		Message: "",
 	}
 	if !senderAllow {
-		errJson.Message = error_incoming_ratelimit_sender
+		errJSON.Message = errorIncomingRatelimitSender
 	}
 	if !globalAllow {
-		errJson.Message = errJson.Message + error_incoming_ratelimit_global
+		errJSON.Message += errorIncomingRatelimitGlobal
 	}
 
-	if errJson.Message != "" {
+	if errJSON.Message != "" {
 		l.Errorw("request rate-limited")
-		errPayload, err := json.Marshal(errJson)
+		errPayload, err := json.Marshal(errJSON)
 		if err != nil {
 			l.Errorw("failed to marshal err payload", "err", err)
 		}
