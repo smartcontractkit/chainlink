@@ -67,9 +67,10 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
-		GasEstimateProvider: ccipevm.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		TokenDataEncoder:           ccipevm.NewEVMTokenDataEncoder(),
+		GasEstimateProvider:        ccipevm.NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		ContractTransmitterFactory: &ocrimpls.EVMContractTransmitterFactory{},
 	},
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
@@ -77,10 +78,11 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		PriceOnlyCommitFn:   consts.MethodCommitPriceOnly,
+		TokenDataEncoder:           ccipsolana.NewSolanaTokenDataEncoder(),
+		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
+		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
 	},
 }
 
@@ -90,12 +92,13 @@ const (
 )
 
 type plugin struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	CommitPluginCodec          cciptypes.CommitPluginCodec
+	ExecutePluginCodec         cciptypes.ExecutePluginCodec
+	MessageHasher              func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder           cciptypes.TokenDataEncoder
+	GasEstimateProvider        cciptypes.EstimateProvider
+	RMNCrypto                  func(lggr logger.Logger) cciptypes.RMNCrypto
+	ContractTransmitterFactory ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn string
 }
@@ -355,7 +358,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -380,7 +383,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)
