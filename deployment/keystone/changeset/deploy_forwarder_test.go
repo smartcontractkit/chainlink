@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -17,7 +18,7 @@ import (
 )
 
 func TestDeployForwarder(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-111")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-111")
 	t.Parallel()
 
 	lggr := logger.Test(t)
