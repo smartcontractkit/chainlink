@@ -103,10 +103,14 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 
 func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, fromAddress common.Address, tx *types.Transaction) error {
 
-	destAddress, err := m.getDestinationAddress(tx)
+	meta, err := tx.GetMeta()
 	if err != nil {
-		m.lggr.Warnf("Failed to get destination address from tx %s: %v", txHash, err)
-		destAddress = &common.Address{}
+		return fmt.Errorf("failed to get meta for tx %s: %w", txHash, err)
+	}
+
+	var destAddress string
+	if meta != nil && meta.FwdrDestAddress != nil {
+		destAddress = meta.FwdrDestAddress.String()
 	}
 
 	message := &svrv1.TxMessage{
@@ -116,7 +120,7 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, from
 		Nonce:       strconv.FormatUint(*tx.Nonce, 10),
 		CreatedAt:   time.Now().UnixMicro(),
 		ChainId:     m.chainID.String(),
-		FeedAddress: destAddress.String(),
+		FeedAddress: destAddress,
 	}
 
 	messageBytes, err := proto.Marshal(message)
