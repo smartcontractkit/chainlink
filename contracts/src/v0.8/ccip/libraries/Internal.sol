@@ -207,6 +207,7 @@ library Internal {
 
   /// @notice Family-agnostic header for OnRamp & OffRamp messages.
   /// The messageId is not expected to match hash(message), since it may originate from another ramp family.
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct RampMessageHeader {
     bytes32 messageId; // Unique identifier for the message, generated with the source chain's encoding scheme (i.e. not necessarily abi.encoded).
     uint64 sourceChainSelector; // ─╮ the chain selector of the source chain, note: not chainId.
@@ -215,6 +216,7 @@ library Internal {
     uint64 nonce; // ───────────────╯ nonce for this lane for this sender, not unique across senders/lanes.
   }
 
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVM2AnyTokenTransfer {
     // The source pool EVM address. This value is trusted as it was obtained through the onRamp. It can be relied
     // upon by the destination pool to validate the source pool.
@@ -232,6 +234,7 @@ library Internal {
     bytes destExecData;
   }
 
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct Any2EVMTokenTransfer {
     // The source pool EVM address encoded to bytes. This value is trusted as it is obtained through the onRamp. It can
     // be relied upon by the destination pool to validate the source pool.
@@ -248,6 +251,7 @@ library Internal {
   /// @notice Family-agnostic message routed to an OffRamp.
   /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage), hash(Any2EVMRampMessage) != messageId due to encoding
   /// and parameter differences.
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct Any2EVMRampMessage {
     RampMessageHeader header; // Message header.
     bytes sender; // sender address on the source chain.
@@ -260,6 +264,7 @@ library Internal {
   /// @notice Family-agnostic message emitted from the OnRamp.
   /// Note: hash(Any2EVMRampMessage) != hash(EVM2AnyRampMessage) due to encoding & parameter differences.
   /// messageId = hash(EVM2AnyRampMessage) using the source EVM chain's encoding format.
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct EVM2AnyRampMessage {
     RampMessageHeader header; // Message header.
     address sender; // sender address on the source chain.

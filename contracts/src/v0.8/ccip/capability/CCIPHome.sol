@@ -116,6 +116,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
     bytes offchainConfig; // The offchain configuration for the OCR3 plugin. Protobuf encoded.
   }
 
+  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct VersionedConfig {
     uint32 version;
     bytes32 configDigest;
@@ -304,6 +305,7 @@ contract CCIPHome is Ownable2StepMsgSender, ITypeAndVersion, ICapabilityConfigur
   /// @param donId The unique key for the DON that the configuration applies to.
   /// @return activeConfig The active configuration.
   /// @return candidateConfig The candidate configuration.
+  /// RMN depends on this function, if changing, please notify the RMN maintainers.
   function getAllConfigs(
     uint32 donId,
     Internal.OCRPluginType pluginType
