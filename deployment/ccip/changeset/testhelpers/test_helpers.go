@@ -693,8 +693,14 @@ func AddLaneWithDefaultPricesAndFeeQuoterConfig(t *testing.T, e *DeployedEnv, st
 // AddLanesForAll adds densely connected lanes for all chains in the environment so that each chain
 // is connected to every other chain except itself.
 func AddLanesForAll(t *testing.T, e *DeployedEnv, state changeset.CCIPOnChainState) {
-	for source := range e.Env.Chains {
-		for dest := range e.Env.Chains {
+	chains := []uint64{}
+	allEvmChainSelectors := maps.Keys(e.Env.Chains)
+	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	chains = slices.AppendSeq(chains, allEvmChainSelectors)
+	chains = slices.AppendSeq(chains, allSolChainSelectors)
+
+	for _, source := range chains {
+		for _, dest := range chains {
 			if source != dest {
 				AddLaneWithDefaultPricesAndFeeQuoterConfig(t, e, state, source, dest, false)
 			}
