@@ -99,7 +99,6 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 }
 
 func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, fromAddress common.Address, tx *types.Transaction) error {
-
 	meta, err := tx.GetMeta()
 	if err != nil {
 		return fmt.Errorf("failed to get meta for tx %s: %w", txHash, err)
