@@ -20,7 +20,7 @@ func main() {
 		outDirSuffix = os.Args[4]
 	}
 
-	// Once vrf is moved to its own subfolder we can delete it.
+	// Once vrf is moved to its own subfolder we can delete this rootDir override.
 	if project == "vrf" {
 		rootDir = "../../contracts/solc/"
 	}
