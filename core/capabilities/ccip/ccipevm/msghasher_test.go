@@ -234,7 +234,8 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			feeToken            = "9fe46736679d2d9a65f0992f2272de9f3c7fa6e0"
 			sourceChainSelector = 3379446385462418246
 			destChainSelector   = 12922642891491394802
-			expectedMsgHash     = "0x1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f"
+			// NOTE: do NOT change this hash. This is the hash from RMN.
+			rmnMsgHash = "0x1c61fef7a3dd153943419c1101031316ed7b7a3d75913c34cbe8628033f5924f"
 		)
 
 		var (
@@ -266,7 +267,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
-		require.Equal(t, expectedMsgHash, msgH.String())
+		require.Equal(t, rmnMsgHash, msgH.String())
 		require.Equal(t, onchainHash, [32]byte(msgH), "my hash and onchain hash should match")
 	})
 
@@ -332,6 +333,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		)
 
 		const (
+			// NOTE: do NOT change this hash. This is the hash from RMN.
 			rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		)
 

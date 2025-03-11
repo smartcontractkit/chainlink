@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -90,48 +91,21 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	)
 	lggr.Debugw("hashing message", "msg", msg)
 
-	var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
-	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest gas amount: %w", err)
-		}
-
-		lggr.Debugw("decoded dest gas amount",
-			"destGasAmount", destGasAmount)
-
-		// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
-		// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
-		// its unclear as of writing how we will handle non-EVM chains and their addresses.
-		// e.g, will we encode them as bytes or bytes32?
-		sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
-		}
-
-		lggr.Debugw("abi encoded source pool address as solidity address",
-			"sourcePoolAddressABIEncodedAsAddress", hexutil.Encode(sourcePoolAddressABIEncodedAsAddress))
-
-		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
-		if err != nil {
-			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
-		}
-
-		lggr.Debugw("abi decoded dest token address",
-			"destTokenAddress", destTokenAddress)
-
-		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
-			SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
-			DestTokenAddress:  destTokenAddress,
-			DestGasAmount:     destGasAmount,
-			ExtraData:         rta.ExtraData,
-			Amount:            rta.Amount.Int,
-		})
+	any2EVM, onRamp, err := messageToAny2EVM(msg, h.extraDataCodec)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("convert message to Any2EVM: %w", err)
 	}
 
+	return h.hashAny2EVM(any2EVM, onRamp, lggr)
+}
+
+func (h *MessageHasherV1) hashAny2EVM(
+	any2EVM message_hasher.InternalAny2EVMRampMessage,
+	onRamp []byte,
+	lggr logger.Logger) ([32]byte, error) {
 	encodedRampTokenAmounts, err := h.abiEncode(
 		"encodeAny2EVMTokenAmountsHashPreimage",
-		rampTokenAmounts,
+		any2EVM.TokenAmounts,
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode token amounts: %w", err)
@@ -143,11 +117,9 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	metaDataHashInput, err := h.abiEncode(
 		"encodeMetadataHashPreimage",
 		ANY_2_EVM_MESSAGE_HASH,
-		uint64(msg.Header.SourceChainSelector),
-		uint64(msg.Header.DestChainSelector),
-		// TODO: this is evm-specific padding, fix.
-		// no-op if the onramp is already 32 bytes.
-		utils.Keccak256Fixed(common.LeftPadBytes(msg.Header.OnRamp, 32)),
+		any2EVM.Header.SourceChainSelector,
+		any2EVM.Header.DestChainSelector,
+		utils.Keccak256Fixed(onRamp),
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode metadata hash input: %w", err)
@@ -156,30 +128,13 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 	lggr.Debugw("metadata hash preimage",
 		"metaDataHashInput", hexutil.Encode(metaDataHashInput))
 
-	// Need to decode the extra args to get the gas limit.
-	// TODO: we assume that extra args is always abi-encoded for now, but we need
-	// to decode according to source chain selector family. We should add a family
-	// lookup API to the chain-selectors library.
-
-	decodedExtraArgsMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
-	if err != nil {
-		return [32]byte{}, err
-	}
-
-	gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("decode extra args to get gas limit: %w", err)
-	}
-
-	lggr.Debugw("decoded msg gas limit", "gasLimit", gasLimit)
-
 	fixedSizeFieldsEncoded, err := h.abiEncode(
 		"encodeFixedSizeFieldsHashPreimage",
-		msg.Header.MessageID,
-		common.BytesToAddress(msg.Receiver),
-		uint64(msg.Header.SequenceNumber),
-		gasLimit,
-		msg.Header.Nonce,
+		any2EVM.Header.MessageId,
+		any2EVM.Receiver,
+		any2EVM.Header.SequenceNumber,
+		any2EVM.GasLimit,
+		any2EVM.Header.Nonce,
 	)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("abi encode fixed size values: %w", err)
@@ -193,8 +148,8 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		LEAF_DOMAIN_SEPARATOR,
 		utils.Keccak256Fixed(metaDataHashInput), // metaDataHash
 		utils.Keccak256Fixed(fixedSizeFieldsEncoded),
-		utils.Keccak256Fixed(common.LeftPadBytes(msg.Sender, 32)), // todo: this is not chain-agnostic
-		utils.Keccak256Fixed(msg.Data),
+		utils.Keccak256Fixed(any2EVM.Sender), // todo: this is not chain-agnostic
+		utils.Keccak256Fixed(any2EVM.Data),
 		utils.Keccak256Fixed(encodedRampTokenAmounts),
 	)
 	if err != nil {
@@ -295,3 +250,86 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 
 // Interface compliance check
 var _ cciptypes.MessageHasher = (*MessageHasherV1)(nil)
+
+// messageToAny2EVM converts a ccip message to an InternalAny2EVMRampMessage.
+// It handles source-chain specific quirks like padding addresses to 32 bytes where applicable.
+// It also returns the onRamp address as a 32-byte padded address where applicable.
+func messageToAny2EVM(msg cciptypes.Message, extraDataCodec ccipcommon.ExtraDataCodec) (ret message_hasher.InternalAny2EVMRampMessage, onRamp []byte, err error) {
+	sourceFamily, err := chainsel.GetSelectorFamily(uint64(msg.Header.SourceChainSelector))
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, nil, err
+	}
+
+	decodedExtraArgsMap, err := extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, nil, err
+	}
+
+	gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+	if err != nil {
+		return message_hasher.InternalAny2EVMRampMessage{}, nil, fmt.Errorf("decode extra args to get gas limit: %w", err)
+	}
+
+	// we can fill out some fields here optimistically, mostly in the header.
+	any2EVM := message_hasher.InternalAny2EVMRampMessage{
+		Header: message_hasher.InternalRampMessageHeader{
+			MessageId:           msg.Header.MessageID,
+			SourceChainSelector: uint64(msg.Header.SourceChainSelector),
+			DestChainSelector:   uint64(msg.Header.DestChainSelector),
+			SequenceNumber:      uint64(msg.Header.SequenceNumber),
+			Nonce:               msg.Header.Nonce,
+		},
+		// Data is always just passed through.
+		Data:     msg.Data,
+		GasLimit: gasLimit,
+		// Since the receiver is on EVM, we can assume its at least 20 bytes long.
+		// This kind of thing would be checked onchain at the source.
+		Receiver: common.BytesToAddress(msg.Receiver),
+		// Sender: , // this needs to be handled on a chain-specific basis.
+		// TokenAmounts: , // this needs to be handled on a chain-specific basis.
+	}
+	switch sourceFamily {
+	case chainsel.FamilyEVM:
+		// if sourceFamily is EVM, then the sender was parsed as an `address` of 20 bytes long, so we have to left-pad it.
+		any2EVM.Sender = common.LeftPadBytes(msg.Sender, 32)
+
+		var rampTokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
+		for _, rta := range msg.TokenAmounts {
+			destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+			if err != nil {
+				return message_hasher.InternalAny2EVMRampMessage{}, nil, fmt.Errorf("decode dest gas amount: %w", err)
+			}
+
+			// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+			// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
+			// its unclear as of writing how we will handle non-EVM chains and their addresses.
+			// e.g, will we encode them as bytes or bytes32?
+			sourcePoolAddressABIEncodedAsAddress, err := abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
+			if err != nil {
+				return message_hasher.InternalAny2EVMRampMessage{}, nil, fmt.Errorf("abi encode source pool address: %w", err)
+			}
+
+			destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
+			if err != nil {
+				return message_hasher.InternalAny2EVMRampMessage{}, nil, fmt.Errorf("decode dest token address: %w", err)
+			}
+
+			rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
+				SourcePoolAddress: sourcePoolAddressABIEncodedAsAddress,
+				DestTokenAddress:  destTokenAddress,
+				DestGasAmount:     destGasAmount,
+				ExtraData:         rta.ExtraData,
+				Amount:            rta.Amount.Int,
+			})
+		}
+
+		any2EVM.TokenAmounts = rampTokenAmounts
+		onRamp = common.LeftPadBytes(msg.Header.OnRamp, 32)
+	// case chainsel.FamilySolana: // TODO: implement
+	// case chainsel.FamilyAptos:  // TODO: implement
+	default:
+		return message_hasher.InternalAny2EVMRampMessage{}, nil, fmt.Errorf("source chain selector family %s not supported", sourceFamily)
+	}
+
+	return any2EVM, onRamp, nil
+}
