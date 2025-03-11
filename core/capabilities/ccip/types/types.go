@@ -4,7 +4,11 @@ import (
 	"context"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // OCR3ConfigWithMeta is a type alias in order to generate correct mocks for the OracleCreator interface.
@@ -80,4 +84,33 @@ func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
 // Exactly one of both plugins should be empty at any given time.
 func (ofc OffChainConfig) IsValid() bool {
 	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
+}
+
+// PluginConfig is a struct that holds all the necessary information for a CCIP plugin to function.
+type PluginConfig struct {
+	CommitPluginCodec    cciptypes.CommitPluginCodec
+	ExecutePluginCodec   cciptypes.ExecutePluginCodec
+	ExtraArgsCodec       cciptypes.ExtraDataCodec
+	MessageHasher        func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder     cciptypes.TokenDataEncoder
+	GasEstimateProvider  cciptypes.EstimateProvider
+	RMNCrypto            func(lggr logger.Logger) cciptypes.RMNCrypto
+	AddressToString      func([]byte, bool) string
+	GetChainReaderConfig func(lggr logger.Logger,
+		chainID string,
+		destChainID string,
+		homeChainID string,
+		ofc OffChainConfig,
+		chainSelector cciptypes.ChainSelector,
+	) ([]byte, error)
+	GetChainWriter func(
+		ctx context.Context,
+		chainID string,
+		relayer loop.Relayer,
+		transmitters map[types.RelayID][]string,
+		execBatchGasLimit uint64,
+		chainFamily string,
+		offrampProgramAddress []byte,
+		destChainSelector uint64,
+	) (types.ContractWriter, error)
 }

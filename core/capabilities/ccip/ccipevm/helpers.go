@@ -9,13 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -95,28 +92,8 @@ func decodeTokenDestGasOverhead(destExecData []byte) (uint32, error) {
 	return ifaces[0].(uint32), nil
 }
 
-func CreatePluginConfig() oraclecreator.Plugin {
-	return oraclecreator.Plugin{
-		CommitPluginCodec:   NewCommitPluginCodecV1(),
-		ExecutePluginCodec:  NewExecutePluginCodecV1(),
-		ExtraArgsCodec:      ccipcommon.NewExtraDataCodec(),
-		MessageHasher:       func(lggr logger.Logger) cciptypes.MessageHasher { return NewMessageHasherV1(lggr) },
-		TokenDataEncoder:    NewEVMTokenDataEncoder(),
-		GasEstimateProvider: NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return NewEVMRMNCrypto(lggr) },
-		AddressToString: func(addr []byte, checkSum bool) string {
-			offRampAddr := common.BytesToAddress(addr).Hex()
-			if !checkSum {
-				offRampAddr = hexutil.Encode(addr)
-			}
-			return offRampAddr
-		},
-		GetChainReaderConfig: getEVMChainReaderConfig,
-		GetChainWriter:       getEVMChainWriter,
-	}
-}
-
-func getEVMChainReaderConfig(
+// GetEVMChainReaderConfig returns the chain reader config for the given chain
+func GetEVMChainReaderConfig(
 	lggr logger.Logger,
 	chainID string,
 	destChainID string,
@@ -154,7 +131,8 @@ func getEVMChainReaderConfig(
 	return marshaledConfig, nil
 }
 
-func getEVMChainWriter(
+// GetEVMChainWriter returns a new EVM chain writer
+func GetEVMChainWriter(
 	ctx context.Context,
 	chainID string,
 	relayer loop.Relayer,

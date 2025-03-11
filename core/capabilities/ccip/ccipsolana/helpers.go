@@ -10,29 +10,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-func CreatePluginConfig() oraclecreator.Plugin {
-	return oraclecreator.Plugin{
-		CommitPluginCodec:    NewCommitPluginCodecV1(),
-		ExecutePluginCodec:   NewExecutePluginCodecV1(),
-		ExtraArgsCodec:       ccipcommon.NewExtraDataCodec(),
-		MessageHasher:        func(lggr logger.Logger) cciptypes.MessageHasher { return NewMessageHasherV1(lggr) },
-		TokenDataEncoder:     NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:  NewGasEstimateProvider(),
-		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		AddressToString:      func(addr []byte, checkSum bool) string { return solana.PublicKeyFromBytes(addr).String() },
-		GetChainReaderConfig: getSolanaChainReaderConfig,
-		GetChainWriter:       getSolanaChainWriter,
-	}
-}
-
-func getSolanaChainReaderConfig(lggr logger.Logger,
+func GetSolanaChainReaderConfig(lggr logger.Logger,
 	chainID string,
 	destChainID string,
 	homeChainID string,
@@ -55,7 +38,7 @@ func getSolanaChainReaderConfig(lggr logger.Logger,
 	return marshaledConfig, nil
 }
 
-func getSolanaChainWriter(
+func GetSolanaChainWriter(
 	ctx context.Context,
 	chainID string,
 	relayer loop.Relayer,
