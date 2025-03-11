@@ -2,14 +2,17 @@ package ocrimpls
 
 import (
 	"fmt"
+
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 // SVMContractTransmitterFactory implements ContractTransmitterFactory for SVM-based chains.
@@ -74,7 +77,6 @@ func SVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataFunc
 		vs [32]byte,
 		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
-
 		var info ccipocr3.CommitReportInfo
 		if len(report.Info) != 0 {
 			var err error
@@ -158,7 +160,6 @@ func (f *SVMContractTransmitterFactory) NewExecTransmitter(
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
-
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,

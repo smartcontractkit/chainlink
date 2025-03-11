@@ -1,11 +1,13 @@
 package ocrimpls
 
 import (
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-common/pkg/types"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // EVMContractTransmitterFactory implements ContractTransmitterFactory for EVM-based chains.
@@ -87,7 +89,6 @@ func (f *EVMContractTransmitterFactory) NewExecTransmitter(
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
 ) ocr3types.ContractTransmitter[[]byte] {
-
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
