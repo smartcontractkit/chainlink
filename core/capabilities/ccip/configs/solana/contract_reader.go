@@ -63,7 +63,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 
 	locationFirst := codec.ElementExtractorLocationFirst
 	return config.ContractReader{
-		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}},
+		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}, {consts.ContractNameRMNRemote, consts.ContractNameRMNProxy}},
 		Namespaces: map[string]config.ChainContractReader{
 			consts.ContractNameOffRamp: {
 				IDL: offRampIDL,
@@ -352,6 +352,23 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 					},
 				},
 			},
+			consts.ContractNameRMNProxy: {
+				IDL: rmnRemoteIDL,
+				Reads: map[string]config.ReadDefinition{
+					consts.MethodNameGetARM: {
+						// TODO: need to have definition or it'll complain
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
+							// type doesn't matter it will be overridden with address internally
+							OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+						},
+					},
+				},
+			},
 			consts.ContractNameRMNRemote: {
 				IDL: rmnRemoteIDL,
 				Reads: map[string]config.ReadDefinition{
@@ -375,6 +392,14 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("curses"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{
+								FieldName: "CursedSubjects.Value",
+							},
+							&codec.WrapperModifierConfig{
+								Fields: map[string]string{"": "CursedSubjects"},
+							},
 						},
 					},
 				},
