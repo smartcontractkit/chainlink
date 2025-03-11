@@ -70,7 +70,7 @@ func Run(tc TestCase) TestCaseOutput {
 	// Approve router to send token
 	if tc.SrcToken != (common.Address{}) {
 		routerAddress := tc.OnchainState.Chains[tc.SrcChain].TestRouter.Address()
-		err := testhelpers.ApproveToken(tc.Env, tc.SrcChain, tc.SrcToken, routerAddress, testhelpers.oneCoin)
+		err := testhelpers.ApproveToken(tc.Env, tc.SrcChain, tc.SrcToken, routerAddress, testhelpers.OneCoin)
 		require.NoError(tc.T, err)
 	}
 
