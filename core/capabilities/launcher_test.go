@@ -16,11 +16,13 @@ import (
 	ragetypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -425,6 +427,121 @@ func TestLauncher(t *testing.T) {
 
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
 		defer launcher.Close()
+	})
+}
+
+func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
+	t.Run("OK-recieves_request_from_registered_don", func(t *testing.T) {
+		ctx := tests.Context(t)
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		capabilityPeer := p2ptypes.PeerID(randomWord())
+
+		fullTargetID := "write-chain_evm_1@1.0.0"
+		targetCapability := &mockCapability{
+			CapabilityInfo: capabilities.MustNewCapabilityInfo(
+				fullTargetID,
+				capabilities.CapabilityTypeTarget,
+				"write chain",
+			),
+		}
+
+		workflowSenderPeerID := p2ptypes.PeerID(randomWord())
+		workflowSenderDon := commoncap.DON{
+			ID: 23,
+			Members: []p2ptypes.PeerID{
+				workflowSenderPeerID,
+			},
+		}
+		workflowDONs := map[uint32]commoncap.DON{
+			workflowSenderDon.ID: workflowSenderDon,
+		}
+		dispatcher := remoteMocks.NewDispatcher(t)
+		capabilityNodeResponseTimeout := 1 * time.Second
+		maxParallelRequests := 1
+
+		capabilityNode := executable.NewServer(
+			&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}},
+			capabilityPeer,
+			targetCapability,
+			commoncap.CapabilityInfo{},
+			commoncap.DON{},
+			workflowDONs,
+			dispatcher,
+			capabilityNodeResponseTimeout,
+			maxParallelRequests,
+			lggr,
+		)
+
+		m, err := values.NewMap(map[string]any{"response": "response1"})
+		require.NoError(t, err)
+		capabilityResponse := commoncap.CapabilityResponse{
+			Value: m,
+		}
+		rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
+		require.NoError(t, err)
+
+		msgBody := &remotetypes.MessageBody{
+			Method:      remotetypes.MethodExecute,
+			MessageId:   []byte("message_id"),
+			Payload:     rawResponse,
+			CallerDonId: workflowSenderDon.ID,
+			Sender:      workflowSenderPeerID[:],
+		}
+
+		// set the dispatcher to expect a message from the workflow sender
+		dispatcher.On("Send", workflowSenderPeerID, mock.AnythingOfType("*types.MessageBody")).Return(nil)
+		capabilityNode.Receive(ctx, msgBody)
+
+		assert.Equal(t, 0, observedLogs.FilterMessage("received request from unregistered don").Len())
+	})
+
+	t.Run("NOK-recieves_request_from_unregistered_don", func(t *testing.T) {
+		ctx := tests.Context(t)
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		capabilityPeer := p2ptypes.PeerID(randomWord())
+
+		fullTargetID := "write-chain_evm_1@1.0.0"
+		targetCapability := &mockCapability{
+			CapabilityInfo: capabilities.MustNewCapabilityInfo(
+				fullTargetID,
+				capabilities.CapabilityTypeTarget,
+				"write chain",
+			),
+		}
+
+		workflowDONs := map[uint32]commoncap.DON{}
+		dispatcher := remoteMocks.NewDispatcher(t)
+		capabilityNodeResponseTimeout := 1 * time.Second
+		maxParallelRequests := 1
+
+		capabilityNode := executable.NewServer(
+			&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}},
+			capabilityPeer,
+			targetCapability,
+			commoncap.CapabilityInfo{},
+			commoncap.DON{},
+			workflowDONs,
+			dispatcher,
+			capabilityNodeResponseTimeout,
+			maxParallelRequests,
+			lggr,
+		)
+
+		m, err := values.NewMap(map[string]any{"response": "response1"})
+		require.NoError(t, err)
+		capabilityResponse := commoncap.CapabilityResponse{
+			Value: m,
+		}
+		rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
+		require.NoError(t, err)
+
+		capabilityNode.Receive(ctx, &remotetypes.MessageBody{
+			Method:    remotetypes.MethodExecute,
+			MessageId: []byte("message_id"),
+			Payload:   rawResponse,
+		})
+
+		assert.Equal(t, 1, observedLogs.FilterMessage("received request from unregistered don").Len())
 	})
 }
 
