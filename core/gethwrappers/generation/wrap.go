@@ -7,10 +7,11 @@ import (
 )
 
 const (
-	rootDir = "../../../contracts/solc/"
+	rootDir = "../../contracts/solc/"
 )
 
 func main() {
+	print(os.Args[0])
 	project := os.Args[1]
 	className := os.Args[2]
 	pkgName := os.Args[3]

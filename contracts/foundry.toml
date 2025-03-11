@@ -49,7 +49,8 @@ test = 'src/v0.8/functions/tests'
 gas_price = 3_000_000_000         # 3 gwei
 
 [profile.vrf]
-optimizer_runs = 1_000
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 test = 'src/v0.8/vrf/test'
 
@@ -58,6 +59,7 @@ optimizer_runs = 500
 src = 'src/v0.8/vrf'
 
 [profile.vrfv2plus]
+solc_version = '0.8.19'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
