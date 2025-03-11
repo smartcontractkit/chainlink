@@ -1052,14 +1052,19 @@ func (d *Delegate) newServicesLLO(
 
 		JobName:            jb.Name,
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		// NOTE: These can be turned off/on, or made configurable in future if
+		// necessary
+		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureReportTelemetry:      false,
 
-		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
-		RetirementReportCache:  d.retirementReportCache,
-		ShouldRetireCache:      provider.ShouldRetireCache(),
-		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
-		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
-		DonID:                  pluginCfg.DonID,
-		ChainID:                rid.ChainID,
+		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
+		RetirementReportCache:    d.retirementReportCache,
+		ShouldRetireCache:        provider.ShouldRetireCache(),
+		RetirementReportCodec:    datastreamsllo.StandardRetirementReportCodec{},
+		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
+		DonID:                    pluginCfg.DonID,
+		ChainID:                  rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,

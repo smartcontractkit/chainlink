@@ -117,15 +117,16 @@ func (m *mockTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.
 	defer m.mu.Unlock()
 	m.v3PremiumLegacyPackets = append(m.v3PremiumLegacyPackets, v3PremiumLegacyPacket{run, trrs, streamID, opts, val, err})
 }
-
-func (m *mockTelemeter) MakeObservationTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
+func (m *mockTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
 	m.ch = make(chan interface{}, size)
 	return m.ch
 }
-
-func (m *mockTelemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry {
+func (m *mockTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
 	return nil
 }
+func (m *mockTelemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry { return nil }
+func (m *mockTelemeter) CaptureEATelemetry() bool                                        { return true }
+func (m *mockTelemeter) CaptureObservationTelemetry() bool                               { return true }
 
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
