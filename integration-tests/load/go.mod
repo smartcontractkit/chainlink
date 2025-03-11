@@ -29,7 +29,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250307145254-e603dcbe3db1
 	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250310180230-58f4a9810e21
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250304212534-9eff2fa32bea
-	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1-0.20250227002007-201753d1af55
+	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.1
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
@@ -443,7 +443,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8-0.20250225210020-fc215b29321e // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
-	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.0 // indirect
+	github.com/smartcontractkit/chainlink-testing-framework/parrot v0.6.1 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
 	github.com/smartcontractkit/mcms v0.13.0 // indirect
