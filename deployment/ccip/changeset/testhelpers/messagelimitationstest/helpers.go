@@ -29,7 +29,7 @@ func NewTestSetupWithDeployedEnv(
 	return TestSetup{
 		T:                           t,
 		Env:                         depEnv.Env,
-		DeployedEnv:                 depEnv,
+		DeployedEnv:                 &depEnv,
 		OnchainState:                onchainState,
 		SrcChain:                    sourceChain,
 		DestChain:                   destChain,
@@ -69,7 +69,7 @@ func NewTestSetup(
 type TestSetup struct {
 	T                           *testing.T
 	Env                         deployment.Environment
-	DeployedEnv                 testhelpers.DeployedEnv
+	DeployedEnv                 *testhelpers.DeployedEnv
 	OnchainState                changeset.CCIPOnChainState
 	SrcChain                    uint64
 	DestChain                   uint64
@@ -94,9 +94,12 @@ func Run(tc TestCase) TestCaseOutput {
 	tc.T.Logf("Sending msg: %s", tc.Name)
 	require.NotEqual(tc.T, tc.SrcChain, tc.DestChain, "fromChain and toChain cannot be the same")
 
-	// Approve router to send token
-	if tc.SrcToken != (common.Address{}) {
-		routerAddress := tc.OnchainState.Chains[tc.SrcChain].TestRouter.Address()
+	// Approve router to send token only on long-running environments
+	if tc.DeployedEnv == nil && tc.SrcToken != (common.Address{}) {
+		routerAddress := tc.OnchainState.Chains[tc.SrcChain].Router.Address()
+		if tc.TestRouter {
+			routerAddress = tc.OnchainState.Chains[tc.SrcChain].TestRouter.Address()
+		}
 		err := testhelpers.ApproveToken(tc.Env, tc.SrcChain, tc.SrcToken, routerAddress, testhelpers.OneCoin)
 		require.NoError(tc.T, err)
 	}
@@ -105,7 +108,7 @@ func Run(tc TestCase) TestCaseOutput {
 		tc.T, tc.Env, tc.OnchainState,
 		testhelpers.WithSourceChain(tc.SrcChain),
 		testhelpers.WithDestChain(tc.DestChain),
-		testhelpers.WithTestRouter(true),
+		testhelpers.WithTestRouter(tc.TestRouter),
 		testhelpers.WithEvm2AnyMessage(tc.Msg))
 
 	if tc.ExpRevert {
