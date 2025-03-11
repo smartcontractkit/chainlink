@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"sync"
 	"testing"
 	"time"
 
@@ -39,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 const (
@@ -155,7 +158,10 @@ func newTestEngineWithYAMLSpec(t *testing.T, reg *coreCap.Registry, spec string,
 	}).SDKSpec(testutils.Context(t))
 	require.NoError(t, err)
 
-	return newTestEngine(t, reg, sdkSpec, opts...)
+	eng, testHooks, err := newTestEngine(t, reg, sdkSpec, opts...)
+	require.NoError(t, err)
+
+	return eng, testHooks
 }
 
 type mockSecretsFetcher struct{}
@@ -165,7 +171,7 @@ func (s mockSecretsFetcher) SecretsFor(ctx context.Context, workflowOwner, hexWo
 }
 
 // newTestEngine creates a new engine with some test defaults.
-func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec, opts ...func(c *Config)) (*Engine, *testHooks) {
+func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec, opts ...func(c *Config)) (*Engine, *testHooks, error) {
 	initFailed := make(chan struct{})
 	initSuccessful := make(chan struct{})
 	executionFinished := make(chan string, 100)
@@ -176,6 +182,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		GlobalBurst:    1000,
 		PerSenderRPS:   100.0,
 		PerSenderBurst: 100,
+	})
+	require.NoError(t, err)
+
+	sl, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		Global:   200,
+		PerOwner: 200,
 	})
 	require.NoError(t, err)
 
@@ -207,6 +219,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		SecretsFetcher: mockSecretsFetcher{},
 		clock:          clock,
 		RateLimiter:    rl,
+		WorkflowLimits: sl,
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -216,8 +229,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		cfg.Store = newTestDBStore(t, cfg.clock)
 	}
 	eng, err := NewEngine(testutils.Context(t), cfg)
-	require.NoError(t, err)
-	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished, rateLimited: rateLimited}
+	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished, rateLimited: rateLimited}, err
 }
 
 // getExecutionId returns the execution id of the workflow that is
@@ -612,6 +624,110 @@ func TestEngine_RateLimit(t *testing.T) {
 		case <-ctx.Done():
 			t.FailNow()
 		}
+	})
+
+	t.Run("global workflow limit", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+		trigger, _ := mockTrigger(t)
+		require.NoError(t, reg.Add(ctx, trigger))
+		require.NoError(t, reg.Add(ctx, mockConsensus("")))
+		target1 := mockTarget("")
+		require.NoError(t, reg.Add(ctx, target1))
+
+		target2 := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_ethereum-testnet-sepolia@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a write capability targeting ethereum sepolia testnet",
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				m := req.Inputs.Underlying["report"].(*values.Map)
+				return capabilities.CapabilityResponse{
+					Value: m,
+				}, nil
+			},
+		)
+		require.NoError(t, reg.Add(ctx, target2))
+
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+			Global:   1,
+			PerOwner: 5,
+		})
+		require.NoError(t, err)
+
+		setWorkflowLimits := func(c *Config) {
+			c.WorkflowLimits = workflowLimits
+		}
+
+		// we allow one owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimits.Allow("some-previous-owner")
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
+		eng, _ := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			hardcodedWorkflow,
+			setWorkflowLimits,
+		)
+
+		err = eng.Start(context.Background())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errGlobalWorkflowCountLimitReached)
+	})
+
+	t.Run("per owner workflow limit", func(t *testing.T) {
+		ctx := testutils.Context(t)
+		reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+		trigger, _ := mockTrigger(t)
+		require.NoError(t, reg.Add(ctx, trigger))
+		require.NoError(t, reg.Add(ctx, mockConsensus("")))
+		target1 := mockTarget("")
+		require.NoError(t, reg.Add(ctx, target1))
+
+		target2 := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_ethereum-testnet-sepolia@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a write capability targeting ethereum sepolia testnet",
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				m := req.Inputs.Underlying["report"].(*values.Map)
+				return capabilities.CapabilityResponse{
+					Value: m,
+				}, nil
+			},
+		)
+		require.NoError(t, reg.Add(ctx, target2))
+
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+			Global:   10,
+			PerOwner: 1,
+		})
+		require.NoError(t, err)
+
+		setWorkflowLimits := func(c *Config) {
+			c.WorkflowLimits = workflowLimits
+		}
+
+		// we allow one workflow for this particular owner, so the second one should be rate limited
+		ownerAllow, globalAllow := workflowLimits.Allow(testWorkflowOwner)
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
+		eng, _ := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			hardcodedWorkflow,
+			setWorkflowLimits,
+		)
+
+		err = eng.Start(context.Background())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
 	})
 }
 
@@ -1615,7 +1731,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 		nil, // config
 	)
 	require.NoError(t, err)
-	eng, testHooks := newTestEngine(
+	eng, testHooks, err := newTestEngine(
 		t,
 		reg,
 		*spec,
@@ -1624,6 +1740,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 			c.Config = nil
 		},
 	)
+	require.NoError(t, err)
 	reg.SetLocalRegistry(testConfigProvider{})
 
 	servicetest.Run(t, eng)
@@ -1684,7 +1801,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 		nil, // config
 	)
 	require.NoError(t, err)
-	eng, testHooks := newTestEngine(
+	eng, testHooks, err := newTestEngine(
 		t,
 		reg,
 		*spec,
@@ -1693,6 +1810,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 			c.Config = nil
 		},
 	)
+	require.NoError(t, err)
 	reg.SetLocalRegistry(testConfigProvider{})
 
 	servicetest.Run(t, eng)
@@ -2038,4 +2156,55 @@ func TestMerge(t *testing.T) {
 			assert.Equal(t, tc.expectedConfig, gotMap)
 		})
 	}
+}
+
+// Test_stepUpdateManager ensures that the manager is concurrency safe by sending concurrent
+// requests to send and remove a given execution ID.
+func Test_stepUpdateManager(t *testing.T) {
+	var (
+		wg             sync.WaitGroup
+		ctx            = testutils.Context(t)
+		wantExecutions = 99
+		wantSends      = wantExecutions * 2
+		buffLen        = wantSends // worst case scenario all sends go to one channel
+	)
+
+	// Setup the step update manager
+	mgr := stepUpdateManager{
+		m: make(map[string]stepUpdateChannel),
+	}
+	executionIDs := make([]string, wantExecutions)
+	stepUpdateChs := make([]stepUpdateChannel, wantExecutions)
+	for i := range wantExecutions {
+		executionIDs[i] = fmt.Sprintf("execution-%d", i+1)
+		stepUpdateCh := make(chan store.WorkflowExecutionStep, buffLen) // buffered channel so we don't have to read
+		stepUpdateChs[i] = stepUpdateChannel{
+			executionID: executionIDs[i],
+			ch:          stepUpdateCh,
+		}
+		mgr.add(executionIDs[i], stepUpdateChs[i])
+	}
+
+	// Concurrently send and remove for the same execution ID
+	for range wantSends {
+		eid := executionIDs[rand.IntN(len(executionIDs))]
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			_ = mgr.send(ctx, eid, store.WorkflowExecutionStep{
+				ExecutionID: eid,
+			})
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			mgr.remove(eid)
+		}()
+	}
+
+	wg.Wait()
 }

@@ -5,7 +5,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/cometbft/cometbft/libs/rand"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/pkg/errors"
@@ -116,7 +115,6 @@ func TestDefaultEvmBatchCaller_batchCallLimit(t *testing.T) {
 		{numCalls: 10, batchSize: 100, parallelRpcCallsLimit: 10},
 		{numCalls: 1, batchSize: 100, parallelRpcCallsLimit: 10},
 		{numCalls: 1000, batchSize: 10, parallelRpcCallsLimit: 2},
-		{numCalls: rand.Uint() % 1000, batchSize: rand.Uint() % 500, parallelRpcCallsLimit: rand.Uint() % 500},
 	}
 
 	type MethodParam struct {

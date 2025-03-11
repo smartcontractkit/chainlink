@@ -40,6 +40,322 @@ var (
 	onRampABI        = abihelpers.MustParseABI(onramp.OnRampABI)
 )
 
+// TestV1_5_Message_RMNRemote this test verify that 1.5 lane can send message when using RMNRemote
+func TestV1_5_Message_RMNRemote(t *testing.T) {
+	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
+	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
+	e, tEnv := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithPrerequisiteDeploymentOnly(
+			&changeset.V1_5DeploymentConfig{
+				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+				RMNConfig: &rmn_contract.RMNConfig{
+					BlessWeightThreshold: 2,
+					CurseWeightThreshold: 2,
+					// setting dummy voters, we will permabless this later
+					Voters: []rmn_contract.RMNVoter{
+						{
+							BlessWeight:   2,
+							CurseWeight:   2,
+							BlessVoteAddr: utils.RandomAddress(),
+							CurseVoteAddr: utils.RandomAddress(),
+						},
+					},
+				},
+			}),
+	)
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
+	src1, dest := allChains[0], allChains[1]
+	pairs := []testhelpers.SourceDestPair{
+		{SourceChainSelector: src1, DestChainSelector: dest},
+	}
+	// wire up all lanes
+	// deploy onRamp, commit store, offramp , set ocr2config and send corresponding jobs
+	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
+
+	// permabless the commit stores
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
+			v1_5.PermaBlessCommitStoreConfig{
+				Configs: map[uint64]v1_5.PermaBlessCommitStoreConfigPerDest{
+					dest: {
+						Sources: []v1_5.PermaBlessConfigPerSourceChain{
+							{
+								SourceChainSelector: src1,
+								PermaBless:          true,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	oldState, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	// reload state after adding lanes
+
+	tEnv.UpdateDeployedEnvironment(e)
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
+
+	// send continuous messages in real router until done is closed
+	// send a message from the other lane src1 -> dest
+	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
+		testhelpers.WithSourceChain(src1),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(false),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+	require.NotNil(t, sentEvent)
+	destChain := e.Env.Chains[dest]
+	require.NoError(t, err)
+	v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+		sentEvent.Message.SequenceNumber)
+}
+
+// TestV1_5_Message_RMNRemote this test verify that 1.5 lane can be cursed when using RMNRemote
+func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
+	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
+	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
+	e, tEnv := testhelpers.NewMemoryEnvironment(
+		t,
+		testhelpers.WithPrerequisiteDeploymentOnly(
+			&changeset.V1_5DeploymentConfig{
+				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+				RMNConfig: &rmn_contract.RMNConfig{
+					BlessWeightThreshold: 2,
+					CurseWeightThreshold: 2,
+					// setting dummy voters, we will permabless this later
+					Voters: []rmn_contract.RMNVoter{
+						{
+							BlessWeight:   2,
+							CurseWeight:   2,
+							BlessVoteAddr: utils.RandomAddress(),
+							CurseVoteAddr: utils.RandomAddress(),
+						},
+					},
+				},
+			}),
+	)
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
+	src1, dest := allChains[0], allChains[1]
+	pairs := []testhelpers.SourceDestPair{
+		{SourceChainSelector: src1, DestChainSelector: dest},
+	}
+	// wire up all lanes
+	// deploy onRamp, commit store, offramp , set ocr2config and send corresponding jobs
+	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
+
+	// permabless the commit stores
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
+			v1_5.PermaBlessCommitStoreConfig{
+				Configs: map[uint64]v1_5.PermaBlessCommitStoreConfigPerDest{
+					dest: {
+						Sources: []v1_5.PermaBlessConfigPerSourceChain{
+							{
+								SourceChainSelector: src1,
+								PermaBless:          true,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	oldState, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+
+	// reload state after adding lanes
+	tEnv.UpdateDeployedEnvironment(e)
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
+
+	// send continuous messages in real router until done is closed
+	// send a message from the other lane src1 -> dest
+	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
+		testhelpers.WithSourceChain(src1),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(false),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		Reason:       "Curse test",
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, sentEvent)
+	destChain := e.Env.Chains[dest]
+	require.NoError(t, err)
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+		sentEvent.Message.SequenceNumber)
+}
+
+// TestV1_5_Message_RMNRemote this test verify that 1.5 lane can be uncuresed when using RMNRemote
+func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
+	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
+	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
+	e, _, tEnv := testsetups.NewIntegrationEnvironment(
+		t,
+		testhelpers.WithPrerequisiteDeploymentOnly(
+			&changeset.V1_5DeploymentConfig{
+				PriceRegStalenessThreshold: 60 * 60 * 24 * 14, // two weeks
+				RMNConfig: &rmn_contract.RMNConfig{
+					BlessWeightThreshold: 2,
+					CurseWeightThreshold: 2,
+					// setting dummy voters, we will permabless this later
+					Voters: []rmn_contract.RMNVoter{
+						{
+							BlessWeight:   2,
+							CurseWeight:   2,
+							BlessVoteAddr: utils.RandomAddress(),
+							CurseVoteAddr: utils.RandomAddress(),
+						},
+					},
+				},
+			}),
+	)
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	allChains := e.Env.AllChainSelectors()
+	src1, dest := allChains[0], allChains[1]
+	pairs := []testhelpers.SourceDestPair{
+		{SourceChainSelector: src1, DestChainSelector: dest},
+	}
+	// wire up all lanes
+	// deploy onRamp, commit store, offramp , set ocr2config and send corresponding jobs
+	e.Env = v1_5testhelpers.AddLanes(t, e.Env, state, pairs)
+
+	// permabless the commit stores
+	e.Env, err = commonchangeset.Apply(t, e.Env, e.TimelockContracts(t),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5.PermaBlessCommitStoreChangeset),
+			v1_5.PermaBlessCommitStoreConfig{
+				Configs: map[uint64]v1_5.PermaBlessCommitStoreConfigPerDest{
+					dest: {
+						Sources: []v1_5.PermaBlessConfigPerSourceChain{
+							{
+								SourceChainSelector: src1,
+								PermaBless:          true,
+							},
+						},
+					},
+				},
+			},
+		),
+	)
+	require.NoError(t, err)
+	oldState, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	// reload state after adding lanes
+
+	state, err = changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+	tEnv.UpdateDeployedEnvironment(e)
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
+		v1_6.SetRMNRemoteOnRMNProxyConfig{
+			ChainSelectors: e.Env.AllChainSelectors(),
+		})
+	require.NoError(t, err)
+
+	// send continuous messages in real router until done is closed
+	// send a message from the other lane src1 -> dest
+	sentEvent, err := v1_5testhelpers.SendRequest(t, e.Env, oldState,
+		testhelpers.WithSourceChain(src1),
+		testhelpers.WithDestChain(dest),
+		testhelpers.WithTestRouter(false),
+		testhelpers.WithEvm2AnyMessage(router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(oldState.Chains[dest].Receiver.Address().Bytes(), 32),
+			Data:         []byte("hello"),
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    nil,
+		}),
+	)
+	require.NoError(t, err)
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNCurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		Reason:       "Curse test",
+	})
+	require.NoError(t, err)
+
+	require.NotNil(t, sentEvent)
+	destChain := e.Env.Chains[dest]
+	v1_5testhelpers.WaitForNoCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+		sentEvent.Message.SequenceNumber)
+
+	commitFound := make(chan struct{})
+	go func() {
+		v1_5testhelpers.WaitForCommit(t, e.Env.Chains[src1], destChain, oldState.Chains[dest].CommitStore[src1],
+			sentEvent.Message.SequenceNumber)
+		commitFound <- struct{}{}
+	}()
+
+	_, err = deployment.CreateLegacyChangeSet(v1_6.RMNUncurseChangeset).Apply(e.Env, v1_6.RMNCurseConfig{
+		CurseActions: []v1_6.CurseAction{v1_6.CurseChain(e.Env.AllChainSelectors()[0])},
+		Reason:       "Uncurse test",
+	})
+	require.NoError(t, err)
+
+	for _, chainSel := range e.Env.AllChainSelectors() {
+		subjects, err := state.Chains[chainSel].RMNRemote.GetCursedSubjects(nil)
+		require.NoError(t, err)
+		require.Empty(t, subjects)
+	}
+
+	// We have to restart all chainlink node because it cache the curse status for 30min
+	tLocalEnv, ok := tEnv.(*testsetups.DeployedLocalDevEnvironment)
+	if !ok {
+		t.Fatal("expected tEnv to be a DeployedLocalDevEnvironment")
+	}
+	err = tLocalEnv.RestartChainlinkNodes(t)
+	require.NoError(t, err)
+
+	select {
+	case <-commitFound:
+		return
+	case <-time.After(5 * time.Minute):
+		t.Fatal("timed out waiting for commit")
+	}
+}
+
 // TestMigrateFromV1_5ToV1_6 tests the migration from v1.5 to v1.6
 func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	t.Skip("Skipping since its flakey, need to fix")

@@ -6,6 +6,7 @@ type CapabilityFlag = string
 const (
 	WorkflowDON     CapabilityFlag = "workflow"
 	CapabilitiesDON CapabilityFlag = "capabilities"
+	GatewayDON      CapabilityFlag = "gateway"
 )
 
 // Capabilities
@@ -20,5 +21,5 @@ const (
 
 var (
 	// Add new capabilities here as well, if single DON should have them by default
-	SingleDonFlags = []string{"workflow", "capabilities", "ocr3", "cron", "custom-compute", "write-evm"}
+	SingleDonFlags = []string{"capabilities", "ocr3", "cron", "custom-compute", "write-evm"}
 )

@@ -3,8 +3,10 @@ package testhelpers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"math/big"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -224,6 +226,7 @@ func WithNumOfBootstrapNodes(numBootstraps int) TestOps {
 
 type TestEnvironment interface {
 	SetupJobs(t *testing.T)
+	DeleteJobs(ctx context.Context, jobIDs map[string][]string) error
 	StartNodes(t *testing.T, crConfig deployment.CapabilityRegistryConfig)
 	StartChains(t *testing.T)
 	TestConfigs() *TestConfigs
@@ -255,22 +258,15 @@ func (d *DeployedEnv) TimelockContracts(t *testing.T) map[uint64]*proposalutils.
 }
 
 func (d *DeployedEnv) SetupJobs(t *testing.T) {
-	out, err := v1_6.CCIPCapabilityJobspecChangeset(d.Env, struct{}{})
+	_, err := commonchangeset.Apply(t, d.Env, nil,
+		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset), nil))
 	require.NoError(t, err)
-	require.NotEmpty(t, out.Jobs)
-	for _, job := range out.Jobs {
-		require.NotEmpty(t, job.JobID)
-		require.NotEmpty(t, job.Spec)
-		require.NotEmpty(t, job.Node)
-	}
-	// Wait for plugins to register filters?
-	// TODO: Investigate how to avoid.
-	time.Sleep(30 * time.Second)
 	ReplayLogs(t, d.Env.Offchain, d.ReplayBlocks)
 }
 
 type MemoryEnvironment struct {
 	DeployedEnv
+	nodes      map[string]memory.Node
 	TestConfig *TestConfigs
 	Chains     map[uint64]deployment.Chain
 	SolChains  map[uint64]deployment.SolChain
@@ -338,7 +334,27 @@ func (m *MemoryEnvironment) StartNodes(t *testing.T, crConfig deployment.Capabil
 			require.NoError(t, node.App.Stop())
 		})
 	}
+	m.nodes = nodes
 	m.DeployedEnv.Env = memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return ctx }, lggr, m.Chains, m.SolChains, nodes)
+}
+
+func (m *MemoryEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	for id, node := range m.nodes {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				// delete job
+				jobID, err := strconv.ParseInt(jobToDelete, 10, 32)
+				if err != nil {
+					return err
+				}
+				err = node.App.DeleteJob(ctx, int32(jobID))
+				if err != nil {
+					return fmt.Errorf("failed to delete job %s: %w", jobToDelete, err)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (m *MemoryEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -844,9 +860,24 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 }
 
 // NewEnvironmentWithJobs creates a new CCIP environment
-// with capreg, fee tokens, feeds, nodes and jobs set up.
+// with home chain contracts, fee tokens, feeds, nodes and jobs set up.
 func NewEnvironmentWithJobs(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	e := NewEnvironment(t, tEnv)
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	// add home chain contracts, otherwise the job approval logic in chainlink fails silently
+	_, err = commonchangeset.Apply(t, e.Env, nil,
+		commonchangeset.Configure(deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  NewTestRMNStaticConfig(),
+				NodeOperators:    NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			}))
+	require.NoError(t, err)
 	e.SetupJobs(t)
 	return e
 }

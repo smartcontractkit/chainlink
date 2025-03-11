@@ -9,8 +9,8 @@ import (
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -19,9 +19,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 )
-
-var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
-var _ deployment.ChangeSet[BillingTokenForRemoteChainConfig] = AddBillingTokenForRemoteChain
 
 // ADD BILLING TOKEN
 type BillingTokenConfig struct {
@@ -48,12 +45,8 @@ func (cfg BillingTokenConfig) Validate(e deployment.Environment) error {
 	if _, err := chainState.TokenToTokenProgram(tokenPubKey); err != nil {
 		return err
 	}
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return err
-	}
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, ccipChangeset.FeeQuoter); err != nil {
-		return fmt.Errorf("failed to validate ownership: %w", err)
 	}
 	// check if already setup
 	billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
@@ -76,24 +69,27 @@ func AddBillingToken(
 	billingTokenConfig solFeeQuoter.BillingTokenConfig,
 	mcms *MCMSConfigSolana,
 	isUpdate bool,
+	feeQuoterAddress solana.PublicKey,
+	routerAddress solana.PublicKey,
 ) ([]mcmsTypes.Transaction, error) {
 	txns := make([]mcmsTypes.Transaction, 0)
 	tokenPubKey := solana.MustPublicKeyFromBase58(billingTokenConfig.Mint.String())
-	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
-	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
+	tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, feeQuoterAddress)
+	// we dont need to handle test router here because we explicitly create this and token2022Receiver for test router
+	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(routerAddress)
 	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	token2022Receiver, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
-	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(chainState.FeeQuoter)
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 	feeQuoterUsingMCMS := mcms != nil && mcms.FeeQuoterOwnedByTimelock
-	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
+
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		mcms,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
 	if err != nil {
-		return txns, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
-	var authority solana.PublicKey
-	if feeQuoterUsingMCMS {
-		authority = timelockSigner
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+		return txns, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	var ixConfig solana.Instruction
 	if isUpdate {
@@ -145,7 +141,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 
 	solFeeQuoter.SetProgramID(chainState.FeeQuoter)
 
-	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMSSolana, cfg.IsUpdate)
+	txns, err := AddBillingToken(e, chain, chainState, cfg.Config, cfg.MCMSSolana, cfg.IsUpdate, chainState.FeeQuoter, chainState.Router)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -153,19 +149,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 	if !cfg.IsUpdate {
 		tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 		tokenBillingPDA, _, _ := solState.FindFqBillingTokenConfigPDA(tokenPubKey, chainState.FeeQuoter)
-
-		addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-		}
-
-		if err := solCommonUtil.ExtendLookupTable(
-			e.GetContext(),
-			chain.Client,
-			addressLookupTable,
-			*chain.DeployerKey,
-			[]solana.PublicKey{tokenBillingPDA},
-		); err != nil {
+		if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{tokenBillingPDA}); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
 		e.Logger.Infow("Billing token added", "chainSelector", cfg.ChainSelector, "tokenPubKey", tokenPubKey.String())
@@ -187,7 +171,7 @@ func AddBillingTokenChangeset(e deployment.Environment, cfg BillingTokenConfig) 
 }
 
 // ADD BILLING TOKEN FOR REMOTE CHAIN
-type BillingTokenForRemoteChainConfig struct {
+type TokenTransferFeeForRemoteChainConfig struct {
 	ChainSelector       uint64
 	RemoteChainSelector uint64
 	Config              solFeeQuoter.TokenTransferFeeConfig
@@ -195,7 +179,7 @@ type BillingTokenForRemoteChainConfig struct {
 	MCMSSolana          *MCMSConfigSolana
 }
 
-func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) error {
+func (cfg TokenTransferFeeForRemoteChainConfig) Validate(e deployment.Environment) error {
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
 		return err
@@ -218,7 +202,8 @@ func (cfg BillingTokenForRemoteChainConfig) Validate(e deployment.Environment) e
 	return nil
 }
 
-func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenForRemoteChainConfig) (deployment.ChangesetOutput, error) {
+// TODO: rename this, i dont think this is for billing, this is more for token transfer config/fees
+func AddTokenTransferFeeForRemoteChain(e deployment.Environment, cfg TokenTransferFeeForRemoteChainConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -228,24 +213,20 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 	chainState := state.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
 	remoteBillingPDA, _, _ := solState.FindFqPerChainPerTokenConfigPDA(cfg.RemoteChainSelector, tokenPubKey, chainState.FeeQuoter)
+	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
 
-	if err := ValidateMCMSConfigSolana(e, cfg.ChainSelector, cfg.MCMSSolana); err != nil {
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, feeQuoterUsingMCMS, chainState.FeeQuoter, ccipChangeset.FeeQuoter); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to validate ownership: %w", err)
-	}
-	timelockSigner, err := FetchTimelockSigner(e, chain.Selector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to fetch timelock signer: %w", err)
-	}
 
-	var authority solana.PublicKey
-	if feeQuoterUsingMCMS {
-		authority = timelockSigner
-	} else {
-		authority = chain.DeployerKey.PublicKey()
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
 	}
 	ix, err := solFeeQuoter.NewSetTokenTransferFeeConfigInstruction(
 		cfg.RemoteChainSelector,
@@ -264,19 +245,7 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 		}
 	}
-
-	addressLookupTable, err := ccipChangeset.FetchOfframpLookupTable(e.GetContext(), chain, chainState.OffRamp)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-	}
-
-	if err := solCommonUtil.ExtendLookupTable(
-		e.GetContext(),
-		chain.Client,
-		addressLookupTable,
-		*chain.DeployerKey,
-		[]solana.PublicKey{remoteBillingPDA},
-	); err != nil {
+	if err := extendLookupTable(e, chain, chainState.OffRamp, []solana.PublicKey{remoteBillingPDA}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to extend lookup table: %w", err)
 	}
 
@@ -297,5 +266,321 @@ func AddBillingTokenForRemoteChain(e deployment.Environment, cfg BillingTokenFor
 		}, nil
 	}
 
+	return deployment.ChangesetOutput{}, nil
+}
+
+// Price Update Changesets are in case of emergency as normally offramp will call this as part of normal operations
+type UpdatePricesConfig struct {
+	ChainSelector     uint64
+	TokenPriceUpdates []solFeeQuoter.TokenPriceUpdate
+	GasPriceUpdates   []solFeeQuoter.GasPriceUpdate
+	PriceUpdater      solana.PublicKey
+	MCMSSolana        *MCMSConfigSolana
+}
+
+func (cfg UpdatePricesConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return err
+	}
+	if cfg.PriceUpdater.IsZero() {
+		return fmt.Errorf("price updater is zero for chain %d", cfg.ChainSelector)
+	}
+	for _, update := range cfg.TokenPriceUpdates {
+		billingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(update.SourceToken, chainState.FeeQuoter)
+		var token0ConfigAccount solFeeQuoter.BillingTokenConfigWrapper
+		err = chain.GetAccountDataBorshInto(e.GetContext(), billingConfigPDA, &token0ConfigAccount)
+		if err != nil {
+			return fmt.Errorf("failed to find billing token config for (mint: %s, feeQuoter: %s): %w", update.SourceToken.String(), chainState.FeeQuoter.String(), err)
+		}
+	}
+	for _, update := range cfg.GasPriceUpdates {
+		fqDestPDA, _, _ := solState.FindFqDestChainPDA(update.DestChainSelector, chainState.FeeQuoter)
+		var destChainConfig solFeeQuoter.DestChainConfig
+		err = chain.GetAccountDataBorshInto(e.GetContext(), fqDestPDA, &destChainConfig)
+		if err != nil {
+			return fmt.Errorf("failed to find dest chain config for (destSelector: %d, feeQuoter: %s): %w", update.DestChainSelector, chainState.FeeQuoter.String(), err)
+		}
+	}
+
+	return nil
+}
+
+func UpdatePrices(e deployment.Environment, cfg UpdatePricesConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	s, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chainSel := cfg.ChainSelector
+	chain := e.SolChains[chainSel]
+	feeQuoterID := s.SolChains[chainSel].FeeQuoter
+	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
+
+	// verified while loading state
+	fqAllowedPriceUpdaterPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(cfg.PriceUpdater, feeQuoterID)
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterID)
+
+	solFeeQuoter.SetProgramID(feeQuoterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+	raw := solFeeQuoter.NewUpdatePricesInstruction(
+		cfg.TokenPriceUpdates,
+		cfg.GasPriceUpdates,
+		authority,
+		fqAllowedPriceUpdaterPDA,
+		feeQuoterConfigPDA,
+	)
+	for _, update := range cfg.TokenPriceUpdates {
+		billingTokenConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(update.SourceToken, feeQuoterID)
+		raw.AccountMetaSlice.Append(solana.Meta(billingTokenConfigPDA).WRITE())
+	}
+	for _, update := range cfg.GasPriceUpdates {
+		fqDestPDA, _, _ := solState.FindFqDestChainPDA(update.DestChainSelector, feeQuoterID)
+		raw.AccountMetaSlice.Append(solana.Meta(fqDestPDA).WRITE())
+	}
+	ix, err := raw.ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+
+	if feeQuoterUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	if err = chain.Confirm([]solana.Instruction{ix}); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+type ModifyPriceUpdaterConfig struct {
+	ChainSelector      uint64
+	PriceUpdater       solana.PublicKey
+	PriceUpdaterAction PriceUpdaterAction
+	MCMSSolana         *MCMSConfigSolana
+}
+
+type PriceUpdaterAction int
+
+const (
+	AddUpdater PriceUpdaterAction = iota
+	RemoveUpdater
+)
+
+func (cfg ModifyPriceUpdaterConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateFeeQuoterConfig(chain, chainState); err != nil {
+		return err
+	}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return err
+	}
+	if cfg.PriceUpdater.IsZero() {
+		return fmt.Errorf("price updater is zero for chain %d", cfg.ChainSelector)
+	}
+	return nil
+}
+
+func ModifyPriceUpdater(e deployment.Environment, cfg ModifyPriceUpdaterConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	s, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chainSel := cfg.ChainSelector
+	chain := e.SolChains[chainSel]
+	feeQuoterID := s.SolChains[chainSel].FeeQuoter
+	feeQuoterUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.FeeQuoterOwnedByTimelock
+
+	// verified while loading state
+	fqAllowedPriceUpdaterPDA, _, _ := solState.FindFqAllowedPriceUpdaterPDA(cfg.PriceUpdater, feeQuoterID)
+	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterID)
+
+	solFeeQuoter.SetProgramID(feeQuoterID)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.FeeQuoter,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+	var ix solana.Instruction
+	if cfg.PriceUpdaterAction == AddUpdater {
+		ix, err = solFeeQuoter.NewAddPriceUpdaterInstruction(
+			cfg.PriceUpdater,
+			fqAllowedPriceUpdaterPDA,
+			feeQuoterConfigPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+	} else {
+		ix, err = solFeeQuoter.NewRemovePriceUpdaterInstruction(
+			cfg.PriceUpdater,
+			fqAllowedPriceUpdaterPDA,
+			feeQuoterConfigPDA,
+			authority,
+			solana.SystemProgramID,
+		).ValidateAndBuild()
+	}
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+
+	if feeQuoterUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].FeeQuoter.String(), ccipChangeset.FeeQuoter)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to NewUpdatePricesInstruction in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	if err = chain.Confirm([]solana.Instruction{ix}); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	return deployment.ChangesetOutput{}, nil
+}
+
+type WithdrawBilledFundsConfig struct {
+	ChainSelector uint64
+	TransferAll   bool
+	Amount        uint64
+	TokenPubKey   string
+	MCMSSolana    *MCMSConfigSolana
+	TestRouter    bool
+}
+
+func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	if err := commonValidation(e, cfg.ChainSelector, tokenPubKey); err != nil {
+		return err
+	}
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+		return err
+	}
+	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {
+		return err
+	}
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey)
+}
+
+func WithdrawBilledFunds(e deployment.Environment, cfg WithdrawBilledFundsConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	s, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	chainSel := cfg.ChainSelector
+	chain := e.SolChains[chainSel]
+	chainState := s.SolChains[cfg.ChainSelector]
+	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
+	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(chainState.Router)
+	tokenProgramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
+	tokenReceiverPDA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, billingSignerPDA)
+	feeAggregatorATA, _, _ := solTokenUtil.FindAssociatedTokenAddress(tokenProgramID, tokenPubKey, chainState.FeeAggregator)
+	routerConfigPDA, _, _ := solState.FindConfigPDA(chainState.Router)
+	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
+
+	solRouter.SetProgramID(chainState.Router)
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.Router,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
+	ix, err := solRouter.NewWithdrawBilledFundsInstruction(
+		cfg.TransferAll,
+		cfg.Amount,
+		tokenPubKey,
+		tokenReceiverPDA,
+		feeAggregatorATA,
+		tokenProgramID,
+		billingSignerPDA,
+		routerConfigPDA,
+		authority,
+	).ValidateAndBuild()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+
+	if routerUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, s.SolChains[chainSel].Router.String(), ccipChangeset.Router)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to WithdrawBilledFunds in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	if err = chain.Confirm([]solana.Instruction{ix}); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
 	return deployment.ChangesetOutput{}, nil
 }

@@ -58,6 +58,7 @@ type Core struct {
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
+	Workflows        Workflows        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -88,6 +89,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
+	c.Workflows.setFrom(&f.Workflows)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -1613,6 +1615,29 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+}
+
+type Workflows struct {
+	Limits Limits
+}
+
+type Limits struct {
+	Global   *int32
+	PerOwner *int32
+}
+
+func (r *Workflows) setFrom(f *Workflows) {
+	r.Limits.setFrom(&f.Limits)
+}
+
+func (r *Limits) setFrom(f *Limits) {
+	if f.Global != nil {
+		r.Global = f.Global
+	}
+
+	if f.PerOwner != nil {
+		r.PerOwner = f.PerOwner
 	}
 }
 

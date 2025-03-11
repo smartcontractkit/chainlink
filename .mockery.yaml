@@ -2,6 +2,7 @@ dir: "{{ .InterfaceDir }}/mocks"
 mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
+fail-on-missing: true
 packages:
   github.com/smartcontractkit/chainlink-framework/chains/txmgr:
     config:
@@ -12,9 +13,6 @@ packages:
     config:
       dir: common/txmgr/types/mocks
     interfaces:
-      ReaperChainConfig:
-        config:
-          mockname: ReaperConfig
       ForwarderManager:
       KeyStore:
       TxStrategy:
@@ -244,11 +242,6 @@ packages:
       MonitoringEndpoint:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
-      BatchCaller:
-        config:
-          dir: "{{ .InterfaceDir }}/rpclibmocks"
-          outpkg: rpclibmocks
-      LoopRelayAdapter:
       RequestRoundDB:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
     interfaces:
@@ -284,7 +277,6 @@ packages:
       mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       MonitoringEndpointGenerator:
-      IngressAgent:
   github.com/smartcontractkit/chainlink/v2/core/services/webhook:
     interfaces:
       ExternalInitiatorManager:
@@ -346,98 +338,7 @@ packages:
       filename: link_token_interface.go
       outpkg: mock_contracts
     interfaces:
-      LinkTokenInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l1_bridge_adapter:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_l1_bridge_adapter/
-      filename: arbitrum_l1_bridge_adapter_interface.go
-      outpkg: mock_arbitrum_l1_bridge_adapter
-    interfaces:
-      ArbitrumL1BridgeAdapterInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_l2_bridge_adapter:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_l2_bridge_adapter/
-      filename: arbitrum_l2_bridge_adapter_interface.go
-      outpkg: mock_arbitrum_l2_bridge_adapter
-    interfaces:
-      ArbitrumL2BridgeAdapterInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_gateway_router:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_gateway_router/
-      filename: arbitrum_gateway_router_interface.go
-      outpkg: mock_arbitrum_gateway_router
-    interfaces:
-      ArbitrumGatewayRouterInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_inbox:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_inbox/
-      filename: arbitrum_inbox_interface.go
-      outpkg: mock_arbitrum_inbox
-    interfaces:
-      ArbitrumInboxInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/l2_arbitrum_gateway:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_l2_arbitrum_gateway/
-      filename: l2_arbitrum_gateway_interface.go
-      outpkg: mock_l2_arbitrum_gateway
-    interfaces:
-      L2ArbitrumGatewayInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbsys:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbsys/
-      filename: arb_sys_interface.go
-      outpkg: mock_arbsys
-    interfaces:
-      ArbSysInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arb_node_interface:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_node_interface/
-      filename: node_interface_interface.go
-      outpkg: mock_node_interface
-    interfaces:
-      NodeInterfaceInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/l2_arbitrum_messenger:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_l2_arbitrum_messenger/
-      filename: l2_arbitrum_messenger_interface.go
-      outpkg: mock_l2_arbitrum_messenger
-    interfaces:
-      L2ArbitrumMessengerInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/arbitrum_rollup_core:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_arbitrum_rollup_core/
-      filename: arb_rollup_core_interface.go
-      outpkg: mock_arbitrum_rollup_core
-    interfaces:
-      ArbRollupCoreInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_portal:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_portal/
-      filename: optimism_portal_interface.go
-      outpkg: mock_optimism_portal
-    interfaces:
-      OptimismPortalInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_l2_output_oracle:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_l2_output_oracle/
-      filename: optimism_l2_output_oracle_interface.go
-      outpkg: mock_optimism_l2_output_oracle
-    interfaces:
-      OptimismL2OutputOracleInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_portal_2:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_portal_2/
-      filename: optimism_portal2_interface.go
-      outpkg: mock_optimism_portal_2
-    interfaces:
-      OptimismPortal2Interface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/liquiditymanager/generated/optimism_dispute_game_factory:
-    config:
-      dir: core/gethwrappers/liquiditymanager/mocks/mock_optimism_dispute_game_factory/
-      filename: optimism_dispute_game_factory_interface.go
-      outpkg: mock_optimism_dispute_game_factory
-    interfaces:
-      OptimismDisputeGameFactoryInterface:
+      LinkTokenInterface:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache:
     config:
       filename: chain_health_mock.go
@@ -507,10 +408,6 @@ packages:
     config:
       outpkg: rpclibmocks
     interfaces:
-      BatchCaller:
-        config:
-          filename: batch_caller.go
-          dir: core/services/relay/evm/rpclibmocks
       EvmBatchCaller:
         config:
           filename: evm_mock.go
@@ -547,12 +444,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
       ORM:
-      Handler:
-        config:
-          mockname: "Mock{{ .InterfaceName }}"
-          filename: handler_mock.go
-          inpackage: true
-          dir: "{{ .InterfaceDir }}"
   github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
     interfaces:
       ContractValueGetter:
