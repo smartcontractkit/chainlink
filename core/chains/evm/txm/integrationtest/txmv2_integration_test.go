@@ -29,11 +29,9 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
@@ -44,7 +42,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
-// Copied from core/services/ocr2/plugins/llo/integration_test.go + svr-contracts/test/e2e/svr_test.go
+// Copied from core/services/ocr2/plugins/llo/integration_test.go + svr-contracts/test/e2e/svr_test.go + integration-tests/smoke/ocr2_test.go
 
 /*
 	Steps to run:
@@ -68,13 +66,97 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	key := csakey.MustNewV2XXXTestingOnly(k)
 	clientCSAKey := key
 
-	steve, backend, _, _, verifier, _, verifierProxy, _, configStore, configStoreAddress := setupBlockchain(t)
+	contractOwner, backend := setupBlockchain(t)
 	fromBlock := 1
-	fmt.Printf("here: %s\n", verifierProxy.Address().Hex())
-	fmt.Printf("here: %s\n", configStore.Address().Hex())
-	fmt.Printf("here: %s\n", configStoreAddress.Hex())
-	fmt.Printf("steve: %s\n", steve.From.String())
-	fmt.Printf("verifier: %s\n", verifier.Address().Hex())
+
+	// Deploy link adcdress? // TODO(gg): probably not needed
+
+	operatorFactoryAddr, _, operatorFactory, err := operator_factory.DeployOperatorFactory(contractOwner, backend.Client(), contractOwner.From) // actually: linkAddress)
+	require.NoError(t, err)
+	backend.Commit()
+	t.Logf("Deployed OperatorFactory at %s", operatorFactoryAddr.String())
+
+	c1 := make(chan *operator_factory.OperatorFactoryOperatorCreated)
+	_, err = operatorFactory.WatchOperatorCreated(nil, c1, nil, nil, nil)
+	require.NoError(t, err)
+
+	c2 := make(chan *operator_factory.OperatorFactoryAuthorizedForwarderCreated)
+	_, err = operatorFactory.WatchAuthorizedForwarderCreated(nil, c2, nil, nil, nil)
+	require.NoError(t, err)
+
+	_, err = operatorFactory.DeployNewOperatorAndForwarder(contractOwner)
+	require.NoError(t, err)
+	backend.Commit()
+	t.Logf("Deployed Operator and Forwarder")
+
+	select {
+	case created := <-c1:
+		t.Logf("Operator created at %s", created.Operator.String())
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for OperatorFactoryOperatorCreated event")
+	}
+
+	select {
+	case created := <-c2:
+		t.Logf("Forwarder created at %s", created.Forwarder.String())
+	case <-time.After(5 * time.Second):
+		t.Fatal("Timed out waiting for OperatorFactoryAuthorizedForwarderCreated event")
+	}
+
+	// 7. Configure the forwarder contracts
+
+	// operator.NewOperator("address", backend.Client())
+	// operatorInstance, err := contracts.LoadEthereumOperator(logger, seth, operator)
+	// require.NoError(t, err, "Loading operator contract shouldn't fail")
+	// forwarderInstance, err := contracts.LoadEthereumAuthorizedForwarder(seth, authorizedForwarder)
+	// require.NoError(t, err, "Loading authorized forwarder contract shouldn't fail")
+
+	// err = operatorInstance.AcceptAuthorizedReceivers([]common.Address{authorizedForwarder}, nodeAddresses)
+	// require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
+
+	// senders, err := forwarderInstance.GetAuthorizedSenders(testcontext.Get(t))
+	// require.NoError(t, err, "Getting authorized senders shouldn't fail")
+	// var nodesAddrs []string
+	// for _, o := range nodeAddresses {
+	// 	nodesAddrs = append(nodesAddrs, o.Hex())
+	// }
+	// require.Equal(t, nodesAddrs, senders, "Senders addresses should match node addresses")
+
+	// owner, err := forwarderInstance.Owner(testcontext.Get(t))
+	// require.NoError(t, err, "Getting authorized forwarder owner shouldn't fail")
+	// require.Equal(t, operator.Hex(), owner, "Forwarder owner should match operator")
+
+	// // actions.AcceptAuthorizedReceiversOperator(
+	// // 	t, framework.L, sethClient, operators[i], forwarders[i], []common.Address{primaryAddresses[i], secondaryAddresses[i]})
+	// // require.NoError(t, err, "Failed to accept authorized receivers on operator")
+
+	// chainIDBigInt, ok := new(big.Int).SetString(chainID, 10)
+	// require.True(t, ok, "Failed to convert chain ID to big.Int")
+	// _, _, err = workerNodes[i].TrackForwarder(chainIDBigInt, forwarders[i])
+	require.NoError(t, err, "Failed to track forwarders")
+
+	// decodedTx, err := seth.Decode(tx, deployErr)
+	// require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
+
+	// for i, event := range decodedTx.Events {
+	// 	require.True(t, len(event.Topics) > 0, fmt.Sprintf("Event %d should have topics", i))
+	// 	switch event.Topics[0] {
+	// 	case operator_factory.OperatorFactoryOperatorCreated{}.Topic().String():
+	// 		if address, ok := event.EventData["operator"]; ok {
+	// 			operators = append(operators, address.(common.Address))
+	// 		} else {
+	// 			require.Fail(t, "Operator address not found in event", event)
+	// 		}
+	// 	case operator_factory.OperatorFactoryAuthorizedForwarderCreated{}.Topic().String():
+	// 		if address, ok := event.EventData["forwarder"]; ok {
+	// 			authorizedForwarders = append(authorizedForwarders, address.(common.Address))
+	// 		} else {
+	// 			require.Fail(t, "Forwarder address not found in event", event)
+	// 		}
+	// 	}
+	// }
+
+	backend.Commit()
 
 	// donID := uint32(995544)
 
@@ -118,12 +200,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// 5. Deploy the LINK token contract // TODO(gg): needed?
 
 	// 6. Deploy forwarder contracts
-	var operators []common.Address
-	operators, forwarders, _ := actions.DeployForwarderContracts(
-		t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
-	)
-	require.Equal(t, len(workerNodes), len(operators), "Number of operators does not match the number of nodes")
-	require.Equal(t, len(workerNodes), len(forwarders), "Number of authorized forwarders does not match the number of nodes")
+	// var operators []common.Address
+	// operators, forwarders, _ := actions.DeployForwarderContracts(
+	// 	t, sethClient, common.HexToAddress(linkContract.Address()), len(workerNodes),
+	// )
+	// require.Equal(t, len(workerNodes), len(operators), "Number of operators does not match the number of nodes")
+	// require.Equal(t, len(workerNodes), len(forwarders), "Number of authorized forwarders does not match the number of nodes")
 
 	// offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
 	// require.NoError(t, err)
@@ -378,20 +460,11 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 }
 
-func setupBlockchain(t *testing.T) (
-	*bind.TransactOpts,
-	evmtypes.Backend,
-	*configurator.Configurator,
-	common.Address,
-	*destination_verifier.DestinationVerifier,
-	common.Address,
-	*destination_verifier_proxy.DestinationVerifierProxy,
-	common.Address,
-	*channel_config_store.ChannelConfigStore,
-	common.Address,
-) {
-	transactor := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
-	genesisData := gethtypes.GenesisAlloc{transactor.From: {Balance: assets.Ether(1000).ToInt()}}
+func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend) {
+	// TODO(gg): maybe use seth instead?
+
+	contractOwner := evmtestutils.MustNewSimTransactor(t) // config contract deployer and owner
+	genesisData := gethtypes.GenesisAlloc{contractOwner.From: {Balance: assets.Ether(1000).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
 	backend.Commit()
 	backend.Commit() // ensure starting block number at least 1
@@ -402,18 +475,7 @@ func setupBlockchain(t *testing.T) (
 	// backend.Commit()
 	// ChannelConfigStore
 
-	// Deploy link adcdress?
-
-	_, _, opFact, err := operator_factory.DeployOperatorFactory(transactor, backend.Client(), transactor.From) // actually: linkAddress)
-	require.NoError(t, err)
-	backend.Commit()
-
-	_, err = opFact.DeployNewOperatorAndForwarder(transactor)
-	require.NoError(t, err)
-
-	backend.Commit()
-
-	return transactor, backend, configurator, configuratorAddress, destinationVerifier, destinationVerifierAddr, verifierProxy, destinationVerifierProxyAddr, configStore, configStoreAddress
+	return contractOwner, backend
 }
 
 func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, inOnchainConfig []byte) (
