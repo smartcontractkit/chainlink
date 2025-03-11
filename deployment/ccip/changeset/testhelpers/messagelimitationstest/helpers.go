@@ -13,6 +13,32 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
+func NewTestSetupWithDeployedEnv(
+	t *testing.T,
+	depEnv testhelpers.DeployedEnv,
+	onchainState changeset.CCIPOnChainState,
+	sourceChain,
+	destChain uint64,
+	srctoken common.Address,
+	srcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig,
+	testRouter,
+	validateResp bool,
+) TestSetup {
+	return TestSetup{
+		T:                           t,
+		Env:                         depEnv.Env,
+		DeployedEnv:                 depEnv,
+		OnchainState:                onchainState,
+		SrcChain:                    sourceChain,
+		DestChain:                   destChain,
+		SrcToken:                    srctoken,
+		SrcFeeQuoterDestChainConfig: srcFeeQuoterDestChainConfig,
+		TestRouter:                  testRouter,
+		ValidateResp:                validateResp,
+	}
+}
+
 // Use this when testhelpers.DeployedEnv is not available (usually in long-running test environments like staging).
 func NewTestSetup(
 	t *testing.T,
