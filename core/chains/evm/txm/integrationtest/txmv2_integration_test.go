@@ -1,7 +1,8 @@
-package llo_test
+package integrationtest
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"testing"
@@ -19,6 +20,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -32,10 +34,13 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -89,16 +94,22 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	backend.Commit()
 	t.Logf("Deployed Operator and Forwarder")
 
+	var operatorInstance *operator.Operator
 	select {
 	case created := <-c1:
 		t.Logf("Operator created at %s", created.Operator.String())
+		operatorInstance, err = operator.NewOperator(created.Operator, backend.Client())
+		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for OperatorFactoryOperatorCreated event")
 	}
 
+	var forwarder *authorized_forwarder.AuthorizedForwarder
 	select {
 	case created := <-c2:
 		t.Logf("Forwarder created at %s", created.Forwarder.String())
+		forwarder, err = authorized_forwarder.NewAuthorizedForwarder(created.Forwarder, backend.Client()) // TODO(gg) maybe only keep address?
+		require.NoError(t, err)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Timed out waiting for OperatorFactoryAuthorizedForwarderCreated event")
 	}
@@ -110,9 +121,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// require.NoError(t, err, "Loading operator contract shouldn't fail")
 	// forwarderInstance, err := contracts.LoadEthereumAuthorizedForwarder(seth, authorizedForwarder)
 	// require.NoError(t, err, "Loading authorized forwarder contract shouldn't fail")
-
-	// err = operatorInstance.AcceptAuthorizedReceivers([]common.Address{authorizedForwarder}, nodeAddresses)
-	// require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
 
 	// senders, err := forwarderInstance.GetAuthorizedSenders(testcontext.Get(t))
 	// require.NoError(t, err, "Getting authorized senders shouldn't fail")
@@ -129,11 +137,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// // actions.AcceptAuthorizedReceiversOperator(
 	// // 	t, framework.L, sethClient, operators[i], forwarders[i], []common.Address{primaryAddresses[i], secondaryAddresses[i]})
 	// // require.NoError(t, err, "Failed to accept authorized receivers on operator")
-
-	// chainIDBigInt, ok := new(big.Int).SetString(chainID, 10)
-	// require.True(t, ok, "Failed to convert chain ID to big.Int")
-	// _, _, err = workerNodes[i].TrackForwarder(chainIDBigInt, forwarders[i])
-	require.NoError(t, err, "Failed to track forwarders")
 
 	// decodedTx, err := seth.Decode(tx, deployErr)
 	// require.NoError(t, err, "Deploying new operator with proposed ownership with forwarder shouldn't fail")
@@ -155,8 +158,6 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// 		}
 	// 	}
 	// }
-
-	backend.Commit()
 
 	// donID := uint32(995544)
 
@@ -183,6 +184,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// 	return txKey, resp.RawResponse, err
 	// }
 
+	// set up the keys
 	primaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
 	require.NoErrorf(t, err, "could not create primary transmitter key")
 	secondaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
@@ -191,7 +193,145 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
 	require.NoError(t, err, "could not get node's eth keys")
 
-	fmt.Printf("Keys are %#v\n", keys)
+	t.Logf("Keys are %#v", keys)
+
+	_, err = operatorInstance.AcceptAuthorizedReceivers(contractOwner, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
+	require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
+	t.Logf("Accepted authorized forwarder")
+
+	// TODO(gg): track forwarder:
+	// chainIDBigInt, ok := new(big.Int).SetString(chainID, 10)
+	// require.True(t, ok, "Failed to convert chain ID to big.Int")
+	// node.App.GetFeedsService().
+	// _, _, err = node..TrackForwarder(chainIDBigInt, forwarders[i])
+
+	// func (c *ChainlinkClient) TrackForwarder(chainID *big.Int, address common.Address) (*Forwarder, *http.Response, error) {
+	// 	response := &Forwarder{}
+	// 	request := ForwarderAttributes{
+	// 		ChainID: chainID.String(),
+	// 		Address: address.Hex(),
+	// 	}
+	// 	framework.L.Debug().Str(NodeURL, c.Config.URL).
+	// 		Str("Forwarder address", (address).Hex()).
+	// 		Str("Chain ID", chainID.String()).
+	// 		Msg("Track forwarder")
+	// 	resp, err := c.APIClient.R().
+	// 		SetBody(request).
+	// 		SetResult(response).
+	// 		Post("/v2/nodes/evm/forwarders/track")
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+	// 	err = VerifyStatusCode(resp.StatusCode(), http.StatusCreated)
+	// 	if err != nil {
+	// 		return nil, nil, err
+	// 	}
+
+	// 8. Deploy dual aggregator contract
+	abi, err := DualAggregatorMetaData.GetAbi()
+	require.NoError(t, err, "Failed to get dual aggregator ABI")
+
+	dualAggAddress, _, _, err := bind.DeployContract(contractOwner, *abi, common.FromHex(DualAggregatorMetaData.Bin), backend.Client(),
+		common.HexToAddress(contractOwner.From.Hex()), // TODO(gg): actually linkAddress
+		big.NewInt(1),                 // MinimumAnswer
+		big.NewInt(50000000000000000), // MaximumAnswer
+		common.Address{},              // BillingAccessController
+		common.Address{},              // RequesterAccessController
+		uint8(8),                      // Decimals
+		"SVR test",
+		common.HexToAddress("0x0000000000000000000000000000000000000000"), // secondary proxy
+		uint32(30), // cutOffTime
+		uint32(20), // maxSyncIterations
+	)
+	require.NoError(t, err, "Failed to deploy dual aggregator contract")
+	backend.Commit()
+	dualAggregatorInstance, err := NewDualAggregator(dualAggAddress, backend.Client())
+	require.NoError(t, err, "Failed to create new dual aggregator instance")
+
+	// dualAggContract, err := gethwrappers.NewDualAggregator(oevContract.Addresses[0], sethClient.Client)
+	// require.NoError(t, err, "Failed to create new dual aggregator instance")
+	// dualAggContracts = append(dualAggContracts, dualAggContract)
+	// dualAggContractsAddresses = append(dualAggContractsAddresses, oevContract)
+
+	// 9. Configure the dual aggregator contracts
+	// S, oracleIdentities, err := getOracleIdentitiesWithKeyIndexLocal(workerNodes, 0)
+	s := []int{1}
+
+	onchainPkBytes, err := hex.DecodeString(node.KeyBundle.OnChainPublicKey())
+	require.NoError(t, err, "Failed to decode on-chain public key")
+
+	p2pKeyId := node.App.GetConfig().P2P().PeerID()
+
+	oracleIdentityExtra := confighelper.OracleIdentityExtra{
+		OracleIdentity: confighelper.OracleIdentity{
+			OnchainPublicKey:  onchainPkBytes,
+			OffchainPublicKey: node.KeyBundle.OffchainPublicKey(),
+			PeerID:            p2pKeyId.String(),
+			TransmitAccount:   types.Account(primaryTransmitterKey.EIP55Address),
+		},
+		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
+	}
+
+	signerKeys, transmitters, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+		30*time.Second, // deltaProgress time.Duration,
+		30*time.Second, // deltaResend time.Duration,
+		10*time.Second, // deltaRound time.Duration,
+		20*time.Second, // deltaGrace time.Duration,
+		20*time.Second, // deltaStage time.Duration,
+		3,              // rMax uint8,
+		s,              // s []int,
+		[]confighelper.OracleIdentityExtra{oracleIdentityExtra}, // oracles []OracleIdentityExtra,
+		median.OffchainConfig{
+			AlphaReportInfinite: false,
+			AlphaReportPPB:      1,
+			AlphaAcceptInfinite: false,
+			AlphaAcceptPPB:      1,
+			DeltaC:              time.Minute * 30,
+		}.Encode(), // reportingPluginConfig []byte,
+		nil,
+		5*time.Second, // maxDurationQuery time.Duration,
+		5*time.Second, // maxDurationObservation time.Duration,
+		5*time.Second, // maxDurationReport time.Duration,
+		5*time.Second, // maxDurationShouldAcceptFinalizedReport time.Duration,
+		5*time.Second, // maxDurationShouldTransmitAcceptedReport time.Duration,
+		1,             // f int,
+		nil,           // The median reporting plugin has an empty onchain config
+	)
+	require.NoError(t, err, "Failed to create contract configuration")
+
+	// Convert signers to addresses
+	var signerAddresses []common.Address
+	for _, signer := range signerKeys {
+		signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
+	}
+
+	// Convert transmitters to addresses (needed?)
+	var transmitterAddresses []common.Address
+	for _, transmitter := range transmitters {
+		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(fmt.Sprintf("%s", transmitter)))
+	}
+
+	// TODO(gg): need this?
+	// // Replace transmitter with forwarders
+	// var transmitterAddresses []common.Address
+
+	// for i := range workerNodes {
+	// 	t, _, err := workerNodes[i].GetForwarders()
+	// 	if err != nil {
+	// 		return nil, errors.New("cannot get forwarder from node")
+	// 	}
+	// 	if len(t.Data) < 1 {
+	// 		return nil, errors.New("no forwarders found on node")
+	// 	}
+	// 	transmitterAddresses = append(transmitterAddresses, common.HexToAddress(t.Data[0].Attributes.Address))
+	// }
+
+	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(1), big.NewInt(50000000000000000)) // MinimumAnswer MaximumAnswer
+	require.NoError(t, err, "Failed to generate default ocr2 on-chain configuration")
+
+	_, err = dualAggregatorInstance.SetConfig(contractOwner, signerAddresses, transmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	require.NoError(t, err, "Failed to configure dual aggregator contract")
+	backend.Commit()
 
 	// 3. Restart the nodes so TXMv2 can load the key for the secondary address // TODO(gg): needed?
 
