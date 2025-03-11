@@ -123,6 +123,8 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 
 		var sourcePoolAddr []byte
 		if sourceChainFamily == chainsel.FamilyEVM {
+			// from https://github.com/smartcontractkit/chainlink/blob/e036012d5b562f5c30c5a87898239ba59aeb2f7b/contracts/src/v0.8/ccip/pools/TokenPool.sol#L84
+			// remote pool addresses are abi-encoded addresses if the remote chain is EVM.
 			sourcePoolAddr, err = abiEncodeAddress(common.BytesToAddress(rta.SourcePoolAddress))
 			if err != nil {
 				return [32]byte{}, fmt.Errorf("abi encode source pool address: %w", err)
