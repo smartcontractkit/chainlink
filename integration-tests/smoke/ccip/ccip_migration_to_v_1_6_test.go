@@ -44,7 +44,7 @@ var (
 func TestV1_5_Message_RMNRemote(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
-	e, tEnv := testhelpers.NewMemoryEnvironment(
+	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
 			&changeset.V1_5DeploymentConfig{
@@ -133,7 +133,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
-	e, tEnv := testhelpers.NewMemoryEnvironment(
+	e, _, tEnv := testsetups.NewIntegrationEnvironment(
 		t,
 		testhelpers.WithPrerequisiteDeploymentOnly(
 			&changeset.V1_5DeploymentConfig{
