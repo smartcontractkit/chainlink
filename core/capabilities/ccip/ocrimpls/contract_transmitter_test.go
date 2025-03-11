@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
@@ -35,6 +36,9 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -178,6 +182,170 @@ func testTransmitter(
 	require.Len(t, events, 1, "expected 1 event")
 	require.Equal(t, configDigest, events[0].ConfigDigest, "config digest mismatch")
 	require.Equal(t, seqNr, events[0].SequenceNumber, "seq num mismatch")
+}
+
+func abiEncodeUint32(data uint32) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
+// Test EVM -> SVM extra data decoding in contract transmitter
+func TestToExecCallDataExtraDataDecoding(t *testing.T) {
+	extraDataCodec := ccipcommon.NewExtraDataCodec(
+		ccipcommon.NewExtraDataCodecParams(
+			ccipevm.ExtraDataDecoder{},
+			ccipsolana.ExtraDataDecoder{},
+		),
+	)
+	t.Run("fails when multiple reports are included", func(t *testing.T) {
+		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: reports,
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+		_, _, _, err = ocrimpls.ToExecCalldata([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Equal(t, "unexpected report length, expected 1, got 2", err.Error())
+	})
+	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
+		reports := []ccipocr3.ExecutePluginReportSingleChain{{
+			Messages: []ccipocr3.Message{{}, {}},
+		}}
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: reports,
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+		_, _, _, err = ocrimpls.ToExecCalldata([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Equal(t, "unexpected message length, expected 1, got 2", err.Error())
+	})
+	t.Run("fails with invalid extra args", func(t *testing.T) {
+		// invalid encoded extra args
+		encoded := []byte{1, 2, 3, 4}
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, _, err = ocrimpls.ToExecCalldata([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "unknown extra args tag")
+	})
+	t.Run("fails with invalid extra exec data", func(t *testing.T) {
+		// invalid encoded extra args
+		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
+		encodedExecData := []byte{1, 2, 3, 4}
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+				TokenAmounts: []ccipocr3.RampTokenAmount{{
+					DestExecData: encodedExecData,
+				}},
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, _, err = ocrimpls.ToExecCalldata([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "abi: improperly formatted output")
+	})
+	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
+		// hardcode abi encoded extra args for simplicity
+		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
+		destGasAmount := uint32(10000)
+		encodedExecData, err := abiEncodeUint32(destGasAmount)
+		require.NoError(t, err)
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+				TokenAmounts: []ccipocr3.RampTokenAmount{{
+					DestExecData: encodedExecData,
+				}},
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, args, err := ocrimpls.ToExecCalldata([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.NoError(t, err)
+
+		expectedArgs, ok := args.(ccipcommon.ExecCallData)
+		require.True(t, ok)
+
+		require.Equal(t, uint64(0x4), expectedArgs.ExtraData.ExtraArgsDecoded["accountIsWritableBitmap"])
+		require.Equal(t, [32]uint8{44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}, expectedArgs.ExtraData.ExtraArgsDecoded["accounts"].([][32]byte)[0])
+		require.False(t, expectedArgs.ExtraData.ExtraArgsDecoded["allowOutOfOrderExecution"].(bool))
+		require.Equal(t, destGasAmount, expectedArgs.ExtraData.ExtraArgsDecoded["computeUnits"])
+		require.Equal(t, [32]uint8{44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}, expectedArgs.ExtraData.ExtraArgsDecoded["tokenReceiver"])
+		require.Equal(t, destGasAmount, expectedArgs.ExtraData.DestExecDataDecoded[0]["destGasAmount"])
+	})
 }
 
 type testUniverse[RI any] struct {

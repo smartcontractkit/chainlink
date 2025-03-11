@@ -5,8 +5,21 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
+
+type ExtraDataDecoded struct {
+	ExtraArgsDecoded    map[string]any
+	DestExecDataDecoded []map[string]any
+}
+
+type ExecCallData struct {
+	ReportContext [2][32]byte
+	Report        []byte
+	Info          ccipocr3.ExecuteReportInfo
+	ExtraData     ExtraDataDecoded
+}
 
 // HashedCapabilityID returns the hashed capability id in a manner equivalent to the capability registry.
 func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32]byte, err error) {
