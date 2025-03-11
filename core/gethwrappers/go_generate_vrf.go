@@ -13,7 +13,7 @@ package gethwrappers
 //go:generate go run ./generation/wrap.go vrf VRFv2Consumer vrf_v2_consumer_wrapper
 //go:generate go run ./generation/wrap.go vrf Counter counter
 
-//VRF V2
+// VRF V2
 //go:generate go run ./generation/wrap.go vrf BatchVRFCoordinatorV2 batch_vrf_coordinator_v2
 //go:generate go run ./generation/wrap.go vrf VRFOwner vrf_owner
 //go:generate go run ./generation/wrap.go vrf VRFCoordinatorV2 vrf_coordinator_v2
@@ -30,16 +30,16 @@ package gethwrappers
 //go:generate go run ./generation/wrap.go vrf VRFCoordinatorTestV2 vrf_coordinator_test_v2
 //go:generate go run ./generation/wrap.go vrf VRFMockETHLINKAggregator vrf_mock_ethlink_aggregator
 
-//VRF V2 Wrapper
+// VRF V2 Wrapper
 //go:generate go run ./generation/wrap.go vrf VRFV2Wrapper vrfv2_wrapper
 //go:generate go run ./generation/wrap.go vrf VRFV2WrapperInterface vrfv2_wrapper_interface
 //go:generate go run ./generation/wrap.go vrf VRFV2WrapperConsumerExample vrfv2_wrapper_consumer_example
 //go:generate go run ./generation/wrap.go vrf VRFV2WrapperLoadTestConsumer vrfv2_wrapper_load_test_consumer
 
-//Keepers X VRF v2
+// Keepers X VRF v2
 //go:generate go run ./generation/wrap.go vrf KeepersVRFConsumer keepers_vrf_consumer
 
-//VRF V2Plus
+// VRF V2Plus
 //go:generate go run ./generation/wrap.go vrf IVRFCoordinatorV2PlusInternal vrf_coordinator_v2plus_interface
 //go:generate go run ./generation/wrap.go vrf BatchVRFCoordinatorV2Plus batch_vrf_coordinator_v2plus
 //go:generate go run ./generation/wrap.go vrf TrustedBlockhashStore trusted_blockhash_store
