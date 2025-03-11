@@ -1,9 +1,13 @@
 package ocrimpls
 
 import (
+	"fmt"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -11,10 +15,11 @@ import (
 // SVMContractTransmitterFactory implements ContractTransmitterFactory for SVM-based chains.
 type SVMContractTransmitterFactory struct{}
 
-var SVMExecCallDataFunc = func(rawReportCtx [2][32]byte,
+var SVMExecCalldataFunc = func(rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
+	extraDataCodec ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
@@ -34,16 +39,27 @@ var SVMExecCallDataFunc = func(rawReportCtx [2][32]byte,
 		}
 	}
 
+	extraDataDecoded := ccipcommon.ExtraDataDecoded{}
+	if extraDataCodec != nil {
+		var err error
+		extraDataDecoded, err = decodeExecData(info, extraDataCodec)
+		if err != nil {
+			return "", "", nil, err
+		}
+	}
+
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
 		struct {
 			ReportContext [2][32]byte
 			Report        []byte
 			Info          ccipocr3.ExecuteReportInfo
+			ExtraData     ccipcommon.ExtraDataDecoded
 		}{
 			ReportContext: rawReportCtx,
 			Report:        report.Report,
 			Info:          info,
+			ExtraData:     extraDataDecoded,
 		}, nil
 }
 
@@ -56,6 +72,7 @@ func SVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataFunc
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 
 		var info ccipocr3.CommitReportInfo
@@ -93,6 +110,35 @@ func SVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataFunc
 	}
 }
 
+func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
+	// only one report one message, since this is a stop-gap solution for solana
+	if len(report.AbstractReports) != 1 {
+		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))
+	}
+	if len(report.AbstractReports[0].Messages) != 1 {
+		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected message length, expected 1, got %d", len(report.AbstractReports[0].Messages))
+	}
+	message := report.AbstractReports[0].Messages[0]
+	extraDataDecoded := ccipcommon.ExtraDataDecoded{}
+
+	var err error
+	extraDataDecoded.ExtraArgsDecoded, err = codec.DecodeExtraArgs(message.ExtraArgs, report.AbstractReports[0].SourceChainSelector)
+	if err != nil {
+		return ccipcommon.ExtraDataDecoded{}, err
+	}
+	// stopgap solution for missing extra args for Solana. To be replaced in the future.
+	destExecDataDecoded := make([]map[string]any, len(message.TokenAmounts))
+	for i, tokenAmount := range message.TokenAmounts {
+		destExecDataDecoded[i], err = codec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, report.AbstractReports[0].SourceChainSelector)
+		if err != nil {
+			return ccipcommon.ExtraDataDecoded{}, err
+		}
+	}
+	extraDataDecoded.DestExecDataDecoded = destExecDataDecoded
+
+	return extraDataDecoded, nil
+}
+
 func (f *SVMContractTransmitterFactory) NewCommitTransmitter(
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
@@ -117,6 +163,7 @@ func (f *SVMContractTransmitterFactory) NewExecTransmitter(
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   SVMExecCallDataFunc,
+		toCalldataFn:   SVMExecCalldataFunc,
+		extraDataCodec: ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})),
 	}
 }

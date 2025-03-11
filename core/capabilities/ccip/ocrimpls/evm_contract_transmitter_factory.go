@@ -3,6 +3,7 @@ package ocrimpls
 import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -15,6 +16,7 @@ var EVMExecCallDataFunc = func(
 	report ocr3types.ReportWithInfo[[]byte],
 	_, _ [][32]byte,
 	_ [32]byte,
+	_ ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
 	// Note that the name of the struct field is very important, since the encoder used
 	// by the chainwriter uses mapstructure, which will use the struct field name to map
@@ -40,6 +42,7 @@ func EVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
 		report ocr3types.ReportWithInfo[[]byte],
 		rs, ss [][32]byte,
 		vs [32]byte,
+		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
 		// Note that the name of the struct field is very important, since the encoder used
 		// by the chainwriter uses mapstructure, which will use the struct field name to map

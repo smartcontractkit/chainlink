@@ -383,21 +383,10 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
-		// stopgap solution for missing extra args for Solana. To be replaced in the future.
-		if chainFamily == chainsel.FamilySolana {
-			transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-				extraDataCodec,
-			)
-		} else {
-			transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
-				ocrtypes.Account(destFromAccounts[0]),
-				offrampAddrStr,
-				nil,
-			)
-		}
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
+			ocrtypes.Account(destFromAccounts[0]),
+			offrampAddrStr,
+		)
 	} else {
 		return nil, nil, fmt.Errorf("unsupported plugin type %d", config.Config.PluginType)
 	}
