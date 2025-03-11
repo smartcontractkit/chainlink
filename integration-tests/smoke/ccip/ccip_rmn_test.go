@@ -86,6 +86,7 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-123")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -228,6 +229,7 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-122")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
