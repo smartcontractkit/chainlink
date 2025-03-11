@@ -12,6 +12,7 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/executable"
@@ -81,6 +82,7 @@ func Test_Client_DonTopologies(t *testing.T) {
 }
 
 func Test_Client_TransmissionSchedules(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-104")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
