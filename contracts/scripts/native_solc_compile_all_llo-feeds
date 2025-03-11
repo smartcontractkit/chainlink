@@ -21,7 +21,6 @@ compileContract() {
    --root $CONTRACTS_DIR \
    --extra-output-files bin abi \
    -o $CONTRACTS_DIR/solc/$PROJECT/$1/$contract"
-  echo $command
   $command
 }
 
