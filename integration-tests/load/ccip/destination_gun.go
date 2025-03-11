@@ -138,7 +138,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 				dst:    m.chainSelector,
 				seqNum: 0,
 			},
-			timestamp: uint64(time.Now().Unix()),
+			timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
 		}
 		m.metricPipe <- data
 
