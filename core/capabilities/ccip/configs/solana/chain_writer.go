@@ -20,7 +20,6 @@ var ccipRouterIDL = idl.FetchCCIPRouterIDL()
 
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
-	destChainSelectorPath         = "Info.AbstractReports.Messages.Header.DestChainSelector"
 	destTokenAddress              = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
 	receiverAddress               = "Info.AbstractReports.Messages.Receiver"
 	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
@@ -255,7 +254,13 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					},
 					Seeds: []chainwriter.Seed{
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}}},
-						{Static: solana.TokenProgramID.Bytes()},
+						// Token Program stored in PoolLookupTable
+						{Dynamic: chainwriter.Lookup{
+							AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
+								LookupTableName: "PoolLookupTable",
+								IncludeIndexes:  []int{6},
+							},
+						}}, 
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 					},
 					IsSigner:   false,
@@ -269,7 +274,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
 					Seeds: []chainwriter.Seed{
 						{Static: []byte("per_chain_per_token_config")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
+						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 					},
 					IsSigner:   false,
@@ -288,11 +293,11 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					},
 					Seeds: []chainwriter.Seed{
 						{Static: []byte("ccip_tokenpool_chainconfig")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destChainSelectorPath}}},
+						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 					},
 					IsSigner:   false,
-					IsWritable: false,
+					IsWritable: true,
 				},
 				Optional: true,
 			},
