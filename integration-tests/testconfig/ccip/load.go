@@ -32,6 +32,7 @@ type LoadConfig struct {
 	TimeoutDuration      *string
 	TestLabel            *string
 	GasLimit             *uint64
+	OOOExecution         *bool
 }
 
 const (

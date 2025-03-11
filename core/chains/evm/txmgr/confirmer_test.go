@@ -45,7 +45,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
-func newBroadcastLegacyEthTxAttempt(t *testing.T, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
+func newBroadcastLegacyEthTxAttempt(t testing.TB, etxID int64, gasPrice ...int64) txmgr.TxAttempt {
 	attempt := cltest.NewLegacyEthTxAttempt(t, etxID)
 	attempt.State = txmgrtypes.TxAttemptBroadcast
 	if len(gasPrice) > 0 {
@@ -85,7 +85,7 @@ func mustInsertInProgressEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce
 	return etx
 }
 
-func mustInsertConfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
+func mustInsertConfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress gethCommon.Address) txmgr.Tx {
 	etx := cltest.NewEthTx(fromAddress)
 	etx.State = txmgrcommon.TxConfirmed
 	n := evmtypes.Nonce(nonce)

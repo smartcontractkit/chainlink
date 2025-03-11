@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"math/big"
 	mathrand "math/rand"
 	"time"
+
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
@@ -113,13 +114,15 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		acc.Value = fee
-		defer func() { acc.Value = nil }()
 	}
+	msgWithoutData := msg
+	msgWithoutData.Data = nil
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
 		"fee", fee,
-		"msg", msg)
+		"msg size", len(msg.Data),
+		"msgWithoutData", msgWithoutData)
 	tx, err := r.CcipSend(
 		acc,
 		m.chainSelector,
@@ -175,11 +178,11 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 		m.l.Error("Error encoding receiver address")
 		return router.ClientEVM2AnyMessage{}, 0, err
 	}
-	//extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), true)
-	//if err != nil {
-	//	m.l.Error("Error encoding extra args")
-	//	return router.ClientEVM2AnyMessage{}, 0, err
-	//}
+	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
+	if err != nil {
+		m.l.Error("Error encoding extra args")
+		return router.ClientEVM2AnyMessage{}, 0, err
+	}
 
 	// Select a message type based on ratio
 	randomValue := mathrand.Intn(100)
@@ -203,7 +206,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	message := router.ClientEVM2AnyMessage{
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
-		ExtraArgs: nil,
+		ExtraArgs: extraArgs,
 	}
 
 	// Set data length if it's a data transfer
