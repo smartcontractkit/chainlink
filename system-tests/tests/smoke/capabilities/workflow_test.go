@@ -1,7 +1,9 @@
 package capabilities
 
 import (
+	"bufio"
 	"context"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -23,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
+	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
@@ -30,8 +33,10 @@ import (
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/protobuf/proto"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -494,6 +499,7 @@ type setupOutput struct {
 	blockchainOutput     *blockchain.Output
 	donTopology          *keystonetypes.DonTopology
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
+	creds                credentials.TransportCredentials
 }
 
 type NixShell struct {
@@ -562,12 +568,12 @@ func (ns *NixShell) Close() error {
 	return ns.cmd.Process.Kill()
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
 	// Universal setup -- START
 	var nixShell *NixShell
 	if os.Getenv("CRIB") == "true" {
 		var err error
-		nixShell, err = NewNixShell("/Users/bartektofel/Desktop/repos/crib/deployments/cre")
+		nixShell, err = NewNixShell("/Users/ionita/crib/deployments/cre")
 		require.NoError(t, err, "failed to create Nix shell")
 
 		t.Cleanup(func() {
@@ -938,11 +944,14 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		sethClient:                  envOutput.sethClient,
 		deployerPrivateKey:          envOutput.deployerPrivateKey,
 		blockchain:                  envOutput.blockchainOutput,
-		binaryDownloadOutput:        binaryDownloadOutput,
 	}
 
-	err = registerPoRWorkflow(registerInput)
-	require.NoError(t, err, "failed to register PoR workflow")
+	if binaryDownloadOutput != nil {
+		registerInput.binaryDownloadOutput = *binaryDownloadOutput
+		err = registerPoRWorkflow(registerInput)
+		require.NoError(t, err, "failed to register PoR workflow")
+	}
+
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved
@@ -958,6 +967,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		blockchainOutput:     envOutput.blockchainOutput,
 		donTopology:          fullCldOutput.DonTopology,
 		nodeOutput:           nodeOutput,
+		creds:                creds,
 	}
 }
 
@@ -989,7 +999,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1086,7 +1096,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1377,22 +1387,22 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	in, err := framework.Load[TestConfig](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
+	require.Len(t, in.NodeSets, 1, "expected 2 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       []string{keystonetypes.OCR3Capability},
-				DONTypes:           []string{keystonetypes.WorkflowDON},
+				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.MockCapability},
+				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.CapabilitiesDON},
 				BootstrapNodeIndex: 0,
 			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{keystonetypes.MockCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
-			},
+			//{
+			//	Input:              input[1],
+			//	Capabilities:       []string{keystonetypes.MockCapability},
+			//	DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+			//	BootstrapNodeIndex: 0,
+			//},
 		}
 	}
 
@@ -1439,9 +1449,19 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	})
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
+	//envInput.nodeSetInput[0].Out.CLNodes
 
 	mocksClient := newCapProxyClient()
-	require.NoError(t, mocksClient.connectAll([]int{13401, 13402, 13403, 13404})) //Capability don ports
+	mockClientsAddress := make([]string, 0)
+	for i, _ := range setupOutput.nodeOutput[0].CLNodes {
+		if i == 0 {
+			continue
+		}
+		// crib-local-base-3-mock.main.stage.cldev.sh
+		mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("crib-local-base-%d-mock.main.stage.cldev.sh:443", i-1))
+	}
+
+	require.NoError(t, mocksClient.connectAll(mockClientsAddress)) //Capability don ports
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 	require.NoError(t, mocksClient.HookExecutables(testLogger))
@@ -1452,7 +1472,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
 			for i, n := range don.DON.Nodes {
 				if i == 0 {
-					continue // Skip bootstrap node
+					continue // Skip bootstrap nodeker
 				}
 
 				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
@@ -1467,7 +1487,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	}
 
 	go sendReports(t.Context(), t, mocksClient, testLogger, kb) //TODO @george-dorin: Fix me!!!
-	time.Sleep(time.Minute * 10)
+	time.Sleep(time.Minute * 30)
 
 }
 
@@ -1498,6 +1518,53 @@ func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zer
 	}
 }
 
+//func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities_WASP(t *testing.T) {
+//	//We assume that we already have the node clients
+//
+//	//Get OCR2 keys
+//	//Create workflow job for x number of feeds ??
+//	//Create wasp profile
+//	//Start test
+//
+//	srv := wasp.NewHTTPMockServer(nil)
+//	srv.Run()
+//
+//	labels := map[string]string{
+//		"go_test_name": "test1",
+//		"branch":       "profile-check",
+//		"commit":       "profile-check",
+//	}
+//
+//	_, err := wasp.NewProfile().
+//		Add(wasp.NewGenerator(&wasp.Config{
+//			LoadType: wasp.RPS,
+//			GenName:  "Alpha",
+//			Schedule: wasp.Combine(
+//				wasp.Steps(1, 1, 9, 30*time.Second),
+//				wasp.Plain(10, 30*time.Second),
+//				wasp.Steps(10, -1, 10, 30*time.Second),
+//			),
+//			Gun:        NewExampleHTTPGun(srv.URL()),
+//			Labels:     labels,
+//			LokiConfig: wasp.NewEnvLokiConfig(),
+//		})).
+//		Add(wasp.NewGenerator(&wasp.Config{
+//			LoadType: wasp.RPS,
+//			GenName:  "Beta",
+//			Schedule: wasp.Combine(
+//				wasp.Steps(1, 1, 9, 30*time.Second),
+//				wasp.Plain(10, 30*time.Second),
+//				wasp.Steps(10, -1, 10, 30*time.Second),
+//			),
+//			Gun:        NewExampleHTTPGun(srv.URL()),
+//			Labels:     labels,
+//			LokiConfig: wasp.NewEnvLokiConfig(),
+//		})).
+//		Run(true)
+//	require.NoError(t, err)
+//
+//}
+
 // TODO @george-dorin: Refactor!
 type capProxy struct {
 	Clients []pb.MockCapabilityClient
@@ -1507,8 +1574,8 @@ func newCapProxyClient() *capProxy {
 	return &capProxy{Clients: make([]pb.MockCapabilityClient, 0)}
 }
 
-func (c *capProxy) connectAll(ports []int) error {
-	for _, p := range ports {
+func (c *capProxy) connectAll(addresses []string) error {
+	for _, p := range addresses {
 		client, err := proxyConnectToOne(p)
 		if err != nil {
 			return err
@@ -1584,8 +1651,9 @@ func (c *capProxy) HookExecutables(lggr zerolog.Logger) error {
 	return nil
 }
 
-func proxyConnectToOne(port int) (pb.MockCapabilityClient, error) {
-	conn, err := grpc.NewClient(fmt.Sprintf("127.0.0.1:%d", port), grpc.WithTransportCredentials(insecure.NewCredentials()))
+func proxyConnectToOne(address string) (pb.MockCapabilityClient, error) {
+	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
+	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
 		return nil, err
 	}

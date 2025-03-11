@@ -36,6 +36,7 @@ volume_name = "workflow_volume"
 #docker_ctx = "../../../.."
 #docker_file = "plugins/chainlink.Dockerfile"
 image = "localhost:5000/chainlink:develop"
+custom_ports = ['7777']
 user_config_overrides = """
         [Feature]
         LogPoller = true
@@ -47,110 +48,17 @@ user_config_overrides = """
         [P2P.V2]
         Enabled = true
         ListenAddresses = ['0.0.0.0:5001']
+
+			[LOG]
+			Level='debug'
       """
-
-[[nodesets.node_specs]]
-
-[nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-[[nodesets.node_specs]]
-
-[nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-[[nodesets.node_specs]]
-
-[nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-[[nodesets.node_specs]]
-
-[nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-[[nodesets]]
-nodes = 5
-override_mode = "each"
-http_port_range_start = 10200
-name = "capabilities"
-
-[nodesets.db]
-image = "postgres:12.0"
-port = 13200
-
-[[nodesets.node_specs]]
-
-[nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
-user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
 
 [[nodesets.node_specs]]
 
 [nodesets.node_specs.node]
 image = "localhost:5000/chainlink:develop"
 capabilities = ["./amd64_mock"]
-custom_ports = ['13401:3456']
+custom_ports = ['7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -162,13 +70,17 @@ user_config_overrides = """
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
+
+			[LOG]
+			Level='debug'
       """
+
 [[nodesets.node_specs]]
 
 [nodesets.node_specs.node]
 image = "localhost:5000/chainlink:develop"
 capabilities = ["./amd64_mock"]
-custom_ports = ['13402:3456']
+custom_ports = ['7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -180,13 +92,17 @@ user_config_overrides = """
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
+
+			[LOG]
+			Level='debug'
       """
+
 [[nodesets.node_specs]]
 
 [nodesets.node_specs.node]
 image = "localhost:5000/chainlink:develop"
 capabilities = ["./amd64_mock"]
-custom_ports = ['13403:3456']
+custom_ports = ['7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -198,13 +114,17 @@ user_config_overrides = """
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
+
+			[LOG]
+			Level='debug'
       """
+
 [[nodesets.node_specs]]
 
 [nodesets.node_specs.node]
 image = "localhost:5000/chainlink:develop"
 capabilities = ["./amd64_mock"]
-custom_ports = ['13404:3456']
+custom_ports = ['7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -216,5 +136,109 @@ user_config_overrides = """
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
-      """
 
+			[LOG]
+			Level='debug'
+      """
+#
+#[[nodesets]]
+#nodes = 5
+#override_mode = "each"
+#http_port_range_start = 10200
+#name = "capabilities"
+#
+#[nodesets.db]
+#image = "postgres:12.0"
+#port = 13200
+#
+#[[nodesets.node_specs]]
+#
+#[nodesets.node_specs.node]
+#image = "localhost:5000/chainlink:develop"
+#user_config_overrides = """
+#      [Feature]
+#			LogPoller = true
+#
+#			[OCR2]
+#			Enabled = true
+#			DatabaseTimeout = '1s'
+#
+#			[P2P.V2]
+#			Enabled = true
+#			ListenAddresses = ['0.0.0.0:5001']
+#      """
+#
+#
+#[[nodesets.node_specs]]
+#
+#[nodesets.node_specs.node]
+#image = "localhost:5000/chainlink:develop"
+#capabilities = ["./amd64_mock"]
+#custom_ports = ['13401:3456']
+#user_config_overrides = """
+#      [Feature]
+#			LogPoller = true
+#
+#			[OCR2]
+#			Enabled = true
+#			DatabaseTimeout = '1s'
+#
+#			[P2P.V2]
+#			Enabled = true
+#			ListenAddresses = ['0.0.0.0:5001']
+#      """
+#[[nodesets.node_specs]]
+#
+#[nodesets.node_specs.node]
+#image = "localhost:5000/chainlink:develop"
+#capabilities = ["./amd64_mock"]
+#custom_ports = ['13402:3456']
+#user_config_overrides = """
+#      [Feature]
+#			LogPoller = true
+#
+#			[OCR2]
+#			Enabled = true
+#			DatabaseTimeout = '1s'
+#
+#			[P2P.V2]
+#			Enabled = true
+#			ListenAddresses = ['0.0.0.0:5001']
+#      """
+#[[nodesets.node_specs]]
+#
+#[nodesets.node_specs.node]
+#image = "localhost:5000/chainlink:develop"
+#capabilities = ["./amd64_mock"]
+#custom_ports = ['13403:3456']
+#user_config_overrides = """
+#      [Feature]
+#			LogPoller = true
+#
+#			[OCR2]
+#			Enabled = true
+#			DatabaseTimeout = '1s'
+#
+#			[P2P.V2]
+#			Enabled = true
+#			ListenAddresses = ['0.0.0.0:5001']
+#      """
+#[[nodesets.node_specs]]
+#
+#[nodesets.node_specs.node]
+#image = "localhost:5000/chainlink:develop"
+#capabilities = ["./amd64_mock"]
+#custom_ports = ['13404:3456']
+#user_config_overrides = """
+#      [Feature]
+#			LogPoller = true
+#
+#			[OCR2]
+#			Enabled = true
+#			DatabaseTimeout = '1s'
+#
+#			[P2P.V2]
+#			Enabled = true
+#			ListenAddresses = ['0.0.0.0:5001']
+#      """
+#

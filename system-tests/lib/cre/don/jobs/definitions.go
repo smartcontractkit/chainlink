@@ -232,7 +232,7 @@ func MockCapabilities(nodeID string) *jobv1.ProposeJobRequest {
 			forwardingAllowed = false
 			command = "/home/capabilities/amd64_mock"
 			config = """
-				port=3456
+				port=7777
 				[[DefaultMocks]]
 				id="streams-trigger@1.0.0"
 				description="stream trigger mock"
