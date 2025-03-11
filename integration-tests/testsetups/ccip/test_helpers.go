@@ -370,6 +370,11 @@ func CreateDockerEnv(t *testing.T) (
 		zapcore.DPanicLevel,
 		testreporters.WarnAboutAllowedMsgs_No),
 		testreporters.NewAllowedLogMessage(
+			"Lane processing is stopped because source chain is cursed or CommitStore is down",
+			"Curse test are expected to trigger this logs",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_Yes),
+		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",
 			zapcore.DPanicLevel,
