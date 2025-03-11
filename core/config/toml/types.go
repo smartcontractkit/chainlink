@@ -653,43 +653,86 @@ func (w *WebServer) setFrom(f *WebServer) {
 	}
 
 	w.LDAP.setFrom(&f.LDAP)
+	w.OIDC.setFrom(&f.OIDC)
 	w.MFA.setFrom(&f.MFA)
 	w.RateLimit.setFrom(&f.RateLimit)
 	w.TLS.setFrom(&f.TLS)
 }
 
 func (w *WebServer) ValidateConfig() (err error) {
-	// Validate LDAP fields when authentication method is LDAPAuth
-	if *w.AuthenticationMethod != string(sessions.LDAPAuth) {
-		return
+	switch *w.AuthenticationMethod {
+	case string(sessions.LDAPAuth):
+		// Assert LDAP fields when AuthMethod set to LDAP
+		if *w.LDAP.BaseDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
+		}
+		if *w.LDAP.BaseUserAttr == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
+		}
+		if *w.LDAP.UsersDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
+		}
+		if *w.LDAP.GroupsDN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
+		}
+		if *w.LDAP.AdminUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.EditUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.RunUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
+		}
+		if *w.LDAP.ReadUserGroupCN == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
+		}
+		return err
+	case string(sessions.OIDCAuth):
+		fmt.Println("%#v", w.OIDC)
+		if *w.OIDC.ClientID == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ClientID", Msg: "OIDC ClientID can not be empty"})
+		}
+		if *w.OIDC.ProviderDomain == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ProviderDomain", Msg: "OIDC ProviderDomain can not be empty"})
+		}
+		if *w.OIDC.OAuth2ProviderRouteSuffix == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OAuth2ProviderRouteSuffix", Msg: "OIDC OAuth2ProviderRouteSuffix can not be empty"})
+		}
+		if *w.OIDC.OIDCCallbackURL == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURL", Msg: "OIDC OIDCCallbackURL can not be empty"})
+		}
+		if *w.OIDC.OIDCCallbackURLSuffix == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.OIDCCallbackURLSuffix", Msg: "OIDC OIDCCallbackURLSuffix can not be empty"})
+		}
+		if w.OIDC.HTTPPort == 0 {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.HTTPPort", Msg: "OIDC HTTPPort can not be empty"})
+		}
+		if *w.OIDC.AdminUserGroupClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.AdminUserGroupClaim", Msg: "OIDC AdminUserGroupClaim can not be empty"})
+		}
+		if *w.OIDC.EditUserGroupClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.EditUserGroupClaim", Msg: "OIDC EditUserGroupClaim can not be empty"})
+		}
+		if *w.OIDC.RunUserGroupClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.RunUserGroupClaim", Msg: "OIDC RunUserGroupClaim can not be empty"})
+		}
+		if *w.OIDC.ReadUserGroupClaim == "" {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.ReadUserGroupClaim", Msg: "OIDC ReadUserGroupClaim can not be empty"})
+		}
+		if w.OIDC.SessionTimeout == commonconfig.MustNewDuration(0) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.SessionTimeout", Msg: "OIDC SessionTimeout can not be empty"})
+		}
+		if w.OIDC.UserApiTokenEnabled == nil {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserApiTokenEnabled", Msg: "OIDC UserApiTokenEnabled can not be empty"})
+		}
+		if w.OIDC.UserAPITokenDuration == commonconfig.MustNewDuration(0) {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "OIDC.UserAPITokenDuration", Msg: "OIDC UserAPITokenDuration can not be empty"})
+		}
+		return err
 	}
 
-	// Assert LDAP fields when AuthMethod set to LDAP
-	if *w.LDAP.BaseDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseDN", Msg: "LDAP BaseDN can not be empty"})
-	}
-	if *w.LDAP.BaseUserAttr == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.BaseUserAttr", Msg: "LDAP BaseUserAttr can not be empty"})
-	}
-	if *w.LDAP.UsersDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.UsersDN", Msg: "LDAP UsersDN can not be empty"})
-	}
-	if *w.LDAP.GroupsDN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.GroupsDN", Msg: "LDAP GroupsDN can not be empty"})
-	}
-	if *w.LDAP.AdminUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.AdminUserGroupCN", Msg: "LDAP AdminUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.EditUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.RunUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.RunUserGroupCN", Msg: "LDAP RunUserGroupCN can not be empty"})
-	}
-	if *w.LDAP.ReadUserGroupCN == "" {
-		err = multierr.Append(err, configutils.ErrInvalid{Name: "LDAP.ReadUserGroupCN", Msg: "LDAP ReadUserGroupCN can not be empty"})
-	}
-	return err
+	return nil
 }
 
 type WebServerMFA struct {
@@ -928,8 +971,11 @@ type WebServerSecrets struct {
 
 func (w *WebServerSecrets) SetFrom(f *WebServerSecrets) error {
 	w.LDAP.setFrom(&f.LDAP)
+	w.OIDC.setFrom(&f.OIDC)
 	return nil
 }
+
+// TODO: harry: add Validate function for WebServerSecrets and LDAPSecrets
 
 type JobPipeline struct {
 	ExternalInitiatorsEnabled *bool

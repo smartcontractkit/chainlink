@@ -70,6 +70,7 @@ func NewOIDCAuthenticator(
 	auditLogger audit.AuditLogger,
 ) (*oidcAuthenticator, error) {
 	// Ensure all RBAC role mappings to OIDC Groups are defined, and required fields populated, or error on startup
+	fmt.Printf("%#v\n", oidcCfg)
 	if oidcCfg.AdminUserGroupClaim() == "" || oidcCfg.EditUserGroupClaim() == "" ||
 		oidcCfg.RunUserGroupClaim() == "" || oidcCfg.ReadUserGroupClaim() == "" {
 		return nil, errors.New("OIDC Group name mapping for callback group claims for all local RBAC role required. Set group names for `_UserGroupClaim` fields")
@@ -111,7 +112,7 @@ func NewOIDCAuthenticator(
 	}
 
 	// Create Authenticator struct, with internal HTTP handlers
-	ldapAuth := oidcAuthenticator{
+	oidcAuth := oidcAuthenticator{
 		ds:           ds,
 		config:       oidcCfg,
 		provider:     provider,
@@ -123,15 +124,17 @@ func NewOIDCAuthenticator(
 
 	// Create a new, separate gin engine to register and listen for the OIDC callback request containing
 	// the user claims and groups, set up ratelimitter
-	oidcCallbackEngine := gin.New()
-	api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
-	api.GET("/auth/oidc-login", ginHandlerFromHTTP(ldapAuth.handleLoginProviderRedirect))
-	api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(ldapAuth.handleOIDCCallback))
+	go func() {
+		oidcCallbackEngine := gin.New()
+		api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
+		api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
+		api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
 
-	lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-	oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+		lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+		oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+	}()
 
-	return &ldapAuth, nil
+	return &oidcAuth, nil
 }
 
 func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, r *http.Request) {
