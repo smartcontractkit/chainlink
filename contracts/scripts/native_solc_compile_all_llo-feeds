@@ -25,7 +25,6 @@ compileContract() {
   $command
 }
 
-
 compileContract v0.3.0 Verifier
 compileContract v0.3.0 VerifierProxy
 compileContract v0.3.0 FeeManager
