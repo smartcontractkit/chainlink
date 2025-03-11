@@ -260,7 +260,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 								LookupTableName: "PoolLookupTable",
 								IncludeIndexes:  []int{6},
 							},
-						}}, 
+						}},
 						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
 					},
 					IsSigner:   false,
