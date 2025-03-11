@@ -75,6 +75,8 @@ package gethwrappers
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin AggregatorV2V3Interface aggregator_v2v3_interface
 //go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin MockAggregatorProxy mock_aggregator_proxy
 
+//go:generate go run ./generation/generate_link/wrap_link.go
+
 //go:generate go generate go_generate_vrf.go
 //go:generate go generate ./functions
 //go:generate go generate ./keystone

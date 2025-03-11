@@ -6,12 +6,11 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/genwrapper"
 )
 
-const (
-	rootDir = "../../contracts/solc/"
+var (
+	rootDir = "../../../contracts/solc/"
 )
 
 func main() {
-	print(os.Args[0])
 	project := os.Args[1]
 	className := os.Args[2]
 	pkgName := os.Args[3]
@@ -19,6 +18,11 @@ func main() {
 	var outDirSuffix string
 	if len(os.Args) >= 5 {
 		outDirSuffix = os.Args[4]
+	}
+
+	// Once vrf is moved to its own subfolder we can delete it.
+	if project == "vrf" {
+		rootDir = "../../contracts/solc/"
 	}
 
 	abiPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".abi.json"
