@@ -44,13 +44,13 @@ func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
 
 func newValidPremiumLegacyReport() llo.Report {
 	return llo.Report{
-		ConfigDigest:                types.ConfigDigest{1, 2, 3},
-		SeqNr:                       32,
-		ChannelID:                   llotypes.ChannelID(31),
-		ValidAfterSeconds:           28,
-		ObservationTimestampSeconds: 34,
-		Values:                      []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}},
-		Specimen:                    false,
+		ConfigDigest:                    types.ConfigDigest{1, 2, 3},
+		SeqNr:                           32,
+		ChannelID:                       llotypes.ChannelID(31),
+		ValidAfterNanoseconds:           28 * 1e9,
+		ObservationTimestampNanoseconds: 34 * 1e9,
+		Values:                          []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}},
+		Specimen:                        false,
 	}
 }
 

@@ -97,6 +97,12 @@ var (
 			AutoPprof: toml.AutoPprof{
 				CPUProfileRate: ptr[int64](7),
 			},
+			Workflows: toml.Workflows{
+				Limits: toml.Limits{
+					Global:   ptr(int32(200)),
+					PerOwner: ptr(int32(200)),
+				},
+			},
 		},
 		EVM: []*evmcfg.EVMConfig{
 			{
@@ -448,6 +454,7 @@ func TestConfig_Marshal(t *testing.T) {
 			PerSenderRPS:   ptr(200.0),
 			PerSenderBurst: ptr(200),
 		},
+
 		Peering: toml.P2P{
 			IncomingMessageBufferSize: ptr[int64](13),
 			OutgoingMessageBufferSize: ptr[int64](17),
@@ -498,6 +505,12 @@ func TestConfig_Marshal(t *testing.T) {
 			Gateways: []toml.ConnectorGateway{
 				{ID: ptr("example_gateway"), URL: ptr("wss://localhost:8081/node")},
 			},
+		},
+	}
+	full.Workflows = toml.Workflows{
+		Limits: toml.Limits{
+			Global:   ptr(int32(200)),
+			PerOwner: ptr(int32(200)),
 		},
 	}
 	full.Keeper = toml.Keeper{
@@ -1691,6 +1704,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	c.Solana = solcfg.TOMLConfigs{{ChainID: ptr("unknown solana chain")}}
 	c.Starknet = RawConfigs{{"ChainID": ptr("unknown starknet chain")}}
 	c.setDefaults()
+
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)
 	}

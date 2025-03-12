@@ -16,6 +16,9 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -42,19 +45,26 @@ const (
 // SolCCIPChainState holds public keys for all the currently deployed CCIP programs
 // on a chain. If a key has zero value, it means the program does not exist on the chain.
 type SolCCIPChainState struct {
-	LinkToken                 solana.PublicKey
-	Router                    solana.PublicKey
-	OfframpAddressLookupTable solana.PublicKey
-	Receiver                  solana.PublicKey // for tests only
-	SPL2022Tokens             []solana.PublicKey
-	SPLTokens                 []solana.PublicKey
-	// TokenPool                 solana.PublicKey
-	BurnMintTokenPool    solana.PublicKey
-	LockReleaseTokenPool solana.PublicKey
-	WSOL                 solana.PublicKey
+	// tokens
+	LinkToken     solana.PublicKey
+	WSOL          solana.PublicKey
+	SPL2022Tokens []solana.PublicKey
+	SPLTokens     []solana.PublicKey
+
+	// ccip programs
+	Router               solana.PublicKey
 	FeeQuoter            solana.PublicKey
 	OffRamp              solana.PublicKey
-	FeeAggregator        solana.PublicKey
+	BurnMintTokenPool    solana.PublicKey
+	LockReleaseTokenPool solana.PublicKey
+	RMNRemote            solana.PublicKey
+
+	// fee aggregator
+	FeeAggregator solana.PublicKey
+
+	// test programs
+	TestRouter solana.PublicKey
+	Receiver   solana.PublicKey // for tests only
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -64,6 +74,8 @@ type SolCCIPChainState struct {
 	FeeQuoterConfigPDA   solana.PublicKey
 	OffRampConfigPDA     solana.PublicKey
 	OffRampStatePDA      solana.PublicKey
+	RMNRemoteConfigPDA   solana.PublicKey
+	RMNRemoteCursesPDA   solana.PublicKey
 }
 
 func FetchOfframpLookupTable(ctx context.Context, chain deployment.SolChain, offRampAddress solana.PublicKey) (solana.PublicKey, error) {
@@ -124,6 +136,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
+		case TestRouter:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -199,6 +214,19 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 		case LockReleaseTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.LockReleaseTokenPool = pub
+		case RMNRemote:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.RMNRemote = pub
+			rmnRemoteConfigPDA, _, err := solState.FindRMNRemoteConfigPDA(state.RMNRemote)
+			if err != nil {
+				return state, err
+			}
+			state.RMNRemoteConfigPDA = rmnRemoteConfigPDA
+			rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(state.RMNRemote)
+			if err != nil {
+				return state, err
+			}
+			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
 			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
@@ -249,6 +277,7 @@ func ValidateOwnershipSolana(
 	mcms bool,
 	programID solana.PublicKey,
 	contractType deployment.ContractType,
+	tokenAddress solana.PublicKey, // for token pools only
 ) error {
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
@@ -291,8 +320,61 @@ func ValidateOwnershipSolana(
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
 			return fmt.Errorf("failed to validate ownership for feequoter: %w", err)
 		}
+	case BurnMintTokenPool:
+		programData := solTestTokenPool.State{}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			e.Logger.Warnf("BurnMintTokenPool not configured with this token address: %s", tokenAddress.String())
+			return nil
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for example_burnmint_token_pool: %w", err)
+		}
+	case LockReleaseTokenPool:
+		programData := solTestTokenPool.State{}
+		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
+		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
+		if err != nil {
+			e.Logger.Warnf("LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String())
+			return nil
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for example_lockrelease_token_pool: %w", err)
+		}
+	case RMNRemote:
+		programData := rmn_remote.Config{}
+		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
+		if err != nil {
+			return fmt.Errorf("failed to get account data: %w", err)
+		}
+		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Owner); err != nil {
+			return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
+		}
 	default:
 		return fmt.Errorf("unsupported contract type: %s", contractType)
 	}
 	return nil
+}
+
+func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (router, routerConfigPDA solana.PublicKey, err error) {
+	if testRouter {
+		if s.TestRouter.IsZero() {
+			return solana.PublicKey{}, solana.PublicKey{}, errors.New("test router not found in existing state, deploy the test router first")
+		}
+		routerConfigPDA, _, err = solState.FindConfigPDA(s.TestRouter)
+		if err != nil {
+			return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
+		}
+		return s.TestRouter, routerConfigPDA, nil
+	}
+
+	if s.Router.IsZero() {
+		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
+	}
+	routerConfigPDA, _, err = solState.FindConfigPDA(s.Router)
+	if err != nil {
+		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
+	}
+	return s.Router, routerConfigPDA, nil
 }

@@ -10,7 +10,7 @@ import (
 	"sync"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/ethereum/go-ethereum/common"
+
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
@@ -33,7 +33,7 @@ type dualContractTransmitter struct {
 	contractABI         abi.ABI
 	dualTransmissionABI abi.ABI
 	transmitter         Transmitter
-	transmittedEventSig common.Hash
+	transmittedEventSig gethcommon.Hash
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
@@ -88,7 +88,7 @@ func NewOCRDualContractTransmitter(
 		opt(newContractTransmitter.transmitterOptions)
 	}
 
-	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []common.Hash{transmitted.ID}, Addresses: []common.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
+	err := lp.RegisterFilter(ctx, logpoller.Filter{Name: transmitterFilterName(address), EventSigs: []gethcommon.Hash{transmitted.ID}, Addresses: []gethcommon.Address{address}, Retention: newContractTransmitter.transmitterOptions.retention, MaxLogsKept: newContractTransmitter.transmitterOptions.maxLogsKept})
 	if err != nil {
 		return nil, err
 	}
@@ -206,6 +206,7 @@ func (oc *dualContractTransmitter) unlockPrimary(ctx context.Context) error {
 	oc.lggr.Debugf("Key %s has been unlocked for TXMv1", primaryAddress.String())
 	return nil
 }
+
 func (oc *dualContractTransmitter) unlockSecondary(ctx context.Context) error {
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
@@ -236,6 +237,7 @@ func (oc *dualContractTransmitter) lockPrimary(ctx context.Context) error {
 	oc.lggr.Debugf("Key %s has been locked for TXMv1", primaryAddress.String())
 	return nil
 }
+
 func (oc *dualContractTransmitter) lockSecondary(ctx context.Context) error {
 	secondaryAddress, err := oc.transmitter.SecondaryFromAddress(ctx)
 	if err != nil {
