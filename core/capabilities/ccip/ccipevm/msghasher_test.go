@@ -354,7 +354,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.Equal(t, rmnMsgHash, msgH.String(), "rmn hash and my hash should match")
 	})
 
-	t.Run("solana vector", func(t *testing.T) {
+	t.Run("solana", func(t *testing.T) {
 		key, err := solanago.NewRandomPrivateKey()
 		require.NoError(t, err)
 
@@ -373,6 +373,10 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		destExecData := make([]byte, 4)
 		binary.LittleEndian.PutUint32(destExecData, destGasAmount)
 
+		// evmExtraArgsV2Tag from SVM on-chain contract
+		// https://github.com/smartcontractkit/chainlink-ccip/blob/1b2ee24da54bddef8f3943dc84102686f2890f87/chains/solana/contracts/programs/ccip-router/src/extra_args.rs#L9
+		evmExtraArgsV2 := hexutil.MustDecode("0x181dcf10")
+
 		var (
 			// header fields
 			messageID           = mustBytes32FromString(t, "0xcdad95e113e35cf691295c1f42455d41062ba9a1b96a6280c1a5a678ef801721")
@@ -381,12 +385,12 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			sequenceNumber      = cciptypes.SeqNum(386)
 			nonce               = uint64(1)
 			// message fields
-			// sender is parsed unpadded since its emitted unpadded from EVM.
+			// sender is parsed unpadded since its emitted unpadded from SVM.
 			senderAddress = cciptypes.UnknownAddress(key.PublicKey().Bytes())
 			// onRampAddress is parsed padded because its set as a padded address in the offRamp
 			onRampAddress = key.PublicKey().Bytes()
 			dataField     = "0x"
-			// receiver address is parsed padded because its emitted as padded from EVM.
+			// receiver address is parsed padded because its emitted as padded from SVM.
 			receiverAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"))
 			feeTokenAmount  = big.NewInt(114310554250104)
 			feeValueJuels   = big.NewInt(16499514422603741)
@@ -394,7 +398,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				{
 					// parsed unpadded since its emitted unpadded from SVM.
 					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().Bytes()),
-					// parsed padded because its emitted padded from EVM.
+					// parsed padded because its emitted padded from SVM.
 					DestTokenAddress: cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000b8d6a6a41d5dd732aec3c438e91523b7613b963b")),
 					// extra data always abi-encoded
 					ExtraData: cciptypes.Bytes(hexutil.MustDecode("0x0000000000000000000000000000000000000000000000000000000000000012")),
@@ -403,7 +407,6 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 					DestExecData: destExecData,
 				},
 			}
-
 			msg = cciptypes.Message{
 				Header: cciptypes.RampMessageHeader{
 					MessageID:           messageID,
@@ -417,7 +420,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				Sender:         senderAddress,
 				Data:           hexutil.MustDecode(dataField),
 				Receiver:       receiverAddress,
-				ExtraArgs:      append(evmExtraArgsV2Tag, extraArgsbuf.Bytes()...),
+				ExtraArgs:      append(evmExtraArgsV2, extraArgsbuf.Bytes()...),
 				FeeToken:       key.PublicKey().Bytes(),
 				FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
 				FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),

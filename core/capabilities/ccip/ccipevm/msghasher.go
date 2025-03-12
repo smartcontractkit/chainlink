@@ -133,6 +133,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 			sourcePoolAddr = rta.SourcePoolAddress
 		}
 
+		lggr.Debugw("resolved token amount fields", "sourcePoolAddress", sourcePoolAddr, "destTokenAddress", destTokenAddress, "destGasAmount", destGasAmount)
 		rampTokenAmounts = append(rampTokenAmounts, message_hasher.InternalAny2EVMTokenTransfer{
 			SourcePoolAddress: sourcePoolAddr,
 			DestTokenAddress:  destTokenAddress,

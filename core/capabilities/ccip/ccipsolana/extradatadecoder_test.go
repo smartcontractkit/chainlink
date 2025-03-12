@@ -47,7 +47,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 		encoder := agbinary.NewBorshEncoder(&buf)
 		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
-		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(svmExtraArgsV1Tag, buf.Bytes()...))
+		output, err := extraDataDecoder.DecodeExtraArgsToMap(append(evmExtraArgsV1Tag, buf.Bytes()...))
 		require.NoError(t, err)
 		require.Len(t, output, 5)
 
