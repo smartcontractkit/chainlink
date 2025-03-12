@@ -13,7 +13,7 @@ import (
 // to different destinations.
 type ExtraDataDecoded struct {
 	// ExtraArgsDecoded contain message specific extra args.
-	ExtraArgsDecoded    map[string]any
+	ExtraArgsDecoded map[string]any
 	// DestExecDataDecoded contain token transfer specific extra args.
 	DestExecDataDecoded []map[string]any
 }

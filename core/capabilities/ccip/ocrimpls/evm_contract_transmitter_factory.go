@@ -10,9 +10,31 @@ import (
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
-// EVMContractTransmitterFactory implements ContractTransmitterFactory for EVM-based chains.
+// EVMCommitCallArgs defines the calldata structure for an EVM commit transaction.
+// IMPORTANT: The names and types of the fields are critical because the chainwriter uses mapstructure
+// to map these fields to the contract's parameter names. Changing these names or types (or omitting the
+// mapstructure tags) may result in transactions being constructed with incorrect arguments.
+type EVMCommitCallArgs struct {
+	ReportContext [2][32]byte `mapstructure:"ReportContext"`
+	Report        []byte      `mapstructure:"Report"`
+	Rs            [][32]byte  `mapstructure:"Rs"`
+	Ss            [][32]byte  `mapstructure:"Ss"`
+	RawVs         [32]byte    `mapstructure:"RawVs"`
+}
+
+// EVMExecCallArgs defines the calldata structure for an EVM execute transaction.
+// IMPORTANT: The names and types of the fields are critical because the chainwriter uses mapstructure
+// to map these fields to the contract's parameter names. Changing these names or types (or omitting the
+// mapstructure tags) may result in transactions being constructed with incorrect arguments.
+type EVMExecCallArgs struct {
+	ReportContext [2][32]byte `mapstructure:"ReportContext"`
+	Report        []byte      `mapstructure:"Report"`
+}
+
+// EVMContractTransmitterFactory implements the transmitter factory for EVM chains.
 type EVMContractTransmitterFactory struct{}
 
+// EVMExecCallDataFunc builds the execute call data for EVM.
 var EVMExecCallDataFunc = func(
 	rawReportCtx [2][32]byte,
 	report ocr3types.ReportWithInfo[[]byte],
@@ -20,25 +42,16 @@ var EVMExecCallDataFunc = func(
 	_ [32]byte,
 	_ ccipcommon.ExtraDataCodec,
 ) (contract string, method string, args any, err error) {
-	// Note that the name of the struct field is very important, since the encoder used
-	// by the chainwriter uses mapstructure, which will use the struct field name to map
-	// to the argument name in the function call.
-	// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
-	// for that field.
-
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
-		struct {
-			ReportContext [2][32]byte
-			Report        []byte
-		}{
+		EVMExecCallArgs{
 			ReportContext: rawReportCtx,
 			Report:        report.Report,
 		}, nil
 }
 
-// EVMCommitCalldataFunc returns a ToCalldataFunc that omits the Info object for EVM.
-func NewEVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
+// NewEVMCommitCalldataFunc returns a ToCalldataFunc for EVM commits that omits any Info object.
+func NewEVMCommitCalldataFunc(commitMethod string) ToCalldataFunc {
 	return func(
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
@@ -46,20 +59,9 @@ func NewEVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
 		vs [32]byte,
 		_ ccipcommon.ExtraDataCodec,
 	) (string, string, any, error) {
-		// Note that the name of the struct field is very important, since the encoder used
-		// by the chainwriter uses mapstructure, which will use the struct field name to map
-		// to the argument name in the function call.
-		// If, for whatever reason, we want to change the field name, make sure to add a `mapstructure:"<arg_name>"` tag
-		// for that field.
 		return consts.ContractNameOffRamp,
-			defaultMethod,
-			struct {
-				ReportContext [2][32]byte
-				Report        []byte
-				Rs            [][32]byte
-				Ss            [][32]byte
-				RawVs         [32]byte
-			}{
+			commitMethod,
+			EVMCommitCallArgs{
 				ReportContext: rawReportCtx,
 				Report:        report.Report,
 				Rs:            rs,
@@ -70,20 +72,22 @@ func NewEVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
 	}
 }
 
+// NewCommitTransmitter constructs an EVM commit transmitter.
 func (f *EVMContractTransmitterFactory) NewCommitTransmitter(
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,
 	offrampAddress string,
-	defaultMethod, _ string,
+	commitMethod, _ string, // priceOnlyMethod is ignored for EVM
 ) ocr3types.ContractTransmitter[[]byte] {
 	return &ccipTransmitter{
 		cw:             cw,
 		fromAccount:    fromAccount,
 		offrampAddress: offrampAddress,
-		toCalldataFn:   EVMCommitCalldataFunc(defaultMethod),
+		toCalldataFn:   NewEVMCommitCalldataFunc(commitMethod),
 	}
 }
 
+// NewExecTransmitter constructs an EVM execute transmitter.
 func (f *EVMContractTransmitterFactory) NewExecTransmitter(
 	cw types.ContractWriter,
 	fromAccount ocrtypes.Account,

@@ -13,8 +13,9 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // ToCalldataFunc is a function that takes in the OCR3 report and signature data and processes them.
@@ -115,8 +116,10 @@ func (c *ccipTransmitter) Transmit(
 		return fmt.Errorf("failed to generate UUID: %w", err)
 	}
 	zero := big.NewInt(0)
-	if err := c.cw.SubmitTransaction(ctx, contract, method, args, fmt.Sprintf("%s-%s-%s", contract, c.offrampAddress, txID.String()), c.offrampAddress, &meta, zero); err != nil {
-		return fmt.Errorf("failed to submit transaction thru chainwriter: %w", err)
+	if err := c.cw.SubmitTransaction(ctx, contract, method, args,
+		fmt.Sprintf("%s-%s-%s", contract, c.offrampAddress, txID.String()),
+		c.offrampAddress, &meta, zero); err != nil {
+		return fmt.Errorf("failed to submit transaction via chain writer: %w", err)
 	}
 
 	return nil
