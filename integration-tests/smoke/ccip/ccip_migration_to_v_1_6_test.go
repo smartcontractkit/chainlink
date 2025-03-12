@@ -96,9 +96,46 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	require.NoError(t, err)
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.Chains[chain]; ok {
+			evmChains = append(evmChains, chain)
+		}
+	}
+	for _, chain := range evmChains {
+		evmContractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
+		}
+	}
+	var apps []commonchangeset.ConfiguredChangeSet
+	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: evmContractParams,
+			},
+		),
+	}...)
 	// reload state after adding lanes
-
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
 	_, err = deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset).Apply(e.Env,
@@ -185,7 +222,46 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	require.NoError(t, err)
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.Chains[chain]; ok {
+			evmChains = append(evmChains, chain)
+		}
+	}
+	for _, chain := range evmChains {
+		evmContractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
+		}
+	}
+	var apps []commonchangeset.ConfiguredChangeSet
+	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: evmContractParams,
+			},
+		),
+	}...)
+	// reload state after adding lanes
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	require.NoError(t, err)
 
 	// reload state after adding lanes
 	tEnv.UpdateDeployedEnvironment(e)
@@ -281,7 +357,45 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	require.NoError(t, err)
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	e = testhelpers.AddCCIPContractsToEnvironment(t, e.Env.AllChainSelectors(), tEnv, false)
+	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
+	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
+	evmChains := []uint64{}
+	for _, chain := range allChains {
+		if _, ok := e.Env.Chains[chain]; ok {
+			evmChains = append(evmChains, chain)
+		}
+	}
+	for _, chain := range evmChains {
+		evmContractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
+		}
+	}
+	var apps []commonchangeset.ConfiguredChangeSet
+	apps = append(apps, []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:     e.HomeChainSel,
+				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+				NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+					testhelpers.TestNodeOperator: envNodes.NonBootstraps().PeerIDs(),
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
+				HomeChainSelector:      e.HomeChainSel,
+				ContractParamsPerChain: evmContractParams,
+			},
+		),
+	}...)
+	e.Env, err = commonchangeset.ApplyChangesets(t, e.Env, nil, apps)
+	require.NoError(t, err)
 	// reload state after adding lanes
 
 	state, err = changeset.LoadOnchainState(e.Env)

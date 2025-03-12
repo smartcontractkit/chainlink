@@ -77,13 +77,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		extraDataDecodedMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 
 		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
+		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodedMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}

@@ -102,7 +102,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
 		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
 	}
-	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
+	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 
 	// Add auth header after logging config
 	if m.cfgTelemetry != nil {
