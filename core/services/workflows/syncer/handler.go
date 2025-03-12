@@ -475,16 +475,17 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// Always fetch secrets from the SecretsURL
 	var secrets []byte
 	if payload.SecretsURL != "" {
-		secrets, err = h.fetchFn(ctx, payload.SecretsURL, safeUint32(h.limits.MaxSecretsSize))
-		if err != nil {
+		fetchedSecrets, fetchErr := h.fetchFn(ctx, payload.SecretsURL, safeUint32(h.limits.MaxSecretsSize))
+		if fetchErr != nil {
 			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, err)
 		}
 
 		// sanity check by decoding the secrets
-		_, err := h.decryptSecrets(secrets, string(payload.WorkflowOwner))
-		if err != nil {
+		_, decryptErr := h.decryptSecrets(secrets, string(payload.WorkflowOwner))
+		if decryptErr != nil {
 			return fmt.Errorf("failed to decrypt secrets %s: %w", payload.SecretsURL, err)
 		}
+		secrets = fetchedSecrets
 	}
 
 	// Calculate the hash of the binary and config files
