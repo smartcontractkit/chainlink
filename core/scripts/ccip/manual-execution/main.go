@@ -255,7 +255,8 @@ func (args *execArgs) execute() error {
 		if event.Message.SequenceNumber <= commitReport.Interval.Max &&
 			event.Message.SequenceNumber >= commitReport.Interval.Min {
 			log.Println("Found seq num in commit report", event.Message.SequenceNumber, commitReport.Interval)
-			hash, err := leafHasher.HashLeaf(sendRequestedIterator.Raw)
+			var hash [32]byte
+			hash, err = leafHasher.HashLeaf(sendRequestedIterator.Raw)
 			if err != nil {
 				return err
 			}
