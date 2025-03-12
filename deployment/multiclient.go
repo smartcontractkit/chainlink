@@ -22,8 +22,8 @@ const (
 	RPC_DEFAULT_RETRY_DELAY    = 1000 * time.Millisecond
 
 	// Default retry configuration for dialing RPC endpoints
-	RPC_DEFAULT_DIAL_RETRY_ATTEMPTS = 10
-	RPC_DEFAULT_DIAL_RETRY_DELAY    = 1000 * time.Millisecond
+	RPCDefaultDialRetryAttempts = 10
+	RPCDefaultDialRetryDelay    = 1000 * time.Millisecond
 )
 
 type RetryConfig struct {
@@ -217,7 +217,7 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 			return err
 		}
 		return nil
-	}, retry.Attempts(RPC_DEFAULT_DIAL_RETRY_ATTEMPTS), retry.Delay(RPC_DEFAULT_DIAL_RETRY_DELAY))
+	}, retry.Attempts(RPCDefaultDialRetryAttempts), retry.Delay(RPCDefaultDialRetryDelay))
 
 	if err == nil {
 		return client, nil

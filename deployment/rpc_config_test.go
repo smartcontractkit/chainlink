@@ -3,7 +3,7 @@ package deployment
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestRPC_ToEndpoint(t *testing.T) {
@@ -66,14 +66,13 @@ func TestRPC_ToEndpoint(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-
 			got, err := tt.rpc.ToEndpoint()
 
 			if tt.wantErr != "" {
-				assert.EqualError(t, err, tt.wantErr)
+				require.EqualError(t, err, tt.wantErr)
 			} else {
-				assert.NoError(t, err)
-				assert.Equal(t, tt.expected, got)
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, got)
 			}
 		})
 	}
