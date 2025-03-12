@@ -7,8 +7,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-// GeneratedTx represents a transaction that was generated but not sent to the chain. Can extend to include metadata.
-type GeneratedTx struct {
+// PreparedTx represents a transaction that was prepared but not sent to the chain. This is intended to be
+// either executed directly or bundled into an MCMS operation
+type PreparedTx struct {
 	Tx                 *gethtypes.Transaction
 	ChainSelector      uint64
 	DestinationAddress string
@@ -16,16 +17,16 @@ type GeneratedTx struct {
 	Tags               []string
 }
 
-type TxExecuteResult struct {
-	Tx          GeneratedTx
+type ExecuteTxResult struct {
+	Tx          PreparedTx
 	BlockNumber uint64
 }
 
 // ExecuteTransactions executes transactions directly on the chain with the given deployer address
 // the transactions should not be already sent to the chain
-func ExecuteTransactions(e deployment.Environment, generatedTxs []GeneratedTx) ([]TxExecuteResult, error) {
-	var txExecuteResults []TxExecuteResult
-	for _, tx := range generatedTxs {
+func ExecuteTransactions(e deployment.Environment, preparedTxs []PreparedTx) ([]ExecuteTxResult, error) {
+	var executeTxResults []ExecuteTxResult
+	for _, tx := range preparedTxs {
 		chain := e.Chains[tx.ChainSelector]
 		err := chain.Client.SendTransaction(context.Background(), tx.Tx)
 		if err != nil {
@@ -35,8 +36,8 @@ func ExecuteTransactions(e deployment.Environment, generatedTxs []GeneratedTx) (
 		if err != nil {
 			return nil, err
 		}
-		txExecuteResults = append(txExecuteResults, TxExecuteResult{Tx: tx, BlockNumber: blockNumber})
+		executeTxResults = append(executeTxResults, ExecuteTxResult{Tx: tx, BlockNumber: blockNumber})
 	}
 
-	return txExecuteResults, nil
+	return executeTxResults, nil
 }
