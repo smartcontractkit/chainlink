@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"golang.org/x/sync/errgroup"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -258,54 +260,74 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 		}
 		chainView.TokenAdminRegistry[c.TokenAdminRegistry.Address().Hex()] = taView
 	}
+	tpUpdateGrp := errgroup.Group{}
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
-			}
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
-				TokenPoolView: tokenPoolView,
+			tpUpdateGrp.Go(func() error {
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				return nil
 			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
-			}
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
-				TokenPoolView: tokenPoolView,
+			tpUpdateGrp.Go(func() error {
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				return nil
 			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
-			}
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
-				TokenPoolView: tokenPoolView,
+			tpUpdateGrp.Go(func() error {
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), viewv1_5_1.PoolView{
+					TokenPoolView: tokenPoolView,
+				})
+				return nil
 			})
 		}
 	}
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
-			tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
-			if err != nil {
-				return chainView, errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
-			}
-			chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
+			tpUpdateGrp.Go(func() error {
+				tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+				if err != nil {
+					return errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
+				}
+				chainView.UpdateTokenPool(tokenSymbol.String(), tokenPool.Address().Hex(), tokenPoolView)
+				return nil
+			})
 		}
 	}
 	for _, pool := range c.USDCTokenPools {
-		tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(pool)
-		if err != nil {
-			return chainView, errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
-		}
-		chainView.TokenPools = helpers.AddValueToNestedMap(chainView.TokenPools, string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
+		tpUpdateGrp.Go(func() error {
+			tokenPoolView, err := viewv1_5_1.GenerateUSDCTokenPoolView(pool)
+			if err != nil {
+				return errors.Wrapf(err, "failed to generate USDC token pool view for %s", pool.Address().String())
+			}
+			chainView.UpdateTokenPool(string(USDCSymbol), pool.Address().Hex(), tokenPoolView)
+			return nil
+		})
+	}
+	// wait for all pool updates to finish to ensure we are not rate limited by rpc end point by a lot of concurrent calls for other contract queries
+	if err := tpUpdateGrp.Wait(); err != nil {
+		return chainView, err
 	}
 	if c.NonceManager != nil {
 		nmView, err := viewv1_6.GenerateNonceManagerView(c.NonceManager)
@@ -564,32 +586,42 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 
 func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
 	m := make(map[string]view.ChainView)
+	mu := sync.Mutex{}
+	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
-		chainInfo, err := deployment.ChainInfo(chainSelector)
-		if err != nil {
-			return m, err
-		}
-		if _, ok := s.Chains[chainSelector]; !ok {
-			return m, fmt.Errorf("chain not supported %d", chainSelector)
-		}
-		chainState := s.Chains[chainSelector]
-		chainView, err := chainState.GenerateView()
-		if err != nil {
-			return m, err
-		}
-		name := chainInfo.ChainName
-		if chainInfo.ChainName == "" {
-			name = strconv.FormatUint(chainSelector, 10)
-		}
-		chainView.ChainSelector = chainSelector
-		id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
-		if err != nil {
-			return nil, fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
-		}
-		chainView.ChainID = id
-		m[name] = chainView
+		var name string
+		var chainView view.ChainView
+		chainSelector := chainSelector
+		grp.Go(func() error {
+			chainInfo, err := deployment.ChainInfo(chainSelector)
+			if err != nil {
+				return err
+			}
+			if _, ok := s.Chains[chainSelector]; !ok {
+				return fmt.Errorf("chain not supported %d", chainSelector)
+			}
+			chainState := s.Chains[chainSelector]
+			chainView, err = chainState.GenerateView()
+			if err != nil {
+				return err
+			}
+			name = chainInfo.ChainName
+			if chainInfo.ChainName == "" {
+				name = strconv.FormatUint(chainSelector, 10)
+			}
+			chainView.ChainSelector = chainSelector
+			id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
+			if err != nil {
+				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
+			}
+			chainView.ChainID = id
+			mu.Lock()
+			m[name] = chainView
+			mu.Unlock()
+			return nil
+		})
 	}
-	return m, nil
+	return m, grp.Wait()
 }
 
 func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
