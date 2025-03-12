@@ -4,6 +4,7 @@ import (
 	"context"
 
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
