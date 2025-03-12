@@ -45,8 +45,9 @@ type ServerRequest struct {
 	method           string
 	requestTimeout   time.Duration
 
-	mux  sync.Mutex
-	lggr logger.Logger
+	mux         sync.Mutex
+	lggr        logger.Logger
+	isDecorated bool
 }
 
 var errExternalErrorMsg = errors.New("failed to execute capability")
@@ -89,11 +90,13 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 		return fmt.Errorf("failed to add requester to request: %w", err)
 	}
 
-	e.lggr.Debugw("OnMessage called for request", "msgId", msg.MessageId, "calls", len(e.requesters), "hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
+	e.decorate("messageId", msg.MessageId)
+
+	e.lggr.Debugw("OnMessage called for request", "calls", len(e.requesters), "hasResponse", e.response != nil, "requester", requester.String(), "minRequsters", e.callingDon.F+1)
 	if e.minimumRequiredRequestsReceived() && !e.hasResponse() {
 		switch e.method {
 		case types.MethodExecute:
-			e.executeRequest(ctx, msg.Payload, executeCapabilityRequest)
+			e.executeRequest(ctx, msg, executeCapabilityRequest(e.lggr))
 		default:
 			e.setError(types.Error_INTERNAL_ERROR, "unknown method %s"+e.method)
 		}
@@ -104,6 +107,14 @@ func (e *ServerRequest) OnMessage(ctx context.Context, msg *types.MessageBody) e
 	}
 
 	return nil
+}
+
+// decorate adds some values once to the logger.  caller should have lock.
+func (e *ServerRequest) decorate(args ...any) {
+	if !e.isDecorated {
+		e.lggr = e.lggr.With(args...)
+		e.isDecorated = true
+	}
 }
 
 func (e *ServerRequest) Expired() bool {
@@ -124,12 +135,13 @@ func (e *ServerRequest) Cancel(err types.Error, msg string) error {
 	return nil
 }
 
-func (e *ServerRequest) executeRequest(ctx context.Context, payload []byte, method func(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability,
-	payload []byte) ([]byte, error)) {
+type executeFn func(ctx context.Context, capability capabilities.ExecutableCapability, payload []byte) ([]byte, error)
+
+func (e *ServerRequest) executeRequest(ctx context.Context, msg *types.MessageBody, method executeFn) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, e.requestTimeout)
 	defer cancel()
 
-	responsePayload, err := method(ctxWithTimeout, e.lggr, e.capability, payload)
+	responsePayload, err := method(ctxWithTimeout, e.capability, msg.Payload)
 	if err != nil {
 		e.setError(types.Error_INTERNAL_ERROR, err.Error())
 	} else {
@@ -164,12 +176,14 @@ func (e *ServerRequest) minimumRequiredRequestsReceived() bool {
 }
 
 func (e *ServerRequest) setResult(result []byte) {
+	e.lggr.Debug("setting result on request")
 	e.response = &response{
 		response: result,
 	}
 }
 
 func (e *ServerRequest) setError(err types.Error, errMsg string) {
+	e.lggr.Debugw("setting error on request", "type", err, "error", errMsg)
 	e.response = &response{
 		error:    err,
 		errorMsg: errMsg,
@@ -213,7 +227,7 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 		responseMsg.Payload = e.response.response
 	}
 
-	e.lggr.Debugw("Sending response", "receiver", requester, "msgId", e.requestMessageID)
+	e.lggr.Debugw("Sending response", "receiver", requester)
 	if err := e.dispatcher.Send(requester, &responseMsg); err != nil {
 		return fmt.Errorf("failed to send response to dispatcher: %w", err)
 	}
@@ -223,28 +237,31 @@ func (e *ServerRequest) sendResponse(requester p2ptypes.PeerID) error {
 	return nil
 }
 
-func executeCapabilityRequest(ctx context.Context, lggr logger.Logger, capability capabilities.ExecutableCapability,
-	payload []byte) ([]byte, error) {
-	capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
-	if err != nil {
-		lggr.Errorw("failed to unmarshal capability request", "err", err)
-		return nil, errExternalErrorMsg
+func executeCapabilityRequest(lggr logger.Logger) executeFn {
+	return func(ctx context.Context, capability commoncap.ExecutableCapability, payload []byte) ([]byte, error) {
+		capabilityRequest, err := pb.UnmarshalCapabilityRequest(payload)
+		if err != nil {
+			lggr.Errorw("failed to unmarshal capability request", "err", err)
+			return nil, errExternalErrorMsg
+		}
+
+		lggr = lggr.With("metadata", capabilityRequest.Metadata)
+
+		lggr.Debugw("executing capability")
+		capResponse, err := capability.Execute(ctx, capabilityRequest)
+
+		if err != nil {
+			lggr.Errorw("received execution error", "error", err)
+			return nil, errExternalErrorMsg
+		}
+
+		responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
+		if err != nil {
+			lggr.Errorw("failed to marshal capability request", "err", err)
+			return nil, errExternalErrorMsg
+		}
+
+		lggr.Debug("received execution results")
+		return responsePayload, nil
 	}
-
-	lggr.Debugw("executing capability", "metadata", capabilityRequest.Metadata)
-	capResponse, err := capability.Execute(ctx, capabilityRequest)
-
-	if err != nil {
-		lggr.Errorw("received execution error", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID, "error", err)
-		return nil, errExternalErrorMsg
-	}
-
-	responsePayload, err := pb.MarshalCapabilityResponse(capResponse)
-	if err != nil {
-		lggr.Errorw("failed to marshal capability request", "err", err)
-		return nil, errExternalErrorMsg
-	}
-
-	lggr.Debugw("received execution results", "workflowExecutionID", capabilityRequest.Metadata.WorkflowExecutionID)
-	return responsePayload, nil
 }
