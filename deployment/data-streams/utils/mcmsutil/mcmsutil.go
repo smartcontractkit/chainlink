@@ -2,7 +2,6 @@ package mcmsutil
 
 import (
 	"fmt"
-	"math/big"
 	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -44,7 +43,7 @@ func CreateMCMSProposal(e deployment.Environment, generatedTxs []txutil.Generate
 			tx.ChainSelector,
 			tx.DestinationAddress,
 			tx.Tx.Data(),
-			big.NewInt(0),
+			tx.Tx.Value(),
 			tx.ContractType,
 			[]string{},
 		)
