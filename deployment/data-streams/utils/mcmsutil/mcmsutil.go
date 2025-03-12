@@ -45,7 +45,7 @@ func CreateMCMSProposal(e deployment.Environment, generatedTxs []txutil.Generate
 			tx.Tx.Data(),
 			tx.Tx.Value(),
 			tx.ContractType,
-			[]string{},
+			tx.Tags,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create batch operation: %w", err)

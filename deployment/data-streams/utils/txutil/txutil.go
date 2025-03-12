@@ -13,6 +13,7 @@ type GeneratedTx struct {
 	ChainSelector      uint64
 	DestinationAddress string
 	ContractType       string
+	Tags               []string
 }
 
 type TxExecuteResult struct {
