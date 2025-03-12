@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -13,7 +15,11 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/ethclient"
+	"github.com/gagliardetto/solana-go"
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -22,6 +28,7 @@ import (
 
 const (
 	EVMChainType = "EVM"
+	SolChainType = "SOLANA"
 )
 
 type CribRPCs struct {
@@ -37,6 +44,7 @@ type ChainConfig struct {
 	PreferredURLScheme deployment.URLSchemePreference // preferred url scheme for the chain
 	WSRPCs             []CribRPCs                     // websocket rpcs to connect to the chain
 	HTTPRPCs           []CribRPCs                     // http rpcs to connect to the chain
+	SolDeployerKey solana.PrivateKey
 	DeployerKey        *bind.TransactOpts             // key to deploy and configure contracts on the chain
 	Users              []*bind.TransactOpts           // map of addresses to their transact opts to interact with the chain as users
 }
@@ -56,7 +64,11 @@ func (c *ChainConfig) SetUsers(pvtkeys []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
+		chainId, success := new(big.Int).SetString(c.ChainID, 10)
+		if !success {
+			return fmt.Errorf("invalid chainId %s", c.ChainID)
+		}
+		user, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainId)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -72,7 +84,12 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		if err != nil {
 			return fmt.Errorf("failed to convert private key to ECDSA: %w", err)
 		}
-		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, new(big.Int).SetUint64(c.ChainID))
+		chainId, success := new(big.Int).SetString(c.ChainID, 10)
+		if !success {
+			return fmt.Errorf("invalid chainId %s", c.ChainID)
+		}
+
+		deployer, err := bind.NewKeyedTransactorWithChainID(pvtKey, chainId)
 		if err != nil {
 			return fmt.Errorf("failed to create transactor: %w", err)
 		}
@@ -88,7 +105,11 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 		return fmt.Errorf("failed to create KMS client: %w", err)
 	}
 	evmKMSClient := deployment.NewEVMKMSClient(kmsClient, kmsConfig.KmsDeployerKeyId)
-	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), new(big.Int).SetUint64(c.ChainID))
+	chainId, success := new(big.Int).SetString(c.ChainID, 10)
+	if !success {
+		return fmt.Errorf("invalid chainId %s", c.ChainID)
+	}
+	c.DeployerKey, err = evmKMSClient.GetKMSTransactOpts(context.Background(), chainId)
 	if err != nil {
 		return fmt.Errorf("failed to get transactor from KMS client: %w", err)
 	}
@@ -116,9 +137,9 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	for _, chainCfg := range configs {
 		chainCfg := chainCfg
 		g.Go(func() error {
-			selector, err := chainselectors.SelectorFromChainId(chainCfg.ChainID)
+			chainDetails, err := chainselectors.GetChainDetailsByChainIDAndFamily(chainCfg.ChainID, strings.ToLower(chainCfg.ChainType))
 			if err != nil {
-				return fmt.Errorf("failed to get selector from chain id %d: %w", chainCfg.ChainID, err)
+				return fmt.Errorf("failed to get selector from chain id %s: %w", chainCfg.ChainID, err)
 			}
 
 			rpcConf := deployment.RPCConfig{
@@ -147,30 +168,94 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 					defer cancel()
 					receipt, err := bind.WaitMined(ctx, ec, tx)
 					if err != nil {
-						return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, err)
+						logger.Warnf("failed to dial ws rpc %s: %s", rpc, err)
+						continue
 					}
-					if receipt == nil {
-						return blockNumber, fmt.Errorf("receipt was nil for tx %s chain %s", tx.Hash().Hex(), chainInfo.ChainName)
-					}
-					blockNumber = receipt.BlockNumber.Uint64()
-					if receipt.Status == 0 {
-						errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
-						if err == nil && errReason != "" {
-							return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
+					logger.Infof("connected to ws rpc %s", rpc)
+					break
+				}
+				if ec == nil {
+					return fmt.Errorf("failed to connect to chain %s", chainCfg.ChainName)
+				}
+				chainInfo, err := deployment.ChainInfo(chainDetails.ChainSelector)
+				if err != nil {
+					return fmt.Errorf("failed to get chain info for chain %s: %w", chainCfg.ChainName, err)
+				}
+				evmSyncMap.Store(chainDetails.ChainSelector, deployment.Chain{
+					Selector:    chainDetails.ChainSelector,
+					Client:      ec,
+					DeployerKey: chainCfg.DeployerKey,
+					Confirm: func(tx *types.Transaction) (uint64, error) {
+						var blockNumber uint64
+						if tx == nil {
+							return 0, fmt.Errorf("tx was nil, nothing to confirm chain %s", chainInfo.ChainName)
 						}
-						return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
-					}
-					return blockNumber, nil
-				},
-			})
-			return nil
+						ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+						defer cancel()
+						receipt, err := bind.WaitMined(ctx, ec, tx)
+						if err != nil {
+							return blockNumber, fmt.Errorf("failed to get confirmed receipt for chain %s: %w", chainInfo.ChainName, err)
+						}
+						if receipt == nil {
+							return blockNumber, fmt.Errorf("receipt was nil for tx %s chain %s", tx.Hash().Hex(), chainInfo.ChainName)
+						}
+						blockNumber = receipt.BlockNumber.Uint64()
+						if receipt.Status == 0 {
+							errReason, err := deployment.GetErrorReasonFromTx(ec, chainCfg.DeployerKey.From, tx, receipt)
+							if err == nil && errReason != "" {
+								return blockNumber, fmt.Errorf("tx %s reverted,error reason: %s chain %s", tx.Hash().Hex(), errReason, chainInfo.ChainName)
+							}
+							return blockNumber, fmt.Errorf("tx %s reverted, could not decode error reason chain %s", tx.Hash().Hex(), chainInfo.ChainName)
+						}
+						return blockNumber, nil
+					},
+				})
+				return nil
+			}
+
+			if chainCfg.ChainType == SolChainType {
+				logger.Info("Creating solana programs tmp dir")
+				programsPath, err := os.MkdirTemp("", "solana-programs")
+				logger.Infof("Solana programs tmp dir at %s", programsPath)
+				if err != nil {
+					return err
+				}
+				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
+				solSyncMap.Store(chainDetails.ChainSelector, deployment.SolChain{
+					Selector:    chainDetails.ChainSelector,
+					Client:      sc,
+					DeployerKey: &chainCfg.SolDeployerKey,
+					URL:         chainCfg.HTTPRPCs[0].External,
+					WSURL:       chainCfg.WSRPCs[0].External,
+					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
+						_, err := solCommonUtil.SendAndConfirm(
+							context.Background(), sc, instructions, chainCfg.SolDeployerKey, solRpc.CommitmentConfirmed, opts...,
+						)
+						if err != nil {
+							panic(err)
+						}
+						return nil
+					},
+					ProgramsPath: programsPath,
+				})
+
+				return nil
+			}
+
+			return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 		})
 	}
 	err := g.Wait()
 
-	syncMap.Range(func(sel, value interface{}) bool {
-		chains[sel.(uint64)] = value.(deployment.Chain)
+	evmSyncMap.Range(func(sel, value interface{}) bool {
+		evmChains[sel.(uint64)] = value.(deployment.Chain)
 		return true
 	})
-	return chains, err
+
+	solSyncMap.Range(func(sel, value interface{}) bool {
+		solChains[sel.(uint64)] = value.(deployment.SolChain)
+		return true
+	})
+
+	return evmChains, solChains, err
 }
