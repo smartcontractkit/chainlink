@@ -1,0 +1,71 @@
+package mcmsutil
+
+import (
+	"fmt"
+	"math/big"
+	"time"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+)
+
+// CreateMCMSProposal creates a new MCMS proposal with the given generated transactions.
+func CreateMCMSProposal(e deployment.Environment, generatedTxs []txutil.GeneratedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
+	var chainSelectors []uint64
+	for _, tx := range generatedTxs {
+		chainSelectors = append(chainSelectors, tx.ChainSelector)
+	}
+	mcmsStatePerChain, err := commonchangeset.MaybeLoadMCMSWithTimelockState(e, chainSelectors)
+	if err != nil {
+		return nil, err
+	}
+	inspectors, err := proposalutils.McmsInspectors(e)
+	if err != nil {
+		return nil, err
+	}
+
+	// Get MCMS state for each chain
+	timelockAddressesPerChain := map[uint64]string{}
+	proposerMcmsPerChain := map[uint64]string{}
+	for _, chainSelector := range chainSelectors {
+		state := mcmsStatePerChain[chainSelector]
+		timelockAddressesPerChain[chainSelector] = state.Timelock.Address().Hex()
+		proposerMcmsPerChain[chainSelector] = state.ProposerMcm.Address().Hex()
+	}
+
+	// Create batch operations from generated transactions
+	var batches []mcmstypes.BatchOperation
+	for _, tx := range generatedTxs {
+		batchOp, err := proposalutils.BatchOperationForChain(
+			tx.ChainSelector,
+			tx.DestinationAddress,
+			tx.Tx.Data(),
+			big.NewInt(0),
+			tx.ContractType,
+			[]string{},
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create batch operation: %w", err)
+		}
+		batches = append(batches, batchOp)
+	}
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelockAddressesPerChain,
+		proposerMcmsPerChain,
+		inspectors,
+		batches,
+		proposalName,
+		mcmsMinDelay,
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	return proposal, nil
+}
