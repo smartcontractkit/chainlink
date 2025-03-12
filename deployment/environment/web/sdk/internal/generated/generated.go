@@ -277,6 +277,178 @@ func (v *ApproveJobProposalSpecResponse) __premarshalJSON() (*__premarshalApprov
 	return &retval, nil
 }
 
+// BlockHeaderFeederSpec includes the GraphQL fields of BlockHeaderFeederSpec requested by the fragment BlockHeaderFeederSpec.
+type BlockHeaderFeederSpec struct {
+	CoordinatorV1Address       string   `json:"coordinatorV1Address"`
+	CoordinatorV2Address       string   `json:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress   string   `json:"coordinatorV2PlusAddress"`
+	WaitBlocks                 int      `json:"waitBlocks"`
+	LookbackBlocks             int      `json:"lookbackBlocks"`
+	BlockhashStoreAddress      string   `json:"blockhashStoreAddress"`
+	BatchBlockhashStoreAddress string   `json:"batchBlockhashStoreAddress"`
+	PollPeriod                 string   `json:"pollPeriod"`
+	RunTimeout                 string   `json:"runTimeout"`
+	EvmChainID                 string   `json:"evmChainID"`
+	GetBlockhashesBatchSize    int      `json:"getBlockhashesBatchSize"`
+	StoreBlockhashesBatchSize  int      `json:"storeBlockhashesBatchSize"`
+	FromAddresses              []string `json:"fromAddresses"`
+	CreatedAt                  string   `json:"createdAt"`
+}
+
+// GetCoordinatorV1Address returns BlockHeaderFeederSpec.CoordinatorV1Address, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetCoordinatorV1Address() string { return v.CoordinatorV1Address }
+
+// GetCoordinatorV2Address returns BlockHeaderFeederSpec.CoordinatorV2Address, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetCoordinatorV2Address() string { return v.CoordinatorV2Address }
+
+// GetCoordinatorV2PlusAddress returns BlockHeaderFeederSpec.CoordinatorV2PlusAddress, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetCoordinatorV2PlusAddress() string {
+	return v.CoordinatorV2PlusAddress
+}
+
+// GetWaitBlocks returns BlockHeaderFeederSpec.WaitBlocks, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetWaitBlocks() int { return v.WaitBlocks }
+
+// GetLookbackBlocks returns BlockHeaderFeederSpec.LookbackBlocks, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetLookbackBlocks() int { return v.LookbackBlocks }
+
+// GetBlockhashStoreAddress returns BlockHeaderFeederSpec.BlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetBlockhashStoreAddress() string { return v.BlockhashStoreAddress }
+
+// GetBatchBlockhashStoreAddress returns BlockHeaderFeederSpec.BatchBlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetBatchBlockhashStoreAddress() string {
+	return v.BatchBlockhashStoreAddress
+}
+
+// GetPollPeriod returns BlockHeaderFeederSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetPollPeriod() string { return v.PollPeriod }
+
+// GetRunTimeout returns BlockHeaderFeederSpec.RunTimeout, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetRunTimeout() string { return v.RunTimeout }
+
+// GetEvmChainID returns BlockHeaderFeederSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetGetBlockhashesBatchSize returns BlockHeaderFeederSpec.GetBlockhashesBatchSize, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetGetBlockhashesBatchSize() int { return v.GetBlockhashesBatchSize }
+
+// GetStoreBlockhashesBatchSize returns BlockHeaderFeederSpec.StoreBlockhashesBatchSize, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetStoreBlockhashesBatchSize() int {
+	return v.StoreBlockhashesBatchSize
+}
+
+// GetFromAddresses returns BlockHeaderFeederSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetFromAddresses() []string { return v.FromAddresses }
+
+// GetCreatedAt returns BlockHeaderFeederSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *BlockHeaderFeederSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// BlockhashStoreSpec includes the GraphQL fields of BlockhashStoreSpec requested by the fragment BlockhashStoreSpec.
+type BlockhashStoreSpec struct {
+	CoordinatorV1Address           string   `json:"coordinatorV1Address"`
+	CoordinatorV2Address           string   `json:"coordinatorV2Address"`
+	CoordinatorV2PlusAddress       string   `json:"coordinatorV2PlusAddress"`
+	WaitBlocks                     int      `json:"waitBlocks"`
+	LookbackBlocks                 int      `json:"lookbackBlocks"`
+	BlockhashStoreAddress          string   `json:"blockhashStoreAddress"`
+	TrustedBlockhashStoreAddress   string   `json:"trustedBlockhashStoreAddress"`
+	TrustedBlockhashStoreBatchSize int      `json:"trustedBlockhashStoreBatchSize"`
+	HeartbeatPeriod                string   `json:"heartbeatPeriod"`
+	PollPeriod                     string   `json:"pollPeriod"`
+	RunTimeout                     string   `json:"runTimeout"`
+	EvmChainID                     string   `json:"evmChainID"`
+	FromAddresses                  []string `json:"fromAddresses"`
+	CreatedAt                      string   `json:"createdAt"`
+}
+
+// GetCoordinatorV1Address returns BlockhashStoreSpec.CoordinatorV1Address, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetCoordinatorV1Address() string { return v.CoordinatorV1Address }
+
+// GetCoordinatorV2Address returns BlockhashStoreSpec.CoordinatorV2Address, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetCoordinatorV2Address() string { return v.CoordinatorV2Address }
+
+// GetCoordinatorV2PlusAddress returns BlockhashStoreSpec.CoordinatorV2PlusAddress, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetCoordinatorV2PlusAddress() string { return v.CoordinatorV2PlusAddress }
+
+// GetWaitBlocks returns BlockhashStoreSpec.WaitBlocks, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetWaitBlocks() int { return v.WaitBlocks }
+
+// GetLookbackBlocks returns BlockhashStoreSpec.LookbackBlocks, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetLookbackBlocks() int { return v.LookbackBlocks }
+
+// GetBlockhashStoreAddress returns BlockhashStoreSpec.BlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetBlockhashStoreAddress() string { return v.BlockhashStoreAddress }
+
+// GetTrustedBlockhashStoreAddress returns BlockhashStoreSpec.TrustedBlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetTrustedBlockhashStoreAddress() string {
+	return v.TrustedBlockhashStoreAddress
+}
+
+// GetTrustedBlockhashStoreBatchSize returns BlockhashStoreSpec.TrustedBlockhashStoreBatchSize, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetTrustedBlockhashStoreBatchSize() int {
+	return v.TrustedBlockhashStoreBatchSize
+}
+
+// GetHeartbeatPeriod returns BlockhashStoreSpec.HeartbeatPeriod, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetHeartbeatPeriod() string { return v.HeartbeatPeriod }
+
+// GetPollPeriod returns BlockhashStoreSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetPollPeriod() string { return v.PollPeriod }
+
+// GetRunTimeout returns BlockhashStoreSpec.RunTimeout, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetRunTimeout() string { return v.RunTimeout }
+
+// GetEvmChainID returns BlockhashStoreSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetFromAddresses returns BlockhashStoreSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetFromAddresses() []string { return v.FromAddresses }
+
+// GetCreatedAt returns BlockhashStoreSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *BlockhashStoreSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// BootstrapSpec includes the GraphQL fields of BootstrapSpec requested by the fragment BootstrapSpec.
+type BootstrapSpec struct {
+	Id                                string        `json:"id"`
+	ContractID                        string        `json:"contractID"`
+	Relay                             string        `json:"relay"`
+	RelayConfig                       gqlscalar.Map `json:"relayConfig"`
+	MonitoringEndpoint                string        `json:"monitoringEndpoint"`
+	BlockchainTimeout                 string        `json:"blockchainTimeout"`
+	ContractConfigTrackerPollInterval string        `json:"contractConfigTrackerPollInterval"`
+	ContractConfigConfirmations       int           `json:"contractConfigConfirmations"`
+	CreatedAt                         string        `json:"createdAt"`
+}
+
+// GetId returns BootstrapSpec.Id, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetId() string { return v.Id }
+
+// GetContractID returns BootstrapSpec.ContractID, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetContractID() string { return v.ContractID }
+
+// GetRelay returns BootstrapSpec.Relay, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetRelay() string { return v.Relay }
+
+// GetRelayConfig returns BootstrapSpec.RelayConfig, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetRelayConfig() gqlscalar.Map { return v.RelayConfig }
+
+// GetMonitoringEndpoint returns BootstrapSpec.MonitoringEndpoint, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetMonitoringEndpoint() string { return v.MonitoringEndpoint }
+
+// GetBlockchainTimeout returns BootstrapSpec.BlockchainTimeout, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetBlockchainTimeout() string { return v.BlockchainTimeout }
+
+// GetContractConfigTrackerPollInterval returns BootstrapSpec.ContractConfigTrackerPollInterval, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetContractConfigTrackerPollInterval() string {
+	return v.ContractConfigTrackerPollInterval
+}
+
+// GetContractConfigConfirmations returns BootstrapSpec.ContractConfigConfirmations, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetContractConfigConfirmations() int { return v.ContractConfigConfirmations }
+
+// GetCreatedAt returns BootstrapSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *BootstrapSpec) GetCreatedAt() string { return v.CreatedAt }
+
 // BridgeParts includes the GraphQL fields of Bridge requested by the fragment BridgeParts.
 type BridgeParts struct {
 	Id                     string `json:"id"`
@@ -308,6 +480,34 @@ func (v *BridgeParts) GetMinimumContractPayment() string { return v.MinimumContr
 
 // GetCreatedAt returns BridgeParts.CreatedAt, and is useful for accessing the field via an interface.
 func (v *BridgeParts) GetCreatedAt() string { return v.CreatedAt }
+
+// CCIPSpec includes the GraphQL fields of CCIPSpec requested by the fragment CCIPSpec.
+type CCIPSpec struct {
+	CreatedAt              string        `json:"createdAt"`
+	UpdatedAt              string        `json:"updatedAt"`
+	CapabilityVersion      string        `json:"capabilityVersion"`
+	CapabilityLabelledName string        `json:"capabilityLabelledName"`
+	OcrKeyBundleIDs        gqlscalar.Map `json:"ocrKeyBundleIDs"`
+	P2pKeyID               string        `json:"p2pKeyID"`
+}
+
+// GetCreatedAt returns CCIPSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns CCIPSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetUpdatedAt() string { return v.UpdatedAt }
+
+// GetCapabilityVersion returns CCIPSpec.CapabilityVersion, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetCapabilityVersion() string { return v.CapabilityVersion }
+
+// GetCapabilityLabelledName returns CCIPSpec.CapabilityLabelledName, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetCapabilityLabelledName() string { return v.CapabilityLabelledName }
+
+// GetOcrKeyBundleIDs returns CCIPSpec.OcrKeyBundleIDs, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetOcrKeyBundleIDs() gqlscalar.Map { return v.OcrKeyBundleIDs }
+
+// GetP2pKeyID returns CCIPSpec.P2pKeyID, and is useful for accessing the field via an interface.
+func (v *CCIPSpec) GetP2pKeyID() string { return v.P2pKeyID }
 
 // CancelJobProposalSpecCancelJobProposalSpecCancelJobProposalSpecPayload includes the requested fields of the GraphQL interface CancelJobProposalSpecPayload.
 //
@@ -1433,6 +1633,22 @@ func (v *CreateFeedsManagerResponse) __premarshalJSON() (*__premarshalCreateFeed
 	return &retval, nil
 }
 
+// CronSpec includes the GraphQL fields of CronSpec requested by the fragment CronSpec.
+type CronSpec struct {
+	Schedule   string `json:"schedule"`
+	EvmChainID string `json:"evmChainID"`
+	CreatedAt  string `json:"createdAt"`
+}
+
+// GetSchedule returns CronSpec.Schedule, and is useful for accessing the field via an interface.
+func (v *CronSpec) GetSchedule() string { return v.Schedule }
+
+// GetEvmChainID returns CronSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *CronSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetCreatedAt returns CronSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *CronSpec) GetCreatedAt() string { return v.CreatedAt }
+
 // DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload includes the requested fields of the GraphQL interface DeleteFeedsManagerChainConfigPayload.
 //
 // DeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigDeleteFeedsManagerChainConfigPayload is implemented by the following types:
@@ -1626,6 +1842,36 @@ func (v *DeleteFeedsManagerChainConfigResponse) __premarshalJSON() (*__premarsha
 	}
 	return &retval, nil
 }
+
+// DirectRequestSpec includes the GraphQL fields of DirectRequestSpec requested by the fragment DirectRequestSpec.
+type DirectRequestSpec struct {
+	ContractAddress             string   `json:"contractAddress"`
+	CreatedAt                   string   `json:"createdAt"`
+	EvmChainID                  string   `json:"evmChainID"`
+	MinIncomingConfirmations    int      `json:"minIncomingConfirmations"`
+	MinContractPaymentLinkJuels string   `json:"minContractPaymentLinkJuels"`
+	Requesters                  []string `json:"requesters"`
+}
+
+// GetContractAddress returns DirectRequestSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetContractAddress() string { return v.ContractAddress }
+
+// GetCreatedAt returns DirectRequestSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEvmChainID returns DirectRequestSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetMinIncomingConfirmations returns DirectRequestSpec.MinIncomingConfirmations, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetMinIncomingConfirmations() int { return v.MinIncomingConfirmations }
+
+// GetMinContractPaymentLinkJuels returns DirectRequestSpec.MinContractPaymentLinkJuels, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetMinContractPaymentLinkJuels() string {
+	return v.MinContractPaymentLinkJuels
+}
+
+// GetRequesters returns DirectRequestSpec.Requesters, and is useful for accessing the field via an interface.
+func (v *DirectRequestSpec) GetRequesters() []string { return v.Requesters }
 
 type ErrorCode string
 
@@ -2026,6 +2272,78 @@ type FetchP2PKeysResponse struct {
 
 // GetP2pKeys returns FetchP2PKeysResponse.P2pKeys, and is useful for accessing the field via an interface.
 func (v *FetchP2PKeysResponse) GetP2pKeys() FetchP2PKeysP2pKeysP2PKeysPayload { return v.P2pKeys }
+
+// FluxMonitorSpec includes the GraphQL fields of FluxMonitorSpec requested by the fragment FluxMonitorSpec.
+type FluxMonitorSpec struct {
+	AbsoluteThreshold   float64 `json:"absoluteThreshold"`
+	ContractAddress     string  `json:"contractAddress"`
+	CreatedAt           string  `json:"createdAt"`
+	DrumbeatEnabled     bool    `json:"drumbeatEnabled"`
+	DrumbeatRandomDelay string  `json:"drumbeatRandomDelay"`
+	DrumbeatSchedule    string  `json:"drumbeatSchedule"`
+	EvmChainID          string  `json:"evmChainID"`
+	IdleTimerDisabled   bool    `json:"idleTimerDisabled"`
+	IdleTimerPeriod     string  `json:"idleTimerPeriod"`
+	MinPayment          string  `json:"minPayment"`
+	PollTimerDisabled   bool    `json:"pollTimerDisabled"`
+	PollTimerPeriod     string  `json:"pollTimerPeriod"`
+	Threshold           float64 `json:"threshold"`
+}
+
+// GetAbsoluteThreshold returns FluxMonitorSpec.AbsoluteThreshold, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetAbsoluteThreshold() float64 { return v.AbsoluteThreshold }
+
+// GetContractAddress returns FluxMonitorSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetContractAddress() string { return v.ContractAddress }
+
+// GetCreatedAt returns FluxMonitorSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetDrumbeatEnabled returns FluxMonitorSpec.DrumbeatEnabled, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetDrumbeatEnabled() bool { return v.DrumbeatEnabled }
+
+// GetDrumbeatRandomDelay returns FluxMonitorSpec.DrumbeatRandomDelay, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetDrumbeatRandomDelay() string { return v.DrumbeatRandomDelay }
+
+// GetDrumbeatSchedule returns FluxMonitorSpec.DrumbeatSchedule, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetDrumbeatSchedule() string { return v.DrumbeatSchedule }
+
+// GetEvmChainID returns FluxMonitorSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetIdleTimerDisabled returns FluxMonitorSpec.IdleTimerDisabled, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetIdleTimerDisabled() bool { return v.IdleTimerDisabled }
+
+// GetIdleTimerPeriod returns FluxMonitorSpec.IdleTimerPeriod, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetIdleTimerPeriod() string { return v.IdleTimerPeriod }
+
+// GetMinPayment returns FluxMonitorSpec.MinPayment, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetMinPayment() string { return v.MinPayment }
+
+// GetPollTimerDisabled returns FluxMonitorSpec.PollTimerDisabled, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetPollTimerDisabled() bool { return v.PollTimerDisabled }
+
+// GetPollTimerPeriod returns FluxMonitorSpec.PollTimerPeriod, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetPollTimerPeriod() string { return v.PollTimerPeriod }
+
+// GetThreshold returns FluxMonitorSpec.Threshold, and is useful for accessing the field via an interface.
+func (v *FluxMonitorSpec) GetThreshold() float64 { return v.Threshold }
+
+// GatewaySpec includes the GraphQL fields of GatewaySpec requested by the fragment GatewaySpec.
+type GatewaySpec struct {
+	Id            string        `json:"id"`
+	GatewayConfig gqlscalar.Map `json:"gatewayConfig"`
+	CreatedAt     string        `json:"createdAt"`
+}
+
+// GetId returns GatewaySpec.Id, and is useful for accessing the field via an interface.
+func (v *GatewaySpec) GetId() string { return v.Id }
+
+// GetGatewayConfig returns GatewaySpec.GatewayConfig, and is useful for accessing the field via an interface.
+func (v *GatewaySpec) GetGatewayConfig() gqlscalar.Map { return v.GatewayConfig }
+
+// GetCreatedAt returns GatewaySpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *GatewaySpec) GetCreatedAt() string { return v.CreatedAt }
 
 // GetBridgeBridge includes the requested fields of the GraphQL type Bridge.
 type GetBridgeBridge struct {
@@ -3233,7 +3551,9 @@ func (v *GetJobResponse) __premarshalJSON() (*__premarshalGetJobResponse, error)
 	return &retval, nil
 }
 
-// JobParts includes the GraphQL fields of Job requested by the fragment JobParts.
+// ####################
+// Jobs and Job Proposals
+// ####################
 type JobParts struct {
 	Id                string                   `json:"id"`
 	Name              string                   `json:"name"`
@@ -3400,59 +3720,927 @@ func (v *JobPartsErrorsJobError) GetUpdatedAt() string { return v.UpdatedAt }
 
 // JobPartsSpecBlockHeaderFeederSpec includes the requested fields of the GraphQL type BlockHeaderFeederSpec.
 type JobPartsSpecBlockHeaderFeederSpec struct {
-	Typename string `json:"__typename"`
+	Typename              string `json:"__typename"`
+	BlockHeaderFeederSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecBlockHeaderFeederSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecBlockHeaderFeederSpec) GetTypename() string { return v.Typename }
 
+// GetCoordinatorV1Address returns JobPartsSpecBlockHeaderFeederSpec.CoordinatorV1Address, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetCoordinatorV1Address() string {
+	return v.BlockHeaderFeederSpec.CoordinatorV1Address
+}
+
+// GetCoordinatorV2Address returns JobPartsSpecBlockHeaderFeederSpec.CoordinatorV2Address, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetCoordinatorV2Address() string {
+	return v.BlockHeaderFeederSpec.CoordinatorV2Address
+}
+
+// GetCoordinatorV2PlusAddress returns JobPartsSpecBlockHeaderFeederSpec.CoordinatorV2PlusAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetCoordinatorV2PlusAddress() string {
+	return v.BlockHeaderFeederSpec.CoordinatorV2PlusAddress
+}
+
+// GetWaitBlocks returns JobPartsSpecBlockHeaderFeederSpec.WaitBlocks, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetWaitBlocks() int {
+	return v.BlockHeaderFeederSpec.WaitBlocks
+}
+
+// GetLookbackBlocks returns JobPartsSpecBlockHeaderFeederSpec.LookbackBlocks, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetLookbackBlocks() int {
+	return v.BlockHeaderFeederSpec.LookbackBlocks
+}
+
+// GetBlockhashStoreAddress returns JobPartsSpecBlockHeaderFeederSpec.BlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetBlockhashStoreAddress() string {
+	return v.BlockHeaderFeederSpec.BlockhashStoreAddress
+}
+
+// GetBatchBlockhashStoreAddress returns JobPartsSpecBlockHeaderFeederSpec.BatchBlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetBatchBlockhashStoreAddress() string {
+	return v.BlockHeaderFeederSpec.BatchBlockhashStoreAddress
+}
+
+// GetPollPeriod returns JobPartsSpecBlockHeaderFeederSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetPollPeriod() string {
+	return v.BlockHeaderFeederSpec.PollPeriod
+}
+
+// GetRunTimeout returns JobPartsSpecBlockHeaderFeederSpec.RunTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetRunTimeout() string {
+	return v.BlockHeaderFeederSpec.RunTimeout
+}
+
+// GetEvmChainID returns JobPartsSpecBlockHeaderFeederSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetEvmChainID() string {
+	return v.BlockHeaderFeederSpec.EvmChainID
+}
+
+// GetGetBlockhashesBatchSize returns JobPartsSpecBlockHeaderFeederSpec.GetBlockhashesBatchSize, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetGetBlockhashesBatchSize() int {
+	return v.BlockHeaderFeederSpec.GetBlockhashesBatchSize
+}
+
+// GetStoreBlockhashesBatchSize returns JobPartsSpecBlockHeaderFeederSpec.StoreBlockhashesBatchSize, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetStoreBlockhashesBatchSize() int {
+	return v.BlockHeaderFeederSpec.StoreBlockhashesBatchSize
+}
+
+// GetFromAddresses returns JobPartsSpecBlockHeaderFeederSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetFromAddresses() []string {
+	return v.BlockHeaderFeederSpec.FromAddresses
+}
+
+// GetCreatedAt returns JobPartsSpecBlockHeaderFeederSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockHeaderFeederSpec) GetCreatedAt() string {
+	return v.BlockHeaderFeederSpec.CreatedAt
+}
+
+func (v *JobPartsSpecBlockHeaderFeederSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecBlockHeaderFeederSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecBlockHeaderFeederSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BlockHeaderFeederSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecBlockHeaderFeederSpec struct {
+	Typename string `json:"__typename"`
+
+	CoordinatorV1Address string `json:"coordinatorV1Address"`
+
+	CoordinatorV2Address string `json:"coordinatorV2Address"`
+
+	CoordinatorV2PlusAddress string `json:"coordinatorV2PlusAddress"`
+
+	WaitBlocks int `json:"waitBlocks"`
+
+	LookbackBlocks int `json:"lookbackBlocks"`
+
+	BlockhashStoreAddress string `json:"blockhashStoreAddress"`
+
+	BatchBlockhashStoreAddress string `json:"batchBlockhashStoreAddress"`
+
+	PollPeriod string `json:"pollPeriod"`
+
+	RunTimeout string `json:"runTimeout"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	GetBlockhashesBatchSize int `json:"getBlockhashesBatchSize"`
+
+	StoreBlockhashesBatchSize int `json:"storeBlockhashesBatchSize"`
+
+	FromAddresses []string `json:"fromAddresses"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecBlockHeaderFeederSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecBlockHeaderFeederSpec) __premarshalJSON() (*__premarshalJobPartsSpecBlockHeaderFeederSpec, error) {
+	var retval __premarshalJobPartsSpecBlockHeaderFeederSpec
+
+	retval.Typename = v.Typename
+	retval.CoordinatorV1Address = v.BlockHeaderFeederSpec.CoordinatorV1Address
+	retval.CoordinatorV2Address = v.BlockHeaderFeederSpec.CoordinatorV2Address
+	retval.CoordinatorV2PlusAddress = v.BlockHeaderFeederSpec.CoordinatorV2PlusAddress
+	retval.WaitBlocks = v.BlockHeaderFeederSpec.WaitBlocks
+	retval.LookbackBlocks = v.BlockHeaderFeederSpec.LookbackBlocks
+	retval.BlockhashStoreAddress = v.BlockHeaderFeederSpec.BlockhashStoreAddress
+	retval.BatchBlockhashStoreAddress = v.BlockHeaderFeederSpec.BatchBlockhashStoreAddress
+	retval.PollPeriod = v.BlockHeaderFeederSpec.PollPeriod
+	retval.RunTimeout = v.BlockHeaderFeederSpec.RunTimeout
+	retval.EvmChainID = v.BlockHeaderFeederSpec.EvmChainID
+	retval.GetBlockhashesBatchSize = v.BlockHeaderFeederSpec.GetBlockhashesBatchSize
+	retval.StoreBlockhashesBatchSize = v.BlockHeaderFeederSpec.StoreBlockhashesBatchSize
+	retval.FromAddresses = v.BlockHeaderFeederSpec.FromAddresses
+	retval.CreatedAt = v.BlockHeaderFeederSpec.CreatedAt
+	return &retval, nil
+}
+
 // JobPartsSpecBlockhashStoreSpec includes the requested fields of the GraphQL type BlockhashStoreSpec.
 type JobPartsSpecBlockhashStoreSpec struct {
-	Typename string `json:"__typename"`
+	Typename           string `json:"__typename"`
+	BlockhashStoreSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecBlockhashStoreSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecBlockhashStoreSpec) GetTypename() string { return v.Typename }
 
+// GetCoordinatorV1Address returns JobPartsSpecBlockhashStoreSpec.CoordinatorV1Address, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetCoordinatorV1Address() string {
+	return v.BlockhashStoreSpec.CoordinatorV1Address
+}
+
+// GetCoordinatorV2Address returns JobPartsSpecBlockhashStoreSpec.CoordinatorV2Address, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetCoordinatorV2Address() string {
+	return v.BlockhashStoreSpec.CoordinatorV2Address
+}
+
+// GetCoordinatorV2PlusAddress returns JobPartsSpecBlockhashStoreSpec.CoordinatorV2PlusAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetCoordinatorV2PlusAddress() string {
+	return v.BlockhashStoreSpec.CoordinatorV2PlusAddress
+}
+
+// GetWaitBlocks returns JobPartsSpecBlockhashStoreSpec.WaitBlocks, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetWaitBlocks() int { return v.BlockhashStoreSpec.WaitBlocks }
+
+// GetLookbackBlocks returns JobPartsSpecBlockhashStoreSpec.LookbackBlocks, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetLookbackBlocks() int {
+	return v.BlockhashStoreSpec.LookbackBlocks
+}
+
+// GetBlockhashStoreAddress returns JobPartsSpecBlockhashStoreSpec.BlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetBlockhashStoreAddress() string {
+	return v.BlockhashStoreSpec.BlockhashStoreAddress
+}
+
+// GetTrustedBlockhashStoreAddress returns JobPartsSpecBlockhashStoreSpec.TrustedBlockhashStoreAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetTrustedBlockhashStoreAddress() string {
+	return v.BlockhashStoreSpec.TrustedBlockhashStoreAddress
+}
+
+// GetTrustedBlockhashStoreBatchSize returns JobPartsSpecBlockhashStoreSpec.TrustedBlockhashStoreBatchSize, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetTrustedBlockhashStoreBatchSize() int {
+	return v.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize
+}
+
+// GetHeartbeatPeriod returns JobPartsSpecBlockhashStoreSpec.HeartbeatPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetHeartbeatPeriod() string {
+	return v.BlockhashStoreSpec.HeartbeatPeriod
+}
+
+// GetPollPeriod returns JobPartsSpecBlockhashStoreSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetPollPeriod() string {
+	return v.BlockhashStoreSpec.PollPeriod
+}
+
+// GetRunTimeout returns JobPartsSpecBlockhashStoreSpec.RunTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetRunTimeout() string {
+	return v.BlockhashStoreSpec.RunTimeout
+}
+
+// GetEvmChainID returns JobPartsSpecBlockhashStoreSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetEvmChainID() string {
+	return v.BlockhashStoreSpec.EvmChainID
+}
+
+// GetFromAddresses returns JobPartsSpecBlockhashStoreSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetFromAddresses() []string {
+	return v.BlockhashStoreSpec.FromAddresses
+}
+
+// GetCreatedAt returns JobPartsSpecBlockhashStoreSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBlockhashStoreSpec) GetCreatedAt() string { return v.BlockhashStoreSpec.CreatedAt }
+
+func (v *JobPartsSpecBlockhashStoreSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecBlockhashStoreSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecBlockhashStoreSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BlockhashStoreSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecBlockhashStoreSpec struct {
+	Typename string `json:"__typename"`
+
+	CoordinatorV1Address string `json:"coordinatorV1Address"`
+
+	CoordinatorV2Address string `json:"coordinatorV2Address"`
+
+	CoordinatorV2PlusAddress string `json:"coordinatorV2PlusAddress"`
+
+	WaitBlocks int `json:"waitBlocks"`
+
+	LookbackBlocks int `json:"lookbackBlocks"`
+
+	BlockhashStoreAddress string `json:"blockhashStoreAddress"`
+
+	TrustedBlockhashStoreAddress string `json:"trustedBlockhashStoreAddress"`
+
+	TrustedBlockhashStoreBatchSize int `json:"trustedBlockhashStoreBatchSize"`
+
+	HeartbeatPeriod string `json:"heartbeatPeriod"`
+
+	PollPeriod string `json:"pollPeriod"`
+
+	RunTimeout string `json:"runTimeout"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	FromAddresses []string `json:"fromAddresses"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecBlockhashStoreSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecBlockhashStoreSpec) __premarshalJSON() (*__premarshalJobPartsSpecBlockhashStoreSpec, error) {
+	var retval __premarshalJobPartsSpecBlockhashStoreSpec
+
+	retval.Typename = v.Typename
+	retval.CoordinatorV1Address = v.BlockhashStoreSpec.CoordinatorV1Address
+	retval.CoordinatorV2Address = v.BlockhashStoreSpec.CoordinatorV2Address
+	retval.CoordinatorV2PlusAddress = v.BlockhashStoreSpec.CoordinatorV2PlusAddress
+	retval.WaitBlocks = v.BlockhashStoreSpec.WaitBlocks
+	retval.LookbackBlocks = v.BlockhashStoreSpec.LookbackBlocks
+	retval.BlockhashStoreAddress = v.BlockhashStoreSpec.BlockhashStoreAddress
+	retval.TrustedBlockhashStoreAddress = v.BlockhashStoreSpec.TrustedBlockhashStoreAddress
+	retval.TrustedBlockhashStoreBatchSize = v.BlockhashStoreSpec.TrustedBlockhashStoreBatchSize
+	retval.HeartbeatPeriod = v.BlockhashStoreSpec.HeartbeatPeriod
+	retval.PollPeriod = v.BlockhashStoreSpec.PollPeriod
+	retval.RunTimeout = v.BlockhashStoreSpec.RunTimeout
+	retval.EvmChainID = v.BlockhashStoreSpec.EvmChainID
+	retval.FromAddresses = v.BlockhashStoreSpec.FromAddresses
+	retval.CreatedAt = v.BlockhashStoreSpec.CreatedAt
+	return &retval, nil
+}
+
 // JobPartsSpecBootstrapSpec includes the requested fields of the GraphQL type BootstrapSpec.
 type JobPartsSpecBootstrapSpec struct {
-	Typename string `json:"__typename"`
+	Typename      string `json:"__typename"`
+	BootstrapSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecBootstrapSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecBootstrapSpec) GetTypename() string { return v.Typename }
 
+// GetId returns JobPartsSpecBootstrapSpec.Id, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetId() string { return v.BootstrapSpec.Id }
+
+// GetContractID returns JobPartsSpecBootstrapSpec.ContractID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetContractID() string { return v.BootstrapSpec.ContractID }
+
+// GetRelay returns JobPartsSpecBootstrapSpec.Relay, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetRelay() string { return v.BootstrapSpec.Relay }
+
+// GetRelayConfig returns JobPartsSpecBootstrapSpec.RelayConfig, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetRelayConfig() gqlscalar.Map {
+	return v.BootstrapSpec.RelayConfig
+}
+
+// GetMonitoringEndpoint returns JobPartsSpecBootstrapSpec.MonitoringEndpoint, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetMonitoringEndpoint() string {
+	return v.BootstrapSpec.MonitoringEndpoint
+}
+
+// GetBlockchainTimeout returns JobPartsSpecBootstrapSpec.BlockchainTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetBlockchainTimeout() string {
+	return v.BootstrapSpec.BlockchainTimeout
+}
+
+// GetContractConfigTrackerPollInterval returns JobPartsSpecBootstrapSpec.ContractConfigTrackerPollInterval, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetContractConfigTrackerPollInterval() string {
+	return v.BootstrapSpec.ContractConfigTrackerPollInterval
+}
+
+// GetContractConfigConfirmations returns JobPartsSpecBootstrapSpec.ContractConfigConfirmations, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetContractConfigConfirmations() int {
+	return v.BootstrapSpec.ContractConfigConfirmations
+}
+
+// GetCreatedAt returns JobPartsSpecBootstrapSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecBootstrapSpec) GetCreatedAt() string { return v.BootstrapSpec.CreatedAt }
+
+func (v *JobPartsSpecBootstrapSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecBootstrapSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecBootstrapSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.BootstrapSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecBootstrapSpec struct {
+	Typename string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	ContractID string `json:"contractID"`
+
+	Relay string `json:"relay"`
+
+	RelayConfig gqlscalar.Map `json:"relayConfig"`
+
+	MonitoringEndpoint string `json:"monitoringEndpoint"`
+
+	BlockchainTimeout string `json:"blockchainTimeout"`
+
+	ContractConfigTrackerPollInterval string `json:"contractConfigTrackerPollInterval"`
+
+	ContractConfigConfirmations int `json:"contractConfigConfirmations"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecBootstrapSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecBootstrapSpec) __premarshalJSON() (*__premarshalJobPartsSpecBootstrapSpec, error) {
+	var retval __premarshalJobPartsSpecBootstrapSpec
+
+	retval.Typename = v.Typename
+	retval.Id = v.BootstrapSpec.Id
+	retval.ContractID = v.BootstrapSpec.ContractID
+	retval.Relay = v.BootstrapSpec.Relay
+	retval.RelayConfig = v.BootstrapSpec.RelayConfig
+	retval.MonitoringEndpoint = v.BootstrapSpec.MonitoringEndpoint
+	retval.BlockchainTimeout = v.BootstrapSpec.BlockchainTimeout
+	retval.ContractConfigTrackerPollInterval = v.BootstrapSpec.ContractConfigTrackerPollInterval
+	retval.ContractConfigConfirmations = v.BootstrapSpec.ContractConfigConfirmations
+	retval.CreatedAt = v.BootstrapSpec.CreatedAt
+	return &retval, nil
+}
+
+// JobPartsSpecCCIPSpec includes the requested fields of the GraphQL type CCIPSpec.
+type JobPartsSpecCCIPSpec struct {
+	Typename string `json:"__typename"`
+	CCIPSpec `json:"-"`
+}
+
+// GetTypename returns JobPartsSpecCCIPSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetTypename() string { return v.Typename }
+
+// GetCreatedAt returns JobPartsSpecCCIPSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetCreatedAt() string { return v.CCIPSpec.CreatedAt }
+
+// GetUpdatedAt returns JobPartsSpecCCIPSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetUpdatedAt() string { return v.CCIPSpec.UpdatedAt }
+
+// GetCapabilityVersion returns JobPartsSpecCCIPSpec.CapabilityVersion, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetCapabilityVersion() string { return v.CCIPSpec.CapabilityVersion }
+
+// GetCapabilityLabelledName returns JobPartsSpecCCIPSpec.CapabilityLabelledName, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetCapabilityLabelledName() string {
+	return v.CCIPSpec.CapabilityLabelledName
+}
+
+// GetOcrKeyBundleIDs returns JobPartsSpecCCIPSpec.OcrKeyBundleIDs, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetOcrKeyBundleIDs() gqlscalar.Map { return v.CCIPSpec.OcrKeyBundleIDs }
+
+// GetP2pKeyID returns JobPartsSpecCCIPSpec.P2pKeyID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCCIPSpec) GetP2pKeyID() string { return v.CCIPSpec.P2pKeyID }
+
+func (v *JobPartsSpecCCIPSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecCCIPSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecCCIPSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CCIPSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecCCIPSpec struct {
+	Typename string `json:"__typename"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+
+	CapabilityVersion string `json:"capabilityVersion"`
+
+	CapabilityLabelledName string `json:"capabilityLabelledName"`
+
+	OcrKeyBundleIDs gqlscalar.Map `json:"ocrKeyBundleIDs"`
+
+	P2pKeyID string `json:"p2pKeyID"`
+}
+
+func (v *JobPartsSpecCCIPSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecCCIPSpec) __premarshalJSON() (*__premarshalJobPartsSpecCCIPSpec, error) {
+	var retval __premarshalJobPartsSpecCCIPSpec
+
+	retval.Typename = v.Typename
+	retval.CreatedAt = v.CCIPSpec.CreatedAt
+	retval.UpdatedAt = v.CCIPSpec.UpdatedAt
+	retval.CapabilityVersion = v.CCIPSpec.CapabilityVersion
+	retval.CapabilityLabelledName = v.CCIPSpec.CapabilityLabelledName
+	retval.OcrKeyBundleIDs = v.CCIPSpec.OcrKeyBundleIDs
+	retval.P2pKeyID = v.CCIPSpec.P2pKeyID
+	return &retval, nil
+}
+
 // JobPartsSpecCronSpec includes the requested fields of the GraphQL type CronSpec.
 type JobPartsSpecCronSpec struct {
 	Typename string `json:"__typename"`
+	CronSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecCronSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecCronSpec) GetTypename() string { return v.Typename }
 
+// GetSchedule returns JobPartsSpecCronSpec.Schedule, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCronSpec) GetSchedule() string { return v.CronSpec.Schedule }
+
+// GetEvmChainID returns JobPartsSpecCronSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCronSpec) GetEvmChainID() string { return v.CronSpec.EvmChainID }
+
+// GetCreatedAt returns JobPartsSpecCronSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecCronSpec) GetCreatedAt() string { return v.CronSpec.CreatedAt }
+
+func (v *JobPartsSpecCronSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecCronSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecCronSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.CronSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecCronSpec struct {
+	Typename string `json:"__typename"`
+
+	Schedule string `json:"schedule"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecCronSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecCronSpec) __premarshalJSON() (*__premarshalJobPartsSpecCronSpec, error) {
+	var retval __premarshalJobPartsSpecCronSpec
+
+	retval.Typename = v.Typename
+	retval.Schedule = v.CronSpec.Schedule
+	retval.EvmChainID = v.CronSpec.EvmChainID
+	retval.CreatedAt = v.CronSpec.CreatedAt
+	return &retval, nil
+}
+
 // JobPartsSpecDirectRequestSpec includes the requested fields of the GraphQL type DirectRequestSpec.
 type JobPartsSpecDirectRequestSpec struct {
-	Typename string `json:"__typename"`
+	Typename          string `json:"__typename"`
+	DirectRequestSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecDirectRequestSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecDirectRequestSpec) GetTypename() string { return v.Typename }
 
+// GetContractAddress returns JobPartsSpecDirectRequestSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetContractAddress() string {
+	return v.DirectRequestSpec.ContractAddress
+}
+
+// GetCreatedAt returns JobPartsSpecDirectRequestSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetCreatedAt() string { return v.DirectRequestSpec.CreatedAt }
+
+// GetEvmChainID returns JobPartsSpecDirectRequestSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetEvmChainID() string { return v.DirectRequestSpec.EvmChainID }
+
+// GetMinIncomingConfirmations returns JobPartsSpecDirectRequestSpec.MinIncomingConfirmations, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetMinIncomingConfirmations() int {
+	return v.DirectRequestSpec.MinIncomingConfirmations
+}
+
+// GetMinContractPaymentLinkJuels returns JobPartsSpecDirectRequestSpec.MinContractPaymentLinkJuels, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetMinContractPaymentLinkJuels() string {
+	return v.DirectRequestSpec.MinContractPaymentLinkJuels
+}
+
+// GetRequesters returns JobPartsSpecDirectRequestSpec.Requesters, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecDirectRequestSpec) GetRequesters() []string {
+	return v.DirectRequestSpec.Requesters
+}
+
+func (v *JobPartsSpecDirectRequestSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecDirectRequestSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecDirectRequestSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.DirectRequestSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecDirectRequestSpec struct {
+	Typename string `json:"__typename"`
+
+	ContractAddress string `json:"contractAddress"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	MinIncomingConfirmations int `json:"minIncomingConfirmations"`
+
+	MinContractPaymentLinkJuels string `json:"minContractPaymentLinkJuels"`
+
+	Requesters []string `json:"requesters"`
+}
+
+func (v *JobPartsSpecDirectRequestSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecDirectRequestSpec) __premarshalJSON() (*__premarshalJobPartsSpecDirectRequestSpec, error) {
+	var retval __premarshalJobPartsSpecDirectRequestSpec
+
+	retval.Typename = v.Typename
+	retval.ContractAddress = v.DirectRequestSpec.ContractAddress
+	retval.CreatedAt = v.DirectRequestSpec.CreatedAt
+	retval.EvmChainID = v.DirectRequestSpec.EvmChainID
+	retval.MinIncomingConfirmations = v.DirectRequestSpec.MinIncomingConfirmations
+	retval.MinContractPaymentLinkJuels = v.DirectRequestSpec.MinContractPaymentLinkJuels
+	retval.Requesters = v.DirectRequestSpec.Requesters
+	return &retval, nil
+}
+
 // JobPartsSpecFluxMonitorSpec includes the requested fields of the GraphQL type FluxMonitorSpec.
 type JobPartsSpecFluxMonitorSpec struct {
-	Typename string `json:"__typename"`
+	Typename        string `json:"__typename"`
+	FluxMonitorSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecFluxMonitorSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecFluxMonitorSpec) GetTypename() string { return v.Typename }
 
+// GetAbsoluteThreshold returns JobPartsSpecFluxMonitorSpec.AbsoluteThreshold, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetAbsoluteThreshold() float64 {
+	return v.FluxMonitorSpec.AbsoluteThreshold
+}
+
+// GetContractAddress returns JobPartsSpecFluxMonitorSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetContractAddress() string {
+	return v.FluxMonitorSpec.ContractAddress
+}
+
+// GetCreatedAt returns JobPartsSpecFluxMonitorSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetCreatedAt() string { return v.FluxMonitorSpec.CreatedAt }
+
+// GetDrumbeatEnabled returns JobPartsSpecFluxMonitorSpec.DrumbeatEnabled, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetDrumbeatEnabled() bool {
+	return v.FluxMonitorSpec.DrumbeatEnabled
+}
+
+// GetDrumbeatRandomDelay returns JobPartsSpecFluxMonitorSpec.DrumbeatRandomDelay, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetDrumbeatRandomDelay() string {
+	return v.FluxMonitorSpec.DrumbeatRandomDelay
+}
+
+// GetDrumbeatSchedule returns JobPartsSpecFluxMonitorSpec.DrumbeatSchedule, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetDrumbeatSchedule() string {
+	return v.FluxMonitorSpec.DrumbeatSchedule
+}
+
+// GetEvmChainID returns JobPartsSpecFluxMonitorSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetEvmChainID() string { return v.FluxMonitorSpec.EvmChainID }
+
+// GetIdleTimerDisabled returns JobPartsSpecFluxMonitorSpec.IdleTimerDisabled, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetIdleTimerDisabled() bool {
+	return v.FluxMonitorSpec.IdleTimerDisabled
+}
+
+// GetIdleTimerPeriod returns JobPartsSpecFluxMonitorSpec.IdleTimerPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetIdleTimerPeriod() string {
+	return v.FluxMonitorSpec.IdleTimerPeriod
+}
+
+// GetMinPayment returns JobPartsSpecFluxMonitorSpec.MinPayment, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetMinPayment() string { return v.FluxMonitorSpec.MinPayment }
+
+// GetPollTimerDisabled returns JobPartsSpecFluxMonitorSpec.PollTimerDisabled, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetPollTimerDisabled() bool {
+	return v.FluxMonitorSpec.PollTimerDisabled
+}
+
+// GetPollTimerPeriod returns JobPartsSpecFluxMonitorSpec.PollTimerPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetPollTimerPeriod() string {
+	return v.FluxMonitorSpec.PollTimerPeriod
+}
+
+// GetThreshold returns JobPartsSpecFluxMonitorSpec.Threshold, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecFluxMonitorSpec) GetThreshold() float64 { return v.FluxMonitorSpec.Threshold }
+
+func (v *JobPartsSpecFluxMonitorSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecFluxMonitorSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecFluxMonitorSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.FluxMonitorSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecFluxMonitorSpec struct {
+	Typename string `json:"__typename"`
+
+	AbsoluteThreshold float64 `json:"absoluteThreshold"`
+
+	ContractAddress string `json:"contractAddress"`
+
+	CreatedAt string `json:"createdAt"`
+
+	DrumbeatEnabled bool `json:"drumbeatEnabled"`
+
+	DrumbeatRandomDelay string `json:"drumbeatRandomDelay"`
+
+	DrumbeatSchedule string `json:"drumbeatSchedule"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	IdleTimerDisabled bool `json:"idleTimerDisabled"`
+
+	IdleTimerPeriod string `json:"idleTimerPeriod"`
+
+	MinPayment string `json:"minPayment"`
+
+	PollTimerDisabled bool `json:"pollTimerDisabled"`
+
+	PollTimerPeriod string `json:"pollTimerPeriod"`
+
+	Threshold float64 `json:"threshold"`
+}
+
+func (v *JobPartsSpecFluxMonitorSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecFluxMonitorSpec) __premarshalJSON() (*__premarshalJobPartsSpecFluxMonitorSpec, error) {
+	var retval __premarshalJobPartsSpecFluxMonitorSpec
+
+	retval.Typename = v.Typename
+	retval.AbsoluteThreshold = v.FluxMonitorSpec.AbsoluteThreshold
+	retval.ContractAddress = v.FluxMonitorSpec.ContractAddress
+	retval.CreatedAt = v.FluxMonitorSpec.CreatedAt
+	retval.DrumbeatEnabled = v.FluxMonitorSpec.DrumbeatEnabled
+	retval.DrumbeatRandomDelay = v.FluxMonitorSpec.DrumbeatRandomDelay
+	retval.DrumbeatSchedule = v.FluxMonitorSpec.DrumbeatSchedule
+	retval.EvmChainID = v.FluxMonitorSpec.EvmChainID
+	retval.IdleTimerDisabled = v.FluxMonitorSpec.IdleTimerDisabled
+	retval.IdleTimerPeriod = v.FluxMonitorSpec.IdleTimerPeriod
+	retval.MinPayment = v.FluxMonitorSpec.MinPayment
+	retval.PollTimerDisabled = v.FluxMonitorSpec.PollTimerDisabled
+	retval.PollTimerPeriod = v.FluxMonitorSpec.PollTimerPeriod
+	retval.Threshold = v.FluxMonitorSpec.Threshold
+	return &retval, nil
+}
+
 // JobPartsSpecGatewaySpec includes the requested fields of the GraphQL type GatewaySpec.
 type JobPartsSpecGatewaySpec struct {
-	Typename string `json:"__typename"`
+	Typename    string `json:"__typename"`
+	GatewaySpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecGatewaySpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecGatewaySpec) GetTypename() string { return v.Typename }
+
+// GetId returns JobPartsSpecGatewaySpec.Id, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecGatewaySpec) GetId() string { return v.GatewaySpec.Id }
+
+// GetGatewayConfig returns JobPartsSpecGatewaySpec.GatewayConfig, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecGatewaySpec) GetGatewayConfig() gqlscalar.Map {
+	return v.GatewaySpec.GatewayConfig
+}
+
+// GetCreatedAt returns JobPartsSpecGatewaySpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecGatewaySpec) GetCreatedAt() string { return v.GatewaySpec.CreatedAt }
+
+func (v *JobPartsSpecGatewaySpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecGatewaySpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecGatewaySpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.GatewaySpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecGatewaySpec struct {
+	Typename string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	GatewayConfig gqlscalar.Map `json:"gatewayConfig"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecGatewaySpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecGatewaySpec) __premarshalJSON() (*__premarshalJobPartsSpecGatewaySpec, error) {
+	var retval __premarshalJobPartsSpecGatewaySpec
+
+	retval.Typename = v.Typename
+	retval.Id = v.GatewaySpec.Id
+	retval.GatewayConfig = v.GatewaySpec.GatewayConfig
+	retval.CreatedAt = v.GatewaySpec.CreatedAt
+	return &retval, nil
+}
 
 // JobPartsSpecJobSpec includes the requested fields of the GraphQL interface JobSpec.
 //
@@ -3460,6 +4648,7 @@ func (v *JobPartsSpecGatewaySpec) GetTypename() string { return v.Typename }
 // JobPartsSpecBlockHeaderFeederSpec
 // JobPartsSpecBlockhashStoreSpec
 // JobPartsSpecBootstrapSpec
+// JobPartsSpecCCIPSpec
 // JobPartsSpecCronSpec
 // JobPartsSpecDirectRequestSpec
 // JobPartsSpecFluxMonitorSpec
@@ -3468,6 +4657,7 @@ func (v *JobPartsSpecGatewaySpec) GetTypename() string { return v.Typename }
 // JobPartsSpecOCR2Spec
 // JobPartsSpecOCRSpec
 // JobPartsSpecStandardCapabilitiesSpec
+// JobPartsSpecStreamSpec
 // JobPartsSpecVRFSpec
 // JobPartsSpecWebhookSpec
 // JobPartsSpecWorkflowSpec
@@ -3480,6 +4670,7 @@ type JobPartsSpecJobSpec interface {
 func (v *JobPartsSpecBlockHeaderFeederSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()    {}
 func (v *JobPartsSpecBlockhashStoreSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()       {}
 func (v *JobPartsSpecBootstrapSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()            {}
+func (v *JobPartsSpecCCIPSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecCronSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecDirectRequestSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()        {}
 func (v *JobPartsSpecFluxMonitorSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()          {}
@@ -3488,6 +4679,7 @@ func (v *JobPartsSpecKeeperSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()
 func (v *JobPartsSpecOCR2Spec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                 {}
 func (v *JobPartsSpecOCRSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                  {}
 func (v *JobPartsSpecStandardCapabilitiesSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec() {}
+func (v *JobPartsSpecStreamSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()               {}
 func (v *JobPartsSpecVRFSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()                  {}
 func (v *JobPartsSpecWebhookSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()              {}
 func (v *JobPartsSpecWorkflowSpec) implementsGraphQLInterfaceJobPartsSpecJobSpec()             {}
@@ -3515,6 +4707,9 @@ func __unmarshalJobPartsSpecJobSpec(b []byte, v *JobPartsSpecJobSpec) error {
 	case "BootstrapSpec":
 		*v = new(JobPartsSpecBootstrapSpec)
 		return json.Unmarshal(b, *v)
+	case "CCIPSpec":
+		*v = new(JobPartsSpecCCIPSpec)
+		return json.Unmarshal(b, *v)
 	case "CronSpec":
 		*v = new(JobPartsSpecCronSpec)
 		return json.Unmarshal(b, *v)
@@ -3538,6 +4733,9 @@ func __unmarshalJobPartsSpecJobSpec(b []byte, v *JobPartsSpecJobSpec) error {
 		return json.Unmarshal(b, *v)
 	case "StandardCapabilitiesSpec":
 		*v = new(JobPartsSpecStandardCapabilitiesSpec)
+		return json.Unmarshal(b, *v)
+	case "StreamSpec":
+		*v = new(JobPartsSpecStreamSpec)
 		return json.Unmarshal(b, *v)
 	case "VRFSpec":
 		*v = new(JobPartsSpecVRFSpec)
@@ -3564,66 +4762,110 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 	case *JobPartsSpecBlockHeaderFeederSpec:
 		typename = "BlockHeaderFeederSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecBlockHeaderFeederSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecBlockHeaderFeederSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecBlockhashStoreSpec:
 		typename = "BlockhashStoreSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecBlockhashStoreSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecBlockhashStoreSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecBootstrapSpec:
 		typename = "BootstrapSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecBootstrapSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecBootstrapSpec
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *JobPartsSpecCCIPSpec:
+		typename = "CCIPSpec"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalJobPartsSpecCCIPSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecCronSpec:
 		typename = "CronSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecCronSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecCronSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecDirectRequestSpec:
 		typename = "DirectRequestSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecDirectRequestSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecDirectRequestSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecFluxMonitorSpec:
 		typename = "FluxMonitorSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecFluxMonitorSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecFluxMonitorSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecGatewaySpec:
 		typename = "GatewaySpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecGatewaySpec
-		}{typename, v}
+			*__premarshalJobPartsSpecGatewaySpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecKeeperSpec:
 		typename = "KeeperSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecKeeperSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecKeeperSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecOCR2Spec:
 		typename = "OCR2Spec"
@@ -3640,42 +4882,74 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 	case *JobPartsSpecOCRSpec:
 		typename = "OCRSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecOCRSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecOCRSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecStandardCapabilitiesSpec:
 		typename = "StandardCapabilitiesSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecStandardCapabilitiesSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecStandardCapabilitiesSpec
+		}{typename, premarshaled}
+		return json.Marshal(result)
+	case *JobPartsSpecStreamSpec:
+		typename = "StreamSpec"
+
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
+		result := struct {
+			TypeName string `json:"__typename"`
+			*__premarshalJobPartsSpecStreamSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecVRFSpec:
 		typename = "VRFSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecVRFSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecVRFSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecWebhookSpec:
 		typename = "WebhookSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecWebhookSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecWebhookSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case *JobPartsSpecWorkflowSpec:
 		typename = "WorkflowSpec"
 
+		premarshaled, err := v.__premarshalJSON()
+		if err != nil {
+			return nil, err
+		}
 		result := struct {
 			TypeName string `json:"__typename"`
-			*JobPartsSpecWorkflowSpec
-		}{typename, v}
+			*__premarshalJobPartsSpecWorkflowSpec
+		}{typename, premarshaled}
 		return json.Marshal(result)
 	case nil:
 		return []byte("null"), nil
@@ -3687,11 +4961,80 @@ func __marshalJobPartsSpecJobSpec(v *JobPartsSpecJobSpec) ([]byte, error) {
 
 // JobPartsSpecKeeperSpec includes the requested fields of the GraphQL type KeeperSpec.
 type JobPartsSpecKeeperSpec struct {
-	Typename string `json:"__typename"`
+	Typename   string `json:"__typename"`
+	KeeperSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecKeeperSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecKeeperSpec) GetTypename() string { return v.Typename }
+
+// GetContractAddress returns JobPartsSpecKeeperSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecKeeperSpec) GetContractAddress() string { return v.KeeperSpec.ContractAddress }
+
+// GetCreatedAt returns JobPartsSpecKeeperSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecKeeperSpec) GetCreatedAt() string { return v.KeeperSpec.CreatedAt }
+
+// GetEvmChainID returns JobPartsSpecKeeperSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecKeeperSpec) GetEvmChainID() string { return v.KeeperSpec.EvmChainID }
+
+// GetFromAddress returns JobPartsSpecKeeperSpec.FromAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecKeeperSpec) GetFromAddress() string { return v.KeeperSpec.FromAddress }
+
+func (v *JobPartsSpecKeeperSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecKeeperSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecKeeperSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.KeeperSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecKeeperSpec struct {
+	Typename string `json:"__typename"`
+
+	ContractAddress string `json:"contractAddress"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	FromAddress string `json:"fromAddress"`
+}
+
+func (v *JobPartsSpecKeeperSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecKeeperSpec) __premarshalJSON() (*__premarshalJobPartsSpecKeeperSpec, error) {
+	var retval __premarshalJobPartsSpecKeeperSpec
+
+	retval.Typename = v.Typename
+	retval.ContractAddress = v.KeeperSpec.ContractAddress
+	retval.CreatedAt = v.KeeperSpec.CreatedAt
+	retval.EvmChainID = v.KeeperSpec.EvmChainID
+	retval.FromAddress = v.KeeperSpec.FromAddress
+	return &retval, nil
+}
 
 // JobPartsSpecOCR2Spec includes the requested fields of the GraphQL type OCR2Spec.
 type JobPartsSpecOCR2Spec struct {
@@ -3744,6 +5087,9 @@ func (v *JobPartsSpecOCR2Spec) GetPluginType() string { return v.OCR2Spec.Plugin
 
 // GetPluginConfig returns JobPartsSpecOCR2Spec.PluginConfig, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecOCR2Spec) GetPluginConfig() gqlscalar.Map { return v.OCR2Spec.PluginConfig }
+
+// GetAllowNoBootstrappers returns JobPartsSpecOCR2Spec.AllowNoBootstrappers, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCR2Spec) GetAllowNoBootstrappers() bool { return v.OCR2Spec.AllowNoBootstrappers }
 
 func (v *JobPartsSpecOCR2Spec) UnmarshalJSON(b []byte) error {
 
@@ -3798,6 +5144,8 @@ type __premarshalJobPartsSpecOCR2Spec struct {
 	PluginType string `json:"pluginType"`
 
 	PluginConfig gqlscalar.Map `json:"pluginConfig"`
+
+	AllowNoBootstrappers bool `json:"allowNoBootstrappers"`
 }
 
 func (v *JobPartsSpecOCR2Spec) MarshalJSON() ([]byte, error) {
@@ -3825,48 +5173,623 @@ func (v *JobPartsSpecOCR2Spec) __premarshalJSON() (*__premarshalJobPartsSpecOCR2
 	retval.TransmitterID = v.OCR2Spec.TransmitterID
 	retval.PluginType = v.OCR2Spec.PluginType
 	retval.PluginConfig = v.OCR2Spec.PluginConfig
+	retval.AllowNoBootstrappers = v.OCR2Spec.AllowNoBootstrappers
 	return &retval, nil
 }
 
 // JobPartsSpecOCRSpec includes the requested fields of the GraphQL type OCRSpec.
 type JobPartsSpecOCRSpec struct {
 	Typename string `json:"__typename"`
+	OCRSpec  `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecOCRSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecOCRSpec) GetTypename() string { return v.Typename }
 
+// GetBlockchainTimeout returns JobPartsSpecOCRSpec.BlockchainTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetBlockchainTimeout() string { return v.OCRSpec.BlockchainTimeout }
+
+// GetContractAddress returns JobPartsSpecOCRSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetContractAddress() string { return v.OCRSpec.ContractAddress }
+
+// GetContractConfigConfirmations returns JobPartsSpecOCRSpec.ContractConfigConfirmations, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetContractConfigConfirmations() int {
+	return v.OCRSpec.ContractConfigConfirmations
+}
+
+// GetContractConfigTrackerPollInterval returns JobPartsSpecOCRSpec.ContractConfigTrackerPollInterval, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetContractConfigTrackerPollInterval() string {
+	return v.OCRSpec.ContractConfigTrackerPollInterval
+}
+
+// GetContractConfigTrackerSubscribeInterval returns JobPartsSpecOCRSpec.ContractConfigTrackerSubscribeInterval, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetContractConfigTrackerSubscribeInterval() string {
+	return v.OCRSpec.ContractConfigTrackerSubscribeInterval
+}
+
+// GetCreatedAt returns JobPartsSpecOCRSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetCreatedAt() string { return v.OCRSpec.CreatedAt }
+
+// GetEvmChainID returns JobPartsSpecOCRSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetEvmChainID() string { return v.OCRSpec.EvmChainID }
+
+// GetIsBootstrapPeer returns JobPartsSpecOCRSpec.IsBootstrapPeer, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetIsBootstrapPeer() bool { return v.OCRSpec.IsBootstrapPeer }
+
+// GetKeyBundleID returns JobPartsSpecOCRSpec.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetKeyBundleID() string { return v.OCRSpec.KeyBundleID }
+
+// GetObservationTimeout returns JobPartsSpecOCRSpec.ObservationTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetObservationTimeout() string { return v.OCRSpec.ObservationTimeout }
+
+// GetP2pv2Bootstrappers returns JobPartsSpecOCRSpec.P2pv2Bootstrappers, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetP2pv2Bootstrappers() []string { return v.OCRSpec.P2pv2Bootstrappers }
+
+// GetTransmitterAddress returns JobPartsSpecOCRSpec.TransmitterAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetTransmitterAddress() string { return v.OCRSpec.TransmitterAddress }
+
+// GetDatabaseTimeout returns JobPartsSpecOCRSpec.DatabaseTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetDatabaseTimeout() string { return v.OCRSpec.DatabaseTimeout }
+
+// GetObservationGracePeriod returns JobPartsSpecOCRSpec.ObservationGracePeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetObservationGracePeriod() string {
+	return v.OCRSpec.ObservationGracePeriod
+}
+
+// GetContractTransmitterTransmitTimeout returns JobPartsSpecOCRSpec.ContractTransmitterTransmitTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecOCRSpec) GetContractTransmitterTransmitTimeout() string {
+	return v.OCRSpec.ContractTransmitterTransmitTimeout
+}
+
+func (v *JobPartsSpecOCRSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecOCRSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecOCRSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.OCRSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecOCRSpec struct {
+	Typename string `json:"__typename"`
+
+	BlockchainTimeout string `json:"blockchainTimeout"`
+
+	ContractAddress string `json:"contractAddress"`
+
+	ContractConfigConfirmations int `json:"contractConfigConfirmations"`
+
+	ContractConfigTrackerPollInterval string `json:"contractConfigTrackerPollInterval"`
+
+	ContractConfigTrackerSubscribeInterval string `json:"contractConfigTrackerSubscribeInterval"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	IsBootstrapPeer bool `json:"isBootstrapPeer"`
+
+	KeyBundleID string `json:"keyBundleID"`
+
+	ObservationTimeout string `json:"observationTimeout"`
+
+	P2pv2Bootstrappers []string `json:"p2pv2Bootstrappers"`
+
+	TransmitterAddress string `json:"transmitterAddress"`
+
+	DatabaseTimeout string `json:"databaseTimeout"`
+
+	ObservationGracePeriod string `json:"observationGracePeriod"`
+
+	ContractTransmitterTransmitTimeout string `json:"contractTransmitterTransmitTimeout"`
+}
+
+func (v *JobPartsSpecOCRSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecOCRSpec) __premarshalJSON() (*__premarshalJobPartsSpecOCRSpec, error) {
+	var retval __premarshalJobPartsSpecOCRSpec
+
+	retval.Typename = v.Typename
+	retval.BlockchainTimeout = v.OCRSpec.BlockchainTimeout
+	retval.ContractAddress = v.OCRSpec.ContractAddress
+	retval.ContractConfigConfirmations = v.OCRSpec.ContractConfigConfirmations
+	retval.ContractConfigTrackerPollInterval = v.OCRSpec.ContractConfigTrackerPollInterval
+	retval.ContractConfigTrackerSubscribeInterval = v.OCRSpec.ContractConfigTrackerSubscribeInterval
+	retval.CreatedAt = v.OCRSpec.CreatedAt
+	retval.EvmChainID = v.OCRSpec.EvmChainID
+	retval.IsBootstrapPeer = v.OCRSpec.IsBootstrapPeer
+	retval.KeyBundleID = v.OCRSpec.KeyBundleID
+	retval.ObservationTimeout = v.OCRSpec.ObservationTimeout
+	retval.P2pv2Bootstrappers = v.OCRSpec.P2pv2Bootstrappers
+	retval.TransmitterAddress = v.OCRSpec.TransmitterAddress
+	retval.DatabaseTimeout = v.OCRSpec.DatabaseTimeout
+	retval.ObservationGracePeriod = v.OCRSpec.ObservationGracePeriod
+	retval.ContractTransmitterTransmitTimeout = v.OCRSpec.ContractTransmitterTransmitTimeout
+	return &retval, nil
+}
+
 // JobPartsSpecStandardCapabilitiesSpec includes the requested fields of the GraphQL type StandardCapabilitiesSpec.
 type JobPartsSpecStandardCapabilitiesSpec struct {
-	Typename string `json:"__typename"`
+	Typename                 string `json:"__typename"`
+	StandardCapabilitiesSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecStandardCapabilitiesSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecStandardCapabilitiesSpec) GetTypename() string { return v.Typename }
 
+// GetId returns JobPartsSpecStandardCapabilitiesSpec.Id, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStandardCapabilitiesSpec) GetId() string { return v.StandardCapabilitiesSpec.Id }
+
+// GetCreatedAt returns JobPartsSpecStandardCapabilitiesSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStandardCapabilitiesSpec) GetCreatedAt() string {
+	return v.StandardCapabilitiesSpec.CreatedAt
+}
+
+// GetCommand returns JobPartsSpecStandardCapabilitiesSpec.Command, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStandardCapabilitiesSpec) GetCommand() string {
+	return v.StandardCapabilitiesSpec.Command
+}
+
+// GetConfig returns JobPartsSpecStandardCapabilitiesSpec.Config, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStandardCapabilitiesSpec) GetConfig() string {
+	return v.StandardCapabilitiesSpec.Config
+}
+
+func (v *JobPartsSpecStandardCapabilitiesSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecStandardCapabilitiesSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecStandardCapabilitiesSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StandardCapabilitiesSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecStandardCapabilitiesSpec struct {
+	Typename string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	CreatedAt string `json:"createdAt"`
+
+	Command string `json:"command"`
+
+	Config string `json:"config"`
+}
+
+func (v *JobPartsSpecStandardCapabilitiesSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecStandardCapabilitiesSpec) __premarshalJSON() (*__premarshalJobPartsSpecStandardCapabilitiesSpec, error) {
+	var retval __premarshalJobPartsSpecStandardCapabilitiesSpec
+
+	retval.Typename = v.Typename
+	retval.Id = v.StandardCapabilitiesSpec.Id
+	retval.CreatedAt = v.StandardCapabilitiesSpec.CreatedAt
+	retval.Command = v.StandardCapabilitiesSpec.Command
+	retval.Config = v.StandardCapabilitiesSpec.Config
+	return &retval, nil
+}
+
+// JobPartsSpecStreamSpec includes the requested fields of the GraphQL type StreamSpec.
+type JobPartsSpecStreamSpec struct {
+	Typename   string `json:"__typename"`
+	StreamSpec `json:"-"`
+}
+
+// GetTypename returns JobPartsSpecStreamSpec.Typename, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStreamSpec) GetTypename() string { return v.Typename }
+
+// GetStreamID returns JobPartsSpecStreamSpec.StreamID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecStreamSpec) GetStreamID() string { return v.StreamSpec.StreamID }
+
+func (v *JobPartsSpecStreamSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecStreamSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecStreamSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.StreamSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecStreamSpec struct {
+	Typename string `json:"__typename"`
+
+	StreamID string `json:"streamID"`
+}
+
+func (v *JobPartsSpecStreamSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecStreamSpec) __premarshalJSON() (*__premarshalJobPartsSpecStreamSpec, error) {
+	var retval __premarshalJobPartsSpecStreamSpec
+
+	retval.Typename = v.Typename
+	retval.StreamID = v.StreamSpec.StreamID
+	return &retval, nil
+}
+
 // JobPartsSpecVRFSpec includes the requested fields of the GraphQL type VRFSpec.
 type JobPartsSpecVRFSpec struct {
 	Typename string `json:"__typename"`
+	VRFSpec  `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecVRFSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecVRFSpec) GetTypename() string { return v.Typename }
 
+// GetCoordinatorAddress returns JobPartsSpecVRFSpec.CoordinatorAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetCoordinatorAddress() string { return v.VRFSpec.CoordinatorAddress }
+
+// GetCreatedAt returns JobPartsSpecVRFSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetCreatedAt() string { return v.VRFSpec.CreatedAt }
+
+// GetEvmChainID returns JobPartsSpecVRFSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetEvmChainID() string { return v.VRFSpec.EvmChainID }
+
+// GetFromAddresses returns JobPartsSpecVRFSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetFromAddresses() []string { return v.VRFSpec.FromAddresses }
+
+// GetMinIncomingConfirmations returns JobPartsSpecVRFSpec.MinIncomingConfirmations, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetMinIncomingConfirmations() int {
+	return v.VRFSpec.MinIncomingConfirmations
+}
+
+// GetPollPeriod returns JobPartsSpecVRFSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetPollPeriod() string { return v.VRFSpec.PollPeriod }
+
+// GetPublicKey returns JobPartsSpecVRFSpec.PublicKey, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetPublicKey() string { return v.VRFSpec.PublicKey }
+
+// GetRequestedConfsDelay returns JobPartsSpecVRFSpec.RequestedConfsDelay, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetRequestedConfsDelay() int { return v.VRFSpec.RequestedConfsDelay }
+
+// GetRequestTimeout returns JobPartsSpecVRFSpec.RequestTimeout, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetRequestTimeout() string { return v.VRFSpec.RequestTimeout }
+
+// GetBatchCoordinatorAddress returns JobPartsSpecVRFSpec.BatchCoordinatorAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetBatchCoordinatorAddress() string {
+	return v.VRFSpec.BatchCoordinatorAddress
+}
+
+// GetBatchFulfillmentEnabled returns JobPartsSpecVRFSpec.BatchFulfillmentEnabled, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetBatchFulfillmentEnabled() bool {
+	return v.VRFSpec.BatchFulfillmentEnabled
+}
+
+// GetBatchFulfillmentGasMultiplier returns JobPartsSpecVRFSpec.BatchFulfillmentGasMultiplier, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetBatchFulfillmentGasMultiplier() float64 {
+	return v.VRFSpec.BatchFulfillmentGasMultiplier
+}
+
+// GetCustomRevertsPipelineEnabled returns JobPartsSpecVRFSpec.CustomRevertsPipelineEnabled, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetCustomRevertsPipelineEnabled() bool {
+	return v.VRFSpec.CustomRevertsPipelineEnabled
+}
+
+// GetChunkSize returns JobPartsSpecVRFSpec.ChunkSize, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetChunkSize() int { return v.VRFSpec.ChunkSize }
+
+// GetBackoffInitialDelay returns JobPartsSpecVRFSpec.BackoffInitialDelay, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetBackoffInitialDelay() string { return v.VRFSpec.BackoffInitialDelay }
+
+// GetBackoffMaxDelay returns JobPartsSpecVRFSpec.BackoffMaxDelay, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetBackoffMaxDelay() string { return v.VRFSpec.BackoffMaxDelay }
+
+// GetGasLanePrice returns JobPartsSpecVRFSpec.GasLanePrice, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetGasLanePrice() string { return v.VRFSpec.GasLanePrice }
+
+// GetVrfOwnerAddress returns JobPartsSpecVRFSpec.VrfOwnerAddress, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecVRFSpec) GetVrfOwnerAddress() string { return v.VRFSpec.VrfOwnerAddress }
+
+func (v *JobPartsSpecVRFSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecVRFSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecVRFSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.VRFSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecVRFSpec struct {
+	Typename string `json:"__typename"`
+
+	CoordinatorAddress string `json:"coordinatorAddress"`
+
+	CreatedAt string `json:"createdAt"`
+
+	EvmChainID string `json:"evmChainID"`
+
+	FromAddresses []string `json:"fromAddresses"`
+
+	MinIncomingConfirmations int `json:"minIncomingConfirmations"`
+
+	PollPeriod string `json:"pollPeriod"`
+
+	PublicKey string `json:"publicKey"`
+
+	RequestedConfsDelay int `json:"requestedConfsDelay"`
+
+	RequestTimeout string `json:"requestTimeout"`
+
+	BatchCoordinatorAddress string `json:"batchCoordinatorAddress"`
+
+	BatchFulfillmentEnabled bool `json:"batchFulfillmentEnabled"`
+
+	BatchFulfillmentGasMultiplier float64 `json:"batchFulfillmentGasMultiplier"`
+
+	CustomRevertsPipelineEnabled bool `json:"customRevertsPipelineEnabled"`
+
+	ChunkSize int `json:"chunkSize"`
+
+	BackoffInitialDelay string `json:"backoffInitialDelay"`
+
+	BackoffMaxDelay string `json:"backoffMaxDelay"`
+
+	GasLanePrice string `json:"gasLanePrice"`
+
+	VrfOwnerAddress string `json:"vrfOwnerAddress"`
+}
+
+func (v *JobPartsSpecVRFSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecVRFSpec) __premarshalJSON() (*__premarshalJobPartsSpecVRFSpec, error) {
+	var retval __premarshalJobPartsSpecVRFSpec
+
+	retval.Typename = v.Typename
+	retval.CoordinatorAddress = v.VRFSpec.CoordinatorAddress
+	retval.CreatedAt = v.VRFSpec.CreatedAt
+	retval.EvmChainID = v.VRFSpec.EvmChainID
+	retval.FromAddresses = v.VRFSpec.FromAddresses
+	retval.MinIncomingConfirmations = v.VRFSpec.MinIncomingConfirmations
+	retval.PollPeriod = v.VRFSpec.PollPeriod
+	retval.PublicKey = v.VRFSpec.PublicKey
+	retval.RequestedConfsDelay = v.VRFSpec.RequestedConfsDelay
+	retval.RequestTimeout = v.VRFSpec.RequestTimeout
+	retval.BatchCoordinatorAddress = v.VRFSpec.BatchCoordinatorAddress
+	retval.BatchFulfillmentEnabled = v.VRFSpec.BatchFulfillmentEnabled
+	retval.BatchFulfillmentGasMultiplier = v.VRFSpec.BatchFulfillmentGasMultiplier
+	retval.CustomRevertsPipelineEnabled = v.VRFSpec.CustomRevertsPipelineEnabled
+	retval.ChunkSize = v.VRFSpec.ChunkSize
+	retval.BackoffInitialDelay = v.VRFSpec.BackoffInitialDelay
+	retval.BackoffMaxDelay = v.VRFSpec.BackoffMaxDelay
+	retval.GasLanePrice = v.VRFSpec.GasLanePrice
+	retval.VrfOwnerAddress = v.VRFSpec.VrfOwnerAddress
+	return &retval, nil
+}
+
 // JobPartsSpecWebhookSpec includes the requested fields of the GraphQL type WebhookSpec.
 type JobPartsSpecWebhookSpec struct {
-	Typename string `json:"__typename"`
+	Typename    string `json:"__typename"`
+	WebhookSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecWebhookSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecWebhookSpec) GetTypename() string { return v.Typename }
 
+// GetCreatedAt returns JobPartsSpecWebhookSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWebhookSpec) GetCreatedAt() string { return v.WebhookSpec.CreatedAt }
+
+func (v *JobPartsSpecWebhookSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecWebhookSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecWebhookSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WebhookSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecWebhookSpec struct {
+	Typename string `json:"__typename"`
+
+	CreatedAt string `json:"createdAt"`
+}
+
+func (v *JobPartsSpecWebhookSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecWebhookSpec) __premarshalJSON() (*__premarshalJobPartsSpecWebhookSpec, error) {
+	var retval __premarshalJobPartsSpecWebhookSpec
+
+	retval.Typename = v.Typename
+	retval.CreatedAt = v.WebhookSpec.CreatedAt
+	return &retval, nil
+}
+
 // JobPartsSpecWorkflowSpec includes the requested fields of the GraphQL type WorkflowSpec.
 type JobPartsSpecWorkflowSpec struct {
-	Typename string `json:"__typename"`
+	Typename     string `json:"__typename"`
+	WorkflowSpec `json:"-"`
 }
 
 // GetTypename returns JobPartsSpecWorkflowSpec.Typename, and is useful for accessing the field via an interface.
 func (v *JobPartsSpecWorkflowSpec) GetTypename() string { return v.Typename }
+
+// GetId returns JobPartsSpecWorkflowSpec.Id, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetId() string { return v.WorkflowSpec.Id }
+
+// GetWorkflowID returns JobPartsSpecWorkflowSpec.WorkflowID, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetWorkflowID() string { return v.WorkflowSpec.WorkflowID }
+
+// GetWorkflow returns JobPartsSpecWorkflowSpec.Workflow, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetWorkflow() string { return v.WorkflowSpec.Workflow }
+
+// GetWorkflowOwner returns JobPartsSpecWorkflowSpec.WorkflowOwner, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetWorkflowOwner() string { return v.WorkflowSpec.WorkflowOwner }
+
+// GetCreatedAt returns JobPartsSpecWorkflowSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetCreatedAt() string { return v.WorkflowSpec.CreatedAt }
+
+// GetUpdatedAt returns JobPartsSpecWorkflowSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *JobPartsSpecWorkflowSpec) GetUpdatedAt() string { return v.WorkflowSpec.UpdatedAt }
+
+func (v *JobPartsSpecWorkflowSpec) UnmarshalJSON(b []byte) error {
+
+	if string(b) == "null" {
+		return nil
+	}
+
+	var firstPass struct {
+		*JobPartsSpecWorkflowSpec
+		graphql.NoUnmarshalJSON
+	}
+	firstPass.JobPartsSpecWorkflowSpec = v
+
+	err := json.Unmarshal(b, &firstPass)
+	if err != nil {
+		return err
+	}
+
+	err = json.Unmarshal(
+		b, &v.WorkflowSpec)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+type __premarshalJobPartsSpecWorkflowSpec struct {
+	Typename string `json:"__typename"`
+
+	Id string `json:"id"`
+
+	WorkflowID string `json:"workflowID"`
+
+	Workflow string `json:"workflow"`
+
+	WorkflowOwner string `json:"workflowOwner"`
+
+	CreatedAt string `json:"createdAt"`
+
+	UpdatedAt string `json:"updatedAt"`
+}
+
+func (v *JobPartsSpecWorkflowSpec) MarshalJSON() ([]byte, error) {
+	premarshaled, err := v.__premarshalJSON()
+	if err != nil {
+		return nil, err
+	}
+	return json.Marshal(premarshaled)
+}
+
+func (v *JobPartsSpecWorkflowSpec) __premarshalJSON() (*__premarshalJobPartsSpecWorkflowSpec, error) {
+	var retval __premarshalJobPartsSpecWorkflowSpec
+
+	retval.Typename = v.Typename
+	retval.Id = v.WorkflowSpec.Id
+	retval.WorkflowID = v.WorkflowSpec.WorkflowID
+	retval.Workflow = v.WorkflowSpec.Workflow
+	retval.WorkflowOwner = v.WorkflowSpec.WorkflowOwner
+	retval.CreatedAt = v.WorkflowSpec.CreatedAt
+	retval.UpdatedAt = v.WorkflowSpec.UpdatedAt
+	return &retval, nil
+}
 
 type JobProposalStatus string
 
@@ -3878,6 +5801,26 @@ const (
 	JobProposalStatusDeleted   JobProposalStatus = "DELETED"
 	JobProposalStatusRevoked   JobProposalStatus = "REVOKED"
 )
+
+// KeeperSpec includes the GraphQL fields of KeeperSpec requested by the fragment KeeperSpec.
+type KeeperSpec struct {
+	ContractAddress string `json:"contractAddress"`
+	CreatedAt       string `json:"createdAt"`
+	EvmChainID      string `json:"evmChainID"`
+	FromAddress     string `json:"fromAddress"`
+}
+
+// GetContractAddress returns KeeperSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *KeeperSpec) GetContractAddress() string { return v.ContractAddress }
+
+// GetCreatedAt returns KeeperSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *KeeperSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEvmChainID returns KeeperSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *KeeperSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetFromAddress returns KeeperSpec.FromAddress, and is useful for accessing the field via an interface.
+func (v *KeeperSpec) GetFromAddress() string { return v.FromAddress }
 
 // ListBridgesBridgesBridgesPayload includes the requested fields of the GraphQL type BridgesPayload.
 type ListBridgesBridgesBridgesPayload struct {
@@ -4300,11 +6243,10 @@ const (
 	OCR2ChainTypeSolana   OCR2ChainType = "SOLANA"
 	OCR2ChainTypeStarknet OCR2ChainType = "STARKNET"
 	OCR2ChainTypeAptos    OCR2ChainType = "APTOS"
+	OCR2ChainTypeTron     OCR2ChainType = "TRON"
 )
 
-// ####################
-// Jobs and Job Proposals
-// ####################
+// OCR2Spec includes the GraphQL fields of OCR2Spec requested by the fragment OCR2Spec.
 type OCR2Spec struct {
 	BlockchainTimeout                 string        `json:"blockchainTimeout"`
 	ContractID                        string        `json:"contractID"`
@@ -4319,6 +6261,7 @@ type OCR2Spec struct {
 	TransmitterID                     string        `json:"transmitterID"`
 	PluginType                        string        `json:"pluginType"`
 	PluginConfig                      gqlscalar.Map `json:"pluginConfig"`
+	AllowNoBootstrappers              bool          `json:"allowNoBootstrappers"`
 }
 
 // GetBlockchainTimeout returns OCR2Spec.BlockchainTimeout, and is useful for accessing the field via an interface.
@@ -4361,6 +6304,79 @@ func (v *OCR2Spec) GetPluginType() string { return v.PluginType }
 
 // GetPluginConfig returns OCR2Spec.PluginConfig, and is useful for accessing the field via an interface.
 func (v *OCR2Spec) GetPluginConfig() gqlscalar.Map { return v.PluginConfig }
+
+// GetAllowNoBootstrappers returns OCR2Spec.AllowNoBootstrappers, and is useful for accessing the field via an interface.
+func (v *OCR2Spec) GetAllowNoBootstrappers() bool { return v.AllowNoBootstrappers }
+
+// OCRSpec includes the GraphQL fields of OCRSpec requested by the fragment OCRSpec.
+type OCRSpec struct {
+	BlockchainTimeout                      string   `json:"blockchainTimeout"`
+	ContractAddress                        string   `json:"contractAddress"`
+	ContractConfigConfirmations            int      `json:"contractConfigConfirmations"`
+	ContractConfigTrackerPollInterval      string   `json:"contractConfigTrackerPollInterval"`
+	ContractConfigTrackerSubscribeInterval string   `json:"contractConfigTrackerSubscribeInterval"`
+	CreatedAt                              string   `json:"createdAt"`
+	EvmChainID                             string   `json:"evmChainID"`
+	IsBootstrapPeer                        bool     `json:"isBootstrapPeer"`
+	KeyBundleID                            string   `json:"keyBundleID"`
+	ObservationTimeout                     string   `json:"observationTimeout"`
+	P2pv2Bootstrappers                     []string `json:"p2pv2Bootstrappers"`
+	TransmitterAddress                     string   `json:"transmitterAddress"`
+	DatabaseTimeout                        string   `json:"databaseTimeout"`
+	ObservationGracePeriod                 string   `json:"observationGracePeriod"`
+	ContractTransmitterTransmitTimeout     string   `json:"contractTransmitterTransmitTimeout"`
+}
+
+// GetBlockchainTimeout returns OCRSpec.BlockchainTimeout, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetBlockchainTimeout() string { return v.BlockchainTimeout }
+
+// GetContractAddress returns OCRSpec.ContractAddress, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetContractAddress() string { return v.ContractAddress }
+
+// GetContractConfigConfirmations returns OCRSpec.ContractConfigConfirmations, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetContractConfigConfirmations() int { return v.ContractConfigConfirmations }
+
+// GetContractConfigTrackerPollInterval returns OCRSpec.ContractConfigTrackerPollInterval, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetContractConfigTrackerPollInterval() string {
+	return v.ContractConfigTrackerPollInterval
+}
+
+// GetContractConfigTrackerSubscribeInterval returns OCRSpec.ContractConfigTrackerSubscribeInterval, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetContractConfigTrackerSubscribeInterval() string {
+	return v.ContractConfigTrackerSubscribeInterval
+}
+
+// GetCreatedAt returns OCRSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEvmChainID returns OCRSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetIsBootstrapPeer returns OCRSpec.IsBootstrapPeer, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetIsBootstrapPeer() bool { return v.IsBootstrapPeer }
+
+// GetKeyBundleID returns OCRSpec.KeyBundleID, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetKeyBundleID() string { return v.KeyBundleID }
+
+// GetObservationTimeout returns OCRSpec.ObservationTimeout, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetObservationTimeout() string { return v.ObservationTimeout }
+
+// GetP2pv2Bootstrappers returns OCRSpec.P2pv2Bootstrappers, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetP2pv2Bootstrappers() []string { return v.P2pv2Bootstrappers }
+
+// GetTransmitterAddress returns OCRSpec.TransmitterAddress, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetTransmitterAddress() string { return v.TransmitterAddress }
+
+// GetDatabaseTimeout returns OCRSpec.DatabaseTimeout, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetDatabaseTimeout() string { return v.DatabaseTimeout }
+
+// GetObservationGracePeriod returns OCRSpec.ObservationGracePeriod, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetObservationGracePeriod() string { return v.ObservationGracePeriod }
+
+// GetContractTransmitterTransmitTimeout returns OCRSpec.ContractTransmitterTransmitTimeout, and is useful for accessing the field via an interface.
+func (v *OCRSpec) GetContractTransmitterTransmitTimeout() string {
+	return v.ContractTransmitterTransmitTimeout
+}
 
 // RejectJobProposalSpecRejectJobProposalSpecNotFoundError includes the requested fields of the GraphQL type NotFoundError.
 type RejectJobProposalSpecRejectJobProposalSpecNotFoundError struct {
@@ -4600,6 +6616,34 @@ const (
 	SpecStatusCancelled SpecStatus = "CANCELLED"
 	SpecStatusRevoked   SpecStatus = "REVOKED"
 )
+
+// StandardCapabilitiesSpec includes the GraphQL fields of StandardCapabilitiesSpec requested by the fragment StandardCapabilitiesSpec.
+type StandardCapabilitiesSpec struct {
+	Id        string `json:"id"`
+	CreatedAt string `json:"createdAt"`
+	Command   string `json:"command"`
+	Config    string `json:"config"`
+}
+
+// GetId returns StandardCapabilitiesSpec.Id, and is useful for accessing the field via an interface.
+func (v *StandardCapabilitiesSpec) GetId() string { return v.Id }
+
+// GetCreatedAt returns StandardCapabilitiesSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *StandardCapabilitiesSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetCommand returns StandardCapabilitiesSpec.Command, and is useful for accessing the field via an interface.
+func (v *StandardCapabilitiesSpec) GetCommand() string { return v.Command }
+
+// GetConfig returns StandardCapabilitiesSpec.Config, and is useful for accessing the field via an interface.
+func (v *StandardCapabilitiesSpec) GetConfig() string { return v.Config }
+
+// StreamSpec includes the GraphQL fields of StreamSpec requested by the fragment StreamSpec.
+type StreamSpec struct {
+	StreamID string `json:"streamID"`
+}
+
+// GetStreamID returns StreamSpec.StreamID, and is useful for accessing the field via an interface.
+func (v *StreamSpec) GetStreamID() string { return v.StreamID }
 
 type UpdateFeedsManagerInput struct {
 	Name      string `json:"name"`
@@ -5182,6 +7226,118 @@ func (v *UpdateJobProposalSpecDefinitionUpdateJobProposalSpecDefinitionUpdateJob
 func (v *UpdateJobProposalSpecDefinitionUpdateJobProposalSpecDefinitionUpdateJobProposalSpecDefinitionSuccessSpecJobProposalSpec) GetUpdatedAt() string {
 	return v.UpdatedAt
 }
+
+// VRFSpec includes the GraphQL fields of VRFSpec requested by the fragment VRFSpec.
+type VRFSpec struct {
+	CoordinatorAddress            string   `json:"coordinatorAddress"`
+	CreatedAt                     string   `json:"createdAt"`
+	EvmChainID                    string   `json:"evmChainID"`
+	FromAddresses                 []string `json:"fromAddresses"`
+	MinIncomingConfirmations      int      `json:"minIncomingConfirmations"`
+	PollPeriod                    string   `json:"pollPeriod"`
+	PublicKey                     string   `json:"publicKey"`
+	RequestedConfsDelay           int      `json:"requestedConfsDelay"`
+	RequestTimeout                string   `json:"requestTimeout"`
+	BatchCoordinatorAddress       string   `json:"batchCoordinatorAddress"`
+	BatchFulfillmentEnabled       bool     `json:"batchFulfillmentEnabled"`
+	BatchFulfillmentGasMultiplier float64  `json:"batchFulfillmentGasMultiplier"`
+	CustomRevertsPipelineEnabled  bool     `json:"customRevertsPipelineEnabled"`
+	ChunkSize                     int      `json:"chunkSize"`
+	BackoffInitialDelay           string   `json:"backoffInitialDelay"`
+	BackoffMaxDelay               string   `json:"backoffMaxDelay"`
+	GasLanePrice                  string   `json:"gasLanePrice"`
+	VrfOwnerAddress               string   `json:"vrfOwnerAddress"`
+}
+
+// GetCoordinatorAddress returns VRFSpec.CoordinatorAddress, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetCoordinatorAddress() string { return v.CoordinatorAddress }
+
+// GetCreatedAt returns VRFSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetEvmChainID returns VRFSpec.EvmChainID, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetEvmChainID() string { return v.EvmChainID }
+
+// GetFromAddresses returns VRFSpec.FromAddresses, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetFromAddresses() []string { return v.FromAddresses }
+
+// GetMinIncomingConfirmations returns VRFSpec.MinIncomingConfirmations, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetMinIncomingConfirmations() int { return v.MinIncomingConfirmations }
+
+// GetPollPeriod returns VRFSpec.PollPeriod, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetPollPeriod() string { return v.PollPeriod }
+
+// GetPublicKey returns VRFSpec.PublicKey, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetPublicKey() string { return v.PublicKey }
+
+// GetRequestedConfsDelay returns VRFSpec.RequestedConfsDelay, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetRequestedConfsDelay() int { return v.RequestedConfsDelay }
+
+// GetRequestTimeout returns VRFSpec.RequestTimeout, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetRequestTimeout() string { return v.RequestTimeout }
+
+// GetBatchCoordinatorAddress returns VRFSpec.BatchCoordinatorAddress, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetBatchCoordinatorAddress() string { return v.BatchCoordinatorAddress }
+
+// GetBatchFulfillmentEnabled returns VRFSpec.BatchFulfillmentEnabled, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetBatchFulfillmentEnabled() bool { return v.BatchFulfillmentEnabled }
+
+// GetBatchFulfillmentGasMultiplier returns VRFSpec.BatchFulfillmentGasMultiplier, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetBatchFulfillmentGasMultiplier() float64 { return v.BatchFulfillmentGasMultiplier }
+
+// GetCustomRevertsPipelineEnabled returns VRFSpec.CustomRevertsPipelineEnabled, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetCustomRevertsPipelineEnabled() bool { return v.CustomRevertsPipelineEnabled }
+
+// GetChunkSize returns VRFSpec.ChunkSize, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetChunkSize() int { return v.ChunkSize }
+
+// GetBackoffInitialDelay returns VRFSpec.BackoffInitialDelay, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetBackoffInitialDelay() string { return v.BackoffInitialDelay }
+
+// GetBackoffMaxDelay returns VRFSpec.BackoffMaxDelay, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetBackoffMaxDelay() string { return v.BackoffMaxDelay }
+
+// GetGasLanePrice returns VRFSpec.GasLanePrice, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetGasLanePrice() string { return v.GasLanePrice }
+
+// GetVrfOwnerAddress returns VRFSpec.VrfOwnerAddress, and is useful for accessing the field via an interface.
+func (v *VRFSpec) GetVrfOwnerAddress() string { return v.VrfOwnerAddress }
+
+// WebhookSpec includes the GraphQL fields of WebhookSpec requested by the fragment WebhookSpec.
+type WebhookSpec struct {
+	CreatedAt string `json:"createdAt"`
+}
+
+// GetCreatedAt returns WebhookSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WebhookSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// WorkflowSpec includes the GraphQL fields of WorkflowSpec requested by the fragment WorkflowSpec.
+type WorkflowSpec struct {
+	Id            string `json:"id"`
+	WorkflowID    string `json:"workflowID"`
+	Workflow      string `json:"workflow"`
+	WorkflowOwner string `json:"workflowOwner"`
+	CreatedAt     string `json:"createdAt"`
+	UpdatedAt     string `json:"updatedAt"`
+}
+
+// GetId returns WorkflowSpec.Id, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetId() string { return v.Id }
+
+// GetWorkflowID returns WorkflowSpec.WorkflowID, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetWorkflowID() string { return v.WorkflowID }
+
+// GetWorkflow returns WorkflowSpec.Workflow, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetWorkflow() string { return v.Workflow }
+
+// GetWorkflowOwner returns WorkflowSpec.WorkflowOwner, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetWorkflowOwner() string { return v.WorkflowOwner }
+
+// GetCreatedAt returns WorkflowSpec.CreatedAt, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetCreatedAt() string { return v.CreatedAt }
+
+// GetUpdatedAt returns WorkflowSpec.UpdatedAt, and is useful for accessing the field via an interface.
+func (v *WorkflowSpec) GetUpdatedAt() string { return v.UpdatedAt }
 
 // __ApproveJobProposalSpecInput is used internally by genqlient
 type __ApproveJobProposalSpecInput struct {
@@ -5971,6 +8127,51 @@ fragment JobParts on Job {
 		... on OCR2Spec {
 			... OCR2Spec
 		}
+		... on OCRSpec {
+			... OCRSpec
+		}
+		... on FluxMonitorSpec {
+			... FluxMonitorSpec
+		}
+		... on KeeperSpec {
+			... KeeperSpec
+		}
+		... on DirectRequestSpec {
+			... DirectRequestSpec
+		}
+		... on CronSpec {
+			... CronSpec
+		}
+		... on VRFSpec {
+			... VRFSpec
+		}
+		... on WebhookSpec {
+			... WebhookSpec
+		}
+		... on BlockhashStoreSpec {
+			... BlockhashStoreSpec
+		}
+		... on BlockHeaderFeederSpec {
+			... BlockHeaderFeederSpec
+		}
+		... on BootstrapSpec {
+			... BootstrapSpec
+		}
+		... on GatewaySpec {
+			... GatewaySpec
+		}
+		... on WorkflowSpec {
+			... WorkflowSpec
+		}
+		... on StandardCapabilitiesSpec {
+			... StandardCapabilitiesSpec
+		}
+		... on StreamSpec {
+			... StreamSpec
+		}
+		... on CCIPSpec {
+			... CCIPSpec
+		}
 	}
 	observationSource
 	errors {
@@ -5995,6 +8196,154 @@ fragment OCR2Spec on OCR2Spec {
 	transmitterID
 	pluginType
 	pluginConfig
+	allowNoBootstrappers
+}
+fragment OCRSpec on OCRSpec {
+	blockchainTimeout
+	contractAddress
+	contractConfigConfirmations
+	contractConfigTrackerPollInterval
+	contractConfigTrackerSubscribeInterval
+	createdAt
+	evmChainID
+	isBootstrapPeer
+	keyBundleID
+	observationTimeout
+	p2pv2Bootstrappers
+	transmitterAddress
+	databaseTimeout
+	observationGracePeriod
+	contractTransmitterTransmitTimeout
+}
+fragment FluxMonitorSpec on FluxMonitorSpec {
+	absoluteThreshold
+	contractAddress
+	createdAt
+	drumbeatEnabled
+	drumbeatRandomDelay
+	drumbeatSchedule
+	evmChainID
+	idleTimerDisabled
+	idleTimerPeriod
+	minPayment
+	pollTimerDisabled
+	pollTimerPeriod
+	threshold
+}
+fragment KeeperSpec on KeeperSpec {
+	contractAddress
+	createdAt
+	evmChainID
+	fromAddress
+}
+fragment DirectRequestSpec on DirectRequestSpec {
+	contractAddress
+	createdAt
+	evmChainID
+	minIncomingConfirmations
+	minContractPaymentLinkJuels
+	requesters
+}
+fragment CronSpec on CronSpec {
+	schedule
+	evmChainID
+	createdAt
+}
+fragment VRFSpec on VRFSpec {
+	coordinatorAddress
+	createdAt
+	evmChainID
+	fromAddresses
+	minIncomingConfirmations
+	pollPeriod
+	publicKey
+	requestedConfsDelay
+	requestTimeout
+	batchCoordinatorAddress
+	batchFulfillmentEnabled
+	batchFulfillmentGasMultiplier
+	customRevertsPipelineEnabled
+	chunkSize
+	backoffInitialDelay
+	backoffMaxDelay
+	gasLanePrice
+	vrfOwnerAddress
+}
+fragment WebhookSpec on WebhookSpec {
+	createdAt
+}
+fragment BlockhashStoreSpec on BlockhashStoreSpec {
+	coordinatorV1Address
+	coordinatorV2Address
+	coordinatorV2PlusAddress
+	waitBlocks
+	lookbackBlocks
+	blockhashStoreAddress
+	trustedBlockhashStoreAddress
+	trustedBlockhashStoreBatchSize
+	heartbeatPeriod
+	pollPeriod
+	runTimeout
+	evmChainID
+	fromAddresses
+	createdAt
+}
+fragment BlockHeaderFeederSpec on BlockHeaderFeederSpec {
+	coordinatorV1Address
+	coordinatorV2Address
+	coordinatorV2PlusAddress
+	waitBlocks
+	lookbackBlocks
+	blockhashStoreAddress
+	batchBlockhashStoreAddress
+	pollPeriod
+	runTimeout
+	evmChainID
+	getBlockhashesBatchSize
+	storeBlockhashesBatchSize
+	fromAddresses
+	createdAt
+}
+fragment BootstrapSpec on BootstrapSpec {
+	id
+	contractID
+	relay
+	relayConfig
+	monitoringEndpoint
+	blockchainTimeout
+	contractConfigTrackerPollInterval
+	contractConfigConfirmations
+	createdAt
+}
+fragment GatewaySpec on GatewaySpec {
+	id
+	gatewayConfig
+	createdAt
+}
+fragment WorkflowSpec on WorkflowSpec {
+	id
+	workflowID
+	workflow
+	workflowOwner
+	createdAt
+	updatedAt
+}
+fragment StandardCapabilitiesSpec on StandardCapabilitiesSpec {
+	id
+	createdAt
+	command
+	config
+}
+fragment StreamSpec on StreamSpec {
+	streamID
+}
+fragment CCIPSpec on CCIPSpec {
+	createdAt
+	updatedAt
+	capabilityVersion
+	capabilityLabelledName
+	ocrKeyBundleIDs
+	p2pKeyID
 }
 `
 
@@ -6270,6 +8619,51 @@ fragment JobParts on Job {
 		... on OCR2Spec {
 			... OCR2Spec
 		}
+		... on OCRSpec {
+			... OCRSpec
+		}
+		... on FluxMonitorSpec {
+			... FluxMonitorSpec
+		}
+		... on KeeperSpec {
+			... KeeperSpec
+		}
+		... on DirectRequestSpec {
+			... DirectRequestSpec
+		}
+		... on CronSpec {
+			... CronSpec
+		}
+		... on VRFSpec {
+			... VRFSpec
+		}
+		... on WebhookSpec {
+			... WebhookSpec
+		}
+		... on BlockhashStoreSpec {
+			... BlockhashStoreSpec
+		}
+		... on BlockHeaderFeederSpec {
+			... BlockHeaderFeederSpec
+		}
+		... on BootstrapSpec {
+			... BootstrapSpec
+		}
+		... on GatewaySpec {
+			... GatewaySpec
+		}
+		... on WorkflowSpec {
+			... WorkflowSpec
+		}
+		... on StandardCapabilitiesSpec {
+			... StandardCapabilitiesSpec
+		}
+		... on StreamSpec {
+			... StreamSpec
+		}
+		... on CCIPSpec {
+			... CCIPSpec
+		}
 	}
 	observationSource
 	errors {
@@ -6294,6 +8688,154 @@ fragment OCR2Spec on OCR2Spec {
 	transmitterID
 	pluginType
 	pluginConfig
+	allowNoBootstrappers
+}
+fragment OCRSpec on OCRSpec {
+	blockchainTimeout
+	contractAddress
+	contractConfigConfirmations
+	contractConfigTrackerPollInterval
+	contractConfigTrackerSubscribeInterval
+	createdAt
+	evmChainID
+	isBootstrapPeer
+	keyBundleID
+	observationTimeout
+	p2pv2Bootstrappers
+	transmitterAddress
+	databaseTimeout
+	observationGracePeriod
+	contractTransmitterTransmitTimeout
+}
+fragment FluxMonitorSpec on FluxMonitorSpec {
+	absoluteThreshold
+	contractAddress
+	createdAt
+	drumbeatEnabled
+	drumbeatRandomDelay
+	drumbeatSchedule
+	evmChainID
+	idleTimerDisabled
+	idleTimerPeriod
+	minPayment
+	pollTimerDisabled
+	pollTimerPeriod
+	threshold
+}
+fragment KeeperSpec on KeeperSpec {
+	contractAddress
+	createdAt
+	evmChainID
+	fromAddress
+}
+fragment DirectRequestSpec on DirectRequestSpec {
+	contractAddress
+	createdAt
+	evmChainID
+	minIncomingConfirmations
+	minContractPaymentLinkJuels
+	requesters
+}
+fragment CronSpec on CronSpec {
+	schedule
+	evmChainID
+	createdAt
+}
+fragment VRFSpec on VRFSpec {
+	coordinatorAddress
+	createdAt
+	evmChainID
+	fromAddresses
+	minIncomingConfirmations
+	pollPeriod
+	publicKey
+	requestedConfsDelay
+	requestTimeout
+	batchCoordinatorAddress
+	batchFulfillmentEnabled
+	batchFulfillmentGasMultiplier
+	customRevertsPipelineEnabled
+	chunkSize
+	backoffInitialDelay
+	backoffMaxDelay
+	gasLanePrice
+	vrfOwnerAddress
+}
+fragment WebhookSpec on WebhookSpec {
+	createdAt
+}
+fragment BlockhashStoreSpec on BlockhashStoreSpec {
+	coordinatorV1Address
+	coordinatorV2Address
+	coordinatorV2PlusAddress
+	waitBlocks
+	lookbackBlocks
+	blockhashStoreAddress
+	trustedBlockhashStoreAddress
+	trustedBlockhashStoreBatchSize
+	heartbeatPeriod
+	pollPeriod
+	runTimeout
+	evmChainID
+	fromAddresses
+	createdAt
+}
+fragment BlockHeaderFeederSpec on BlockHeaderFeederSpec {
+	coordinatorV1Address
+	coordinatorV2Address
+	coordinatorV2PlusAddress
+	waitBlocks
+	lookbackBlocks
+	blockhashStoreAddress
+	batchBlockhashStoreAddress
+	pollPeriod
+	runTimeout
+	evmChainID
+	getBlockhashesBatchSize
+	storeBlockhashesBatchSize
+	fromAddresses
+	createdAt
+}
+fragment BootstrapSpec on BootstrapSpec {
+	id
+	contractID
+	relay
+	relayConfig
+	monitoringEndpoint
+	blockchainTimeout
+	contractConfigTrackerPollInterval
+	contractConfigConfirmations
+	createdAt
+}
+fragment GatewaySpec on GatewaySpec {
+	id
+	gatewayConfig
+	createdAt
+}
+fragment WorkflowSpec on WorkflowSpec {
+	id
+	workflowID
+	workflow
+	workflowOwner
+	createdAt
+	updatedAt
+}
+fragment StandardCapabilitiesSpec on StandardCapabilitiesSpec {
+	id
+	createdAt
+	command
+	config
+}
+fragment StreamSpec on StreamSpec {
+	streamID
+}
+fragment CCIPSpec on CCIPSpec {
+	createdAt
+	updatedAt
+	capabilityVersion
+	capabilityLabelledName
+	ocrKeyBundleIDs
+	p2pKeyID
 }
 `
 

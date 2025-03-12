@@ -1,0 +1,82 @@
+name: Nightlies
+description: Build and publish nightly releases from trunk.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # daily at 03:00 UTC
+
+concurrency:
+  group: nightlies
+  cancel-in-progress: true
+
+jobs:
+  docker-core:
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    with:
+      aws-ecr-name: chainlink
+      dockerfile: core/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: nightly
+      docker-manifest-sign: true
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+
+  docker-core-plugins:
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    with:
+      aws-ecr-name: chainlink
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: nightly
+      docker-manifest-sign: true
+      docker-tag-custom-suffix: "-plugins"
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+
+  docker-ccip:
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    with:
+      aws-ecr-name: ccip
+      dockerfile: core/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        CL_CHAIN_DEFAULTS=/ccip-config
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: nightly
+      docker-manifest-sign: true
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}

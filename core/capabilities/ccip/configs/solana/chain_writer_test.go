@@ -30,7 +30,7 @@ func TestChainWriterConfigRaw(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress, 0)
+			config, err := GetSolanaChainWriterConfig("4Nn9dsYBcSTzRbK9hg9kzCUdrCSkMZq1UR6Vw1Tkaf6H", tt.fromAddress)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {

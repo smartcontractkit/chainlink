@@ -96,9 +96,10 @@ type Compute struct {
 
 	fetcherFactory FetcherFactory
 
-	numWorkers int
-	queue      chan request
-	wg         sync.WaitGroup
+	numWorkers           int
+	maxResponseSizeBytes uint64
+	queue                chan request
+	wg                   sync.WaitGroup
 }
 
 func (c *Compute) RegisterToWorkflow(ctx context.Context, request capabilities.RegisterToWorkflowRequest) error {
@@ -191,6 +192,7 @@ func (c *Compute) initModule(id string, cfg *host.ModuleConfig, binary []byte, r
 
 	cfg.Fetch = c.fetcherFactory.NewFetcher(c.log, c.emitter)
 
+	cfg.MaxResponseSizeBytes = c.maxResponseSizeBytes
 	mod, err := host.NewModule(cfg, binary)
 	if err != nil {
 		return nil, fmt.Errorf("failed to instantiate WASM module: %w", err)
@@ -395,6 +397,7 @@ const (
 	defaultMaxTimeout                = 10 * time.Second
 	defaultMaxCompressedBinarySize   = 20 * 1024 * 1024  // 20 MB
 	defaultMaxDecompressedBinarySize = 100 * 1024 * 1024 // 100 MB
+	defaultMaxResponseSizeBytes      = 5 * 1024 * 1024   // 5 MB
 )
 
 type Config struct {
@@ -405,6 +408,7 @@ type Config struct {
 	MaxTickInterval           time.Duration
 	MaxCompressedBinarySize   uint64
 	MaxDecompressedBinarySize uint64
+	MaxResponseSizeBytes      uint64
 }
 
 func (c *Config) ApplyDefaults() {
@@ -426,6 +430,9 @@ func (c *Config) ApplyDefaults() {
 	if c.MaxDecompressedBinarySize == 0 {
 		c.MaxDecompressedBinarySize = uint64(defaultMaxDecompressedBinarySize)
 	}
+	if c.MaxResponseSizeBytes == 0 {
+		c.MaxResponseSizeBytes = uint64(defaultMaxResponseSizeBytes)
+	}
 }
 
 func NewAction(
@@ -441,15 +448,16 @@ func NewAction(
 		lggr    = logger.Named(log, "CustomCompute")
 		labeler = custmsg.NewLabeler()
 		compute = &Compute{
-			stopCh:         make(services.StopChan),
-			log:            lggr,
-			emitter:        labeler,
-			registry:       registry,
-			modules:        newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
-			transformer:    NewTransformer(lggr, labeler, config),
-			fetcherFactory: fetcherFactory,
-			queue:          make(chan request),
-			numWorkers:     config.NumWorkers,
+			stopCh:               make(services.StopChan),
+			log:                  lggr,
+			emitter:              labeler,
+			registry:             registry,
+			modules:              newModuleCache(clockwork.NewRealClock(), 1*time.Minute, 10*time.Minute, 3),
+			transformer:          NewTransformer(lggr, labeler, config),
+			fetcherFactory:       fetcherFactory,
+			queue:                make(chan request),
+			numWorkers:           config.NumWorkers,
+			maxResponseSizeBytes: config.MaxResponseSizeBytes,
 		}
 	)
 
