@@ -53,11 +53,14 @@ func GetSolanaChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 	offrampProgramAddress []byte,
-	destChainSelector uint64,
 ) (types.ContractWriter, error) {
-	transmitter := transmitters[types.NewRelayID(chainFamily, chainID)]
+	if solana.PublicKeyLength != len(offrampProgramAddress) {
+		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+	}
+
 	offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector)
+	transmitter := transmitters[types.NewRelayID(chainFamily, chainID)]
+	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0])
 	if err == nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 	}

@@ -406,7 +406,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			execBatchGasLimit,
 			relayChainFamily,
 			config.Config.OfframpAddress,
-			chainDetails.ChainSelector,
 		)
 		if err1 != nil {
 			return nil, nil, err1

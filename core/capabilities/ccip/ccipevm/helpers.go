@@ -145,7 +145,6 @@ func GetEVMChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 	offrampProgramAddress []byte,
-	destChainSelector uint64,
 ) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]

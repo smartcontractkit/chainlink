@@ -111,6 +111,5 @@ type PluginConfig struct {
 		execBatchGasLimit uint64,
 		chainFamily string,
 		offrampProgramAddress []byte,
-		destChainSelector uint64,
 	) (types.ContractWriter, error)
 }
