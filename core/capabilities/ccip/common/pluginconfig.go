@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
@@ -15,12 +14,7 @@ import (
 
 // CreatePluginConfig creates a PluginConfig for the given chain family.
 func CreatePluginConfig(chainFamily string) (cctypes.PluginConfig, error) {
-	extraDataCodec := cctypes.NewExtraDataCodec(
-		cctypes.NewExtraDataCodecParams(
-			ccipevm.ExtraDataDecoder{},
-			ccipsolana.ExtraDataDecoder{},
-		),
-	)
+	extraDataCodec := NewExtraDataCodec()
 	switch chainFamily {
 	case chainsel.FamilyEVM:
 		return cctypes.PluginConfig{

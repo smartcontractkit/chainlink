@@ -7,12 +7,11 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )

@@ -11,9 +11,8 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -217,7 +216,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
-	ExtraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
+	extraDataCodec := ccipcommon.NewExtraDataCodec()
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 
@@ -236,7 +235,7 @@ func Test_DecodeReport(t *testing.T) {
 
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
 
-	codec := NewExecutePluginCodecV1(ExtraDataCodec)
+	codec := NewExecutePluginCodecV1(extraDataCodec)
 	decoded, err := codec.Decode(tests.Context(t), rawReport)
 	require.NoError(t, err)
 

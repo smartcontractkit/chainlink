@@ -60,32 +60,6 @@ type OracleCreator interface {
 	Type() OracleType
 }
 
-type OffChainConfig struct {
-	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
-	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
-}
-
-func (ofc OffChainConfig) CommitEmpty() bool {
-	return ofc.CommitOffchainConfig == nil
-}
-
-func (ofc OffChainConfig) ExecEmpty() bool {
-	return ofc.ExecOffchainConfig == nil
-}
-
-func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
-	return ofc.CommitOffchainConfig
-}
-
-func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
-	return ofc.ExecOffchainConfig
-}
-
-// Exactly one of both plugins should be empty at any given time.
-func (ofc OffChainConfig) IsValid() bool {
-	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
-}
-
 // PluginConfig is a struct that holds all the necessary information for a CCIP plugin to function.
 type PluginConfig struct {
 	CommitPluginCodec   cciptypes.CommitPluginCodec
@@ -112,4 +86,30 @@ type PluginConfig struct {
 		chainFamily string,
 		offrampProgramAddress []byte,
 	) (types.ContractWriter, error)
+}
+
+type OffChainConfig struct {
+	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
+	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
+}
+
+func (ofc OffChainConfig) CommitEmpty() bool {
+	return ofc.CommitOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) ExecEmpty() bool {
+	return ofc.ExecOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
+	return ofc.CommitOffchainConfig
+}
+
+func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
+	return ofc.ExecOffchainConfig
+}
+
+// Exactly one of both plugins should be empty at any given time.
+func (ofc OffChainConfig) IsValid() bool {
+	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
 }

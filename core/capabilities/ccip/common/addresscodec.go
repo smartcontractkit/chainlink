@@ -4,41 +4,23 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
-
-// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses
-type ChainSpecificAddressCodec interface {
-	AddressBytesToString([]byte) (string, error)
-	AddressStringToBytes(string) ([]byte, error)
-}
 
 // AddressCodec is a struct that holds the chain specific address codecs
 type AddressCodec struct {
-	EVMAddressCodec    ChainSpecificAddressCodec
-	SolanaAddressCodec ChainSpecificAddressCodec
-}
-
-// AddressCodecParams is a struct that holds the parameters for creating a AddressCodec
-type AddressCodecParams struct {
-	evmAddressCodec    ChainSpecificAddressCodec
-	solanaAddressCodec ChainSpecificAddressCodec
-}
-
-// NewAddressCodecParams is a constructor for AddressCodecParams
-func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
-	return AddressCodecParams{
-		evmAddressCodec:    evmAddressCodec,
-		solanaAddressCodec: solanaAddressCodec,
-	}
+	EVMAddressCodec    types.AddressCodec
+	SolanaAddressCodec types.AddressCodec
 }
 
 // NewAddressCodec is a constructor for AddressCodec
-func NewAddressCodec(params AddressCodecParams) AddressCodec {
+func NewAddressCodec() AddressCodec {
 	return AddressCodec{
-		EVMAddressCodec:    params.evmAddressCodec,
-		SolanaAddressCodec: params.solanaAddressCodec,
+		EVMAddressCodec:    ccipevm.AddressCodec{},
+		SolanaAddressCodec: ccipsolana.AddressCodec{},
 	}
 }
 
