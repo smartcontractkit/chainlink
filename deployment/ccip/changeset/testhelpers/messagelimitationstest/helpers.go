@@ -14,10 +14,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
-// Use this when testhelpers.DeployedEnv is available (usually in ephemeral test environments).
-func NewTestSetupWithDeployedEnv(
+// Expects WithDeployedEnv for ephemeral test environments or WithEnv for long-running test environments like staging.
+func NewTestSetup(
 	t *testing.T,
-	depEnv testhelpers.DeployedEnv,
 	onchainState changeset.CCIPOnChainState,
 	sourceChain,
 	destChain uint64,
@@ -25,11 +24,10 @@ func NewTestSetupWithDeployedEnv(
 	srcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig,
 	testRouter,
 	validateResp bool,
+	opts ...TestSetupOpts,
 ) TestSetup {
-	return TestSetup{
+	ts := TestSetup{
 		T:                           t,
-		Env:                         depEnv.Env,
-		DeployedEnv:                 &depEnv,
 		OnchainState:                onchainState,
 		SrcChain:                    sourceChain,
 		DestChain:                   destChain,
@@ -38,31 +36,26 @@ func NewTestSetupWithDeployedEnv(
 		TestRouter:                  testRouter,
 		ValidateResp:                validateResp,
 	}
+
+	for _, opt := range opts {
+		opt(&ts)
+	}
+
+	return ts
 }
 
-// Use this when testhelpers.DeployedEnv is not available (usually in long-running test environments like staging).
-func NewTestSetup(
-	t *testing.T,
-	env deployment.Environment,
-	onchainState changeset.CCIPOnChainState,
-	sourceChain,
-	destChain uint64,
-	srctoken common.Address,
-	srcFeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig,
-	testRouter,
-	validateResp bool,
-) TestSetup {
-	return TestSetup{
-		T:   t,
-		Env: env,
-		// no DeployedEnv
-		OnchainState:                onchainState,
-		SrcChain:                    sourceChain,
-		DestChain:                   destChain,
-		SrcToken:                    srctoken,
-		SrcFeeQuoterDestChainConfig: srcFeeQuoterDestChainConfig,
-		TestRouter:                  testRouter,
-		ValidateResp:                validateResp,
+type TestSetupOpts func(*TestSetup)
+
+func WithDeployedEnv(de testhelpers.DeployedEnv) TestSetupOpts {
+	return func(ts *TestSetup) {
+		ts.DeployedEnv = &de
+		ts.Env = de.Env
+	}
+}
+
+func WithEnv(env deployment.Environment) TestSetupOpts {
+	return func(ts *TestSetup) {
+		ts.Env = env
 	}
 }
 

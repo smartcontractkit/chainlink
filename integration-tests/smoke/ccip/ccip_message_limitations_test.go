@@ -47,9 +47,8 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 	require.NoError(t, err)
 	t.Logf("0->1 destination config: %+v", chain0DestConfig)
 
-	testSetup := mlt.NewTestSetupWithDeployedEnv(
+	testSetup := mlt.NewTestSetup(
 		t,
-		testEnv,
 		onChainState,
 		chains[0],
 		chains[1],
@@ -57,6 +56,7 @@ func Test_CCIPMessageLimitations(t *testing.T) {
 		chain0DestConfig,
 		false, // testRouter
 		true,  // validateResp
+		mlt.WithDeployedEnv(testEnv),
 	)
 
 	tcs := []mlt.TestCase{
