@@ -13,7 +13,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run "^TestMigrateFromV1_5ToV1_6$"
 
   - id: smoke/ccip/ccip_fees_test.go:*
     path: integration-tests/smoke/ccip/ccip_fees_test.go
