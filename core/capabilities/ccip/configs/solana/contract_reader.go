@@ -530,7 +530,12 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"Owner": "AllowListAdmin"},
-							}},
+							},
+							// for some reason CCIP reader expects the data to be wrapped under DynamicConfig, but not on offramp...
+							&codec.WrapperModifierConfig{
+								Fields: map[string]string{"": "DynamicConfig"},
+							},
+						},
 					},
 				},
 			},
