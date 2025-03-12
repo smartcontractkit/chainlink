@@ -177,6 +177,8 @@ func (x *LLOBridgeTelemetry) GetObservationTimestamp() int64 {
 	return 0
 }
 
+// LLOObservationTelemetry packet sent for each stream on every call to
+// Observation (once per round)
 type LLOObservationTelemetry struct {
 	state                 protoimpl.MessageState `protogen:"open.v1"`
 	StreamId              uint32                 `protobuf:"varint,1,opt,name=stream_id,json=streamId,proto3" json:"stream_id,omitempty"`

@@ -208,8 +208,6 @@ func Test_DecodingExecuteReport(t *testing.T) {
 	}, nil)
 	t.Run("decode on-chain execute report", func(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
-		onRampAddr, err := solanago.NewRandomPrivateKey()
-		require.NoError(t, err)
 
 		destGasAmount := uint32(10)
 		tokenAmount := big.NewInt(rand.Int63())
@@ -233,13 +231,12 @@ func Test_DecodingExecuteReport(t *testing.T) {
 						DestGasAmount: destGasAmount,
 					},
 				},
-				OnRampAddress: onRampAddr.PublicKey().Bytes(),
 			},
 		}
 
 		var extraArgsBuf bytes.Buffer
 		encoder := agbinary.NewBorshEncoder(&extraArgsBuf)
-		err = extraArgs.MarshalWithEncoder(encoder)
+		err := extraArgs.MarshalWithEncoder(encoder)
 		require.NoError(t, err)
 
 		var buf bytes.Buffer

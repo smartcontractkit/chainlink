@@ -21,7 +21,7 @@ jobs:
     secrets:
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+      FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }} # Skip sending data to Splunk while testing the changes
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
 
   trigger-flaky-test-detection-for-deployment:
