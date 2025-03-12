@@ -9,7 +9,10 @@ import (
 )
 
 func TestDeployChannelConfigStore(t *testing.T) {
-	e := newMemoryEnv(t)
+	t.Parallel()
+
+	e := newMemoryEnv(t, nil)
+
 	cc := DeployChannelConfigStoreConfig{
 		ChainsToDeploy: []uint64{TestChain.Selector},
 	}

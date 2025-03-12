@@ -21,13 +21,13 @@ var (
 	}
 )
 
-func newMemoryEnv(t *testing.T) deployment.Environment {
-	lggr := logger.TestLogger(t)
+func newMemoryEnv(t *testing.T, lggr logger.SugaredLogger) deployment.Environment {
+	if lggr == nil {
+		lggr = logger.TestLogger(t)
+	}
 	memEnvConf := memory.MemoryEnvironmentConfig{
-		Chains:         1,
-		Nodes:          4,
-		Bootstraps:     1,
-		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		Chains: 1,
+		Nodes:  1,
 	}
 	return memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
 }

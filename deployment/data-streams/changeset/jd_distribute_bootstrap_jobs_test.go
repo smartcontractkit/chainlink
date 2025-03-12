@@ -6,11 +6,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestDistributeBootstrapJobSpecs(t *testing.T) {
@@ -18,11 +16,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	env := newMemoryEnv(t, lggr)
 
 	// pick the first EVM chain selector
 	chainSelector := env.AllChainSelectors()[0]

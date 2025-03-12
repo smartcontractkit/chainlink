@@ -11,7 +11,9 @@ import (
 )
 
 func TestCallSetChannelDefinitions(t *testing.T) {
-	e := newMemoryEnv(t)
+	t.Parallel()
+
+	e := newMemoryEnv(t, nil)
 
 	// Deploy a contract
 	deployConf := DeployChannelConfigStoreConfig{
