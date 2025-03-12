@@ -14,9 +14,9 @@ import (
 )
 
 // CreateMCMSProposal creates a new MCMS proposal with the given generated transactions.
-func CreateMCMSProposal(e deployment.Environment, generatedTxs []txutil.PreparedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
+func CreateMCMSProposal(e deployment.Environment, preparedTxs []txutil.PreparedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
 	var chainSelectors []uint64
-	for _, tx := range generatedTxs {
+	for _, tx := range preparedTxs {
 		chainSelectors = append(chainSelectors, tx.ChainSelector)
 	}
 	mcmsStatePerChain, err := commonchangeset.MaybeLoadMCMSWithTimelockState(e, chainSelectors)
@@ -39,7 +39,7 @@ func CreateMCMSProposal(e deployment.Environment, generatedTxs []txutil.Prepared
 
 	// Create batch operations from generated transactions
 	var batches []mcmstypes.BatchOperation
-	for _, tx := range generatedTxs {
+	for _, tx := range preparedTxs {
 		batchOp, err := proposalutils.BatchOperationForChain(
 			tx.ChainSelector,
 			tx.DestinationAddress,
