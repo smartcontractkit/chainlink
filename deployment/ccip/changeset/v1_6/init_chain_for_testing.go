@@ -48,19 +48,31 @@ func InitChainForTesting(e deployment.Environment, config InitChainForTestingCon
 		2. Run changesets against home chain WITH MCMS
 		(likely need to extract CS logic into functions to bypass validations)
 		- UpdateChainConfigChangeset
-		- AddDonAndSetCandidateChangeset
-		- SetCandidateChangeset
-		- PromoteCandidateChangeset
+		- AddDonAndSetCandidateChangeset (candidate for commit plugin)
+		- SetCandidateChangeset (for exec plugin)
+		- PromoteCandidateChangeset (for commit plugin)
+		- PromoteCandidateChangeset (for exec plugin)
 
 		3. Run changesets against all requested source chains (including home chain if required) WITH MCMS
 		- UpdateFeeQuoterPricesChangeset
 		- UpdateFeeQuoterDestsChangeset
 		- UpdateOffRampSourcesChangeset (TestRouter = true)
 		- UpdateOnRampsDestsChangeset (TestRouter = true)
-		- UpdateRouterRampsChangeset (for both inbound and outbound traffic, TestRouter = true)
 
-		4. RMN steps? (possibly optional for now)
+		4. UpdateRouterRampsChangeset WITHOUT MCMS (for both inbound and outbound traffic, TestRouter = true)
+
+		5. RMN steps? (possibly optional for now)
 	*/
 
 	return deployment.ChangesetOutput{}, nil
 }
+
+/*
+
+CHANGESETS (For practical BIX usage)
+
+1. AddDonChangeset (claims the )
+
+
+
+*/
