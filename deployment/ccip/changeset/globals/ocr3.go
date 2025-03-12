@@ -34,15 +34,15 @@ var (
 		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
-		DeltaGrace:                  5 * time.Second,
+		DeltaRound:                  5 * time.Second,
+		DeltaGrace:                  2 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage:                              25 * time.Second,
 		Rmax:                                    3,
 		MaxDurationQuery:                        7 * time.Second,
 		MaxDurationObservation:                  13 * time.Second,
-		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
+		MaxDurationShouldAcceptAttestedReport:   7 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 	}
 
@@ -64,8 +64,8 @@ var (
 		DeltaProgress:               100 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
-		DeltaGrace:                  5 * time.Second,
+		DeltaRound:                  3 * time.Second,
+		DeltaGrace:                  2 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
@@ -73,7 +73,7 @@ var (
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
 		MaxDurationQuery:                        200 * time.Millisecond,
 		MaxDurationObservation:                  13 * time.Second,
-		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
+		MaxDurationShouldAcceptAttestedReport:   7 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 	}
 
