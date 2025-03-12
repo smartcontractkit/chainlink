@@ -66,16 +66,16 @@ func UpdateDon(env deployment.Environment, req *UpdateDonRequest) (deployment.Ch
 		if updateResult.Ops == nil {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		if len(appendResult.Proposals) == 0 {
+		if len(appendResult.MCMSTimelockProposals) == 0 {
 			return out, errors.New("expected append node capabilities to return proposals")
 		}
 
-		out.Proposals = appendResult.Proposals
+		out.MCMSTimelockProposals = appendResult.MCMSTimelockProposals
 
 		// add the update don to the existing batch
 		// this makes the proposal all-or-nothing because all the operations are in the same batch, there is only one tr
 		// transaction and only one proposal
-		out.Proposals[0].Transactions[0].Batch = append(out.Proposals[0].Transactions[0].Batch, updateResult.Ops.Batch...)
+		out.MCMSTimelockProposals[0].Operations[0].Transactions = append(out.MCMSTimelockProposals[0].Operations[0].Transactions, updateResult.Ops.Transactions...)
 	}
 	return out, nil
 }
@@ -98,7 +98,7 @@ func appendRequest(r *UpdateDonRequest) *AppendNodeCapabilitiesRequest {
 }
 
 func updateDonRequest(env deployment.Environment, r *UpdateDonRequest) (*internal.UpdateDonRequest, error) {
-	resp, err := internal.GetContractSets(env.Logger, &internal.GetContractSetsRequest{
+	resp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})

@@ -223,6 +223,10 @@ func (l *launcher) processUpdate(ctx context.Context, updated map[registrysyncer
 		if err != nil {
 			return err
 		}
+		if len(newPlugins) == 0 {
+			// not a member of this DON.
+			continue
+		}
 
 		err = newPlugins.TransitionFrom(prevPlugins)
 		if err != nil {
@@ -314,7 +318,8 @@ func updateDON(
 	latestConfigs []ccipreader.OCR3ConfigWithMeta,
 ) (pluginRegistry, error) {
 	if !isMemberOfDON(don, p2pID) {
-		lggr.Infow("Not a member of this DON, skipping", "donId", don.ID, "p2pId", p2pID.String())
+		lggr.Infow("Not a member of this DON, skipping", "donID", don.ID, "p2pID", p2pID.String())
+		return nil, nil
 	}
 
 	newP := make(pluginRegistry)
@@ -349,7 +354,7 @@ func createDON(
 	configs []ccipreader.OCR3ConfigWithMeta,
 ) (pluginRegistry, error) {
 	if !isMemberOfDON(don, p2pID) && oracleCreator.Type() == cctypes.OracleTypePlugin {
-		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donId", don.ID, "p2pId", p2pID.String())
+		lggr.Infow("Not a member of this DON and not a bootstrap node either, skipping", "donID", don.ID, "p2pID", p2pID.String())
 		return nil, nil
 	}
 	p := make(pluginRegistry)

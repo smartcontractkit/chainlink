@@ -18,16 +18,18 @@ import (
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
 
-var currentTokenPoolVersion semver.Version = deployment.Version1_5_1
+var CurrentTokenPoolVersion semver.Version = deployment.Version1_5_1
 
-var tokenPoolTypes map[deployment.ContractType]struct{} = map[deployment.ContractType]struct{}{
-	BurnMintTokenPool:         struct{}{},
-	BurnWithFromMintTokenPool: struct{}{},
-	BurnFromMintTokenPool:     struct{}{},
-	LockReleaseTokenPool:      struct{}{},
+var TokenPoolTypes map[deployment.ContractType]struct{} = map[deployment.ContractType]struct{}{
+	BurnMintTokenPool:              struct{}{},
+	BurnWithFromMintTokenPool:      struct{}{},
+	BurnFromMintTokenPool:          struct{}{},
+	LockReleaseTokenPool:           struct{}{},
+	USDCTokenPool:                  struct{}{},
+	HybridLockReleaseUSDCTokenPool: struct{}{},
 }
 
-var tokenPoolVersions map[semver.Version]struct{} = map[semver.Version]struct{}{
+var TokenPoolVersions map[semver.Version]struct{} = map[semver.Version]struct{}{
 	deployment.Version1_5_1: struct{}{},
 }
 
@@ -43,12 +45,12 @@ type TokenPoolInfo struct {
 
 func (t TokenPoolInfo) Validate() error {
 	// Ensure that the inputted type is known
-	if _, ok := tokenPoolTypes[t.Type]; !ok {
+	if _, ok := TokenPoolTypes[t.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", t.Type)
 	}
 
 	// Ensure that the inputted version is known
-	if _, ok := tokenPoolVersions[t.Version]; !ok {
+	if _, ok := TokenPoolVersions[t.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", t.Version)
 	}
 
@@ -81,7 +83,7 @@ func (t TokenPoolInfo) GetPoolAndTokenAddress(
 	chain deployment.Chain,
 	state CCIPChainState,
 ) (*token_pool.TokenPool, common.Address, error) {
-	tokenPoolAddress, ok := getTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, t.Type, t.Version)
+	tokenPoolAddress, ok := GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, symbol, t.Type, t.Version)
 	if !ok {
 		return nil, utils.ZeroAddress, fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain, symbol, t.Type, t.Version)
 	}
@@ -108,8 +110,8 @@ type tokenPoolMetadata struct {
 	Symbol  TokenSymbol
 }
 
-// newTokenPoolWithMetadata returns a token pool along with its metadata.
-func newTokenPoolWithMetadata[P tokenPool](
+// NewTokenPoolWithMetadata returns a token pool along with its metadata.
+func NewTokenPoolWithMetadata[P tokenPool](
 	ctx context.Context,
 	newTokenPool func(address common.Address, backend bind.ContractBackend) (P, error),
 	poolAddress common.Address,
@@ -149,8 +151,8 @@ func newTokenPoolWithMetadata[P tokenPool](
 	}, nil
 }
 
-// getTokenPoolAddressFromSymbolTypeAndVersion returns the token pool address in the environment linked to a particular symbol, type, and version
-func getTokenPoolAddressFromSymbolTypeAndVersion(
+// GetTokenPoolAddressFromSymbolTypeAndVersion returns the token pool address in the environment linked to a particular symbol, type, and version
+func GetTokenPoolAddressFromSymbolTypeAndVersion(
 	chainState CCIPChainState,
 	chain deployment.Chain,
 	symbol TokenSymbol,
@@ -181,6 +183,14 @@ func getTokenPoolAddressFromSymbolTypeAndVersion(
 			if tokenPool, ok := tokenPools[version]; ok {
 				return tokenPool.Address(), true
 			}
+		}
+	case USDCTokenPool:
+		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
+			return tokenPool.Address(), true
+		}
+	case HybridLockReleaseUSDCTokenPool:
+		if tokenPool, ok := chainState.USDCTokenPools[version]; ok {
+			return tokenPool.Address(), true
 		}
 	}
 

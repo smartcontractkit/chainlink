@@ -88,14 +88,14 @@ func (ofc OffChainConfig) IsValid() bool {
 
 // PluginConfig is a struct that holds all the necessary information for a CCIP plugin to function.
 type PluginConfig struct {
-	CommitPluginCodec    cciptypes.CommitPluginCodec
-	ExecutePluginCodec   cciptypes.ExecutePluginCodec
-	ExtraArgsCodec       cciptypes.ExtraDataCodec
-	MessageHasher        func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder     cciptypes.TokenDataEncoder
-	GasEstimateProvider  cciptypes.EstimateProvider
-	RMNCrypto            func(lggr logger.Logger) cciptypes.RMNCrypto
-	AddressToString      func([]byte, bool) string
+	CommitPluginCodec   cciptypes.CommitPluginCodec
+	ExecutePluginCodec  cciptypes.ExecutePluginCodec
+	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder    cciptypes.TokenDataEncoder
+	GasEstimateProvider cciptypes.EstimateProvider
+	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	// PriceOnlyCommitFn optional method override for price only commit reports.
+	PriceOnlyCommitFn    string
 	GetChainReaderConfig func(lggr logger.Logger,
 		chainID string,
 		destChainID string,

@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
@@ -20,12 +21,14 @@ import (
 // Compatible with:
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
-	lggr logger.Logger
+	lggr           logger.Logger
+	extraDataCodec types.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec types.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
-		lggr: lggr,
+		lggr:           lggr,
+		extraDataCodec: extraDataCodec,
 	}
 }
 
@@ -41,15 +44,26 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		MessageId:           msg.Header.MessageID,
 		Nonce:               msg.Header.Nonce,
 	}
+	if solana.PublicKeyLength != len(msg.Receiver) {
+		return [32]byte{}, fmt.Errorf("invalid receiver length: %d", len(msg.Receiver))
+	}
 	anyToSolanaMessage.TokenReceiver = solana.PublicKeyFromBytes(msg.Receiver)
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
 	for _, ta := range msg.TokenAmounts {
-		destGasAmount, err := extractDestGasAmountFromMap(ta.DestExecDataDecoded)
+		destExecDataDecodedMap, err := h.extraDataCodec.DecodeTokenAmountDestExecData(ta.DestExecData, msg.Header.SourceChainSelector)
+		if err != nil {
+			return [32]byte{}, fmt.Errorf("failed to decode dest exec data: %w", err)
+		}
+
+		destGasAmount, err := extractDestGasAmountFromMap(destExecDataDecodedMap)
 		if err != nil {
 			return [32]byte{}, err
 		}
 
+		if solana.PublicKeyLength != len(ta.DestTokenAddress) {
+			return [32]byte{}, fmt.Errorf("invalid DestTokenAddress length: %d", len(ta.DestTokenAddress))
+		}
 		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
@@ -59,14 +73,18 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		})
 	}
 
-	var err error
+	extraDataDecodecMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to decode extra args: %w", err)
+	}
+
 	var msgAccounts []solana.PublicKey
-	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(msg.ExtraArgsDecoded)
+	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
 
-	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp, msgAccounts)
+	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msgAccounts)
 	return [32]byte(hash), err
 }
 
@@ -107,7 +125,7 @@ func parseExtraArgsMapWithAccounts(input map[string]any) (ccip_offramp.Any2SVMRa
 				return out, accounts, errors.New("invalid type for Accounts, expected [][32]byte")
 			}
 		default:
-			// no error here, aswe only need the keys to construct SVMExtraArgs, other keys can be skipped without
+			// no error here, as we only need the keys to construct SVMExtraArgs, other keys can be skipped without
 			// return errors because there's no guarantee SVMExtraArgs will match with SVMExtraArgsV1
 		}
 	}

@@ -121,16 +121,17 @@ contract MockCCIPRouter is IRouter, IRouterClient {
 
   function _fromBytes(
     bytes calldata extraArgs
-  ) internal pure returns (Client.EVMExtraArgsV2 memory) {
+  ) internal pure returns (Client.GenericExtraArgsV2 memory) {
     if (extraArgs.length == 0) {
-      return Client.EVMExtraArgsV2({gasLimit: DEFAULT_GAS_LIMIT, allowOutOfOrderExecution: false});
+      return Client.GenericExtraArgsV2({gasLimit: DEFAULT_GAS_LIMIT, allowOutOfOrderExecution: false});
     }
 
     bytes4 extraArgsTag = bytes4(extraArgs);
-    if (extraArgsTag == Client.EVM_EXTRA_ARGS_V2_TAG) {
-      return abi.decode(extraArgs[4:], (Client.EVMExtraArgsV2));
+    if (extraArgsTag == Client.GENERIC_EXTRA_ARGS_V2_TAG) {
+      return abi.decode(extraArgs[4:], (Client.GenericExtraArgsV2));
     } else if (extraArgsTag == Client.EVM_EXTRA_ARGS_V1_TAG) {
-      return Client.EVMExtraArgsV2({gasLimit: abi.decode(extraArgs[4:], (uint256)), allowOutOfOrderExecution: false});
+      return
+        Client.GenericExtraArgsV2({gasLimit: abi.decode(extraArgs[4:], (uint256)), allowOutOfOrderExecution: false});
     }
 
     revert InvalidExtraArgsTag();

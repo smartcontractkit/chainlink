@@ -139,6 +139,7 @@ func (rf *ExecutionReportingPluginFactory) NewReportingPluginFn(ctx context.Cont
 			commitStoreReader:           rf.config.commitStoreReader,
 			destPriceRegistry:           rf.destPriceRegReader,
 			destWrappedNative:           destWrappedNative,
+			destChainSelector:           rf.config.destChainSelector,
 			onchainConfig:               onchainConfig,
 			offRampReader:               rf.config.offRampReader,
 			tokenPoolBatchedReader:      rf.config.tokenPoolBatchedReader,

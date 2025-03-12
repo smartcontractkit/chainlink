@@ -19,11 +19,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker"
-	httypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/headtracker/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	log_mocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -60,7 +60,7 @@ type vrfUniverse struct {
 	vrfkey       vrfkey.KeyV2
 	submitter    common.Address
 	txm          *txmgr.TxManager
-	hb           httypes.HeadBroadcaster
+	hb           heads.Broadcaster
 	legacyChains legacyevm.LegacyChainContainer
 	cid          big.Int
 }
@@ -75,7 +75,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	ec.On("ConfiguredChainID").Return(testutils.FixtureChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(51), nil).Maybe()
 	lggr := logger.TestLogger(t)
-	hb := headtracker.NewHeadBroadcaster(lggr)
+	hb := heads.NewBroadcaster(lggr)
 
 	// Don't mock db interactions
 	prm := pipeline.NewORM(db, lggr, cfg.JobPipeline().MaxSuccessfulRuns())
@@ -83,7 +83,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
 	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil, nil, nil)
-	orm := headtracker.NewORM(*testutils.FixtureChainID, db)
+	orm := heads.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })

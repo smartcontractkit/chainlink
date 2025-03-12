@@ -169,8 +169,12 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	}
 
 	if tc.ValidateResp {
+		commitStart := time.Now()
 		testhelpers.ConfirmCommitForAllWithExpectedSeqNums(tc.T, tc.Env, tc.OnchainState, expectedSeqNum, startBlocks)
+		tc.T.Logf("confirmed commit of seq nums %+v in %s", expectedSeqNum, time.Since(commitStart).String())
+		execStart := time.Now()
 		execStates := testhelpers.ConfirmExecWithSeqNrsForAll(tc.T, tc.Env, tc.OnchainState, expectedSeqNumExec, startBlocks)
+		tc.T.Logf("confirmed exec of seq nums %+v in %s", expectedSeqNumExec, time.Since(execStart).String())
 
 		require.Equalf(
 			tc.T,

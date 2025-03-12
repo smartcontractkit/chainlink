@@ -5,22 +5,28 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync"
+
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	"github.com/ethereum/go-ethereum/common"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -46,38 +52,38 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	p2pIds := nodes.NonBootstraps().PeerIDs()
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, chain := range e.AllChainSelectors() {
-		mcmsConfig, err := config.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []config.Config{})
+		mcmsConfig, err := mcmstypes.NewConfig(1, []common.Address{e.Chains[chain].DeployerKey.From}, []mcmstypes.Config{})
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to create mcms config: %w", err)
 		}
-		cfg[chain] = commontypes.MCMSWithTimelockConfig{
-			Canceller:        *mcmsConfig,
-			Bypasser:         *mcmsConfig,
-			Proposer:         *mcmsConfig,
+		cfg[chain] = commontypes.MCMSWithTimelockConfigV2{
+			Canceller:        mcmsConfig,
+			Bypasser:         mcmsConfig,
+			Proposer:         mcmsConfig,
 			TimelockMinDelay: big.NewInt(0),
 		}
 	}
-	*e, err = commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployMCMSWithTimelock),
-			Config:    cfg,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployHomeChainChangeset),
-			Config: changeset.DeployHomeChainConfig{
-				HomeChainSel:     homeChainSel,
-				RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
-				RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
-				NodeOperators:    testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
-				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
-					"NodeOperator": p2pIds,
-				},
+	*e, err = commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+			cfg,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+			v1_6.DeployHomeChainConfig{
+				HomeChainSel:             homeChainSel,
+				RMNStaticConfig:          testhelpers.NewTestRMNStaticConfig(),
+				RMNDynamicConfig:         testhelpers.NewTestRMNDynamicConfig(),
+				NodeOperators:            testhelpers.NewTestNodeOperator(e.Chains[homeChainSel].DeployerKey.From),
+				NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{"NodeOperator": p2pIds},
 			},
-		},
-	})
-
+		),
+	)
+	if err != nil {
+		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("changeset sequence execution failed with error: %w", err)
+	}
 	state, err := changeset.LoadOnchainState(*e)
 	if err != nil {
 		return deployment.CapabilityRegistryConfig{}, e.ExistingAddresses, fmt.Errorf("failed to load on chain state: %w", err)
@@ -104,7 +110,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	// ------ Part 1 -----
 	// Setup because we only need to deploy the contracts and distribute job specs
-	fmt.Println("setting up chains...")
+	lggr.Infow("setting up chains...")
 	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
@@ -115,7 +121,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	fmt.Println("setting up lanes...")
+	lggr.Infow("setting up lanes...")
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
@@ -124,8 +130,8 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// ------ Part 1 -----
 
 	// ----- Part 2 -----
-	fmt.Println("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	lggr.Infow("setting up ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, true)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -133,7 +139,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
-	fmt.Println("distributing funds...")
+	lggr.Infow("distributing funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
@@ -159,7 +165,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	e.ExistingAddresses = ab
 
 	// Setup because we only need to deploy the contracts and distribute job specs
-	fmt.Println("setting up chains...")
+	lggr.Infow("setting up chains...")
 	*e, err = setupChains(lggr, e, homeChainSel)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up chain: %w", err)
@@ -188,7 +194,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	fmt.Println("setting up lanes...")
+	lggr.Infow("setting up lanes...")
 	// Add all lanes
 	*e, err = setupLanes(e, state)
 	if err != nil {
@@ -205,8 +211,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}, nil
 }
 
-// ConfigureCCIPOCR is a group of changesets used from CRIB to configure OCR on a new setup
-// This sets up OCR on all chains in the envConfig by configuring the CCIP home chain
+// ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
 func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
 	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
@@ -214,8 +219,8 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	}
 	e.ExistingAddresses = ab
 
-	fmt.Println("setting up ocr...")
-	*e, err = setupOCR(e, homeChainSel, feedChainSel)
+	lggr.Infow("resetting ocr...")
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, false)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -242,7 +247,7 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
-	fmt.Println("distributing funds...")
+	lggr.Infow("distributing funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
@@ -260,68 +265,70 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 
 func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uint64) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
-	chainConfigs := make(map[uint64]changeset.ChainConfig)
+	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
 	}
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
-	contractParams := make(map[uint64]changeset.ChainContractParams)
+	contractParams := make(map[uint64]v1_6.ChainContractParams)
 
 	for _, chain := range chainSelectors {
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: chain,
 		})
-		chainConfigs[chain] = changeset.ChainConfig{
+		chainConfigs[chain] = v1_6.ChainConfig{
 			Readers: nodeInfo.NonBootstraps().PeerIDs(),
-			FChain:  1,
+			// Number of nodes is 3f+1
+			//nolint:gosec // this should always be less than max uint8
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
 			EncodableChainConfig: chainconfig.ChainConfig{
 				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(1000)},
 				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(1_000_000)},
 				OptimisticConfirmations: 1,
 			},
 		}
-		contractParams[chain] = changeset.ChainContractParams{
-			FeeQuoterParams: changeset.DefaultFeeQuoterParams(),
-			OffRampParams:   changeset.DefaultOffRampParams(),
+		contractParams[chain] = v1_6.ChainContractParams{
+			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
+			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
-	env, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateChainConfigChangeset),
-			Config: changeset.UpdateChainConfigConfig{
+	env, err := commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
+			v1_6.UpdateChainConfigConfig{
 				HomeChainSelector: homeChainSel,
 				RemoteChainAdds:   chainConfigs,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(commonchangeset.DeployLinkToken),
-			Config:    chainSelectors,
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployPrerequisitesChangeset),
-			Config: changeset.DeployPrerequisiteConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
+			chainSelectors,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
+			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployChainContractsChangeset),
-			Config: changeset.DeployChainContractsConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
+			v1_6.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
 				ContractParamsPerChain: contractParams,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetRMNRemoteOnRMNProxyChangeset),
-			Config: changeset.SetRMNRemoteOnRMNProxyConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
+			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: chainSelectors,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.CCIPCapabilityJobspecChangeset),
-			Config:    struct{}{},
-		},
-	})
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
+			nil, // ChangeSet does not use a config.
+		),
+	)
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
@@ -335,10 +342,10 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 		return *e, fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	chainSelectors := e.AllChainSelectors()
-	poolInput := make(map[uint64]changeset.DeployTokenPoolInput)
+	poolInput := make(map[uint64]v1_5_1.DeployTokenPoolInput)
 	pools := make(map[uint64]map[changeset.TokenSymbol]changeset.TokenPoolInfo)
 	for _, chain := range chainSelectors {
-		poolInput[chain] = changeset.DeployTokenPoolInput{
+		poolInput[chain] = v1_5_1.DeployTokenPoolInput{
 			Type:               changeset.BurnMintTokenPool,
 			LocalTokenDecimals: 18,
 			AllowList:          []common.Address{},
@@ -352,33 +359,33 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 			},
 		}
 	}
-	env, err := commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.DeployTokenPoolContractsChangeset),
-			Config: changeset.DeployTokenPoolContractsConfig{
+	env, err := commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5_1.DeployTokenPoolContractsChangeset),
+			v1_5_1.DeployTokenPoolContractsConfig{
 				TokenSymbol: changeset.LinkSymbol,
 				NewPools:    poolInput,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.ProposeAdminRoleChangeset),
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5_1.ProposeAdminRoleChangeset),
+			changeset.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.AcceptAdminRoleChangeset),
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5_1.AcceptAdminRoleChangeset),
+			changeset.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetPoolChangeset),
-			Config: changeset.TokenAdminRegistryChangesetConfig{
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_5_1.SetPoolChangeset),
+			changeset.TokenAdminRegistryChangesetConfig{
 				Pools: pools,
 			},
-		},
-	})
+		),
+	)
 
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
@@ -402,153 +409,199 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
-	onRampUpdatesByChain := make(map[uint64]map[uint64]changeset.OnRampDestinationUpdate)
-	pricesByChain := make(map[uint64]changeset.FeeQuoterPriceUpdatePerSource)
-	feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-	updateOffRampSources := make(map[uint64]map[uint64]changeset.OffRampSourceUpdate)
-	updateRouterChanges := make(map[uint64]changeset.RouterUpdates)
-	poolUpdates := make(map[uint64]changeset.TokenPoolConfig)
+	eg := errgroup.Group{}
+	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
+	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
+	mu := sync.Mutex{}
 	for src := range e.Chains {
-		onRampUpdatesByChain[src] = make(map[uint64]changeset.OnRampDestinationUpdate)
-		pricesByChain[src] = changeset.FeeQuoterPriceUpdatePerSource{
-			TokenPrices: map[common.Address]*big.Int{
-				state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
-				state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
-			},
-			GasPrices: make(map[uint64]*big.Int),
-		}
-		feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
-		updateOffRampSources[src] = make(map[uint64]changeset.OffRampSourceUpdate)
-		updateRouterChanges[src] = changeset.RouterUpdates{
-			OffRampUpdates: make(map[uint64]bool),
-			OnRampUpdates:  make(map[uint64]bool),
-		}
-		rateLimitPerChain := make(changeset.RateLimiterPerChain)
+		src := src
+		eg.Go(func() error {
+			onRampUpdatesByChain := make(map[uint64]map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain := make(map[uint64]v1_6.FeeQuoterPriceUpdatePerSource)
+			feeQuoterDestsUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges := make(map[uint64]v1_6.RouterUpdates)
+			onRampUpdatesByChain[src] = make(map[uint64]v1_6.OnRampDestinationUpdate)
+			pricesByChain[src] = v1_6.FeeQuoterPriceUpdatePerSource{
+				TokenPrices: map[common.Address]*big.Int{
+					state.Chains[src].LinkToken.Address(): testhelpers.DefaultLinkPrice,
+					state.Chains[src].Weth9.Address():     testhelpers.DefaultWethPrice,
+				},
+				GasPrices: make(map[uint64]*big.Int),
+			}
+			feeQuoterDestsUpdatesByChain[src] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			updateOffRampSources[src] = make(map[uint64]v1_6.OffRampSourceUpdate)
+			updateRouterChanges[src] = v1_6.RouterUpdates{
+				OffRampUpdates: make(map[uint64]bool),
+				OnRampUpdates:  make(map[uint64]bool),
+			}
 
-		for dst := range e.Chains {
-			if src != dst {
-				onRampUpdatesByChain[src][dst] = changeset.OnRampDestinationUpdate{
-					IsEnabled:        true,
-					AllowListEnabled: false,
-				}
-				pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
-				feeQuoterDestsUpdatesByChain[src][dst] = changeset.DefaultFeeQuoterDestChainConfig(true)
+			for dst := range e.Chains {
+				if src != dst {
+					onRampUpdatesByChain[src][dst] = v1_6.OnRampDestinationUpdate{
+						IsEnabled:        true,
+						AllowListEnabled: false,
+					}
+					pricesByChain[src].GasPrices[dst] = testhelpers.DefaultGasPrice
+					feeQuoterDestsUpdatesByChain[src][dst] = v1_6.DefaultFeeQuoterDestChainConfig(true)
 
-				updateOffRampSources[src][dst] = changeset.OffRampSourceUpdate{
-					IsEnabled:                 true,
-					IsRMNVerificationDisabled: true,
-				}
+					updateOffRampSources[src][dst] = v1_6.OffRampSourceUpdate{
+						IsEnabled:                 true,
+						IsRMNVerificationDisabled: true,
+					}
 
-				updateRouterChanges[src].OffRampUpdates[dst] = true
-				updateRouterChanges[src].OnRampUpdates[dst] = true
-				rateLimitPerChain[dst] = changeset.RateLimiterConfig{
-					Inbound: token_pool.RateLimiterConfig{
-						IsEnabled: false,
-						Capacity:  big.NewInt(0),
-						Rate:      big.NewInt(0),
-					},
-					Outbound: token_pool.RateLimiterConfig{
-						IsEnabled: false,
-						Capacity:  big.NewInt(0),
-						Rate:      big.NewInt(0),
-					},
+					updateRouterChanges[src].OffRampUpdates[dst] = true
+					updateRouterChanges[src].OnRampUpdates[dst] = true
+					mu.Lock()
+					rateLimitPerChain[dst] = v1_5_1.RateLimiterConfig{
+						Inbound: token_pool.RateLimiterConfig{
+							IsEnabled: false,
+							Capacity:  big.NewInt(0),
+							Rate:      big.NewInt(0),
+						},
+						Outbound: token_pool.RateLimiterConfig{
+							IsEnabled: false,
+							Capacity:  big.NewInt(0),
+							Rate:      big.NewInt(0),
+						},
+					}
+					mu.Unlock()
 				}
 			}
-		}
+			mu.Lock()
+			poolUpdates[src] = v1_5_1.TokenPoolConfig{
+				Type:         changeset.BurnMintTokenPool,
+				Version:      deployment.Version1_5_1,
+				ChainUpdates: rateLimitPerChain,
+			}
+			mu.Unlock()
 
-		poolUpdates[src] = changeset.TokenPoolConfig{
-			Type:         changeset.BurnMintTokenPool,
-			Version:      deployment.Version1_5_1,
-			ChainUpdates: rateLimitPerChain,
-		}
+			_, err := commonchangeset.Apply(nil, *e, nil,
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.UpdateOnRampsDestsChangeset),
+					v1_6.UpdateOnRampDestsConfig{
+						UpdatesByChain: onRampUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterPricesChangeset),
+					v1_6.UpdateFeeQuoterPricesConfig{
+						PricesByChain: pricesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.UpdateFeeQuoterDestsChangeset),
+					v1_6.UpdateFeeQuoterDestsConfig{
+						UpdatesByChain: feeQuoterDestsUpdatesByChain,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.UpdateOffRampSourcesChangeset),
+					v1_6.UpdateOffRampSourcesConfig{
+						UpdatesByChain: updateOffRampSources,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.UpdateRouterRampsChangeset),
+					v1_6.UpdateRouterRampsConfig{
+						UpdatesByChain: updateRouterChanges,
+					},
+				),
+			)
+			return err
+		})
 	}
 
-	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.ConfigureTokenPoolContractsChangeset),
-			Config: changeset.ConfigureTokenPoolContractsConfig{
-				TokenSymbol: changeset.LinkSymbol,
-				PoolUpdates: poolUpdates,
-			},
+	err := eg.Wait()
+	if err != nil {
+		return *e, err
+	}
+
+	_, err = commonchangeset.Apply(nil, *e, nil, commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
+		v1_5_1.ConfigureTokenPoolContractsConfig{
+			TokenSymbol: changeset.LinkSymbol,
+			PoolUpdates: poolUpdates,
 		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOnRampsDestsChangeset),
-			Config: changeset.UpdateOnRampDestsConfig{
-				UpdatesByChain: onRampUpdatesByChain,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterPricesChangeset),
-			Config: changeset.UpdateFeeQuoterPricesConfig{
-				PricesByChain: pricesByChain,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateFeeQuoterDestsChangeset),
-			Config: changeset.UpdateFeeQuoterDestsConfig{
-				UpdatesByChain: feeQuoterDestsUpdatesByChain,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateOffRampSourcesChangeset),
-			Config: changeset.UpdateOffRampSourcesConfig{
-				UpdatesByChain: updateOffRampSources,
-			},
-		},
-		{
-			Changeset: commonchangeset.WrapChangeSet(changeset.UpdateRouterRampsChangeset),
-			Config: changeset.UpdateRouterRampsConfig{
-				UpdatesByChain: updateRouterChanges,
-			},
-		},
-	})
+	))
+
+	return *e, err
 }
 
-func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64) (deployment.Environment, error) {
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
-	var ocrConfigPerSelector = make(map[uint64]changeset.CCIPOCRParams)
+	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
+	// Should be configured in the future based on the load test scenario
+	// chainType := v1_6.Default
+
+	// TODO Passing SimulationTest to reduce number of changes in the CRIB (load test setup)
+	// @Austin please flip it back to Default once we reach a stable state
+	chainType := v1_6.SimulationTest
 	for selector := range e.Chains {
-		ocrConfigPerSelector[selector] = changeset.DeriveCCIPOCRParams(changeset.WithDefaultCommitOffChainConfig(feedChainSel, nil),
-			changeset.WithDefaultExecuteOffChainConfig(nil),
-		)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}
-	return commonchangeset.ApplyChangesets(nil, *e, nil, []commonchangeset.ChangesetApplication{
-		{
-			// Add the DONs and candidate commit OCR instances for the chain.
-			Changeset: commonchangeset.WrapChangeSet(changeset.AddDonAndSetCandidateChangeset),
-			Config: changeset.AddDonAndSetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+
+	var commitChangeset commonchangeset.ConfiguredChangeSet
+	if newDons {
+		commitChangeset = commonchangeset.Configure(
+			// Add the DONs and candidate commit OCR instances for the chain
+			deployment.CreateLegacyChangeSet(v1_6.AddDonAndSetCandidateChangeset),
+			v1_6.AddDonAndSetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: homeChainSel,
 					FeedChainSelector: feedChainSel,
 				},
-				PluginInfo: changeset.SetCandidatePluginInfo{
-					OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+				PluginInfo: v1_6.SetCandidatePluginInfo{
+					OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
 					PluginType:                      types.PluginTypeCCIPCommit,
 				},
 			},
-		},
-		{
-			// Add the exec OCR instances for the new chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetCandidateChangeset),
-			Config: changeset.SetCandidateChangesetConfig{
-				SetCandidateConfigBase: changeset.SetCandidateConfigBase{
+		)
+	} else {
+		commitChangeset = commonchangeset.Configure(
+			// Update commit OCR instances for existing chains
+			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			v1_6.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: homeChainSel,
 					FeedChainSelector: feedChainSel,
 				},
-				PluginInfo: []changeset.SetCandidatePluginInfo{
+				PluginInfo: []v1_6.SetCandidatePluginInfo{
 					{
-						OCRConfigPerRemoteChainSelector: ocrConfigPerSelector,
+						OCRConfigPerRemoteChainSelector: commitOCRConfigPerSelector,
+						PluginType:                      types.PluginTypeCCIPCommit,
+					},
+				},
+			},
+		)
+	}
+
+	return commonchangeset.Apply(nil, *e, nil,
+		commitChangeset,
+		commonchangeset.Configure(
+			// Add the exec OCR instances for the new chains
+			deployment.CreateLegacyChangeSet(v1_6.SetCandidateChangeset),
+			v1_6.SetCandidateChangesetConfig{
+				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
+					HomeChainSelector: homeChainSel,
+					FeedChainSelector: feedChainSel,
+				},
+				PluginInfo: []v1_6.SetCandidatePluginInfo{
+					{
+						OCRConfigPerRemoteChainSelector: execOCRConfigPerSelector,
 						PluginType:                      types.PluginTypeCCIPExec,
 					},
 				},
 			},
-		},
-		{
+		),
+		commonchangeset.Configure(
 			// Promote everything
-			Changeset: commonchangeset.WrapChangeSet(changeset.PromoteCandidateChangeset),
-			Config: changeset.PromoteCandidateChangesetConfig{
+			deployment.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+			v1_6.PromoteCandidateChangesetConfig{
 				HomeChainSelector: homeChainSel,
-				PluginInfo: []changeset.PromoteCandidatePluginInfo{
+				PluginInfo: []v1_6.PromoteCandidatePluginInfo{
 					{
 						RemoteChainSelectors: chainSelectors,
 						PluginType:           types.PluginTypeCCIPCommit,
@@ -559,15 +612,15 @@ func setupOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint6
 					},
 				},
 			},
-		},
-		{
-			// Enable the OCR config on the remote chains.
-			Changeset: commonchangeset.WrapChangeSet(changeset.SetOCR3OffRampChangeset),
-			Config: changeset.SetOCR3OffRampConfig{
+		),
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains
+			deployment.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
+			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    chainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
-		},
-	})
+		),
+	)
 }

@@ -755,22 +755,30 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 			}
 			clients[server.URL] = client
 		}
-		transmitter = llo.NewTransmitter(llo.TransmitterOpts{
+		// FIXME: The transmitter instantiation really ought to be moved out of
+		// the evm relay into llo package
+		// https://smartcontract-it.atlassian.net/browse/MERC-6847
+		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
 			Lggr:           lggr,
+			DonID:          lloCfg.DonID,
 			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
 			VerboseLogging: r.mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:           lggr,
-				Registerer:     r.registerer,
-				VerboseLogging: r.mercuryCfg.VerboseLogging(),
-				Cfg:            r.mercuryCfg.Transmitter(),
-				Clients:        clients,
-				FromAccount:    privKey.PublicKey,
-				DonID:          relayConfig.LLODONID,
-				ORM:            mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				Lggr:                 lggr,
+				VerboseLogging:       r.mercuryCfg.VerboseLogging(),
+				Cfg:                  r.mercuryCfg.Transmitter(),
+				Clients:              clients,
+				FromAccount:          privKey.PublicKey,
+				DonID:                lloCfg.DonID,
+				ORM:                  mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
+				CapabilitiesRegistry: r.capabilitiesRegistry,
 			},
+			Subtransmitters:       lloCfg.Transmitters,
 			RetirementReportCache: r.retirementReportCache,
 		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)
+		}
 	}
 
 	cdcFactory, err := r.cdcFactory()
