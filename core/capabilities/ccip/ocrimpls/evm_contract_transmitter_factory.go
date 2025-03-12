@@ -38,7 +38,7 @@ var EVMExecCallDataFunc = func(
 }
 
 // EVMCommitCalldataFunc returns a ToCalldataFunc that omits the Info object for EVM.
-func EVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
+func NewEVMCommitCalldataFunc(defaultMethod string) ToCalldataFunc {
 	return func(
 		rawReportCtx [2][32]byte,
 		report ocr3types.ReportWithInfo[[]byte],
