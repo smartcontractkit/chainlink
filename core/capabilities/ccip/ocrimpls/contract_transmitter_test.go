@@ -210,7 +210,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
-		require.Equal(t, "unexpected report length, expected 1, got 2", err.Error())
+		require.Contains(t, err.Error(), "unexpected report length, expected 1, got 2")
 	})
 	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{
@@ -228,7 +228,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 			Info:   encodedExecReport,
 		}
 		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
-		require.Equal(t, "unexpected message length, expected 1, got 2", err.Error())
+		require.Contains(t, err.Error(), "unexpected message length, expected 1, got 2")
 	})
 	t.Run("fails with invalid extra args", func(t *testing.T) {
 		// invalid encoded extra args
@@ -336,12 +336,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.NoError(t, err)
 
-		expectedArgs, ok := args.(struct {
-			ReportContext [2][32]byte
-			Report        []byte
-			Info          ccipocr3.ExecuteReportInfo
-			ExtraData     ccipcommon.ExtraDataDecoded
-		})
+		expectedArgs, ok := args.(ocrimpls.SVMExecCallArgs)
 		require.True(t, ok)
 
 		require.Equal(t, uint64(0x4), expectedArgs.ExtraData.ExtraArgsDecoded["accountIsWritableBitmap"])
