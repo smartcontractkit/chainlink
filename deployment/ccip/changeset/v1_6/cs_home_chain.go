@@ -589,23 +589,23 @@ func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) er
 		existingP2PIDs[nodeInfo.P2pId] = nodeInfo
 	}
 	for _, p2pID := range c.P2PIDsToRemove {
-		if info, exists := existingP2PIDs[p2pID]; !exists {
+		info, exists := existingP2PIDs[p2pID]
+		if !exists {
 			return fmt.Errorf("p2p id %x does not exist in Capreg %s", p2pID[:], capReg.Address().String())
-		} else {
-			nop, err := capReg.GetNodeOperator(nil, info.NodeOperatorId)
-			if err != nil {
-				return fmt.Errorf("failed to get node operator %d for node %x: %w", info.NodeOperatorId, p2pID[:], err)
-			}
-			if txSender != capRegOwner && txSender != nop.Admin {
-				return fmt.Errorf("tx sender %s is not the owner %s  of Capreg %s or admin %s for node %x",
-					txSender.String(), capRegOwner.String(), capReg.Address().String(), nop.Admin.String(), p2pID[:])
-			}
-			if len(info.CapabilitiesDONIds) > 0 {
-				return fmt.Errorf("p2p id %x is part of CapabilitiesDON, cannot remove", p2pID[:])
-			}
-			if info.WorkflowDONId != 0 {
-				return fmt.Errorf("p2p id %x is part of WorkflowDON, cannot remove", p2pID[:])
-			}
+		}
+		nop, err := capReg.GetNodeOperator(nil, info.NodeOperatorId)
+		if err != nil {
+			return fmt.Errorf("failed to get node operator %d for node %x: %w", info.NodeOperatorId, p2pID[:], err)
+		}
+		if txSender != capRegOwner && txSender != nop.Admin {
+			return fmt.Errorf("tx sender %s is not the owner %s  of Capreg %s or admin %s for node %x",
+				txSender.String(), capRegOwner.String(), capReg.Address().String(), nop.Admin.String(), p2pID[:])
+		}
+		if len(info.CapabilitiesDONIds) > 0 {
+			return fmt.Errorf("p2p id %x is part of CapabilitiesDON, cannot remove", p2pID[:])
+		}
+		if info.WorkflowDONId != 0 {
+			return fmt.Errorf("p2p id %x is part of WorkflowDON, cannot remove", p2pID[:])
 		}
 	}
 
