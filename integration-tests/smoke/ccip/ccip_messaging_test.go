@@ -17,9 +17,11 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -206,7 +208,7 @@ func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, er
 	return append(tagBytes, v...), err
 }
 
-func Test_CCIPMessaging_Solana(t *testing.T) {
+func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
@@ -291,6 +293,106 @@ func Test_CCIPMessaging_Solana(t *testing.T) {
 	})
 
 	fmt.Printf("out: %v\n", out)
+}
+
+func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	ctx := testhelpers.Context(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	sourceChain := allSolChainSelectors[0]
+	destChain := allChainSelectors[0]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		nonce    uint64
+		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		out      mt.TestCaseOutput
+		setup    = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+			true,  // validateResp
+		)
+	)
+
+	// TODO: handle in setup
+	deployer := e.Env.SolChains[sourceChain].DeployerKey
+	rpcClient := e.Env.SolChains[sourceChain].Client
+
+	// create ATA for user
+	tokenProgram := solana.TokenProgramID
+	wSOL := solana.SolMint
+	ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
+	require.NoError(t, uerr)
+
+	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(state.SolChains[sourceChain].Router)
+	require.NoError(t, err)
+
+	// Approve CCIP to transfer the user's token for billing
+	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
+	require.NoError(t, err)
+
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, *deployer, solconfig.DefaultCommitment)
+
+	// fund user WSOL (transfer SOL + syncNative)
+	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
+	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
+	require.NoError(t, err)
+	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
+	require.NoError(t, err)
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, *deployer, solconfig.DefaultCommitment)
+	// END: handle in setup
+
+	emptyEVMExtraArgsV2 := []byte{}
+
+	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		extraArgs := emptyEVMExtraArgsV2
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              extraArgs, // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+							Context: ctx,
+							Start:   latestHead,
+						})
+						require.NoError(t, err)
+						require.True(t, iter.Next())
+						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+					},
+				},
+			},
+		)
+
+		_ = out // avoid unused error
+	})
 }
 
 type monitorState struct {
