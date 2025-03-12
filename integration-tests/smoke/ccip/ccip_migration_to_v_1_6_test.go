@@ -97,6 +97,7 @@ func TestV1_5_Message_RMNRemote(t *testing.T) {
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
@@ -222,6 +223,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
@@ -356,6 +358,7 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	oldState, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	require.NoError(t, err)
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
 	evmChains := []uint64{}
 	for _, chain := range allChains {
