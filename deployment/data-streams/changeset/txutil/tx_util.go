@@ -1,6 +1,7 @@
 package txutil
 
 import (
+	"context"
 	"fmt"
 	"math/big"
 
@@ -14,11 +15,19 @@ import (
 )
 
 // TransactionGenerator defines how to generate a transaction for a specific chain
+// Do not send the transactions to the chain, just return it
 type TransactionGenerator interface {
-	GenerateTransactions(e deployment.Environment, chainSelector uint64, mcms bool) ([]*gethtypes.Transaction, string, error)
+	GenerateTransactions(e deployment.Environment, chainSelector uint64) []GeneratedTx
 }
 
-// TransactionHandler handles executing transactions either directly or via MCMS proposal
+// GeneratedTx represents a transaction that was generated but not sent to the chain. Can extend to include metadata.
+type GeneratedTx struct {
+	Tx                 *gethtypes.Transaction
+	DestinationAddress string
+	Error              error
+}
+
+// TransactionHandler handles executing transactions either directly or generates MCMS proposal
 type TransactionHandler struct {
 	Environment    deployment.Environment
 	ChainSelectors []uint64
@@ -40,14 +49,17 @@ func (h *TransactionHandler) executeDirectTransactions(txGen TransactionGenerato
 	for _, chainSelector := range h.ChainSelectors {
 		chain := h.Environment.Chains[chainSelector]
 
-		txs, _, err := txGen.GenerateTransactions(h.Environment, chainSelector, false)
+		txResult := txGen.GenerateTransactions(h.Environment, chainSelector)
 
-		for _, tx := range txs {
+		for _, tx := range txResult {
+			if tx.Error != nil {
+				return deployment.ChangesetOutput{}, tx.Error
+			}
+			err := chain.Client.SendTransaction(context.Background(), tx.Tx)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
-
-			if _, err := chain.Confirm(tx); err != nil {
+			if _, err := chain.Confirm(tx.Tx); err != nil {
 				return deployment.ChangesetOutput{}, err
 			}
 		}
@@ -72,15 +84,16 @@ func (h *TransactionHandler) createMCMSProposal(txGen TransactionGenerator) (dep
 	proposerMcmsPerChain := map[uint64]string{}
 
 	for _, chainSelector := range h.ChainSelectors {
-		txs, toAddress, err := txGen.GenerateTransactions(h.Environment, chainSelector, true)
-		if err != nil {
-			return deployment.ChangesetOutput{}, err
-		}
-		for _, tx := range txs {
+		txResult := txGen.GenerateTransactions(h.Environment, chainSelector)
+
+		for _, tx := range txResult {
+			if tx.Error != nil {
+				return deployment.ChangesetOutput{}, tx.Error
+			}
 			batchOp, err := proposalutils.BatchOperationForChain(
 				chainSelector,
-				toAddress,
-				tx.Data(),
+				tx.DestinationAddress,
+				tx.Tx.Data(),
 				big.NewInt(0),
 				h.ContractType,
 				[]string{},
