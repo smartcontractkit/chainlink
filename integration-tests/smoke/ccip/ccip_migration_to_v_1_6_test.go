@@ -877,7 +877,7 @@ func sendMessageInRealRouter(
 		DestChain:    dest,
 		Sender:       e.Env.Chains[src].DeployerKey,
 		IsTestRouter: false,
-		Evm2AnyMessage: router.ClientEVM2AnyMessage{
+		Message: router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,
