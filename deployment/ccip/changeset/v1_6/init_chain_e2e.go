@@ -24,6 +24,8 @@ type InitChaine2eConfig struct {
 	UpdateChainConfig        UpdateChainConfigConfig
 	AddDonSetCandidateConfig AddDonAndSetCandidateChangesetConfig
 	SetCandidateConfig       SetCandidateChangesetConfig
+	PromoteCandidateConfig   PromoteCandidateChangesetConfig
+	Ocr3Config               SetOCR3OffRampConfig
 }
 
 func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (deployment.ChangesetOutput, error) {
@@ -71,9 +73,9 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 	// 	return deployment.ChangesetOutput{}, err
 	// }
 
-	fmt.Println("ENV ADDRESS 3: ", env.ExistingAddresses)
+	// fmt.Println("ENV ADDRESS 3: ", env.ExistingAddresses)
 	// // Generate an MCMs proposal
-	// output, err := UpdateChainConfigChangeset(env, cfg.UpdateChainConfig)
+	// output, err = UpdateChainConfigChangeset(env, cfg.UpdateChainConfig)
 	// if err != nil {
 	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running UpdateChainConfigChangeset: ", err)
 	// }
@@ -81,21 +83,31 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 	// fmt.Println("MCMS output UpdateChainConfigChangeset: ", output)
 	// TODO handle MCMS proposals
 
-	output, err := AddDonAndSetCandidateChangeset(env, cfg.AddDonSetCandidateConfig)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("Error running AddDonAndSetCandidateChangeset: ", err)
-	}
+	// output, err = AddDonAndSetCandidateChangeset(env, cfg.AddDonSetCandidateConfig)
+	// if err != nil {
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running AddDonAndSetCandidateChangeset: ", err)
+	// }
 
-	fmt.Println("MCMS output AddDonAndSetCandidateChangeset: ", output)
+	// fmt.Println("MCMS output AddDonAndSetCandidateChangeset: ", output)
 	// TODO handle MCMS proposals
 
-	output, err = SetCandidateChangeset(env, cfg.SetCandidateConfig)
+	// output, err := SetCandidateChangeset(env, cfg.SetCandidateConfig)
+	// if err != nil {
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetCandidateChangeset: ", err)
+	// }
+
+	// output, err := PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
+	// if err != nil {
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running PromoteCandidateChangeset: ", err)
+	// }
+
+	output, err := SetOCR3OffRampChangeset(env, cfg.Ocr3Config)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetCandidateChangeset: ", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetOCR3OffRampChangeset: %v", err)
 	}
 
-	fmt.Println("MCMS output SetCandidateChangeset: ", output)
-	// TODO handle MCMS proposals
+	fmt.Println("MCMS output SetOCR3OffRampChangeset: ", output)
+	// // TODO handle MCMS proposals
 
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},

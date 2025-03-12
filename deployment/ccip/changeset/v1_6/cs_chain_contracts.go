@@ -1463,13 +1463,21 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	inspectors := make(map[uint64]mcmssdk.Inspector)
 
 	for _, remote := range cfg.RemoteChainSels {
-		donID, err := internal.DonIDForChain(
-			state.Chains[cfg.HomeChainSel].CapabilityRegistry,
-			state.Chains[cfg.HomeChainSel].CCIPHome,
-			remote)
+		// donID, err := internal.DonIDForChain(
+		// 	state.Chains[cfg.HomeChainSel].CapabilityRegistry,
+		// 	state.Chains[cfg.HomeChainSel].CCIPHome,
+		// 	remote)
+		// if err != nil {
+		// 	return deployment.ChangesetOutput{}, err
+		// }
+
+		donID, err := state.Chains[cfg.HomeChainSel].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+			Context: e.GetContext(),
+		})
 		if err != nil {
-			return deployment.ChangesetOutput{}, err
+			return deployment.ChangesetOutput{}, fmt.Errorf("get next don id: %w", err)
 		}
+
 		args, err := internal.BuildSetOCR3ConfigArgs(
 			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {

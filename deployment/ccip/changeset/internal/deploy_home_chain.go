@@ -2,8 +2,12 @@ package internal
 
 import (
 	"context"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
+
+	"golang.org/x/crypto/sha3"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -37,6 +41,19 @@ const (
 var (
 	CCIPCapabilityID = utils.Keccak256Fixed(MustABIEncode(`[{"type": "string"}, {"type": "string"}]`, CapabilityLabelledName, CapabilityVersion))
 	CCIPHomeABI      *abi.ABI
+)
+
+var (
+	PREFIX      = new(big.Int).Lsh(big.NewInt(0x000a), 240) // 0x000a << 240
+	PREFIX_MASK = new(big.Int).Lsh(big.NewInt(0xFFFF), 240) // 0xFFFF << 240
+)
+
+// OCRPluginType represents the CCIP OCR plugin type.
+type OCRPluginType uint32
+
+const (
+	Commit    OCRPluginType = 0
+	Execution OCRPluginType = 1
 )
 
 func init() {
@@ -195,6 +212,87 @@ func BuildSetOCR3ConfigArgs(
 		})
 	}
 	return offrampOCR3Configs, nil
+}
+
+/*
+*
+
+	/// @notice Calculates the config digest for a given plugin key, static config, and version.
+	 /// @param donId The key of the plugin to calculate the digest for.
+	 /// @param staticConfig The static part of the config.
+	 /// @param version The version of the config.
+	 /// @return The calculated config digest.
+	 function _calculateConfigDigest(
+	   uint32 donId,
+	   Internal.OCRPluginType pluginType,
+	   bytes memory staticConfig,
+	   uint32 version
+	 ) internal view returns (bytes32) {
+	   return bytes32(
+	     PREFIX
+	       | (
+	         uint256(
+	           keccak256(
+	             bytes.concat(
+	               abi.encode(bytes32("EVM"), block.chainid, address(this), donId, pluginType, version), staticConfig
+	             )
+	           )
+	         ) & ~PREFIX_MASK
+	       )
+	   );
+	 }
+
+*
+*/
+
+// calculateConfigDigest replicates the Solidity function logic.
+func CalculateConfigDigest(donID uint32, pluginType OCRPluginType, staticConfig []byte, version uint32, chainID uint64, contractAddress string) [32]byte {
+	// "EVM" as bytes32 (padded to 32 bytes)
+	evmPrefix := []byte("EVM")
+	evmPadded := make([]byte, 32)
+	copy(evmPadded[:], evmPrefix)
+
+	// Convert numeric values to bytes (Big-Endian)
+	chainIDBytes := make([]byte, 8)
+	binary.BigEndian.PutUint64(chainIDBytes, chainID)
+
+	donIDBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(donIDBytes, donID)
+
+	pluginTypeBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(pluginTypeBytes, uint32(pluginType))
+
+	versionBytes := make([]byte, 4)
+	binary.BigEndian.PutUint32(versionBytes, version)
+
+	// Concatenate all parts
+	data := append(evmPadded, chainIDBytes...)
+	data = append(data, []byte(contractAddress)...) // Assuming contractAddress is hex format (CCIPHome contract address)
+	data = append(data, donIDBytes...)
+	data = append(data, pluginTypeBytes...)
+	data = append(data, versionBytes...)
+
+	// TODO: data should be abi encoded and then appended to data
+
+	data = append(data, staticConfig...)
+
+	// Compute Keccak-256 hash
+	hash := sha3.Sum256(data)
+
+	// Convert first 32 bytes of hash to big.Int
+	hashInt := new(big.Int).SetBytes(hash[:])
+
+	// Apply PREFIX and PREFIX_MASK
+	mask := new(big.Int).Not(PREFIX_MASK) // ~PREFIX_MASK
+	hashInt.And(hashInt, mask)            // hashInt & ~PREFIX_MASK
+	hashInt.Or(hashInt, PREFIX)           // PREFIX | (hashInt & ~PREFIX_MASK)
+
+	// Convert final result back to [32]byte
+	var finalHash [32]byte
+	hashBytes := hashInt.Bytes()
+	copy(finalHash[32-len(hashBytes):], hashBytes) // Ensure correct padding
+
+	return finalHash
 }
 
 func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig ccip_home.CCIPHomeChainConfig) error {

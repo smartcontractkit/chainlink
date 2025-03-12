@@ -1,6 +1,7 @@
 package v1_6_test
 
 import (
+	"fmt"
 	"math/big"
 	"regexp"
 	"testing"
@@ -637,4 +638,88 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			assert.Equal(t, chainConfigAfter2.Config, otherChainConfig.Config)
 		})
 	}
+}
+
+func TestCalculateConfigDigest(t *testing.T) {
+
+	// tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
+	// state, err := changeset.LoadOnchainState(tenv.Env)
+	// require.NoError(t, err)
+
+	// e, _ := testhelpers.NewMemoryEnvironment(t,
+	// 	testhelpers.WithPrerequisiteDeploymentOnly(nil))
+	// chain1 := e.Env.AllChainSelectors()[0]
+
+	// nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+	// require.NoError(t, err)
+
+	// params := v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, e.FeedChainSel, nil, nil)
+
+	donId := uint32(1)
+	pluginType := internal.Commit
+
+	// staticConfig, err := internal.BuildOCR3ConfigForCCIPHome(
+	// 	state.Chains[e.HomeChainSel].CCIPHome,
+	// 	e.Env.OCRSecrets,
+	// 	state.Chains[chain1].OffRamp.Address().Bytes(),
+	// 	chain1,
+	// 	nodes.NonBootstraps(),
+	// 	state.Chains[e.HomeChainSel].RMNHome.Address(),
+	// 	params.OCRParameters,
+	// 	params.CommitOffChainConfig,
+	// 	&globals.DefaultExecuteOffChainCfg,
+	// )
+
+	// fmt.Println(staticConfig)
+
+	configDigest := internal.CalculateConfigDigest(donId, pluginType, []byte{}, uint32(1), uint64(84532), "0xeAd886DbDc35d832E3De66AB4807a5Ea1ce3f4d3")
+
+	fmt.Println(configDigest)
+
+	// fmt.Println("COnfig digest: ", configDigest)
+
+	// staticConfig = ccip_home.CCIPHomeOCR3Config{
+	// 	PluginType:            uint8(internal.Commit),
+	// 	ChainSelector:         uint64(10344971235874465080), // remote chain selector
+	// 	FRoleDON:              uint8(1),
+	// 	OffchainConfigVersion: uint64(1),
+	// 	OfframpAddress:        []byte{1, 2},
+	// 	RmnHomeAddress:        []byte{1, 2},
+	// 	Nodes: []ccip_home.CCIPHomeOCR3Node{
+	// 		{
+	// 			P2pId:          [32]byte{1, 3},
+	// 			SignerKey:      []byte{1, 2},
+	// 			TransmitterKey: []byte{1, 2},
+	// 		},
+	// 	},
+	// 	OffchainConfig: []byte{1, 2},
+	// }
+
+	// var (
+	// 	// Define the OCR3Node struct type (example with an ID and keys)
+	// 	nodeType, _ = abi.NewType("tuple", "OCR3Node", []abi.ArgumentMarshaling{
+	// 		{Name: "id", Type: "uint64"},
+	// 		{Name: "keys", Type: "bytes"},
+	// 	})
+
+	// 	// Define the OCRPluginType enum (with Commit and Execution)
+	// 	pluginType, _ = abi.NewType("uint8", "OCRPluginType", []abi.ArgumentMarshaling{})
+
+	// 	// Define the OCR3Config struct (tuple)
+	// 	ocr3ConfigType, _ = abi.NewType("tuple", "OCR3Config", []abi.ArgumentMarshaling{
+	// 		{Name: "pluginType", Type: "uint8"},
+	// 		{Name: "chainSelector", Type: "uint64"},
+	// 		{Name: "fRoleDON", Type: "uint8"},
+	// 		{Name: "offchainConfigVersion", Type: "uint64"},
+	// 		{Name: "offrampAddress", Type: "bytes"},
+	// 		{Name: "rmnHomeAddress", Type: "bytes"},
+	// 		{Name: "nodes", Type: "tuple[]"},
+	// 		{Name: "offchainConfig", Type: "bytes"},
+	// 	})
+
+	// 	args = abi.Arguments{
+	// 		{Type: ocr3ConfigType, Name: "param_one"},
+	// 	}
+	// )
+
 }

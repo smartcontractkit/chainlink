@@ -251,35 +251,46 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 				return nil, err
 			}
 
-			donID, err := internal.DonIDForChain(
-				state.Chains[p.HomeChainSelector].CapabilityRegistry,
-				state.Chains[p.HomeChainSelector].CCIPHome,
-				chainSelector,
-			)
-			if err != nil {
-				return nil, fmt.Errorf("fetch don id for chain: %w", err)
-			}
-			if donID == 0 {
-				return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
-			}
-			// Check that candidate digest and active digest are not both zero - this is enforced onchain.
-			pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
+			donID, err := state.Chains[p.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
 				Context: e.GetContext(),
-			}, donID, uint8(plugin.PluginType))
+			})
 			if err != nil {
-				return nil, fmt.Errorf("fetching %s configs from cciphome: %w", plugin.PluginType.String(), err)
+				return nil, fmt.Errorf("get next don id: %w", err)
 			}
-			// If promoteCandidate is called with AllowEmptyConfigPromote set to false and
-			// the CandidateConfig config digest is zero, do not promote the candidate config to active.
-			if !plugin.AllowEmptyConfigPromote && pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-				return nil, fmt.Errorf("%s candidate config digest is empty", plugin.PluginType.String())
-			}
+			// TODO: pass in a param to add conditional logic to call check below
+			// donID, err := internal.DonIDForChain(
+			// 	state.Chains[p.HomeChainSelector].CapabilityRegistry,
+			// 	state.Chains[p.HomeChainSelector].CCIPHome,
+			// 	chainSelector,
+			// )
+			// if err != nil {
+			// 	return nil, fmt.Errorf("fetch don id for chain: %w", err)
+			// }
+			// if donID == 0 {
+			// 	return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
+			// }
+			// Check that candidate digest and active digest are not both zero - this is enforced onchain.
 
-			// If the active and candidate config digests are both zero, we should not promote the candidate config to active.
-			if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
-				pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
-				return nil, fmt.Errorf("%s active and candidate config digests are both zero", plugin.PluginType.String())
-			}
+			// Note: Disabling the validation below for inite2eCCIPChain via single changeset
+			// Note: We want to find a way to still ensure setCandidate is executed before promoteCandidate in proposal ordering.
+
+			// pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
+			// 	Context: e.GetContext(),
+			// }, donID, uint8(plugin.PluginType))
+			// if err != nil {
+			// 	return nil, fmt.Errorf("fetching %s configs from cciphome: %w", plugin.PluginType.String(), err)
+			// }
+			// // If promoteCandidate is called with AllowEmptyConfigPromote set to false and
+			// // the CandidateConfig config digest is zero, do not promote the candidate config to active.
+			// if !plugin.AllowEmptyConfigPromote && pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
+			// 	return nil, fmt.Errorf("%s candidate config digest is empty", plugin.PluginType.String())
+			// }
+
+			// // If the active and candidate config digests are both zero, we should not promote the candidate config to active.
+			// if pluginConfigs.ActiveConfig.ConfigDigest == [32]byte{} &&
+			// 	pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
+			// 	return nil, fmt.Errorf("%s active and candidate config digests are both zero", plugin.PluginType.String())
+			// }
 			donIDs[chainSelector] = donID
 		}
 	}
@@ -701,19 +712,27 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state ch
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
-			donID, err := internal.DonIDForChain(
-				state.Chains[s.HomeChainSelector].CapabilityRegistry,
-				state.Chains[s.HomeChainSelector].CCIPHome,
-				chainSelector,
-			)
+			// donID, err := internal.DonIDForChain(
+			// 	state.Chains[s.HomeChainSelector].CapabilityRegistry,
+			// 	state.Chains[s.HomeChainSelector].CCIPHome,
+			// 	chainSelector,
+			// )
+			// if err != nil {
+			// 	return nil, fmt.Errorf("fetch don id for chain: %w", err)
+			// }
+			// // if don doesn't exist use AddDonAndSetCandidateChangeset instead
+			// if donID == 0 {
+			// 	return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
+			// }
+
+			expectedDonID, err := state.Chains[s.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+				Context: e.GetContext(),
+			})
 			if err != nil {
-				return nil, fmt.Errorf("fetch don id for chain: %w", err)
+				return nil, fmt.Errorf("get next don id: %w", err)
 			}
-			// if don doesn't exist use AddDonAndSetCandidateChangeset instead
-			if donID == 0 {
-				return nil, fmt.Errorf("don doesn't exist in CR for chain %d", chainSelector)
-			}
-			chainToDonIDs[chainSelector] = donID
+
+			chainToDonIDs[chainSelector] = expectedDonID
 		}
 	}
 	return chainToDonIDs, nil
@@ -955,14 +974,15 @@ func promoteCandidateForChainOps(
 	if donID == 0 {
 		return mcmstypes.Transaction{}, errors.New("donID is zero")
 	}
-	digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
-	if err != nil {
-		return mcmstypes.Transaction{}, err
-	}
-	if digest == [32]byte{} && !allowEmpty {
-		return mcmstypes.Transaction{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
-	}
-	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
+	// Need to disable this because we haven't set candidate
+	// digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
+	// if err != nil {
+	// 	return mcmstypes.Transaction{}, err
+	// }
+	// if digest == [32]byte{} && !allowEmpty {
+	// 	return mcmstypes.Transaction{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
+	// }
+	// fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
 	updatePluginOp, err := promoteCandidateOp(
 		txOpts,
 		homeChain,

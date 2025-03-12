@@ -1,6 +1,7 @@
 [profile.default]
 auto_detect_solc = true
 optimizer = true
+use_literal_content=true
 optimizer_runs = 1_000_000
 
 src = 'src/v0.8'
