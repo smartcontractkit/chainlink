@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -44,6 +45,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		MessageId:           msg.Header.MessageID,
 		Nonce:               msg.Header.Nonce,
 	}
+	if solana.PublicKeyLength != len(msg.Receiver) {
+		return [32]byte{}, fmt.Errorf("invalid receiver length: %d", len(msg.Receiver))
+	}
 	anyToSolanaMessage.TokenReceiver = solana.PublicKeyFromBytes(msg.Receiver)
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
@@ -58,6 +62,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			return [32]byte{}, err
 		}
 
+		if solana.PublicKeyLength != len(ta.DestTokenAddress) {
+			return [32]byte{}, fmt.Errorf("invalid DestTokenAddress length: %d", len(ta.DestTokenAddress))
+		}
 		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
@@ -78,7 +85,7 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}
 
-	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp, msgAccounts)
+	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msgAccounts)
 	return [32]byte(hash), err
 }
 

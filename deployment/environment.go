@@ -361,6 +361,10 @@ func (n Node) OCRConfigForChainSelector(chainSel uint64) (OCRConfig, bool) {
 	if err != nil {
 		return OCRConfig{}, false
 	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if want.ChainName == "" {
+		want.ChainName = strconv.FormatUint(want.ChainSelector, 10)
+	}
 	c, ok := n.SelToOCRConfig[want]
 	return c, ok
 }
@@ -582,6 +586,10 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err
+	}
+	// only applicable for test related simulated chains, the chains don't have a name
+	if details.ChainName == "" {
+		details.ChainName = strconv.FormatUint(details.ChainSelector, 10)
 	}
 	return details, nil
 }

@@ -407,7 +407,8 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 
 var (
 	// TODO: make this configurable
-	defaultTargetRequestTimeout = 8 * time.Minute
+	defaultTargetRequestTimeout                 = 8 * time.Minute
+	defaultMaxParallelCapabilityExecuteRequests = 1000
 )
 
 func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
@@ -473,6 +474,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					defaultMaxParallelCapabilityExecuteRequests,
 					w.lggr,
 				), nil
 			}
@@ -505,6 +507,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
+					defaultMaxParallelCapabilityExecuteRequests,
 					w.lggr,
 				), nil
 			}

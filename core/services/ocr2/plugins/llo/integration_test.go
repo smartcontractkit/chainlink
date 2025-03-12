@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -177,74 +178,136 @@ var (
 	quoteStreamFeedID1 = common.HexToHash(`0x0003111111111111111111111111111111111111111111111111111111111111`)
 	quoteStreamFeedID2 = common.HexToHash(`0x0003222222222222222222222222222222222222222222222222222222222222`)
 	ethStream          = Stream{
-		id:                 52,
+		id:                 ethStreamID,
 		baseBenchmarkPrice: decimal.NewFromFloat32(2_976.39),
 	}
 	linkStream = Stream{
-		id:                 53,
+		id:                 linkStreamID,
 		baseBenchmarkPrice: decimal.NewFromFloat32(13.25),
 	}
 	quoteStream1 = Stream{
-		id:                 55,
+		id:                 quoteStreamID1,
 		baseBenchmarkPrice: decimal.NewFromFloat32(1000.1212),
 		baseBid:            decimal.NewFromFloat32(998.5431),
 		baseAsk:            decimal.NewFromFloat32(1001.6999),
 	}
 	quoteStream2 = Stream{
-		id:                 56,
+		id:                 quoteStreamID2,
 		baseBenchmarkPrice: decimal.NewFromFloat32(500.1212),
 		baseBid:            decimal.NewFromFloat32(499.5431),
 		baseAsk:            decimal.NewFromFloat32(502.6999),
 	}
 )
 
-func generateBlueGreenConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) (
-	signers []types.OnchainPublicKey,
-	transmitters []types.Account,
-	f uint8,
-	onchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) {
-	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
-		Version:                 1,
-		PredecessorConfigDigest: predecessorConfigDigest,
-	})
-	require.NoError(t, err)
-	return generateConfig(t, oracles, onchainConfig)
+// see: https://github.com/smartcontractkit/offchain-reporting/blob/master/lib/offchainreporting2plus/internal/config/ocr3config/public_config.go
+type OCRConfig struct {
+	DeltaProgress                           time.Duration
+	DeltaResend                             time.Duration
+	DeltaInitial                            time.Duration
+	DeltaRound                              time.Duration
+	DeltaGrace                              time.Duration
+	DeltaCertifiedCommitRequest             time.Duration
+	DeltaStage                              time.Duration
+	RMax                                    uint64
+	S                                       []int
+	Oracles                                 []confighelper.OracleIdentityExtra
+	ReportingPluginConfig                   []byte
+	MaxDurationInitialization               *time.Duration
+	MaxDurationQuery                        time.Duration
+	MaxDurationObservation                  time.Duration
+	MaxDurationShouldAcceptAttestedReport   time.Duration
+	MaxDurationShouldTransmitAcceptedReport time.Duration
+	F                                       int
+	OnchainConfig                           []byte
 }
 
-func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, inOnchainConfig []byte) (
-	signers []types.OnchainPublicKey,
-	transmitters []types.Account,
-	f uint8,
-	outOnchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) {
-	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
-	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
-	require.NoError(t, err)
+func makeDefaultOCRConfig() *OCRConfig {
+	defaultOnchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
+		Version:                 1,
+		PredecessorConfigDigest: nil,
+	})
+	if err != nil {
+		panic(err)
+	}
+	return &OCRConfig{
+		DeltaProgress:                           2 * time.Second,
+		DeltaResend:                             20 * time.Second,
+		DeltaInitial:                            400 * time.Millisecond,
+		DeltaRound:                              500 * time.Millisecond,
+		DeltaGrace:                              250 * time.Millisecond,
+		DeltaCertifiedCommitRequest:             300 * time.Millisecond,
+		DeltaStage:                              1 * time.Minute,
+		RMax:                                    100,
+		ReportingPluginConfig:                   []byte{},
+		MaxDurationInitialization:               nil,
+		MaxDurationQuery:                        0,
+		MaxDurationObservation:                  250 * time.Millisecond,
+		MaxDurationShouldAcceptAttestedReport:   0,
+		MaxDurationShouldTransmitAcceptedReport: 0,
+		F:                                       int(fNodes),
+		OnchainConfig:                           defaultOnchainConfig,
+	}
+}
 
+func WithPredecessorConfigDigest(predecessorConfigDigest ocr2types.ConfigDigest) OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
+			Version:                 1,
+			PredecessorConfigDigest: &predecessorConfigDigest,
+		})
+		if err != nil {
+			panic(err)
+		}
+		cfg.OnchainConfig = onchainConfig
+	}
+}
+
+func WithOffchainConfig(offchainConfig datastreamsllo.OffchainConfig) OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		offchainConfigEncoded, err := offchainConfig.Encode()
+		if err != nil {
+			panic(err)
+		}
+		cfg.ReportingPluginConfig = offchainConfigEncoded
+	}
+}
+
+func WithOracles(oracles []confighelper.OracleIdentityExtra) OCRConfigOption {
+	return func(cfg *OCRConfig) {
+		cfg.Oracles = oracles
+		cfg.S = []int{len(oracles)} // all oracles transmit by default
+	}
+}
+
+type OCRConfigOption func(*OCRConfig)
+
+func generateConfig(t *testing.T, opts ...OCRConfigOption) (signers []types.OnchainPublicKey, transmitters []types.Account, f uint8, outOnchainConfig []byte, offchainConfigVersion uint64, offchainConfig []byte) {
+	cfg := makeDefaultOCRConfig()
+
+	for _, opt := range opts {
+		opt(cfg)
+	}
+	t.Logf("Using OCR config: %+v\n", cfg)
+	var err error
 	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
-		2*time.Second,        // DeltaProgress
-		20*time.Second,       // DeltaResend
-		400*time.Millisecond, // DeltaInitial
-		500*time.Millisecond, // DeltaRound
-		250*time.Millisecond, // DeltaGrace
-		300*time.Millisecond, // DeltaCertifiedCommitRequest
-		1*time.Minute,        // DeltaStage
-		100,                  // rMax
-		[]int{len(oracles)},  // S
-		oracles,
-		reportingPluginConfig, // reportingPluginConfig []byte,
-		nil,                   // maxDurationInitialization
-		0,                     // maxDurationQuery
-		250*time.Millisecond,  // maxDurationObservation
-		0,                     // maxDurationShouldAcceptAttestedReport
-		0,                     // maxDurationShouldTransmitAcceptedReport
-		int(fNodes),           // f
-		inOnchainConfig,       // encoded onchain config
+		cfg.DeltaProgress,
+		cfg.DeltaResend,
+		cfg.DeltaInitial,
+		cfg.DeltaRound,
+		cfg.DeltaGrace,
+		cfg.DeltaCertifiedCommitRequest,
+		cfg.DeltaStage,
+		cfg.RMax,
+		cfg.S,
+		cfg.Oracles,
+		cfg.ReportingPluginConfig,
+		cfg.MaxDurationInitialization,
+		cfg.MaxDurationQuery,
+		cfg.MaxDurationObservation,
+		cfg.MaxDurationShouldAcceptAttestedReport,
+		cfg.MaxDurationShouldTransmitAcceptedReport,
+		cfg.F,
+		cfg.OnchainConfig,
 	)
 
 	require.NoError(t, err)
@@ -252,14 +315,8 @@ func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, in
 	return
 }
 
-func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
-	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
-		Version:                 1,
-		PredecessorConfigDigest: nil,
-	})
-	require.NoError(t, err)
-
-	signers, _, _, _, offchainConfigVersion, offchainConfig := generateConfig(t, oracles, onchainConfig)
+func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, legacyVerifier *verifier.Verifier, legacyVerifierAddr common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, inOffchainConfig datastreamsllo.OffchainConfig) ocr2types.ConfigDigest {
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, WithOracles(oracles), WithOffchainConfig(inOffchainConfig))
 
 	signerAddresses, err := evm.OnchainPublicKeyToAddress(signers)
 	require.NoError(t, err)
@@ -283,16 +340,16 @@ func setLegacyConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backe
 	return l.ConfigDigest
 }
 
-func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest ocr2types.ConfigDigest) ocr2types.ConfigDigest {
-	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, &predecessorConfigDigest)
+func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
+	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
 }
 
-func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra) ocr2types.ConfigDigest {
-	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, nil)
+func setProductionConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
+	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...)
 }
 
-func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) ocr2types.ConfigDigest {
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateBlueGreenConfig(t, oracles, predecessorConfigDigest)
+func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, opts ...OCRConfigOption) ocr2types.ConfigDigest {
+	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateConfig(t, opts...)
 
 	var onchainPubKeys [][]byte
 	for _, signer := range signers {
@@ -303,7 +360,12 @@ func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, ba
 		offchainTransmitters[i] = nodes[i].ClientPubKey
 	}
 	donIDPadded := llo.DonIDToBytes32(donID)
-	isProduction := predecessorConfigDigest == nil
+	var isProduction bool
+	{
+		cfg, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Decode(onchainConfig)
+		require.NoError(t, err)
+		isProduction = cfg.PredecessorConfigDigest == nil
+	}
 	var err error
 	if isProduction {
 		_, err = configurator.SetProductionConfig(steve, donIDPadded, onchainPubKeys, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig)
@@ -348,7 +410,26 @@ func promoteStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, 
 
 func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 	t.Parallel()
+	offchainConfigs := []datastreamsllo.OffchainConfig{
+		{
+			ProtocolVersion:                     0,
+			DefaultMinReportIntervalNanoseconds: 0,
+		},
+		{
+			ProtocolVersion:                     1,
+			DefaultMinReportIntervalNanoseconds: 1,
+		},
+	}
+	for _, offchainConfig := range offchainConfigs {
+		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
+			t.Parallel()
 
+			testIntegrationLLOEVMPremiumLegacy(t, offchainConfig)
+		})
+	}
+}
+
+func testIntegrationLLOEVMPremiumLegacy(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	multiplier := decimal.New(1, 18)
 	expirationWindow := time.Hour / time.Second
@@ -389,7 +470,7 @@ func TestIntegration_LLO_evm_premium_legacy(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, func(c *chainlink.Config) {
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolWSRPC)
 		})
 
@@ -458,7 +539,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 		// Set config on configurator
 		setLegacyConfig(
-			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles,
+			t, donID, steve, backend, legacyVerifier, legacyVerifierAddr, nodes, oracles, offchainConfig,
 		)
 
 		// Set config on the destination verifier
@@ -568,7 +649,26 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 
 func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 	t.Parallel()
+	offchainConfigs := []datastreamsllo.OffchainConfig{
+		{
+			ProtocolVersion:                     0,
+			DefaultMinReportIntervalNanoseconds: 0,
+		},
+		{
+			ProtocolVersion:                     1,
+			DefaultMinReportIntervalNanoseconds: 1,
+		},
+	}
+	for _, offchainConfig := range offchainConfigs {
+		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
+			t.Parallel()
 
+			testIntegrationLLOEVMABIEncodeUnpacked(t, offchainConfig)
+		})
+	}
+}
+
+func testIntegrationLLOEVMABIEncodeUnpacked(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -608,7 +708,7 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, func(c *chainlink.Config) {
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
 		})
 
@@ -847,8 +947,20 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	"binanceFundingIntervalHours": "8",
 	"deribitFundingRate": "5432.2345",
 	"deribitFundingTime": "1630000000",
-	"deribitFundingIntervalHours": "8"
+	"deribitFundingIntervalHours": "8",
+	"ethPrice": "3976.39",
+	"linkPrice": "23.45"
 }`
+
+		pricePipeline := fmt.Sprintf(`
+dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
+eth_parse    					[type=jsonparse path="result,ethPrice"];
+eth_decimal 					[type=multiply times=1 streamID=%d];
+link_parse    				[type=jsonparse path="result,linkPrice"];
+link_decimal 				[type=multiply times=1 streamID=%d];
+dp -> eth_parse -> eth_decimal;
+dp -> link_parse -> link_decimal;
+`, bridgeName, ethStreamID, linkStreamID)
 
 		dexBasedAssetPipeline := fmt.Sprintf(`
 dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
@@ -917,6 +1029,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			// superBridge returns a JSON with everything you want in it,
 			// stream specs can just pick the individual fields they need
 			createBridge(t, bridgeName, resultJSON, node.App.BridgeORM())
+			addStreamSpec(t, node, "pricePipeline", nil, pricePipeline)
 			addStreamSpec(t, node, "dexBasedAssetPipeline", nil, dexBasedAssetPipeline)
 			addStreamSpec(t, node, "rwaPipeline", nil, rwaPipeline)
 			addStreamSpec(t, node, "benchmarkPricePipeline", nil, benchmarkPricePipeline)
@@ -937,7 +1050,7 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 
 		// Set config on configurator
 		digest := setProductionConfig(
-			t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 		)
 
 		// NOTE: Wait for one of each type of report
@@ -979,8 +1092,8 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
 			// Zero fees since both eth/link stream specs are missing, don't
 			// care about billing for purposes of this test
-			assert.Equal(t, "0", reportElems["nativeFee"].(*big.Int).String())
-			assert.Equal(t, "0", reportElems["linkFee"].(*big.Int).String())
+			assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
+			assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
 			assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
 
 			// Check payload values
@@ -1051,12 +1164,253 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 	})
 }
 
-func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
+func TestIntegration_LLO_stress_test_V1(t *testing.T) {
+	t.Parallel()
+
+	// logLevel: the log level to use for the nodes
+	// setting a more verbose log level increases cpu usage significantly
+	// const logLevel = toml.LogLevel(zapcore.DebugLevel)
+	const logLevel = toml.LogLevel(zapcore.ErrorLevel)
+
+	// NOTE: Tweak these values to increase or decrease the intensity of the
+	// stress test
+	//
+	// nChannels: the total number of channels
+	// nReports: the number of reports to expect per node
+	// defaultMinReportInterval: minimum time between report emission (set to 1ns to produce as fast as possible)
+
+	// STRESS TEST PARAMETERS
+
+	// LOW STRESS
+	const nChannels = 100
+	const nReports = 250
+	const defaultMinReportInterval = 5 * time.Millisecond
+
+	// HIGHER STRESS
+	// const nChannels = 2000
+	// const nReports = 50_000
+	// const defaultMinReportInterval = 1 * time.Nanosecond
+
+	// PROTOCOL CONFIGURATION
+	ocrConfigOpts := []OCRConfigOption{
+		WithOffchainConfig(datastreamsllo.OffchainConfig{
+			ProtocolVersion:                     1,
+			DefaultMinReportIntervalNanoseconds: uint64(defaultMinReportInterval),
+		}),
+		func(cfg *OCRConfig) {
+			// cfg.DeltaRound = 0 // Go as fast as possible
+			cfg.DeltaRound = 50 * time.Millisecond
+			cfg.DeltaGrace = 5 * time.Millisecond
+			cfg.DeltaCertifiedCommitRequest = 5 * time.Millisecond
+		},
+	}
+
+	// SETUP
+
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+
+	const salt = 302
+
+	for i := 0; i < nNodes; i++ {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
+
+	steve, backend, configurator, configuratorAddress, _, _, _, _, configStore, configStoreAddress, _, _, _, _ := setupBlockchain(t)
+	fromBlock := 1
+
+	// Setup bootstrap
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+		c.Log.Level = ptr(logLevel)
+	})
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	t.Run("produces reports properly", func(t *testing.T) {
+		packets := make(chan *packet, nReports*nNodes)
+		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
+		serverPubKey := serverKey.PublicKey
+		srv := NewMercuryServer(t, ed25519.PrivateKey(serverKey.Raw()), packets)
+
+		serverURL := startMercuryServer(t, srv, clientPubKeys)
+
+		donID := uint32(888333)
+		streams := []Stream{ethStream}
+		streamMap := make(map[uint32]Stream)
+		for _, strm := range streams {
+			streamMap[strm.id] = strm
+		}
+
+		// Setup oracle nodes
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
+			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
+			c.Log.Level = ptr(logLevel)
+		})
+
+		chainID := testutils.SimulatedChainID
+		relayType := "evm"
+		relayConfig := fmt.Sprintf(`
+chainID = "%s"
+fromBlock = %d
+lloDonID = %d
+lloConfigMode = "bluegreen"
+`, chainID, fromBlock, donID)
+		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-3", relayType, relayConfig)
+
+		// Channel definitions
+		channelDefinitions := llotypes.ChannelDefinitions{}
+		for i := uint32(0); i < nChannels; i++ {
+			channelDefinitions[i] = llotypes.ChannelDefinition{
+				ReportFormat: llotypes.ReportFormatJSON,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+			}
+		}
+		url, sha := newChannelDefinitionsServer(t, channelDefinitions)
+
+		// Set channel definitions
+		_, err := configStore.SetChannelDefinitions(steve, donID, url, sha)
+		require.NoError(t, err)
+		backend.Commit()
+
+		// one working and one broken transmission server
+		pluginConfig := fmt.Sprintf(`servers = { "%s" = "%x" }
+donID = %d
+channelDefinitionsContractAddress = "0x%x"
+channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, configStoreAddress, fromBlock)
+		for i, node := range nodes {
+			addLLOJob(
+				t,
+				node,
+				configuratorAddress,
+				bootstrapPeerID,
+				bootstrapNodePort,
+				clientPubKeys[i],
+				"feed-1",
+				pluginConfig,
+				relayType,
+				relayConfig,
+			)
+			addMemoStreamSpecs(t, node, streams)
+		}
+
+		// Set config on configurator
+		opts := []OCRConfigOption{WithOracles(oracles)}
+		opts = append(opts, ocrConfigOpts...)
+		blueDigest := setProductionConfig(
+			t, donID, steve, backend, configurator, configuratorAddress, nodes, opts...,
+		)
+
+		// NOTE: Wait for nReports reports per node
+		// transmitter addr => count of reports
+		cnts := map[string]int{}
+		// transmitter addr => channel ID => reports
+		m := map[string]map[uint32][]datastreamsllo.Report{}
+		stopOnce := sync.Once{}
+
+		for pckt := range packets {
+			pr, ok := peer.FromContext(pckt.ctx)
+			require.True(t, ok)
+			addr := pr.Addr
+			req := pckt.req
+
+			assert.Equal(t, uint32(llotypes.ReportFormatJSON), req.ReportFormat)
+			_, _, r, _, err := (datastreamsllo.JSONReportCodec{}).UnpackDecode(req.Payload)
+			require.NoError(t, err)
+
+			cm, exists := m[addr.String()]
+			if !exists {
+				cm = make(map[uint32][]datastreamsllo.Report)
+				m[addr.String()] = cm
+			}
+			cm[r.ChannelID] = append(cm[r.ChannelID], r)
+
+			cnts[addr.String()]++
+			finished := 0
+			for _, cnt := range cnts {
+				if cnt >= nReports {
+					finished++
+				}
+			}
+			if finished >= nNodes {
+				stopOnce.Do(func() {
+					// Stop all nodes, close the channel
+					// This helps transmissions have a chance to complete (but
+					// doesn't ensure it; libocr cancels the transmit context
+					// immediately on stop signal)
+					// Loop will exit once all packets are consumed
+					for _, node := range nodes {
+						require.NoError(t, node.App.Stop())
+					}
+					close(packets)
+				})
+			}
+		}
+
+		// Transmissions can occur out of order when we go very fast, so sort by seqNr
+		for _, cm := range m {
+			for _, rs := range cm {
+				sort.Slice(rs, func(i, j int) bool {
+					return rs[i].SeqNr < rs[j].SeqNr
+				})
+			}
+		}
+
+		// Check reports
+		for addr, cm := range m {
+			spacings := []uint64{}
+			for _, rs := range cm {
+				var prevObsTsNanos uint64
+				for i, r := range rs {
+					assert.Equal(t, blueDigest, r.ConfigDigest)
+					assert.False(t, r.Specimen)
+					assert.Len(t, r.Values, 1)
+					assert.Equal(t, "2976.39", r.Values[0].(*datastreamsllo.Decimal).String())
+
+					if i > 0 {
+						if rs[i-1].SeqNr+1 != r.SeqNr {
+							// t.Logf("gap in SeqNr at index %d; %d!=%d: len(rs)=%d", i, rs[i-1].SeqNr, r.SeqNr, len(rs))
+							// We actually expect a transmission every round; if there's a gap in seqNr it means that the transmissions were likely cut off due to the app being shut down. We are probably at the end of the usable reports list so just assume completion here.
+							break
+						}
+
+						// No gaps
+						require.Equal(t, prevObsTsNanos, r.ValidAfterNanoseconds, "gap in reports for transmitter %s at index %d; %d!=%d: prevReport=%s, thisReport=%s", addr, i, prevObsTsNanos, r.ValidAfterNanoseconds, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r))
+						// Timestamps are sane
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds, r.ValidAfterNanoseconds, "observation timestamp is before valid after timestamp for transmitter %s at index %d: report=%s", addr, i, mustMarshalJSON(r))
+						// Reports are separated by at least the minimum interval
+						require.GreaterOrEqual(t, r.ObservationTimestampNanoseconds-uint64(defaultMinReportInterval), prevObsTsNanos, "reports are too close together for transmitter %s at index %d: prevReport=%s, thisReport=%s; expected at least %d nanoseconds of distance", addr, i, mustMarshalJSON(rs[i-1]), mustMarshalJSON(r), defaultMinReportInterval)
+
+						spacings = append(spacings, r.ObservationTimestampNanoseconds-prevObsTsNanos)
+					}
+					prevObsTsNanos = r.ObservationTimestampNanoseconds
+				}
+			}
+			avgSpacing := uint64(0)
+			for _, spacing := range spacings {
+				avgSpacing += spacing
+			}
+			avgSpacing /= uint64(len(spacings))
+			t.Logf("transmitter %s: average spacing between reports: %d nanoseconds (%f seconds)", addr, avgSpacing, float64(avgSpacing)/1e9)
+		}
+	})
+}
+
+func TestIntegration_LLO_transmit_errors(t *testing.T) {
 	t.Parallel()
 
 	// logLevel: the log level to use for the nodes
 	// setting a more verbose log level increases cpu usage significantly
 	const logLevel = toml.LogLevel(zapcore.ErrorLevel)
+	// const logLevel = toml.LogLevel(zapcore.ErrorLevel)
 
 	// NOTE: Tweak these values to increase or decrease the intensity of the
 	// stress test
@@ -1074,6 +1428,13 @@ func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
 	// const nChannels = 2000
 	// const maxQueueSize = 4_000
 	// const nReports = 10_000
+
+	// PROTOCOL CONFIGURATION
+	// TODO: test both
+	offchainConfig := datastreamsllo.OffchainConfig{
+		ProtocolVersion:                     1,
+		DefaultMinReportIntervalNanoseconds: uint64(50 * time.Millisecond),
+	}
 
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
@@ -1093,7 +1454,9 @@ func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
 	// Setup bootstrap
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, func(c *chainlink.Config) {
+		c.Log.Level = ptr(logLevel)
+	})
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
 	t.Run("transmit queue does not grow unbounded", func(t *testing.T) {
@@ -1112,7 +1475,7 @@ func TestIntegration_LLO_stress_test_and_transmit_errors(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, func(c *chainlink.Config) {
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
 			c.Mercury.Transmitter.TransmitQueueMaxSize = ptr(uint32(maxQueueSize)) // Test queue overflow
 			c.Log.Level = ptr(logLevel)
@@ -1129,7 +1492,6 @@ lloConfigMode = "bluegreen"
 		addBootstrapJob(t, bootstrapNode, configuratorAddress, "job-3", relayType, relayConfig)
 
 		// Channel definitions
-		// 2,000 channels should produce 2,000 reports per second
 		channelDefinitions := llotypes.ChannelDefinitions{}
 		for i := uint32(0); i < nChannels; i++ {
 			channelDefinitions[i] = llotypes.ChannelDefinition{
@@ -1161,10 +1523,10 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
-			// NOTE: Wait for 40,000 reports (should take about 5 seconds) - 2,000 reports per second * 4 transmitters * 5 seconds
+			// NOTE: Wait for nReports reports
 			// count of packets received keyed by transmitter IP
 			m := map[string]int{}
 			for pckt := range packets {
@@ -1218,6 +1580,26 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 	t.Parallel()
 
+	offchainConfigs := []datastreamsllo.OffchainConfig{
+		{
+			ProtocolVersion:                     0,
+			DefaultMinReportIntervalNanoseconds: 0,
+		},
+		{
+			ProtocolVersion:                     1,
+			DefaultMinReportIntervalNanoseconds: 1,
+		},
+	}
+	for _, offchainConfig := range offchainConfigs {
+		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
+			t.Parallel()
+
+			testIntegrationLLOBlueGreenLifecycle(t, offchainConfig)
+		})
+	}
+}
+
+func testIntegrationLLOBlueGreenLifecycle(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
 	clientCSAKeys := make([]csakey.KeyV2, nNodes)
 	clientPubKeys := make([]ed25519.PublicKey, nNodes)
 
@@ -1255,7 +1637,7 @@ func TestIntegration_LLO_blue_green_lifecycle(t *testing.T) {
 		}
 
 		// Setup oracle nodes
-		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, streams, func(c *chainlink.Config) {
+		oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys, func(c *chainlink.Config) {
 			c.Mercury.Transmitter.Protocol = ptr(config.MercuryTransmitterProtocolGRPC)
 		})
 
@@ -1302,7 +1684,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		{
 			// Set config on configurator
 			blueDigest = setProductionConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until blue produces a report
@@ -1325,7 +1707,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// setStagingConfig does not affect production
 		{
 			greenDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, blueDigest,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(blueDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until green produces the first "specimen" report
@@ -1375,8 +1757,8 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					return allReports[digest][i].SeqNr < allReports[digest][j].SeqNr
 				})
 				seenSeqNr := uint64(0)
-				highestObservationTs := uint32(0)
-				highestValidAfterSeconds := uint32(0)
+				highestObsTsNanos := uint64(0)
+				highestValidAfterNanos := uint64(0)
 				for i := 0; i < len(allReports[digest]); i++ {
 					r := allReports[digest][i]
 					switch digest {
@@ -1391,29 +1773,43 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 					}
 					if r.SeqNr > seenSeqNr {
 						// skip first one
-						if highestObservationTs > 0 {
+						if highestObsTsNanos > 0 {
 							if digest == greenDigest && i == len(allReports[digest])-1 {
 								// NOTE: This actually CHANGES on the staging
 								// handover and can go backwards - the gapless
 								// handover test is handled below
 								break
 							}
-							assert.Equal(t, highestObservationTs, r.ValidAfterSeconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterSeconds should be gapless, got: %d vs %d", i, highestObservationTs, r.ValidAfterSeconds)
-							assert.Greater(t, r.ObservationTimestampSeconds, highestObservationTs, "%d: overlapping/duplicate report ObservationTimestampSeconds, got: %d vs %d", i, r.ObservationTimestampSeconds, highestObservationTs)
-							assert.Greater(t, r.ValidAfterSeconds, highestValidAfterSeconds, "%d: overlapping/duplicate report ValidAfterSeconds, got: %d vs %d", i, r.ValidAfterSeconds, highestValidAfterSeconds)
-							assert.Less(t, r.ValidAfterSeconds, r.ObservationTimestampSeconds)
+							if offchainConfig.ProtocolVersion == 0 {
+								// validAfter is always truncated to 1s in v0
+								// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+								assert.Equal(t, highestObsTsNanos/1e9*1e9, r.ValidAfterNanoseconds/1e9*1e9, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+							} else {
+								assert.Equal(t, highestObsTsNanos, r.ValidAfterNanoseconds, "%d: (n-1)ObservationsTimestampSeconds->(n)ValidAfterNanoseconds should be gapless, got: %d vs %d", i, highestObsTsNanos, r.ValidAfterNanoseconds)
+							}
+							assert.Greater(t, r.ObservationTimestampNanoseconds, highestObsTsNanos, "%d: overlapping/duplicate report ObservationTimestampNanoseconds, got: %d vs %d", i, r.ObservationTimestampNanoseconds, highestObsTsNanos)
+							assert.Greater(t, r.ValidAfterNanoseconds, highestValidAfterNanos, "%d: overlapping/duplicate report ValidAfterNanoseconds, got: %d vs %d", i, r.ValidAfterNanoseconds, highestValidAfterNanos)
+							assert.Less(t, r.ValidAfterNanoseconds, r.ObservationTimestampNanoseconds)
 						}
 						seenSeqNr = r.SeqNr
-						highestObservationTs = r.ObservationTimestampSeconds
-						highestValidAfterSeconds = r.ValidAfterSeconds
+						highestObsTsNanos = r.ObservationTimestampNanoseconds
+						highestValidAfterNanos = r.ValidAfterNanoseconds
 					}
 				}
 			}
 
 			// Gapless handover
-			assert.Less(t, finalBlueReport.ValidAfterSeconds, finalBlueReport.ObservationTimestampSeconds)
-			assert.Equal(t, finalBlueReport.ObservationTimestampSeconds, initialPromotedGreenReport.ValidAfterSeconds)
-			assert.Less(t, initialPromotedGreenReport.ValidAfterSeconds, initialPromotedGreenReport.ObservationTimestampSeconds)
+			assert.Less(t, finalBlueReport.ValidAfterNanoseconds, finalBlueReport.ObservationTimestampNanoseconds)
+
+			if offchainConfig.ProtocolVersion == 0 {
+				// validAfter is always truncated to 1s in v0
+				// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+				assert.Equal(t, finalBlueReport.ObservationTimestampNanoseconds/1e9*1e9, initialPromotedGreenReport.ValidAfterNanoseconds/1e9*1e9)
+			} else {
+				assert.Equal(t, finalBlueReport.ObservationTimestampNanoseconds, initialPromotedGreenReport.ValidAfterNanoseconds)
+			}
+
+			assert.Less(t, initialPromotedGreenReport.ValidAfterNanoseconds, initialPromotedGreenReport.ObservationTimestampNanoseconds)
 		}
 		// retired instance does not produce reports
 		{
@@ -1438,7 +1834,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 		// setStagingConfig replaces 'retired' instance with new config and starts producing specimen reports again
 		{
 			blueDigest = setStagingConfig(
-				t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, greenDigest,
+				t, donID, steve, backend, configurator, configuratorAddress, nodes, WithPredecessorConfigDigest(greenDigest), WithOracles(oracles), WithOffchainConfig(offchainConfig),
 			)
 
 			// NOTE: Wait until blue produces the first "specimen" report
@@ -1482,9 +1878,15 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 			finalGreenReport := allReports[greenDigest][len(allReports[greenDigest])-1]
 
 			// Gapless handover
-			assert.Less(t, finalGreenReport.ValidAfterSeconds, finalGreenReport.ObservationTimestampSeconds)
-			assert.Equal(t, finalGreenReport.ObservationTimestampSeconds, initialPromotedBlueReport.ValidAfterSeconds)
-			assert.Less(t, initialPromotedBlueReport.ValidAfterSeconds, initialPromotedBlueReport.ObservationTimestampSeconds)
+			assert.Less(t, finalGreenReport.ValidAfterNanoseconds, finalGreenReport.ObservationTimestampNanoseconds)
+			if offchainConfig.ProtocolVersion == 0 {
+				// validAfter is always truncated to 1s in v0
+				// IMPORTANT: gapless handovers in v0 ONLY supported at 1s resolution!!
+				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds/1e9*1e9, initialPromotedBlueReport.ValidAfterNanoseconds/1e9*1e9, 1_000_000_000, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless to within 1s resolution, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
+			} else {
+				assert.Equal(t, finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds, "ObservationTimestampSeconds->ValidAfterNanoseconds should be gapless, got: %d vs %d", finalGreenReport.ObservationTimestampNanoseconds, initialPromotedBlueReport.ValidAfterNanoseconds)
+			}
+			assert.Less(t, initialPromotedBlueReport.ValidAfterNanoseconds, initialPromotedBlueReport.ObservationTimestampNanoseconds)
 		}
 		// adding a new channel definition is picked up on the fly
 		{
@@ -1537,7 +1939,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, streams []Stream, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2, f func(*chainlink.Config)) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_streams_%d", i), backend, clientCSAKeys[i], f)
@@ -1584,4 +1986,12 @@ func mustNewType(t string) abi.Type {
 		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
 	}
 	return result
+}
+
+func mustMarshalJSON(v interface{}) string {
+	b, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(b)
 }

@@ -6,21 +6,23 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystoneflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateConfigs(input types.GeneratePoRConfigsInput) (types.NodeIndexToConfigOverrides, error) {
+func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndexToConfigOverride, error) {
 	if err := input.Validate(); err != nil {
 		return nil, errors.Wrap(err, "input validation failed")
 	}
-	configOverrides := make(types.NodeIndexToConfigOverrides)
+	configOverrides := make(cretypes.NodeIndexToConfigOverride)
+
+	// if it's only a gateway DON, we don't need to generate any extra configuration, the default one will do
+	if keystoneflags.HasFlag(input.Flags, cretypes.GatewayDON) && (!keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && !keystoneflags.HasFlag(input.Flags, cretypes.CapabilitiesDON)) {
+		return configOverrides, nil
+	}
 
 	chainIDInt, err := strconv.Atoi(input.BlockchainOutput.ChainID)
 	if err != nil {
@@ -28,21 +30,23 @@ func GenerateConfigs(input types.GeneratePoRConfigsInput) (types.NodeIndexToConf
 	}
 	chainIDUint64 := libc.MustSafeUint64(int64(chainIDInt))
 
-	// find bootstrap node
-	bootstrapNode, err := node.FindOneWithLabel(input.Don, &ptypes.Label{Key: node.RoleLabelKey, Value: ptr.Ptr(types.BootstrapNode)})
+	// find bootstrap node for the Don
+	var donBootstrapNodeHost string
+	var donBootstrapNodePeerID string
+
+	bootstrapNode, err := node.FindOneWithLabel(input.DonMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.BootstrapNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find bootstrap node")
 	}
 
-	donBootstrapNodePeerID, err := node.ToP2PID(*bootstrapNode, node.KeyExtractingTransformFn)
+	donBootstrapNodePeerID, err = node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to get bootstrap node peer ID")
 	}
 
-	var donBootstrapNodeHost string
-	for _, label := range bootstrapNode.Labels() {
+	for _, label := range bootstrapNode.Labels {
 		if label.Key == node.HostLabelKey {
-			donBootstrapNodeHost = *label.Value
+			donBootstrapNodeHost = label.Value
 			break
 		}
 	}
@@ -52,48 +56,54 @@ func GenerateConfigs(input types.GeneratePoRConfigsInput) (types.NodeIndexToConf
 	}
 
 	var nodeIndex int
-	for _, label := range bootstrapNode.Labels() {
-		if label.Key == node.NodeIndexKey {
-			nodeIndex, err = strconv.Atoi(*label.Value)
+	for _, label := range bootstrapNode.Labels {
+		if label.Key == node.IndexKey {
+			nodeIndex, err = strconv.Atoi(label.Value)
 			if err != nil {
 				return nil, errors.Wrap(err, "failed to convert node index to int")
 			}
+			break
 		}
 	}
 
-	// generat configuration for the bootstrap node
+	// generate configuration for the bootstrap node
 	configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl, input.BlockchainOutput.Nodes[0].DockerInternalWSUrl)
 
-	if keystoneflags.HasFlag(input.Flags, types.WorkflowDON) {
+	if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 		configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
-
-		if input.GatewayConnectorOutput == nil {
-			return nil, errors.New("GatewayConnectorOutput is required for Workflow DON")
-		}
-		input.GatewayConnectorOutput.Host = donBootstrapNodeHost
 	}
 
 	// find worker nodes
-	workflowNodeSet, err := node.FindManyWithLabel(input.Don, &ptypes.Label{Key: node.RoleLabelKey, Value: ptr.Ptr(types.WorkerNode)})
+	workflowNodeSet, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.WorkerNode}, node.EqualLabels)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to find worker nodes")
 	}
 
 	for i := range workflowNodeSet {
 		var nodeIndex int
-		for _, label := range workflowNodeSet[i].Labels() {
-			if label.Key == node.NodeIndexKey {
-				nodeIndex, err = strconv.Atoi(*label.Value)
+		for _, label := range workflowNodeSet[i].Labels {
+			if label.Key == node.IndexKey {
+				nodeIndex, err = strconv.Atoi(label.Value)
 				if err != nil {
 					return nil, errors.Wrap(err, "failed to convert node index to int")
 				}
 			}
 		}
 
+		// for now we just assume that every worker node is connected to one EVM chain
 		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl, input.BlockchainOutput.Nodes[0].DockerInternalWSUrl)
-		nodeEthAddr := common.HexToAddress(workflowNodeSet[i].AccountAddr[chainIDUint64])
+		var nodeEthAddr common.Address
+		for _, label := range workflowNodeSet[i].Labels {
+			if label.Key == node.EthAddressKey {
+				if label.Value == "" {
+					return nil, errors.New("eth address label value is empty")
+				}
+				nodeEthAddr = common.HexToAddress(label.Value)
+				break
+			}
+		}
 
-		if keystoneflags.HasFlag(input.Flags, types.WriteEVMCapability) {
+		if keystoneflags.HasFlag(input.Flags, cretypes.WriteEVMCapability) {
 			configOverrides[nodeIndex] += config.WorkerWriteEMV(
 				nodeEthAddr,
 				input.ForwarderAddress,
@@ -101,14 +111,14 @@ func GenerateConfigs(input types.GeneratePoRConfigsInput) (types.NodeIndexToConf
 		}
 
 		// if it's workflow DON configure workflow registry
-		if keystoneflags.HasFlag(input.Flags, types.WorkflowDON) {
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
 				input.WorkflowRegistryAddress, chainIDUint64)
 		}
 
 		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
 		// it's also required by custom compute, which can only run on workflow DON nodes
-		if keystoneflags.HasFlag(input.Flags, types.WorkflowDON) || keystoneflags.HasFlag(input.Flags, types.CustomComputeCapability) {
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				chainIDUint64,

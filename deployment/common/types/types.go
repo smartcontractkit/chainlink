@@ -44,6 +44,8 @@ const (
 	ExecutorAccessControllerAccount  deployment.ContractType = "ExecutorAccessControllerAccount"
 	CancellerAccessControllerAccount deployment.ContractType = "CancellerAccessControllerAccount"
 	BypasserAccessControllerAccount  deployment.ContractType = "BypasserAccessControllerAccount"
+	// Data Streams contracts
+	ChannelConfigStore deployment.ContractType = "ChannelConfigStore"
 )
 
 func (role MCMSRole) String() string {

@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -23,6 +22,11 @@ import (
 type GetContractSetsRequest struct {
 	Chains      map[uint64]deployment.Chain
 	AddressBook deployment.AddressBook
+
+	// Labels indicates the label set that a contract must include to be considered as a member
+	// of the returned contract set.  By default, an empty label set implies that only contracts without
+	// labels will be considered.  Otherwise, all labels must be on the contract (e.g., "label1" AND "label2").
+	Labels []string
 }
 
 type GetContractSetsResponse struct {
@@ -69,8 +73,8 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best-effort and logs errors
-func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneChainView, error) {
+// It is best effort and logs errors
+func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
 	var allErrs error
 	if cs.CapabilitiesRegistry != nil {
@@ -86,7 +90,7 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 		for addr, ocr3Cap := range cs.OCR3 {
 			oc := *ocr3Cap
 			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(ctx, oc)
+			ocrView, err := GenerateOCR3ConfigView(oc)
 			if err != nil {
 				allErrs = errors.Join(allErrs, err)
 				// don't block view on single OCR3 not being configured
@@ -110,15 +114,6 @@ func (cs ContractSet) View(ctx context.Context, lggr logger.Logger) (KeystoneCha
 		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
 	}
 
-	if cs.Forwarder != nil {
-		fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder)
-		if fwrErr != nil {
-			allErrs = errors.Join(allErrs, fwrErr)
-			lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
-		}
-		out.Forwarders[cs.Forwarder.Address().String()] = fwrView
-	}
-
 	return out, allErrs
 }
 
@@ -135,7 +130,10 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 		if err != nil {
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
-		cs, err := loadContractSet(lggr, chain, addrs)
+
+		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+
+		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load contract set for chain %d: %w", id, err)
 		}

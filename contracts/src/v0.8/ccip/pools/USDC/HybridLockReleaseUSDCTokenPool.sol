@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ILiquidityContainer} from "../../../liquiditymanager/interfaces/ILiquidityContainer.sol";
+import {ILiquidityContainer} from "../../interfaces/ILiquidityContainer.sol";
 import {ITokenMessenger} from "../USDC/ITokenMessenger.sol";
 
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
+import {CCTPMessageTransmitterProxy} from "../USDC/CCTPMessageTransmitterProxy.sol";
 import {USDCTokenPool} from "../USDC/USDCTokenPool.sol";
 import {USDCBridgeMigrator} from "./USDCBridgeMigrator.sol";
 
@@ -44,11 +45,15 @@ contract HybridLockReleaseUSDCTokenPool is USDCTokenPool, USDCBridgeMigrator {
 
   constructor(
     ITokenMessenger tokenMessenger,
+    CCTPMessageTransmitterProxy cctpMessageTransmitterProxy,
     IERC20 token,
     address[] memory allowlist,
     address rmnProxy,
     address router
-  ) USDCTokenPool(tokenMessenger, token, allowlist, rmnProxy, router) USDCBridgeMigrator(address(token)) {}
+  )
+    USDCTokenPool(tokenMessenger, cctpMessageTransmitterProxy, token, allowlist, rmnProxy, router)
+    USDCBridgeMigrator(address(token))
+  {}
 
   // ================================================================
   // │                   Incoming/Outgoing Mechanisms               |

@@ -6,6 +6,7 @@ import {IBurnMintERC20} from "../../../../shared/token/ERC20/IBurnMintERC20.sol"
 import {BurnMintERC677} from "../../../../shared/token/ERC677/BurnMintERC677.sol";
 import {Router} from "../../../Router.sol";
 import {TokenPool} from "../../../pools/TokenPool.sol";
+import {CCTPMessageTransmitterProxy} from "../../../pools/USDC/CCTPMessageTransmitterProxy.sol";
 
 import {BaseTest} from "../../BaseTest.t.sol";
 import {MockE2EUSDCTransmitter} from "../../mocks/MockE2EUSDCTransmitter.sol";
@@ -34,6 +35,7 @@ contract USDCSetup is BaseTest {
 
   MockUSDCTokenMessenger internal s_mockUSDC;
   MockE2EUSDCTransmitter internal s_mockUSDCTransmitter;
+  CCTPMessageTransmitterProxy internal s_cctpMessageTransmitterProxy;
 
   address internal s_routerAllowedOnRamp = address(3456);
   address internal s_routerAllowedOffRamp = address(234);
@@ -51,7 +53,7 @@ contract USDCSetup is BaseTest {
 
     s_mockUSDCTransmitter = new MockE2EUSDCTransmitter(0, DEST_DOMAIN_IDENTIFIER, address(s_token));
     s_mockUSDC = new MockUSDCTokenMessenger(0, address(s_mockUSDCTransmitter));
-
+    s_cctpMessageTransmitterProxy = new CCTPMessageTransmitterProxy(s_mockUSDC);
     usdcToken.grantMintAndBurnRoles(address(s_mockUSDCTransmitter));
     usdcToken.grantMintAndBurnRoles(address(s_mockUSDC));
   }

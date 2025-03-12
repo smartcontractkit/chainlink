@@ -1007,13 +1007,18 @@ func (d *Delegate) newServicesLLO(
 	}
 
 	// Use the default key bundle if not specified
-	// NOTE: Only JSON and EVMPremiumLegacy supported for now
 	// TODO: MERC-3594
-	//
-	// Also re-use EVM keys for signing the retirement report. This isn't
-	// required, just seems easiest since it's the only key type available for
-	// now.
-	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatRetirement, llotypes.ReportFormatEVMABIEncodeUnpacked} {
+	evmKeySignedFormats := []llotypes.ReportFormat{
+		// NOTE: Just use EVM key for signing everything. This isn't
+		// necessarily required, just seems easiest since it's the only key
+		// type available for now.
+		llotypes.ReportFormatJSON,
+		llotypes.ReportFormatEVMPremiumLegacy,
+		llotypes.ReportFormatRetirement,
+		llotypes.ReportFormatEVMABIEncodeUnpacked,
+		llotypes.ReportFormatCapabilityTrigger,
+	}
+	for _, rf := range evmKeySignedFormats {
 		if _, exists := kbm[rf]; !exists {
 			// Use the first if unspecified
 			kbs, err3 := d.ks.GetAllOfType("evm")

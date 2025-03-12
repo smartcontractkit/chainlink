@@ -48,6 +48,8 @@ type server struct {
 	receiveLock sync.Mutex
 	stopCh      services.StopChan
 	wg          sync.WaitGroup
+
+	parallelExecutor *parallelExecutor
 }
 
 var _ types.Receiver = &server{}
@@ -60,7 +62,9 @@ type requestAndMsgID struct {
 
 func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID p2ptypes.PeerID, underlying commoncap.ExecutableCapability,
 	capInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON,
-	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration, lggr logger.Logger) *server {
+	workflowDONs map[uint32]commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
+	maxParallelRequests int,
+	lggr logger.Logger) *server {
 	if remoteExecutableConfig == nil {
 		lggr.Info("no remote config provided, using default values")
 		remoteExecutableConfig = &commoncap.RemoteExecutableConfig{}
@@ -80,6 +84,8 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 
 		lggr:   lggr.Named("ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
+
+		parallelExecutor: newParallelExecutor(maxParallelRequests),
 	}
 }
 
@@ -94,6 +100,7 @@ func (r *server) Start(ctx context.Context) error {
 			}
 			ticker := time.NewTicker(tickerInterval)
 			defer ticker.Stop()
+
 			r.lggr.Info("executable capability server started")
 			for {
 				select {
@@ -110,6 +117,8 @@ func (r *server) Start(ctx context.Context) error {
 
 func (r *server) Close() error {
 	return r.StopOnce(r.Name(), func() error {
+		r.parallelExecutor.Close()
+
 		close(r.stopCh)
 		r.wg.Wait()
 		r.lggr.Info("executable capability server closed")
@@ -190,10 +199,14 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
-
-	err = reqAndMsgID.request.OnMessage(ctx, msg)
-	if err != nil {
-		r.lggr.Errorw("request failed to OnMessage new message", "messageID", reqAndMsgID.messageID, "err", err)
+	if executeTaskErr := r.parallelExecutor.ExecuteTask(ctx,
+		func(ctx context.Context) {
+			err = reqAndMsgID.request.OnMessage(ctx, msg)
+			if err != nil {
+				r.lggr.Errorw("failed to execute on message", "messageID", reqAndMsgID.messageID, "err", err)
+			}
+		}); executeTaskErr != nil {
+		r.lggr.Errorw("failed to execute on message task", "messageID", messageID, "err", executeTaskErr)
 	}
 }
 

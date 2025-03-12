@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -663,16 +662,8 @@ func extractSignerEncryptionKeys(n deployment.Node, chainSel uint64) (signer [32
 	if err != nil {
 		return signer, enc, fmt.Errorf("error decoding workflow key: %w", err)
 	}
-	chainID, err := chainsel.ChainIdFromSelector(chainSel)
-	if err != nil {
-		return signer, enc, fmt.Errorf("error getting chain id for selector %d: %w", chainSel, err)
-	}
-	chainDetails, err := chainsel.GetChainDetailsByChainIDAndFamily(strconv.FormatUint(chainID, 10), chainsel.FamilyEVM)
-	if err != nil {
-		return signer, enc, fmt.Errorf("error getting chain details for selector %d, chain id %d: %w", chainSel, chainID, err)
-	}
 
-	evmCC, exists := n.SelToOCRConfig[chainDetails]
+	evmCC, exists := n.OCRConfigForChainSelector(chainSel)
 	if !exists {
 		return signer, enc, fmt.Errorf("config for selector %v not found on node (id: %s, name: %s)", chainSel, n.NodeID, n.Name)
 	}
