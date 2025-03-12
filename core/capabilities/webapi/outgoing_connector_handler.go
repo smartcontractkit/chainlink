@@ -177,7 +177,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		if errJSON.Message == "" {
 			errJSON.Message = errorIncomingRatelimitGlobal
 		} else {
-			errJSON.Message += fmt.Sprintf("\n%s", errorIncomingRatelimitGlobal)
+			errJSON.Message += "\n" + errorIncomingRatelimitGlobal
 		}
 	}
 
