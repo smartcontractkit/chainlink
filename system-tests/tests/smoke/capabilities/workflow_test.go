@@ -7,8 +7,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"math/big"
 	"math/rand/v2"
 	"net"
@@ -29,22 +27,20 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-	"google.golang.org/protobuf/proto"
 
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	pb2 "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
@@ -52,9 +48,12 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities/pb"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/mock_capability"
+	pb3 "github.com/smartcontractkit/chainlink/system-tests/lib/mock_capability/pb"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 
@@ -538,7 +537,7 @@ func (ns *NixShell) RunCommand(command string) (string, error) {
 	defer ns.mu.Unlock()
 
 	endMarker := "END_OF_COMMAND_OUTPUT"
-	fullCommand := fmt.Sprintf("%s; echo %s\n", command, endMarker)
+	fullCommand := fmt.Sprintf("%s; echo %s $?\n", command, endMarker)
 
 	_, err := ns.stdin.WriteString(fullCommand)
 	if err != nil {
@@ -549,18 +548,19 @@ func (ns *NixShell) RunCommand(command string) (string, error) {
 	}
 
 	var output strings.Builder
+	var exitCode int
 	for {
 		line, err := ns.stdout.ReadString('\n')
 		fmt.Print(line)
 		if err != nil {
 			return "", err
 		}
-		if strings.TrimSpace(line) == endMarker {
+		if strings.HasPrefix(line, endMarker) {
+			fmt.Sscanf(line, endMarker+" %d", &exitCode)
 			break
 		}
 		output.WriteString(line)
 	}
-
 	return strings.TrimSpace(output.String()), nil
 }
 
@@ -588,6 +588,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 		_, err = nixShell.RunCommand("devspace run deploy-chains")
 		require.NoError(t, err, "failed to run devspace run deploy-chains")
+
+		_, err = nixShell.RunCommand("crib devspace ingress-check --nsTimeout=2m --timeout=4m")
+		require.NoError(t, err, "failed to run crib devspace ingress-check --nsTimeout=2m --timeout=4m")
 
 		// for some reason sometimes chains aren't ready yet, we need to add a fluent wait here
 		// just like the one we have for don/jd
@@ -1380,29 +1383,29 @@ func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 
-func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
+func TestKeystoneWithOCR3Workflow_TwoDons_WriteDON_Mock(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
 	in, err := framework.Load[TestConfig](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 1, "expected 2 node sets in the test config")
+	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.MockCapability},
-				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.CapabilitiesDON},
+				Capabilities:       []string{keystonetypes.MockCapability, keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON, keystonetypes.WorkflowDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: 0,
 			},
-			//{
-			//	Input:              input[1],
-			//	Capabilities:       []string{keystonetypes.MockCapability},
-			//	DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-			//	BootstrapNodeIndex: 0,
-			//},
+			{
+				Input:              input[1],
+				Capabilities:       []string{keystonetypes.WriteEVMCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: 0,
+			},
 		}
 	}
 
@@ -1448,10 +1451,181 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	})
 
-	testLogger.Info().Msg("Connecting to mock capabilities...")
-	//envInput.nodeSetInput[0].Out.CLNodes
+	_, err = feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
+	require.NoError(t, err, "failed to create feeds consumer instance")
 
-	mocksClient := newCapProxyClient()
+	//Mock capability start
+	testLogger.Info().Msg("Connecting to mock capabilities")
+
+	// 0. Connect to mock capabilities
+	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
+	require.NoError(t, mocksClient.ConnectAll([]string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}, true))
+
+	// 1. The write_geth-testnet capability is exposed from the write DON and the mock capability is hosted on the "workflow" DON,
+	// we must wait until the workflow don registers the remote capability
+	targetCapabilityID := "write_geth-testnet@1.0.0"
+	targetCapabilityType := pb3.CapabilityType_Target
+	ctx := tests.Context(t)
+	testLogger.Info().Msg("Waiting for write_geth-testnet@1.0.0 to be exposed")
+
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for {
+			select {
+			case <-time.After(time.Second * 10):
+				found := false
+				for _, c := range mocksClient.Clients {
+					list, err2 := c.List(ctx, &pb3.ListRequest{})
+					require.NoError(t, err2)
+					for _, l := range list.CapInfos {
+						if l.ID == targetCapabilityID {
+							found = true
+						}
+					}
+					if !found {
+						break
+					}
+				}
+
+				if found {
+					wg.Done()
+					return
+				}
+			}
+		}
+	}()
+
+	wg.Wait()
+
+	testLogger.Info().Msg("RegisterToWorkflow on write_geth-testnet@1.0.0")
+	// 2. Register workflow to write_geth-testnet@1.0.0 on all nodes of the worflow don
+	// For the write target RegisterToWorkflow does not do anything!!
+	//require.NoError(t, mocksClient.RegisterToWorkflow(ctx, pb3.RegisterToWorkflowRequest{
+	//	ID:                   targetCapabilityID,
+	//	CapabilityType:       targetCapabilityType,
+	//	RegistrationMetadata: nil, //TODO
+	//	Config:               nil, //TODO
+	//}))
+
+	// 3. Call Execute
+
+	config, err := values.WrapMap(targets.Config{
+		Address:  testutils.NewAddress().String(),
+		GasLimit: nil, //TODO
+	})
+	require.NoError(t, err)
+	configBytes, err := mock_capability.MapToBytes(config)
+	require.NoError(t, err)
+
+	inputs, err := values.WrapMap(targets.Inputs{
+		SignedReport: types2.SignedReport{
+			Report:     nil,
+			Context:    nil,
+			Signatures: nil,
+			ID:         nil,
+		},
+	})
+	require.NoError(t, err)
+	inputsBytes, err := mock_capability.MapToBytes(inputs)
+	require.NoError(t, err)
+	for {
+		select {
+		case <-time.After(time.Second * 15):
+			testLogger.Info().Msg("Execute on write_geth-testnet@1.0.0")
+			require.NoError(t, mocksClient.Execute(ctx, pb3.ExecutableRequest{
+				ID:             targetCapabilityID,
+				CapabilityType: targetCapabilityType,
+				RequestMetadata: &pb3.Metadata{
+					WorkflowID:               "some-workflow",
+					WorkflowOwner:            "",
+					WorkflowExecutionID:      "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed",
+					WorkflowName:             "nonexistent workflow",
+					WorkflowDonID:            0,
+					WorkflowDonConfigVersion: 0,
+					ReferenceID:              "",
+					DecodedWorkflowName:      "",
+				}, //TODO
+				Config: configBytes,
+				Inputs: inputsBytes,
+			}))
+		}
+	}
+	time.Sleep(time.Minute * 10)
+}
+
+func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
+	testLogger := framework.L
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVars(t, in)
+	require.Len(t, in.NodeSets, 1, "expected 2 node sets in the test config")
+
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
+		return []*keystonetypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              input[0],
+				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.MockCapability},
+				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.CapabilitiesDON},
+				BootstrapNodeIndex: 0,
+			},
+			//{
+			//	Input:              input[1],
+			//	Capabilities:       []string{keystonetypes.MockCapability},
+			//	DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+			//	BootstrapNodeIndex: 0,
+			//},
+		}
+	}
+
+	setupOutput := setupTestEnvironment(t, testLogger, in, nil, nil, mustSetCapabilitiesFn)
+
+	ctx := tests.Context(t)
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
+
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
+
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput,
+			}
+			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+		}
+	})
+
+	testLogger.Info().Msg("Connecting to mock capabilities...")
+
+	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	for i, _ := range setupOutput.nodeOutput[0].CLNodes {
 		if i == 0 {
@@ -1461,10 +1635,12 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("crib-local-base-%d-mock.main.stage.cldev.sh:443", i-1))
 	}
 
-	require.NoError(t, mocksClient.connectAll(mockClientsAddress)) //Capability don ports
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, false)) //Capability don ports
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
-	require.NoError(t, mocksClient.HookExecutables(testLogger))
+
+	receiveChannel := make(chan pb3.ExecutableRequest, 1000)
+	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
 
 	//Get ocr key
 	kb := make([]ocr2key.KeyBundle, 0)
@@ -1486,12 +1662,32 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	go sendReports(t.Context(), t, mocksClient, testLogger, kb) //TODO @george-dorin: Fix me!!!
-	time.Sleep(time.Minute * 30)
+	labels := map[string]string{
+		"go_test_name": "test1",
+		"branch":       "profile-check",
+		"commit":       "profile-check",
+	}
+
+	_, err = wasp.NewProfile().
+		Add(wasp.NewGenerator(&wasp.Config{
+			LoadType: wasp.RPS,
+			Schedule: wasp.Combine(
+				wasp.Plain(4, 10*time.Minute),
+			),
+			Gun:                   NewStreamsGun(mocksClient, kb, []string{"0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca"}, "streams-trigger@1.0.0", receiveChannel),
+			Labels:                labels,
+			LokiConfig:            wasp.NewEnvLokiConfig(),
+			RateLimitUnitDuration: time.Minute,
+		})).
+		Run(true)
+	require.NoError(t, err)
+
+	//go sendReports(t.Context(), t, mocksClient, testLogger, kb)
+	//time.Sleep(time.Minute * 30)
 
 }
 
-func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zerolog.Logger, keyBundles []ocr2key.KeyBundle) {
+func sendReports(ctx context.Context, t *testing.T, capProxy *mock_capability.MockCapabilityController, lggr zerolog.Logger, keyBundles []ocr2key.KeyBundle) {
 
 	for {
 		select {
@@ -1499,9 +1695,12 @@ func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zer
 			lggr.Error().Msg("reports context canceled")
 			return
 		case <-time.After(time.Second * 10):
-			r1 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
-			r2 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", keyBundles)
-			r3 := createFeedReport(t, big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca", keyBundles)
+			r1, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
+			require.NoError(t, err)
+			r2, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", keyBundles)
+			require.NoError(t, err)
+			r3, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca", keyBundles)
+			require.NoError(t, err)
 
 			event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
 				Payload:   []datastreams.FeedReport{*r1, *r2, *r3},
@@ -1510,172 +1709,149 @@ func sendReports(ctx context.Context, t *testing.T, capProxy *capProxy, lggr zer
 			})
 			require.NoError(t, err)
 
-			eventBytes, err := mapToBytes(event)
+			eventBytes, err := mock_capability.MapToBytes(event)
 			require.NoError(t, err)
 
-			require.NoError(t, capProxy.SendTrigger("streams-trigger@1.0.0", uuid.New().String(), eventBytes))
+			require.NoError(t, capProxy.SendTrigger(ctx, "streams-trigger@1.0.0", uuid.New().String(), eventBytes))
 		}
 	}
 }
 
-//func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities_WASP(t *testing.T) {
-//	//We assume that we already have the node clients
-//
-//	//Get OCR2 keys
-//	//Create workflow job for x number of feeds ??
-//	//Create wasp profile
-//	//Start test
-//
-//	srv := wasp.NewHTTPMockServer(nil)
-//	srv.Run()
-//
-//	labels := map[string]string{
-//		"go_test_name": "test1",
-//		"branch":       "profile-check",
-//		"commit":       "profile-check",
-//	}
-//
-//	_, err := wasp.NewProfile().
-//		Add(wasp.NewGenerator(&wasp.Config{
-//			LoadType: wasp.RPS,
-//			GenName:  "Alpha",
-//			Schedule: wasp.Combine(
-//				wasp.Steps(1, 1, 9, 30*time.Second),
-//				wasp.Plain(10, 30*time.Second),
-//				wasp.Steps(10, -1, 10, 30*time.Second),
-//			),
-//			Gun:        NewExampleHTTPGun(srv.URL()),
-//			Labels:     labels,
-//			LokiConfig: wasp.NewEnvLokiConfig(),
-//		})).
-//		Add(wasp.NewGenerator(&wasp.Config{
-//			LoadType: wasp.RPS,
-//			GenName:  "Beta",
-//			Schedule: wasp.Combine(
-//				wasp.Steps(1, 1, 9, 30*time.Second),
-//				wasp.Plain(10, 30*time.Second),
-//				wasp.Steps(10, -1, 10, 30*time.Second),
-//			),
-//			Gun:        NewExampleHTTPGun(srv.URL()),
-//			Labels:     labels,
-//			LokiConfig: wasp.NewEnvLokiConfig(),
-//		})).
-//		Run(true)
-//	require.NoError(t, err)
-//
-//}
+var _ wasp.Gun = (*StreamsGun)(nil)
 
-// TODO @george-dorin: Refactor!
-type capProxy struct {
-	Clients []pb.MockCapabilityClient
+type StreamsGun struct {
+	capProxy    *mock_capability.MockCapabilityController
+	keyBundles  []ocr2key.KeyBundle
+	feeds       []string
+	triggerID   string
+	waitChans   map[string]chan interface{}
+	recieveChan <-chan pb3.ExecutableRequest
+	mu          sync.Mutex
 }
 
-func newCapProxyClient() *capProxy {
-	return &capProxy{Clients: make([]pb.MockCapabilityClient, 0)}
-}
-
-func (c *capProxy) connectAll(addresses []string) error {
-	for _, p := range addresses {
-		client, err := proxyConnectToOne(p)
-		if err != nil {
-			return err
-		}
-		c.Clients = append(c.Clients, client)
-
+func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds []string, triggerID string, ch <-chan pb3.ExecutableRequest) *StreamsGun {
+	sg := &StreamsGun{
+		capProxy:    capProxy,
+		keyBundles:  keyBundles,
+		feeds:       feeds,
+		triggerID:   triggerID,
+		recieveChan: ch,
 	}
-	return nil
+	go sg.waitHOOKloop()
+	return sg
 }
 
-func (c *capProxy) CreateCapability(info pb.CapabilityInfo) error {
-	for _, client := range c.Clients {
-		_, err := client.CreateCapability(context.TODO(), &info)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *capProxy) SendTrigger(id string, eventID string, payload []byte) error {
-	for _, client := range c.Clients {
-		data := pb.SendTriggerEventRequest{
-			ID:      id,
-			EventID: eventID,
-			Payload: payload,
-		}
-		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
-
-		_, err := client.SendTriggerEvent(context.TODO(), &data)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (c *capProxy) HookExecutables(lggr zerolog.Logger) error {
-	for _, client := range c.Clients {
-		hook, errC := client.HookExecutables(context.TODO())
-		if errC != nil {
-			return errC
-		}
-
-		go func() {
-			for {
-				lggr.Info().Msg("Waiting for hook event")
-				resp, err := hook.Recv()
-				if err == io.EOF {
-					lggr.Error().Msgf("Recieved EOF from hook %s", err)
-					return
-				}
-				if err != nil {
-					log.Fatalf("can not receive %v", err)
-				}
-				lggr.Info().Msgf("Got hook event %v+", resp)
-
-				//Process request
-				r := pb.ExecutableResponse{
-					ID:             resp.ID,
-					CapabilityType: resp.CapabilityType,
-					Value:          resp.Inputs,
-				}
-				err = hook.Send(&r)
-				if err != nil {
-					panic(err.Error())
-				}
-				lggr.Info().Msgf("Sent hook response %v+", r)
-
-			}
-		}()
-	}
-	return nil
-}
-
-func proxyConnectToOne(address string) (pb.MockCapabilityClient, error) {
-	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
-	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(creds))
+func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
+	eventID := uuid.NewString()
+	err := s.prepareWaitHOOK(eventID)
 	if err != nil {
-		return nil, err
+		return &wasp.Response{Error: err.Error()}
 	}
-	client := pb.NewMockCapabilityClient(conn) //TODO @george-dorin: Move the proxy pb file
-	return client, nil
+
+	reports := make([]datastreams.FeedReport, 0)
+	for _, feed := range s.feeds {
+		r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), feed, s.keyBundles)
+		if err != nil {
+			return &wasp.Response{Error: err.Error()}
+		}
+		reports = append(reports, *r)
+	}
+
+	event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
+		Payload:   reports,
+		Metadata:  datastreams.Metadata{},
+		Timestamp: time.Now().Unix(),
+	})
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	eventBytes, err := mock_capability.MapToBytes(event)
+
+	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, eventID, eventBytes)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	//Wait for hook back with the same eventID
+	err = s.waitForHOOK(eventID)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+	return &wasp.Response{}
+}
+
+func (s *StreamsGun) waitHOOKloop() error {
+	for {
+		select {
+		case m, ok := <-s.recieveChan:
+			if !ok {
+				return fmt.Errorf("channel closed")
+			}
+			s.mu.Lock()
+
+			//TODO @george-dorin: check if the evenID is present somewhere, m.ID is not good I think
+			//Check if exist
+			if ch, exist := s.waitChans[m.ID]; exist {
+				s.mu.Unlock()
+				ch <- m //This is blocking
+			} else {
+				s.mu.Unlock()
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *StreamsGun) prepareWaitHOOK(eventID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.waitChans == nil {
+		s.waitChans = make(map[string]chan interface{})
+	}
+	if _, exists := s.waitChans[eventID]; exists {
+		return fmt.Errorf("cannot prepare for HOOK, eventID  %q already exits", eventID)
+	}
+	s.waitChans[eventID] = make(chan interface{})
+	return nil
+}
+
+func (s *StreamsGun) waitForHOOK(eventID string) error {
+	s.mu.Lock()
+
+	if ch, exists := s.waitChans[eventID]; exists {
+		s.mu.Unlock()
+		return fmt.Errorf("cannot wait for HOOK, eventID  %q already exits", eventID)
+	} else {
+		s.mu.Unlock()
+		<-ch
+		return nil
+	}
 
 }
 
-func createFeedReport(t *testing.T, price *big.Int, observationTimestamp int64,
+func createFeedReport(price *big.Int, observationTimestamp int64,
 	feedIDString string,
-	keyBundles []ocr2key.KeyBundle) *datastreams.FeedReport {
+	keyBundles []ocr2key.KeyBundle) (*datastreams.FeedReport, error) {
 	reportCtx := ocrTypes.ReportContext{}
 	rawCtx := RawReportContext(reportCtx)
 
 	bytes, err := hex.DecodeString(feedIDString[2:])
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 	var feedIDBytes [32]byte
 	copy(feedIDBytes[:], bytes)
 
+	fullReport, err := newReport(feedIDBytes, price, observationTimestamp)
+	if err != nil {
+		return nil, err
+	}
+
 	report := &datastreams.FeedReport{
 		FeedID:               feedIDString,
-		FullReport:           newReport(t, feedIDBytes, price, observationTimestamp),
+		FullReport:           fullReport,
 		BenchmarkPrice:       price.Bytes(),
 		ObservationTimestamp: observationTimestamp,
 		Signatures:           [][]byte{},
@@ -1684,11 +1860,13 @@ func createFeedReport(t *testing.T, price *big.Int, observationTimestamp int64,
 
 	for _, key := range keyBundles {
 		sig, err := key.Sign(reportCtx, report.FullReport)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 		report.Signatures = append(report.Signatures, sig)
 	}
 
-	return report
+	return report, nil
 }
 func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 	rc := evmutil.RawReportContext(reportCtx)
@@ -1699,10 +1877,10 @@ func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 	return flat
 }
 
-func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	ctx := tests.Context(t)
-	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
+func newReport(feedID [32]byte, price *big.Int, timestamp int64) ([]byte, error) {
+	lggr, _ := logger.NewLogger()
+	v3Codec := reportcodec.NewReportCodec(feedID, lggr)
+	raw, err := v3Codec.BuildReport(context.TODO(), v3.ReportFields{
 		BenchmarkPrice: price,
 
 		Timestamp: uint32(timestamp),
@@ -1711,22 +1889,8 @@ func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) [
 		LinkFee:   big.NewInt(0),
 		NativeFee: big.NewInt(0),
 	})
-	require.NoError(t, err)
-	return raw
-}
-
-func mapToBytes(m *values.Map) ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-
-	pm := make(map[string]*pb2.Value)
-	for k, v := range m.Underlying {
-		pm[k] = values.Proto(v)
-	}
-	bytes, err := proto.Marshal(pb2.NewMapValue(pm))
 	if err != nil {
 		return nil, err
 	}
-	return bytes, nil
+	return raw, nil
 }
