@@ -74,7 +74,7 @@ func deployKeeperRegistry(
 		)
 		require.NoError(t, err)
 	default:
-		panic(errors.Errorf("Deployment of registry verdion %d not defined", version))
+		panic(errors.Errorf("Deployment of registry version %d not defined", version))
 	}
 	backend.Commit()
 	wrapper, err := keeper.NewRegistryWrapper(evmtypes.EIP55AddressFromAddress(regAddr), backend)
@@ -304,7 +304,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 		require.NoError(t, err)
 		commit()
 
-		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_3, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
+		regAddr, registryWrapper := deployKeeperRegistry(t, keeper.RegistryVersion_1_1, steve, backend, linkAddr, linkFeedAddr, gasFeedAddr)
 		commit()
 		fwdrAddress, _, authorizedForwarder, err := authorized_forwarder.DeployAuthorizedForwarder(sergey, backend, linkAddr, sergey.From, steve.From, []byte{})
 		require.NoError(t, err)
