@@ -435,6 +435,15 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 		},
 	})
 
+	// Prepend custom type so it takes priority over the IDL
+	routerIDL.Types = append([]solanacodec.IdlTypeDef{{
+		Name: "CrossChainAmount",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind:  solanacodec.IdlTypeDefTyKindCustom,
+			Codec: "cross_chain_amount",
+		},
+	}}, routerIDL.Types...)
+
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameOnRamp}},
 		Namespaces: map[string]config.ChainContractReader{
@@ -454,6 +463,25 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"SequenceNumber": "ExpectedNextSequenceNumber"},
 							}},
+					},
+					consts.EventNameCCIPMessageSent: {
+						ChainSpecificName: "CCIPMessageSent",
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{},
+							IndexedField0: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSourceChain,
+								OnChainPath:  "Message.Header.SourceChainSelector",
+							},
+							IndexedField1: &config.IndexedField{
+								OffChainPath: consts.EventAttributeDestChain,
+								OnChainPath:  "Message.Header.DestChainSelector",
+							},
+							IndexedField2: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSequenceNumber,
+								OnChainPath:  "Message.Header.SequenceNumber",
+							},
+						},
 					},
 					consts.MethodNameOnRampGetDestChainConfig: {
 						ChainSpecificName: "DestChain",
