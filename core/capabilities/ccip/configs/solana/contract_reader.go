@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/gagliardetto/solana-go"
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -321,13 +322,16 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameRouter: {
 				IDL: routerIDL,
 				Reads: map[string]config.ReadDefinition{
+					// TODO: PDA fetching is unnecessary here
 					consts.MethodNameRouterGetWrappedNative: {
 						ChainSpecificName: "Config",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.PropertyExtractorConfig{FieldName: "LinkTokenMint"},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol}},
+							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
+							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
 					},
 				},
@@ -612,13 +616,17 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameRouter: {
 				IDL: routerIDL,
 				Reads: map[string]config.ReadDefinition{
+					// TODO: PDA fetching is unnecessary here
 					consts.MethodNameRouterGetWrappedNative: {
 						ChainSpecificName: "Config",
+						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.PropertyExtractorConfig{FieldName: "LinkTokenMint"},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol}},
+							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
+							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
 					},
 				},
