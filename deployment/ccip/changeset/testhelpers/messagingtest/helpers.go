@@ -150,6 +150,32 @@ func Run(tc TestCase) (out TestCaseOutput) {
 	}
 
 	startBlocks := make(map[uint64]*uint64)
+
+	var msg any
+
+	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
+	require.NoError(tc.T, err)
+
+	switch family {
+	case chain_selectors.FamilyEVM:
+		msg = router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			Data:         tc.MsgData,
+			TokenAmounts: nil,
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    tc.ExtraArgs,
+		}
+	case chain_selectors.FamilySolana:
+		msg = ccip_router.SVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
+			TokenAmounts: nil,
+			Data:         tc.MsgData,
+			ExtraArgs:    tc.ExtraArgs,
+		}
+
+	default:
+		tc.T.Errorf("unsupported source chain: %v", family)
+	}
 	msgSentEvent := testhelpers.TestSendRequest(
 		tc.T,
 		tc.Env,
@@ -157,13 +183,7 @@ func Run(tc TestCase) (out TestCaseOutput) {
 		tc.SourceChain,
 		tc.DestChain,
 		tc.TestRouter,
-		router.ClientEVM2AnyMessage{
-			Receiver:     common.LeftPadBytes(tc.Receiver, 32),
-			Data:         tc.MsgData,
-			TokenAmounts: nil,
-			FeeToken:     common.HexToAddress("0x0"),
-			ExtraArgs:    tc.ExtraArgs,
-		})
+		msg)
 	sourceDest := testhelpers.SourceDestPair{
 		SourceChainSelector: tc.SourceChain,
 		DestChainSelector:   tc.DestChain,
