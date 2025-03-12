@@ -22,11 +22,10 @@ import (
 
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -38,12 +37,12 @@ const (
 var defaultConfig = Config{
 	ServiceConfig: webapi.ServiceConfig{
 		OutgoingRateLimiter: common.RateLimiterConfig{
-			GlobalRPS:        100.0,
-			GlobalBurst:      100,
-			PerWorkflowRPS:   100.0,
-			PerWorkflowBurst: 100,
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
 		},
-		IncomingRateLimiter: gwcommon.RateLimiterConfig{
+		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
 			PerSenderRPS:   100.0,

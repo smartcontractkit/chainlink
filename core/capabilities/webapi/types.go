@@ -1,8 +1,7 @@
 package webapi
 
 import (
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
@@ -16,6 +15,10 @@ const (
 // Note that workflow executions have their own internal timeouts and retries set by the user
 // that are separate from this configuration
 type ServiceConfig struct {
-	IncomingRateLimiter gwcommon.RateLimiterConfig `toml:"incomingRateLimiter" json:"incomingRateLimiter" yaml:"incomingRateLimiter" mapstructure:"incomingRateLimiter"`
-	OutgoingRateLimiter common.RateLimiterConfig   `toml:"outgoingRateLimiter" json:"outgoingRateLimiter" yaml:"outgoingRateLimiter" mapstructure:"outgoingRateLimiter"`
+	// RateLimiter configuration for messages incoming to this node from the gateway.
+	// The sender is a Gateway node, which is identified by the Gateway ID.
+	RateLimiter common.RateLimiterConfig `toml:"incomingRateLimiter" json:"incomingRateLimiter" yaml:"incomingRateLimiter" mapstructure:"incomingRateLimiter"`
+	// RateLimiter configuration for outgoing messages from this node to the gateway.
+	// The sender is a workflow, which is identified by the Workflow ID.
+	OutgoingRateLimiter common.RateLimiterConfig `toml:"outgoingRateLimiter" json:"outgoingRateLimiter" yaml:"outgoingRateLimiter" mapstructure:"outgoingRateLimiter"`
 }

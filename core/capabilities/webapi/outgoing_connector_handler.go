@@ -11,15 +11,21 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	common "github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 const (
-	defaultFetchTimeoutMs          = 20_000
+	DefaultGlobalRPS      = 100.0
+	DefaultGlobalBurst    = 100
+	DefaultPerSenderRPS   = 100.0
+	DefaultPerSenderBurst = 100
+	DefaultWorkflowRPS    = 5.0
+	DefaultWorkflowBurst  = 50
+	defaultFetchTimeoutMs = 20_000
+
 	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
 	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
 	errorIncomingRatelimitGlobal   = "message from gateway exceeded global rate limit"
@@ -34,18 +40,19 @@ type OutgoingConnectorHandler struct {
 	gatewaySelector     *RoundRobinSelector
 	method              string
 	lggr                logger.Logger
-	incomingRateLimiter *gwcommon.RateLimiter
+	incomingRateLimiter *common.RateLimiter
 	outgoingRateLimiter *common.RateLimiter
 	responses           *responses
 }
 
 func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
-	outgoingRateLimiter, err := common.NewRateLimiter(config.OutgoingRateLimiter)
+	outgoingRLCfg := outgoingRateLimiterConfigDefaults(config.OutgoingRateLimiter)
+	outgoingRateLimiter, err := common.NewRateLimiter(outgoingRLCfg)
 	if err != nil {
 		return nil, err
 	}
-
-	incomingRateLimiter, err := gwcommon.NewRateLimiter(config.IncomingRateLimiter)
+	incomingRLCfg := incomingRateLimiterConfigDefaults(config.RateLimiter)
+	incomingRateLimiter, err := common.NewRateLimiter(incomingRLCfg)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +77,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
 
-	workflowAllow, globalAllow := c.outgoingRateLimiter.Allow(req.WorkflowID)
+	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
 		return nil, errors.New(errorOutgoingRatelimitWorkflow)
 	}
@@ -129,7 +136,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	select {
 	case resp := <-ch:
 		switch resp.Body.Method {
-		case api.Method_InternalError:
+		case api.MethodInternalError:
 			var errPayload api.JsonRPCError
 			err := json.Unmarshal(resp.Body.Payload, &errPayload)
 			if err != nil {
@@ -179,7 +186,7 @@ func (c *OutgoingConnectorHandler) HandleGatewayMessage(ctx context.Context, gat
 		errMsg := api.Message{
 			Body: api.MessageBody{
 				MessageId: body.MessageId,
-				Method:    api.Method_InternalError,
+				Method:    api.MethodInternalError,
 				Payload:   errPayload,
 			},
 		}
@@ -226,6 +233,37 @@ func (c *OutgoingConnectorHandler) HealthReport() map[string]error {
 
 func (c *OutgoingConnectorHandler) Name() string {
 	return c.lggr.Name()
+}
+
+func incomingRateLimiterConfigDefaults(config common.RateLimiterConfig) common.RateLimiterConfig {
+	if config.GlobalBurst == 0 {
+		config.GlobalBurst = DefaultGlobalBurst
+	}
+	if config.GlobalRPS == 0 {
+		config.GlobalRPS = DefaultGlobalRPS
+	}
+	if config.PerSenderBurst == 0 {
+		config.PerSenderBurst = DefaultPerSenderBurst
+	}
+	if config.PerSenderRPS == 0 {
+		config.PerSenderRPS = DefaultPerSenderRPS
+	}
+	return config
+}
+func outgoingRateLimiterConfigDefaults(config common.RateLimiterConfig) common.RateLimiterConfig {
+	if config.GlobalBurst == 0 {
+		config.GlobalBurst = DefaultGlobalBurst
+	}
+	if config.GlobalRPS == 0 {
+		config.GlobalRPS = DefaultGlobalRPS
+	}
+	if config.PerSenderBurst == 0 {
+		config.PerSenderBurst = DefaultWorkflowBurst
+	}
+	if config.PerSenderRPS == 0 {
+		config.PerSenderRPS = DefaultWorkflowRPS
+	}
+	return config
 }
 
 func validMethod(method string) bool {

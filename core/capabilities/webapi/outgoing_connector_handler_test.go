@@ -5,17 +5,17 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
@@ -199,12 +199,12 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		testURL := "http://localhost:8080"
 		var config = ServiceConfig{
 			OutgoingRateLimiter: common.RateLimiterConfig{
-				GlobalRPS:        2.0,
-				GlobalBurst:      2,
-				PerWorkflowRPS:   1.0,
-				PerWorkflowBurst: 1,
+				GlobalRPS:      2.0,
+				GlobalBurst:    2,
+				PerSenderRPS:   1.0,
+				PerSenderBurst: 1,
 			},
-			IncomingRateLimiter: gwcommon.RateLimiterConfig{
+			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
@@ -254,7 +254,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			WorkflowID: "1",
 		})
 		require.Error(t, err)
-		require.ErrorContains(t, err, error_outgoing_ratelimit_workflow)
+		require.ErrorContains(t, err, errorOutgoingRatelimitWorkflow)
 
 		// Third request should error from global ratelimit
 		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
@@ -262,19 +262,19 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			WorkflowID: "2",
 		})
 		require.Error(t, err)
-		require.ErrorContains(t, err, error_outgoing_ratelimit_global)
+		require.ErrorContains(t, err, errorOutgoingRatelimitGlobal)
 	})
 }
 
 func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
 	var defaultConfig = ServiceConfig{
 		OutgoingRateLimiter: common.RateLimiterConfig{
-			GlobalRPS:        100.0,
-			GlobalBurst:      100,
-			PerWorkflowRPS:   100.0,
-			PerWorkflowBurst: 100,
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
 		},
-		IncomingRateLimiter: gwcommon.RateLimiterConfig{
+		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
 			PerSenderRPS:   100.0,
@@ -312,4 +312,25 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 			Payload:   responsePayload,
 		},
 	}
+}
+
+func TestServiceConfigDefaults(t *testing.T) {
+	t.Run("fills default RateLimiterConfigs", func(t *testing.T) {
+		var cfg ServiceConfig
+
+		tomlErr := toml.Unmarshal([]byte{}, &cfg)
+		require.NoError(t, tomlErr)
+
+		iRLConf := incomingRateLimiterConfigDefaults(cfg.RateLimiter)
+		require.Equal(t, DefaultGlobalBurst, iRLConf.GlobalBurst)
+		require.InDelta(t, DefaultGlobalRPS, iRLConf.GlobalRPS, 0.001)
+		require.Equal(t, DefaultPerSenderBurst, iRLConf.PerSenderBurst)
+		require.InDelta(t, DefaultPerSenderRPS, iRLConf.PerSenderRPS, 0.001)
+
+		oRLConf := outgoingRateLimiterConfigDefaults(cfg.RateLimiter)
+		require.Equal(t, DefaultGlobalBurst, oRLConf.GlobalBurst)
+		require.InDelta(t, DefaultGlobalRPS, oRLConf.GlobalRPS, 0.001)
+		require.Equal(t, DefaultWorkflowBurst, oRLConf.PerSenderBurst)
+		require.InDelta(t, DefaultWorkflowRPS, oRLConf.PerSenderRPS, 0.001)
+	})
 }

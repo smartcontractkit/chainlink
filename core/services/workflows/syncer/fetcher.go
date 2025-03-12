@@ -11,11 +11,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi/common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
-	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
 type FetcherService struct {
@@ -44,12 +43,12 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		webAPIConfig := webapi.ServiceConfig{
 			OutgoingRateLimiter: common.RateLimiterConfig{
-				GlobalRPS:        common.DefaultGlobalRPS,
-				GlobalBurst:      common.DefaultGlobalBurst,
-				PerWorkflowRPS:   common.DefaultWorkflowRPS,
-				PerWorkflowBurst: common.DefaultWorkflowBurst,
+				GlobalRPS:      webapi.DefaultGlobalRPS,
+				GlobalBurst:    webapi.DefaultGlobalBurst,
+				PerSenderRPS:   webapi.DefaultWorkflowRPS,
+				PerSenderBurst: webapi.DefaultWorkflowBurst,
 			},
-			IncomingRateLimiter: gwcommon.RateLimiterConfig{
+			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
 				PerSenderRPS:   100.0,
