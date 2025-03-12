@@ -346,7 +346,14 @@ abstract contract SubscriptionAPI is ConfirmedOwner, IERC677Receiver, IVRFSubscr
     // Generate a subscription id that is globally unique.
     uint64 currentSubNonce = s_currentSubNonce;
     subId = uint256(
-      keccak256(abi.encodePacked(msg.sender, blockhash(block.number - 1), address(this), currentSubNonce))
+        keccak256(
+            abi.encodePacked(
+                msg.sender,
+                (block.number == 0 ? bytes32(0) : blockhash(block.number - 1)),
+                address(this),
+                currentSubNonce
+            )
+        )
     );
     // Increment the subscription nonce counter.
     s_currentSubNonce = currentSubNonce + 1;
