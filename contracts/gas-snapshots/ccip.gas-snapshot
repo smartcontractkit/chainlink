@@ -46,8 +46,6 @@ CCTPMessageTransmitterProxy_configureAllowedCallers:test_configureAllowedCallers
 CCTPMessageTransmitterProxy_getAllowedCallers:test_configureAllowedCallers() (gas: 75076)
 CCTPMessageTransmitterProxy_getCCTPTransmitter:test_getCCTPTransmitter() (gas: 10536)
 CCTPMessageTransmitterProxy_receiveMesssage:test_receiveMesssage() (gas: 31304)
-DefensiveExampleTest:test_HappyPath() (gas: 200535)
-DefensiveExampleTest:test_Recovery() (gas: 424996)
 E2E:test_E2E_3MessagesMMultiOffRampSuccess_gas() (gas: 1519925)
 ERC165CheckerReverting_supportsInterfaceReverting:test__supportsInterfaceReverting() (gas: 10517)
 EtherSenderReceiverTest_ccipReceive:test_ccipReceive_fallbackToWethTransfer() (gas: 96964)
