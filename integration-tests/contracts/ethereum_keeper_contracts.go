@@ -54,8 +54,6 @@ type KeeperRegistry interface {
 	ParseStaleUpkeepReportLog(log *types.Log) (*StaleUpkeepReportLog, error)
 	ParseUpkeepIdFromRegisteredLog(log *types.Log) (*big.Int, error)
 	Pause() error
-	Migrate(upkeepIDs []*big.Int, destinationAddress common.Address) error
-	SetMigrationPermissions(peerAddress common.Address, permission uint8) error
 	PauseUpkeep(id *big.Int) error
 	UnpauseUpkeep(id *big.Int) error
 	UpdateCheckData(id *big.Int, newCheckData []byte) error

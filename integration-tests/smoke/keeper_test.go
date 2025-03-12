@@ -10,7 +10,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/utils"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/onsi/gomega"
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/require"
@@ -849,99 +848,6 @@ func TestKeeperPauseRegistry(t *testing.T) {
 			}, "1m", "1s").Should(gomega.Succeed())
 		})
 	}
-}
-
-func TestKeeperMigrateRegistry(t *testing.T) {
-	t.Parallel()
-	l := logging.GetTestLogger(t)
-	config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
-	require.NoError(t, err, "Error getting config")
-	chainClient, chainlinkNodes, linkToken, _ := setupKeeperTest(l, t, &config)
-
-	sb, err := chainClient.Client.BlockNumber(context.Background())
-	require.NoError(t, err, "Failed to get start block")
-
-	registry, _, consumers, upkeepIDs := actions.DeployKeeperContracts(
-		t,
-		ethereum.RegistryVersion_1_2,
-		keeperDefaultRegistryConfig,
-		keeperDefaultUpkeepsToDeploy,
-		keeperDefaultUpkeepGasLimit,
-		linkToken,
-		chainClient,
-		big.NewInt(keeperDefaultLinkFunds),
-	)
-
-	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, registry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
-	require.NoError(t, err, "Error creating keeper jobs")
-
-	t.Cleanup(func() {
-		actions.GetStalenessReportCleanupFn(t, l, chainClient, sb, registry, ethereum.RegistryVersion_1_2)()
-	})
-
-	// Deploy the second registry, second registrar, and the same number of upkeeps as the first one
-	secondRegistry, _, _, _ := actions.DeployKeeperContracts(
-		t,
-		ethereum.RegistryVersion_1_2,
-		keeperDefaultRegistryConfig,
-		keeperDefaultUpkeepsToDeploy,
-		keeperDefaultUpkeepGasLimit,
-		linkToken,
-		chainClient,
-		big.NewInt(keeperDefaultLinkFunds),
-	)
-
-	// Set the jobs for the second registry
-	_, err = actions.CreateKeeperJobsLocal(l, chainlinkNodes, secondRegistry, contracts.OCRv2Config{}, fmt.Sprint(chainClient.ChainID))
-	require.NoError(t, err, "Error creating keeper jobs")
-
-	err = registry.SetMigrationPermissions(common.HexToAddress(secondRegistry.Address()), 3)
-	require.NoError(t, err, "Error setting bidirectional permissions for first registry")
-	err = secondRegistry.SetMigrationPermissions(common.HexToAddress(registry.Address()), 3)
-	require.NoError(t, err, "Error setting bidirectional permissions for second registry")
-
-	gom := gomega.NewGomegaWithT(t)
-
-	// Check that the first upkeep from the first registry is performing (before being migrated)
-	l.Info().Msg("Waiting for 1m for upkeeps to be performed before migration")
-	gom.Eventually(func(g gomega.Gomega) {
-		for i := 0; i < len(upkeepIDs); i++ {
-			counterBeforeMigration, err := consumers[i].Counter(testcontext.Get(t))
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-			g.Expect(counterBeforeMigration.Int64()).Should(gomega.BeNumerically(">", int64(0)),
-				"Expected consumer counter to be greater than 0, but got %s", counterBeforeMigration)
-		}
-	}, "1m", "1s").Should(gomega.Succeed())
-
-	// Migrate the upkeeps from the first to the second registry
-	for i := 0; i < len(upkeepIDs); i++ {
-		err = registry.Migrate([]*big.Int{upkeepIDs[i]}, common.HexToAddress(secondRegistry.Address()))
-		require.NoError(t, err, "Error migrating first upkeep")
-	}
-
-	// Pause the first registry, in that way we make sure that the upkeep is being performed by the second one
-	err = registry.Pause()
-	require.NoError(t, err, "Error pausing registry")
-
-	counterAfterMigrationPerUpkeep := make(map[*big.Int]*big.Int)
-
-	for i := 0; i < len(upkeepIDs); i++ {
-		counterAfterMigration, err := consumers[i].Counter(testcontext.Get(t))
-		require.NoError(t, err, "Error calling consumer's counter")
-		counterAfterMigrationPerUpkeep[upkeepIDs[i]] = counterAfterMigration
-	}
-
-	// Check that once we migrated the upkeep, the counter has increased
-	l.Info().Msg("Waiting for 1m for upkeeps to be performed after migration")
-	gom.Eventually(func(g gomega.Gomega) {
-		for i := 0; i < len(upkeepIDs); i++ {
-			currentCounter, err := consumers[i].Counter(testcontext.Get(t))
-			counterAfterMigration := counterAfterMigrationPerUpkeep[upkeepIDs[i]]
-			g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Calling consumer's counter shouldn't fail")
-			g.Expect(currentCounter.Int64()).Should(gomega.BeNumerically(">", counterAfterMigration.Int64()),
-				"Expected counter to have increased, but stayed constant at %s", counterAfterMigration)
-		}
-	}, "1m", "1s").Should(gomega.Succeed())
 }
 
 func TestKeeperNodeDown(t *testing.T) {
