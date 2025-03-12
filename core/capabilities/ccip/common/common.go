@@ -8,8 +8,13 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
 
+// ExtraDataDecoded contains a generic representation of chain specific message parameters. A
+// map from string to any is used to account for different parameters required for sending messages
+// to different destinations.
 type ExtraDataDecoded struct {
+	// ExtraArgsDecoded contain message specific extra args.
 	ExtraArgsDecoded    map[string]any
+	// DestExecDataDecoded contain token transfer specific extra args.
 	DestExecDataDecoded []map[string]any
 }
 
