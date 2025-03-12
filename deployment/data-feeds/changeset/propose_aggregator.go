@@ -28,9 +28,6 @@ func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 	}
 
 	tx, err := aggregatorProxy.ProposeAggregator(txOpt, c.NewAggregatorAddress)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute ProposeAggregator: %w", err)
-	}
 
 	if c.McmsConfig != nil {
 		proposalConfig := MultiChainProposalConfig{
@@ -47,8 +44,8 @@ func proposeAggregatorLogic(env deployment.Environment, c types.ProposeConfirmAg
 		}
 		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
+
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 

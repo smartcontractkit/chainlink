@@ -26,9 +26,6 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 	}
 
 	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.ProxyAddresses, c.DataIDs)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
-	}
 
 	if c.McmsConfig != nil {
 		proposals := MultiChainProposalConfig{
@@ -46,8 +43,8 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 		}
 		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
+
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 

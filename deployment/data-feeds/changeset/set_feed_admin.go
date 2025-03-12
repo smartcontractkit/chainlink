@@ -25,9 +25,6 @@ func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (
 	}
 
 	tx, err := contract.SetFeedAdmin(txOpt, c.AdminAddress, c.IsAdmin)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed admin %w", err)
-	}
 
 	if c.McmsConfig != nil {
 		proposalConfig := MultiChainProposalConfig{
@@ -45,8 +42,8 @@ func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (
 		}
 		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
+
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
