@@ -6,17 +6,20 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/shared"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
-const (
-	GetTokensPaginationSize = 20
-)
-
 type TokenAdminRegistryView struct {
 	types.ContractMetaData
-	Tokens []common.Address `json:"tokens"`
+	Tokens map[common.Address]TokenDetails `json:"tokens"`
+}
+
+type TokenDetails struct {
+	Pool         common.Address `json:"pool"`
+	Admin        common.Address `json:"admin"`
+	PendingAdmin common.Address `json:"pendingAdmin"`
 }
 
 func GenerateTokenAdminRegistryView(taContract *token_admin_registry.TokenAdminRegistry) (TokenAdminRegistryView, error) {
@@ -39,19 +42,23 @@ func GenerateTokenAdminRegistryView(taContract *token_admin_registry.TokenAdminR
 
 // getAllConfiguredTokensPaginated fetches all configured tokens from the TokenAdminRegistry contract in paginated
 // manner to avoid RPC timeouts since the list of configured tokens can grow to be very large over time.
-func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdminRegistry) ([]common.Address, error) {
-	startIndex := uint64(0)
-	allTokens := make([]common.Address, 0)
-	for {
-		fetchedTokens, err := taContract.GetAllConfiguredTokens(nil, startIndex, GetTokensPaginationSize)
+func getAllConfiguredTokensPaginated(taContract *token_admin_registry.TokenAdminRegistry) (map[common.Address]TokenDetails, error) {
+	tokenDetails := make(map[common.Address]TokenDetails)
+	allTokens, err := shared.GetSupportedTokens(taContract)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get supported tokens for tokenAdminRegistry %s: %w", taContract.Address().String(), err)
+	}
+	for _, token := range allTokens {
+		config, err := taContract.GetTokenConfig(nil, token)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to get token config for token %s tokenAdminReg %s: %w",
+				token.String(), taContract.Address().String(), err)
 		}
-		allTokens = append(allTokens, fetchedTokens...)
-		startIndex += GetTokensPaginationSize
-		if len(fetchedTokens) < GetTokensPaginationSize {
-			break
+		tokenDetails[token] = TokenDetails{
+			Pool:         config.TokenPool,
+			Admin:        config.Administrator,
+			PendingAdmin: config.PendingAdministrator,
 		}
 	}
-	return allTokens, nil
+	return tokenDetails, nil
 }

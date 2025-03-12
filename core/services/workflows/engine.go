@@ -143,6 +143,7 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
+	meterReport    *MeteringReport
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -564,6 +565,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
+	e.meterReport = NewMeteringReport()
+
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
@@ -1284,7 +1287,7 @@ type Config struct {
 
 const (
 	defaultWorkerLimit          = 100
-	defaultQueueSize            = 100000
+	defaultQueueSize            = 1000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 5 * time.Minute

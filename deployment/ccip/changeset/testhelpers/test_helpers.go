@@ -54,6 +54,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -67,6 +68,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
@@ -87,6 +89,8 @@ var (
 	DefaultLinkPrice = deployment.E18Mult(20)
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
+
+	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -979,8 +983,8 @@ func DeployTransferableTokenSolana(
 			},
 		),
 		commoncs.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddBillingTokenForRemoteChain),
-			ccipChangeSetSolana.BillingTokenForRemoteChainConfig{
+			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.AddTokenTransferFeeForRemoteChain),
+			ccipChangeSetSolana.TokenTransferFeeForRemoteChainConfig{
 				ChainSelector:       solChainSel,
 				RemoteChainSelector: evmChainSel,
 				TokenPubKey:         solTokenAddress.String(),
@@ -1308,6 +1312,26 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
+// ApproveToken approves the router to spend the given amount of tokens
+func ApproveToken(env deployment.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+	token, err := erc20.NewERC20(tokenAddress, env.Chains[src].Client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := token.Approve(env.Chains[src].DeployerKey, routerAddress, amount)
+	if err != nil {
+		return err
+	}
+
+	_, err = env.Chains[src].Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
@@ -1624,6 +1648,9 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
 	require.NoError(t, err)
+	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
+	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.RMNRemoteProgram.String(), tv)
+	require.NoError(t, err)
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
@@ -1640,6 +1667,7 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
 		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
 		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
+		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
@@ -1655,6 +1683,11 @@ func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelecto
 		var offRampConfigAccount solOffRamp.Config
 		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
 		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+
+		// Get rmn remote config
+		var rmnRemoteConfigAccount solRmnRemote.Config
+		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
+		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
 
 	}
 }
@@ -1688,11 +1721,8 @@ func TransferOwnershipSolana(
 	e *deployment.Environment,
 	solChain uint64,
 	needTimelockDeployed bool,
-	transferRouter,
-	transferFeeQuoter,
-	transferOffRamp bool,
-	burnMintTokenPools []solana.PublicKey,
-	lockReleaseTokenPools []solana.PublicKey) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
+	contractsToTransfer ccipChangeSetSolana.CCIPContractsToTransfer,
+) (timelockSignerPDA solana.PublicKey, mcmSignerPDA solana.PublicKey) {
 	var err error
 	if needTimelockDeployed {
 		*e, err = commoncs.ApplyChangesetsV2(t, *e, []commoncs.ConfiguredChangeSet{
@@ -1731,13 +1761,7 @@ func TransferOwnershipSolana(
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				MinDelay: 1 * time.Second,
 				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
-					solChain: {
-						Router:                transferRouter,
-						FeeQuoter:             transferFeeQuoter,
-						OffRamp:               transferOffRamp,
-						BurnMintTokenPools:    burnMintTokenPools,
-						LockReleaseTokenPools: lockReleaseTokenPools,
-					},
+					solChain: contractsToTransfer,
 				},
 			},
 		),

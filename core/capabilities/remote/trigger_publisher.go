@@ -200,7 +200,7 @@ func (p *triggerPublisher) registrationCleanupLoop() {
 					ctx, cancel := p.stopCh.NewCtx()
 					err := p.underlying.UnregisterTrigger(ctx, req.request)
 					cancel()
-					p.registrations[key].cancel() //Cancel context on register trigger
+					p.registrations[key].cancel() // Cancel context on register trigger
 					p.lggr.Infow("unregistered trigger", "capabilityId", p.capInfo.ID, "callerDonID", key.callerDonID, "workflowId", key.workflowID, "err", err)
 					// after calling UnregisterTrigger, the underlying trigger will not send any more events to the channel
 					delete(p.registrations, key)
