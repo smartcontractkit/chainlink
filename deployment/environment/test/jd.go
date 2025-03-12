@@ -10,6 +10,7 @@ import (
 	csav1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/csa"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -184,10 +185,11 @@ func newWrapperFromUpdate(req *nodev1.UpdateNodeRequest) (*wrappedNode, error) {
 
 func newJDNode(n deployment.Node) *nodev1.Node {
 	out := nodev1.Node{
-		Id:        n.NodeID,
-		Labels:    n.Labels,
-		Name:      n.Name,
-		PublicKey: n.CSAKey,
+		Id:          n.NodeID,
+		Labels:      n.Labels,
+		Name:        n.Name,
+		PublicKey:   n.CSAKey,
+		WorkflowKey: &n.WorkflowKey,
 	}
 
 	return &out
@@ -195,10 +197,11 @@ func newJDNode(n deployment.Node) *nodev1.Node {
 
 func newDeploymentNode(n *nodev1.Node) (deployment.Node, error) {
 	out := deployment.Node{
-		NodeID: n.Id,
-		Labels: n.Labels,
-		Name:   n.Name,
-		CSAKey: n.PublicKey,
+		NodeID:      n.Id,
+		Labels:      n.Labels,
+		Name:        n.Name,
+		CSAKey:      n.PublicKey,
+		WorkflowKey: n.GetWorkflowKey(),
 	}
 	for _, label := range n.Labels {
 		if p, err := p2pkey.MakePeerID(*label.Value); err == nil {
@@ -339,7 +342,8 @@ func (s *UnimplementedJobServiceClient) GetProposal(ctx context.Context, in *job
 
 // ListJobs implements job.JobServiceClient.
 func (s *UnimplementedJobServiceClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
-	panic("unimplemented")
+	// returns blank response to ensure the nops view can be generated using the mock client
+	return &jobv1.ListJobsResponse{}, nil
 }
 
 // ListProposals implements job.JobServiceClient.

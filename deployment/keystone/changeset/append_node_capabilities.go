@@ -49,7 +49,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
 			inspectorPerChain,

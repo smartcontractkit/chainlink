@@ -36,6 +36,7 @@ type Query {
     aptosKeys: AptosKeysPayload!
     cosmosKeys: CosmosKeysPayload!
     starknetKeys: StarkNetKeysPayload!
+    tronKeys: TronKeysPayload!
     sqlLogging: GetSQLLoggingPayload!
     vrfKey(id: ID!): VRFKeyPayload!
     vrfKeys: VRFKeysPayload!
@@ -796,6 +797,7 @@ enum OCR2ChainType {
     SOLANA
     STARKNET
     APTOS
+    TRON
 }
 
 type OCR2KeyBundle {
@@ -871,7 +873,9 @@ union JobSpec =
     BootstrapSpec |
     GatewaySpec |
     WorkflowSpec |
-    StandardCapabilitiesSpec
+    StandardCapabilitiesSpec |
+    StreamSpec |
+    CCIPSpec
 
 type CronSpec {
     schedule: String!
@@ -940,6 +944,7 @@ type OCR2Spec {
     p2pv2Bootstrappers: [String!]
     relay: String!
     relayConfig: Map!
+    onchainSigningStrategy: Map!
     transmitterID: String
     pluginType: String!
     pluginConfig: Map!
@@ -1039,6 +1044,19 @@ type StandardCapabilitiesSpec {
     command: String!
     config: String
 }
+
+type StreamSpec {
+    streamID: String
+}
+
+type CCIPSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    capabilityVersion: String!
+    capabilityLabelledName: String!
+    ocrKeyBundleIDs: Map!
+    p2pKeyID: String!
+}
 type StarkNetKey {
 	id: ID!
 }
@@ -1054,6 +1072,13 @@ type TaskRun {
     error: String
     createdAt: Time!
     finishedAt: Time
+}
+type TronKey {
+	id: ID!
+}
+
+type TronKeysPayload {
+	results: [TronKey!]!
 }
 type User {
     email: String!

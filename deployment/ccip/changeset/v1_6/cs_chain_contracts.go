@@ -249,7 +249,7 @@ func UpdateNonceManagersChangeset(e deployment.Environment, cfg UpdateNonceManag
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -393,7 +393,7 @@ func UpdateOnRampsDestsChangeset(e deployment.Environment, cfg UpdateOnRampDests
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -508,7 +508,7 @@ func UpdateOnRampDynamicConfigChangeset(e deployment.Environment, cfg UpdateOnRa
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(), timelocks, proposers, inspectors, batches,
+		e, timelocks, proposers, inspectors, batches,
 		"update onramp dynamic config",
 		cfg.MCMS.MinDelay)
 	if err != nil {
@@ -666,7 +666,7 @@ func UpdateOnRampAllowListChangeset(e deployment.Environment, cfg UpdateOnRampAl
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -768,7 +768,7 @@ func WithdrawOnRampFeeTokensChangeset(e deployment.Environment, cfg WithdrawOnRa
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -935,7 +935,7 @@ func UpdateFeeQuoterPricesChangeset(e deployment.Environment, cfg UpdateFeeQuote
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1056,7 +1056,7 @@ func UpdateFeeQuoterDestsChangeset(e deployment.Environment, cfg UpdateFeeQuoter
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1196,7 +1196,7 @@ func UpdateOffRampSourcesChangeset(e deployment.Environment, cfg UpdateOffRampSo
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1376,7 +1376,7 @@ func UpdateRouterRampsChangeset(e deployment.Environment, cfg UpdateRouterRampsC
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1518,7 +1518,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1632,7 +1632,7 @@ func UpdateDynamicConfigOffRampChangeset(e deployment.Environment, cfg UpdateDyn
 	}
 
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,
@@ -1721,20 +1721,20 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      256,
+		MaxDataBytes:                      30_000,
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           1,
+		DefaultTokenFeeUSDCents:           25,
 		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
 		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
 		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    100,
+		DestGasPerDataAvailabilityByte:    16,
 		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       125_000,
+		DefaultTokenDestGasOverhead:       90_000,
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                1,
+		NetworkFeeUSDCents:                10,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
 }
@@ -1854,7 +1854,7 @@ func ApplyFeeTokensUpdatesFeeQuoterChangeset(e deployment.Environment, cfg Apply
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2007,7 +2007,7 @@ func UpdateTokenPriceFeedsFeeQuoterChangeset(e deployment.Environment, cfg Updat
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2131,7 +2131,7 @@ func ApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(e deployment.Envir
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,
@@ -2311,7 +2311,7 @@ func ApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(e deployment.Environme
 		return deployment.ChangesetOutput{}, nil
 	}
 	p, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectorPerChain,

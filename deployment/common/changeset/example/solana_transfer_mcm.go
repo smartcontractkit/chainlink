@@ -119,7 +119,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		})
 	}
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
-		e.GetContext(),
+		e,
 		timelocks,
 		proposers,
 		inspectors,

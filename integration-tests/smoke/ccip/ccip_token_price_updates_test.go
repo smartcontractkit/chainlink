@@ -31,8 +31,11 @@ func Test_CCIPTokenPriceUpdates(t *testing.T) {
 
 	var tokenPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithOCRConfigOverride(func(params *v1_6.CCIPOCRParams) {
-			params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			if params.CommitOffChainConfig != nil {
+				params.CommitOffChainConfig.TokenPriceBatchWriteFrequency = *config.MustNewDuration(tokenPriceExpiry)
+			}
+			return params
 		}))
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)

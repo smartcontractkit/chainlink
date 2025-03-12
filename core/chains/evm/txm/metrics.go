@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"math/big"
+	"strconv"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/prometheus/client_golang/prometheus"
@@ -14,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
 	svrv1 "github.com/smartcontractkit/chainlink-protos/svr/v1"
+	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
 var (
@@ -95,12 +98,25 @@ func (m *txmMetrics) RecordTimeUntilTxConfirmed(ctx context.Context, duration fl
 	m.timeUntilTxConfirmed.Record(ctx, duration)
 }
 
-func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddress common.Address, toAddress common.Address, nonce string) error {
+func (m *txmMetrics) EmitTxMessage(ctx context.Context, txHash common.Hash, fromAddress common.Address, tx *types.Transaction) error {
+	meta, err := tx.GetMeta()
+	if err != nil {
+		return fmt.Errorf("failed to get meta for tx %s: %w", txHash, err)
+	}
+
+	var destAddress string
+	if meta != nil && meta.FwdrDestAddress != nil {
+		destAddress = meta.FwdrDestAddress.String()
+	}
+
 	message := &svrv1.TxMessage{
-		Hash:        tx.String(),
+		Hash:        txHash.String(),
 		FromAddress: fromAddress.String(),
-		ToAddress:   toAddress.String(),
-		Nonce:       nonce,
+		ToAddress:   tx.ToAddress.String(),
+		Nonce:       strconv.FormatUint(*tx.Nonce, 10),
+		CreatedAt:   time.Now().UnixMicro(),
+		ChainId:     m.chainID.String(),
+		FeedAddress: destAddress,
 	}
 
 	messageBytes, err := proto.Marshal(message)
@@ -113,6 +129,6 @@ func (m *txmMetrics) EmitTxMessage(ctx context.Context, tx common.Hash, fromAddr
 		messageBytes,
 		"beholder_domain", "svr",
 		"beholder_entity", "svr.v1.TxMessage",
-		"beholder_data_schema", "/beholder-tx-message/versions/1",
+		"beholder_data_schema", "/beholder-tx-message/versions/2",
 	)
 }

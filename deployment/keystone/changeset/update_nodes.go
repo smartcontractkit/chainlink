@@ -105,7 +105,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 		}
 
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(
-			env.GetContext(),
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
 			inspectorPerChain,

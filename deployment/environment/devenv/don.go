@@ -263,6 +263,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
+
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
 		isBootstrap := n.multiAddr != ""
@@ -350,6 +351,29 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
+}
+
+func (n *Node) DeleteJob(ctx context.Context, jobID string) error {
+	jobs, err := n.gqlClient.ListJobs(ctx, 0, 1000)
+	if err != nil {
+		return err
+	}
+	if jobs == nil || len(jobs.Jobs.Results) == 0 {
+		return fmt.Errorf("no jobs found for node %s", n.Name)
+	}
+	for _, job := range jobs.Jobs.Results {
+		if job.ExternalJobID == jobID {
+			spec, err := n.gqlClient.CancelJobProposalSpec(ctx, job.Id)
+			if err != nil {
+				return err
+			}
+			if spec == nil {
+				return fmt.Errorf("on deletion response no job proposal spec found for job id %s", jobID)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no job found for job id %s", jobID)
 }
 
 // RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor

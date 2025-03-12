@@ -158,7 +158,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 	case 1:
 		res := finaltrrs[0].Result
 		if res.Error != nil {
-			return nil, res.Error
+			return nil, fmt.Errorf("terminal task error: %w; all task errors: %w", res.Error, trrs.AllErrors())
 		}
 		val, err := toDecimal(res.Value)
 		if err != nil {

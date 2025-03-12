@@ -13,6 +13,7 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
@@ -57,6 +58,7 @@ type Core struct {
 	Mercury          Mercury          `toml:",omitempty"`
 	Capabilities     Capabilities     `toml:",omitempty"`
 	Telemetry        Telemetry        `toml:",omitempty"`
+	Workflows        Workflows        `toml:",omitempty"`
 }
 
 // SetFrom updates c with any non-nil values from f. (currently TOML field only!)
@@ -87,6 +89,7 @@ func (c *Core) SetFrom(f *Core) {
 	c.Keeper.setFrom(&f.Keeper)
 	c.Mercury.setFrom(&f.Mercury)
 	c.Capabilities.setFrom(&f.Capabilities)
+	c.Workflows.setFrom(&f.Workflows)
 
 	c.AutoPprof.setFrom(&f.AutoPprof)
 	c.Pyroscope.setFrom(&f.Pyroscope)
@@ -123,6 +126,49 @@ type Secrets struct {
 	Prometheus PrometheusSecrets        `toml:",omitempty"`
 	Mercury    MercurySecrets           `toml:",omitempty"`
 	Threshold  ThresholdKeyShareSecrets `toml:",omitempty"`
+	EVM        EthKeys                  `toml:",omitempty"` // choose EVM as the TOML field name to align with relayer config convention
+	P2PKey     P2PKey                   `toml:",omitempty"`
+}
+
+type EthKeys struct {
+	Keys []*EthKey
+}
+
+func (e *EthKeys) SetFrom(f *EthKeys) error {
+	err := e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if f == nil || len(f.Keys) == 0 {
+		return nil
+	}
+	e.Keys = make([]*EthKey, len(f.Keys))
+	copy(e.Keys, f.Keys)
+	return nil
+}
+
+func (e *EthKeys) validateMerge(f *EthKeys) (err error) {
+	have := make(map[int]struct{})
+	if e != nil && f != nil {
+		for _, ethKey := range e.Keys {
+			have[*ethKey.ID] = struct{}{}
+		}
+		for _, ethKey := range f.Keys {
+			if _, ok := have[*ethKey.ID]; ok {
+				err = multierr.Append(err, configutils.ErrOverride{Name: fmt.Sprintf("EthKeys: %d", *ethKey.ID)})
+			}
+		}
+	}
+	return err
+}
+
+func (e *EthKeys) ValidateConfig() (err error) {
+	for i, ethKey := range e.Keys {
+		if err2 := ethKey.ValidateConfig(); err2 != nil {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: fmt.Sprintf("EthKeys[%d]", i), Value: ethKey, Msg: "invalid EthKey"})
+		}
+	}
+	return err
 }
 
 func dbURLPasswordComplexity(err error) string {
@@ -148,12 +194,12 @@ func validateDBURL(dbURI url.URL) error {
 		// fallback to user info
 		userInfo := dbURI.User
 		if userInfo == nil {
-			return fmt.Errorf("DB URL must be authenticated; plaintext URLs are not allowed")
+			return errors.New("DB URL must be authenticated; plaintext URLs are not allowed")
 		}
 		var pwSet bool
 		pw, pwSet = userInfo.Password()
 		if !pwSet {
-			return fmt.Errorf("DB URL must be authenticated; password is required")
+			return errors.New("DB URL must be authenticated; password is required")
 		}
 	}
 
@@ -213,6 +259,91 @@ func (d *DatabaseSecrets) validateMerge(f *DatabaseSecrets) (err error) {
 		err = multierr.Append(err, configutils.ErrOverride{Name: "URL"})
 	}
 
+	return err
+}
+
+type EthKey struct {
+	JSON     *models.Secret
+	ID       *int // TODO: consider using a chain selector instead. tried using chain_selectors.ChainDetails but toml lib barfed on the embedded uint64
+	Password *models.Secret
+}
+
+func (e *EthKey) SetFrom(f *EthKey) (err error) {
+	err = e.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		e.JSON = v
+	}
+	if v := f.Password; v != nil {
+		e.Password = v
+	}
+	if v := f.ID; v != nil {
+		e.ID = v
+	}
+	return nil
+}
+
+func (e *EthKey) validateMerge(f *EthKey) (err error) {
+	if e.JSON != nil && f.JSON != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "PrivateKey"})
+	}
+	if e.ID != nil && f.ID != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Selector"})
+	}
+	if e.Password != nil && f.Password != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (e *EthKey) ValidateConfig() (err error) {
+	if (e.JSON != nil) != (e.Password != nil) && (e.Password != nil) != (e.ID != nil) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "EthKey", Value: e.JSON, Msg: "all fields must be nil or non-nil"})
+	}
+	// require valid id
+	if e.ID != nil {
+		_, ok := chain_selectors.ChainByEvmChainID(uint64(*e.ID)) //nolint:gosec // disable G115
+		if !ok {
+			err = multierr.Append(err, configutils.ErrInvalid{Name: "ChainSelector", Value: e.ID, Msg: "invalid chain selector"})
+		}
+	}
+	return err
+}
+
+type P2PKey struct {
+	JSON     *models.Secret
+	Password *models.Secret
+}
+
+func (p *P2PKey) SetFrom(f *P2PKey) (err error) {
+	err = p.validateMerge(f)
+	if err != nil {
+		return err
+	}
+	if v := f.JSON; v != nil {
+		p.JSON = v
+	}
+	if v := f.Password; v != nil {
+		p.Password = v
+	}
+	return nil
+}
+func (p *P2PKey) validateMerge(f *P2PKey) (err error) {
+	if p.JSON != nil && f.JSON != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "JSON"})
+	}
+	if p.Password != nil && f.Password != nil {
+		err = multierr.Append(err, configutils.ErrOverride{Name: "Password"})
+	}
+	return err
+}
+
+func (p *P2PKey) ValidateConfig() (err error) {
+	if (p.JSON != nil) != (p.Password != nil) {
+		err = multierr.Append(err, configutils.ErrInvalid{Name: "P2PKey", Value: p.JSON, Msg: "all fields must be nil or non-nil"})
+	}
 	return err
 }
 
@@ -1484,6 +1615,29 @@ func (r *ExternalRegistry) setFrom(f *ExternalRegistry) {
 
 	if f.ChainID != nil {
 		r.ChainID = f.ChainID
+	}
+}
+
+type Workflows struct {
+	Limits Limits
+}
+
+type Limits struct {
+	Global   *int32
+	PerOwner *int32
+}
+
+func (r *Workflows) setFrom(f *Workflows) {
+	r.Limits.setFrom(&f.Limits)
+}
+
+func (r *Limits) setFrom(f *Limits) {
+	if f.Global != nil {
+		r.Global = f.Global
+	}
+
+	if f.PerOwner != nil {
+		r.PerOwner = f.PerOwner
 	}
 }
 

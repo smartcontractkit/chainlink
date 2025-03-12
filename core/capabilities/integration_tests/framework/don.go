@@ -196,6 +196,7 @@ func (d *DON) Initialise() {
 		d.nodeConfigModifiers = append(d.nodeConfigModifiers, func(c *chainlink.Config, node *capabilityNode) {
 			workflowRegistryAddressStr := d.workflowRegistry.addr.String()
 			c.Capabilities.WorkflowRegistry.Address = &workflowRegistryAddressStr
+			c.Capabilities.WorkflowRegistry.ChainID = ptr(fmt.Sprintf("%d", testutils.SimulatedChainID))
 		})
 	}
 	d.initialised = true

@@ -2,7 +2,9 @@ package internal_test
 
 import (
 	"context"
+	"encoding/hex"
 	"maps"
+	"strconv"
 	"testing"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -213,7 +215,6 @@ func Test_RegisterNodes(t *testing.T) {
 				want:    expected{nOps: 1},
 				input:   testInput,
 			},
-
 			{
 				name:    "no mcms",
 				useMCMS: false,
@@ -268,11 +269,13 @@ func Test_RegisterNodes(t *testing.T) {
 								SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 									{
 										ChainSelector: chain.Selector,
+										ChainName:     strconv.FormatUint(chain.Selector, 10),
 									}: {
 										OnchainPublicKey:          tc.input.Signer[:],
 										ConfigEncryptionPublicKey: tc.input.EncryptionPublicKey,
 									},
 								},
+								WorkflowKey: hex.EncodeToString(tc.input.EncryptionPublicKey[:]),
 							},
 						},
 					},
@@ -327,8 +330,10 @@ func Test_RegisterNodes(t *testing.T) {
 						SelToOCRConfig: map[chain_selectors.ChainDetails]deployment.OCRConfig{
 							{
 								ChainSelector: chain.Selector,
+								ChainName:     strconv.FormatUint(chain.Selector, 10),
 							}: {},
 						},
+						WorkflowKey: hex.EncodeToString(registeredNodeParams[0].EncryptionPublicKey[:]),
 					},
 				},
 			},

@@ -79,6 +79,85 @@ query FetchOCR2KeyBundles {
 #####################
 # Jobs and Job Proposals
 #####################
+fragment JobParts on Job {
+    id
+    name
+    schemaVersion
+    gasLimit
+    forwardingAllowed
+    maxTaskDuration
+    externalJobID
+    type
+    spec {
+        __typename
+        ... on OCR2Spec {
+            ...OCR2Spec
+        }
+        ... on OCRSpec {
+            ...OCRSpec
+        }
+        ... on FluxMonitorSpec {
+            ...FluxMonitorSpec
+        }
+        ... on KeeperSpec {
+            ...KeeperSpec
+        }
+        ... on DirectRequestSpec {
+            ...DirectRequestSpec
+        }
+        ... on CronSpec {
+            ...CronSpec
+        }
+        ... on VRFSpec {
+            ...VRFSpec
+        }
+        ... on WebhookSpec {
+            ...WebhookSpec
+        }
+        ... on BlockhashStoreSpec {
+            ...BlockhashStoreSpec
+        }
+        ... on BlockHeaderFeederSpec {
+            ...BlockHeaderFeederSpec
+        }
+        ... on BootstrapSpec {
+            ...BootstrapSpec
+        }
+        ... on GatewaySpec {
+            ...GatewaySpec
+        }
+        ... on WorkflowSpec {
+            ...WorkflowSpec
+        }
+        ... on StandardCapabilitiesSpec {
+            ...StandardCapabilitiesSpec
+        }
+        ... on StreamSpec {
+            ...StreamSpec
+        }
+        ... on CCIPSpec {
+            ...CCIPSpec
+        }
+    }
+    observationSource
+    errors {
+        id
+        description
+        occurrences
+        createdAt
+        updatedAt
+    }
+}
+
+fragment CCIPSpec on CCIPSpec {
+    createdAt
+    updatedAt
+    capabilityVersion
+    capabilityLabelledName
+    ocrKeyBundleIDs
+    p2pKeyID
+}
+
 fragment OCR2Spec on OCR2Spec {
     blockchainTimeout
     contractID
@@ -96,28 +175,157 @@ fragment OCR2Spec on OCR2Spec {
     allowNoBootstrappers
 }
 
-fragment JobParts on Job {
+fragment OCRSpec on OCRSpec {
+    blockchainTimeout
+    contractAddress
+    contractConfigConfirmations
+    contractConfigTrackerPollInterval
+    contractConfigTrackerSubscribeInterval
+    createdAt
+    evmChainID
+    isBootstrapPeer
+    keyBundleID
+    observationTimeout
+    p2pv2Bootstrappers
+    transmitterAddress
+    databaseTimeout
+    observationGracePeriod
+    contractTransmitterTransmitTimeout
+}
+
+fragment FluxMonitorSpec on FluxMonitorSpec {
+    absoluteThreshold
+    contractAddress
+    createdAt
+    drumbeatEnabled
+    drumbeatRandomDelay
+    drumbeatSchedule
+    evmChainID
+    idleTimerDisabled
+    idleTimerPeriod
+    minPayment
+    pollTimerDisabled
+    pollTimerPeriod
+    threshold
+}
+
+fragment KeeperSpec on KeeperSpec {
+    contractAddress
+    createdAt
+    evmChainID
+    fromAddress
+}
+
+fragment DirectRequestSpec on DirectRequestSpec {
+    contractAddress
+    createdAt
+    evmChainID
+    minIncomingConfirmations
+    minContractPaymentLinkJuels
+    requesters
+}
+
+fragment CronSpec on CronSpec {
+    schedule
+    evmChainID
+    createdAt
+}
+
+fragment VRFSpec on VRFSpec {
+    coordinatorAddress
+    createdAt
+    evmChainID
+    fromAddresses
+    minIncomingConfirmations
+    pollPeriod
+    publicKey
+    requestedConfsDelay
+    requestTimeout
+    batchCoordinatorAddress
+    batchFulfillmentEnabled
+    batchFulfillmentGasMultiplier
+    customRevertsPipelineEnabled
+    chunkSize
+    backoffInitialDelay
+    backoffMaxDelay
+    gasLanePrice
+    vrfOwnerAddress
+}
+
+fragment WebhookSpec on WebhookSpec {
+    createdAt
+}
+
+fragment BlockhashStoreSpec on BlockhashStoreSpec {
+    coordinatorV1Address
+    coordinatorV2Address
+    coordinatorV2PlusAddress
+    waitBlocks
+    lookbackBlocks
+    blockhashStoreAddress
+    trustedBlockhashStoreAddress
+    trustedBlockhashStoreBatchSize
+    heartbeatPeriod
+    pollPeriod
+    runTimeout
+    evmChainID
+    fromAddresses
+    createdAt
+}
+
+fragment BlockHeaderFeederSpec on BlockHeaderFeederSpec {
+    coordinatorV1Address
+    coordinatorV2Address
+    coordinatorV2PlusAddress
+    waitBlocks
+    lookbackBlocks
+    blockhashStoreAddress
+    batchBlockhashStoreAddress
+    pollPeriod
+    runTimeout
+    evmChainID
+    getBlockhashesBatchSize
+    storeBlockhashesBatchSize
+    fromAddresses
+    createdAt
+}
+
+fragment BootstrapSpec on BootstrapSpec {
     id
-    name
-    schemaVersion
-    gasLimit
-    forwardingAllowed
-    maxTaskDuration
-    externalJobID
-    type
-    spec {
-        ... on OCR2Spec {
-            ...OCR2Spec
-        }
-    }
-    observationSource
-    errors {
-        id
-        description
-        occurrences
-        createdAt
-        updatedAt
-    }
+    contractID
+    relay
+    relayConfig
+    monitoringEndpoint
+    blockchainTimeout
+    contractConfigTrackerPollInterval
+    contractConfigConfirmations
+    createdAt
+}
+
+fragment GatewaySpec on GatewaySpec {
+    id
+    gatewayConfig
+    createdAt
+}
+
+fragment WorkflowSpec on WorkflowSpec {
+    id
+    workflowID
+    workflow
+    workflowOwner
+    createdAt
+    updatedAt
+}
+
+fragment StandardCapabilitiesSpec on StandardCapabilitiesSpec {
+    id
+    createdAt
+    command
+    config
+}
+
+fragment StreamSpec on StreamSpec {
+    streamID
 }
 
 query GetJob($id: ID!) {
