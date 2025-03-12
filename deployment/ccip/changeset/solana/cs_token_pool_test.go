@@ -28,10 +28,10 @@ func TestAddTokenPool(t *testing.T) {
 	doTestTokenPool(t, false)
 }
 
-// func TestAddTokenPoolMcms(t *testing.T) {
-// 	t.Parallel()
-// 	doTestTokenPool(t, true)
-// }
+func TestAddTokenPoolMcms(t *testing.T) {
+	t.Parallel()
+	doTestTokenPool(t, true)
+}
 
 func doTestTokenPool(t *testing.T, mcms bool) {
 	ctx := testcontext.Get(t)
@@ -80,8 +80,24 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 		newTokenAddress,
 		e.SolChains[solChain].DeployerKey.PublicKey(),
 	)
+	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
+	if mcms {
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+			ccipChangesetSolana.CCIPContractsToTransfer{
+				Router:    true,
+				FeeQuoter: true,
+				OffRamp:   true,
+			})
+		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
+			MCMS: &ccipChangeset.MCMSConfig{
+				MinDelay: 1 * time.Second,
+			},
+			RouterOwnedByTimelock:    true,
+			FeeQuoterOwnedByTimelock: true,
+			OffRampOwnedByTimelock:   true,
+		}
+	}
 	require.NoError(t, err)
-	mcmsConfigured := false
 	remoteConfig := solBaseTokenPool.RemoteConfig{
 		PoolAddresses: []solTestTokenPool.RemoteAddress{{Address: []byte{1, 2, 3}}},
 		TokenAddress:  solTestTokenPool.RemoteAddress{Address: []byte{4, 5, 6}},
@@ -118,6 +134,8 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			poolAddress: state.SolChains[solChain].LockReleaseTokenPool,
 		},
 	}
+	burnAndMintOwnedByTimelock := make(map[solana.PublicKey]bool)
+	lockAndReleaseOwnedByTimelock := make(map[solana.PublicKey]bool)
 	for _, testCase := range testCases {
 		for _, tokenAddress := range tokenMap {
 			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -139,6 +157,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						InboundRateLimit:    inboundConfig,
 						OutboundRateLimit:   outboundConfig,
 						PoolType:            testCase.poolType,
+						MCMSSolana:          mcmsConfig,
 					},
 				),
 			},
@@ -156,21 +175,6 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, remoteChainConfigPDA, &remoteChainConfigAccount)
 			require.NoError(t, err)
 			require.Equal(t, uint8(9), remoteChainConfigAccount.Base.Remote.Decimals)
-
-			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
-			if testCase.mcms && !mcmsConfigured {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true, true, true, true, nil, nil)
-				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-					RouterOwnedByTimelock:    true,
-					FeeQuoterOwnedByTimelock: true,
-					OffRampOwnedByTimelock:   true,
-				}
-				require.NotNil(t, mcmsConfig)
-				mcmsConfigured = true
-			}
 
 			allowedAccount1, _ := solana.NewRandomPrivateKey()
 			allowedAccount2, _ := solana.NewRandomPrivateKey()
@@ -191,6 +195,28 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				Rate:     0,
 			}
 
+			if mcms {
+				e.Logger.Debugf("Configuring MCMS for token pool %v", testCase.poolType)
+				if testCase.poolType == solTestTokenPool.BurnAndMint_PoolType {
+					_, _ = testhelpers.TransferOwnershipSolana(
+						t, &e, solChain, false,
+						ccipChangesetSolana.CCIPContractsToTransfer{
+							BurnMintTokenPools: []solana.PublicKey{poolConfigPDA},
+						})
+					burnAndMintOwnedByTimelock[tokenAddress] = true
+				} else {
+					_, _ = testhelpers.TransferOwnershipSolana(
+						t, &e, solChain, false,
+						ccipChangesetSolana.CCIPContractsToTransfer{
+							LockReleaseTokenPools: []solana.PublicKey{poolConfigPDA},
+						})
+					lockAndReleaseOwnedByTimelock[tokenAddress] = true
+				}
+				mcmsConfig.BurnMintTokenPoolOwnedByTimelock = burnAndMintOwnedByTimelock
+				mcmsConfig.LockReleaseTokenPoolOwnedByTimelock = lockAndReleaseOwnedByTimelock
+				e.Logger.Debugf("MCMS Configured for token pool %v with token address %v", testCase.poolType, tokenAddress)
+			}
+
 			e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 				commonchangeset.Configure(
 					deployment.CreateLegacyChangeSet(ccipChangesetSolana.ConfigureTokenPoolAllowList),
@@ -200,6 +226,27 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 						PoolType:         testCase.poolType,
 						Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
 						Enabled:          true,
+						MCMSSolana:       mcmsConfig,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.RemoveFromTokenPoolAllowList),
+					ccipChangesetSolana.RemoveFromAllowListConfig{
+						SolChainSelector: solChain,
+						SolTokenPubKey:   tokenAddress.String(),
+						PoolType:         testCase.poolType,
+						Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
+						MCMSSolana:       mcmsConfig,
+					},
+				),
+				commonchangeset.Configure(
+					deployment.CreateLegacyChangeSet(ccipChangesetSolana.ConfigureTokenPoolAllowList),
+					ccipChangesetSolana.ConfigureTokenPoolAllowListConfig{
+						SolChainSelector: solChain,
+						SolTokenPubKey:   tokenAddress.String(),
+						PoolType:         testCase.poolType,
+						Accounts:         []solana.PublicKey{allowedAccount1.PublicKey(), allowedAccount2.PublicKey()},
+						Enabled:          false,
 						MCMSSolana:       mcmsConfig,
 					},
 				),
@@ -232,17 +279,6 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 			require.NoError(t, err)
 			if testCase.poolType == solTestTokenPool.LockAndRelease_PoolType && tokenAddress == newTokenAddress {
 				e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
-					commonchangeset.Configure(
-						deployment.CreateLegacyChangeSet(ccipChangesetSolana.TokenApproveChecked),
-						ccipChangesetSolana.TokenApproveCheckedConfig{
-							Amount:        100,
-							Decimals:      9,
-							ChainSelector: solChain,
-							TokenPubKey:   tokenAddress.String(),
-							PoolType:      testCase.poolType,
-							SourceATA:     deployerATA,
-						},
-					),
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(ccipChangesetSolana.LockReleaseLiquidityOps),
 						ccipChangesetSolana.LockReleaseLiquidityOpsConfig{

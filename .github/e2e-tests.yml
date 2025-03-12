@@ -190,7 +190,7 @@ runner-test-matrix:
     triggers:
       - PR Workflow Engine E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop 
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
@@ -208,7 +208,7 @@ runner-test-matrix:
     triggers:
       - PR Workflow Engine E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop      
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
@@ -226,7 +226,7 @@ runner-test-matrix:
     triggers:
       - PR Workflow Engine E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop      
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: '{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}' # This is the chainlink version that has the plugins
@@ -1019,6 +1019,20 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
+  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse_Uncurse$
+    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 18m -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.6.0
+      CCIP_V16_TEST_ENV: docker
+
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
@@ -1177,6 +1191,34 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       E2E_RMN_RAGEPROXY_VERSION: 678509b
       E2E_RMN_AFN2PROXY_VERSION: 678509b
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_jobspec_test.go.go:TestDeleteCCIPJobs
+    path: integration-tests/smoke/ccip/ccip_jobspec_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestDeleteCCIPJobs$ -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_jobspec_test.go.go:TestRevokeJobs
+    path: integration-tests/smoke/ccip/ccip_jobspec_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestRevokeJobs$ -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   # END: CCIPv1.6 tests

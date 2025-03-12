@@ -1530,7 +1530,7 @@ func EventuallyExpectationsMet(t *testing.T, mock testifyExpectationsAsserter, t
 	}
 }
 
-func AssertCount(t *testing.T, ds sqlutil.DataSource, tableName string, expected int64) {
+func AssertCount(t testing.TB, ds sqlutil.DataSource, tableName string, expected int64) {
 	testutils.AssertCount(t, ds, tableName, expected)
 }
 
@@ -1575,7 +1575,7 @@ func MustWebURL(t *testing.T, s string) *models.WebURL {
 	return (*models.WebURL)(uri)
 }
 
-func NewTestTxStore(t *testing.T, ds sqlutil.DataSource) txmgr.TestEvmTxStore {
+func NewTestTxStore(t testing.TB, ds sqlutil.DataSource) txmgr.TestEvmTxStore {
 	return txmgr.NewTxStore(ds, logger.TestLogger(t))
 }
 

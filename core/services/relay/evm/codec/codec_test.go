@@ -3,9 +3,9 @@ package codec_test
 import (
 	"encoding/json"
 	"math/big"
+	"slices"
 	"testing"
 
-	"github.com/cometbft/cometbft/libs/strings"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
@@ -217,7 +217,7 @@ func (it *codecInterfaceTester) GetCodec(t *testing.T) commontypes.Codec {
 			}
 		}
 
-		if strings.StringInSlice(k, []string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}) {
+		if slices.Contains([]string{TestItemType, TestItemSliceType, TestItemArray1Type, TestItemArray2Type, TestItemWithConfigExtra}, k) {
 			addressByteModifier := &commoncodec.AddressBytesToStringModifierConfig{
 				Fields:   []string{"AccountStruct.AccountStr"},
 				Modifier: codec.EVMAddressModifier{},
