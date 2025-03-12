@@ -471,7 +471,6 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			execBatchGasLimit,
 			relayChainFamily,
 			config.Config.OfframpAddress,
-			chainDetails.ChainSelector,
 		)
 		if err1 != nil {
 			return nil, nil, err1
@@ -599,7 +598,6 @@ func createChainWriter(
 	execBatchGasLimit uint64,
 	chainFamily string,
 	offrampProgramAddress []byte,
-	destChainSelector uint64,
 ) (types.ContractWriter, error) {
 	var err error
 	var chainWriterConfig []byte
@@ -612,7 +610,7 @@ func createChainWriter(
 			return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
 		}
 		offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0], destChainSelector); err != nil {
+		if solConfig, err = solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0]); err != nil {
 			return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
 		}
 		if chainWriterConfig, err = json.Marshal(solConfig); err != nil {

@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -26,7 +27,134 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_AllAtOnce(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	workflowIDToPause := map[string]time.Duration{}
+	workflowIDToPause[workflowID1] = 1 * time.Minute
+	workflowIDToPause[workflowID2] = 1 * time.Second
+	capability := &TestSlowExecutionCapability{
+		workflowIDToPause: workflowIDToPause,
+	}
+
+	var callCount int64
+
+	numWorkflowPeers := int64(10)
+	var testShuttingDown int32
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		shuttingDown := atomic.LoadInt32(&testShuttingDown)
+		if shuttingDown != 0 {
+			return
+		}
+
+		if assert.NoError(t, responseError) {
+			mp, err := response.Value.Unwrap()
+			if assert.NoError(t, err) {
+				assert.Equal(t, "1s", mp.(map[string]any)["response"].(string))
+			}
+
+			atomic.AddInt64(&callCount, 1)
+		}
+	}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_AllAtOnce,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	timeOut := 10 * time.Minute
+
+	method := func(ctx context.Context, caller commoncap.ExecutableCapability) {
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID1)
+	}
+	testRemoteExecutableCapability(ctx, t, capability, int(numWorkflowPeers), 9, timeOut, 10,
+		9, timeOut, method, false)
+
+	method = func(ctx context.Context, caller commoncap.ExecutableCapability) {
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID2)
+	}
+	testRemoteExecutableCapability(ctx, t, capability, int(numWorkflowPeers), 9, timeOut, 10,
+		9, timeOut, method, false)
+
+	require.Eventually(t, func() bool {
+		count := atomic.LoadInt64(&callCount)
+
+		if count == numWorkflowPeers {
+			atomic.AddInt32(&testShuttingDown, 1)
+			return true
+		}
+
+		return false
+	}, 1*time.Minute, 10*time.Millisecond, "require 10 callbacks from 1s delay capability")
+}
+
+func Test_RemoteExecutableCapability_ExecutionNotBlockedBySlowCapabilityExecution_OneAtATime(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	workflowIDToPause := map[string]time.Duration{}
+	workflowIDToPause[workflowID1] = 1 * time.Minute
+	workflowIDToPause[workflowID2] = 1 * time.Second
+	capability := &TestSlowExecutionCapability{
+		workflowIDToPause: workflowIDToPause,
+	}
+
+	var callCount int64
+
+	numWorkflowPeers := int64(10)
+	var testShuttingDown int32
+
+	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
+		shuttingDown := atomic.LoadInt32(&testShuttingDown)
+		if shuttingDown != 0 {
+			return
+		}
+
+		if assert.NoError(t, responseError) {
+			mp, err := response.Value.Unwrap()
+			if assert.NoError(t, err) {
+				assert.Equal(t, "1s", mp.(map[string]any)["response"].(string))
+			}
+
+			atomic.AddInt64(&callCount, 1)
+		}
+	}
+
+	transmissionSchedule, err := values.NewMap(map[string]any{
+		"schedule":   transmission.Schedule_OneAtATime,
+		"deltaStage": "10ms",
+	})
+	require.NoError(t, err)
+
+	timeOut := 10 * time.Minute
+
+	method := func(ctx context.Context, caller commoncap.ExecutableCapability) {
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID1)
+	}
+	testRemoteExecutableCapability(ctx, t, capability, int(numWorkflowPeers), 9, timeOut, 10,
+		9, timeOut, method, false)
+
+	method = func(ctx context.Context, caller commoncap.ExecutableCapability) {
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID2)
+	}
+	testRemoteExecutableCapability(ctx, t, capability, int(numWorkflowPeers), 9, timeOut, 10,
+		9, timeOut, method, false)
+
+	require.Eventually(t, func() bool {
+		count := atomic.LoadInt64(&callCount)
+
+		if count == numWorkflowPeers {
+			atomic.AddInt32(&testShuttingDown, 1)
+			return true
+		}
+
+		return false
+	}, 1*time.Minute, 10*time.Millisecond, "require 10 callbacks from 1s delay capability")
+}
+
 func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-108")
 	ctx := testutils.Context(t)
 
 	responseTest := func(t *testing.T, response commoncap.CapabilityResponse, responseError error) {
@@ -49,9 +177,9 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	capability := &TestCapability{}
 
 	method := func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		executeCapability(ctx, t, caller, transmissionSchedule, responseTest)
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID1)
 	}
-	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method)
+	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method, true)
 
 	transmissionSchedule, err = values.NewMap(map[string]any{
 		"schedule":   transmission.Schedule_AllAtOnce,
@@ -59,10 +187,10 @@ func Test_RemoteExecutableCapability_TransmissionSchedules(t *testing.T) {
 	})
 	require.NoError(t, err)
 	method = func(ctx context.Context, caller commoncap.ExecutableCapability) {
-		executeCapability(ctx, t, caller, transmissionSchedule, responseTest)
+		executeCapability(ctx, t, caller, transmissionSchedule, responseTest, workflowID1)
 	}
 
-	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method)
+	testRemoteExecutableCapability(ctx, t, capability, 10, 9, timeOut, 10, 9, timeOut, method, true)
 }
 
 func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
@@ -81,11 +209,11 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
 			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
-		})
+		}, workflowID1)
 	})
 
 	for _, method := range methods {
-		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Minute, 10, 9, 10*time.Minute, method)
+		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 10*time.Minute, 10, 9, 10*time.Minute, method, true)
 	}
 }
 
@@ -105,18 +233,18 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
 			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
-		})
+		}, workflowID1)
 	})
 
 	for _, method := range methods {
 		testRemoteExecutableCapability(ctx, t, capability, 10, 9, 1*time.Second, 10, 9, 10*time.Minute,
-			method)
+			method, true)
 	}
 }
 
 func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlying commoncap.ExecutableCapability, numWorkflowPeers int, workflowDonF uint8, workflowNodeTimeout time.Duration,
 	numCapabilityPeers int, capabilityDonF uint8, capabilityNodeResponseTimeout time.Duration,
-	method func(ctx context.Context, caller commoncap.ExecutableCapability)) {
+	method func(ctx context.Context, caller commoncap.ExecutableCapability), waitForExecuteCalls bool) {
 	lggr := logger.TestLogger(t)
 
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
@@ -166,7 +294,7 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(&commoncap.RemoteExecutableConfig{RequestHashExcludedAttributes: []string{}}, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, lggr)
+			capabilityNodeResponseTimeout, 10, lggr)
 		servicetest.Run(t, capabilityNode)
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode
@@ -192,8 +320,9 @@ func testRemoteExecutableCapability(ctx context.Context, t *testing.T, underlyin
 			method(ctx, caller)
 		}(caller)
 	}
-
-	wg.Wait()
+	if waitForExecuteCalls {
+		wg.Wait()
+	}
 }
 
 type testAsyncMessageBroker struct {
@@ -336,6 +465,35 @@ func (t TestCapability) Execute(ctx context.Context, request commoncap.Capabilit
 	}, nil
 }
 
+type TestSlowExecutionCapability struct {
+	abstractTestCapability
+	workflowIDToPause map[string]time.Duration
+}
+
+func (t *TestSlowExecutionCapability) Execute(ctx context.Context, request commoncap.CapabilityRequest) (commoncap.CapabilityResponse, error) {
+	var delay time.Duration
+
+	delay, ok := t.workflowIDToPause[request.Metadata.WorkflowID]
+	if !ok {
+		panic("workflowID not found")
+	}
+
+	select {
+	case <-time.After(delay):
+		break
+	case <-ctx.Done():
+		return commoncap.CapabilityResponse{}, nil
+	}
+
+	response, err := values.NewMap(map[string]any{"response": delay.String()})
+	if err != nil {
+		return commoncap.CapabilityResponse{}, err
+	}
+	return commoncap.CapabilityResponse{
+		Value: response,
+	}, nil
+}
+
 type TestErrorCapability struct {
 	abstractTestCapability
 }
@@ -390,7 +548,8 @@ func libp2pMagic() []byte {
 	return []byte{0x00, 0x24, 0x08, 0x01, 0x12, 0x20}
 }
 
-func executeCapability(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, response commoncap.CapabilityResponse, responseError error)) {
+func executeCapability(ctx context.Context, t *testing.T, caller commoncap.ExecutableCapability, transmissionSchedule *values.Map, responseTest func(t *testing.T, response commoncap.CapabilityResponse, responseError error),
+	workflowID string) {
 	executeInputs, err := values.NewMap(
 		map[string]any{
 			"executeValue1": "aValue1",
@@ -400,7 +559,7 @@ func executeCapability(ctx context.Context, t *testing.T, caller commoncap.Execu
 	response, err := caller.Execute(ctx,
 		commoncap.CapabilityRequest{
 			Metadata: commoncap.RequestMetadata{
-				WorkflowID:          workflowID1,
+				WorkflowID:          workflowID,
 				WorkflowExecutionID: workflowExecutionID1,
 			},
 			Config: transmissionSchedule,

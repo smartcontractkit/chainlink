@@ -1,7 +1,6 @@
 package changeset_test
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -16,7 +15,6 @@ func TestSmokeView(t *testing.T) {
 	jsonData, err := changeset.ViewCCIP(tenv.Env)
 	require.NoError(t, err)
 	// to ensure the view is valid
-	b, err := jsonData.MarshalJSON()
+	_, err = jsonData.MarshalJSON()
 	require.NoError(t, err)
-	fmt.Println(string(b))
 }
