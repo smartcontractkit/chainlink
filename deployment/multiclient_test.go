@@ -38,20 +38,21 @@ func TestMultiClient(t *testing.T) {
 	}))
 	defer s.Close()
 	// Expect defaults to be set if not provided.
-	mc, err := NewMultiClient(lggr, []RPC{{WSURL: s.URL}})
+	mc, err := NewMultiClient(lggr, RPCConfig{ChainName: "TestChain", RPCs: []RPC{{WSURL: s.URL, HTTPURL: s.URL}}})
+
 	require.NoError(t, err)
 	require.NotNil(t, mc)
 	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPC_DEFAULT_RETRY_ATTEMPTS))
 	assert.Equal(t, RPC_DEFAULT_RETRY_DELAY, mc.RetryConfig.Delay)
 
-	_, err = NewMultiClient(lggr, []RPC{})
+	_, err = NewMultiClient(lggr, RPCConfig{ChainName: "TestChain", RPCs: []RPC{}})
 	require.Error(t, err)
 
 	// Expect second client to be set as backup.
-	mc, err = NewMultiClient(lggr, []RPC{
-		{WSURL: s.URL},
-		{WSURL: s.URL},
-	})
+	mc, err = NewMultiClient(lggr, RPCConfig{ChainName: "TestChain", RPCs: []RPC{
+		{WSURL: s.URL, HTTPURL: s.URL},
+		{WSURL: s.URL, HTTPURL: s.URL},
+	}})
 	require.NoError(t, err)
 	require.Len(t, mc.Backups, 1)
 }

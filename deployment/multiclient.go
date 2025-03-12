@@ -2,7 +2,6 @@ package deployment
 
 import (
 	"context"
-	"fmt"
 	"math/big"
 	"time"
 
@@ -13,14 +12,18 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/pkg/errors"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 )
 
 const (
+	// Default retry configuration for RPC calls
 	RPC_DEFAULT_RETRY_ATTEMPTS = 10
 	RPC_DEFAULT_RETRY_DELAY    = 1000 * time.Millisecond
+
+	// Default retry configuration for dialing RPC endpoints
+	RPC_DEFAULT_DIAL_RETRY_ATTEMPTS = 10
+	RPC_DEFAULT_DIAL_RETRY_DELAY    = 1000 * time.Millisecond
 )
 
 type RetryConfig struct {
@@ -35,11 +38,6 @@ func defaultRetryConfig() RetryConfig {
 	}
 }
 
-type RPC struct {
-	WSURL string
-	// TODO: http fallback needed for some networks?
-}
-
 // MultiClient should comply with the OnchainClient interface
 var _ OnchainClient = &MultiClient{}
 
@@ -51,28 +49,26 @@ type MultiClient struct {
 	chainName   string
 }
 
-func NewMultiClient(lggr logger.Logger, rpcs []RPC, opts ...func(client *MultiClient)) (*MultiClient, error) {
-	if len(rpcs) == 0 {
-		return nil, errors.New("No RPCs provided, need at least one")
+func NewMultiClient(lggr logger.Logger, rpcsCfg RPCConfig, opts ...func(client *MultiClient)) (*MultiClient, error) {
+	if len(rpcsCfg.RPCs) == 0 {
+		return nil, errors.New("no RPCs provided, need at least one")
 	}
 	mc := MultiClient{lggr: lggr}
-	clients := make([]*ethclient.Client, 0, len(rpcs))
-	for _, rpc := range rpcs {
-		client, err := ethclient.Dial(rpc.WSURL)
+	clients := make([]*ethclient.Client, 0, len(rpcsCfg.RPCs))
+	for i, rpc := range rpcsCfg.RPCs {
+		client, err := mc.dialWithRetry(rpc, lggr)
 		if err != nil {
-			return nil, fmt.Errorf("failed to dial ws url '%s': %w", rpc.WSURL, err)
+			lggr.Warnf("failed to dial client %d for RPC '%s' trying with the next one: %v", i, rpc.Name, err)
+			continue
 		}
-		id, err := client.ChainID(context.Background())
-		if err != nil {
-			return nil, fmt.Errorf("failed to get chain id: %w", err)
-		}
-		details, err := chainselectors.GetChainDetailsByChainIDAndFamily(id.String(), chainselectors.FamilyEVM)
-		if err != nil {
-			return nil, fmt.Errorf("failed to lookup chain details %w", err)
-		}
-		mc.chainName = details.ChainName
 		clients = append(clients, client)
 	}
+
+	if len(clients) == 0 {
+		return nil, errors.New("no valid RPC clients created")
+	}
+
+	mc.chainName = rpcsCfg.ChainName
 	mc.Client = clients[0]
 	mc.Backups = clients[1:]
 	mc.RetryConfig = defaultRetryConfig()
@@ -203,4 +199,29 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 		mc.lggr.Infof("Client at index %d failed, trying next client chain %s", i, mc.chainName)
 	}
 	return errors.Wrapf(err, "All backup clients %v failed for chain %s", mc.Backups, mc.chainName)
+}
+
+func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Client, error) {
+	var err error
+	endpoint, err := rpc.ToEndpoint()
+	if err != nil {
+		return nil, err
+	}
+
+	var client *ethclient.Client
+	err = retry.Do(func() error {
+		mc.lggr.Debugf("dialing endpoint '%s' for RPC %s", endpoint, rpc.Name)
+		client, err = ethclient.Dial(endpoint)
+		if err != nil {
+			lggr.Warnf("retryable error for RPC %s:%s  %v", rpc.Name, endpoint, err)
+			return err
+		}
+		return nil
+	}, retry.Attempts(RPC_DEFAULT_DIAL_RETRY_ATTEMPTS), retry.Delay(RPC_DEFAULT_DIAL_RETRY_DELAY))
+
+	if err == nil {
+		return client, nil
+	}
+
+	return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s after retries", endpoint, rpc.Name)
 }
