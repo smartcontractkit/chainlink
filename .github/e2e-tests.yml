@@ -1024,7 +1024,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
