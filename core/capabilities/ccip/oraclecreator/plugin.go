@@ -9,6 +9,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/libocr/commontypes"
+	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	commitocr3 "github.com/smartcontractkit/chainlink-ccip/commit"
 	"github.com/smartcontractkit/chainlink-ccip/commit/merkleroot/rmn"
 	execocr3 "github.com/smartcontractkit/chainlink-ccip/execute"
@@ -28,11 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-	"github.com/smartcontractkit/libocr/commontypes"
-	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
