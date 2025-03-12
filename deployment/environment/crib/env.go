@@ -49,6 +49,13 @@ type ChainConfig struct {
 	HTTPRPCs  []RPC  // http rpcs to connect to the chain
 }
 
+type BootstrapNode struct {
+	P2PID        string
+	InternalHost string
+	Port         string
+}
+
 type NodesDetails struct {
-	NodeIDs []string
+	NodeIDs       []string
+	BootstrapNode BootstrapNode
 }
