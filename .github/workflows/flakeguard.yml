@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -335,7 +335,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -424,7 +424,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@de11cbadfd18397cb35c19d44aa4fde8e686f560 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -455,9 +455,6 @@ jobs:
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
-            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-            --splunk-event "${{ github.event_name }}"
           EXIT_CODE=$?
           if [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while aggregating results"
@@ -474,7 +471,7 @@ jobs:
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Results as Artifact
-        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
           path: ./flakeguard-report/all-test-results.json
@@ -496,6 +493,43 @@ jobs:
           path: ./flakeguard-report/failed-test-results-with-logs.json
           name: failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
+
+      - name: Get GitHub Failed Test Results Artifact Link
+        id: get-failed-logs-url
+        if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
+        shell: bash
+        run: |
+          # Run the flakeguard get-gh-artifact command; it now outputs only the link.
+          ARTIFACT_LINK=$(flakeguard get-gh-artifact \
+            --github-repository "${{ github.repository }}" \
+            --github-run-id "${{ github.run_id }}" \
+            --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json")
+          
+          echo "Artifact link is: $ARTIFACT_LINK"
+          echo "url=$ARTIFACT_LINK" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GH_TOKEN }}
+
+      - name: Send Test Report to Splunk
+        if: success() || failure()
+        shell: bash
+        run: |
+          # Fix flakeguard binary path
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+
+          # Send the aggregated test report to Splunk
+          flakeguard send-to-splunk \
+            --report-path ./flakeguard-report/all-test-results.json \
+            --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
+            --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
+            --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
+            --splunk-event "${{ github.event_name }}"
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "ERROR: Flakeguard encountered an error while sending report to Splunk"
+            exit $EXIT_CODE
+          fi
 
       - name: Generate Flakeguard Reports
         shell: bash
@@ -519,7 +553,7 @@ jobs:
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json" \
+              --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
               --generate-pr-comment \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
@@ -533,7 +567,7 @@ jobs:
               --output-path ./flakeguard-report \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json" \
+              --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \

@@ -342,7 +342,7 @@ func (s *UnimplementedJobServiceClient) GetProposal(ctx context.Context, in *job
 
 // ListJobs implements job.JobServiceClient.
 func (s *UnimplementedJobServiceClient) ListJobs(ctx context.Context, in *jobv1.ListJobsRequest, opts ...grpc.CallOption) (*jobv1.ListJobsResponse, error) {
-	// returns blank response
+	// returns blank response to ensure the nops view can be generated using the mock client
 	return &jobv1.ListJobsResponse{}, nil
 }
 

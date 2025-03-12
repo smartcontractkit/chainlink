@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -201,7 +202,7 @@ func TestComputeFetch(t *testing.T) {
 		validRequestUUID,
 	}, "/")
 
-	gatewayResp := gatewayResponse(t, msgID)
+	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
 	th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
 		th.connectorHandler.HandleGatewayMessage(context.Background(), "gateway1", gatewayResp)
 	}).Once()
@@ -248,9 +249,63 @@ func TestComputeFetch(t *testing.T) {
 	assert.EqualValues(t, expected, actual)
 }
 
-func gatewayResponse(t *testing.T, msgID string) *api.Message {
+func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
+	t.Parallel()
+	workflowID := "15c631d295ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0"
+	workflowExecutionID := "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed"
+
+	th := setup(t, Config{
+		ServiceConfig: webapi.ServiceConfig{
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
+		},
+		MaxResponseSizeBytes: 1 * 1024,
+	})
+
+	th.connector.EXPECT().DonID().Return("don-id")
+	th.connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+	msgID := strings.Join([]string{
+		workflowExecutionID,
+		ghcapabilities.MethodComputeAction,
+		validRequestUUID,
+	}, "/")
+
+	gatewayResp := gatewayResponse(t, msgID, make([]byte, 2*1024))
+	th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
+		th.connectorHandler.HandleGatewayMessage(context.Background(), "gateway1", gatewayResp)
+	}).Once()
+
+	require.NoError(t, th.compute.Start(tests.Context(t)))
+
+	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
+
+	config, err := values.WrapMap(map[string]any{
+		"config": []byte(""),
+		"binary": binary,
+	})
+	require.NoError(t, err)
+
+	req := cappkg.CapabilityRequest{
+		Config: config,
+		Metadata: cappkg.RequestMetadata{
+			WorkflowID:          workflowID,
+			WorkflowExecutionID: workflowExecutionID,
+			ReferenceID:         "compute",
+		},
+	}
+
+	_, err = th.compute.Execute(tests.Context(t), req)
+	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2056, 1*1024))
+}
+
+func gatewayResponse(t *testing.T, msgID string, body []byte) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
-	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
 		StatusCode:     200,
 		Headers:        headers,

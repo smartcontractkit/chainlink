@@ -719,7 +719,7 @@ func deployChainContractsSolana(
 	// BILLING
 	for _, billingConfig := range params.FeeQuoterParams.BillingConfig {
 		if _, err := AddBillingToken(
-			e, chain, chainState, billingConfig, nil, false,
+			e, chain, chainState, billingConfig, nil, false, feeQuoterAddress, ccipRouterProgram,
 		); err != nil {
 			return txns, err
 		}

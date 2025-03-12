@@ -6,6 +6,9 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	"github.com/smartcontractkit/mcms"
+	mcmsTypes "github.com/smartcontractkit/mcms/types"
+
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -24,6 +27,7 @@ type CurseConfig struct {
 	ChainSelector       uint64
 	GlobalCurse         bool
 	RemoteChainSelector uint64
+	MCMSSolana          *MCMSConfigSolana
 }
 
 func (cfg CurseConfig) Validate(e deployment.Environment) error {
@@ -46,7 +50,7 @@ func (cfg CurseConfig) Validate(e deployment.Environment) error {
 			return fmt.Errorf("remote %d does not seem to be supported by the router, hence cursing is not possible", cfg.RemoteChainSelector)
 		}
 	}
-	return nil
+	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})
 }
 
 func curseExists(e deployment.Environment, chain deployment.SolChain, curseSubject solRmnRemote.CurseSubject, rmnRemoteCursesPDA, rmnRemoteConfigPDA solana.PublicKey) (bool, error) {
@@ -74,10 +78,7 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 	chainState := state.SolChains[cfg.ChainSelector]
 	rmnRemoteConfigPDA := chainState.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(chainState.RMNRemote)
-	rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(chainState.RMNRemote)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find rmn remote curses pda: %w", err)
-	}
+	rmnRemoteCursesPDA := chainState.RMNRemoteCursesPDA
 
 	// validate curse subject
 	var curseSubject solRmnRemote.CurseSubject
@@ -108,16 +109,41 @@ func ApplyCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changeset
 		e.Logger.Infow("Applying remote chain curse for chain", "remoteChainSelector", cfg.RemoteChainSelector)
 	}
 
+	rmnRemoteUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RMNRemoteOwnedByTimelock
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.RMNRemote,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	ix, err := solRmnRemote.NewCurseInstruction(
 		curseSubject,
 		rmnRemoteConfigPDA,
-		chain.DeployerKey.PublicKey(),
+		authority,
 		rmnRemoteCursesPDA,
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+
+	if rmnRemoteUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, chainState.RMNRemote.String(), ccipChangeset.RMNRemote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to ApplyCurse in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
@@ -136,10 +162,7 @@ func RemoveCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changese
 	chainState := state.SolChains[cfg.ChainSelector]
 	rmnRemoteConfigPDA := chainState.RMNRemoteConfigPDA
 	solRmnRemote.SetProgramID(chainState.RMNRemote)
-	rmnRemoteCursesPDA, _, err := solState.FindRMNRemoteCursesPDA(chainState.RMNRemote)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find rmn remote curses pda: %w", err)
-	}
+	rmnRemoteCursesPDA := chainState.RMNRemoteCursesPDA
 
 	// validate curse subject
 	var curseSubject solRmnRemote.CurseSubject
@@ -170,15 +193,39 @@ func RemoveCurse(e deployment.Environment, cfg CurseConfig) (deployment.Changese
 		e.Logger.Infow("Removing remote chain curse for chain", "remoteChainSelector", cfg.RemoteChainSelector)
 	}
 
+	rmnRemoteUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RMNRemoteOwnedByTimelock
+	authority, err := GetAuthorityForIxn(
+		&e,
+		chain,
+		cfg.MCMSSolana,
+		ccipChangeset.RMNRemote,
+		solana.PublicKey{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get authority for ixn: %w", err)
+	}
 	ix, err := solRmnRemote.NewUncurseInstruction(
 		curseSubject,
 		rmnRemoteConfigPDA,
-		chain.DeployerKey.PublicKey(),
+		authority,
 		rmnRemoteCursesPDA,
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
+	}
+	if rmnRemoteUsingMCMS {
+		tx, err := BuildMCMSTxn(ix, chainState.RMNRemote.String(), ccipChangeset.RMNRemote)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transaction: %w", err)
+		}
+		proposal, err := BuildProposalsForTxns(
+			e, cfg.ChainSelector, "proposal to RemoveCurse in Solana", cfg.MCMSSolana.MCMS.MinDelay, []mcmsTypes.Transaction{*tx})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+		}, nil
 	}
 	if err := chain.Confirm([]solana.Instruction{ix}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)

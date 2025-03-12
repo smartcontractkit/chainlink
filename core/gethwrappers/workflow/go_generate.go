@@ -4,4 +4,4 @@ package gethwrappers
 
 // Workflow
 
-//go:generate go run ../generation/generate/wrap.go ../../../contracts/solc/v0.8.24/WorkflowRegistry/WorkflowRegistry.abi ../../../contracts/solc/v0.8.24/WorkflowRegistry/WorkflowRegistry.bin WorkflowRegistry workflow_registry_wrapper
+//go:generate go run ../generation/wrap.go workflow WorkflowRegistry workflow_registry_wrapper
