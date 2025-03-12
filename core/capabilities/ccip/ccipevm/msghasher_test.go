@@ -382,18 +382,15 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			nonce               = uint64(1)
 			// message fields
 			// sender is parsed unpadded since its emitted unpadded from EVM.
-			senderAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x269895AC2a2eC6e1Df37F68AcfbBDa53e62b71B1"))
+			senderAddress = cciptypes.UnknownAddress(key.PublicKey().Bytes())
 			// onRampAddress is parsed padded because its set as a padded address in the offRamp
 			onRampAddress = key.PublicKey().Bytes()
 			dataField     = "0x"
 			// receiver address is parsed padded because its emitted as padded from EVM.
 			receiverAddress = cciptypes.UnknownAddress(hexutil.MustDecode("0x000000000000000000000000269895ac2a2ec6e1df37f68acfbbda53e62b71b1"))
-			// feeToken is parsed unpadded since its emitted unpadded from EVM.
-			// however, it isn't used in the hash. its just set for completion.
-			feeToken       = common.HexToAddress("0x097D90c9d3E0B50Ca60e1ae45F6A81010f9FB534")
-			feeTokenAmount = big.NewInt(114310554250104)
-			feeValueJuels  = big.NewInt(16499514422603741)
-			tokenAmounts   = []cciptypes.RampTokenAmount{
+			feeTokenAmount  = big.NewInt(114310554250104)
+			feeValueJuels   = big.NewInt(16499514422603741)
+			tokenAmounts    = []cciptypes.RampTokenAmount{
 				{
 					// parsed unpadded since its emitted unpadded from SVM.
 					SourcePoolAddress: cciptypes.UnknownAddress(key.PublicKey().Bytes()),
@@ -421,7 +418,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 				Data:           hexutil.MustDecode(dataField),
 				Receiver:       receiverAddress,
 				ExtraArgs:      append(evmExtraArgsV2Tag, extraArgsbuf.Bytes()...),
-				FeeToken:       feeToken.Bytes(),
+				FeeToken:       key.PublicKey().Bytes(),
 				FeeTokenAmount: cciptypes.NewBigInt(feeTokenAmount),
 				FeeValueJuels:  cciptypes.NewBigInt(feeValueJuels),
 				TokenAmounts:   tokenAmounts,
