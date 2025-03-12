@@ -58,7 +58,7 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
-# Install (but don't enabled) feeds LOOP Plugin
+# Install (but don't enable) feeds LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
 # Install and enable Solana LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
