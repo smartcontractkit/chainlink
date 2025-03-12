@@ -165,15 +165,17 @@ func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConf
 				if err != nil {
 					return fmt.Errorf("error creating timelock executor proxy: %w", err)
 				}
+
+				ch := env.Chains[cfg.ChainSelector].DeployerKey
+				ch.NoSend = true
+
 				tx, err := timelockExecutorProxy.ExecuteBatch(
-					env.Chains[cfg.ChainSelector].DeployerKey, calls, pred, salt)
+					ch, calls, pred, salt)
 				if err != nil {
+					fmt.Printf("err: %+v", err)
 					return fmt.Errorf("error executing batch: %w", err)
 				}
-				_, err = env.Chains[cfg.ChainSelector].Confirm(tx)
-				if err != nil {
-					return fmt.Errorf("error confirming batch: %w", err)
-				}
+				fmt.Printf("%x", tx.Data())
 			}
 		}
 	}
