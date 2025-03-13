@@ -9,7 +9,7 @@ EXTRA_FLAGS="-timeout 20m"
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7d381abbc4f7706be02f93a8af66c4dab50cd394
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d551457817f6ee22030bfc223a0ac1a18b0f4ab1
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
