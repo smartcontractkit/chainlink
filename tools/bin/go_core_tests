@@ -20,8 +20,8 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
   flakeguard run \
     --test-packages "./..." \
     --project-path="." \
-    --run-count=1 \
-    --rerun-failed-count=1 \
+    --run-count=2 \
+    --rerun-failed-count=5 \
     --min-pass-ratio=1 \
     --go-test-timeout=20m \
     --omit-test-outputs-on-success=true \
