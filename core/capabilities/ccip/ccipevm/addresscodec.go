@@ -4,13 +4,14 @@ import (
 	"encoding/hex"
 	"fmt"
 	"strings"
+
+	gethcommon "github.com/ethereum/go-ethereum/common"
 )
 
 type AddressCodec struct{}
 
 func (a AddressCodec) AddressBytesToString(addr []byte) (string, error) {
-	// TODO support EIP-55 checksum, https://smartcontract-it.atlassian.net/browse/CCIP-5340
-	return "0x" + hex.EncodeToString(addr), nil
+	return gethcommon.BytesToAddress(addr).Hex(), nil
 }
 
 func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
