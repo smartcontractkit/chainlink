@@ -1,8 +1,6 @@
 GETH_VERSION: 1.15.3
 aggregator_v2v3_interface: ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.abi ../../contracts/solc/v0.8.6/AggregatorV2V3Interface/AggregatorV2V3Interface.bin 95e8814b408bb05bf21742ef580d98698b7db6a9bac6a35c3de12b23aec4ee28
 arbitrum_module: ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.abi ../../contracts/solc/v0.8.19/ArbitrumModule/ArbitrumModule.bin 12a7bad1f887d832d101a73ae279a91a90c93fd72befea9983e85eff493f62f4
-authorized_forwarder: ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin 8ea76c883d460f8353a45a493f2aebeb5a2d9a7b4619d1bc4fff5fb590bb3e10
-authorized_receiver: ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.abi ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.bin 18e8969ba3234b027e1b16c11a783aca58d0ea5c2361010ec597f134b7bf1c4f
 automation_compatible_utils: ../../contracts/solc/v0.8.19/AutomationCompatibleUtils/AutomationCompatibleUtils.abi ../../contracts/solc/v0.8.19/AutomationCompatibleUtils/AutomationCompatibleUtils.bin dfe88f4f40d124b8cb5f36a7e9f9328008ca57f7ec5d07a28d949d569d5f2834
 automation_consumer_benchmark: ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark/AutomationConsumerBenchmark.abi ../../contracts/solc/v0.8.16/AutomationConsumerBenchmark/AutomationConsumerBenchmark.bin f52c76f1aaed4be541d82d97189d70f5aa027fc9838037dd7a7d21910c8c488e
 automation_forwarder_logic: ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.abi ../../contracts/solc/v0.8.16/AutomationForwarderLogic/AutomationForwarderLogic.bin 15ae0c367297955fdab4b552dbb10e1f2be80a8fde0efec4a4d398693e9d72b5
@@ -55,8 +53,6 @@ log_upkeep_counter_wrapper: ../../contracts/solc/v0.8.6/LogUpkeepCounter/LogUpke
 mock_aggregator_proxy: ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.abi ../../contracts/solc/v0.8.6/MockAggregatorProxy/MockAggregatorProxy.bin b16c108f3dd384c342ddff5e94da7c0a8d39d1be5e3d8f2cf61ecc7f0e50ff42
 mock_ethusd_aggregator_wrapper: ../../contracts/solc/v0.8.19/MockETHUSDAggregator/MockETHUSDAggregator.abi ../../contracts/solc/v0.8.19/MockETHUSDAggregator/MockETHUSDAggregator.bin b9b361f502d2aad32311c60ca86b071de93a024ac488bcfa19725d368cd05d61
 offchain_aggregator_wrapper: OffchainAggregator/OffchainAggregator.abi - 5c8d6562e94166d4790f1ee6e4321d359d9f7262e6c5452a712b1f1c896f45cf
-operator_factory: ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin 88e6baa5d9b255eea02616fbcb2cbe21a25ab46adeb6395f6289d169dec949ae
-operator_wrapper: ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin 23c3888eaa7259e6adf2153d09abae8f4b1987dc44200363faab1e65483f32d5
 optimism_module_v2: ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.abi ../../contracts/solc/v0.8.19/OptimismModuleV2/OptimismModuleV2.bin 6bc8f93d3a49b3fdecc169214565e6fe5690427860ca4f674818c611dd719502
 perform_data_checker_wrapper: ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.abi ../../contracts/solc/v0.8.16/PerformDataChecker/PerformDataChecker.bin 48d8309c2117c29a24e1155917ab0b780956b2cd6a8a39ef06ae66a7f6d94f73
 scroll_module: ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.abi ../../contracts/solc/v0.8.19/ScrollModule/ScrollModule.bin 0b99b89ff0c8d95a2ab273c93355e572b9e052ce2a9507498a06e0915b541a86
