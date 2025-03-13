@@ -70,6 +70,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
 	}
 
+	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest)
 }
 
@@ -86,18 +87,13 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
-	var (
-		wg                      sync.WaitGroup
-		msgID                   = []byte(requestID)
-		responseReceived        = make(map[p2ptypes.PeerID]bool)
-		ctxWithCancel, cancelFn = context.WithCancel(ctx)
-	)
+	responseReceived := make(map[p2ptypes.PeerID]bool)
+	ctxWithCancel, cancelFn := context.WithCancel(ctx)
 
-	lggr = lggr.With("messageId", msgID)
 	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay)
 
+	var wg sync.WaitGroup
 	for peerID, delay := range peerIDToTransmissionDelay {
-		lggr = lggr.With("peerID", peerID)
 		responseReceived[peerID] = false
 
 		wg.Add(1)
@@ -109,18 +105,18 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 				CallerDonId:     localDonInfo.ID,
 				Method:          methodType,
 				Payload:         rawRequest,
-				MessageId:       msgID,
+				MessageId:       []byte(requestID),
 			}
 
 			select {
 			case <-ctxWithCancel.Done():
-				lggr.Debug("context done, not sending request to peer")
+				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
 				return
 			case <-time.After(delay):
-				lggr.Debug("sending request to peer")
+				lggr.Debugw("sending request to peer", "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
-					lggr.Errorw("failed to send message", "err", err)
+					lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
 				}
 			}
 		}(ctxWithCancel, peerID, delay)
