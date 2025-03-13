@@ -6,9 +6,6 @@ SCRIPT_PATH=`dirname "$0"`; SCRIPT_PATH=`eval "cd \"$SCRIPT_PATH\" && pwd"`
 OUTPUT_FILE=${OUTPUT_FILE:-"../output.txt"}
 EXTRA_FLAGS=""
 
-cd ./deployment || exit
-go mod download
-
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
   go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4cf9cee8c3cc411b7cf289bb7c128accdbdd846a
@@ -31,6 +28,9 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --rerun-results-path="go_core_ccip_deployment_tests_flakeguard_results/rerun/test_results.json"
   EXITCODE=${PIPESTATUS[0]}
 else
+  cd ./deployment || exit
+  go mod download
+
   echo "Test execution results: ---------------------"
   echo ""
 
