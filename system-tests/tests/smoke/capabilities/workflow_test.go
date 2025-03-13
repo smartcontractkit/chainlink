@@ -594,7 +594,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 		// for some reason sometimes chains aren't ready yet, we need to add a fluent wait here
 		// just like the one we have for don/jd
-		time.Sleep(5 * time.Second)
+		time.Sleep(120 * time.Second)
 	}
 
 	envInput := InfrastructureInput{
