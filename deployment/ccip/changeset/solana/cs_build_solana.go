@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -45,6 +46,7 @@ func runCommand(command string, args []string, workDir string) (string, error) {
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	fmt.Println("Running command", cmd.String())
 	err := cmd.Run()
 	if err != nil {
 		return stderr.String(), err
@@ -139,21 +141,14 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment, testRouter bool, verifiedBuild bool) error {
+func buildProject(e deployment.Environment, testRouter bool) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	cmd := "make"
 	args := []string{"docker-build-contracts"}
-	if verifiedBuild {
-		cmd = "solana-verify"
-		args = []string{"build"}
-		solanaDir = filepath.Join(cloneDir, anchorDir)
-	} else {
-		if testRouter {
-			args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
-		}
+	if testRouter {
+		args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
 	}
-	output, err := runCommand(cmd, args, solanaDir)
+	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
@@ -167,14 +162,14 @@ type BuildSolanaConfig struct {
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
-	CleanGitDir bool
-	ReplaceKeys bool
-	UpgradeKeys map[deployment.ContractType]string
-	TestRouter  bool
-	// https://solana.com/developers/guides/advanced/verified-builds
+	CleanGitDir   bool
+	ReplaceKeys   bool
+	UpgradeKeys   map[deployment.ContractType]string
+	TestRouter    bool
 	VerifiedBuild bool
 }
 
+// https://solana.com/developers/guides/advanced/verified-builds
 type VerifyBuildConfig struct {
 	GitCommitSha               string
 	ChainSelector              uint64
@@ -207,44 +202,47 @@ func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
 }
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
-	// Clone the repository
-	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
-		return fmt.Errorf("error cloning repo: %w", err)
-	}
-
-	if config.ReplaceKeys {
-		// Replace keys in Rust files using anchor keys sync
-		if err := replaceKeys(e); err != nil {
-			return fmt.Errorf("error replacing keys: %w", err)
+	if config.VerifiedBuild {
+	} else {
+		// Clone the repository
+		if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
+			return fmt.Errorf("error cloning repo: %w", err)
 		}
 
-		// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
-		// We need to do this so the keys will match the existing deployed program
-		if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
-			return fmt.Errorf("error replacing keys for upgrade: %w", err)
-		}
-	}
+		if config.ReplaceKeys {
+			// Replace keys in Rust files using anchor keys sync
+			if err := replaceKeys(e); err != nil {
+				return fmt.Errorf("error replacing keys: %w", err)
+			}
 
-	// Build the project with Anchor
-	if err := buildProject(e, config.TestRouter, config.VerifiedBuild); err != nil {
-		return fmt.Errorf("error building project: %w", err)
-	}
+			// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
+			// We need to do this so the keys will match the existing deployed program
+			if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
+				return fmt.Errorf("error replacing keys for upgrade: %w", err)
+			}
+		}
 
-	if config.CleanDestinationDir {
-		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
-		if err := os.RemoveAll(config.DestinationDir); err != nil {
-			return fmt.Errorf("error cleaning build folder: %w", err)
+		// Build the project with Anchor
+		if err := buildProject(e, config.TestRouter); err != nil {
+			return fmt.Errorf("error building project: %w", err)
 		}
-		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create build directory: %w", err)
-		}
-	} else if config.CreateDestinationDir {
-		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create build directory: %w", err)
+
+		if config.CleanDestinationDir {
+			e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
+			if err := os.RemoveAll(config.DestinationDir); err != nil {
+				return fmt.Errorf("error cleaning build folder: %w", err)
+			}
+			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create build directory: %w", err)
+			}
+		} else if config.CreateDestinationDir {
+			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create build directory: %w", err)
+			}
 		}
 	}
 
@@ -279,7 +277,7 @@ func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath s
 		"-u", networkURL,
 		"--program-id", programID,
 		"--library-name", libraryName,
-		repoURL,
+		strings.TrimSuffix(repoURL, ".git"),
 		"--commit-hash", commitHash,
 		"--mount-path", mountPath,
 	}
@@ -333,7 +331,7 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 			continue
 		}
 
-		e.Logger.Debugw(fmt.Sprintf("Verifying %s", v.name))
+		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
 		err := runSolanaVerify(
 			chain.URL,
 			v.programID,
