@@ -115,6 +115,7 @@ type bootstrapOracleCreator struct {
 	monitoringEndpointGen   telemetry.MonitoringEndpointGenerator
 	lggr                    logger.Logger
 	homeChainContractReader types.ContractReader
+	addressCodec            cciptypes.AddressCodec
 }
 
 func NewBootstrapOracleCreator(
@@ -124,6 +125,7 @@ func NewBootstrapOracleCreator(
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
 	lggr logger.Logger,
 	homeChainContractReader types.ContractReader,
+	addressCodec cciptypes.AddressCodec,
 ) cctypes.OracleCreator {
 	return &bootstrapOracleCreator{
 		peerWrapper:             peerWrapper,
@@ -132,6 +134,7 @@ func NewBootstrapOracleCreator(
 		monitoringEndpointGen:   monitoringEndpointGen,
 		lggr:                    lggr,
 		homeChainContractReader: homeChainContractReader,
+		addressCodec:            addressCodec,
 	}
 }
 
@@ -176,7 +179,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	bootstrapperArgs := libocr3.BootstrapperArgs{
 		BootstrapperFactory:   i.peerWrapper.Peer2,
 		V2Bootstrappers:       i.bootstrapperLocators,
-		ContractConfigTracker: ocrimpls.NewConfigTracker(config),
+		ContractConfigTracker: ocrimpls.NewConfigTracker(config, i.addressCodec),
 		Database:              i.db,
 		LocalConfig:           defaultLocalConfig(),
 		Logger: ocrcommon.NewOCRWrapper(
