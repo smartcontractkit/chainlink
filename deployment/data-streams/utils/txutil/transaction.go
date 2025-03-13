@@ -27,13 +27,13 @@ type ExecuteTxResult struct {
 // SignAndExecute signs and then executes transactions directly on the chain with the given deployer key configured
 // for the chain. The transactions should not be already sent to the chain.
 func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
-	ctx := e.GetContext()
 	var executeTxResults []ExecuteTxResult
 	for _, tx := range preparedTxs {
 		chain, exists := e.Chains[tx.ChainSelector]
 		if !exists {
 			return executeTxResults, fmt.Errorf("chain not found in env %d", tx.ChainSelector)
 		}
+		ctx := chain.DeployerKey.Context
 		reconfiguredTx, err := reconfigureTx(ctx, chain, tx)
 		if err != nil {
 			return executeTxResults, fmt.Errorf("chain %d: failed to reconfigure transaction: %w", chain.Selector, err)
