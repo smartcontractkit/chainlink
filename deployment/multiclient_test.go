@@ -26,7 +26,7 @@ func TestMultiClient(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, mc)
 
-	assert.Equal(t, mc.chainName, "ethereum-testnet-sepolia")
+	assert.Equal(t, "ethereum-testnet-sepolia", mc.chainName)
 	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPCDefaultRetryAttempts))
 	assert.Equal(t, RPCDefaultRetryDelay, mc.RetryConfig.Delay)
 
