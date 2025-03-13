@@ -142,7 +142,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 				dst:    m.chainSelector,
 				seqNum: 0,
 			},
-			timestamp: uint64(time.Now().Unix()),
+			timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
 		}
 		m.metricPipe <- data
 
@@ -161,6 +161,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
+	// TODO: randomize the order of chains to send from
 	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {

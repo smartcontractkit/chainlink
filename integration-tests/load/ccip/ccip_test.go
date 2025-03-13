@@ -9,9 +9,10 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
-	"github.com/ethereum/go-ethereum/common/math"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/ethereum/go-ethereum/common/math"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -125,14 +126,13 @@ func TestCCIPLoad_RPS(t *testing.T) {
 				mu.Lock()
 				messageKeys[src] = transmitKeys[src][ind]
 				mu.Unlock()
-				err := prepareAccountToSendLink(
+				assert.NoError(t, prepareAccountToSendLink(
 					t,
 					state,
 					*env,
 					src,
 					messageKeys[src],
-				)
-				require.NoError(t, err)
+				))
 			}(src)
 		}
 		wg2.Wait()
@@ -266,7 +266,9 @@ func prepareAccountToSendLink(
 	lggr.Infow("Granting mint and burn roles")
 	tx, err := srcLink.GrantMintAndBurnRoles(srcDeployer, srcAccount.From)
 	_, err = deployment.ConfirmIfNoError(e.Chains[src], tx, err)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 
 	lggr.Infow("Minting transfer amounts")
 	//--------------------------------------------------------------------------------------------

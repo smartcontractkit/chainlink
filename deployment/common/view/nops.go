@@ -25,7 +25,13 @@ type NopView struct {
 	IsConnected      bool                  `json:"isConnected"`
 	IsEnabled        bool                  `json:"isEnabled"`
 	Labels           []LabelView           `json:"labels,omitempty"`
-	ApprovedJobspecs []string              `json:"approvedJobspecs,omitempty"`
+	ApprovedJobspecs map[string]JobView    `json:"approvedJobspecs,omitempty"` // jobID => jobSpec
+}
+
+type JobView struct {
+	ProposalID string `json:"proposal_id"`
+	UUID       string `json:"uuid"`
+	Spec       string `json:"spec"`
 }
 
 type LabelView struct {
@@ -104,8 +110,8 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 
 // acceptedOrPendingAcceptedJobSpecs returns a map of nodeID to job specs that are either accepted or pending review
 // or proposed
-func approvedJobspecs(ctx context.Context, nodeID string, oc deployment.OffchainClient) ([]string, error) {
-	existingSpecs := make([]string, 0)
+func approvedJobspecs(ctx context.Context, nodeID string, oc deployment.OffchainClient) (map[string]JobView, error) {
+	existingSpecs := make(map[string]JobView)
 	jobs, err := oc.ListJobs(ctx, &jobv1.ListJobsRequest{
 		Filter: &jobv1.ListJobsRequest_Filter{
 			NodeIds: []string{nodeID},
@@ -130,7 +136,11 @@ func approvedJobspecs(ctx context.Context, nodeID string, oc deployment.Offchain
 				return nil, fmt.Errorf("job proposal %s on node %s is nil", propID, nodeID)
 			}
 			if jbProposal.Proposal.Status == jobv1.ProposalStatus_PROPOSAL_STATUS_APPROVED {
-				existingSpecs = append(existingSpecs, jbProposal.Proposal.Spec)
+				existingSpecs[jbProposal.Proposal.JobId] = JobView{
+					ProposalID: jbProposal.Proposal.JobId,
+					UUID:       j.Uuid,
+					Spec:       jbProposal.Proposal.Spec,
+				}
 			}
 		}
 	}

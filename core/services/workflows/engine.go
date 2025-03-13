@@ -143,6 +143,7 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
+	meterReport    *MeteringReport
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -564,6 +565,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
+	e.meterReport = NewMeteringReport()
+
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
@@ -836,7 +839,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case errors.Is(capabilities.ErrStopExecution, err):
+	case err != nil && capabilities.ErrStopExecution.Is(err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
@@ -1270,8 +1273,14 @@ type Config struct {
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	RateLimiter          *ratelimiter.RateLimiter
-	WorkflowLimits       *syncerlimiter.Limits
+
+	// RateLimiter limits the workflow execution steps globally and per
+	// second that a workflow owner can make
+	RateLimiter *ratelimiter.RateLimiter
+
+	// WorkflowLimits specifies an upper limit on the count of workflows that can be
+	// running globally and per workflow owner.
+	WorkflowLimits *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int
@@ -1284,7 +1293,7 @@ type Config struct {
 
 const (
 	defaultWorkerLimit          = 100
-	defaultQueueSize            = 100000
+	defaultQueueSize            = 1000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 5 * time.Minute

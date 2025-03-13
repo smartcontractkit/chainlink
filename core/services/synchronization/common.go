@@ -30,6 +30,11 @@ const (
 	OCR3CCIPExec      TelemetryType = "ocr3-ccip-exec"
 	OCR3CCIPBootstrap TelemetryType = "ocr3-bootstrap"
 	HeadReport        TelemetryType = "head-report"
+
+	PipelineBridge TelemetryType = "pipeline-bridge"
+	LLOObservation TelemetryType = "llo-observation"
+	LLOOutcome     TelemetryType = "llo-outcome"
+	LLOReport      TelemetryType = "llo-report"
 )
 
 type TelemPayload struct {
