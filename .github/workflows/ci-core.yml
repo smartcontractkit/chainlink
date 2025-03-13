@@ -295,14 +295,22 @@ jobs:
         shell: bash
         run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4cf9cee8c3cc411b7cf289bb7c128accdbdd846a # flakguard@0.1.0
   
-      - name: Generate Flakeguard Main Test Report
+      - name: Generate Flakeguard Test Reports
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
         run: |
           # Fix flakeguard binary path
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
-
+      
+          # Conditionally set the project path
+          if [ "${{ matrix.type.cmd }}" = "go_core_ccip_deployment_tests" ]; then
+            PROJECT_PATH="deployment"
+          else
+            PROJECT_PATH="."
+          fi          
+      
+          # 1. Generate the main test report
           flakeguard generate-test-report \
             --test-results-dir ${{ matrix.type.cmd }}_flakeguard_results/main/test_results.json \
             --output-path ${{ matrix.type.cmd }}_flakeguard_report/main \
@@ -313,13 +321,39 @@ jobs:
             --head-sha "${{ github.sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --gen-report-id
-
+            --gen-report-id \
+            --project-path "$PROJECT_PATH"
+      
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "ERROR: Flakeguard encountered an error while sending report to Splunk"
+            echo "ERROR: Flakeguard encountered an error while generating the main test report"
             exit $EXIT_CODE
           fi
+      
+          # 2. Check if a rerun test results file exists. If so, generate a second report.
+          RERUN_FILE="${{ matrix.type.cmd }}_flakeguard_results/rerun/test_results.json"
+          if [ -f "$RERUN_FILE" ]; then
+            echo "Rerun test results found. Generating rerun test report..."
+            flakeguard generate-test-report \
+              --test-results-dir "$RERUN_FILE" \
+              --output-path ${{ matrix.type.cmd }}_flakeguard_report/rerun \
+              --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
+              --repo-path "${{ github.workspace }}" \
+              --repo-url "$GH_INPUTS_REPO_URL" \
+              --branch-name "${{ github.head_ref || github.ref_name }}" \
+              --head-sha "${{ github.sha }}" \
+              --github-workflow-name "${{ github.workflow }}" \
+              --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+              --gen-report-id \
+              --project-path "$PROJECT_PATH"
+      
+            EXIT_CODE=$?
+            if [ $EXIT_CODE -ne 0 ]; then
+              echo "ERROR: Flakeguard encountered an error while generating the rerun test report"
+              exit $EXIT_CODE
+            fi
+          fi
+      
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -328,7 +362,16 @@ jobs:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
           retention-days: 7
-          if-no-files-found: ignore          
+          if-no-files-found: ignore 
+          
+      - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore           
 
       - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -337,9 +380,18 @@ jobs:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
           retention-days: 7
+          if-no-files-found: ignore
+          
+      - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json
+          retention-days: 7
           if-no-files-found: ignore          
 
-      # - name: Send Flakeguard Main Test Report to Splunk
+      # - name: Send Flakeguard Test Reports to Splunk
       #   if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
       #   shell: bash
       #   run: |
