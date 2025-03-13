@@ -321,12 +321,21 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      - name: Upload Flakeguard Main Test Report as Artifact
+      - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
         if: ${{ always() && matrix.type.cmd == 'go_core_tests'}}
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.type.cmd }}_flakeguard_report_main_test_report.json
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore          
+
+      - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
+        if: ${{ always() && matrix.type.cmd == 'go_core_tests'}}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
           retention-days: 7
           if-no-files-found: ignore          
 
