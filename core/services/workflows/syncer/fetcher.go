@@ -42,6 +42,12 @@ func (s *FetcherService) Start(ctx context.Context) error {
 		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      webapi.DefaultGlobalRPS,
+				GlobalBurst:    webapi.DefaultGlobalBurst,
+				PerSenderRPS:   webapi.DefaultWorkflowRPS,
+				PerSenderBurst: webapi.DefaultWorkflowBurst,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,

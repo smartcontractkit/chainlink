@@ -164,7 +164,7 @@ gomodslocalupdate: gomods ## Run gomod-local-update
 
 .PHONY: mockery
 mockery: $(mockery) ## Install mockery.
-	go install github.com/vektra/mockery/v2@v2.52.3
+	go install github.com/vektra/mockery/v2@v2.53.0
 
 .PHONY: codecgen
 codecgen: $(codecgen) ## Install codecgen
