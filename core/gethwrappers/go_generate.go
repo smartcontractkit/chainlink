@@ -5,10 +5,6 @@ package gethwrappers
 // Make sure solidity compiler artifacts are up-to-date. Only output stdout on failure.
 //go:generate ../../contracts/scripts/native_solc_compile_all
 
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/Operator/Operator.abi ../../contracts/solc/v0.8.19/Operator/Operator.bin Operator operator_wrapper
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.abi ../../contracts/solc/v0.8.19/OperatorFactory/OperatorFactory.bin OperatorFactory operator_factory
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.abi ../../contracts/solc/v0.8.19/AuthorizedForwarder/AuthorizedForwarder.bin AuthorizedForwarder authorized_forwarder
-//go:generate go run ./generation/generate/wrap.go ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.abi ../../contracts/solc/v0.8.19/AuthorizedReceiver/AuthorizedReceiver.bin AuthorizedReceiver authorized_receiver
 //go:generate go run ./generation/generate/wrap.go OffchainAggregator/OffchainAggregator.abi - OffchainAggregator offchain_aggregator_wrapper
 
 // Automation
