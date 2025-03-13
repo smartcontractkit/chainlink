@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
-// CreateMCMSProposal creates a new MCMS proposal with the given generated transactions.
+// CreateMCMSProposal creates a new MCMS proposal with prepared (but not sent) transactions.
 func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.PreparedTx, mcmsMinDelay time.Duration, proposalName string) (*mcmslib.TimelockProposal, error) {
 	var chainSelectors []uint64
 	for _, tx := range preparedTxs {
@@ -54,7 +54,7 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 		batches = append(batches, batchOp)
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+	return proposalutils.BuildProposalFromBatchesV2(
 		e,
 		timelockAddressesPerChain,
 		proposerMcmsPerChain,
@@ -63,9 +63,4 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 		proposalName,
 		mcmsMinDelay,
 	)
-	if err != nil {
-		return nil, err
-	}
-
-	return proposal, nil
 }
