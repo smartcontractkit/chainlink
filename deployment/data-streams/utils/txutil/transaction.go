@@ -27,54 +27,47 @@ type ExecuteTxResult struct {
 // SignAndExecute signs and then executes transactions directly on the chain with the given deployer key configured
 // for the chain. The transactions should not be already sent to the chain.
 func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
+	ctx := e.GetContext()
+	var executeTxResults []ExecuteTxResult
 	for _, tx := range preparedTxs {
-		chain := e.Chains[tx.ChainSelector]
-		reconfiguredTx, err := reconfigureTx(chain, tx)
+		chain, exists := e.Chains[tx.ChainSelector]
+		if !exists {
+			return executeTxResults, fmt.Errorf("chain not found in env %d", tx.ChainSelector)
+		}
+		reconfiguredTx, err := reconfigureTx(ctx, chain, tx)
 		if err != nil {
-			return nil, fmt.Errorf("chain %d: failed to reconfigure transaction: %w", chain.Selector, err)
+			return executeTxResults, fmt.Errorf("chain %d: failed to reconfigure transaction: %w", chain.Selector, err)
 		}
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, reconfiguredTx)
 		if err != nil {
-			return nil, fmt.Errorf("chain %d: failed to sign transaction: %w", chain.Selector, err)
+			return executeTxResults, fmt.Errorf("chain %d: failed to sign transaction: %w", chain.Selector, err)
 		}
 		tx.Tx = signedTx
-	}
-	return Execute(e, preparedTxs)
-}
-
-// Execute executes the prepared transactions directly on the chain
-// the transactions should not be already sent to the chain
-func Execute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
-	var executeTxResults []ExecuteTxResult
-	for _, tx := range preparedTxs {
-		chain := e.Chains[tx.ChainSelector]
-		err := chain.Client.SendTransaction(context.Background(), tx.Tx)
-		tx.Tx.ChainId()
+		err = chain.Client.SendTransaction(ctx, tx.Tx)
 		if err != nil {
-			return nil, fmt.Errorf("chain %d: failed to send transaction: %w", chain.Selector, err)
+			return executeTxResults, fmt.Errorf("chain %d: failed to send transaction: %w", chain.Selector, err)
 		}
 		blockNumber, err := chain.Confirm(tx.Tx)
 		if err != nil {
-			return nil, fmt.Errorf("chain %d: failed to confirm transaction: %w", chain.Selector, err)
+			return executeTxResults, fmt.Errorf("chain %d: failed to confirm transaction: %w", chain.Selector, err)
 		}
 		e.Logger.Infow("Transaction confirmed", "blockNumber", blockNumber, "tx", tx)
 		executeTxResults = append(executeTxResults, ExecuteTxResult{Tx: tx, BlockNumber: blockNumber})
 	}
-
 	return executeTxResults, nil
 }
 
-// reconfigureTx takes the tx `call data` and reconfigures the transaction to use updated correct nonce, gas price and gas limit
-func reconfigureTx(chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
-	nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, nil)
+// reconfigureTx takes the tx `call data` and reconfigures the transaction to use valid nonce, gas price and gas limit
+func reconfigureTx(ctx context.Context, chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
+	nonce, err := chain.Client.NonceAt(ctx, chain.DeployerKey.From, nil)
 	if err != nil {
 		return nil, fmt.Errorf("chain %d: failed to get nonce: %w", chain.Selector, err)
 	}
-	gasPrice, err := chain.Client.SuggestGasPrice(context.Background())
+	gasPrice, err := chain.Client.SuggestGasPrice(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("chain %d: failed to get gas price: %w", chain.Selector, err)
 	}
-	estimate, err := chain.Client.EstimateGas(context.Background(), ethereum.CallMsg{
+	estimate, err := chain.Client.EstimateGas(ctx, ethereum.CallMsg{
 		From: chain.DeployerKey.From,
 		To:   preparedTx.Tx.To(),
 		Data: preparedTx.Tx.Data(),
