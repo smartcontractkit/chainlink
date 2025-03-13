@@ -18,8 +18,8 @@ import (
 
 const (
 	// Default retry configuration for RPC calls
-	RPC_DEFAULT_RETRY_ATTEMPTS = 10
-	RPC_DEFAULT_RETRY_DELAY    = 1000 * time.Millisecond
+	RPCDefaultRetryAttempts = 10
+	RPCDefaultRetryDelay    = 1000 * time.Millisecond
 
 	// Default retry configuration for dialing RPC endpoints
 	RPCDefaultDialRetryAttempts = 10
@@ -33,8 +33,8 @@ type RetryConfig struct {
 
 func defaultRetryConfig() RetryConfig {
 	return RetryConfig{
-		Attempts: RPC_DEFAULT_RETRY_ATTEMPTS,
-		Delay:    RPC_DEFAULT_RETRY_DELAY,
+		Attempts: RPCDefaultRetryAttempts,
+		Delay:    RPCDefaultRetryDelay,
 	}
 }
 
@@ -202,7 +202,6 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 }
 
 func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Client, error) {
-	var err error
 	endpoint, err := rpc.ToEndpoint()
 	if err != nil {
 		return nil, err
@@ -219,9 +218,8 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 		return nil
 	}, retry.Attempts(RPCDefaultDialRetryAttempts), retry.Delay(RPCDefaultDialRetryDelay))
 
-	if err == nil {
-		return client, nil
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s after retries", endpoint, rpc.Name)
 	}
-
-	return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s after retries", endpoint, rpc.Name)
+	return client, nil
 }

@@ -42,8 +42,8 @@ func TestMultiClient(t *testing.T) {
 
 	require.NoError(t, err)
 	require.NotNil(t, mc)
-	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPC_DEFAULT_RETRY_ATTEMPTS))
-	assert.Equal(t, RPC_DEFAULT_RETRY_DELAY, mc.RetryConfig.Delay)
+	assert.Equal(t, mc.RetryConfig.Attempts, uint(RPCDefaultRetryAttempts))
+	assert.Equal(t, RPCDefaultRetryDelay, mc.RetryConfig.Delay)
 
 	_, err = NewMultiClient(lggr, RPCConfig{ChainName: "TestChain", RPCs: []RPC{}})
 	require.Error(t, err)
