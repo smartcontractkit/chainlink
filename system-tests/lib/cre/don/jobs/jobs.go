@@ -65,7 +65,7 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 					wg.Add(1)
 					go func(jobReq *jobv1.ProposeJobRequest) {
 						defer wg.Done()
-						timeout := time.Second * 15
+						timeout := time.Second * 60
 						ctx, cancel := context.WithTimeout(context.Background(), timeout)
 						defer cancel()
 						_, err := offChainClient.ProposeJob(ctx, jobReq)
