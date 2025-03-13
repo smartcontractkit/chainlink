@@ -9,6 +9,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -24,6 +26,116 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
+	ctx := testutils.Context(t)
+	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 2})
+	evmSelectors := env.AllChainSelectors()
+	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		evmSelectors[0]: {
+			Proposer: mcmstypes.Config{
+				Quorum:  1,
+				Signers: []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000001")},
+				GroupSigners: []mcmstypes.Config{
+					{
+						Quorum:       1,
+						Signers:      []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000002")},
+						GroupSigners: []mcmstypes.Config{},
+					},
+				},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum:       1,
+				Signers:      []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000003")},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:       1,
+				Signers:      []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000004")},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			TimelockMinDelay: big.NewInt(0),
+		},
+		evmSelectors[1]: {
+			Proposer: mcmstypes.Config{
+				Quorum:       1,
+				Signers:      []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000011")},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum: 2,
+				Signers: []common.Address{
+					common.HexToAddress("0x0000000000000000000000000000000000000012"),
+					common.HexToAddress("0x0000000000000000000000000000000000000013"),
+					common.HexToAddress("0x0000000000000000000000000000000000000014"),
+				},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum:       1,
+				Signers:      []common.Address{common.HexToAddress("0x0000000000000000000000000000000000000005")},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			TimelockMinDelay: big.NewInt(1),
+		},
+	}
+
+	// set up some dummy address in env address book for callproxy, canceller and bypasser
+	// to simulate the case where they already exist
+	// this is to test that the changeset will not try to deploy them again
+	addrBook := deployment.NewMemoryAddressBook()
+	callProxyAddress := utils.RandomAddress()
+	mcmsAddress := utils.RandomAddress()
+	mcmsType := deployment.NewTypeAndVersion(commontypes.ManyChainMultisig, deployment.Version1_0_0)
+	// we use same address for bypasser and canceller
+	mcmsType.AddLabel(commontypes.BypasserRole.String())
+	mcmsType.AddLabel(commontypes.CancellerRole.String())
+	require.NoError(t, addrBook.Save(evmSelectors[0], callProxyAddress.String(),
+		deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0)))
+	require.NoError(t, addrBook.Save(evmSelectors[0], mcmsAddress.String(), mcmsType))
+	require.NoError(t, env.ExistingAddresses.Merge(addrBook))
+
+	configuredChangeset := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		changesetConfig,
+	)
+
+	// --- act ---
+	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	require.NoError(t, err)
+
+	state, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	require.NoError(t, err)
+	evmState0 := state[evmSelectors[0]]
+
+	// --- assert ---
+	require.Equal(t, callProxyAddress, evmState0.CallProxy.Address())
+	require.Equal(t, mcmsAddress, evmState0.BypasserMcm.Address())
+	require.Equal(t, mcmsAddress, evmState0.CancellerMcm.Address())
+	// proposer should be newly deployed
+	require.NotEqual(t, mcmsAddress, evmState0.ProposerMcm.Address())
+
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+
+	proposers, err := evmTimelockInspector.GetProposers(ctx, evmState0.Timelock.Address().Hex())
+	require.NoError(t, err)
+	require.Equal(t, proposers, []string{evmState0.ProposerMcm.Address().Hex()})
+
+	executors, err := evmTimelockInspector.GetExecutors(ctx, evmState0.Timelock.Address().Hex())
+	require.NoError(t, err)
+	require.Equal(t, executors, []string{evmState0.CallProxy.Address().Hex()})
+
+	cancellers, err := evmTimelockInspector.GetCancellers(ctx, evmState0.Timelock.Address().Hex())
+	require.NoError(t, err)
+	require.ElementsMatch(t, cancellers, []string{
+		evmState0.CancellerMcm.Address().Hex(), // bypasser and canceller are same
+		evmState0.ProposerMcm.Address().Hex(),
+	})
+
+	bypassers, err := evmTimelockInspector.GetBypassers(ctx, evmState0.Timelock.Address().Hex())
+	require.NoError(t, err)
+	require.Equal(t, bypassers, []string{evmState0.BypasserMcm.Address().Hex()})
+}
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
 	// --- arrange ---

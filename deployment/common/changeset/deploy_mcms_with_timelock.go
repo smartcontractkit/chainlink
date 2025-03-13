@@ -3,6 +3,7 @@ package changeset
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -48,7 +50,21 @@ func DeployMCMSWithTimelockV2(
 
 		switch family {
 		case chain_selectors.FamilyEVM:
-			_, err := evminternal.DeployMCMSWithTimelockContractsEVM(env.Logger, env.Chains[chainSel], newAddresses, cfg)
+			// load mcms state
+			// we load the state one by one to void early return from MaybeLoadMCMSWithTimelockState
+			// due to one of the chain not found
+			var chainstate *state.MCMSWithTimelockState
+			s, err := state.MaybeLoadMCMSWithTimelockState(env, []uint64{chainSel})
+			if err != nil {
+				// if the state is not found for chain, we assume it's a fresh deployment
+				if !strings.Contains(err.Error(), deployment.ErrChainNotFound.Error()) {
+					return deployment.ChangesetOutput{}, err
+				}
+			}
+			if s != nil {
+				chainstate = s[chainSel]
+			}
+			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}
