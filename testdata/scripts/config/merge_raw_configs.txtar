@@ -455,6 +455,11 @@ TraceSampleRatio = 0.01
 EmitterBatchProcessor = true
 EmitterExportTimeout = '1s'
 
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
+
 [[Aptos]]
 ChainID = '1'
 Enabled = false

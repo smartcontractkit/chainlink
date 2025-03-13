@@ -1314,9 +1314,3 @@ func (l ocrTestChaosListener) OnChaosEnded(_ havoc.Chaos) {
 
 func (l ocrTestChaosListener) OnChaosStatusUnknown(_ havoc.Chaos) {
 }
-
-func (l ocrTestChaosListener) OnScheduleCreated(_ havoc.Schedule) {
-}
-
-func (l ocrTestChaosListener) OnScheduleDeleted(_ havoc.Schedule) {
-}

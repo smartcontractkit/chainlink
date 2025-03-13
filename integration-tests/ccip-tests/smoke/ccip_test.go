@@ -396,6 +396,7 @@ func TestSmokeCCIPRateLimit(t *testing.T) {
 }
 
 func TestSmokeCCIPOnRampLimits(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-124")
 	t.Parallel()
 
 	log := logging.GetTestLogger(t)

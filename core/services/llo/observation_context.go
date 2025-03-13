@@ -78,18 +78,20 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 			break
 		}
 	}
-	// If no streamID attribute is found in the task results, then assume the
-	// final output is the stream ID and return that. This is safe to do since
-	// the registry will never return a spec that doesn't match either by tag
-	// or by spec streamID.
 	if !found {
-		// FIXME: This is a hack specific for V3 telemetry, future schemas should
-		// use the generic stream value telemetry instead
-		// https://smartcontract-it.atlassian.net/browse/MERC-6290
+		// If no streamID attribute is found in the task results, then assume the
+		// final output is the stream ID and return that. This is safe to do since
+		// the registry will never return a spec that doesn't match either by tag
+		// or by spec streamID.
 		val, err = extractFinalResultAsStreamValue(trrs)
-		oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		if oc.t.CaptureEATelemetry() {
+			// FIXME: This is a hack specific for V3 telemetry, future schemas should
+			// use the generic stream value telemetry instead
+			// https://smartcontract-it.atlassian.net/browse/MERC-6290
+			oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		}
 	}
-	if ch := pipeline.GetTelemetryCh(ctx); ch != nil {
+	if ch := GetObservationTelemetryCh(ctx); ch != nil {
 		cd := opts.ConfigDigest()
 		ot := &telem.LLOObservationTelemetry{
 			StreamId:              streamID,
@@ -158,7 +160,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 	case 1:
 		res := finaltrrs[0].Result
 		if res.Error != nil {
-			return nil, res.Error
+			return nil, fmt.Errorf("terminal task error: %w; all task errors: %w", res.Error, trrs.AllErrors())
 		}
 		val, err := toDecimal(res.Value)
 		if err != nil {

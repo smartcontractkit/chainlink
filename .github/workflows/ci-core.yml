@@ -23,18 +23,22 @@ jobs:
       pull-requests: read
     outputs:
       affected-modules: ${{ steps.resolved-modules.outputs.module_names }}
-      deployment-changes: ${{ steps.match-some.outputs.deployment == 'true' }}
-      should-run-ci-core: >-
+      # Runs on workflow changes, any deployment change, or any (non-ignored) core change
+      should-run-deployment-tests: >-
         ${{
-          steps.match-some.outputs.core-ci == 'true' ||
-          steps.match-every.outputs.non-ignored == 'true' ||
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-some.outputs.deployment == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-      should-run-golangci: >-
+      # Runs on workflow changes, and any (non-ignored) core changes
+      should-run-core-tests: >-
         ${{
-          steps.match-some.outputs.golang-ci == 'true' ||
-          steps.match-every.outputs.non-ignored == 'true'
+          steps.match-some.outputs.workflow == 'true' ||
+          steps.match-every.outputs.core-non-ignored == 'true' ||
+          github.event_name == 'schedule' ||
+          github.event_name == 'workflow_dispatch'
         }}
     runs-on: ubuntu-latest
     steps:
@@ -48,38 +52,33 @@ jobs:
         with:
           # "if any changed file matches one or more of the conditions" (https://github.com/dorny/paths-filter/issues/225)
           predicate-quantifier: some
-          # deployment - any changes to files in the `deployments/`
-          # core-ci - any changes that could affect this workflow definition
-          # golang-ci - any changes that could affect the linting result
+          # deployment - any changes in the deployment module
+          # workflow - any changes that could affect this workflow definition
+          #  - Assume any repository action changes affect this workflow
           filters: |
             deployment:
               - 'deployment/**'
-            core-ci:
-              - '.github/workflows/ci-core.yml'
-              - '.github/actions/**'
-            golang-ci:
-              - '.golangci.yml'
+            workflow:
               - '.github/workflows/ci-core.yml'
               - '.github/actions/**'
       - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
         id: match-every
         with:
           # "if any changed file match all of the conditions" (https://github.com/dorny/paths-filter/issues/225)
+          #   - Enables listing of files matching each filter.
+          #   - Paths to files will be available in `${FILTER_NAME}_files` output variable.
+          #   - Paths will be formatted as JSON array
           predicate-quantifier: every
-          # non-integration-tests - only changes made outside of the `integration-tests` directory
-          # non-ignored - only changes except for the negated ones
+          # core-non-ignored - all changes except for paths which do not affect core module
+          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on core unless listed here specifically.
+          #  - For example: core module does not depend on deployment or integration-tests module.
           # all - changes in any directory
-          #  - This is opt-in on purpose. To be safe, new files are assumed to have an affect on CI Core unless listed here specifically.
-          # Enable listing of files matching each filter.
-          # Paths to files will be available in `${FILTER_NAME}_files` output variable.
-          # Paths will be formatted as JSON array
+          #  - This is used resolve all affected modules based on changed files
           list-files: json
           filters: |
-            non-integration-tests:
+            core-non-ignored:
               - '**'
-              - '!integration-tests/**'
-            non-ignored:
-              - '**'
+              - '!deployment/**'
               - '!integration-tests/**'
               - '!tools/secrets/**'
               - '!tools/goreleaser-config/**'
@@ -176,19 +175,26 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            build-solana-artifacts: 'false'
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            build-solana-artifacts: 'false'
-          - cmd: go_core_ccip_deployment_tests
-            os: ubuntu22.04-32cores-128GB
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
           - cmd: go_core_fuzz
             os: ubuntu22.04-8cores-32GB
-            build-solana-artifacts: 'false'
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
           - cmd: go_core_race_tests
             # use 64cores for certain scheduled runs only
             os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
-            build-solana-artifacts: 'false'
+            should-run: ${{ needs.filter.outputs.should-run-core-tests }}
+
+          - cmd: go_core_ccip_deployment_tests
+            os: ubuntu22.04-32cores-128GB
+            build-solana-artifacts: 'true'
+            should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
+
     name: Core Tests (${{ matrix.type.cmd }})
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
@@ -210,16 +216,17 @@ jobs:
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
 
       - name: Setup NodeJS
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-nodejs
         with:
           prod: "true"
 
       - name: Install Foundry
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/install-solidity-foundry
 
       - name: Setup Go
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
         with:
           # race/fuzz tests don't benefit repeated caching, so restore from develop's build cache
@@ -227,52 +234,52 @@ jobs:
           build-cache-version: ${{ matrix.type.cmd }}
 
       - name: Setup Solana
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-solana
 
       - name: Build Solana artifacts
         # do not build for core tests, core 'integration' tests, or fuzz tests
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' && matrix.type.build-solana-artifacts != 'false' }}
+        if: ${{ matrix.type.should-run == 'true' && matrix.type.build-solana-artifacts == 'true' }}
         uses: ./.github/actions/setup-solana/build-contracts
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
 
       - name: Setup Postgres
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
 
       - name: Touching core/web/assets/index.html
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
       - name: Download Go vendor packages
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: go mod download
 
       - name: Setup DB
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: go run ./core/store/cmd/preparetest
         env:
           CL_DATABASE_URL: ${{ env.DB_URL }}
 
       - name: Install LOOP Plugins
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         run: make install-plugins
 
       - name: Increase Timeouts for Fuzz/Race
         # Increase timeouts for scheduled runs only
-        if: ${{ github.event.schedule != '' && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ github.event.schedule != '' && matrix.type.should-run == 'true' }}
         run: |
           echo "TIMEOUT=10m" >> $GITHUB_ENV
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
       - name: Run tests
-        if: ${{ needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ matrix.type.should-run == 'true' }}
         id: run-tests
         env:
           OUTPUT_FILE: ./output.txt
@@ -284,7 +291,7 @@ jobs:
 
       - name: Print Races
         id: print-races
-        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
         env:
           GH_REPO: ${{ github.repository }}
           GH_RUN_ID: ${{ github.run_id }}
@@ -304,13 +311,13 @@ jobs:
           echo "github.ref: ${{ github.ref }}"
 
       - name: Print postgres logs
-        if: ${{ always() &&  needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ always() &&  matrix.type.should-run == 'true' }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
         with:
           print-logs: 'true'
 
       - name: Store logs artifacts
-        if: ${{ always() && needs.filter.outputs.should-run-ci-core == 'true' }}
+        if: ${{ always() && matrix.type.should-run == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_logs
@@ -328,7 +335,7 @@ jobs:
           matrix.type.cmd == 'go_core_race_tests' &&
           steps.print-races.outputs.post_to_slack == 'true'  &&
           (github.event_name == 'merge_group' || github.ref == 'refs/heads/develop') &&
-          needs.filter.outputs.should-run-ci-core == 'true'
+          matrix.type.should-run == 'true'
         uses: slackapi/slack-github-action@485a9d42d3a73031f12ec201c457e2162c45d02d # v2.0.0
         with:
           method: chat.postMessage
@@ -341,7 +348,7 @@ jobs:
     name: test-scripts
     needs: [filter]
     runs-on: ubuntu-latest
-    if: ${{  needs.filter.outputs.should-run-ci-core == 'true' }}
+    if: ${{  needs.filter.outputs.should-run-core-tests == 'true' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4

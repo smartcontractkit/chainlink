@@ -56,7 +56,6 @@ func TestSolanaTokenOps(t *testing.T) {
 			changeset_solana.CreateSolanaTokenATAConfig{
 				ChainSelector: solChain1,
 				TokenPubkey:   tokenAddress,
-				TokenProgram:  ccipChangeset.SPL2022Tokens,
 				ATAList:       []string{deployerKey.String(), testUserPubKey.String()},
 			},
 		),

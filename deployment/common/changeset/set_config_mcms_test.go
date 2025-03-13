@@ -1,51 +1,58 @@
 package changeset_test
 
 import (
+	"crypto/ecdsa"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/crypto"
+	solanasdk "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/sdk/evm"
+	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangesetsolana "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // setupSetConfigTestEnv deploys all required contracts for the setConfig MCMS contract call.
 func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 	lggr := logger.TestLogger(t)
 	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 2,
+		Chains:    2,
+		SolChains: 1,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
 	chainSelector := env.AllChainSelectors()[0]
+	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
 
+	commonchangeset.SetPreloadedSolanaAddresses(t, env, chainSelectorSolana)
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
 	// Deploy MCMS and Timelock
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			[]uint64{chainSelector},
+			[]uint64{chainSelector, chainSelectorSolana},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chainSelector: config,
+			map[uint64]commontypes.MCMSWithTimelockConfigV2{
+				chainSelector:       config,
+				chainSelectorSolana: config,
 			},
 		),
 	)
@@ -163,7 +170,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 	}
 }
 
-func TestSetConfigMCMSV2Variants(t *testing.T) {
+func TestSetConfigMCMSV2EVM(t *testing.T) {
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -268,6 +275,106 @@ func TestSetConfigMCMSV2Variants(t *testing.T) {
 			require.NoError(t, err)
 			require.ElementsMatch(t, cfgCanceller.Signers, newConf.Signers)
 			require.Equal(t, cfgCanceller.Quorum, newConf.Quorum)
+		})
+	}
+}
+
+func TestSetConfigMCMSV2Solana(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		changeSets func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet
+	}{
+		{
+			name: "MCMS disabled",
+			changeSets: func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						commonchangeset.MCMSConfigV2{
+							ConfigsPerChain: cfgs,
+						},
+					),
+				}
+			},
+		},
+		{
+			name: "MCMS enabled",
+			changeSets: func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet {
+				return []commonchangeset.ConfiguredChangeSet{
+					commonchangeset.Configure(&commonchangesetsolana.TransferMCMSToTimelockSolana{}, commonchangesetsolana.TransferMCMSToTimelockSolanaConfig{
+						Chains:   []uint64{chainSel},
+						MinDelay: time.Second * 1,
+					}),
+					commonchangeset.Configure(
+						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
+						commonchangeset.MCMSConfigV2{
+							ProposalConfig: &commonchangeset.TimelockConfig{
+								MinDelay: time.Second * 1,
+							},
+							ConfigsPerChain: cfgs,
+						},
+					),
+				}
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := tests.Context(t)
+
+			env := setupSetConfigTestEnv(t)
+			chainSelectorSolana := env.AllChainSelectorsSolana()[0]
+			solChain := env.SolChains[chainSelectorSolana]
+
+			addrs, err := env.ExistingAddresses.AddressesForChain(chainSelectorSolana)
+			require.NoError(t, err)
+			solMcmsState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(solChain, addrs)
+			require.NoError(t, err)
+
+			fundSignerPDAs(t, env, chainSelectorSolana, solMcmsState)
+
+			// new signer
+			key, err := crypto.GenerateKey()
+			require.NoError(t, err)
+			publicKey := key.Public().(*ecdsa.PublicKey)
+			newSigner := crypto.PubkeyToAddress(*publicKey)
+
+			newCfgProposer := proposalutils.SingleGroupMCMSV2(t)
+			newCfgProposer.Signers = append(newCfgProposer.Signers, newSigner)
+			newCfgProposer.Quorum = 2
+			newCfgCanceller := proposalutils.SingleGroupMCMSV2(t)
+			newCfgBypasser := proposalutils.SingleGroupMCMSV2(t)
+			newCfgBypasser.Signers = append(newCfgBypasser.Signers, newSigner)
+			newCfgBypasser.Quorum = 2
+
+			// act
+			changesetsToApply := tc.changeSets(
+				chainSelectorSolana,
+				map[uint64]commonchangeset.ConfigPerRoleV2{
+					chainSelectorSolana: {
+						Proposer:  newCfgProposer,
+						Canceller: newCfgCanceller,
+						Bypasser:  newCfgBypasser,
+					},
+				})
+			_, err = commonchangeset.ApplyChangesetsV2(t, env, changesetsToApply)
+			require.NoError(t, err)
+
+			// assert
+			inspectorSolana := solana.NewInspector(solChain.Client)
+			confs, err := inspectorSolana.GetConfig(ctx, solana.ContractAddress(solMcmsState.McmProgram, solana.PDASeed(solMcmsState.ProposerMcmSeed)))
+			require.NoError(t, err)
+			require.ElementsMatch(t, newCfgProposer.Signers, confs.Signers)
+			require.Equal(t, newCfgProposer.Quorum, confs.Quorum)
+
+			confs, err = inspectorSolana.GetConfig(ctx, solana.ContractAddress(solMcmsState.McmProgram, solana.PDASeed(solMcmsState.BypasserMcmSeed)))
+			require.NoError(t, err)
+			require.ElementsMatch(t, newCfgBypasser.Signers, confs.Signers)
+			require.Equal(t, newCfgBypasser.Quorum, confs.Quorum)
+
+			confs, err = inspectorSolana.GetConfig(ctx, solana.ContractAddress(solMcmsState.McmProgram, solana.PDASeed(solMcmsState.CancellerMcmSeed)))
+			require.NoError(t, err)
+			require.ElementsMatch(t, newCfgCanceller.Signers, confs.Signers)
+			require.Equal(t, newCfgCanceller.Quorum, confs.Quorum)
 		})
 	}
 }
@@ -425,21 +532,12 @@ func TestValidateV2(t *testing.T) {
 	env := setupSetConfigTestEnv(t)
 
 	chainSelector := env.AllChainSelectors()[0]
-	chain := env.Chains[chainSelector]
-	addrs, err := env.ExistingAddresses.AddressesForChain(chainSelector)
-	require.NoError(t, err)
-	require.Len(t, addrs, 6)
-	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addrs)
-	require.NoError(t, err)
-	cfg := proposalutils.SingleGroupMCMSV2(t)
-	timelockAddress := mcmsState.Timelock.Address()
-	// Add the timelock as a signer to check state changes
-	cfg.Signers = append(cfg.Signers, timelockAddress)
-	cfg.Quorum = 2 // quorum
+	chainSelectorSolana := env.AllChainSelectorsSolana()[0]
 
+	cfg := proposalutils.SingleGroupMCMSV2(t)
 	cfgInvalid := proposalutils.SingleGroupMCMSV2(t)
 	cfgInvalid.Quorum = 0
-	require.NoError(t, err)
+
 	tests := []struct {
 		name     string
 		cfg      commonchangeset.MCMSConfigV2
@@ -457,6 +555,11 @@ func TestValidateV2(t *testing.T) {
 						Canceller: cfg,
 						Bypasser:  cfg,
 					},
+					chainSelectorSolana: {
+						Proposer:  cfg,
+						Canceller: cfg,
+						Bypasser:  cfg,
+					},
 				},
 			},
 		},
@@ -465,6 +568,11 @@ func TestValidateV2(t *testing.T) {
 			cfg: commonchangeset.MCMSConfigV2{
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
 					chainSelector: {
+						Proposer:  cfg,
+						Canceller: cfg,
+						Bypasser:  cfg,
+					},
+					chainSelectorSolana: {
 						Proposer:  cfg,
 						Canceller: cfg,
 						Bypasser:  cfg,
@@ -478,19 +586,6 @@ func TestValidateV2(t *testing.T) {
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{},
 			},
 			errorMsg: "no chain configs provided",
-		},
-		{
-			name: "non evm chain",
-			cfg: commonchangeset.MCMSConfigV2{
-				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
-					chain_selectors.APTOS_MAINNET.Selector: {
-						Proposer:  cfg,
-						Canceller: cfg,
-						Bypasser:  cfg,
-					},
-				},
-			},
-			errorMsg: "chain selector: 4741433654826277614 is not an ethereum chain",
 		},
 		{
 			name: "chain selector not found in environment",
@@ -517,6 +612,11 @@ func TestValidateV2(t *testing.T) {
 						Canceller: cfg,
 						Bypasser:  cfg,
 					},
+					chainSelectorSolana: {
+						Proposer:  cfg,
+						Canceller: cfg,
+						Bypasser:  cfg,
+					},
 				},
 			},
 			errorMsg: "invalid MCMS config: Quorum must be greater than 0",
@@ -531,6 +631,11 @@ func TestValidateV2(t *testing.T) {
 					chainSelector: {
 						Proposer:  cfg,
 						Canceller: cfgInvalid,
+						Bypasser:  cfg,
+					},
+					chainSelectorSolana: {
+						Proposer:  cfg,
+						Canceller: cfg,
 						Bypasser:  cfg,
 					},
 				},
@@ -549,6 +654,11 @@ func TestValidateV2(t *testing.T) {
 						Canceller: cfg,
 						Bypasser:  cfgInvalid,
 					},
+					chainSelectorSolana: {
+						Proposer:  cfg,
+						Canceller: cfg,
+						Bypasser:  cfg,
+					},
 				},
 			},
 			errorMsg: "invalid MCMS config: Quorum must be greater than 0",
@@ -557,7 +667,7 @@ func TestValidateV2(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			selectors := []uint64{chainSelector}
+			selectors := []uint64{chainSelector, chainSelectorSolana}
 
 			err := tt.cfg.Validate(env, selectors)
 			if tt.errorMsg != "" {
@@ -568,4 +678,15 @@ func TestValidateV2(t *testing.T) {
 			}
 		})
 	}
+}
+
+func fundSignerPDAs(
+	t *testing.T, env deployment.Environment, chainSelector uint64, chainState *state.MCMSWithTimelockStateSolana,
+) {
+	t.Helper()
+	solChain := env.SolChains[chainSelector]
+	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
+	signerPDAs := []solanasdk.PublicKey{timelockSignerPDA, mcmSignerPDA}
+	memory.FundSolanaAccounts(env.GetContext(), t, signerPDAs, 1, solChain.Client)
 }

@@ -10,6 +10,7 @@ import (
 
 	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -64,6 +65,9 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
+			if solana.PublicKeyLength != len(tokenAmount.DestTokenAddress) {
+				return nil, fmt.Errorf("invalid DestTokenAddress length: %d", len(tokenAmount.DestTokenAddress))
+			}
 			tokenAmounts = append(tokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 				SourcePoolAddress: tokenAmount.SourcePoolAddress,
 				DestTokenAddress:  solana.PublicKeyFromBytes(tokenAmount.DestTokenAddress),
@@ -73,13 +77,13 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 			})
 		}
 
-		extraDataDecodecMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
+		extraDataDecodedMap, err := e.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, chainReport.SourceChainSelector)
 		if err != nil {
 			return nil, fmt.Errorf("failed to decode extra args: %w", err)
 		}
 
 		var extraArgs ccip_offramp.Any2SVMRampExtraArgs
-		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
+		extraArgs, _, err = parseExtraArgsMapWithAccounts(extraDataDecodedMap)
 		if err != nil {
 			return nil, fmt.Errorf("invalid extra args map: %w", err)
 		}

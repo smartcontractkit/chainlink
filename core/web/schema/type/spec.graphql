@@ -13,7 +13,8 @@ union JobSpec =
     GatewaySpec |
     WorkflowSpec |
     StandardCapabilitiesSpec |
-    StreamSpec
+    StreamSpec |
+    CCIPSpec
 
 type CronSpec {
     schedule: String!
@@ -185,4 +186,13 @@ type StandardCapabilitiesSpec {
 
 type StreamSpec {
     streamID: String
+}
+
+type CCIPSpec {
+    createdAt: Time!
+    updatedAt: Time!
+    capabilityVersion: String!
+    capabilityLabelledName: String!
+    ocrKeyBundleIDs: Map!
+    p2pKeyID: String!
 }

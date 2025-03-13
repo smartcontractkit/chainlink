@@ -1007,13 +1007,18 @@ func (d *Delegate) newServicesLLO(
 	}
 
 	// Use the default key bundle if not specified
-	// NOTE: Only JSON and EVMPremiumLegacy supported for now
 	// TODO: MERC-3594
-	//
-	// Also re-use EVM keys for signing the retirement report. This isn't
-	// required, just seems easiest since it's the only key type available for
-	// now.
-	for _, rf := range []llotypes.ReportFormat{llotypes.ReportFormatJSON, llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatRetirement, llotypes.ReportFormatEVMABIEncodeUnpacked} {
+	evmKeySignedFormats := []llotypes.ReportFormat{
+		// NOTE: Just use EVM key for signing everything. This isn't
+		// necessarily required, just seems easiest since it's the only key
+		// type available for now.
+		llotypes.ReportFormatJSON,
+		llotypes.ReportFormatEVMPremiumLegacy,
+		llotypes.ReportFormatRetirement,
+		llotypes.ReportFormatEVMABIEncodeUnpacked,
+		llotypes.ReportFormatCapabilityTrigger,
+	}
+	for _, rf := range evmKeySignedFormats {
 		if _, exists := kbm[rf]; !exists {
 			// Use the first if unspecified
 			kbs, err3 := d.ks.GetAllOfType("evm")
@@ -1047,14 +1052,19 @@ func (d *Delegate) newServicesLLO(
 
 		JobName:            jb.Name,
 		CaptureEATelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		// NOTE: These can be turned off/on, or made configurable in future if
+		// necessary
+		CaptureObservationTelemetry: jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureOutcomeTelemetry:     jb.OCR2OracleSpec.CaptureEATelemetry,
+		CaptureReportTelemetry:      false,
 
-		ChannelDefinitionCache: provider.ChannelDefinitionCache(),
-		RetirementReportCache:  d.retirementReportCache,
-		ShouldRetireCache:      provider.ShouldRetireCache(),
-		RetirementReportCodec:  datastreamsllo.StandardRetirementReportCodec{},
-		EAMonitoringEndpoint:   d.monitoringEndpointGen.GenMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID, synchronization.EnhancedEAMercury),
-		DonID:                  pluginCfg.DonID,
-		ChainID:                rid.ChainID,
+		ChannelDefinitionCache:   provider.ChannelDefinitionCache(),
+		RetirementReportCache:    d.retirementReportCache,
+		ShouldRetireCache:        provider.ShouldRetireCache(),
+		RetirementReportCodec:    datastreamsllo.StandardRetirementReportCodec{},
+		PluginMonitoringEndpoint: d.monitoringEndpointGen.GenMultitypeMonitoringEndpoint(rid.Network, rid.ChainID, telemetryContractID),
+		DonID:                    pluginCfg.DonID,
+		ChainID:                  rid.ChainID,
 
 		TraceLogging:                 d.cfg.OCR2().TraceLogging(),
 		BinaryNetworkEndpointFactory: d.peerWrapper.Peer2,
