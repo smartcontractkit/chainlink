@@ -971,7 +971,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 
-	if err := validateRouterConfig(chain, chainState, false); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 
