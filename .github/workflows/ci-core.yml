@@ -173,7 +173,7 @@ jobs:
       fail-fast: false
       matrix:
         type:
-          - cmd: go_core_tests
+          - cmd: USE_FLAKEGUARD=true go_core_tests
             os: ubuntu22.04-32cores-128GB
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 

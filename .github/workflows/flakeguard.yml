@@ -355,7 +355,7 @@ jobs:
             --shuffle=${{ env.RUN_WITH_SHUFFLE }} \
             --shuffle-seed=${{ env.SHUFFLE_SEED }} \
             --skip-tests=${{ env.SKIPPED_TESTS }} \
-            --output-json=test-result.json \
+            --main-report-path=test-result.json \
             --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
 
           # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
