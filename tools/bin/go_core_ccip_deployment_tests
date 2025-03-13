@@ -11,7 +11,7 @@ go mod download
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@387957818af0e5220a3e6346398ef5d40e30e09f
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4cf9cee8c3cc411b7cf289bb7c128accdbdd846a
   # Install gotestsum to parse JSON test outputs from flakeguard to console outputs
   go install gotest.tools/gotestsum@latest
 
