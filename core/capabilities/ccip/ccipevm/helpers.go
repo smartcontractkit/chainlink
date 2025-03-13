@@ -13,8 +13,8 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -95,90 +95,6 @@ func decodeTokenDestGasOverhead(destExecData []byte) (uint32, error) {
 		return 0, fmt.Errorf("expected uint32, got %T", ifaces[0])
 	}
 	return ifaces[0].(uint32), nil
-}
-
-// GetEVMChainReaderConfig returns the chain reader config for the given chain
-func GetEVMChainReaderConfig(
-	lggr logger.Logger,
-	chainID string,
-	destChainID string,
-	homeChainID string,
-	ofc cctypes.OffChainConfig,
-	chainSelector cciptypes.ChainSelector,
-) ([]byte, error) {
-	var chainReaderConfig evmrelaytypes.ChainReaderConfig
-	if chainID == destChainID {
-		chainReaderConfig = evmconfig.DestReaderConfig
-	} else {
-		chainReaderConfig = evmconfig.SourceReaderConfig
-	}
-
-	if !ofc.CommitEmpty() && ofc.Commit().PriceFeedChainSelector == chainSelector {
-		lggr.Debugw("Adding feed reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
-	}
-
-	if isUSDCEnabled(ofc) {
-		lggr.Debugw("Adding USDC reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.USDCReaderConfig)
-	}
-
-	if chainID == homeChainID {
-		lggr.Debugw("Adding home chain reader config", "chainID", chainID)
-		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
-	}
-
-	marshaledConfig, err := json.Marshal(chainReaderConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
-	}
-
-	return marshaledConfig, nil
-}
-
-// GetEVMChainWriter returns a new EVM chain writer
-func GetEVMChainWriter(
-	ctx context.Context,
-	chainID string,
-	relayer loop.Relayer,
-	transmitters map[types.RelayID][]string,
-	execBatchGasLimit uint64,
-	chainFamily string,
-	offrampProgramAddress []byte,
-) (types.ContractWriter, error) {
-	var fromAddress common.Address
-	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
-	if ok {
-		fromAddress = common.HexToAddress(transmitter[0])
-	}
-
-	evmConfig, err := evmconfig.ChainWriterConfigRaw(
-		fromAddress,
-		defaultCommitGasLimit,
-		execBatchGasLimit)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
-	}
-
-	chainWriterConfig, err := json.Marshal(evmConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
-	}
-
-	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID, err)
-	}
-
-	return cw, nil
-}
-
-func isUSDCEnabled(ofc cctypes.OffChainConfig) bool {
-	if ofc.ExecEmpty() {
-		return false
-	}
-
-	return ofc.Exec().IsUSDCEnabled()
 }
 
 // CCIPMsgToAny2EVMMessage converts a ccipocr3.Message object to an offramp.InternalAny2EVMRampMessage object.

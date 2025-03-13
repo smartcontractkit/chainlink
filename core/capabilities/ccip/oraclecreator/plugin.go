@@ -9,6 +9,9 @@ import (
 	"github.com/google/uuid"
 	"github.com/prometheus/client_golang/prometheus"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/libocr/commontypes"
 	libocr3 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -124,7 +127,7 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	pluginConfig, err := cctypes.CreatePluginConfig(destChainFamily)
+	pluginConfig, err := ccipcommon.NewPluginConfigFactory(ccipevm.PluginConfig{}, ccipsolana.PluginConfig{}).CreatePluginConfig(destChainFamily)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create plugin config: %w", err)
 	}
@@ -249,7 +252,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 	publicConfig ocr3confighelper.PublicConfig,
 	chainFamily string,
 	destChainID string,
-	pluginConfig cctypes.PluginConfig,
+	pluginConfig ccipcommon.PluginConfig,
 	offrampAddrStr string,
 ) (ocr3types.ReportingPluginFactory[[]byte], ocr3types.ContractTransmitter[[]byte], error) {
 	var factory ocr3types.ReportingPluginFactory[[]byte]
@@ -333,7 +336,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 	config cctypes.OCR3ConfigWithMeta,
 	publicCfg ocr3confighelper.PublicConfig,
 	destChainFamily string,
-	pluginConfig cctypes.PluginConfig,
+	pluginConfig ccipcommon.PluginConfig,
 	destAddrStr string,
 ) (
 	map[cciptypes.ChainSelector]types.ContractReader,
@@ -423,29 +426,29 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 func decodeAndValidateOffchainConfig(
 	pluginType cctypes.PluginType,
 	publicConfig ocr3confighelper.PublicConfig,
-) (cctypes.OffChainConfig, error) {
-	var ofc cctypes.OffChainConfig
+) (ccipcommon.OffChainConfig, error) {
+	var ofc ccipcommon.OffChainConfig
 	if pluginType == cctypes.PluginTypeCCIPExec {
 		execOffchainCfg, err1 := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
-			return cctypes.OffChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
+			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode execute offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
 		}
 		if err2 := execOffchainCfg.Validate(); err2 != nil {
-			return cctypes.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
+			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate execute offchain config: %w", err2)
 		}
 		ofc.ExecOffchainConfig = &execOffchainCfg
 	} else if pluginType == cctypes.PluginTypeCCIPCommit {
 		commitOffchainCfg, err1 := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err1 != nil {
-			return cctypes.OffChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
+			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to decode commit offchain config: %w, raw: %s", err1, string(publicConfig.ReportingPluginConfig))
 		}
 		if err2 := commitOffchainCfg.ApplyDefaultsAndValidate(); err2 != nil {
-			return cctypes.OffChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
+			return ccipcommon.OffChainConfig{}, fmt.Errorf("failed to validate commit offchain config: %w", err2)
 		}
 		ofc.CommitOffchainConfig = &commitOffchainCfg
 	}
 	if !ofc.IsValid() {
-		return cctypes.OffChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
+		return ccipcommon.OffChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
 }
