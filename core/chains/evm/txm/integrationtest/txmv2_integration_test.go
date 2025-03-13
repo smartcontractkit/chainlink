@@ -1,6 +1,7 @@
 package integrationtest
 
 import (
+	"bytes"
 	"context"
 	"encoding/hex"
 	"fmt"
@@ -14,19 +15,19 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/eth/ethconfig"
+	"github.com/ethereum/go-ethereum/rpc"
 	"github.com/google/uuid"
 	"github.com/hashicorp/consul/sdk/freeport"
 	clcommonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
-
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
@@ -197,6 +198,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	_, err = operatorInstance.AcceptAuthorizedReceivers(contractOwner, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
 	require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
+	backend.Commit()
 	t.Logf("Accepted authorized forwarder")
 
 	// TODO(gg): track forwarder:
@@ -255,7 +257,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// 9. Configure the dual aggregator contracts
 	// S, oracleIdentities, err := getOracleIdentitiesWithKeyIndexLocal(workerNodes, 0)
-	s := []int{1}
+	s := []int{1, 2, 2}
 
 	onchainPkBytes, err := hex.DecodeString(node.KeyBundle.OnChainPublicKey())
 	require.NoError(t, err, "Failed to decode on-chain public key")
@@ -272,7 +274,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
 	}
 
-	signerKeys, transmitters, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
+	signerKeys, _, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
 		30*time.Second, // deltaProgress time.Duration,
 		30*time.Second, // deltaResend time.Duration,
 		10*time.Second, // deltaRound time.Duration,
@@ -280,7 +282,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		20*time.Second, // deltaStage time.Duration,
 		3,              // rMax uint8,
 		s,              // s []int,
-		[]confighelper.OracleIdentityExtra{oracleIdentityExtra}, // oracles []OracleIdentityExtra,
+		[]confighelper.OracleIdentityExtra{oracleIdentityExtra, oracleIdentityExtra, oracleIdentityExtra}, // oracles []OracleIdentityExtra,
 		median.OffchainConfig{
 			AlphaReportInfinite: false,
 			AlphaReportPPB:      1,
@@ -300,16 +302,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoError(t, err, "Failed to create contract configuration")
 
 	// Convert signers to addresses
-	var signerAddresses []common.Address
-	for _, signer := range signerKeys {
-		signerAddresses = append(signerAddresses, common.BytesToAddress(signer))
-	}
+	signerAddresses := []common.Address{common.BytesToAddress(signerKeys[0]), common.HexToAddress("0xAD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0xCD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0x1D1479C185d32EB90533a08b36B3CFa5F84A0E6B")}
+	require.Greater(t, len(signerAddresses), 3, "Expected more than 3 signers")
 
 	// Convert transmitters to addresses (needed?)
-	var transmitterAddresses []common.Address
-	for _, transmitter := range transmitters {
-		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(fmt.Sprintf("%s", transmitter)))
-	}
+	transmitterAddresses := []common.Address{common.BytesToAddress(signerKeys[0]), common.HexToAddress("0xAD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0xCD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0x1D1479C185d32EB90533a08b36B3CFa5F84A0E6B")}
+	require.Equalf(t, len(signerAddresses), len(transmitterAddresses), "Expected the same number of signers and transmitters")
 
 	// TODO(gg): need this?
 	// // Replace transmitter with forwarders
@@ -329,9 +327,39 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(1), big.NewInt(50000000000000000)) // MinimumAnswer MaximumAnswer
 	require.NoError(t, err, "Failed to generate default ocr2 on-chain configuration")
 
+	t.Logf("signerAddresses: %#v", signerAddresses)
+	t.Logf("f: %d", f)
+	t.Logf("ok? %t", 3*f >= uint8(len(signerAddresses)))
 	_, err = dualAggregatorInstance.SetConfig(contractOwner, signerAddresses, transmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	if err != nil {
+		cerr, ok := err.(rpc.DataError)
+		if !ok {
+			t.Fatalf("Failed to configure dual aggregator contract: %v", err)
+		}
+		if cerr.ErrorData() != nil {
+			t.Logf("Decoding custom ABI error from tx error")
+			for k, abiError := range abi.Errors {
+				data, err := hex.DecodeString(cerr.ErrorData().(string)[2:])
+				if err != nil {
+					t.Fatalf("Failed to decode error data: %v", err)
+				}
+				if len(data) < 4 {
+					t.Fatalf("Error data too short: %v", data)
+				}
+				if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
+					// Found a matching error
+					v, err := abiError.Unpack(data)
+					if err != nil {
+						t.Fatalf("Failed to unpack error data: %v", err)
+					}
+					t.Fatalf("Failed to configure dual aggregator contract due to revert of type %s: %v", k, v)
+				}
+			}
+		}
+	}
 	require.NoError(t, err, "Failed to configure dual aggregator contract")
 	backend.Commit()
+	t.Logf("Configured dual aggregator contract")
 
 	// 3. Restart the nodes so TXMv2 can load the key for the secondary address // TODO(gg): needed?
 
@@ -440,6 +468,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		err := node.App.AddJobV2(context.Background(), jb)
 		require.NoError(t, err, "Failed to create feed job")
 	}
+
+	// TODO(gg): maybe node.App.GetFeedsService().UpdateChainConfig() after setting chain config on chain
+	// node.App.TxmStorageService().
 
 	nrOfBlocks := uint64(10)
 	currentBlock, err := backend.Client().BlockNumber(context.Background())
