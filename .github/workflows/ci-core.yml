@@ -293,7 +293,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests' }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@4cf9cee8c3cc411b7cf289bb7c128accdbdd846a # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7de18c7e14cf4a8bf47d80901bed8f4253c5693b # flakguard@0.1.0
   
       - name: Generate Flakeguard Test Reports
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -308,9 +308,13 @@ jobs:
             PROJECT_PATH="deployment"
           else
             PROJECT_PATH="."
-          fi          
+          fi
       
-          # 1. Generate the main test report
+          # Generate a UUID for the main report
+          MAIN_REPORT_ID=$(uuidgen) 
+          echo "Using Main Report ID: $MAIN_REPORT_ID"
+      
+          # 1. Generate the main test report with a fixed, generated report ID
           flakeguard generate-test-report \
             --test-results-dir ${{ matrix.type.cmd }}_flakeguard_results/main/test_results.json \
             --output-path ${{ matrix.type.cmd }}_flakeguard_report/main \
@@ -321,8 +325,8 @@ jobs:
             --head-sha "${{ github.sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --gen-report-id \
-            --project-path "$PROJECT_PATH"
+            --project-path "$PROJECT_PATH" \
+            --report-id "$MAIN_REPORT_ID" 
       
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
@@ -344,8 +348,8 @@ jobs:
               --head-sha "${{ github.sha }}" \
               --github-workflow-name "${{ github.workflow }}" \
               --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-              --gen-report-id \
-              --project-path "$PROJECT_PATH"
+              --project-path "$PROJECT_PATH" \
+              --rerun-of-report-id "$MAIN_REPORT_ID"
       
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ]; then
@@ -353,7 +357,6 @@ jobs:
               exit $EXIT_CODE
             fi
           fi
-      
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
