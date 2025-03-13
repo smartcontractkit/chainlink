@@ -2,35 +2,40 @@ package txutil
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/ethereum/go-ethereum"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // PreparedTx represents a transaction that was prepared but not sent to the chain. This is intended to be
-// either signed and executed directly or bundled into an MCMS operation. The internal Tx should be unsigned.
+// either signed and executed directly or bundled into an MCMS operation.
 type PreparedTx struct {
-	Tx                 *gethtypes.Transaction // unsigned transaction
-	ChainSelector      uint64
-	DestinationAddress string
-	ContractType       string
-	Tags               []string
+	Tx            *gethtypes.Transaction
+	ChainSelector uint64
+	ContractType  string
+	Tags          []string
 }
 
 type ExecuteTxResult struct {
-	Tx          PreparedTx
+	Tx          *PreparedTx
 	BlockNumber uint64
 }
 
 // SignAndExecute signs and then executes transactions directly on the chain with the given deployer key configured
 // for the chain. The transactions should not be already sent to the chain.
-func SignAndExecute(e deployment.Environment, preparedTxs []PreparedTx) ([]ExecuteTxResult, error) {
+func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
 	for _, tx := range preparedTxs {
 		chain := e.Chains[tx.ChainSelector]
-		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx.Tx)
+		reconfiguredTx, err := reconfigureTx(chain, tx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to reconfigure transaction: %w", err)
+		}
+		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, reconfiguredTx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sign transaction: %w", err)
 		}
 		tx.Tx = signedTx
 	}
@@ -39,20 +44,52 @@ func SignAndExecute(e deployment.Environment, preparedTxs []PreparedTx) ([]Execu
 
 // Execute executes the prepared transactions directly on the chain
 // the transactions should not be already sent to the chain
-func Execute(e deployment.Environment, preparedTxs []PreparedTx) ([]ExecuteTxResult, error) {
+func Execute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
 	var executeTxResults []ExecuteTxResult
 	for _, tx := range preparedTxs {
 		chain := e.Chains[tx.ChainSelector]
 		err := chain.Client.SendTransaction(context.Background(), tx.Tx)
+		tx.Tx.ChainId()
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to send transaction: %w", err)
 		}
 		blockNumber, err := chain.Confirm(tx.Tx)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to confirm transaction: %w", err)
 		}
+		e.Logger.Infow("Transaction confirmed", "blockNumber", blockNumber, "tx", tx)
 		executeTxResults = append(executeTxResults, ExecuteTxResult{Tx: tx, BlockNumber: blockNumber})
 	}
 
 	return executeTxResults, nil
+}
+
+// reconfigureTx takes the tx `call data` and reconfigures the transaction to use updated correct nonce, gas price and gas limit
+func reconfigureTx(chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
+	nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get nonce: %w", err)
+	}
+	gasPrice, err := chain.Client.SuggestGasPrice(context.Background())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get gas price: %w", err)
+	}
+	estimate, err := chain.Client.EstimateGas(context.Background(), ethereum.CallMsg{
+		From: chain.DeployerKey.From,
+		To:   preparedTx.Tx.To(),
+		Data: preparedTx.Tx.Data(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+	}
+
+	rawTx := gethtypes.NewTx(&gethtypes.LegacyTx{
+		Nonce:    nonce,
+		GasPrice: gasPrice,
+		Gas:      estimate,
+		To:       preparedTx.Tx.To(),
+		Value:    preparedTx.Tx.Value(),
+		Data:     preparedTx.Tx.Data(),
+	})
+	return rawTx, nil
 }
