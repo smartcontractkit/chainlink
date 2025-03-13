@@ -51,7 +51,7 @@ func TestSignAndExecute_ETHTransfer(t *testing.T) {
 	results, err := SignAndExecute(e, []*PreparedTx{preparedTx})
 	require.NoError(t, err)
 	require.Len(t, results, 1)
-	require.Greater(t, results[0].BlockNumber, uint64(0))
+	require.Positive(t, results[0].BlockNumber)
 
 	// Verify
 	newBalance, err := chain.Client.BalanceAt(e.GetContext(), recipient, nil)
