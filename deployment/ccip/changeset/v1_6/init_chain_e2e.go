@@ -5,12 +5,14 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"time"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
@@ -37,7 +39,11 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 	// Searches through the addressbook and check if that contract exist onchain (type and version)
 	// We need a way to pass in previous deployed addressBook here
 	// State only returns contracts from addressbook and check it's online state
-	// state, err := changeset.LoadOnchainState(env)
+
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
 
 	addressBook := deployment.NewMemoryAddressBook()
 	// batches := make([]mcmstypes.BatchOperation, 0)
@@ -94,23 +100,9 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 		return deployment.ChangesetOutput{}, fmt.Errorf("error running AddDonAndSetCandidateChangeset: %w", err)
 	}
 
-	for _, proposal := range output.MCMSTimelockProposals {
-		for _, p := range proposal.Operations {
-			for _, batchTx := range p.Transactions {
-				batchOperation, err := proposalutils.BatchOperationForChain(
-					uint64(p.ChainSelector),
-					batchTx.To,
-					batchTx.Data,
-					big.NewInt(0),
-					batchTx.ContractType,
-					batchTx.Tags,
-				)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
-				}
-				batches = append(batches, batchOperation)
-			}
-		}
+	batches, err = BatchProposal(output, batches)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 
 	output, err = SetCandidateChangeset(env, cfg.SetCandidateConfig)
@@ -118,23 +110,9 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 		return deployment.ChangesetOutput{}, fmt.Errorf("error running SetCandidateChangeset: %w", err)
 	}
 
-	for _, proposal := range output.MCMSTimelockProposals {
-		for _, p := range proposal.Operations {
-			for _, batchTx := range p.Transactions {
-				batchOperation, err := proposalutils.BatchOperationForChain(
-					uint64(p.ChainSelector),
-					batchTx.To,
-					batchTx.Data,
-					big.NewInt(0),
-					batchTx.ContractType,
-					batchTx.Tags,
-				)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
-				}
-				batches = append(batches, batchOperation)
-			}
-		}
+	batches, err = BatchProposal(output, batches)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 
 	output, err = PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
@@ -142,23 +120,9 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 		return deployment.ChangesetOutput{}, fmt.Errorf("error running PromoteCandidateChangeset: %w", err)
 	}
 
-	for _, proposal := range output.MCMSTimelockProposals {
-		for _, p := range proposal.Operations {
-			for _, batchTx := range p.Transactions {
-				batchOperation, err := proposalutils.BatchOperationForChain(
-					uint64(p.ChainSelector),
-					batchTx.To,
-					batchTx.Data,
-					big.NewInt(0),
-					batchTx.ContractType,
-					batchTx.Tags,
-				)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
-				}
-				batches = append(batches, batchOperation)
-			}
-		}
+	batches, err = BatchProposal(output, batches)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 
 	output, err = SetOCR3OffRampChangeset(env, cfg.Ocr3Config)
@@ -166,30 +130,43 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 		return deployment.ChangesetOutput{}, fmt.Errorf("error running SetOCR3OffRampChangeset: %w", err)
 	}
 
-	for _, proposal := range output.MCMSTimelockProposals {
-		for _, p := range proposal.Operations {
-			for _, batchTx := range p.Transactions {
-				batchOperation, err := proposalutils.BatchOperationForChain(
-					uint64(p.ChainSelector),
-					batchTx.To,
-					batchTx.Data,
-					big.NewInt(0),
-					batchTx.ContractType,
-					batchTx.Tags,
-				)
-				if err != nil {
-					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
-				}
-				batches = append(batches, batchOperation)
-			}
+	batches, err = BatchProposal(output, batches)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	// Store the timelocks, proposers, and inspectors for each chain.
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+	for _, op := range batches {
+		chainSel := uint64(op.ChainSelector)
+		timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+		proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(env, chainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
 		}
 	}
 
-	fmt.Println("Full batch proposal: ", batches)
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		env,
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
+		fmt.Sprintf("Running OCR3Config + setCandidate, PromoteCandidate on HomeChain"),
+		time.Duration(0),
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	}
+
+	fmt.Println("Full batch proposal: ", proposal)
 
 	return deployment.ChangesetOutput{
-		Proposals:   []timelock.MCMSWithTimelockProposal{},
-		AddressBook: addressBook,
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
+		AddressBook:           addressBook,
 	}, nil
 }
 
@@ -209,6 +186,29 @@ func MergeAddress(env deployment.Environment, existingAddressBook, newAddresses 
 	WriteFile("/Users/stackman/Desktop/chainlink-deployments/domains/ccip/staging-bix/addresses.json", addrs)
 
 	return nil
+}
+
+func BatchProposal(output deployment.ChangesetOutput, batches []mcmstypes.BatchOperation) ([]mcmstypes.BatchOperation, error) {
+	for _, proposal := range output.MCMSTimelockProposals {
+		for _, p := range proposal.Operations {
+			for _, batchTx := range p.Transactions {
+				batchOperation, err := proposalutils.BatchOperationForChain(
+					uint64(p.ChainSelector),
+					batchTx.To,
+					batchTx.Data,
+					big.NewInt(0),
+					batchTx.ContractType,
+					batchTx.Tags,
+				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+
+	return batches, nil
 }
 
 func WriteFile(path string, data any) error {
