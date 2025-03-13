@@ -290,12 +290,12 @@ jobs:
           GODEBUG=goindex=0
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
-      - name: Upload flakeguard main test report
+      - name: Upload Flakeguard Main Test Report as Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_main_report.json
-          path: ./tools/bin/${{ matrix.type.cmd }}_flakeguard_main_report.json
+          path: ${{ matrix.type.cmd }}_flakeguard_main_report.json
           retention-days: 7
           if-no-files-found: ignore
 
