@@ -9,7 +9,6 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -28,12 +27,11 @@ func NewPluginConfig(extraDataCodec cctypes.ExtraDataCodec) *PluginConfig {
 }
 
 func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:  NewCommitPluginCodecV1(),
-		ExecutePluginCodec: NewExecutePluginCodecV1(extraDataCodec),
+		ExecutePluginCodec: NewExecutePluginCodecV1(p.extraDataCodec),
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
-			return NewMessageHasherV1(lggr, extraDataCodec)
+			return NewMessageHasherV1(lggr, p.extraDataCodec)
 		},
 		TokenDataEncoder:     NewEVMTokenDataEncoder(),
 		GasEstimateProvider:  NewGasEstimateProvider(),
