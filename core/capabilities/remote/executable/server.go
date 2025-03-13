@@ -39,11 +39,11 @@ type server struct {
 	workflowDONs map[uint32]commoncap.DON
 	dispatcher   types.Dispatcher
 
-	requestIDToRequest map[string]requestAndMsgID
+	requestIDToRequest map[string]requestAndMsg
 	requestTimeout     time.Duration
 
 	// Used to detect messages with the same message id but different payloads
-	messageIDToRequestIDsCount map[string]map[string]int
+	messageIDToRequestIDs map[string]map[string]bool
 
 	receiveLock sync.Mutex
 	stopCh      services.StopChan
@@ -55,8 +55,9 @@ type server struct {
 var _ types.Receiver = &server{}
 var _ services.Service = &server{}
 
-type requestAndMsgID struct {
+type requestAndMsg struct {
 	request   *request.ServerRequest
+	message   *types.MessageBody
 	messageID string
 }
 
@@ -78,9 +79,9 @@ func NewServer(remoteExecutableConfig *commoncap.RemoteExecutableConfig, peerID 
 		workflowDONs: workflowDONs,
 		dispatcher:   dispatcher,
 
-		requestIDToRequest:         map[string]requestAndMsgID{},
-		messageIDToRequestIDsCount: map[string]map[string]int{},
-		requestTimeout:             requestTimeout,
+		requestIDToRequest:    map[string]requestAndMsg{},
+		messageIDToRequestIDs: map[string]map[string]bool{},
+		requestTimeout:        requestTimeout,
 
 		lggr:   lggr.Named("ExecutableCapabilityServer"),
 		stopCh: make(services.StopChan),
@@ -137,7 +138,7 @@ func (r *server) expireRequests() {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
 			delete(r.requestIDToRequest, requestID)
-			delete(r.messageIDToRequestIDsCount, executeReq.messageID)
+			delete(r.messageIDToRequestIDs, executeReq.messageID)
 		}
 	}
 }
@@ -171,17 +172,17 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	if requestIDs, ok := r.messageIDToRequestIDsCount[messageID]; ok {
-		requestIDs[requestID]++
-	} else {
-		r.messageIDToRequestIDsCount[messageID] = map[string]int{requestID: 1}
+	requestIDs := r.messageIDToRequestIDs[messageID]
+	if requestIDs == nil {
+		requestIDs = map[string]bool{}
+		r.messageIDToRequestIDs[messageID] = requestIDs
 	}
+	requestIDs[requestID] = true
 
-	requestIDs := r.messageIDToRequestIDsCount[messageID]
 	if len(requestIDs) > 1 {
 		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
 		// so a warning is logged
-		r.lggr.Warnw("received messages with the same id and different payloads", "messageID", messageID, "lenRequestIDs", len(requestIDs))
+		r.logNonDeterministicRequestsWarning(requestIDs, messageID)
 	}
 
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
@@ -191,9 +192,10 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			return
 		}
 
-		r.requestIDToRequest[requestID] = requestAndMsgID{
+		r.requestIDToRequest[requestID] = requestAndMsg{
 			request: request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
 				callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr),
+			message:   msg,
 			messageID: messageID,
 		}
 	}
@@ -210,10 +212,40 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 	}
 }
 
+func (r *server) logNonDeterministicRequestsWarning(requestIDs map[string]bool, messageID string) {
+	deterministicCapabilityRequests := make([]commoncap.CapabilityRequest, 0, len(requestIDs))
+	for reqID := range requestIDs {
+		req := r.requestIDToRequest[reqID]
+		deterministicCapabilityRequest, err := r.getDeterministicCapabilityRequest(req.message)
+		if err != nil {
+			r.lggr.Errorw("failed to get deterministic capability request", "err", err)
+			break
+		}
+
+		deterministicCapabilityRequests = append(deterministicCapabilityRequests, deterministicCapabilityRequest)
+	}
+
+	r.lggr.Warnw("received messages with the same id and different capability requests", "messageID", messageID, "uniqueRequestsCount", len(requestIDs), "capabilityRequests", deterministicCapabilityRequests)
+}
+
 func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
+	req, err := r.getDeterministicCapabilityRequest(msg)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to get deterministic capability request: %w", err)
+	}
+
+	reqBytes, err := pb.MarshalCapabilityRequest(req)
+	if err != nil {
+		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
+	}
+	hash := sha256.Sum256(reqBytes)
+	return hash, nil
+}
+
+func (r *server) getDeterministicCapabilityRequest(msg *types.MessageBody) (commoncap.CapabilityRequest, error) {
 	req, err := pb.UnmarshalCapabilityRequest(msg.Payload)
 	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
+		return commoncap.CapabilityRequest{}, fmt.Errorf("failed to unmarshal capability request: %w", err)
 	}
 
 	// An attribute called StepDependency is used to define a data dependency between steps,
@@ -227,13 +259,7 @@ func (r *server) getMessageHash(msg *types.MessageBody) ([32]byte, error) {
 			req.Inputs.DeleteAtPath(path)
 		}
 	}
-
-	reqBytes, err := pb.MarshalCapabilityRequest(req)
-	if err != nil {
-		return [32]byte{}, fmt.Errorf("failed to marshal capability request: %w", err)
-	}
-	hash := sha256.Sum256(reqBytes)
-	return hash, nil
+	return req, nil
 }
 
 func GetMessageID(msg *types.MessageBody) (string, error) {
