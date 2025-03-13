@@ -1,6 +1,11 @@
 package deployment
 
-import "github.com/pkg/errors"
+import (
+	"fmt"
+	"strings"
+
+	"github.com/pkg/errors"
+)
 
 type URLSchemePreference int
 
@@ -10,16 +15,34 @@ const (
 	URLSchemePreferenceHTTP
 )
 
+func URLSchemePreferenceFromString(s string) (URLSchemePreference, error) {
+	switch strings.ToLower(s) {
+	case "none":
+		return URLSchemePreferenceNone, nil
+	case "ws":
+		return URLSchemePreferenceWS, nil
+	case "http":
+		return URLSchemePreferenceHTTP, nil
+	default:
+		return URLSchemePreferenceNone, fmt.Errorf("invalid URLSchemePreference: %s", s)
+	}
+}
+
+func (u *URLSchemePreference) UnmarshalText(text []byte) error {
+	preference, err := URLSchemePreferenceFromString(string(text))
+	if err != nil {
+		return err
+	}
+	*u = preference
+
+	return nil
+}
+
 type RPC struct {
 	Name               string
 	WSURL              string
 	HTTPURL            string
 	PreferredURLScheme URLSchemePreference
-}
-
-type RPCConfig struct {
-	ChainName string
-	RPCs      []RPC
 }
 
 // ToEndpoint returns the correct endpoint based on the preferred URL scheme
@@ -35,4 +58,11 @@ func (r RPC) ToEndpoint() (string, error) {
 	default:
 		return "", errors.New("Unknown URLSchemePreference")
 	}
+}
+
+// RPCConfig is a configuration for a chain.
+// It contains a chain selector and a list of RPCs
+type RPCConfig struct {
+	ChainSelector uint64
+	RPCs          []RPC
 }

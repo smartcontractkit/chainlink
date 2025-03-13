@@ -77,3 +77,54 @@ func TestRPC_ToEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestURLSchemePreferenceFromString(t *testing.T) {
+	tests := []struct {
+		input    string
+		expected URLSchemePreference
+		wantErr  string
+	}{
+		{input: "none", expected: URLSchemePreferenceNone},
+		{input: "ws", expected: URLSchemePreferenceWS},
+		{input: "http", expected: URLSchemePreferenceHTTP},
+		{input: "invalid", wantErr: "invalid URLSchemePreference: invalid"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := URLSchemePreferenceFromString(tt.input)
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, got)
+			}
+		})
+	}
+}
+
+func TestURLSchemePreference_UnmarshalText(t *testing.T) {
+	tests := []struct {
+		input    []byte
+		expected URLSchemePreference
+		wantErr  string
+	}{
+		{input: []byte("none"), expected: URLSchemePreferenceNone},
+		{input: []byte("ws"), expected: URLSchemePreferenceWS},
+		{input: []byte("http"), expected: URLSchemePreferenceHTTP},
+		{input: []byte("invalid"), wantErr: "invalid URLSchemePreference: invalid"},
+	}
+
+	for _, tt := range tests {
+		t.Run(string(tt.input), func(t *testing.T) {
+			var got URLSchemePreference
+			err := got.UnmarshalText(tt.input)
+			if tt.wantErr != "" {
+				require.EqualError(t, err, tt.wantErr)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tt.expected, got)
+			}
+		})
+	}
+}
