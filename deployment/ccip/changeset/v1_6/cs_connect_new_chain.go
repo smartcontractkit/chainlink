@@ -24,14 +24,29 @@ import (
 // This changeset enforces that the onRamp, offRamp, and router contracts on other chains are already owned by MCMS, regardless of the desired router.
 var ConnectNewChainChangeset = deployment.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
 
-// ConnectNewChainConfig is a configuration struct for ConnectNewChainChangeset.
-type ConnectNewChainConfig struct {
-	NewChainSelector     uint64
-	RemoteChainSelectors []uint64
-	TestRouter           *bool
-	MCMSConfig           *changeset.MCMSConfig
+// ConnectionConfig defines how a chain should connect with other chains
+type ConnectionConfig struct {
+	// RMNVerificationDisabled is true if we do not want the RMN to bless messages from this chain.
+	RMNVerificationDisabled bool
+	// AllowListEnabled is true if we want an allowlist to dictate who can send messages to this chain.
+	AllowListEnabled bool
 }
 
+// ConnectNewChainConfig is a configuration struct for ConnectNewChainChangeset.
+type ConnectNewChainConfig struct {
+	// NewChainSelector is the selector of the new chain to connect.
+	NewChainSelector uint64
+	// NewChainConnectionConfig defines how the new chain should connect with other chains.
+	NewChainConnectionConfig ConnectionConfig
+	// RemoteChains are the chains to connect the new chain to.
+	RemoteChains map[uint64]ConnectionConfig
+	// TestRouter is true if we want to connect via test routers.
+	TestRouter *bool
+	// MCMSConfig is the MCMS configuration.
+	MCMSConfig *changeset.MCMSConfig
+}
+
+// ValidateNewChain validates the new chain.
 func (c ConnectNewChainConfig) ValidateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.NewChainSelector)
 	if err != nil {
@@ -51,8 +66,9 @@ func (c ConnectNewChainConfig) ValidateNewChain(env deployment.Environment, stat
 	return nil
 }
 
+// ValidateRemoteChains validates the remote chains.
 func (c ConnectNewChainConfig) ValidateRemoteChains(env deployment.Environment, state changeset.CCIPOnChainState) error {
-	for _, remoteChainSelector := range c.RemoteChainSelectors {
+	for remoteChainSelector := range c.RemoteChains {
 		err := deployment.IsValidChainSelector(remoteChainSelector)
 		if err != nil {
 			return fmt.Errorf("chain selector is invalid: %w", err)
@@ -82,24 +98,32 @@ func (c ConnectNewChainConfig) validateChain(ctx context.Context, state changese
 	if state.Router == nil {
 		return errors.New("router contract not found")
 	}
-	if state.MCMSWithTimelockState.ProposerMcm == nil {
+	if state.TestRouter == nil {
+		return errors.New("test router contract not found")
+	}
+	if state.ProposerMcm == nil {
 		return errors.New("proposerMcm contract not found")
 	}
-	if state.MCMSWithTimelockState.Timelock == nil {
+	if state.Timelock == nil {
 		return errors.New("timelock contract not found")
 	}
 
-	err := commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.MCMSWithTimelockState.Timelock.Address(), state.OnRamp)
+	err := commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.Timelock.Address(), state.OnRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of onRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.MCMSWithTimelockState.Timelock.Address(), state.OffRamp)
+	err = commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.Timelock.Address(), state.OffRamp)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of offRamp: %w", err)
 	}
-	err = commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.MCMSWithTimelockState.Timelock.Address(), state.Router)
+	err = commoncs.ValidateOwnership(ctx, ownedByMCMS, deployerKey, state.Timelock.Address(), state.Router)
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of router: %w", err)
+	}
+	// Test router should always be owned by deployer key
+	err = commoncs.ValidateOwnership(ctx, false, deployerKey, state.Timelock.Address(), state.TestRouter)
+	if err != nil {
+		return fmt.Errorf("failed to validate ownership of test router: %w", err)
 	}
 
 	return nil
@@ -201,12 +225,12 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	if !*c.TestRouter {
 		mcmsConfig = c.MCMSConfig
 	}
-	allEnablementProposals, err = enableProductionRouter(env, c.NewChainSelector, c.RemoteChainSelectors, mcmsConfig, allEnablementProposals)
+	allEnablementProposals, err = connectRampsAndRouters(env, c.NewChainSelector, c.RemoteChains, mcmsConfig, *c.TestRouter, allEnablementProposals)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to enable production router on chain with selector %d: %w", c.NewChainSelector, err)
 	}
-	for _, remoteChainSelector := range c.RemoteChainSelectors {
-		allEnablementProposals, err = enableProductionRouter(env, remoteChainSelector, []uint64{c.NewChainSelector}, c.MCMSConfig, allEnablementProposals)
+	for remoteChainSelector := range c.RemoteChains {
+		allEnablementProposals, err = connectRampsAndRouters(env, remoteChainSelector, map[uint64]ConnectionConfig{c.NewChainSelector: c.NewChainConnectionConfig}, c.MCMSConfig, *c.TestRouter, allEnablementProposals)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to enable production router on chain with selector %d: %w", remoteChainSelector, err)
 		}
@@ -268,22 +292,23 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-// enableProductionRouter updates the onRamp and offRamp to point at the production router for the given remote chains.
-// It also sets the onRamp and offRamp on the production router for the given remote chains.
+// connectRampsAndRouters updates the onRamp and offRamp to point at the router for the given remote chains.
+// It also sets the onRamp and offRamp on the router for the given remote chains.
 // This function will add the proposals required to make these changes to the proposalAggregate slice.
-func enableProductionRouter(
+func connectRampsAndRouters(
 	e deployment.Environment,
 	chainSelector uint64,
-	remoteChainSelectors []uint64,
+	remoteChains map[uint64]ConnectionConfig,
 	mcmsConfig *changeset.MCMSConfig,
+	testRouter bool,
 	proposalAggregate []mcmslib.TimelockProposal,
 ) ([]mcmslib.TimelockProposal, error) {
 	// Update offRamp sources on the new chain.
-	offRampUpdatesOnNew := make(map[uint64]OffRampSourceUpdate, len(remoteChainSelectors))
-	for _, remoteChainSelector := range remoteChainSelectors {
+	offRampUpdatesOnNew := make(map[uint64]OffRampSourceUpdate, len(remoteChains))
+	for remoteChainSelector, remoteChain := range remoteChains {
 		offRampUpdatesOnNew[remoteChainSelector] = OffRampSourceUpdate{
-			TestRouter:                false,
-			IsRMNVerificationDisabled: true, // TODO: We should eventually accept this as input.
+			TestRouter:                testRouter,
+			IsRMNVerificationDisabled: remoteChain.RMNVerificationDisabled,
 			IsEnabled:                 true,
 		}
 	}
@@ -300,11 +325,11 @@ func enableProductionRouter(
 	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
 
 	// Update onRamp destinations on the new chain.
-	onRampUpdatesOnNew := make(map[uint64]OnRampDestinationUpdate, len(remoteChainSelectors))
-	for _, remoteChainSelector := range remoteChainSelectors {
+	onRampUpdatesOnNew := make(map[uint64]OnRampDestinationUpdate, len(remoteChains))
+	for remoteChainSelector, remoteChain := range remoteChains {
 		onRampUpdatesOnNew[remoteChainSelector] = OnRampDestinationUpdate{
-			TestRouter:       false,
-			AllowListEnabled: false, // TODO: We should eventually accept this as input.
+			TestRouter:       testRouter,
+			AllowListEnabled: remoteChain.AllowListEnabled,
 			IsEnabled:        true,
 		}
 	}
@@ -321,21 +346,25 @@ func enableProductionRouter(
 	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
 
 	// Update router ramps on the new chain.
-	offRampUpdates := make(map[uint64]bool, len(remoteChainSelectors))
-	onRampUpdates := make(map[uint64]bool, len(remoteChainSelectors))
-	for _, remoteChainSelector := range remoteChainSelectors {
+	offRampUpdates := make(map[uint64]bool, len(remoteChains))
+	onRampUpdates := make(map[uint64]bool, len(remoteChains))
+	for remoteChainSelector := range remoteChains {
 		offRampUpdates[remoteChainSelector] = true
 		onRampUpdates[remoteChainSelector] = true
 	}
+	cfg := mcmsConfig
+	if testRouter {
+		cfg = nil
+	}
 	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
-		TestRouter: false,
+		TestRouter: testRouter,
 		UpdatesByChain: map[uint64]RouterUpdates{
 			chainSelector: RouterUpdates{
 				OnRampUpdates:  onRampUpdates,
 				OffRampUpdates: offRampUpdates,
 			},
 		},
-		MCMS:               mcmsConfig,
+		MCMS:               cfg,
 		SkipOwnershipCheck: true,
 	})
 	if err != nil {
