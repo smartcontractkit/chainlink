@@ -173,7 +173,7 @@ jobs:
       fail-fast: false
       matrix:
         type:
-          - cmd: USE_FLAKEGUARD=true go_core_tests
+          - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
@@ -284,6 +284,7 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          USE_FLAKEGUARD: true 
         run: |
           # See: https://github.com/golang/go/issues/69179
           GODEBUG=goindex=0
