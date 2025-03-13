@@ -136,8 +136,9 @@ func TestCalculateMaxGas(t *testing.T) {
 				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),
 				ExtraArgs:    tt.extraArgs,
 			}
-			ep := EstimateProvider{}
 
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			ep := EstimateProvider{extraDataCodec: ExtraDataCodec}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
 			t.Log("want", tt.want, "got", gotTree+gotMsg)
