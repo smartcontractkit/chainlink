@@ -481,7 +481,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 		}
 
 		// sanity check by decoding the secrets
-		_, decryptErr := h.decryptSecrets(secrets, string(payload.WorkflowOwner))
+		_, decryptErr := h.decryptSecrets(secrets, hex.EncodeToString(payload.WorkflowOwner))
 		if decryptErr != nil {
 			return fmt.Errorf("failed to decrypt secrets %s: %w", payload.SecretsURL, decryptErr)
 		}
