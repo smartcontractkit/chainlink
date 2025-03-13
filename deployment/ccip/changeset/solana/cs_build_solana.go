@@ -215,7 +215,7 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 			[]string{
 				"release",
 				"download",
-				fmt.Sprintf("solana-artifacts-localtest-%s", config.GitCommitSha),
+				"solana-artifacts-localtest-" + config.GitCommitSha,
 				"--clobber",
 				"--repo",
 				repoOrgAndName,
