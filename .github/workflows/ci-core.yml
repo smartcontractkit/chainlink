@@ -290,6 +290,15 @@ jobs:
           GODEBUG=goindex=0
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
+      - name: Upload flakeguard main test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_main_report.json
+          path: ./tools/bin/${{ matrix.type.cmd }}_flakeguard_main_report.json
+          retention-days: 7
+          if-no-files-found: ignore
+
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
