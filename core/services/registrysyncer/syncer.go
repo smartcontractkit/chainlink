@@ -325,7 +325,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	}
 
 	for _, h := range s.launchers {
-		lrCopy := deepCopyLocalRegistry(latestRegistry)
+		lrCopy := DeepCopyLocalRegistry(latestRegistry)
 		if err := h.Launch(ctx, &lrCopy); err != nil {
 			s.lggr.Errorf("error calling launcher: %s", err)
 			s.metrics.incrementLauncherFailureCounter(ctx)
@@ -335,7 +335,7 @@ func (s *registrySyncer) Sync(ctx context.Context, isInitialSync bool) error {
 	return nil
 }
 
-func deepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
+func DeepCopyLocalRegistry(lr *LocalRegistry) LocalRegistry {
 	var lrCopy LocalRegistry
 	lrCopy.lggr = lr.lggr
 	lrCopy.getPeerID = lr.getPeerID

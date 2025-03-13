@@ -3,7 +3,9 @@ package capabilities_test
 import (
 	"context"
 	"crypto/rand"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -29,9 +31,6 @@ import (
 )
 
 func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
-	ctx := tests.Context(t)
-	lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-
 	m, err := values.NewMap(map[string]any{"response": "response1"})
 	require.NoError(t, err)
 	capabilityResponse := commoncap.CapabilityResponse{
@@ -40,24 +39,52 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 	rawResponse, err := pb.MarshalCapabilityResponse(capabilityResponse)
 	require.NoError(t, err)
 
+	executeReceiveSafetly := func(ctx context.Context, receiver remotetypes.Receiver, msgBody *remotetypes.MessageBody) {
+		// Create a wait group to ensure message processing completes
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			receiver.Receive(ctx, msgBody)
+		}()
+
+		// Wait for message processing with timeout
+		doneCh := make(chan struct{})
+		go func() {
+			wg.Wait()
+			close(doneCh)
+		}()
+
+		select {
+		case <-doneCh:
+			// Message processing completed
+		case <-time.After(5 * time.Second):
+			t.Fatal("timeout waiting for message processing")
+		}
+	}
+
 	t.Run("receiver receives request from registered don", func(t *testing.T) {
+		ctx := tests.Context(t)
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		var receiver remotetypes.Receiver
-		workflowDonID, workflowsNodes := testSetup(t, ctx, lggr, &receiver)
+		th := setup(ctx, t, lggr, &receiver)
 		msgBody := &remotetypes.MessageBody{
 			Method:      remotetypes.MethodExecute,
 			MessageId:   []byte("message_id"),
 			Payload:     rawResponse,
-			CallerDonId: workflowDonID,
-			Sender:      workflowsNodes[0][:],
+			CallerDonId: th.workflowDonID,
+			Sender:      th.workflowsNodes[0][:],
 		}
 
-		receiver.Receive(ctx, msgBody)
-		assert.Equal(t, 0, len(observedLogs.FilterMessage("received request from unregistered don").All()))
+		executeReceiveSafetly(ctx, receiver, msgBody)
+		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
 
 	t.Run("receiver receives request from an unregistered don", func(t *testing.T) {
+		ctx := tests.Context(t)
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		var receiver remotetypes.Receiver
-		_, workflowsNodes := testSetup(t, ctx, lggr, &receiver)
+		th := setup(ctx, t, lggr, &receiver)
 
 		unregisteredDonID := uint32(3)
 		msgBody := &remotetypes.MessageBody{
@@ -65,15 +92,92 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			MessageId:   []byte("message_id"),
 			Payload:     rawResponse,
 			CallerDonId: unregisteredDonID,
-			Sender:      workflowsNodes[0][:],
+			Sender:      th.workflowsNodes[0][:],
 		}
 
-		receiver.Receive(ctx, msgBody)
-		assert.Equal(t, 1, len(observedLogs.FilterMessage("received request from unregistered don").All()))
+		executeReceiveSafetly(ctx, receiver, msgBody)
+		assert.Len(t, observedLogs.FilterMessage("received request from unregistered don").All(), 1)
+	})
+
+	t.Run("receivers get updated when adding a new don", func(t *testing.T) {
+		ctx := tests.Context(t)
+		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+		var receiver remotetypes.Receiver
+		th := setup(ctx, t, lggr, &receiver)
+
+		// add a new workflow don
+		newWorkflowDonID := uint32(3)
+		newWorkflowsNodes := []ragetypes.PeerID{
+			randomWord(),
+			randomWord(),
+			randomWord(),
+			randomWord(),
+		}
+		th.state.IDsToDONs[registrysyncer.DonID(newWorkflowDonID)] = registrysyncer.DON{
+			DON: capabilities.DON{
+				ID:               newWorkflowDonID,
+				ConfigVersion:    uint32(0),
+				F:                uint8(1),
+				IsPublic:         true,
+				AcceptsWorkflows: true,
+				Members:          newWorkflowsNodes,
+			},
+		}
+
+		th.state.IDsToNodes[newWorkflowsNodes[0]] = kcr.INodeInfoProviderNodeInfo{
+			NodeOperatorId:      1,
+			Signer:              randomWord(),
+			P2pId:               newWorkflowsNodes[0],
+			EncryptionPublicKey: randomWord(),
+			HashedCapabilityIds: [][32]byte{th.computeCapID},
+		}
+		th.state.IDsToNodes[newWorkflowsNodes[1]] = kcr.INodeInfoProviderNodeInfo{
+			NodeOperatorId:      1,
+			Signer:              randomWord(),
+			P2pId:               newWorkflowsNodes[1],
+			EncryptionPublicKey: randomWord(),
+			HashedCapabilityIds: [][32]byte{th.computeCapID},
+		}
+		th.state.IDsToNodes[newWorkflowsNodes[2]] = kcr.INodeInfoProviderNodeInfo{
+			NodeOperatorId:      1,
+			Signer:              randomWord(),
+			P2pId:               newWorkflowsNodes[2],
+			EncryptionPublicKey: randomWord(),
+			HashedCapabilityIds: [][32]byte{th.computeCapID},
+		}
+		th.state.IDsToNodes[newWorkflowsNodes[3]] = kcr.INodeInfoProviderNodeInfo{
+			NodeOperatorId:      1,
+			Signer:              randomWord(),
+			P2pId:               newWorkflowsNodes[3],
+			EncryptionPublicKey: randomWord(),
+			HashedCapabilityIds: [][32]byte{th.computeCapID},
+		}
+
+		err = th.launcher.Launch(ctx, &th.state)
+		require.NoError(t, err)
+
+		msgBody := &remotetypes.MessageBody{
+			Method:      remotetypes.MethodExecute,
+			MessageId:   []byte("message_id"),
+			Payload:     rawResponse,
+			CallerDonId: newWorkflowDonID,
+			Sender:      newWorkflowsNodes[0][:],
+		}
+
+		executeReceiveSafetly(ctx, receiver, msgBody)
+		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
 }
 
-func testSetup(t *testing.T, ctx context.Context, lggr logger.Logger, receiver *remotetypes.Receiver) (uint32, []ragetypes.PeerID) {
+type testHarness struct {
+	workflowDonID  uint32
+	workflowsNodes []ragetypes.PeerID
+	launcher       registrysyncer.Launcher
+	state          registrysyncer.LocalRegistry
+	computeCapID   [32]byte
+}
+
+func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receiver *remotetypes.Receiver) testHarness {
 	registry := corecapabilities.NewRegistry(lggr)
 	fullComputeCapID := "custom-compute@1.0.0"
 	mt := newMockAction(capabilities.MustNewCapabilityInfo(
@@ -119,6 +223,10 @@ func testSetup(t *testing.T, ctx context.Context, lggr logger.Logger, receiver *
 		randomWord(),
 	}
 
+	// The below state describes a Workflow DON (AcceptsWorkflows = true),
+	// And a Capabilities DON that exposes the Compute capability.
+	// We expect the launcher to use a deep copy of the state,
+	// making it able to modify the state without affecting the original state.
 	state := &registrysyncer.LocalRegistry{
 		IDsToDONs: map[registrysyncer.DonID]registrysyncer.DON{
 			registrysyncer.DonID(workflowDonID): {
@@ -217,8 +325,15 @@ func testSetup(t *testing.T, ctx context.Context, lggr logger.Logger, receiver *
 
 	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
+	stateCopy := registrysyncer.DeepCopyLocalRegistry(state)
 
-	return workflowDonID, workflowsNodes
+	return testHarness{
+		workflowDonID:  workflowDonID,
+		workflowsNodes: workflowsNodes,
+		launcher:       launcher,
+		state:          stateCopy,
+		computeCapID:   computeCapID,
+	}
 }
 
 var _ capabilities.ActionCapability = (*mockAction)(nil)
