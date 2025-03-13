@@ -385,7 +385,7 @@ func ManuallyExecuteAll(
 			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
 			lookbackDuration,
 			reExecuteIfFailed,
-			extraDataCodec
+			extraDataCodec,
 		)
 		if err != nil {
 			return err
