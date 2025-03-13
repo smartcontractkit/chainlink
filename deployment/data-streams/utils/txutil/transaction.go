@@ -31,11 +31,11 @@ func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]Exec
 		chain := e.Chains[tx.ChainSelector]
 		reconfiguredTx, err := reconfigureTx(chain, tx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to reconfigure transaction: %w", err)
+			return nil, fmt.Errorf("chain %d: failed to reconfigure transaction: %w", chain.Selector, err)
 		}
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, reconfiguredTx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to sign transaction: %w", err)
+			return nil, fmt.Errorf("chain %d: failed to sign transaction: %w", chain.Selector, err)
 		}
 		tx.Tx = signedTx
 	}
@@ -51,11 +51,11 @@ func Execute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxRe
 		err := chain.Client.SendTransaction(context.Background(), tx.Tx)
 		tx.Tx.ChainId()
 		if err != nil {
-			return nil, fmt.Errorf("failed to send transaction: %w", err)
+			return nil, fmt.Errorf("chain %d: failed to send transaction: %w", chain.Selector, err)
 		}
 		blockNumber, err := chain.Confirm(tx.Tx)
 		if err != nil {
-			return nil, fmt.Errorf("failed to confirm transaction: %w", err)
+			return nil, fmt.Errorf("chain %d: failed to confirm transaction: %w", chain.Selector, err)
 		}
 		e.Logger.Infow("Transaction confirmed", "blockNumber", blockNumber, "tx", tx)
 		executeTxResults = append(executeTxResults, ExecuteTxResult{Tx: tx, BlockNumber: blockNumber})
@@ -68,11 +68,11 @@ func Execute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxRe
 func reconfigureTx(chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.Transaction, error) {
 	nonce, err := chain.Client.NonceAt(context.Background(), chain.DeployerKey.From, nil)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get nonce: %w", err)
+		return nil, fmt.Errorf("chain %d: failed to get nonce: %w", chain.Selector, err)
 	}
 	gasPrice, err := chain.Client.SuggestGasPrice(context.Background())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get gas price: %w", err)
+		return nil, fmt.Errorf("chain %d: failed to get gas price: %w", chain.Selector, err)
 	}
 	estimate, err := chain.Client.EstimateGas(context.Background(), ethereum.CallMsg{
 		From: chain.DeployerKey.From,
@@ -80,7 +80,7 @@ func reconfigureTx(chain deployment.Chain, preparedTx *PreparedTx) (*gethtypes.T
 		Data: preparedTx.Tx.Data(),
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to estimate gas: %w", err)
+		return nil, fmt.Errorf("chain %d: failed to estimate gas: %w", chain.Selector, err)
 	}
 
 	rawTx := gethtypes.NewTx(&gethtypes.LegacyTx{
