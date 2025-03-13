@@ -9,7 +9,7 @@ EXTRA_FLAGS="-timeout 20m"
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@251c735bb9feb63190b7380ac61b2a3b1002c7b3
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c0324c9ab3ccea4ea76b4e1680aafb4a3af698d6
   PATH=$PATH:$(go env GOPATH)/bin
   export PATH
 
@@ -22,8 +22,8 @@ if [[ -n "$USE_FLAKEGUARD" ]]; then
     --min-pass-ratio=1 \
     --go-test-timeout=20m \
     --omit-test-outputs-on-success=true \
-    --main-report-path="go_core_tests_flakeguard_main_report.json" \
-    --rerun-report-path="go_core_tests_flakeguard_rerun_report.json"
+    --main-results-path="go_core_tests_flakeguard_results/main/test_results.json" \
+    --rerun-results-path="go_core_tests_flakeguard_results/rerun/test_results.json"
   EXITCODE=${PIPESTATUS[0]}
 else
   if [[ $GITHUB_EVENT_NAME == "schedule" ]]; then

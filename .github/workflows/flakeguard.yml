@@ -440,9 +440,7 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          current_branch_name="${{ github.head_ref || github.ref_name }} "
-
-          # Aggregate Flakeguard test results
+          # Aggregate all Flakeguard test results into a single report
           flakeguard aggregate-results \
             --results-path ./ci_test_results \
             --output-path ./flakeguard-report \
@@ -450,7 +448,7 @@ jobs:
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO" \
             --repo-url "$GH_INPUTS_REPO_URL" \
-            --branch-name "$current_branch_name" \
+            --branch-name "${{ github.head_ref || github.ref_name }}" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \

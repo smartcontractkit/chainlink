@@ -290,19 +290,45 @@ jobs:
           GODEBUG=goindex=0
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
+      - name: Install flakeguard
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c0324c9ab3ccea4ea76b4e1680aafb4a3af698d6 # flakguard@0.1.0
+  
+      - name: Generate Flakeguard Main Test Report
+        if: always()
+        shell: bash
+        run: |
+          # Fix flakeguard binary path
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+
+          flakeguard generate-test-report \
+            --test-results-dir ${{ matrix.type.cmd }}_flakeguard_results/main/test_results.json \
+            --output-path ${{ matrix.type.cmd }}_flakeguard_report/main \
+            --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
+            --repo-path "${{ github.workspace }}" \
+            --repo-url "$GH_INPUTS_REPO_URL" \
+            --branch-name "${{ github.head_ref || github.ref_name }}" \
+            --head-sha "${{ github.sha }}" \
+            --github-workflow-name "${{ github.workflow }}" \
+            --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --gen-report-id
+
+          EXIT_CODE=$?
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "ERROR: Flakeguard encountered an error while sending report to Splunk"
+            exit $EXIT_CODE
+          fi
+
       - name: Upload Flakeguard Main Test Report as Artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.type.cmd }}_flakeguard_main_report.json
-          path: ${{ matrix.type.cmd }}_flakeguard_main_report.json
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_test_report.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
           retention-days: 7
-          if-no-files-found: ignore
+          if-no-files-found: ignore          
 
-      - name: Install flakeguard
-        shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@251c735bb9feb63190b7380ac61b2a3b1002c7b3 # flakguard@0.1.0
-  
       - name: Send Flakeguard Main Test Report to Splunk
         if: always()
         shell: bash
@@ -313,19 +339,11 @@ jobs:
 
           # Send the aggregated test report to Splunk
           flakeguard send-to-splunk \
-            --report-path ${{ matrix.type.cmd }}_flakeguard_main_report.json \
+            --report-path ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json \
             --splunk-url "splunk.example.com" \
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
             --splunk-event "${{ github.event_name }}"
-            --repo-url "$GH_INPUTS_REPO_URL" \
-            --repo-path "${{ github.workspace }}" \
-            --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \            
-            --branch-name "${{ github.head_ref || github.ref_name }}" \
-            --head-sha "${{ github.sha }}" \
-            --github-workflow-name "${{ github.workflow }}" \
-            --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
-            --gen-report-id
-
+           
           EXIT_CODE=$?
           if [ $EXIT_CODE -ne 0 ]; then
             echo "ERROR: Flakeguard encountered an error while sending report to Splunk"
