@@ -77,22 +77,20 @@ Go to `integration-tests/testconfig/ccip/ccip.toml` and change params as require
 ChaosMode = 2
 ```
 
-Then check chaos settings
+Then check chaos settings, change `Namespace`, `ExperimentFullInterval`, `ExperimentInjectionInterval` accordingly, add any dashboard UIDs you need
 ```
 [CCIP.Chaos]
-# works only with Load.CCIP.ChaosMode = 2
 Namespace = "crib-ccip-chaos-tests"
 # RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
 DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
 WaitBeforeStart = "30s"
+# works only with Load.CCIP.ChaosMode = 2
 # Chaos experiment total duration (chaos + recovery)
 ExperimentFullInterval = "10m"
 # Chaos time
-ExperimentInjectionInterval = "5m"
-# Src and Dst chain URLs, change it according to your namespace name
-SrcChainURL = "https://crib-ccip-chaos-tests-geth-1337-http.main.stage.cldev.sh"
-DstChainURL = "https://crib-ccip-chaos-tests-geth-2337-http.main.stage.cldev.sh"
+ExperimentInjectionInterval = "9m"
 ```
+By default, we keep all chaos CRDs after each run so it's easier to debug, but when you suite is stable you can set this flag to `true` to remove CRDs [automatically](https://github.com/smartcontractkit/chainlink/blob/aw/LoadTest-aws-chaos/integration-tests/load/ccip/ccip_chaos_test.go#L46)
 
 Run the load test
 ```
