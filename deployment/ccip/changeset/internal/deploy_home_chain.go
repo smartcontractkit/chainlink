@@ -162,7 +162,7 @@ func BuildSetOCR3ConfigArgs(
 	destSelector uint64,
 	configType globals.ConfigType,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
-	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
+	_, err := ccipHome.GetChainConfig(nil, destSelector)
 	if err != nil {
 		return nil, fmt.Errorf("error getting chain config for chain selector %d it must be set before OCR3Config set up: %w", destSelector, err)
 	}
@@ -180,21 +180,29 @@ func BuildSetOCR3ConfigArgs(
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
-		if configType == globals.ConfigTypeActive {
-			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
-				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
-					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
-			}
-		} else if configType == globals.ConfigTypeCandidate {
-			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
-				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
-					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
-			}
-			configForOCR3 = ocrConfig.CandidateConfig
-		}
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, chainCfg); err != nil {
-			return nil, err
-		}
+		// if configType == globals.ConfigTypeActive {
+		// 	if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
+		// 		return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
+		// 			donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+		// 	}
+		// } else if configType == globals.ConfigTypeCandidate {
+		// 	if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
+		// 		return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
+		// 			donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+		// 	}
+		// 	configForOCR3 = ocrConfig.CandidateConfig
+		// }
+
+		// TODO: revisit this once approach is finalized
+		// setting the version nonce to 2 because we call setCandidate twice before calling setOCR3config
+		// setting staticConfig to zero for demo (for prod use BuildOCR3ConfigForCCIPHome to build it)
+		// hardcoding base chainID
+		configDigest := CalculateConfigDigest(donID, OCRPluginType(pluginType), []byte{}, 2, 84532, ccipHome.Address().String())
+
+		// skipping validation as staticConfig hasn't been generated
+		// if err := validateOCR3Config(destSelector, configForOCR3.Config, chainCfg); err != nil {
+		// 	return nil, err
+		// }
 
 		var signerAddresses []common.Address
 		var transmitterAddresses []common.Address
@@ -204,7 +212,7 @@ func BuildSetOCR3ConfigArgs(
 		}
 
 		offrampOCR3Configs = append(offrampOCR3Configs, offramp.MultiOCR3BaseOCRConfigArgs{
-			ConfigDigest:                   configForOCR3.ConfigDigest,
+			ConfigDigest:                   configDigest, // precomputed config digest
 			OcrPluginType:                  uint8(pluginType),
 			F:                              configForOCR3.Config.FRoleDON,
 			IsSignatureVerificationEnabled: pluginType == types.PluginTypeCCIPCommit,

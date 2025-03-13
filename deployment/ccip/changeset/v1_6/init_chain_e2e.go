@@ -96,7 +96,7 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetCandidateChangeset: ", err)
 	// }
 
-	// output, err := PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
+	// output, err = PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
 	// if err != nil {
 	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running PromoteCandidateChangeset: ", err)
 	// }

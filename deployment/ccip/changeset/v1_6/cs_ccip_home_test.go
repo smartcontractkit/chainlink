@@ -1,6 +1,7 @@
 package v1_6_test
 
 import (
+	"encoding/hex"
 	"math/big"
 	"regexp"
 	"testing"
@@ -652,5 +653,6 @@ func TestCalculateConfigDigest(t *testing.T) {
 	// Calculate the config digest
 	digest := internal.CalculateConfigDigest(donID, pluginType, staticConfig, version, chainID, contractAddress)
 
-	require.Equal(t, expectedConfiDigest, digest)
+	hexDigest := hex.EncodeToString(digest[:])
+	require.Equal(t, expectedConfiDigest, hexDigest)
 }
