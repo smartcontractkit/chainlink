@@ -5,8 +5,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -17,10 +15,10 @@ type AddressCodec struct {
 }
 
 // NewAddressCodec is a constructor for AddressCodec
-func NewAddressCodec() AddressCodec {
+func NewAddressCodec(evmAddrCodec, solanaAddrCodec types.AddressCodec) AddressCodec {
 	return AddressCodec{
-		EVMAddressCodec:    ccipevm.AddressCodec{},
-		SolanaAddressCodec: ccipsolana.AddressCodec{},
+		EVMAddressCodec:    evmAddrCodec,
+		SolanaAddressCodec: solanaAddrCodec,
 	}
 }
 

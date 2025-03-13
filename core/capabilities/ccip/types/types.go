@@ -4,11 +4,6 @@ import (
 	"context"
 
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 // OCR3ConfigWithMeta is a type alias in order to generate correct mocks for the OracleCreator interface.
@@ -58,58 +53,4 @@ type OracleCreator interface {
 	// Type returns the type of oracle that this creator creates.
 	// The only valid values are OracleTypePlugin and OracleTypeBootstrap.
 	Type() OracleType
-}
-
-// PluginConfig is a struct that holds all the necessary information for a CCIP plugin to function.
-type PluginConfig struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
-	// PriceOnlyCommitFn optional method override for price only commit reports.
-	PriceOnlyCommitFn    string
-	GetChainReaderConfig func(lggr logger.Logger,
-		chainID string,
-		destChainID string,
-		homeChainID string,
-		ofc OffChainConfig,
-		chainSelector cciptypes.ChainSelector,
-	) ([]byte, error)
-	GetChainWriter func(
-		ctx context.Context,
-		chainID string,
-		relayer loop.Relayer,
-		transmitters map[types.RelayID][]string,
-		execBatchGasLimit uint64,
-		chainFamily string,
-		offrampProgramAddress []byte,
-	) (types.ContractWriter, error)
-}
-
-type OffChainConfig struct {
-	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
-	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
-}
-
-func (ofc OffChainConfig) CommitEmpty() bool {
-	return ofc.CommitOffchainConfig == nil
-}
-
-func (ofc OffChainConfig) ExecEmpty() bool {
-	return ofc.ExecOffchainConfig == nil
-}
-
-func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
-	return ofc.CommitOffchainConfig
-}
-
-func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
-	return ofc.ExecOffchainConfig
-}
-
-// Exactly one of both plugins should be empty at any given time.
-func (ofc OffChainConfig) IsValid() bool {
-	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
 }

@@ -5,8 +5,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
@@ -17,10 +15,10 @@ type RealExtraDataCodec struct {
 }
 
 // NewExtraDataCodec is a constructor for RealExtraDataCodec
-func NewExtraDataCodec() RealExtraDataCodec {
+func NewExtraDataCodec(evmExtraDataDecoder, solanaExtraDataDecoder types.ChainSpecificExtraDataDecoder) RealExtraDataCodec {
 	return RealExtraDataCodec{
-		EVMExtraDataDecoder:    ccipevm.ExtraDataDecoder{},
-		SolanaExtraDataDecoder: ccipsolana.ExtraDataDecoder{},
+		EVMExtraDataDecoder:    evmExtraDataDecoder,
+		SolanaExtraDataDecoder: solanaExtraDataDecoder,
 	}
 }
 

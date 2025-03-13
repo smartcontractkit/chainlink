@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -27,7 +28,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-var ExtraDataCodec = ccipcommon.NewExtraDataCodec()
+var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{})
 
 func TestMessageHasher_EVM2SVM(t *testing.T) {
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
