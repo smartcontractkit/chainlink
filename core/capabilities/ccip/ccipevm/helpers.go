@@ -71,11 +71,11 @@ func ABITypeOrPanic(t string) abi.Type {
 func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipcommon.ExtraDataCodec) (offramp.InternalAny2EVMRampMessage, error) {
 	var tokenAmounts []offramp.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		decodecMap, err := codec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
+		decodedMap, err := codec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to decode dest gas amount: %w", err)
 		}
-		destGasAmount, err := extractDestGasAmountFromMap(decodecMap)
+		destGasAmount, err := extractDestGasAmountFromMap(decodedMap)
 		if err != nil {
 			return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to extract dest gas amount from decodec map: %w", err)
 		}

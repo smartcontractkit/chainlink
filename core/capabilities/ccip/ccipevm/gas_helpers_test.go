@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -78,7 +79,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				ExtraArgs:    tt.args.extraArgs,
 			}
 			// Set the source chain selector to be EVM for now
-			msg.Header.SourceChainSelector = 5009297550715157269
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
 			ep := EstimateProvider{extraDataCodec: ExtraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
