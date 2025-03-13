@@ -2,12 +2,13 @@ package internal
 
 import (
 	"context"
-	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"math/big"
+	"strings"
 
-	"golang.org/x/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -49,7 +50,7 @@ var (
 )
 
 // OCRPluginType represents the CCIP OCR plugin type.
-type OCRPluginType uint32
+type OCRPluginType uint8
 
 const (
 	Commit    OCRPluginType = 0
@@ -244,40 +245,35 @@ func BuildSetOCR3ConfigArgs(
 
 *
 */
-
-// calculateConfigDigest replicates the Solidity function logic.
-func CalculateConfigDigest(donID uint32, pluginType OCRPluginType, staticConfig []byte, version uint32, chainID uint64, contractAddress string) [32]byte {
+func CalculateConfigDigest(donID uint32, pluginType OCRPluginType, staticConfig []byte, version uint32, chainID int64, contractAddress string) [32]byte {
 	// "EVM" as bytes32 (padded to 32 bytes)
-	evmPrefix := []byte("EVM")
-	evmPadded := make([]byte, 32)
-	copy(evmPadded[:], evmPrefix)
+	var evmPadded common.Hash
+	copy(evmPadded[:], []byte("EVM"))
 
-	// Convert numeric values to bytes (Big-Endian)
-	chainIDBytes := make([]byte, 8)
-	binary.BigEndian.PutUint64(chainIDBytes, chainID)
+	// ABI JSON definition for encoding the values
+	abiStr := `[{"type":"bytes32"}, {"type":"uint256"}, {"type": "address"}, {"type": "uint32"}, {"type": "uint8"}, {"type": "uint32"}]`
 
-	donIDBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(donIDBytes, donID)
+	// Define the values you want to encode
+	values := []any{
+		evmPadded,
+		big.NewInt(chainID),
+		common.HexToAddress(contractAddress),
+		donID,
+		pluginType,
+		version,
+	}
 
-	pluginTypeBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(pluginTypeBytes, uint32(pluginType))
+	// Encode the values using ABIEncode
+	encodedData, err := ABIEncode(abiStr, values...)
+	if err != nil {
+		log.Fatal("Encoding error:", err) // Consider returning the error for better error handling
+	}
 
-	versionBytes := make([]byte, 4)
-	binary.BigEndian.PutUint32(versionBytes, version)
-
-	// Concatenate all parts
-	data := append(evmPadded, chainIDBytes...)
-	data = append(data, []byte(contractAddress)...) // Assuming contractAddress is hex format (CCIPHome contract address)
-	data = append(data, donIDBytes...)
-	data = append(data, pluginTypeBytes...)
-	data = append(data, versionBytes...)
-
-	// TODO: data should be abi encoded and then appended to data
-
-	data = append(data, staticConfig...)
+	// Append the staticConfig bytes to the encoded data
+	finalData := append(encodedData, staticConfig...)
 
 	// Compute Keccak-256 hash
-	hash := sha3.Sum256(data)
+	hash := crypto.Keccak256Hash(finalData)
 
 	// Convert first 32 bytes of hash to big.Int
 	hashInt := new(big.Int).SetBytes(hash[:])
@@ -290,9 +286,28 @@ func CalculateConfigDigest(donID uint32, pluginType OCRPluginType, staticConfig 
 	// Convert final result back to [32]byte
 	var finalHash [32]byte
 	hashBytes := hashInt.Bytes()
-	copy(finalHash[32-len(hashBytes):], hashBytes) // Ensure correct padding
+	copy(finalHash[32-len(hashBytes):], hashBytes) // Ensure correct padding to 32 bytes
 
 	return finalHash
+}
+
+// ABIEncode is the equivalent of abi.encode.
+// We are using this as a global util because the signing process requires encoding / decoding the data.
+// See a full set of examples https://github.com/ethereum/go-ethereum/blob/420b78659bef661a83c5c442121b13f13288c09f/accounts/abi/packing_test.go#L31
+func ABIEncode(abiStr string, values ...any) ([]byte, error) {
+	// Create a dummy method with arguments
+	inDef := fmt.Sprintf(`[{ "name" : "method", "type": "function", "inputs": %s}]`, abiStr)
+	inAbi, err := abi.JSON(strings.NewReader(inDef))
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := inAbi.Pack("method", values...)
+	if err != nil {
+		return nil, err
+	}
+
+	return res[4:], nil
 }
 
 func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig ccip_home.CCIPHomeChainConfig) error {
