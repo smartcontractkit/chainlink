@@ -14,6 +14,8 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	chainsel "github.com/smartcontractkit/chain-selectors"
 )
 
 const (
@@ -53,7 +55,13 @@ func NewMultiClient(lggr logger.Logger, rpcsCfg RPCConfig, opts ...func(client *
 	if len(rpcsCfg.RPCs) == 0 {
 		return nil, errors.New("no RPCs provided, need at least one")
 	}
-	mc := MultiClient{lggr: lggr}
+	// Set the chain name
+	chain, exists := chainsel.ChainBySelector(rpcsCfg.ChainSelector)
+	if !exists {
+		return nil, errors.Errorf("chain with selector %d not found", rpcsCfg.ChainSelector)
+	}
+	mc := MultiClient{lggr: lggr, chainName: chain.Name}
+
 	clients := make([]*ethclient.Client, 0, len(rpcsCfg.RPCs))
 	for i, rpc := range rpcsCfg.RPCs {
 		client, err := mc.dialWithRetry(rpc, lggr)
@@ -68,7 +76,6 @@ func NewMultiClient(lggr logger.Logger, rpcsCfg RPCConfig, opts ...func(client *
 		return nil, errors.New("no valid RPC clients created")
 	}
 
-	mc.chainName = rpcsCfg.ChainName
 	mc.Client = clients[0]
 	mc.Backups = clients[1:]
 	mc.RetryConfig = defaultRetryConfig()
@@ -209,17 +216,18 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 
 	var client *ethclient.Client
 	err = retry.Do(func() error {
-		mc.lggr.Debugf("dialing endpoint '%s' for RPC %s", endpoint, rpc.Name)
-		client, err = ethclient.Dial(endpoint)
-		if err != nil {
-			lggr.Warnf("retryable error for RPC %s:%s  %v", rpc.Name, endpoint, err)
-			return err
+		var err2 error
+		mc.lggr.Debugf("dialing endpoint '%s' for RPC %s for chain %s", endpoint, rpc.Name, mc.chainName)
+		client, err2 = ethclient.Dial(endpoint)
+		if err2 != nil {
+			lggr.Warnf("retryable error for RPC %s:%s for chain %s  %v", rpc.Name, endpoint, mc.chainName, err)
+			return err2
 		}
 		return nil
 	}, retry.Attempts(RPCDefaultDialRetryAttempts), retry.Delay(RPCDefaultDialRetryDelay))
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s after retries", endpoint, rpc.Name)
+		return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s for chain %s after retries", endpoint, rpc.Name, mc.chainName)
 	}
 	return client, nil
 }
