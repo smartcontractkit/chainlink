@@ -3,12 +3,15 @@ package v1_6
 import (
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"os"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 var (
@@ -74,40 +77,115 @@ func InitChaine2eChangeset(env deployment.Environment, cfg InitChaine2eConfig) (
 	// }
 
 	// fmt.Println("ENV ADDRESS 3: ", env.ExistingAddresses)
-	// // Generate an MCMs proposal
-	// output, err = UpdateChainConfigChangeset(env, cfg.UpdateChainConfig)
+	// Generate an MCMs proposal
+	// output, err := UpdateChainConfigChangeset(env, cfg.UpdateChainConfig)
 	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running UpdateChainConfigChangeset: ", err)
+	// 	return deployment.ChangesetOutput{}, fmt.Errorf("error running UpdateChainConfigChangeset: %w", err)
 	// }
 
 	// fmt.Println("MCMS output UpdateChainConfigChangeset: ", output)
 	// TODO handle MCMS proposals
 
-	// output, err = AddDonAndSetCandidateChangeset(env, cfg.AddDonSetCandidateConfig)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running AddDonAndSetCandidateChangeset: ", err)
-	// }
+	// Aggregate all proposals.
+	var batches []mcmstypes.BatchOperation
 
-	// fmt.Println("MCMS output AddDonAndSetCandidateChangeset: ", output)
-	// TODO handle MCMS proposals
-
-	// output, err := SetCandidateChangeset(env, cfg.SetCandidateConfig)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetCandidateChangeset: ", err)
-	// }
-
-	// output, err = PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
-	// if err != nil {
-	// 	return deployment.ChangesetOutput{}, fmt.Errorf("Error running PromoteCandidateChangeset: ", err)
-	// }
-
-	output, err := SetOCR3OffRampChangeset(env, cfg.Ocr3Config)
+	output, err := AddDonAndSetCandidateChangeset(env, cfg.AddDonSetCandidateConfig)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("Error running SetOCR3OffRampChangeset: %v", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("error running AddDonAndSetCandidateChangeset: %w", err)
 	}
 
-	fmt.Println("MCMS output SetOCR3OffRampChangeset: ", output)
-	// // TODO handle MCMS proposals
+	for _, proposal := range output.MCMSTimelockProposals {
+		for _, p := range proposal.Operations {
+			for _, batchTx := range p.Transactions {
+				batchOperation, err := proposalutils.BatchOperationForChain(
+					uint64(p.ChainSelector),
+					batchTx.To,
+					batchTx.Data,
+					big.NewInt(0),
+					batchTx.ContractType,
+					batchTx.Tags,
+				)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+
+	output, err = SetCandidateChangeset(env, cfg.SetCandidateConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error running SetCandidateChangeset: %w", err)
+	}
+
+	for _, proposal := range output.MCMSTimelockProposals {
+		for _, p := range proposal.Operations {
+			for _, batchTx := range p.Transactions {
+				batchOperation, err := proposalutils.BatchOperationForChain(
+					uint64(p.ChainSelector),
+					batchTx.To,
+					batchTx.Data,
+					big.NewInt(0),
+					batchTx.ContractType,
+					batchTx.Tags,
+				)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+
+	output, err = PromoteCandidateChangeset(env, cfg.PromoteCandidateConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error running PromoteCandidateChangeset: %w", err)
+	}
+
+	for _, proposal := range output.MCMSTimelockProposals {
+		for _, p := range proposal.Operations {
+			for _, batchTx := range p.Transactions {
+				batchOperation, err := proposalutils.BatchOperationForChain(
+					uint64(p.ChainSelector),
+					batchTx.To,
+					batchTx.Data,
+					big.NewInt(0),
+					batchTx.ContractType,
+					batchTx.Tags,
+				)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+
+	output, err = SetOCR3OffRampChangeset(env, cfg.Ocr3Config)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("error running SetOCR3OffRampChangeset: %w", err)
+	}
+
+	for _, proposal := range output.MCMSTimelockProposals {
+		for _, p := range proposal.Operations {
+			for _, batchTx := range p.Transactions {
+				batchOperation, err := proposalutils.BatchOperationForChain(
+					uint64(p.ChainSelector),
+					batchTx.To,
+					batchTx.Data,
+					big.NewInt(0),
+					batchTx.ContractType,
+					batchTx.Tags,
+				)
+				if err != nil {
+					return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", p.ChainSelector, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+
+	fmt.Println("Full batch proposal: ", batches)
 
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
