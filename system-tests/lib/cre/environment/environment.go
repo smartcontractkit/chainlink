@@ -28,6 +28,22 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
+	chains := []devenv.ChainConfig{
+		{
+			ChainID:   input.SethClient.Cfg.Network.ChainID,
+			ChainName: input.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
+			WSRPCs: []devenv.CribRPCs{{
+				External: input.BlockchainOutput.Nodes[0].HostWSUrl,
+				Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
+			}},
+			HTTPRPCs: []devenv.CribRPCs{{
+				External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
+				Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+			}},
+			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		},
+	}
 
 	for i, nodeOutput := range input.NodeSetOutput {
 		// assume that each nodeset has only one bootstrap node
@@ -36,6 +52,11 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
+
+		// if it has no capabilities, don't create chain configs (indicated by empty chains array)
+		if len(nodeOutput.Capabilities) == 0 {
+			chains = []devenv.ChainConfig{}
+		}
 
 		jdConfig := devenv.JDConfig{
 			GRPC:     input.JdOutput.HostGRPCUrl,
@@ -46,22 +67,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 
 		devenvConfig := devenv.EnvironmentConfig{
 			JDConfig: jdConfig,
-			Chains: []devenv.ChainConfig{
-				{
-					ChainID:   input.SethClient.Cfg.Network.ChainID,
-					ChainName: input.SethClient.Cfg.Network.Name,
-					ChainType: strings.ToUpper(input.BlockchainOutput.Family),
-					WSRPCs: []devenv.CribRPCs{{
-						External: input.BlockchainOutput.Nodes[0].HostWSUrl,
-						Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
-					}},
-					HTTPRPCs: []devenv.CribRPCs{{
-						External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
-						Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
-					}},
-					DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-				},
-			},
+			Chains:   chains,
 		}
 
 		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)

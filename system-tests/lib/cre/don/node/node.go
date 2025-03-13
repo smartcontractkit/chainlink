@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -74,10 +73,10 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					// TODO update host label key to support CRIB
-					HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					IndexKey:     strconv.Itoa(i - 1),
-					NodeTypeKey:  types.BootstrapNode,
+					// TODO remove?
+					// HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
+					// IndexKey:     strconv.Itoa(i - 1),
+					NodeTypeKey: types.BootstrapNode,
 				},
 			})
 		} else {
@@ -92,10 +91,10 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					// TODO update host label key to support CRIB
-					HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					IndexKey:     strconv.Itoa(i - 1),
-					NodeTypeKey:  types.WorkerNode,
+					// TODO remove?
+					// HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
+					// IndexKey:     strconv.Itoa(i - 1),
+					NodeTypeKey: types.WorkerNode,
 				},
 			})
 		}
@@ -130,10 +129,6 @@ func FindManyWithLabel(nodes []*types.NodeMetadata, wantedLabel *types.Label, la
 				foundNodes = append(foundNodes, node)
 			}
 		}
-	}
-
-	if len(foundNodes) == 0 {
-		return nil, fmt.Errorf("node with label %s=%s not found", wantedLabel.Key, wantedLabel.Value)
 	}
 
 	return foundNodes, nil

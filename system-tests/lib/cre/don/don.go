@@ -1,8 +1,8 @@
 package don
 
 import (
-	"os"
 	"regexp"
+	"slices"
 	"strconv"
 
 	"github.com/pkg/errors"
@@ -84,16 +84,18 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraDetai
 				Value: nodeType,
 			})
 
+			// TODO think whether it would make sense for infraDetails to also hold functions that resolve hostnames for various infra and node types
+			// and use it with some default, so that we can easily modify it with little effort
 			host := infra.Host(j, nodeType, donMetadata.Name, infraDetails)
 
-			if nodeSetInput[i].GatewayNodeIndex != -1 && j == nodeSetInput[i].GatewayNodeIndex {
+			if slices.Contains(nodeSetInput[i].DONTypes, cretypes.GatewayDON) && nodeSetInput[i].GatewayNodeIndex != -1 && j == nodeSetInput[i].GatewayNodeIndex {
 				nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
 					Key:   node.ExtraRolesKey,
 					Value: cretypes.GatewayNode,
 				})
 
 				gatewayHost := host
-				if os.Getenv("CRIB") == "true" {
+				if infraDetails.InfraType == types.InfraType_CRIB {
 					gatewayHost += "-gtwnode"
 				}
 

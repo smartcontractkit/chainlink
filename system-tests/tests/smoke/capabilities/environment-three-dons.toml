@@ -7,6 +7,9 @@
   # change to your version
   image = "job-distributor:latest"
 
+[infra]
+  type = "docker"
+
 [workflow_config]
   workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"

@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -79,7 +80,6 @@ import (
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -99,6 +99,18 @@ type TestConfig struct {
 	KeystoneContracts             *keystonetypes.KeystoneContractsInput  `toml:"keystone_contracts"`
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput   `toml:"workflow_registry_configuration"`
 	FeedConsumer                  *keystonetypes.DeployFeedConsumerInput `toml:"feed_consumer"`
+	Infra                         *InfraInput                            `toml:"infra" validate:"required"`
+}
+
+type InfraInput struct {
+	InfraType string     `toml:"type" validate:"oneof=crib docker"`
+	CRIB      *CRIBInput `toml:"crib"`
+}
+
+type CRIBInput struct {
+	Namespace      string `toml:"namespace" validate:"required"`
+	FolderLocation string `toml:"folder_location" validate:"required"`
+	Provider       string `toml:"provider" validate:"required"`
 }
 
 type WorkflowConfig struct {
@@ -378,6 +390,7 @@ type InfrastructureInput struct {
 	jdInput         *jd.Input
 	nodeSetInput    []*keystonetypes.CapabilitiesAwareNodeSet
 	blockchainInput *blockchain.Input
+	infraInput      *InfraInput
 }
 
 type InfrastructureOutput struct {
@@ -386,7 +399,7 @@ type InfrastructureOutput struct {
 	jdOutput           *jd.Output
 	sethClient         *seth.Client
 	deployerPrivateKey string
-	infraDetails       types.InfraDetails
+	infraDetails       libtypes.InfraDetails
 }
 
 func CreateInfrastructure(
@@ -408,29 +421,22 @@ func CreateInfrastructure(
 
 	output := &InfrastructureOutput{}
 
-	if os.Getenv("CRIB") == "true" {
-		// call devspace with "devspace run deploy-chains"
-		// fmt.Println("Manually deploy chains using devspace")
-		cribNamespace := os.Getenv("CRIB_NAMESPACE")
-		if cribNamespace == "" {
-			return nil, errors.New("CRIB_NAMESPACE env var must be set")
-		}
-
-		output.infraDetails = types.InfraDetails{
-			InfraType: types.InfraType_CRIB,
-			Namespace: cribNamespace,
+	if input.infraInput.InfraType == libtypes.InfraType_CRIB {
+		output.infraDetails = libtypes.InfraDetails{
+			InfraType: libtypes.InfraType_CRIB,
+			Namespace: input.infraInput.CRIB.Namespace,
 		}
 
 		input.blockchainInput.Out = &blockchain.Output{}
 		input.blockchainInput.Out.UseCache = true
-		input.blockchainInput.Out.ChainID = "1337"
+		input.blockchainInput.Out.ChainID = input.blockchainInput.ChainID
 		input.blockchainInput.Out.Family = "evm"
 		input.blockchainInput.Out.Nodes = []*blockchain.Node{
 			{
-				HostWSUrl:             fmt.Sprintf("wss://%s-geth-1337-ws.main.stage.cldev.sh", cribNamespace),
-				HostHTTPUrl:           fmt.Sprintf("https://%s-geth-1337-http.main.stage.cldev.sh", cribNamespace),
-				DockerInternalWSUrl:   "ws://geth-1337:8546",
-				DockerInternalHTTPUrl: "http://geth-1337:8544",
+				HostWSUrl:             fmt.Sprintf("wss://%s-geth-%s-ws.main.stage.cldev.sh", input.infraInput.CRIB.Namespace, input.blockchainInput.Out.ChainID),
+				HostHTTPUrl:           fmt.Sprintf("https://%s-geth-%s-http.main.stage.cldev.sh", input.infraInput.CRIB.Namespace, input.blockchainInput.Out.ChainID),
+				DockerInternalWSUrl:   fmt.Sprintf("ws://geth-%s:8546", input.blockchainInput.Out.ChainID),
+				DockerInternalHTTPUrl: fmt.Sprintf("http://geth-%s:8544", input.blockchainInput.Out.ChainID),
 			},
 		}
 	}
@@ -449,7 +455,7 @@ func CreateInfrastructure(
 	sethClient, err := seth.NewClientBuilder().
 		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
 		WithPrivateKeys([]string{pkey}).
-		// do not check if there's a pending nonce nor check node health
+		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
 	if err != nil {
@@ -508,10 +514,18 @@ type NixShell struct {
 	mu     sync.Mutex
 }
 
-func NewNixShell(folder string) (*NixShell, error) {
+func NewNixShell(folder string, globalEnvVars map[string]string) (*NixShell, error) {
 	cmd := exec.Command("nix", "develop", "--command", "sh")
-	// cmd := exec.Command("nix", "develop")
 	cmd.Dir = folder
+
+	// Set global environment variables available to all subsequent commands
+	cmd.Env = os.Environ()
+	fmt.Println("Nix shell will use the following global environment variables:")
+	for key, value := range globalEnvVars {
+		fmt.Printf("%s=%s\n", key, value)
+		cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", key, value))
+	}
+
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
 		return nil, err
@@ -533,11 +547,31 @@ func NewNixShell(folder string) (*NixShell, error) {
 }
 
 func (ns *NixShell) RunCommand(command string) (string, error) {
+	return ns.RunCommandWithEnvVars(command, map[string]string{})
+}
+
+const ErrCommandFailed = "command failed with exit code"
+
+func (ns *NixShell) RunCommandWithEnvVars(command string, envVars map[string]string) (string, error) {
 	ns.mu.Lock()
 	defer ns.mu.Unlock()
 
+	// send stderr to stdout, append exit code to the end of the output and
+	// end marker to signal the end of the command output
 	endMarker := "END_OF_COMMAND_OUTPUT"
-	fullCommand := fmt.Sprintf("%s; echo %s $?\n", command, endMarker)
+	fullCommand := fmt.Sprintf("%s 2>&1; echo %s $?\n", command, endMarker)
+
+	// Set environment variables
+	if len(envVars) > 0 {
+		fmt.Println("Setting the following command-specific environment variables:")
+	}
+	for key, value := range envVars {
+		fmt.Printf("%s=%s\n", key, value)
+		_, err := ns.stdin.WriteString(fmt.Sprintf("export %s=%s\n", key, value))
+		if err != nil {
+			return "", err
+		}
+	}
 
 	_, err := ns.stdin.WriteString(fullCommand)
 	if err != nil {
@@ -561,6 +595,11 @@ func (ns *NixShell) RunCommand(command string) (string, error) {
 		}
 		output.WriteString(line)
 	}
+
+	if exitCode != 0 {
+		return output.String(), fmt.Errorf("%s %d", ErrCommandFailed, exitCode)
+	}
+
 	return strings.TrimSpace(output.String()), nil
 }
 
@@ -569,39 +608,42 @@ func (ns *NixShell) Close() error {
 }
 
 func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+	envInput := InfrastructureInput{
+		jdInput:         in.JD,
+		nodeSetInput:    mustSetCapabilitiesFn(in.NodeSets),
+		blockchainInput: in.BlockchainA,
+		infraInput:      in.Infra,
+	}
+
 	// Universal setup -- START
 	var nixShell *NixShell
-	if os.Getenv("CRIB") == "true" {
+	if in.Infra.InfraType == libtypes.InfraType_CRIB {
 		var err error
-		nixShell, err = NewNixShell("/Users/ionita/crib/deployments/cre")
+		globalEnvVars := map[string]string{
+			"PROVIDER":           in.Infra.CRIB.Provider,
+			"DEVSPACE_NAMESPACE": in.Infra.CRIB.Namespace,
+			// TODO add team-related variabled for cost attribution
+		}
+
+		cribConfigDirAbs, absErr := filepath.Abs(filepath.Join(".", "crib-configs"))
+		require.NoError(t, absErr, "failed to get absolute path to crib-configs")
+
+		globalEnvVars["CRE_CONFIG_DIR"] = cribConfigDirAbs
+
+		nixShell, err = NewNixShell(in.Infra.CRIB.FolderLocation, globalEnvVars)
 		require.NoError(t, err, "failed to create Nix shell")
 
 		t.Cleanup(func() {
 			_ = nixShell.Close()
 		})
 
-		_, err = nixShell.RunCommand("crib init")
-		require.NoError(t, err, "failed to run crib init")
-
 		_, err = nixShell.RunCommand("devspace purge")
 		require.NoError(t, err, "failed to run devspace purge")
 
-		_, err = nixShell.RunCommand("devspace run deploy-chains")
-		require.NoError(t, err, "failed to run devspace run deploy-chains")
-
-		_, err = nixShell.RunCommand("crib devspace ingress-check --nsTimeout=2m --timeout=4m")
-		require.NoError(t, err, "failed to run crib devspace ingress-check --nsTimeout=2m --timeout=4m")
-
-		// for some reason sometimes chains aren't ready yet, we need to add a fluent wait here
-		// just like the one we have for don/jd
-		time.Sleep(120 * time.Second)
+		_, err = nixShell.RunCommand("devspace run deploy-geth-chain")
+		require.NoError(t, err, "failed to run devspace run deploy-geth-chain")
 	}
 
-	envInput := InfrastructureInput{
-		jdInput:         in.JD,
-		nodeSetInput:    mustSetCapabilitiesFn(in.NodeSets),
-		blockchainInput: in.BlockchainA,
-	}
 	singeFileLogger := cldlogger.NewSingleFileLogger(t)
 	envOutput, err := CreateInfrastructure(singeFileLogger, testLogger, envInput)
 	require.NoError(t, err, "failed to start environment")
@@ -682,7 +724,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	var extraAllowedPorts []int
 
 	// TODO we'd need to have a way to deploy fake price provider to CRIB, now we don't as there's no Docker container and no defined deployment
-	if _, ok := priceProvider.(*FakePriceProvider); ok && os.Getenv("CRIB") != "true" {
+	if _, ok := priceProvider.(*FakePriceProvider); ok && in.Infra.InfraType == "docker" {
 		// it doesn't really matter which container we will use to resolve the host.docker.internal IP, it will be the same for all of them
 		// here we will blokchain container, because by that time it will be running
 		extraAllowedIPs, extraAllowedPorts, err = extraAllowedPortsAndIps(testLogger, in.Fake.Port, envOutput.blockchainOutput.ContainerName)
@@ -732,94 +774,151 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
-	// deploy don (it includes JD) manually
-	if os.Getenv("CRIB") == "true" {
-		fmt.Println("Save config and secret overrides")
+	if in.Infra.InfraType == libtypes.InfraType_CRIB {
+		testLogger.Info().Msg("Saving node configs and secret overrides")
 
-		cribConfigsDir := filepath.Join(".", "crib-configs")
-		err = os.MkdirAll(cribConfigsDir, os.ModePerm)
-		require.NoError(t, err, "failed to create crib-configs directory")
+		for j, donMetadata := range topology.DonsMetadata {
+			deployDonEnvVars := map[string]string{}
+			cribConfigsDir := filepath.Join(".", "crib-configs", donMetadata.Name)
+			err = os.MkdirAll(cribConfigsDir, os.ModePerm)
+			require.NoError(t, err, "failed to create crib-configs directory for", donMetadata.Name)
 
-		for i, spec := range envInput.nodeSetInput[0].NodeSpecs {
-			// unmarshall and marshall to conver it into proper multi-line string
-			// that will be correctly serliazed to YAML
-			var data interface{}
-			tomlErr := toml.Unmarshal([]byte(spec.Node.TestConfigOverrides), &data)
-			require.NoError(t, tomlErr, "failed to unmarshal toml")
-			newTOMLBytes, err := toml.Marshal(data)
-			require.NoError(t, err, "failed to marshal toml")
+			dockerImages := []string{}
+			for _, nodeSpec := range envInput.nodeSetInput[j].NodeSpecs {
+				require.Empty(t, nodeSpec.Node.DockerContext, "docker context is not supported in CRIB. Please remove docker_ctx from the node spec")
+				require.Empty(t, nodeSpec.Node.DockerFilePath, "dockerfile is not supported in CRIB. Please remove docker_file from the node spec")
+				require.Empty(t, nodeSpec.Node.CapabilitiesBinaryPaths, "capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capabilities_binary_paths from the node spec")
+				require.Empty(t, nodeSpec.Node.CapabilityContainerDir, "capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capability_container_dir from the node spec")
 
-			idxToUse := i
-			configPattern := fmt.Sprintf("config-override-bt-%d.toml", idxToUse)
-			secretPattern := fmt.Sprintf("secrets-override-bt-%d.toml", idxToUse)
-			if i > 0 {
-				idxToUse = i - 1
-				configPattern = fmt.Sprintf("config-override-%d.toml", idxToUse)
-				secretPattern = fmt.Sprintf("secrets-override-%d.toml", idxToUse)
+				if slices.Contains(dockerImages, nodeSpec.Node.Image) {
+					continue
+
+				}
+				dockerImages = append(dockerImages, nodeSpec.Node.Image)
+			}
+			require.Len(t, dockerImages, 1, "all nodes in each nodeset must use the same Docker image")
+			imgTagIndex := strings.LastIndex(dockerImages[0], ":")
+			require.Greater(t, imgTagIndex, -1, "docker image must have an explicit tag, but it was: %s", dockerImages[0])
+
+			deployDonEnvVars["DEVSPACE_IMAGE"] = dockerImages[0][:imgTagIndex]
+			deployDonEnvVars["DEVSPACE_IMAGE_TAG"] = dockerImages[0][imgTagIndex+1:] // +1 to exclude the colon
+
+			bootstrapNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.BootstrapNode}, libnode.EqualLabels)
+			require.NoError(t, err, "failed to find bootstrap nodes")
+
+			for i, btNode := range bootstrapNodes {
+				nodeIndexStr, err := libnode.FindLabelValue(btNode, libnode.IndexKey)
+				require.NoError(t, err, "failed to find node index")
+
+				nodeIndex, err := strconv.Atoi(nodeIndexStr)
+				require.NoError(t, err, "failed to convert node index to int")
+
+				// unmarshall and marshall to conver it into proper multi-line string
+				// that will be correctly serliazed to YAML
+				var data interface{}
+				tomlErr := toml.Unmarshal([]byte(envInput.nodeSetInput[j].NodeSpecs[nodeIndex].Node.TestConfigOverrides), &data)
+				require.NoError(t, tomlErr, "failed to unmarshal toml")
+				newTOMLBytes, err := toml.Marshal(data)
+				require.NoError(t, err, "failed to marshal toml")
+
+				writeErr := os.WriteFile(filepath.Join(cribConfigsDir, fmt.Sprintf("config-override-bt-%d.toml", i)), newTOMLBytes, 0644)
+				require.NoError(t, writeErr, "failed to write config override for node %d to file", i)
+
+				writeErr = os.WriteFile(filepath.Join(cribConfigsDir, fmt.Sprintf("secrets-override-bt-%d.toml", i)), []byte(envInput.nodeSetInput[j].NodeSpecs[nodeIndex].Node.TestSecretsOverrides), 0644)
+				require.NoError(t, writeErr, "failed to write secrets override for node %d to file", i)
 			}
 
-			writeErr := os.WriteFile(filepath.Join(cribConfigsDir, configPattern), newTOMLBytes, 0644)
-			require.NoError(t, writeErr, "failed to write config override for node %d to file", i)
+			workerNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.WorkerNode}, libnode.EqualLabels)
+			require.NoError(t, err, "failed to find worker nodes")
 
-			writeErr = os.WriteFile(filepath.Join(cribConfigsDir, secretPattern), []byte(spec.Node.TestSecretsOverrides), 0644)
-			require.NoError(t, writeErr, "failed to write secrets override for node %d to file", i)
+			for i, workerNode := range workerNodes {
+				nodeIndexStr, err := libnode.FindLabelValue(workerNode, libnode.IndexKey)
+				require.NoError(t, err, "failed to find node index")
+
+				nodeIndex, err := strconv.Atoi(nodeIndexStr)
+				require.NoError(t, err, "failed to convert node index to int")
+
+				// unmarshall and marshall to conver it into proper multi-line string
+				// that will be correctly serliazed to YAML
+				var data interface{}
+				tomlErr := toml.Unmarshal([]byte(envInput.nodeSetInput[j].NodeSpecs[nodeIndex].Node.TestConfigOverrides), &data)
+				require.NoError(t, tomlErr, "failed to unmarshal toml")
+				newTOMLBytes, err := toml.Marshal(data)
+				require.NoError(t, err, "failed to marshal toml")
+
+				writeErr := os.WriteFile(filepath.Join(cribConfigsDir, fmt.Sprintf("config-override-%d.toml", i)), newTOMLBytes, 0644)
+				require.NoError(t, writeErr, "failed to write config override for node %d to file", i)
+
+				writeErr = os.WriteFile(filepath.Join(cribConfigsDir, fmt.Sprintf("secrets-override-%d.toml", i)), []byte(envInput.nodeSetInput[j].NodeSpecs[nodeIndex].Node.TestSecretsOverrides), 0644)
+				require.NoError(t, writeErr, "failed to write secrets override for node %d to file", i)
+			}
+
+			envInput.nodeSetInput[j].Input.Out = &ns.Output{}
+			envInput.nodeSetInput[j].Input.Out.UseCache = true
+			envInput.nodeSetInput[j].Input.Out.CLNodes = []*clnode.Output{}
+
+			//TODO remove these url creations and read them from JSON
+			for i := range bootstrapNodes {
+				nodeName := fmt.Sprintf("%s-bt", donMetadata.Name)
+
+				envInput.nodeSetInput[j].Input.Out.CLNodes = append(envInput.nodeSetInput[j].Out.CLNodes, &clnode.Output{
+					UseCache: true,
+					Node: &clnode.NodeOut{
+						APIAuthUser:     "admin@chain.link",
+						APIAuthPassword: "hWDmgcub2gUhyrG6cxriqt7T",
+						HostURL:         fmt.Sprintf("http://%s-%s-%d.main.stage.cldev.sh:80", in.Infra.CRIB.Namespace, nodeName, i),
+						DockerURL:       fmt.Sprintf("http://%s-%s-%d:80", in.Infra.CRIB.Namespace, nodeName, i),
+						DockerP2PUrl:    fmt.Sprintf("http://%s-%s-%d:6690", in.Infra.CRIB.Namespace, nodeName, i),
+						InternalIP:      nodeName + "-" + strconv.Itoa(i),
+					},
+				})
+			}
+
+			for i := range workerNodes {
+				nodeName := donMetadata.Name
+
+				envInput.nodeSetInput[j].Input.Out.CLNodes = append(envInput.nodeSetInput[j].Out.CLNodes, &clnode.Output{
+					UseCache: true,
+					Node: &clnode.NodeOut{
+						APIAuthUser:     "admin@chain.link",
+						APIAuthPassword: "hWDmgcub2gUhyrG6cxriqt7T",
+						HostURL:         fmt.Sprintf("http://%s-%s-%d.main.stage.cldev.sh:80", in.Infra.CRIB.Namespace, nodeName, i),
+						DockerURL:       fmt.Sprintf("http://%s-%s-%d:80", in.Infra.CRIB.Namespace, nodeName, i),
+						DockerP2PUrl:    fmt.Sprintf("http://%s-%s-%d:6690", in.Infra.CRIB.Namespace, nodeName, i),
+						InternalIP:      nodeName + "-" + strconv.Itoa(i),
+					},
+				})
+			}
+
+			// CRIB will deploy gateway only if don_type == "gateway"
+			deployDonEnvVars["DON_BOOT_NODE_COUNT"] = strconv.Itoa(len(bootstrapNodes))
+			deployDonEnvVars["DON_NODE_COUNT"] = fmt.Sprint(len(workerNodes))
+			deployDonEnvVars["DON_TYPE"] = donMetadata.Name
+
+			_, err = nixShell.RunCommandWithEnvVars("devspace run deploy-don", deployDonEnvVars)
+			require.NoError(t, err, "failed to run devspace run deploy-dons")
+
+			//todo remove after ingress check is fixed for gateway-mock
+			time.Sleep(15 * time.Second)
 		}
 
-		// save configs and secrets to a single file
-		// fmt.Println("Run devspace run deploy-dons manually")
-		_, err = nixShell.RunCommand("devspace run deploy-dons")
-		require.NoError(t, err, "failed to run devspace run deploy-dons")
+		jdImageSplit := strings.Split(in.JD.Image, ":")
+		require.Len(t, jdImageSplit, 2, "JD image must have an explicit tag")
+
+		jdEnvVars := map[string]string{
+			"JOB_DISTRIBUTOR_IMAGE_TAG": jdImageSplit[1],
+		}
+		_, err = nixShell.RunCommandWithEnvVars("devspace run deploy-jd", jdEnvVars)
+		require.NoError(t, err, "failed to run devspace run deploy-jd")
 
 		in.JD.Out = &jd.Output{}
 		in.JD.Out.UseCache = true
-		jdGRPCHost := fmt.Sprintf("%s-job-distributor-grpc.main.stage.cldev.sh:443", os.Getenv("CRIB_NAMESPACE"))
+		jdGRPCHost := fmt.Sprintf("%s-job-distributor-grpc.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace)
 		jdWSSHost := "job-distributor-noderpc-lb:80"
 		in.JD.Out.HostGRPCUrl = jdGRPCHost
 		in.JD.Out.DockerGRPCUrl = jdGRPCHost
 		in.JD.Out.DockerWSRPCUrl = jdWSSHost
 		in.JD.Out.HostWSRPCUrl = jdWSSHost
-
-		envInput.nodeSetInput[0].Input.Out = &ns.Output{}
-		envInput.nodeSetInput[0].Input.Out.UseCache = true
-		envInput.nodeSetInput[0].Input.Out.CLNodes = []*clnode.Output{}
-
-		bootstrapNodes, err := libnode.FindManyWithLabel(topology.DonsMetadata[0].NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.BootstrapNode}, libnode.EqualLabels)
-		require.NoError(t, err, "failed to find bootstrap nodes")
-
-		for i := range bootstrapNodes {
-			nodeName := "base-bt"
-
-			envInput.nodeSetInput[0].Input.Out.CLNodes = append(envInput.nodeSetInput[0].Out.CLNodes, &clnode.Output{
-				UseCache: true,
-				Node: &clnode.NodeOut{
-					APIAuthUser:     "admin@chain.link",
-					APIAuthPassword: "hWDmgcub2gUhyrG6cxriqt7T",
-					HostURL:         fmt.Sprintf("http://%s-%s-%d.main.stage.cldev.sh:80", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					DockerURL:       fmt.Sprintf("http://%s-%s-%d:80", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					DockerP2PUrl:    fmt.Sprintf("http://%s-%s-%d:6690", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					InternalIP:      nodeName + "-" + strconv.Itoa(i),
-				},
-			})
-		}
-
-		workerNodes, err := libnode.FindManyWithLabel(topology.DonsMetadata[0].NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.WorkerNode}, libnode.EqualLabels)
-		require.NoError(t, err, "failed to find worker nodes")
-
-		for i := range workerNodes {
-			nodeName := "base"
-
-			envInput.nodeSetInput[0].Input.Out.CLNodes = append(envInput.nodeSetInput[0].Out.CLNodes, &clnode.Output{
-				UseCache: true,
-				Node: &clnode.NodeOut{
-					APIAuthUser:     "admin@chain.link",
-					APIAuthPassword: "hWDmgcub2gUhyrG6cxriqt7T",
-					HostURL:         fmt.Sprintf("http://%s-%s-%d.main.stage.cldev.sh:80", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					DockerURL:       fmt.Sprintf("http://%s-%s-%d:80", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					DockerP2PUrl:    fmt.Sprintf("http://%s-%s-%d:6690", os.Getenv("CRIB_NAMESPACE"), nodeName, i),
-					InternalIP:      nodeName + "-" + strconv.Itoa(i),
-				},
-			})
-		}
 	}
 
 	jdOutput, err := jd.NewJD(in.JD)
@@ -851,7 +950,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	}
 
 	var creds credentials.TransportCredentials
-	if os.Getenv("CRIB") == "true" {
+	if in.Infra.InfraType == libtypes.InfraType_CRIB {
 		creds = credentials.NewTLS(&tls.Config{
 			MinVersion: tls.VersionTLS12,
 		})
@@ -1167,6 +1266,213 @@ func TestKeystoneWithOCR3Workflow_SingleDon_LivePrice(t *testing.T) {
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
 	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+}
+
+func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
+	testLogger := framework.L
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVars(t, in)
+	require.Len(t, in.NodeSets, 2, "expected 1 node set in the test config")
+
+	binaryDownloadOutput, err := downloadBinaryFiles(in)
+	require.NoError(t, err, "failed to download binary files")
+
+	// Assign all capabilities to the single node set
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
+		return []*keystonetypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              input[0],
+				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.CronCapability},
+				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
+				BootstrapNodeIndex: 0,
+				GatewayNodeIndex:   0, // set explicitly for visibility
+			},
+			{
+				Input:              input[1],
+				Capabilities:       []string{keystonetypes.WriteEVMCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON},
+				BootstrapNodeIndex: 0,
+			},
+		}
+	}
+
+	priceProvider := NewTrueUSDPriceProvider(testLogger)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
+
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
+
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput,
+			}
+			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+		}
+	})
+
+	testLogger.Info().Msg("Waiting for feed to update...")
+	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
+
+	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
+	require.NoError(t, err, "failed to create feeds consumer instance")
+
+	startTime := time.Now()
+	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
+
+	assert.Eventually(t, func() bool {
+		elapsed := time.Since(startTime).Round(time.Second)
+		price, _, err := feedsConsumerInstance.GetPrice(
+			setupOutput.sethClient.NewCallOpts(),
+			feedBytes,
+		)
+		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
+
+		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
+		if !hasNextPrice {
+			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		}
+
+		return !hasNextPrice
+	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
+
+	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
+	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
+}
+
+func TestKeystoneWithOCR3Workflow_GatewayDon_LivePrice(t *testing.T) {
+	testLogger := framework.L
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfig](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVars(t, in)
+	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
+
+	binaryDownloadOutput, err := downloadBinaryFiles(in)
+	require.NoError(t, err, "failed to download binary files")
+
+	// Assign all capabilities to the single node set
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
+		return []*keystonetypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              input[0],
+				Capabilities:       keystonetypes.SingleDonFlags,
+				DONTypes:           []string{keystonetypes.WorkflowDON},
+				BootstrapNodeIndex: 0,
+				GatewayNodeIndex:   -1,
+			},
+			{
+				Input:              input[1],
+				Capabilities:       []string{},
+				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				GatewayNodeIndex:   0,
+				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
+			},
+		}
+	}
+
+	priceProvider := NewTrueUSDPriceProvider(testLogger)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
+
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
+
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput,
+			}
+			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+		}
+	})
+
+	testLogger.Info().Msg("Waiting for feed to update...")
+	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
+
+	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
+	require.NoError(t, err, "failed to create feeds consumer instance")
+
+	startTime := time.Now()
+	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
+
+	assert.Eventually(t, func() bool {
+		elapsed := time.Since(startTime).Round(time.Second)
+		price, _, err := feedsConsumerInstance.GetPrice(
+			setupOutput.sethClient.NewCallOpts(),
+			feedBytes,
+		)
+		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
+
+		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
+		if !hasNextPrice {
+			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
+		}
+
+		return !hasNextPrice
+	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
+
+	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "pricesup do not match")
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 

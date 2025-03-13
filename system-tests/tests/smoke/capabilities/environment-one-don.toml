@@ -11,6 +11,9 @@
 [fake]
   port = 8171
 
+[infra]
+  type = "docker"
+
 [workflow_config]
 	workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
@@ -43,8 +46,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -61,8 +65,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -80,8 +85,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -99,8 +105,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -118,8 +125,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      # docker_ctx = "../../../.."
+      # docker_file = "plugins/chainlink.Dockerfile"
+      image = "chainlink-tmp"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
