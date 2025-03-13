@@ -2,6 +2,7 @@ name: Dependency Review
 description: Run dependency review for vulnerabilities.
 
 on:
+  merge_group:
   pull_request:
 
 permissions: {}
