@@ -15,6 +15,8 @@ import (
 )
 
 type OCR3SignerVerifier interface {
+	SignBlob(b []byte) (sig []byte, err error)
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
 }

@@ -1018,6 +1018,7 @@ func (d *Delegate) newServicesLLO(
 		llotypes.ReportFormatRetirement,
 		llotypes.ReportFormatEVMABIEncodeUnpacked,
 		llotypes.ReportFormatCapabilityTrigger,
+		llotypes.ReportFormatEVMStreamlined,
 	}
 	for _, rf := range evmKeySignedFormats {
 		if _, exists := kbm[rf]; !exists {
