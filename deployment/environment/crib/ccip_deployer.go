@@ -964,6 +964,7 @@ func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) e
 
 func FundSolDeployer(ctx context.Context, lggr logger.Logger, e deployment.Environment, envConfig devenv.EnvironmentConfig, solChainSelectors []uint64) error {
 
+	// TODO - See why this is not being passed as the deployer in env, tmp fix to fund for deployment testing
 	key, err := solana.PublicKeyFromBase58("9aKDDkPcxHQwsToj185ib1tH63BAE5gzoFJdazLjAAWA")
 	if err != nil {
 		return err
