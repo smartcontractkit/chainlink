@@ -90,41 +90,52 @@ func TestSignAndExecute_ContractInteraction(t *testing.T) {
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
-	recipient := common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2")
-
-	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(750))
+	// Mint the deployer address some tokens
+	tx, err = linkState.LinkToken.Mint(chain.DeployerKey, chain.DeployerKey.From, big.NewInt(500))
 	require.NoError(t, err)
 	_, err = deployment.ConfirmIfNoError(chain, tx, err)
 	require.NoError(t, err)
 
+	// Deployer should have the tokens
 	endBalance, err := linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, chain.DeployerKey.From)
 	require.NoError(t, err)
-	expectedBalance := big.NewInt(750)
+	expectedBalance := big.NewInt(500)
 	require.Equal(t, expectedBalance, endBalance)
 
-	// This is the key part - generate a transaction with call data / arguments but do not send it
-	tx, err = linkState.LinkToken.Transfer(deployment.SimTransactOpts(), recipient, big.NewInt(500))
-	require.NoError(t, err)
+	r1 := common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2")
+	r2 := common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e")
+	r3 := common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9")
+	receivers := []common.Address{r1, r2, r3}
+	preparedTxs := make([]*PreparedTx, 0, len(receivers))
 
-	// Ensure that the transaction is not sent to the chain
-	endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
-	require.NoError(t, err)
-	require.Equal(t, big.NewInt(0).Int64(), endBalance.Int64())
+	// Transfer some tokens to multiple receivers
+	for _, receiver := range receivers {
+		// This is the key part - generate a transaction with call data / arguments but do not send it
+		tx, err = linkState.LinkToken.Transfer(deployment.SimTransactOpts(), receiver, big.NewInt(100))
+		require.NoError(t, err)
+		preparedTxs = append(preparedTxs, &PreparedTx{
+			Tx:            tx,
+			ChainSelector: testChain,
+			ContractType:  types.LinkToken.String(),
+		})
 
-	preparedTx := &PreparedTx{
-		Tx:            tx,
-		ChainSelector: testChain,
-		ContractType:  types.LinkToken.String(),
+		// Ensure that the transaction is not sent to the chain
+		endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, r1)
+		require.NoError(t, err)
+		require.Equal(t, big.NewInt(0).Int64(), endBalance.Int64())
 	}
+	require.Len(t, preparedTxs, len(receivers))
 
 	// Execute
-	results, err := SignAndExecute(e, []*PreparedTx{preparedTx})
+	results, err := SignAndExecute(e, preparedTxs)
 	require.NoError(t, err)
-	require.Len(t, results, 1)
+	require.Len(t, results, len(receivers))
 
 	// Verify
-	endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, recipient)
-	require.NoError(t, err)
-	expectedBalance = big.NewInt(500)
-	require.Equal(t, expectedBalance, endBalance)
+	for _, receiver := range receivers {
+		endBalance, err = linkState.LinkToken.BalanceOf(&bind.CallOpts{Context: ctx}, receiver)
+		require.NoError(t, err)
+		expectedBalance = big.NewInt(100)
+		require.Equal(t, expectedBalance, endBalance)
+	}
 }
