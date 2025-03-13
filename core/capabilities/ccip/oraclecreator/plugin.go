@@ -127,10 +127,11 @@ func (i *pluginOracleCreator) Create(ctx context.Context, donID uint32, config c
 		return nil, fmt.Errorf("failed to get public config from OCR config: %w", err)
 	}
 
-	pluginConfig, err := ccipcommon.NewPluginConfigFactory(ccipevm.PluginConfig{}, ccipsolana.PluginConfig{}).CreatePluginConfig(destChainFamily)
+	pluginConfig, err := initializerPluginConfig(destChainFamily)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create plugin config: %w", err)
+		return nil, fmt.Errorf("failed to initialize plugin config: %w", err)
 	}
+
 	i.lggr.Infow("Creating plugin using OCR3 settings",
 		"plugin", pluginType.String(),
 		"chainSelector", chainSelector,
@@ -451,6 +452,20 @@ func decodeAndValidateOffchainConfig(
 		return ccipcommon.OffChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
+}
+
+// initializerPluginConfig initializes the plugin config for the given chain family.
+func initializerPluginConfig(destChainFamily string) (ccipcommon.PluginConfig, error) {
+	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
+	pluginConfig, err := ccipcommon.NewPluginConfigFactory(
+		ccipevm.NewPluginConfig(extraDataCodec),
+		ccipsolana.NewPluginConfig(extraDataCodec),
+	).CreatePluginConfig(destChainFamily)
+	if err != nil {
+		return ccipcommon.PluginConfig{}, fmt.Errorf("failed to create plugin config: %w", err)
+	}
+
+	return pluginConfig, nil
 }
 
 func defaultLocalConfig() ocrtypes.LocalConfig {

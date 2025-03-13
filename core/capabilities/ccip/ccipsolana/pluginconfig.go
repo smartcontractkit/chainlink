@@ -11,22 +11,29 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type PluginConfig struct{}
+type PluginConfig struct {
+	extraDataCodec cctypes.ExtraDataCodec
+}
+
+func NewPluginConfig(extraDataCodec cctypes.ExtraDataCodec) *PluginConfig {
+	return &PluginConfig{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{})
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:  NewCommitPluginCodecV1(),
-		ExecutePluginCodec: NewExecutePluginCodecV1(extraDataCodec),
+		ExecutePluginCodec: NewExecutePluginCodecV1(p.extraDataCodec),
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
-			return NewMessageHasherV1(lggr, extraDataCodec)
+			return NewMessageHasherV1(lggr, p.extraDataCodec)
 		},
 		TokenDataEncoder:     NewSolanaTokenDataEncoder(),
 		GasEstimateProvider:  NewGasEstimateProvider(),

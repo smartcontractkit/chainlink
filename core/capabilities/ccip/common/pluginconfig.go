@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// PluginConfig is a struct that contains the configuration for a plugin.
 type PluginConfig struct {
 	CommitPluginCodec   cciptypes.CommitPluginCodec
 	ExecutePluginCodec  cciptypes.ExecutePluginCodec
@@ -43,11 +44,13 @@ type OffChainPluginConfig interface {
 	InitializePluginConfig() PluginConfig
 }
 
+// PluginConfigFactory is a factory for creating PluginConfig instances.
 type PluginConfigFactory struct {
 	EVMPluginConfig    OffChainPluginConfig
 	SolanaPluginConfig OffChainPluginConfig
 }
 
+// NewPluginConfigFactory is a constructor for PluginConfigFactory.
 func NewPluginConfigFactory(evmPluginConfig, solanaPluginConfig OffChainPluginConfig) *PluginConfigFactory {
 	return &PluginConfigFactory{
 		EVMPluginConfig:    evmPluginConfig,
@@ -55,6 +58,7 @@ func NewPluginConfigFactory(evmPluginConfig, solanaPluginConfig OffChainPluginCo
 	}
 }
 
+// CreatePluginConfig creates a PluginConfig instance based on the chain family.
 func (f *PluginConfigFactory) CreatePluginConfig(chainFamily string) (PluginConfig, error) {
 	switch chainFamily {
 	case chainsel.FamilyEVM:

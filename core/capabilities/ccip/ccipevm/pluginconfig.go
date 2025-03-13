@@ -12,11 +12,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type PluginConfig struct{}
+type PluginConfig struct {
+	extraDataCodec cctypes.ExtraDataCodec
+}
+
+func NewPluginConfig(extraDataCodec cctypes.ExtraDataCodec) *PluginConfig {
+	return &PluginConfig{
+		extraDataCodec: extraDataCodec,
+	}
+}
 
 func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	extraDataCodec := ccipcommon.NewExtraDataCodec(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
