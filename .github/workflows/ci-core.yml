@@ -292,7 +292,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@c0324c9ab3ccea4ea76b4e1680aafb4a3af698d6 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7d381abbc4f7706be02f93a8af66c4dab50cd394 # flakguard@0.1.0
   
       - name: Generate Flakeguard Main Test Report
         if: always()
