@@ -409,7 +409,11 @@ func BuildOCR3ConfigForCCIPHome(
 
 		transmittersBytes := make([][]byte, len(transmitters))
 		for i, transmitter := range transmitters {
-			transmittersBytes[i] = []byte(transmitter)
+			parsed, err2 := common.ParseHexOrString(string(transmitter))
+			if err2 != nil {
+				return nil, err2
+			}
+			transmittersBytes[i] = parsed
 		}
 		// validate ocr3 params correctness
 		_, err := ocr3confighelper.PublicConfigFromContractConfig(false, ocrtypes.ContractConfig{

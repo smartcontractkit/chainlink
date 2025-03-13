@@ -5,6 +5,7 @@ import (
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
+	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 )
@@ -74,8 +75,8 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 func toOCRAccounts(transmitters [][]byte) []types.Account {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
-		// transmitters have chain family specific encoding so we keep them as strings
-		accounts[i] = types.Account(transmitter)
+		// TODO: string-encode the transmitter appropriately to the dest chain family.
+		accounts[i] = types.Account(gethcommon.BytesToAddress(transmitter).Hex())
 	}
 	return accounts
 }
