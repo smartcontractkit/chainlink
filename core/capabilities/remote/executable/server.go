@@ -219,7 +219,7 @@ func (r *server) logNonDeterministicRequestsWarning(requestIDs map[string]bool, 
 		deterministicCapabilityRequest, err := r.getDeterministicCapabilityRequest(req.message)
 		if err != nil {
 			r.lggr.Errorw("failed to get deterministic capability request", "err", err)
-			break
+			continue
 		}
 
 		deterministicCapabilityRequests = append(deterministicCapabilityRequests, deterministicCapabilityRequest)
