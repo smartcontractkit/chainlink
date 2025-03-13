@@ -2,6 +2,7 @@ package solana
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -203,27 +204,13 @@ func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
 }
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
-	if config.CleanDestinationDir {
-		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
-		if err := os.RemoveAll(config.DestinationDir); err != nil {
-			return fmt.Errorf("error cleaning build folder: %w", err)
-		}
-		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create build directory: %w", err)
-		}
-	} else if config.CreateDestinationDir {
-		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-		if err != nil {
-			return fmt.Errorf("failed to create build directory: %w", err)
-		}
-	}
 	// to use verified builds and actually have them work you need to:
 	// 1. have the gh cli installed (brew install gh). This is already installed on GH runners so this will work in CI.
 	// 2. have the private keypair files sourced from somewhere and already located in the DestinationDir. This is orthoganal to the verified build process
 	if config.VerifiedBuild {
+		if config.CreateDestinationDir || config.CleanDestinationDir {
+			return errors.New("create or clean destination dir cannot be true when using verified builds. This could delete the private keypair files")
+		}
 		output, err := runCommand("gh",
 			[]string{
 				"release",
@@ -259,6 +246,24 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 		// Build the project with Anchor
 		if err := buildProject(e, config.TestRouter); err != nil {
 			return fmt.Errorf("error building project: %w", err)
+		}
+
+		if config.CleanDestinationDir {
+			e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
+			if err := os.RemoveAll(config.DestinationDir); err != nil {
+				return fmt.Errorf("error cleaning build folder: %w", err)
+			}
+			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create build directory: %w", err)
+			}
+		} else if config.CreateDestinationDir {
+			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+			if err != nil {
+				return fmt.Errorf("failed to create build directory: %w", err)
+			}
 		}
 
 		deployFilePath := filepath.Join(cloneDir, deployDir)
