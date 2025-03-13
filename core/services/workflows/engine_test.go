@@ -772,8 +772,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
-
-	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
 }
 
@@ -1694,6 +1693,12 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -1765,6 +1770,12 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,

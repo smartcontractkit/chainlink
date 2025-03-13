@@ -19,7 +19,6 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"go.uber.org/multierr"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
@@ -47,10 +46,10 @@ type execArgs struct {
 	seqNum            uint64
 	msgID             [32]byte
 	sourceChain       *ethclient.Client
-	sourceChainId     *big.Int
+	sourceChainID     *big.Int
 	destChain         *ethclient.Client
 	destUser          *bind.TransactOpts
-	destChainId       *big.Int
+	destChainID       *big.Int
 	srcStartBlock     *big.Int
 	destStartBlock    uint64
 	destLatestBlock   uint64
@@ -93,7 +92,8 @@ func main() {
 	// mandatory fields check
 	err = cfg.verifyConfig()
 	if err != nil {
-		log.Println("config validation failed: \n", err)
+		log.Println("config validation failed:")
+
 		os.Exit(1)
 	}
 	args := &execArgs{cfg: cfg}
@@ -109,40 +109,38 @@ func main() {
 	}
 }
 
-func (cfg Config) verifyConfig() error {
-	var allErr error
+func (cfg Config) verifyConfig() (errs error) {
 	if cfg.SrcNodeURL == "" {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set src_rpc - source chain rpc\n"))
+		errs = errors.Join(errs, errors.New("must set src_rpc - source chain rpc"))
 	}
 	if cfg.DestNodeURL == "" {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set dest_rpc - destination chain rpc\n"))
+		errs = errors.Join(errs, errors.New("must set dest_rpc - destination chain rpc"))
 	}
 	if cfg.DestOwner == "" {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set dest_owner_key - destination user private key\n"))
+		errs = errors.Join(errs, errors.New("must set dest_owner_key - destination user private key"))
 	}
 	if cfg.SourceChainTx == "" {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set source_chain_tx - txHash of ccip-send request\n"))
+		errs = errors.Join(errs, errors.New("must set source_chain_tx - txHash of ccip-send request"))
 	}
 
 	if cfg.DestStartBlock == 0 && cfg.DestDeployedAt == 0 {
-		allErr = multierr.Append(allErr, fmt.Errorf(`must set either of -
+		errs = errors.Join(errs, errors.New(`must set either of -
 dest_deployed_at - the block number before destination contracts were deployed;
-dest_start_block - the block number from which events will be filtered at destination chain.
-`))
+dest_start_block - the block number from which events will be filtered at destination chain`))
 	}
 	if cfg.GasLimitOverride == 0 {
-		allErr = multierr.Append(allErr, fmt.Errorf("must set gas_limit_override - new value of gas limit for ccip-send request\n"))
+		errs = errors.Join(errs, errors.New("must set gas_limit_override - new value of gas limit for ccip-send request"))
 	}
 	err := helpers.VerifyAddress(cfg.CommitStore)
 	if err != nil {
-		allErr = multierr.Append(allErr, fmt.Errorf("check the commit_store address - %v\n", err))
+		errs = errors.Join(errs, fmt.Errorf("check the commit_store address - %w", err))
 	}
 	err = helpers.VerifyAddress(cfg.OffRamp)
 	if err != nil {
-		allErr = multierr.Append(allErr, fmt.Errorf("check the off_ramp address - %v\n", err))
+		errs = errors.Join(errs, fmt.Errorf("check the off_ramp address - %w", err))
 	}
 
-	return allErr
+	return
 }
 
 func (args *execArgs) populateValues() error {
@@ -152,7 +150,7 @@ func (args *execArgs) populateValues() error {
 	if err != nil {
 		return err
 	}
-	args.sourceChainId, err = args.sourceChain.ChainID(context.Background())
+	args.sourceChainID, err = args.sourceChain.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
@@ -161,7 +159,7 @@ func (args *execArgs) populateValues() error {
 	if err != nil {
 		return err
 	}
-	args.destChainId, err = args.destChain.ChainID(context.Background())
+	args.destChainID, err = args.destChain.ChainID(context.Background())
 	if err != nil {
 		return err
 	}
@@ -170,7 +168,7 @@ func (args *execArgs) populateValues() error {
 		return err
 	}
 
-	args.destUser, err = bind.NewKeyedTransactorWithChainID(ownerKey, args.destChainId)
+	args.destUser, err = bind.NewKeyedTransactorWithChainID(ownerKey, args.destChainID)
 	if err != nil {
 		return err
 	}
@@ -210,7 +208,8 @@ func (args *execArgs) execute() error {
 
 	var commitReport *helpers.ICommitStoreCommitReport
 	for iterator.Next() {
-		eventReport, err := iterator.CommitStoreReportAcceptedFromLog()
+		var eventReport *helpers.CommitStoreReportAccepted
+		eventReport, err = iterator.CommitStoreReportAcceptedFromLog()
 		if err != nil {
 			return err
 		}
@@ -229,8 +228,8 @@ func (args *execArgs) execute() error {
 	// Build a merkle tree for the report
 	mctx := helpers.NewKeccakCtx()
 	leafHasher := helpers.NewLeafHasher(
-		GetCCIPChainSelector(args.sourceChainId.Uint64()),
-		GetCCIPChainSelector(args.destChainId.Uint64()),
+		GetCCIPChainSelector(args.sourceChainID.Uint64()),
+		GetCCIPChainSelector(args.destChainID.Uint64()),
 		args.OnRamp,
 		mctx,
 	)
@@ -248,14 +247,16 @@ func (args *execArgs) execute() error {
 	}
 
 	for sendRequestedIterator.Next() {
-		event, err := sendRequestedIterator.SendRequestedEventFromLog()
+		var event *helpers.SendRequestedEvent
+		event, err = sendRequestedIterator.SendRequestedEventFromLog()
 		if err != nil {
 			return err
 		}
 		if event.Message.SequenceNumber <= commitReport.Interval.Max &&
 			event.Message.SequenceNumber >= commitReport.Interval.Min {
 			log.Println("Found seq num in commit report", event.Message.SequenceNumber, commitReport.Interval)
-			hash, err := leafHasher.HashLeaf(sendRequestedIterator.Raw)
+			var hash [32]byte
+			hash, err = leafHasher.HashLeaf(sendRequestedIterator.Raw)
 			if err != nil {
 				return err
 			}
@@ -281,8 +282,8 @@ func (args *execArgs) execute() error {
 		return fmt.Errorf("unable to find msg with seqNr %d", seqNr)
 	}
 
-	expectedNumberOfLeaves := int(commitReport.Interval.Max - commitReport.Interval.Min + 1)
-	if len(leaves) != expectedNumberOfLeaves {
+	expectedNumberOfLeaves := commitReport.Interval.Max - commitReport.Interval.Min + 1
+	if uint64(len(leaves)) != expectedNumberOfLeaves {
 		return fmt.Errorf("not enough leaves gather to build a commit root - want %d got %d. Please set NumberOfBlocks const to a higher value", expectedNumberOfLeaves, len(leaves))
 	}
 
@@ -306,7 +307,7 @@ func (args *execArgs) execute() error {
 
 	for range offRampProof.Messages {
 		evm2evmOffRampGasLimitOverride := &helpers.EVM2EVMOffRampGasLimitOverride{
-			ReceiverExecutionGasLimit: big.NewInt(int64(args.cfg.GasLimitOverride)),
+			ReceiverExecutionGasLimit: new(big.Int).SetUint64(args.cfg.GasLimitOverride),
 			TokenGasOverrides:         args.tokenGasOverrides,
 		}
 		gasLimitOverrides = append(gasLimitOverrides, evm2evmOffRampGasLimitOverride)
@@ -398,7 +399,7 @@ func (args *execArgs) approxDestStartBlock() error {
 	minBlockNum := args.cfg.DestDeployedAt
 	closestBlockNum := uint64(math.Floor((float64(maxBlockNum) + float64(minBlockNum)) / 2))
 	var closestBlockHdr *types.Header
-	closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
+	closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), new(big.Int).SetUint64(closestBlockNum))
 	if err != nil {
 		return err
 	}
@@ -420,7 +421,7 @@ func (args *execArgs) approxDestStartBlock() error {
 			minBlockNum = blockNum + 1
 		}
 		closestBlockNum = uint64(math.Floor((float64(maxBlockNum) + float64(minBlockNum)) / 2))
-		closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
+		closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), new(big.Int).SetUint64(closestBlockNum))
 		if err != nil {
 			return err
 		}
@@ -434,7 +435,7 @@ func (args *execArgs) approxDestStartBlock() error {
 		if closestBlockNum <= 0 {
 			return errors.New("approx destination blocknumber not found")
 		}
-		closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), big.NewInt(int64(closestBlockNum)))
+		closestBlockHdr, err = args.destChain.HeaderByNumber(context.Background(), new(big.Int).SetUint64(closestBlockNum))
 		if err != nil {
 			return err
 		}
@@ -444,10 +445,10 @@ func (args *execArgs) approxDestStartBlock() error {
 	return nil
 }
 
-func GetCCIPChainSelector(chainId uint64) uint64 {
-	selector, err := chainselectors.SelectorFromChainId(chainId)
+func GetCCIPChainSelector(chainID uint64) uint64 {
+	selector, err := chainselectors.SelectorFromChainId(chainID)
 	if err != nil {
-		panic(fmt.Sprintf("no chain selector for %d", chainId))
+		panic(fmt.Sprintf("no chain selector for %d", chainID))
 	}
 	return selector
 }

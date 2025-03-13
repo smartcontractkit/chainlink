@@ -3,9 +3,12 @@ package v1_6_test
 import (
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -268,4 +271,122 @@ func TestAddDonAfterRemoveDons(t *testing.T) {
 		),
 	)
 	require.NoError(t, err)
+}
+
+func TestRemoveNodes(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		mcmsEnabled bool
+	}{
+		{
+			name:        "MCMS enabled",
+			mcmsEnabled: true,
+		},
+		{
+			name:        "MCMS disabled",
+			mcmsEnabled: false,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx := testcontext.Get(t)
+			e, tEnv := testhelpers.NewMemoryEnvironment(t, testhelpers.WithPrerequisiteDeploymentOnly(nil))
+			nodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
+			require.NoError(t, err)
+			// apply the DeployHomeChain changeset, and timelock
+			e.Env, err = commoncs.ApplyChangesets(t, e.Env, nil, []commoncs.ConfiguredChangeSet{
+				commoncs.Configure(
+					deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
+					v1_6.DeployHomeChainConfig{
+						HomeChainSel:     e.HomeChainSel,
+						RMNDynamicConfig: testhelpers.NewTestRMNDynamicConfig(),
+						RMNStaticConfig:  testhelpers.NewTestRMNStaticConfig(),
+						NodeOperators:    testhelpers.NewTestNodeOperator(e.Env.Chains[e.HomeChainSel].DeployerKey.From),
+						NodeP2PIDsPerNodeOpAdmin: map[string][][32]byte{
+							testhelpers.TestNodeOperator: nodes.NonBootstraps().PeerIDs(),
+						},
+					},
+				),
+			})
+			require.NoError(t, err)
+
+			s, err := changeset.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+			state, err := changeset.LoadOnchainState(e.Env)
+			require.NoError(t, err)
+			homeChain := s.Chains[e.HomeChainSel]
+			allChains := e.Env.AllChainSelectors()
+
+			var mcmsConfig *changeset.MCMSConfig
+			if tc.mcmsEnabled {
+				mcmsConfig = &changeset.MCMSConfig{
+					MinDelay: 0,
+				}
+			}
+			if tc.mcmsEnabled {
+				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+				_, err := commoncs.Apply(t, e.Env,
+					map[uint64]*proposalutils.TimelockExecutionContracts{
+						e.HomeChainSel: {
+							Timelock:  state.Chains[e.HomeChainSel].Timelock,
+							CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+						},
+					},
+					commoncs.Configure(
+						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+						commoncs.TransferToMCMSWithTimelockConfig{
+							ContractsByChain: map[uint64][]common.Address{
+								e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
+							},
+						},
+					),
+				)
+				require.NoError(t, err)
+				owner, err := homeChain.CapabilityRegistry.Owner(&bind.CallOpts{
+					Context: ctx,
+				})
+				require.NoError(t, err)
+				require.Equal(t, state.Chains[e.HomeChainSel].Timelock.Address(), owner)
+			}
+			e.Env, err = commoncs.Apply(t, e.Env,
+				map[uint64]*proposalutils.TimelockExecutionContracts{
+					e.HomeChainSel: {
+						Timelock:  state.Chains[e.HomeChainSel].Timelock,
+						CallProxy: state.Chains[e.HomeChainSel].CallProxy,
+					},
+				},
+				commoncs.Configure(v1_6.RemoveNodesFromCapRegChangeset,
+					v1_6.RemoveNodesConfig{
+						HomeChainSel:   e.HomeChainSel,
+						P2PIDsToRemove: nodes.NonBootstraps().PeerIDs(),
+						MCMSCfg:        mcmsConfig,
+					}))
+			require.NoError(t, err)
+
+			// get all nodes
+			nodesAfterCS, err := homeChain.CapabilityRegistry.GetNodes(&bind.CallOpts{
+				Context: ctx,
+			})
+			require.NoError(t, err)
+			require.Empty(t, nodesAfterCS)
+			// currently DeployHomeChainChangeset only applies with MCMS disabled
+			// check if the nodes are readded to the cap reg following rest of the deployment process
+			if !tc.mcmsEnabled {
+				tEnv.UpdateDeployedEnvironment(e)
+				testhelpers.AddCCIPContractsToEnvironment(t, allChains, tEnv, false)
+				nodesNow, err := homeChain.CapabilityRegistry.GetNodes(&bind.CallOpts{
+					Context: ctx,
+				})
+				require.NoError(t, err)
+				require.Len(t, nodesNow, len(nodes.NonBootstraps().PeerIDs()))
+				nodeP2pKeys := make(map[[32]byte]struct{})
+				for _, node := range nodesNow {
+					nodeP2pKeys[node.P2pId] = struct{}{}
+				}
+				for _, p2pID := range nodes.NonBootstraps().PeerIDs() {
+					_, ok := nodeP2pKeys[p2pID]
+					require.True(t, ok)
+				}
+			}
+		})
+	}
 }

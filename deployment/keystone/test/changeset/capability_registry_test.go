@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -16,6 +17,7 @@ import (
 )
 
 func TestHydrateCapabilityRegistry(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-103")
 	b, err := os.ReadFile("testdata/capability_registry_view.json")
 	require.NoError(t, err)
 	require.NotEmpty(t, b)

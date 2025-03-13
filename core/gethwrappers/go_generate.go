@@ -154,12 +154,3 @@ package gethwrappers
 //go:generate go generate ./shared
 //go:generate go generate ./ccip
 //go:generate go generate ./workflow
-
-// Mocks that contain only events and functions to emit them
-// These contracts are used in testing Atlas flows. The contracts contain no logic, only events, structures, and functions to emit them.
-// The flow is as follows:
-// 1. Compile all non events mock contracts.
-// 2. Generate events mock .sol files based on ABI of compiled contracts.
-// 3. Compile mocks by calling contracts/scripts/native_solc_compile_all_events_mock to compile events mock contracts.
-// 4. Generate wrappers for events mock contracts.
-//go:generate ../../contracts/scripts/native_solc_compile_all_events_mock

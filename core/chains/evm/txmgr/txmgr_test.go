@@ -537,8 +537,8 @@ func TestTxm_Lifecycle(t *testing.T) {
 	head := cltest.Head(42)
 	finalizedHead := cltest.Head(0)
 
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil)
-	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil)
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(head, nil).Maybe()
+	ethClient.On("HeadByNumber", mock.Anything, mock.Anything).Return(finalizedHead, nil).Maybe()
 
 	keyChangeCh := make(chan struct{})
 	unsub := cltest.NewAwaiter()

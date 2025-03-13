@@ -2,6 +2,7 @@ package view
 
 import (
 	"encoding/json"
+	"sync"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
@@ -10,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
 type ChainView struct {
@@ -42,6 +44,8 @@ type ChainView struct {
 	MCMSWithTimelock   common_v1_0.MCMSWithTimelockView              `json:"mcmsWithTimelock,omitempty"`
 	LinkToken          common_v1_0.LinkTokenView                     `json:"linkToken,omitempty"`
 	StaticLinkToken    common_v1_0.StaticLinkTokenView               `json:"staticLinkToken,omitempty"`
+
+	tpUpdateMu *sync.Mutex
 }
 
 func NewChain() ChainView {
@@ -69,7 +73,14 @@ func NewChain() ChainView {
 		MCMSWithTimelock:   common_v1_0.MCMSWithTimelockView{},
 		LinkToken:          common_v1_0.LinkTokenView{},
 		StaticLinkToken:    common_v1_0.StaticLinkTokenView{},
+		tpUpdateMu:         &sync.Mutex{},
 	}
+}
+
+func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
+	v.tpUpdateMu.Lock()
+	defer v.tpUpdateMu.Unlock()
+	v.TokenPools = helpers.AddValueToNestedMap(v.TokenPools, tokenSymbol, tokenPoolAddress, poolView)
 }
 
 type CCIPView struct {

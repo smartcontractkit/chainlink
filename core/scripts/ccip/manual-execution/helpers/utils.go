@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"time"
@@ -13,7 +14,7 @@ import (
 
 func VerifyAddress(addr string) error {
 	if addr == "" {
-		return fmt.Errorf("address is blank")
+		return errors.New("address is blank")
 	}
 	if !common.IsHexAddress(addr) {
 		return fmt.Errorf("address %s is invalid", addr)
@@ -41,7 +42,7 @@ func WaitForSuccessfulTxReceipt(client ethereum.TransactionReader, hash common.H
 				}
 			}
 		case <-ctx.Done():
-			return fmt.Errorf("tx not confirmed within time")
+			return errors.New("tx not confirmed within time")
 		}
 	}
 }
