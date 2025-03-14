@@ -1,5 +1,6 @@
 package v1_6
 
+/*
 import (
 	"fmt"
 	"math/big"
@@ -335,12 +336,11 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	/*
-		TODO:
-		Add RMN deployment on the new chain
-		- SetRMNRemoteConfigChangeset
-		- SetRMNRemoteOnRMNProxyChangeset
-	*/
+
+	// TODO:
+	// Add RMN deployment on the new chain
+	//  - SetRMNRemoteConfigChangeset
+	//  - SetRMNRemoteOnRMNProxyChangeset
 
 	// 15. Aggregate all proposals.
 	var batches []mcmstypes.BatchOperation
@@ -432,9 +432,9 @@ func calculateConfigDigest(donID uint32, pluginType types.PluginType, staticConf
         		{"name": "offchainConfigVersion", "type": "uint64"},
         		{"name": "offrampAddress", "type": "bytes"},
         		{"name": "rmnHomeAddress", "type": "bytes"},
-				{ 
-					"name": "nodes", 
-					"type": "tuple[]", 
+				{
+					"name": "nodes",
+					"type": "tuple[]",
 					"components": [
 						{ "name": "p2pId", "type": "bytes32" },
 						{ "name": "signerKey", "type": "bytes" },
@@ -572,3 +572,4 @@ func computeDigestsAndDonID(e deployment.Environment, state changeset.CCIPOnChai
 		ExecDigest:   execConfigDigest,
 	}, nil
 }
+*/

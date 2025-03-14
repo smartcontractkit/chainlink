@@ -1492,7 +1492,7 @@ func SetOCR3OffRampChangeset(e deployment.Environment, cfg SetOCR3OffRampConfig)
 			return deployment.ChangesetOutput{}, err
 		}
 		args, err := internal.BuildSetOCR3ConfigArgs(
-			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType, cfg.ActiveDigestOverrides[remote])
+			donID, state.Chains[cfg.HomeChainSel].CCIPHome, remote, cfg.CCIPHomeConfigType)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}

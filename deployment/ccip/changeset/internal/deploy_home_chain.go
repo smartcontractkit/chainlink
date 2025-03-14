@@ -143,7 +143,6 @@ func BuildSetOCR3ConfigArgs(
 	ccipHome *ccip_home.CCIPHome,
 	destSelector uint64,
 	configType globals.ConfigType,
-	activeDigestOverrides map[types.PluginType][32]byte,
 ) ([]offramp.MultiOCR3BaseOCRConfigArgs, error) {
 	chainCfg, err := ccipHome.GetChainConfig(nil, destSelector)
 	if err != nil {
@@ -157,27 +156,21 @@ func BuildSetOCR3ConfigArgs(
 		if err2 != nil {
 			return nil, err2
 		}
-		activeConfigDigest := ocrConfig.ActiveConfig.ConfigDigest
-		if activeDigestOverrides != nil {
-			if digest, ok := activeDigestOverrides[pluginType]; ok {
-				activeConfigDigest = digest
-			}
-		}
 
 		fmt.Printf("pluginType: %s, destSelector: %d, donID: %d, activeConfig digest: %x, candidateConfig digest: %x\n",
-			pluginType.String(), destSelector, donID, activeConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
+			pluginType.String(), destSelector, donID, ocrConfig.ActiveConfig.ConfigDigest, ocrConfig.CandidateConfig.ConfigDigest)
 
 		configForOCR3 := ocrConfig.ActiveConfig
 		// we expect only an active config
 		if configType == globals.ConfigTypeActive {
-			if activeConfigDigest == [32]byte{} {
+			if ocrConfig.ActiveConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected active config, donID: %d, activeConfig: %v, candidateConfig: %v",
-					donID, hexutil.Encode(activeConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
 		} else if configType == globals.ConfigTypeCandidate {
 			if ocrConfig.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("invalid OCR3 config state, expected candidate config, donID: %d, activeConfig: %v, candidateConfig: %v",
-					donID, hexutil.Encode(activeConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
+					donID, hexutil.Encode(ocrConfig.ActiveConfig.ConfigDigest[:]), hexutil.Encode(ocrConfig.CandidateConfig.ConfigDigest[:]))
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
