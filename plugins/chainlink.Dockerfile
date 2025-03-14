@@ -35,7 +35,7 @@ RUN make install-ocr3-capability
 RUN make install-plugins
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive

@@ -207,8 +207,8 @@ test-short: ## Run 'go test -short' and suppress uninteresting output
 run_flakeguard_validate_unit_tests:
 	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
 	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
-	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
-	 RUNNER=$${RUNNER:-ubuntu-20.04}; \
+	 read -p "Enter the test runner (default: ubuntu-24.04): " RUNNER; \
+	 RUNNER=$${RUNNER:-ubuntu-24.04}; \
 	 gh workflow run flakeguard-validate-tests.yml \
 	   -f testPackages="$${PKGS}" \
 	   -f testRepeatCount="$${REPS}" \
