@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6273597bf5790d8961dd6afcd22d80007e9f7636 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@b0c2ef792ed091f6c812e18cdde5d3439213ea7e # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -335,7 +335,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6273597bf5790d8961dd6afcd22d80007e9f7636 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@b0c2ef792ed091f6c812e18cdde5d3439213ea7e # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -424,7 +424,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@6273597bf5790d8961dd6afcd22d80007e9f7636 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@b0c2ef792ed091f6c812e18cdde5d3439213ea7e # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -550,11 +550,11 @@ jobs:
           if [ "$GH_EVENT_NAME" = "pull_request" ]; then
             flakeguard generate-github-report \
               --flakeguard-report ./flakeguard-report/all-test-report.json \
-              --output-dir ./flakeguard-report \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
               --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
-              --generate-pr-comment \
+              --pr-comment-md-path ./flakeguard-report/all-test-pr-comment.md \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
@@ -564,7 +564,7 @@ jobs:
           else
             flakeguard generate-github-report \
               --flakeguard-report ./flakeguard-report/all-test-report.json \
-              --output-dir ./flakeguard-report \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
               --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
