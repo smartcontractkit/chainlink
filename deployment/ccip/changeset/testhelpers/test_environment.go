@@ -49,7 +49,7 @@ const (
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
 
-var downloadSolCcipContractArtifactsOnce sync.Once
+var downloadSolCcipProgramArtifactsOnce sync.Once
 
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
@@ -543,8 +543,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
-	downloadSolCcipContractArtifactsOnce.Do(func() {
-		err := DownloadSolanaCcipPrograms(t.Context(), memory.ProgramsPath)
+	downloadSolCcipProgramArtifactsOnce.Do(func() {
+		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath)
 		require.NoError(t, err)
 	})
 

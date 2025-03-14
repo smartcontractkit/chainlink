@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -1979,15 +1980,20 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func DownloadSolanaCcipPrograms(ctx context.Context, dir string) error {
+func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
 	const name = "archive.tar.gz"
-	const path = "go.mod"
 
 	tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
 	if !ok {
-		version, err := GetSolanaCcipDependencyVersion(path)
+    // TODO: is there a better way to get the path to the repo root directory?
+    output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
+    if err != nil {
+      return err
+    }
+
+		version, err := GetSolanaCcipDependencyVersion(filepath.Join(strings.TrimSpace(string(output)), "go.mod"))
 		if err != nil {
 			return err
 		}
