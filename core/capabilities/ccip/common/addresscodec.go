@@ -13,8 +13,8 @@ type AddressCodec struct {
 	SolanaAddressCodec ChainSpecificAddressCodec
 }
 
-// NewRealAddressCodec is a constructor for NewRealAddressCodec
-func NewRealAddressCodec(evmAddrCodec, solanaAddrCodec ChainSpecificAddressCodec) AddressCodec {
+// NewAddressCodec is a constructor for NewAddressCodec
+func NewAddressCodec(evmAddrCodec, solanaAddrCodec ChainSpecificAddressCodec) AddressCodec {
 	return AddressCodec{
 		EVMAddressCodec:    evmAddrCodec,
 		SolanaAddressCodec: solanaAddrCodec,
