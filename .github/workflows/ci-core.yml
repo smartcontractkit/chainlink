@@ -293,7 +293,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@b0c2ef792ed091f6c812e18cdde5d3439213ea7e # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@d71989ddf270d247e61e1c7e23fa65fcc141c73b # flakguard@0.1.0
   
       - name: Generate Flakeguard Test Reports
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
