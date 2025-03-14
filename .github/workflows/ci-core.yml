@@ -349,6 +349,7 @@ jobs:
               --github-workflow-name "${{ github.workflow }}" \
               --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
               --project-path "$PROJECT_PATH" \
+              --gen-report-id \
               --rerun-of-report-id "$MAIN_REPORT_ID"
       
             EXIT_CODE=$?
