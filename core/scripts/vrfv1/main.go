@@ -200,7 +200,7 @@ func main() {
 		helpers.ParseArgs(cmd, os.Args[2:], "link-address", "consumer-address", "payment", "key-hash")
 		payment, ok := big.NewInt(0).SetString(*paymentStr, 10)
 		if !ok {
-			panic(fmt.Sprintf("failed to parse payment amount: %s", *paymentStr))
+			panic("failed to parse payment amount: " + *paymentStr)
 		}
 		link, err := linktoken.NewLinkToken(common.HexToAddress(*linkAddr), e.Ec)
 		helpers.PanicErr(err)

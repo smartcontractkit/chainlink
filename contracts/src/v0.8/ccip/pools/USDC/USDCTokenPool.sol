@@ -7,6 +7,7 @@ import {ITokenMessenger} from "./ITokenMessenger.sol";
 
 import {Pool} from "../../libraries/Pool.sol";
 import {TokenPool} from "../TokenPool.sol";
+import {CCTPMessageTransmitterProxy} from "./CCTPMessageTransmitterProxy.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -29,6 +30,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
   error InvalidSourceDomain(uint32 expected, uint32 got);
   error InvalidDestinationDomain(uint32 expected, uint32 got);
   error InvalidReceiver(bytes receiver);
+  error InvalidTransmitterInProxy();
 
   // This data is supplied from offchain and contains everything needed
   // to receive the USDC tokens.
@@ -50,19 +52,22 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     uint32 sourceDomain;
   }
 
-  string public constant override typeAndVersion = "USDCTokenPool 1.5.1";
+  string public constant override typeAndVersion = "USDCTokenPool 1.6.1-dev";
 
   // We restrict to the first version. New pool may be required for subsequent versions.
   uint32 public constant SUPPORTED_USDC_VERSION = 0;
 
   // The local USDC config
   ITokenMessenger public immutable i_tokenMessenger;
-  IMessageTransmitter public immutable i_messageTransmitter;
+  CCTPMessageTransmitterProxy public immutable i_messageTransmitterProxy;
   uint32 public immutable i_localDomainIdentifier;
 
   /// A domain is a USDC representation of a destination chain.
   /// @dev Zero is a valid domain identifier.
   /// @dev The address to mint on the destination chain is the corresponding USDC pool.
+  /// @dev The allowedCaller represents the contract authorized to call receiveMessage on the destination CCTP message transmitter.
+  /// For dest pool version 1.6.1, this is the MessageTransmitterProxy of the destination chain.
+  /// For dest pool version 1.5.1, this is the destination chain's token pool.
   struct Domain {
     bytes32 allowedCaller; //      Address allowed to mint on the domain
     uint32 domainIdentifier; // ─╮ Unique domain ID
@@ -74,6 +79,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
 
   constructor(
     ITokenMessenger tokenMessenger,
+    CCTPMessageTransmitterProxy cctpMessageTransmitterProxy,
     IERC20 token,
     address[] memory allowlist,
     address rmnProxy,
@@ -85,17 +91,20 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
     if (transmitterVersion != SUPPORTED_USDC_VERSION) revert InvalidMessageVersion(transmitterVersion);
     uint32 tokenMessengerVersion = tokenMessenger.messageBodyVersion();
     if (tokenMessengerVersion != SUPPORTED_USDC_VERSION) revert InvalidTokenMessengerVersion(tokenMessengerVersion);
+    if (cctpMessageTransmitterProxy.i_cctpTransmitter() != transmitter) revert InvalidTransmitterInProxy();
 
     i_tokenMessenger = tokenMessenger;
-    i_messageTransmitter = transmitter;
+    i_messageTransmitterProxy = cctpMessageTransmitterProxy;
     i_localDomainIdentifier = transmitter.localDomain();
     i_token.safeIncreaseAllowance(address(i_tokenMessenger), type(uint256).max);
     emit ConfigSet(address(tokenMessenger));
   }
 
-  /// @notice Burn the token in the pool
-  /// @dev emits ITokenMessenger.DepositForBurn
-  /// @dev Assumes caller has validated destinationReceiver
+  /// @notice Burn tokens from the pool to initiate cross-chain transfer.
+  /// @notice Outgoing messages (burn operations) are routed via `i_tokenMessenger.depositForBurnWithCaller`.
+  /// The allowedCaller is preconfigured per destination domain and token pool version refer Domain struct.
+  /// @dev Emits ITokenMessenger.DepositForBurn event.
+  /// @dev Assumes caller has validated the destinationReceiver.
   function lockOrBurn(
     Pool.LockOrBurnInV1 calldata lockOrBurnIn
   ) public virtual override returns (Pool.LockOrBurnOutV1 memory) {
@@ -146,7 +155,7 @@ contract USDCTokenPool is TokenPool, ITypeAndVersion {
 
     _validateMessage(msgAndAttestation.message, sourceTokenDataPayload);
 
-    if (!i_messageTransmitter.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
+    if (!i_messageTransmitterProxy.receiveMessage(msgAndAttestation.message, msgAndAttestation.attestation)) {
       revert UnlockingUSDCFailed();
     }
 

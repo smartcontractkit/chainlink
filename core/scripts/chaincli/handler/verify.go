@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -31,7 +32,7 @@ func (k *Keeper) changeToContractsDirectory() error {
 
 	// Check if hardhat.config.ts exists in the current directory
 	if _, err := os.Stat(filepath.Join(absPath, "hardhat.config.ts")); err != nil {
-		return fmt.Errorf("hardhat.config.ts not found in the current directory")
+		return errors.New("hardhat.config.ts not found in the current directory")
 	}
 
 	log.Printf("Successfully changed to directory %s\n", absPath)

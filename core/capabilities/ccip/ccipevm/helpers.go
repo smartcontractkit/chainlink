@@ -1,13 +1,13 @@
 package ccipevm
 
 import (
-	"bytes"
 	"fmt"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
@@ -18,43 +18,6 @@ const (
 	evmV2DecodeName    = "decodeEVMExtraArgsV2"
 	evmDestExecDataKey = "destGasAmount"
 )
-
-var (
-	abiUint32               = ABITypeOrPanic("uint32")
-	TokenDestGasOverheadABI = abi.Arguments{
-		{
-			Type: abiUint32,
-		},
-	}
-)
-
-// decodeExtraArgsV1V2 decodes the given EVM Extra Args and extracts the gas limit
-// that was specified.
-func decodeExtraArgsV1V2(extraArgs []byte) (gasLimit *big.Int, err error) {
-	if len(extraArgs) < 4 {
-		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 bytes long (i.e the extraArgs tag)", len(extraArgs))
-	}
-
-	var method string
-	if bytes.Equal(extraArgs[:4], evmExtraArgsV1Tag) {
-		method = evmV1DecodeName
-	} else if bytes.Equal(extraArgs[:4], evmExtraArgsV2Tag) {
-		method = evmV2DecodeName
-	} else {
-		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
-	}
-	ifaces, err := messageHasherABI.Methods[method].Inputs.UnpackValues(extraArgs[4:])
-	if err != nil {
-		return nil, fmt.Errorf("abi decode extra args v1: %w", err)
-	}
-	// gas limit is always the first argument, and allow OOO isn't set explicitly
-	// on the message.
-	_, ok := ifaces[0].(*big.Int)
-	if !ok {
-		return nil, fmt.Errorf("expected *big.Int, got %T", ifaces[0])
-	}
-	return ifaces[0].(*big.Int), nil
-}
 
 // abiEncodeMethodInputs encodes the inputs for a method call.
 // example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
@@ -74,27 +37,18 @@ func ABITypeOrPanic(t string) abi.Type {
 	return abiType
 }
 
-// Decodes the given bytes into a uint32, based on the encoding of destGasAmount in FeeQuoter.sol
-func decodeTokenDestGasOverhead(destExecData []byte) (uint32, error) {
-	ifaces, err := TokenDestGasOverheadABI.UnpackValues(destExecData)
-	if err != nil {
-		return 0, fmt.Errorf("abi decode TokenDestGasOverheadABI: %w", err)
-	}
-	_, ok := ifaces[0].(uint32)
-	if !ok {
-		return 0, fmt.Errorf("expected uint32, got %T", ifaces[0])
-	}
-	return ifaces[0].(uint32), nil
-}
-
 // CCIPMsgToAny2EVMMessage converts a ccipocr3.Message object to an offramp.InternalAny2EVMRampMessage object.
 // These are typically used to create the execution report for EVM.
-func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message) (offramp.InternalAny2EVMRampMessage, error) {
+func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message, codec ccipcommon.ExtraDataCodec) (offramp.InternalAny2EVMRampMessage, error) {
 	var tokenAmounts []offramp.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		destGasAmount, err := abiDecodeUint32(rta.DestExecData)
+		decodedMap, err := codec.DecodeTokenAmountDestExecData(rta.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to decode dest gas amount: %w", err)
+		}
+		destGasAmount, err := extractDestGasAmountFromMap(decodedMap)
+		if err != nil {
+			return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to extract dest gas amount from decodec map: %w", err)
 		}
 
 		tokenAmounts = append(tokenAmounts, offramp.InternalAny2EVMTokenTransfer{
@@ -106,9 +60,14 @@ func CCIPMsgToAny2EVMMessage(msg ccipocr3.Message) (offramp.InternalAny2EVMRampM
 		})
 	}
 
-	gasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+	decodeMap, err := codec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
 		return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to decode extra args: %w", err)
+	}
+
+	gasLimit, err := parseExtraArgsMap(decodeMap)
+	if err != nil {
+		return offramp.InternalAny2EVMRampMessage{}, fmt.Errorf("failed to get gasLimit by parsing extra args map: %w", err)
 	}
 
 	return offramp.InternalAny2EVMRampMessage{
