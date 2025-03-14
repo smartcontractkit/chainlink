@@ -34,6 +34,7 @@ const (
 	TimelockProgramName             = "timelock"
 	McmProgramName                  = "mcm"
 	RMNRemoteProgramName            = "rmn_remote"
+	ReceiverProgramName             = "test_ccip_receiver"
 )
 
 // SolChain represents a Solana chain.
