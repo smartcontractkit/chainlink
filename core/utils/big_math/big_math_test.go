@@ -25,7 +25,7 @@ func TestAccumulate(t *testing.T) {
 		big.NewInt(4),
 		big.NewInt(5),
 	}
-	expected := big.NewInt(16)
+	expected := big.NewInt(15)
 	require.Equal(t, expected, Accumulate(s))
 	s = []*big.Int{}
 	expected = big.NewInt(0)
