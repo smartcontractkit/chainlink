@@ -68,6 +68,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
@@ -88,6 +89,8 @@ var (
 	DefaultLinkPrice = deployment.E18Mult(20)
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
+
+	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -1307,6 +1310,26 @@ func NewMintTokenInfo(auth *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnM
 
 func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.TransactOpts, tokens ...*burn_mint_erc677.BurnMintERC677) MintTokenInfo {
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
+}
+
+// ApproveToken approves the router to spend the given amount of tokens
+func ApproveToken(env deployment.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+	token, err := erc20.NewERC20(tokenAddress, env.Chains[src].Client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := token.Approve(env.Chains[src].DeployerKey, routerAddress, amount)
+	if err != nil {
+		return err
+	}
+
+	_, err = env.Chains[src].Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // MintAndAllow mints tokens for deployers and allow router to spend them

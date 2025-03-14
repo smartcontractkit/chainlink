@@ -333,6 +333,34 @@ func WaitForCommit(
 	}
 }
 
+func WaitForNoCommit(
+	t *testing.T,
+	src deployment.Chain,
+	dest deployment.Chain,
+	commitStore *commit_store.CommitStore,
+	seqNr uint64,
+) {
+	timer := time.NewTimer(30 * time.Second)
+	defer timer.Stop()
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			minSeqNr, err := commitStore.GetExpectedNextSequenceNumber(nil)
+			require.NoError(t, err)
+			t.Logf("Waiting for commit for sequence number %d, current min sequence number %d", seqNr, minSeqNr)
+			if minSeqNr > seqNr {
+				t.Fatalf("Commit for sequence number %d found while it was not expected", seqNr)
+				return
+			}
+		case <-timer.C:
+			t.Logf("Successfully observed no commit for sequence number %d for commit store %s during 30s period", seqNr, commitStore.Address().String())
+			return
+		}
+	}
+}
+
 func WaitForExecute(
 	t *testing.T,
 	src deployment.Chain,
