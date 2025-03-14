@@ -345,6 +345,11 @@ jobs:
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: |
+          # Ensure that any failure in a pipeline is detected.
+          set -o pipefail
+          # Do not exit immediately on command failure so we can capture the exit code.
+          set +e
+
           flakeguard run \
             --ignore-parent-failures-on-subtests=true \
             --project-path=$GH_INPUTS_PROJECT_PATH \
