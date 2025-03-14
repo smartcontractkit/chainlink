@@ -342,6 +342,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 }
 
 func TestDeployChainContractsChangesetLocal(t *testing.T) {
+	t.Parallel()
 	ci := os.Getenv("CI") == "true"
 	if ci {
 		return

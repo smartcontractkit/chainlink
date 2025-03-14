@@ -96,5 +96,6 @@ func TestSolanaTokenOps(t *testing.T) {
 }
 
 func TestDeployLinkToken(t *testing.T) {
+	t.Parallel()
 	testhelpers.DeployLinkTokenTest(t, 1)
 }

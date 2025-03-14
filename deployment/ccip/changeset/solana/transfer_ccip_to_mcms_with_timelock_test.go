@@ -7,6 +7,7 @@ import (
 	"time"
 
 	solBinary "github.com/gagliardetto/binary"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
@@ -105,6 +106,7 @@ func TestValidateContracts(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
 		Bootstraps: 1,
