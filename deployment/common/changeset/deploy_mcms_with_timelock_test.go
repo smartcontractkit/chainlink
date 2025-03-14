@@ -9,11 +9,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 
@@ -26,6 +27,7 @@ import (
 )
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
+	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}

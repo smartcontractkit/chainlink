@@ -9,9 +9,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -23,6 +24,7 @@ import (
 )
 
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
+	t.Parallel()
 	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)
 	chainSelector := env.AllChainSelectorsSolana()[0]

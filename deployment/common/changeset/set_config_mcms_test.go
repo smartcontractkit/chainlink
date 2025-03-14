@@ -9,13 +9,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	solanasdk "github.com/gagliardetto/solana-go"
+	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
+
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	"github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -62,6 +63,7 @@ func setupSetConfigTestEnv(t *testing.T) deployment.Environment {
 
 // TestSetConfigMCMSVariants tests the SetConfigMCMS changeset variants.
 func TestSetConfigMCMSVariants(t *testing.T) {
+	t.Parallel()
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -171,6 +173,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 }
 
 func TestSetConfigMCMSV2EVM(t *testing.T) {
+	t.Parallel()
 	// Add the timelock as a signer to check state changes
 	for _, tc := range []struct {
 		name       string
@@ -280,6 +283,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 }
 
 func TestSetConfigMCMSV2Solana(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct {
 		name       string
 		changeSets func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet
@@ -380,6 +384,7 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 }
 
 func TestValidate(t *testing.T) {
+	t.Parallel()
 	env := setupSetConfigTestEnv(t)
 
 	chainSelector := env.AllChainSelectors()[0]
@@ -529,6 +534,7 @@ func TestValidate(t *testing.T) {
 }
 
 func TestValidateV2(t *testing.T) {
+	t.Parallel()
 	env := setupSetConfigTestEnv(t)
 
 	chainSelector := env.AllChainSelectors()[0]
