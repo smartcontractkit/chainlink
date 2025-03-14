@@ -398,6 +398,8 @@ jobs:
       - name: Send Flakeguard Test Reports to Splunk
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Ensure flakeguard is on PATH
           PATH=$PATH:$(go env GOPATH)/bin
