@@ -21,12 +21,20 @@ func main() {
 	}
 
 	// Once vrf is moved to its own subfolder we can delete this rootDir override.
-	if project == "vrf" {
+	if project == "vrf" || project == "automation" {
 		rootDir = "../../contracts/solc/"
 	}
 
 	abiPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".abi.json"
 	binPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".bin"
+
+	//if _, err := os.Stat(abiPath); errors.Is(err, os.ErrNotExist) {
+	//	println("Failed to read abi " + abiPath)
+	//}
+	//
+	//if _, err := os.Stat(binPath); errors.Is(err, os.ErrNotExist) {
+	//	println("Failed to read bin " + binPath)
+	//}
 
 	genwrapper.GenWrapper(abiPath, binPath, className, pkgName, outDirSuffix)
 }
