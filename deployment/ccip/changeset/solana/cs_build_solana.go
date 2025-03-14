@@ -223,10 +223,10 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 			}
 		}
 
-    // Build the project with Anchor
-    if err := buildProject(e); err != nil {
-      return fmt.Errorf("error building project: %w", err)
-    }
+		// Build the project with Anchor
+		if err := buildProject(e); err != nil {
+			return fmt.Errorf("error building project: %w", err)
+		}
 
 		if config.CleanDestinationDir {
 			e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
