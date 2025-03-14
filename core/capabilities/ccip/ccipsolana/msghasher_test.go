@@ -29,11 +29,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{})
-
 func TestMessageHasher_EVM2SVM(t *testing.T) {
+	var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{})
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
-	msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
+	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, msgAccounts)

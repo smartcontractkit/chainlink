@@ -9,7 +9,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	common2 "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 )
@@ -19,10 +19,10 @@ import (
 // - "OffRamp 1.6.0"
 type ExecutePluginCodecV1 struct {
 	executeReportMethodInputs abi.Arguments
-	extraDataCodec            common2.ExtraDataCodec
+	extraDataCodec            ccipcommon.ExtraDataCodec
 }
 
-func NewExecutePluginCodecV1(extraDataCodec common2.ExtraDataCodec) *ExecutePluginCodecV1 {
+func NewExecutePluginCodecV1(extraDataCodec ccipcommon.ExtraDataCodec) *ExecutePluginCodecV1 {
 	abiParsed, err := abi.JSON(strings.NewReader(offramp.OffRampABI))
 	if err != nil {
 		panic(fmt.Errorf("parse multi offramp abi: %s", err))

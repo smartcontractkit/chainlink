@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -14,16 +15,19 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// PluginConfig is a struct that contains the configuration for a plugin.
 type PluginConfig struct {
 	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
+// NewPluginConfig returns a new PluginConfig.
 func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
 	return &PluginConfig{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
+// InitializePluginConfig returns a PluginConfig for Solana chains.
 func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:  NewCommitPluginCodecV1(),
@@ -38,8 +42,10 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	}
 }
 
+// GetCRCW is a struct that implements the GetChainReaderWriter interface for Solana chains.
 type GetCRCW struct{}
 
+// GetChainWriter returns a new ContractWriter for Solana chains.
 func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	if solana.PublicKeyLength != len(pararms.OfframpProgramAddress) {
 		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(pararms.OfframpProgramAddress))
@@ -64,6 +70,7 @@ func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChain
 	return cw, nil
 }
 
+// GetChainReader returns a new ContractReader for Solana chains.
 func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var err error
 	var cfg config.ContractReader

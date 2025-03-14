@@ -14,16 +14,19 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+// PluginConfig is a struct that contains the configuration for a plugin.
 type PluginConfig struct {
 	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
+// NewPluginConfig returns a new PluginConfig.
 func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
 	return &PluginConfig{
 		extraDataCodec: extraDataCodec,
 	}
 }
 
+// InitializePluginConfig returns a PluginConfig for EVM chains.
 func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	return ccipcommon.PluginConfig{
 		CommitPluginCodec:  NewCommitPluginCodecV1(),
@@ -38,8 +41,10 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	}
 }
 
+// GetCRCW is a struct that implements the GetChainReaderWriter interface for EVM chains.
 type GetCRCW struct{}
 
+// GetChainReader returns a new ContractReader for EVM chains.
 func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
 	if params.ChainID == params.DestChainID {
@@ -76,6 +81,7 @@ func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainR
 	return cr, nil
 }
 
+// GetChainWriter returns a new ContractWriter for EVM chains.
 func (g GetCRCW) GetChainWriter(ctx context.Context, params ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]

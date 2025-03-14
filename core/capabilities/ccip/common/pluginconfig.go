@@ -12,6 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
+// GetChainReaderParams is a struct that contains the parameters for GetChainReader.
 type GetChainReaderParams struct {
 	Lggr          logger.Logger
 	Relayer       loop.Relayer
@@ -22,6 +23,7 @@ type GetChainReaderParams struct {
 	ChainSelector cciptypes.ChainSelector
 }
 
+// GetChainWriterParams is a struct that contains the parameters for GetChainWriter.
 type GetChainWriterParams struct {
 	ChainID               string
 	Relayer               loop.Relayer
@@ -31,6 +33,7 @@ type GetChainWriterParams struct {
 	OfframpProgramAddress []byte
 }
 
+// GetChainReaderWriter is an interface that defines the methods to get a ContractReader and a ContractWriter.
 type GetChainReaderWriter interface {
 	GetChainReader(ctx context.Context, params GetChainReaderParams) (types.ContractReader, error)
 	GetChainWriter(ctx context.Context, params GetChainWriterParams) (types.ContractWriter, error)
