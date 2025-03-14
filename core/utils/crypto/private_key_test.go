@@ -3,9 +3,7 @@ package crypto
 import (
 	"crypto/ed25519"
 	"encoding/json"
-	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/stretchr/testify/assert"
@@ -13,27 +11,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
-
-func TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD(t *testing.T) {
-	t.Parallel()
-
-	// Seed random number generator with current time
-	seed := time.Now().UnixNano()
-	t.Logf("Using seed: %d", seed)
-	r := rand.New(rand.NewSource(seed))
-
-	// Generate a random number between 0 and 1
-	randomValue := r.Float64()
-
-	t.Logf("Random value generated: %f", randomValue)
-	// Import at the top of the file:
-	// import "github.com/stretchr/testify/require"
-
-	// Using require to check that randomValue is < 0.5
-	require.Less(t, randomValue, 0.35, "Random value should be less")
-
-	t.Log("This test randomly passed")
-}
 
 func Test_EncryptedPrivateKey(t *testing.T) {
 	t.Parallel()
