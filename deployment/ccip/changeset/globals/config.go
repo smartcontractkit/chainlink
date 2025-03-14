@@ -18,13 +18,14 @@ const (
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
-	BatchGasLimit           = 6_500_000
-	InflightCacheExpiry     = 1 * time.Minute
-	RootSnoozeTime          = 5 * time.Minute
-	BatchingStrategyID      = 0
-	GasPriceDeviationPPB    = 1000
-	DAGasPriceDeviationPPB  = 0
-	OptimisticConfirmations = 1
+	BatchGasLimit               = 6_500_000
+	InflightCacheExpiry         = 1 * time.Minute
+	RootSnoozeTime              = 5 * time.Minute
+	BatchingStrategyID          = 0
+	GasPriceDeviationPPB        = 1000
+	DAGasPriceDeviationPPB      = 0
+	OptimisticConfirmations     = 1
+	TransmissionDelayMultiplier = 15 * time.Second
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -49,7 +50,7 @@ var (
 		SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
 		// TransmissionDelayMultiplier for non-ETH (i.e, typically fast) chains should be pretty aggressive.
 		// e.g assuming a 2s blocktime, 15 seconds is ~8 blocks.
-		TransmissionDelayMultiplier:        15 * time.Second,
+		TransmissionDelayMultiplier:        TransmissionDelayMultiplier,
 		InflightPriceCheckRetries:          10,
 		MerkleRootAsyncObserverDisabled:    false,
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
@@ -75,7 +76,7 @@ var (
 		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
 		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
 		BatchingStrategyID:          BatchingStrategyID,
-		TransmissionDelayMultiplier: 15 * time.Second,
+		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
 
