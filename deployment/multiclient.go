@@ -59,7 +59,7 @@ func NewMultiClient(lggr logger.Logger, rpcsCfg RPCConfig, opts ...func(client *
 	// Set the chain name
 	chain, exists := chainsel.ChainBySelector(rpcsCfg.ChainSelector)
 	if !exists {
-		return nil, errors.New(fmt.Sprintf("chain with selector %d not found", rpcsCfg.ChainSelector))
+		return nil, fmt.Errorf("chain with selector %d not found", rpcsCfg.ChainSelector)
 	}
 	mc := MultiClient{lggr: lggr, chainName: chain.Name}
 
