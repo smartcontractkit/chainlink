@@ -209,6 +209,14 @@ type PromoteCandidatePluginInfo struct {
 	RemoteChainSelectors    []uint64
 	PluginType              types.PluginType
 	AllowEmptyConfigPromote bool // safe guard to prevent promoting empty config to active
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DigestOverrides map[uint64]DigestAndDonID
+}
+
+type DigestAndDonID struct {
+	ConfigDigest [32]byte
+	DonID        uint32
 }
 
 type PromoteCandidateChangesetConfig struct {
@@ -221,7 +229,7 @@ type PromoteCandidateChangesetConfig struct {
 	MCMS *changeset.MCMSConfig
 }
 
-func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
+func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]DigestAndDonID, error) {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return nil, err
@@ -237,7 +245,7 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 		return nil, err
 	}
 
-	donIDs := make(map[uint64]uint32)
+	donIDs := make(map[uint64]DigestAndDonID)
 	for _, plugin := range p.PluginInfo {
 		if plugin.PluginType != types.PluginTypeCCIPCommit &&
 			plugin.PluginType != types.PluginTypeCCIPExec {
@@ -249,6 +257,20 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 			}
 			if err := state.ValidateRamp(chainSelector, changeset.OffRamp); err != nil {
 				return nil, err
+			}
+			if digestOverride, ok := plugin.DigestOverrides[chainSelector]; ok {
+				pluginConfigs, err := state.Chains[p.HomeChainSelector].CCIPHome.GetAllConfigs(&bind.CallOpts{
+					Context: e.GetContext(),
+				}, digestOverride.DonID, uint8(plugin.PluginType))
+				if err != nil {
+					return nil, fmt.Errorf("fetching %s configs from cciphome: %w", plugin.PluginType.String(), err)
+				}
+				// We can only promote a digest override if no config for the plugin exists in CCIPHome.
+				if pluginConfigs.ActiveConfig.ConfigDigest != [32]byte{} {
+					return nil, fmt.Errorf("%s active config digest is not empty", plugin.PluginType.String())
+				}
+				donIDs[chainSelector] = digestOverride
+				continue
 			}
 
 			donID, err := internal.DonIDForChain(
@@ -280,7 +302,9 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 				pluginConfigs.CandidateConfig.ConfigDigest == [32]byte{} {
 				return nil, fmt.Errorf("%s active and candidate config digests are both zero", plugin.PluginType.String())
 			}
-			donIDs[chainSelector] = donID
+			donIDs[chainSelector] = DigestAndDonID{
+				DonID: donID,
+			}
 		}
 	}
 	if len(e.NodeIDs) == 0 {
@@ -307,7 +331,7 @@ func PromoteCandidateChangeset(
 	e deployment.Environment,
 	cfg PromoteCandidateChangesetConfig,
 ) (deployment.ChangesetOutput, error) {
-	donIDs, err := cfg.Validate(e)
+	dons, err := cfg.Validate(e)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("%w: %w", deployment.ErrInvalidConfig, err)
 	}
@@ -330,14 +354,14 @@ func PromoteCandidateChangeset(
 
 	var mcmsTxs []mcmstypes.Transaction
 	for _, plugin := range cfg.PluginInfo {
-		for _, donID := range donIDs {
+		for _, don := range dons {
 			promoteCandidateOps, err := promoteCandidateForChainOps(
 				txOpts,
 				homeChain,
 				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
 				state.Chains[cfg.HomeChainSelector].CCIPHome,
 				nodes.NonBootstraps(),
-				donID,
+				don,
 				plugin.PluginType,
 				plugin.AllowEmptyConfigPromote,
 				cfg.MCMS != nil,
@@ -687,6 +711,9 @@ type SetCandidateChangesetConfig struct {
 	SetCandidateConfigBase
 
 	PluginInfo []SetCandidatePluginInfo
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DonIDOverrides map[uint64]uint32
 }
 
 func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
@@ -701,6 +728,10 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state ch
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
+			if donIDOverride, ok := s.DonIDOverrides[chainSelector]; ok {
+				chainToDonIDs[chainSelector] = donIDOverride
+				continue
+			}
 			donID, err := internal.DonIDForChain(
 				state.Chains[s.HomeChainSelector].CapabilityRegistry,
 				state.Chains[s.HomeChainSelector].CCIPHome,
@@ -883,21 +914,27 @@ func promoteCandidateOp(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
-	donID uint32,
+	don DigestAndDonID,
 	pluginType uint8,
 	mcmsEnabled bool,
 ) (mcmstypes.Transaction, error) {
-	allConfigs, err := ccipHome.GetAllConfigs(nil, donID, pluginType)
-	if err != nil {
-		return mcmstypes.Transaction{}, err
+	candidateDigest := don.ConfigDigest
+	var activeDigest [32]byte
+	if candidateDigest == [32]byte{} {
+		allConfigs, err := ccipHome.GetAllConfigs(nil, don.DonID, pluginType)
+		if err != nil {
+			return mcmstypes.Transaction{}, err
+		}
+		candidateDigest = allConfigs.CandidateConfig.ConfigDigest
+		activeDigest = allConfigs.ActiveConfig.ConfigDigest
 	}
 
 	encodedPromotionCall, err := internal.CCIPHomeABI.Pack(
 		"promoteCandidateAndRevokeActive",
-		donID,
+		don.DonID,
 		pluginType,
-		allConfigs.CandidateConfig.ConfigDigest,
-		allConfigs.ActiveConfig.ConfigDigest,
+		candidateDigest,
+		activeDigest,
 	)
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("pack promotion call: %w", err)
@@ -905,7 +942,7 @@ func promoteCandidateOp(
 
 	updateDonTx, err := capReg.UpdateDON(
 		txOpts,
-		donID,
+		don.DonID,
 		nodes.PeerIDs(),
 		[]capabilities_registry.CapabilitiesRegistryCapabilityConfiguration{
 			{
@@ -923,18 +960,18 @@ func promoteCandidateOp(
 			homeChain, updateDonTx, ccip_home.CCIPHomeABI, err)
 		if err != nil {
 			return mcmstypes.Transaction{}, fmt.Errorf("error confirming UpdateDON call in promote candidate (don: %d; ptype: %s): %w",
-				donID, types.PluginType(pluginType).String(), err)
+				don.DonID, types.PluginType(pluginType).String(), err)
 		}
 	} else if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to call UpdateDON in promote candidate (don: %d; ptype: %s): %w",
-			donID, types.PluginType(pluginType).String(), err)
+			don.DonID, types.PluginType(pluginType).String(), err)
 	}
 
 	tx, err := proposalutils.TransactionForChain(homeChain.Selector, capReg.Address().Hex(), updateDonTx.Data(),
 		big.NewInt(0), string(changeset.CapabilitiesRegistry), []string{})
 	if err != nil {
 		return mcmstypes.Transaction{}, fmt.Errorf("failed to create UpdateDON mcms tx in promote candidate (don: %d; ptype: %s): %w",
-			donID, types.PluginType(pluginType).String(), err)
+			don.DonID, types.PluginType(pluginType).String(), err)
 	}
 
 	return tx, nil
@@ -947,15 +984,15 @@ func promoteCandidateForChainOps(
 	capReg *capabilities_registry.CapabilitiesRegistry,
 	ccipHome *ccip_home.CCIPHome,
 	nodes deployment.Nodes,
-	donID uint32,
+	don DigestAndDonID,
 	pluginType cctypes.PluginType,
 	allowEmpty bool,
 	mcmsEnabled bool,
 ) (mcmstypes.Transaction, error) {
-	if donID == 0 {
+	if don.DonID == 0 {
 		return mcmstypes.Transaction{}, errors.New("donID is zero")
 	}
-	digest, err := ccipHome.GetCandidateDigest(nil, donID, uint8(pluginType))
+	digest, err := ccipHome.GetCandidateDigest(nil, don.DonID, uint8(pluginType))
 	if err != nil {
 		return mcmstypes.Transaction{}, err
 	}
@@ -969,7 +1006,7 @@ func promoteCandidateForChainOps(
 		capReg,
 		ccipHome,
 		nodes,
-		donID,
+		don,
 		uint8(pluginType),
 		mcmsEnabled,
 	)
