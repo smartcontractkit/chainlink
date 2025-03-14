@@ -17,13 +17,14 @@ const (
 	PermissionLessExecutionThreshold  = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
-	BatchGasLimit                     = 6_500_000
-	InflightCacheExpiry               = 1 * time.Minute
-	RootSnoozeTime                    = 5 * time.Minute
-	BatchingStrategyID                = 0
-	GasPriceDeviationPPB              = 1000
-	DAGasPriceDeviationPPB            = 0
-	OptimisticConfirmations           = 1
+	// Building batches with 6.5m and transmit with 8m to account for overhead.
+	BatchGasLimit           = 6_500_000
+	InflightCacheExpiry     = 1 * time.Minute
+	RootSnoozeTime          = 5 * time.Minute
+	BatchingStrategyID      = 0
+	GasPriceDeviationPPB    = 1000
+	DAGasPriceDeviationPPB  = 0
+	OptimisticConfirmations = 1
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -38,8 +39,8 @@ var (
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
 	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultCommitOffChainCfg = pluginconfig.CommitOffchainConfig{
-		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(30 * time.Minute),
-		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(30 * time.Minute),
+		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(TokenPriceBatchWriteFrequency),
 		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
 		MaxReportTransmissionCheckAttempts: 10,
 		RMNSignaturesTimeout:               6900 * time.Millisecond,
@@ -69,12 +70,16 @@ var (
 	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
 	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultExecuteOffChainCfg = pluginconfig.ExecuteOffchainConfig{
-		BatchGasLimit:             6_500_000, // Building batches with 6.5m and transmit with 8m to account for overhead. Clarify with offchain
-		InflightCacheExpiry:       *config.MustNewDuration(2 * time.Minute),
-		RootSnoozeTime:            *config.MustNewDuration(5 * time.Minute), // does not work now
-		MessageVisibilityInterval: *config.MustNewDuration(8 * time.Hour),
-		BatchingStrategyID:        0,
-		// TransmissionDelayMultiplier for non-ETH (i.e, typically fast) chains should be pretty aggressive.
-		TransmissionDelayMultiplier: 25 * time.Second,
+		BatchGasLimit:               BatchGasLimit,
+		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
+		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
+		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		BatchingStrategyID:          BatchingStrategyID,
+		TransmissionDelayMultiplier: 15 * time.Second,
+		MaxReportMessages:           0,
+		MaxSingleChainReports:       0,
+
+		// Remaining fields cannot be statically set:
+		// TokenDataObservers: , // Must be configured in CLD
 	}
 )
