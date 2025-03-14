@@ -1098,10 +1098,10 @@ func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deploymen
 	}
 
 	solTestReceiver.SetProgramID(receiverAddress)
-	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Receiver)
+	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(receiverAddress)
 	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 		chainState.Router,
-		ccipChangeset.FindReceiverTargetAccount(chainState.Receiver),
+		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
 		externalExecutionConfigPDA,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,

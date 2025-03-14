@@ -63,7 +63,7 @@ type SolCCIPChainState struct {
 	FeeAggregator solana.PublicKey
 
 	// test programs
-	Receiver   solana.PublicKey
+	Receiver solana.PublicKey
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
