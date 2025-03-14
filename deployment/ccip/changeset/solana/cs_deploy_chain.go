@@ -1112,13 +1112,8 @@ func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deploymen
 	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = newAddresses.Save(cfg.ChainSelector, receiverAddress.String(), deployment.NewTypeAndVersion(ccipChangeset.Receiver, deployment.Version1_0_0))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
-	}
 
 	return deployment.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: ab,
 	}, nil
 }
