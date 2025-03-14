@@ -2,10 +2,12 @@ package devenv
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/big"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -220,11 +222,20 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 				if err != nil {
 					return err
 				}
+
+				keyPairDir, err := os.MkdirTemp("", "solana-keypair")
+				logger.Infof("Solana keypair dir at %s", keyPairDir)
+				if err != nil {
+					return err
+				}
+
+				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
 				solSyncMap.Store(chainDetails.ChainSelector, deployment.SolChain{
 					Selector:    chainDetails.ChainSelector,
 					Client:      sc,
 					DeployerKey: &chainCfg.SolDeployerKey,
+					KeypairPath: keyPairPath,
 					URL:         chainCfg.HTTPRPCs[0].External,
 					WSURL:       chainCfg.WSRPCs[0].External,
 					Confirm: func(instructions []solana.Instruction, opts ...solCommonUtil.TxModifier) error {
@@ -258,4 +269,29 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 	})
 
 	return evmChains, solChains, err
+}
+
+func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {
+
+	// Convert private key bytes to JSON array
+	privateKeyBytes := []byte(privateKey)
+
+	// Convert bytes to array of integers for JSON
+	intArray := make([]int, len(privateKeyBytes))
+	for i, b := range privateKeyBytes {
+		intArray[i] = int(b)
+	}
+
+	keypairJSON, err := json.Marshal(intArray)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal keypair: %w", err)
+	}
+
+	// Create the keypair file in the temporary directory
+	keypairPath := filepath.Join(dir, "solana-keypair.json")
+	if err := os.WriteFile(keypairPath, keypairJSON, 0600); err != nil {
+		return "", fmt.Errorf("failed to write keypair to file: %w", err)
+	}
+
+	return keypairPath, nil
 }
