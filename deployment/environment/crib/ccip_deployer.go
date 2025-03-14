@@ -298,8 +298,6 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
-	// feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
-	// feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
 
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
