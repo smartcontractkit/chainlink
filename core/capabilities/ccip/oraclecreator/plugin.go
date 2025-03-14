@@ -460,7 +460,7 @@ func decodeAndValidateOffchainConfig(
 
 // initializerPluginConfig initializes the plugin config for the given chain family.
 func initializerPluginConfig(destChainFamily string) (ccipcommon.PluginConfig, error) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
+	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ccipsolana.ExtraDataCodec{})
 	pluginConfig, err := ccipcommon.NewPluginConfigFactory(
 		ccipevm.NewPluginConfig(extraDataCodec),
 		ccipsolana.NewPluginConfig(extraDataCodec),
