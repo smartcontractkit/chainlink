@@ -28,11 +28,13 @@ type ExecuteTxResult struct {
 // for the chain. The transactions should not be already sent to the chain.
 func SignAndExecute(e deployment.Environment, preparedTxs []*PreparedTx) ([]ExecuteTxResult, error) {
 	var executeTxResults []ExecuteTxResult
+	// To execute the txs in parallel this would need to batch up the txs by chain to avoid nonce issues
 	for _, tx := range preparedTxs {
 		chain, exists := e.Chains[tx.ChainSelector]
 		if !exists {
 			return executeTxResults, fmt.Errorf("chain not found in env %d", tx.ChainSelector)
 		}
+		// The environment level context `e.GetContext()` is also an option to use here
 		ctx := chain.DeployerKey.Context
 		reconfiguredTx, err := reconfigureTx(ctx, chain, tx)
 		if err != nil {
