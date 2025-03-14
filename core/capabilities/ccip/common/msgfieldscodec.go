@@ -2,22 +2,16 @@ package common
 
 import cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
-// AddressCodec is an interface that defines the methods for encoding and decoding addresses
-type AddressCodec interface {
+// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses for a specific chain
+type ChainSpecificAddressCodec interface {
+	// AddressBytesToString converts an address from bytes to string
 	AddressBytesToString([]byte) (string, error)
+	// AddressStringToBytes converts an address from string to bytes
 	AddressStringToBytes(string) ([]byte, error)
 }
 
-// ExtraDataCodec is an interface for decoding extra args and dest exec data into a chain-agnostic map[string]any representation
-type ExtraDataCodec interface {
-	// DecodeExtraArgs reformat bytes into a chain agnostic map[string]any representation for extra args
-	DecodeExtraArgs(extraArgs cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error)
-	// DecodeTokenAmountDestExecData reformat bytes to chain-agnostic map[string]any for tokenAmount DestExecData field
-	DecodeTokenAmountDestExecData(destExecData cciptypes.Bytes, sourceChainSelector cciptypes.ChainSelector) (map[string]any, error)
-}
-
-// ChainSpecificExtraDataDecoder is an interface for decoding chain specific extra args and dest exec data into a map[string]any representation
-type ChainSpecificExtraDataDecoder interface {
+// ChainSpecificExtraDataCodec is an interface for decoding chain specific extra args and dest exec data into a map[string]any representation for a specific chain
+type ChainSpecificExtraDataCodec interface {
 	// DecodeExtraArgsToMap reformat bytes into a chain agnostic map[string]any representation for extra args
 	DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error)
 	// DecodeDestExecDataToMap reformat bytes into a chain agnostic map[string]interface{} representation for dest exec data

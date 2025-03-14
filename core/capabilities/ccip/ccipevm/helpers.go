@@ -12,14 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
-const (
-	svmV1DecodeName       = "decodeSVMExtraArgsV1"
-	evmV1DecodeName       = "decodeEVMExtraArgsV1"
-	evmV2DecodeName       = "decodeEVMExtraArgsV2"
-	evmDestExecDataKey    = "destGasAmount"
-	defaultCommitGasLimit = 500_000
-)
-
 var (
 	abiUint32               = ABITypeOrPanic("uint32")
 	TokenDestGasOverheadABI = abi.Arguments{

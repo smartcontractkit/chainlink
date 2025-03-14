@@ -7,22 +7,22 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// RealAddressCodec is a struct that holds the chain specific address codecs
-type RealAddressCodec struct {
-	EVMAddressCodec    AddressCodec
-	SolanaAddressCodec AddressCodec
+// AddressCodec is a struct that holds the chain specific address codecs
+type AddressCodec struct {
+	EVMAddressCodec    ChainSpecificAddressCodec
+	SolanaAddressCodec ChainSpecificAddressCodec
 }
 
 // NewRealAddressCodec is a constructor for NewRealAddressCodec
-func NewRealAddressCodec(evmAddrCodec, solanaAddrCodec AddressCodec) RealAddressCodec {
-	return RealAddressCodec{
+func NewRealAddressCodec(evmAddrCodec, solanaAddrCodec ChainSpecificAddressCodec) AddressCodec {
+	return AddressCodec{
 		EVMAddressCodec:    evmAddrCodec,
 		SolanaAddressCodec: solanaAddrCodec,
 	}
 }
 
 // AddressBytesToString converts an address from bytes to string
-func (ac RealAddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
+func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -41,7 +41,7 @@ func (ac RealAddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, c
 }
 
 // AddressStringToBytes converts an address from string to bytes
-func (ac RealAddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)

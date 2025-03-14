@@ -6,6 +6,13 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+const (
+	svmV1DecodeName    = "decodeSVMExtraArgsV1"
+	evmV1DecodeName    = "decodeEVMExtraArgsV1"
+	evmV2DecodeName    = "decodeEVMExtraArgsV2"
+	evmDestExecDataKey = "destGasAmount"
+)
+
 // ExtraDataDecoder is a concrete implementation of ExtraDataDecoder
 type ExtraDataDecoder struct{}
 

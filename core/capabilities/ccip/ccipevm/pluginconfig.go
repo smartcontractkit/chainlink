@@ -14,6 +14,8 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
+const defaultCommitGasLimit = 500_000
+
 // PluginConfig is a struct that contains the configuration for a plugin.
 type PluginConfig struct {
 	extraDataCodec ccipcommon.ExtraDataCodec
