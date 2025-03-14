@@ -58,7 +58,7 @@ func TestDeployMCMSWithTimelockContracts(t *testing.T) {
 	ab := deployment.NewMemoryAddressBook()
 	_, err := internal.DeployMCMSWithTimelockContracts(lggr,
 		chains[chainsel.TEST_90000001.Selector],
-		ab, proposalutils.SingleGroupTimelockConfig(t))
+		ab, proposalutils.SingleGroupTimelockConfig(t), nil)
 	require.NoError(t, err)
 	addresses, err := ab.AddressesForChain(chainsel.TEST_90000001.Selector)
 	require.NoError(t, err)
