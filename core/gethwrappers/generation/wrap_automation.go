@@ -9,23 +9,23 @@ import (
 func main() {
 	rootDir := "../../contracts/solc/"
 	project := "automation"
-	dirName := ""
-	className := ""
+	inputClassName := ""
+	outClassName := ""
 	pkgName := ""
 	if len(os.Args) == 3 {
-		dirName = os.Args[1]
-		className = dirName
+		inputClassName = os.Args[1]
+		outClassName = inputClassName
 		pkgName = os.Args[2]
 	} else if len(os.Args) == 4 {
-		dirName = os.Args[1]
-		className = os.Args[2]
+		inputClassName = os.Args[1]
+		outClassName = os.Args[2]
 		pkgName = os.Args[3]
 	} else {
 		panic("Unsupported number of args")
 	}
 
-	abiPath := rootDir + project + "/" + dirName + "/" + dirName + ".sol/" + dirName + ".abi.json"
-	binPath := rootDir + project + "/" + dirName + "/" + dirName + ".sol/" + dirName + ".bin"
+	abiPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".abi.json"
+	binPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".bin"
 
-	genwrapper.GenWrapper(abiPath, binPath, className, pkgName, "")
+	genwrapper.GenWrapper(abiPath, binPath, outClassName, pkgName, "")
 }
