@@ -13,7 +13,6 @@ import (
 )
 
 type GetChainReaderParams struct {
-	Ctx           context.Context
 	Lggr          logger.Logger
 	Relayer       loop.Relayer
 	ChainID       string
@@ -24,7 +23,6 @@ type GetChainReaderParams struct {
 }
 
 type GetChainWriterParams struct {
-	Ctx                   context.Context
 	ChainID               string
 	Relayer               loop.Relayer
 	Transmitters          map[types.RelayID][]string
@@ -34,8 +32,8 @@ type GetChainWriterParams struct {
 }
 
 type GetChainReaderWriter interface {
-	GetChainReader(params GetChainReaderParams) (types.ContractReader, error)
-	GetChainWriter(params GetChainWriterParams) (types.ContractWriter, error)
+	GetChainReader(ctx context.Context, params GetChainReaderParams) (types.ContractReader, error)
+	GetChainWriter(ctx context.Context, params GetChainWriterParams) (types.ContractWriter, error)
 }
 
 // PluginConfig is a struct that contains the configuration for a plugin.

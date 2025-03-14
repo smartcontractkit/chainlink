@@ -1,6 +1,7 @@
 package ccipsolana
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -39,7 +40,7 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 
 type GetCRCW struct{}
 
-func (g GetCRCW) GetChainWriter(pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
+func (g GetCRCW) GetChainWriter(ctx context.Context, pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	if solana.PublicKeyLength != len(pararms.OfframpProgramAddress) {
 		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(pararms.OfframpProgramAddress))
 	}
@@ -55,7 +56,7 @@ func (g GetCRCW) GetChainWriter(pararms ccipcommon.GetChainWriterParams) (types.
 		return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
 	}
 
-	cw, err := pararms.Relayer.NewContractWriter(pararms.Ctx, chainWriterConfig)
+	cw, err := pararms.Relayer.NewContractWriter(ctx, chainWriterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", pararms.ChainID, err)
 	}
@@ -63,7 +64,7 @@ func (g GetCRCW) GetChainWriter(pararms ccipcommon.GetChainWriterParams) (types.
 	return cw, nil
 }
 
-func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
+func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var err error
 	var cfg config.ContractReader
 	if params.ChainID == params.DestChainID {
@@ -83,7 +84,7 @@ func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.C
 		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
 	}
 
-	cr, err := params.Relayer.NewContractReader(params.Ctx, marshaledConfig)
+	cr, err := params.Relayer.NewContractReader(ctx, marshaledConfig)
 	if err != nil {
 		return nil, err
 	}

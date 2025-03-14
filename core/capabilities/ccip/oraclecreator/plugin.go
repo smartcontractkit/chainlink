@@ -376,8 +376,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		cr, err1 := pluginConfig.GetChainReaderWriter.GetChainReader(ccipcommon.GetChainReaderParams{
-			Ctx:           ctx,
+		cr, err1 := pluginConfig.GetChainReaderWriter.GetChainReader(ctx, ccipcommon.GetChainReaderParams{
 			Lggr:          i.lggr,
 			Relayer:       relayer,
 			ChainID:       chainID,
@@ -407,8 +406,7 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
-		cw, err1 := pluginConfig.GetChainReaderWriter.GetChainWriter(ccipcommon.GetChainWriterParams{
-			Ctx:                   ctx,
+		cw, err1 := pluginConfig.GetChainReaderWriter.GetChainWriter(ctx, ccipcommon.GetChainWriterParams{
 			ChainID:               chainID,
 			Relayer:               relayer,
 			Transmitters:          i.transmitters,

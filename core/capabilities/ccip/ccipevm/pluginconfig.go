@@ -1,6 +1,7 @@
 package ccipevm
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 
@@ -39,7 +40,7 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 
 type GetCRCW struct{}
 
-func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
+func (g GetCRCW) GetChainReader(ctx context.Context, params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
 	if params.ChainID == params.DestChainID {
 		chainReaderConfig = evmconfig.DestReaderConfig
@@ -67,7 +68,7 @@ func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.C
 		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
 	}
 
-	cr, err := params.Relayer.NewContractReader(params.Ctx, marshaledConfig)
+	cr, err := params.Relayer.NewContractReader(ctx, marshaledConfig)
 	if err != nil {
 		return nil, err
 	}
@@ -75,7 +76,7 @@ func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.C
 	return cr, nil
 }
 
-func (g GetCRCW) GetChainWriter(params ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
+func (g GetCRCW) GetChainWriter(ctx context.Context, params ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
 	if ok {
@@ -95,7 +96,7 @@ func (g GetCRCW) GetChainWriter(params ccipcommon.GetChainWriterParams) (types.C
 		return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
 	}
 
-	cw, err := params.Relayer.NewContractWriter(params.Ctx, chainWriterConfig)
+	cw, err := params.Relayer.NewContractWriter(ctx, chainWriterConfig)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", params.ChainID, err)
 	}
