@@ -395,6 +395,69 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore          
 
+      - name: Get Failed Logs Artifact Links
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        id: get-failed-logs-artifact-links
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Ensure flakeguard is on PATH
+          PATH=$PATH:$(go env GOPATH)/bin
+          export PATH
+      
+          ######################################
+          # Check for Main Failed Logs Report File and Retrieve Artifact Link
+          ######################################
+          MAIN_FAILED_LOGS_PATH="${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json"
+          if [ -f "$MAIN_FAILED_LOGS_PATH" ]; then
+            MAIN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json"
+            echo "Main failed-logs report file found at '$MAIN_FAILED_LOGS_PATH'."
+          else
+            MAIN_FAILED_LOGS_ARTIFACT_NAME=""
+            echo "No main failed-logs report file found at '$MAIN_FAILED_LOGS_PATH'."
+          fi
+      
+          if [ -n "$MAIN_FAILED_LOGS_ARTIFACT_NAME" ]; then
+            echo "Attempting to retrieve main failed-logs artifact link..."
+            MAIN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
+              --github-repository "${{ github.repository }}" \
+              --github-run-id "${{ github.run_id }}" \
+              --failed-tests-artifact-name "$MAIN_FAILED_LOGS_ARTIFACT_NAME" \
+            )"
+          else
+            MAIN_ARTIFACT_LINK=""
+          fi
+          echo "Main Artifact Link: $MAIN_ARTIFACT_LINK"
+      
+          ######################################
+          # Check for Rerun Failed Logs Report File and Retrieve Artifact Link
+          ######################################
+          RERUN_FAILED_LOGS_PATH="${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json"
+          if [ -f "$RERUN_FAILED_LOGS_PATH" ]; then
+            RERUN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json"
+            echo "Rerun failed-logs report file found at '$RERUN_FAILED_LOGS_PATH'."
+          else
+            RERUN_FAILED_LOGS_ARTIFACT_NAME=""
+            echo "No rerun failed-logs report file found at '$RERUN_FAILED_LOGS_PATH'."
+          fi
+      
+          if [ -n "$RERUN_FAILED_LOGS_ARTIFACT_NAME" ]; then
+            echo "Attempting to retrieve rerun failed-logs artifact link..."
+            RERUN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
+              --github-repository "${{ github.repository }}" \
+              --github-run-id "${{ github.run_id }}" \
+              --failed-tests-artifact-name "$RERUN_FAILED_LOGS_ARTIFACT_NAME" \
+            )"
+          else
+            RERUN_ARTIFACT_LINK=""
+          fi
+          echo "Rerun Artifact Link: $RERUN_ARTIFACT_LINK"
+      
+          # Set outputs for later steps using the new syntax
+          echo "main_artifact_link=$MAIN_ARTIFACT_LINK" >> $GITHUB_OUTPUT
+          echo "rerun_artifact_link=$RERUN_ARTIFACT_LINK" >> $GITHUB_OUTPUT
+            
       - name: Send Flakeguard Test Reports to Splunk
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
@@ -406,19 +469,7 @@ jobs:
           export PATH
       
           ######################################
-          # 1. Retrieve Artifact Link for Main Failed Logs
-          ######################################
-          MAIN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json"
-          echo "Attempting to retrieve main failed-logs artifact link..."
-          MAIN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
-            --github-repository "${{ github.repository }}" \
-            --github-run-id "${{ github.run_id }}" \
-            --failed-tests-artifact-name "$MAIN_FAILED_LOGS_ARTIFACT_NAME" \
-          )"
-          echo "Main failed-logs artifact link: $MAIN_ARTIFACT_LINK"
-      
-          ######################################
-          # 2. Send Main Report to Splunk
+          # Send Main Report to Splunk
           ######################################
           MAIN_FILE="${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json"
           if [ -f "$MAIN_FILE" ]; then
@@ -428,7 +479,7 @@ jobs:
               --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
               --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
               --splunk-event "${{ github.event_name }}" \
-              --failed-logs-url "$MAIN_ARTIFACT_LINK"
+              --failed-logs-url "${{ steps.get-failed-logs-artifact-links.outputs.main_artifact_link }}" \
       
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ]; then
@@ -440,28 +491,17 @@ jobs:
           fi
       
           ######################################
-          # 3. Send Rerun Report to Splunk
+          # Send Rerun Report to Splunk (if rerun file exists)
           ######################################
           RERUN_FILE="${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json"
           if [ -f "$RERUN_FILE" ]; then
-            echo "Rerun test report found. Attempting to retrieve rerun failed-logs artifact link..."
-      
-            # Retrieve the RERUN report artifact link
-            RERUN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json"
-            RERUN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
-              --github-repository "${{ github.repository }}" \
-              --github-run-id "${{ github.run_id }}" \
-              --failed-tests-artifact-name "$RERUN_FAILED_LOGS_ARTIFACT_NAME" \
-            )"
-            echo "Rerun failed-logs artifact link: $RERUN_ARTIFACT_LINK"
-      
-            echo "Sending rerun report to Splunk..."
+            echo "Rerun test report found. Sending rerun report to Splunk..."
             flakeguard send-to-splunk \
               --report-path "$RERUN_FILE" \
               --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
               --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
               --splunk-event "${{ github.event_name }}" \
-              --failed-logs-url "$RERUN_ARTIFACT_LINK"
+              --failed-logs-url "${{ steps.get-failed-logs-artifact-links.outputs.rerun_artifact_link }}" \
       
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ]; then
