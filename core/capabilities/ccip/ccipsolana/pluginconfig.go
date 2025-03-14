@@ -5,8 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
-
-	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -35,13 +33,13 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 		TokenDataEncoder:     NewSolanaTokenDataEncoder(),
 		GasEstimateProvider:  NewGasEstimateProvider(),
 		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		GetChainReaderConfig: getSolanaChainReaderConfig,
-		GetChainWriter:       getSolanaChainWriter,
-		PriceOnlyCommitFn:    consts.MethodCommitPriceOnly,
+		GetChainReaderWriter: GetCRCW{},
 	}
 }
 
-func getSolanaChainWriter(pararms ccipcommon.GetChainWriterConfigParams) (types.ContractWriter, error) {
+type GetCRCW struct{}
+
+func (g GetCRCW) GetChainWriter(pararms ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	if solana.PublicKeyLength != len(pararms.OfframpProgramAddress) {
 		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(pararms.OfframpProgramAddress))
 	}
@@ -65,7 +63,7 @@ func getSolanaChainWriter(pararms ccipcommon.GetChainWriterConfigParams) (types.
 	return cw, nil
 }
 
-func getSolanaChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([]byte, error) {
+func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var err error
 	var cfg config.ContractReader
 	if params.ChainID == params.DestChainID {
@@ -85,5 +83,10 @@ func getSolanaChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([
 		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
 	}
 
-	return marshaledConfig, nil
+	cr, err := params.Relayer.NewContractReader(params.Ctx, marshaledConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return cr, nil
 }

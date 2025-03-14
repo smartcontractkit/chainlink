@@ -12,8 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-type GetChainReaderConfigParams struct {
+type GetChainReaderParams struct {
+	Ctx           context.Context
 	Lggr          logger.Logger
+	Relayer       loop.Relayer
 	ChainID       string
 	DestChainID   string
 	HomeChainID   string
@@ -21,7 +23,7 @@ type GetChainReaderConfigParams struct {
 	ChainSelector cciptypes.ChainSelector
 }
 
-type GetChainWriterConfigParams struct {
+type GetChainWriterParams struct {
 	Ctx                   context.Context
 	ChainID               string
 	Relayer               loop.Relayer
@@ -29,6 +31,11 @@ type GetChainWriterConfigParams struct {
 	ExecBatchGasLimit     uint64
 	ChainFamily           string
 	OfframpProgramAddress []byte
+}
+
+type GetChainReaderWriter interface {
+	GetChainReader(params GetChainReaderParams) (types.ContractReader, error)
+	GetChainWriter(params GetChainWriterParams) (types.ContractWriter, error)
 }
 
 // PluginConfig is a struct that contains the configuration for a plugin.
@@ -41,8 +48,7 @@ type PluginConfig struct {
 	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn    string
-	GetChainReaderConfig func(params GetChainReaderConfigParams) ([]byte, error)
-	GetChainWriter       func(params GetChainWriterConfigParams) (types.ContractWriter, error)
+	GetChainReaderWriter GetChainReaderWriter
 }
 
 // OffChainPluginConfig is an interface that defines the method to create a PluginConfig.

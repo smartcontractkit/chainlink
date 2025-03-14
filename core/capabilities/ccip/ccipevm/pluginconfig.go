@@ -33,12 +33,13 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 		TokenDataEncoder:     NewEVMTokenDataEncoder(),
 		GasEstimateProvider:  NewGasEstimateProvider(),
 		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return NewEVMRMNCrypto(lggr) },
-		GetChainReaderConfig: getEVMChainReaderConfig,
-		GetChainWriter:       getEVMChainWriter,
+		GetChainReaderWriter: GetCRCW{},
 	}
 }
 
-func getEVMChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([]byte, error) {
+type GetCRCW struct{}
+
+func (g GetCRCW) GetChainReader(params ccipcommon.GetChainReaderParams) (types.ContractReader, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
 	if params.ChainID == params.DestChainID {
 		chainReaderConfig = evmconfig.DestReaderConfig
@@ -66,10 +67,15 @@ func getEVMChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([]by
 		return nil, fmt.Errorf("failed to marshal chain reader config: %w", err)
 	}
 
-	return marshaledConfig, nil
+	cr, err := params.Relayer.NewContractReader(params.Ctx, marshaledConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return cr, nil
 }
 
-func getEVMChainWriter(params ccipcommon.GetChainWriterConfigParams) (types.ContractWriter, error) {
+func (g GetCRCW) GetChainWriter(params ccipcommon.GetChainWriterParams) (types.ContractWriter, error) {
 	var fromAddress common.Address
 	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
 	if ok {
