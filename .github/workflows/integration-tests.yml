@@ -43,9 +43,6 @@ env:
   MOD_CACHE_VERSION: 2
   COLLECTION_ID: chainlink-e2e-tests
 
-  # TODO: this should be removed before merging
-  SOLANA_CCIP_CONTRACTS_TAG: solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec
-
 jobs:
   enforce-ctf-version:
     name: Enforce CTF Version

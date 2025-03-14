@@ -17,10 +17,6 @@ on:
         required: false
         type: string
 
-env:
-  # TODO: this should be removed before merging
-  SOLANA_CCIP_CONTRACTS_TAG: solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec
-
 # Only run 1 of this workflow at a time per PR
 concurrency:
   group: ${{ github.ref }}-${{ github.repository }}-${{ github.event_name }}--integration-tests

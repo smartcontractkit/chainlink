@@ -1989,7 +1989,11 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 	const repo = "chainlink-ccip"
 	const name = "archive.tar.gz"
 
-	tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
+	// TODO: this should be removed before merging
+	tag := "solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec"
+	ok := true
+
+	// tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
 	if !ok {
 		// TODO: is there a better way to get the path to the repo root directory?
 		output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
