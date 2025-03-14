@@ -1,17 +1,23 @@
 package testhelpers
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
+	"golang.org/x/mod/modfile"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -860,7 +866,8 @@ func DeployTransferableTokenSolana(
 	addresses deployment.AddressBook,
 	evmTokenName string,
 ) (*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error,
+) {
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
@@ -1517,7 +1524,8 @@ type TokenBalanceAccumulator map[uint64]map[TokenReceiverIdentifier]*big.Int
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver common.Address,
-	expectedBalance map[common.Address]*big.Int) {
+	expectedBalance map[common.Address]*big.Int,
+) {
 	for token, balance := range expectedBalance {
 		tkIdentifier := TokenReceiverIdentifier{token, receiver}
 
@@ -1858,4 +1866,165 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
+}
+
+func withGetRequest[T any](ctx context.Context, url string, cb func(res *http.Response) (T, error)) (T, error) {
+	var empty T
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return empty, err
+	}
+
+	res, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return empty, err
+	}
+	defer res.Body.Close()
+
+	if res.StatusCode != http.StatusOK {
+		return empty, fmt.Errorf("GET request failed with status code %d", res.StatusCode)
+	}
+
+	return cb(res)
+}
+
+func DownloadTarGzReleaseAssetFromGithub(
+	ctx context.Context,
+	owner string,
+	repo string,
+	name string,
+	tag string,
+	cb func(r *tar.Reader, h *tar.Header) error,
+) error {
+	url := fmt.Sprintf(
+		"https://github.com/%s/%s/releases/download/%s/%s",
+		owner,
+		repo,
+		tag,
+		name,
+	)
+
+	_, err := withGetRequest(ctx, url, func(res *http.Response) (any, error) {
+		gzipReader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gzipReader.Close()
+
+		tarReader := tar.NewReader(gzipReader)
+		for {
+			header, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			if err := cb(tarReader, header); err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+func GetLongShaFromGithub(ctx context.Context, owner string, repo string, sha string) (string, error) {
+	type GithubCommit struct {
+		Sha string `json:"sha"`
+	}
+
+	url := fmt.Sprintf(
+		"https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=1",
+		owner,
+		repo,
+		sha,
+	)
+
+	return withGetRequest(ctx, url, func(res *http.Response) (string, error) {
+		var parsed []GithubCommit
+		if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
+			return "", err
+		}
+
+		if len(parsed) == 0 {
+			return "", errors.New("failed to get long SHA")
+		}
+		return parsed[0].Sha, nil
+	})
+}
+
+func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
+	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
+
+	gomod, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return "", err
+	}
+
+	modFile, err := modfile.ParseLax("go.mod", gomod, nil)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dep := range modFile.Require {
+		if dep.Mod.Path == dependency {
+			return dep.Mod.Version, nil
+		}
+	}
+
+	return "", fmt.Errorf("dependency %s not found", dependency)
+}
+
+func DownloadSolanaCcipPrograms(ctx context.Context, dir string) error {
+	const ownr = "smartcontractkit"
+	const repo = "chainlink-ccip"
+	const name = "archive.tar.gz"
+	const path = "go.mod"
+
+	tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
+	if !ok {
+		version, err := GetSolanaCcipDependencyVersion(path)
+		if err != nil {
+			return err
+		}
+
+		tokens := strings.Split(version, "-")
+		if len(tokens) == 3 {
+			shortSha := tokens[len(tokens)-1]
+
+			longSha, err := GetLongShaFromGithub(ctx, ownr, repo, shortSha)
+			if err != nil {
+				return err
+			}
+
+			version = longSha
+		}
+
+		tag = fmt.Sprintf("solana-artifacts-localtest-%s", version)
+	}
+
+	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
+		if h.Typeflag == tar.TypeReg && filepath.Ext(h.Name) == ".so" {
+			outPath := filepath.Join(dir, filepath.Base(h.Name))
+			if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
+				return err
+			}
+
+			outFile, err := os.Create(outPath)
+			if err != nil {
+				return err
+			}
+			defer outFile.Close()
+
+			if _, err := io.Copy(outFile, r); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
 }

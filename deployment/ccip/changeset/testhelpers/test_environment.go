@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"os"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -47,6 +48,8 @@ const (
 	Docker      EnvType = "docker"
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
+
+var downloadSolCcipContractArtifactsOnce sync.Once
 
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
@@ -539,6 +542,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	e := tEnv.DeployedEnvironment()
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
+
+	downloadSolCcipContractArtifactsOnce.Do(func() {
+		err := DownloadSolanaCcipPrograms(t.Context(), memory.ProgramsPath)
+		require.NoError(t, err)
+	})
 
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
