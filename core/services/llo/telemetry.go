@@ -6,12 +6,12 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/smartcontractkit/libocr/commontypes"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
@@ -19,14 +19,20 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	legacytelem "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 const adapterLWBAErrorName = "AdapterLWBAError"
 
 type Telemeter interface {
 	EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error)
-	MakeTelemChannel(opts llo.DSOpts, size int) (ch chan<- interface{})
+	MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{})
+	GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry
+	GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry
+	CaptureEATelemetry() bool
+	CaptureObservationTelemetry() bool
 }
 
 type TelemeterService interface {
@@ -34,29 +40,62 @@ type TelemeterService interface {
 	services.Service
 }
 
-func NewTelemeterService(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) TelemeterService {
-	if monitoringEndpoint == nil {
-		return NullTelemeter
-	}
-	return newTelemeter(lggr, monitoringEndpoint, donID)
+type TelemeterParams struct {
+	Logger                      logger.Logger
+	MonitoringEndpoint          telemetry.MultitypeMonitoringEndpoint
+	DonID                       uint32
+	CaptureEATelemetry          bool
+	CaptureObservationTelemetry bool
+	CaptureOutcomeTelemetry     bool
+	CaptureReportTelemetry      bool
 }
 
-func newTelemeter(lggr logger.Logger, monitoringEndpoint commontypes.MonitoringEndpoint, donID uint32) *telemeter {
+func NewTelemeterService(params TelemeterParams) TelemeterService {
+	if params.MonitoringEndpoint == nil {
+		return NullTelemeter
+	}
+	return newTelemeter(params)
+}
+
+func newTelemeter(params TelemeterParams) *telemeter {
 	// NOTE: This channel must take multiple telemetry packets per round (1 per
 	// feed) so we need to make sure the buffer is large enough.
 	//
 	// 2000 feeds * 5s/250ms = 40_000 should hold ~5s of buffer in the worst case.
 	chTelemetryPipeline := make(chan *TelemetryPipeline, 40_000)
 	t := &telemeter{
-		chTelemetryPipeline: chTelemetryPipeline,
-		monitoringEndpoint:  monitoringEndpoint,
-		donID:               donID,
-		chch:                make(chan telemetryCollectionContext, 1000), // chch should be consumed from very quickly so we don't need a large buffer, but it also won't hurt
+		chTelemetryPipeline:         chTelemetryPipeline,
+		monitoringEndpoint:          params.MonitoringEndpoint,
+		donID:                       params.DonID,
+		chch:                        make(chan telemetryCollectionContext, 1000), // chch should be consumed from very quickly so we don't need a large buffer, but it also won't hurt
+		captureEATelemetry:          params.CaptureEATelemetry,
+		captureObservationTelemetry: params.CaptureObservationTelemetry,
+	}
+	if params.CaptureOutcomeTelemetry {
+		t.chOutcomeTelemetry = make(chan *datastreamsllo.LLOOutcomeTelemetry, 100) // only one per round so 100 buffer should be more than enough even for very fast rounds
+	}
+	if params.CaptureReportTelemetry {
+		t.chReportTelemetry = make(chan *datastreamsllo.LLOReportTelemetry, (2+2)*datastreamsllo.MaxReportCount) // 2 instances+2x size safety buffer
 	}
 	t.Service, t.eng = services.Config{
 		Name:  "LLOTelemeterService",
 		Start: t.start,
-	}.NewServiceEngine(lggr)
+		Close: func() error {
+			// Enforce that nothing is transmitted after the service is closed
+			// Doing so is a programming error
+			close(t.chch)
+			if t.chTelemetryPipeline != nil {
+				close(t.chTelemetryPipeline)
+			}
+			if t.chOutcomeTelemetry != nil {
+				close(t.chOutcomeTelemetry)
+			}
+			if t.chReportTelemetry != nil {
+				close(t.chReportTelemetry)
+			}
+			return nil
+		},
+	}.NewServiceEngine(params.Logger)
 
 	return t
 }
@@ -65,10 +104,15 @@ type telemeter struct {
 	services.Service
 	eng *services.Engine
 
-	monitoringEndpoint  commontypes.MonitoringEndpoint
+	monitoringEndpoint  telemetry.MultitypeMonitoringEndpoint
 	chTelemetryPipeline chan *TelemetryPipeline
-	donID               uint32
-	chch                chan telemetryCollectionContext
+
+	donID                       uint32
+	captureEATelemetry          bool
+	captureObservationTelemetry bool
+	chch                        chan telemetryCollectionContext
+	chOutcomeTelemetry          chan *datastreamsllo.LLOOutcomeTelemetry
+	chReportTelemetry           chan *datastreamsllo.LLOReportTelemetry
 }
 
 func (t *telemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
@@ -98,13 +142,19 @@ type telemetryCollectionContext struct {
 	opts llo.DSOpts
 }
 
-// CollectTelemetryObserve reads telem packets from the returned channel and
-// sends them to the monitoring endpoint. Stops reading when channel closed or
-// when telemeter is stopped
+// MakeObservationScopedTelemetryCh reads telem packets from the returned channel and sends them
+// to the monitoring endpoint. Stops reading when channel closed or when
+// telemeter is stopped
 //
 // CALLER IS RESPONSIBLE FOR CLOSING THE RETURNED CHANNEL TO AVOID MEMORY
 // LEAKS.
-func (t *telemeter) MakeTelemChannel(opts llo.DSOpts, size int) chan<- interface{} {
+//
+// It is necessary to make a new channel for every Observation call because it
+// closes over DSOpts which is scoped to that call only.
+func (t *telemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) chan<- interface{} {
+	if !(t.captureObservationTelemetry || t.captureEATelemetry) {
+		return nil
+	}
 	ch := make(chan interface{}, size)
 	tcc := telemetryCollectionContext{
 		in:   ch,
@@ -123,6 +173,22 @@ func (t *telemeter) MakeTelemChannel(opts llo.DSOpts, size int) chan<- interface
 	return ch
 }
 
+func (t *telemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
+	return t.chOutcomeTelemetry
+}
+
+func (t *telemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry {
+	return t.chReportTelemetry
+}
+
+func (t *telemeter) CaptureEATelemetry() bool {
+	return t.captureEATelemetry
+}
+
+func (t *telemeter) CaptureObservationTelemetry() bool {
+	return t.captureObservationTelemetry
+}
+
 func (t *telemeter) start(_ context.Context) error {
 	t.eng.Go(func(ctx context.Context) {
 		wg := sync.WaitGroup{}
@@ -139,13 +205,17 @@ func (t *telemeter) start(_ context.Context) error {
 								// channel closed by producer
 								return
 							}
-							t.collectTelemetry(p, tcc.opts)
+							t.collectObservationTelemetry(p, tcc.opts)
 						case <-ctx.Done():
 							return
 						}
 					}
 				}()
 
+			case rt := <-t.chOutcomeTelemetry:
+				t.collectOutcomeTelemetry(rt)
+			case rt := <-t.chReportTelemetry:
+				t.collectReportTelemetry(rt)
 			case p := <-t.chTelemetryPipeline:
 				t.collectV3PremiumLegacyTelemetry(p)
 			case <-ctx.Done():
@@ -157,10 +227,12 @@ func (t *telemeter) start(_ context.Context) error {
 	return nil
 }
 
-func (t *telemeter) collectTelemetry(p interface{}, opts llo.DSOpts) {
+func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) {
+	var telemType synchronization.TelemetryType
 	var msg proto.Message
 	switch v := p.(type) {
 	case *pipeline.BridgeTelemetry:
+		telemType = synchronization.PipelineBridge
 		cd := opts.ConfigDigest()
 		msg = &telem.LLOBridgeTelemetry{
 			BridgeAdapterName:        v.Name,
@@ -180,6 +252,7 @@ func (t *telemeter) collectTelemetry(p interface{}, opts llo.DSOpts) {
 			ObservationTimestamp:     opts.ObservationTimestamp().UnixNano(),
 		}
 	case *telem.LLOObservationTelemetry:
+		telemType = synchronization.LLOObservation
 		v.DonId = t.donID
 		msg = v
 	default:
@@ -192,7 +265,25 @@ func (t *telemeter) collectTelemetry(p interface{}, opts llo.DSOpts) {
 		return
 	}
 
-	t.monitoringEndpoint.SendLog(bytes)
+	t.monitoringEndpoint.SendTypedLog(telemType, bytes)
+}
+
+func (t *telemeter) collectOutcomeTelemetry(rt *datastreamsllo.LLOOutcomeTelemetry) {
+	bytes, err := proto.Marshal(rt)
+	if err != nil {
+		t.eng.Warnf("protobuf marshal failed %v", err.Error())
+		return
+	}
+	t.monitoringEndpoint.SendTypedLog(synchronization.LLOOutcome, bytes)
+}
+
+func (t *telemeter) collectReportTelemetry(rt *datastreamsllo.LLOReportTelemetry) {
+	bytes, err := proto.Marshal(rt)
+	if err != nil {
+		t.eng.Warnf("protobuf marshal failed %v", err.Error())
+		return
+	}
+	t.monitoringEndpoint.SendTypedLog(synchronization.LLOReport, bytes)
 }
 
 func (t *telemeter) collectV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
@@ -252,7 +343,7 @@ func (t *telemeter) collectV3PremiumLegacyTelemetry(d *TelemetryPipeline) {
 			continue
 		}
 
-		t.monitoringEndpoint.SendLog(bytes)
+		t.monitoringEndpoint.SendTypedLog(synchronization.EnhancedEAMercury, bytes)
 	}
 }
 
@@ -276,8 +367,20 @@ type nullTelemeter struct{}
 
 func (t *nullTelemeter) EnqueueV3PremiumLegacy(run *pipeline.Run, trrs pipeline.TaskRunResults, streamID uint32, opts llo.DSOpts, val llo.StreamValue, err error) {
 }
-func (t *nullTelemeter) MakeTelemChannel(opts llo.DSOpts, size int) (ch chan<- interface{}) {
+func (t *nullTelemeter) MakeObservationScopedTelemetryCh(opts llo.DSOpts, size int) (ch chan<- interface{}) {
 	return nil
+}
+func (t *nullTelemeter) GetOutcomeTelemetryCh() chan<- *datastreamsllo.LLOOutcomeTelemetry {
+	return nil
+}
+func (t *nullTelemeter) GetReportTelemetryCh() chan<- *datastreamsllo.LLOReportTelemetry {
+	return nil
+}
+func (t *nullTelemeter) CaptureEATelemetry() bool {
+	return false
+}
+func (t *nullTelemeter) CaptureObservationTelemetry() bool {
+	return false
 }
 func (t *nullTelemeter) Start(context.Context) error {
 	return nil
@@ -299,4 +402,23 @@ func (t *nullTelemeter) Name() string {
 }
 func (t *nullTelemeter) Ready() error {
 	return nil
+}
+
+type contextKey string
+
+const ctxObservationTelemetryKey contextKey = "observation-telemetry"
+
+func WithObservationTelemetryCh(ctx context.Context, ch chan<- interface{}) context.Context {
+	if ch == nil {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxObservationTelemetryKey, ch)
+}
+
+func GetObservationTelemetryCh(ctx context.Context) chan<- interface{} {
+	ch, ok := ctx.Value(ctxObservationTelemetryKey).(chan<- interface{})
+	if !ok {
+		return nil
+	}
+	return ch
 }

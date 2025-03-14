@@ -20,6 +20,59 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
+func Test_Server_Execute_SlowCapabilityExecutionDoesNotImpactSubsequentCall(t *testing.T) {
+	ctx := testutils.Context(t)
+
+	numCapabilityPeers := 4
+
+	workflowIDToPause := map[string]time.Duration{}
+	workflowIDToPause[workflowID1] = 1 * time.Minute
+	workflowIDToPause[workflowID2] = 1 * time.Second
+
+	callers, srvcs := testRemoteExecutableCapabilityServer(ctx, t, &commoncap.RemoteExecutableConfig{}, &TestSlowExecutionCapability{workflowIDToPause: workflowIDToPause}, 10, 9, numCapabilityPeers, 3, 10*time.Minute)
+
+	for _, caller := range callers {
+		_, err := caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          workflowID1,
+					WorkflowExecutionID: workflowExecutionID1,
+				},
+			})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		_, err := caller.Execute(context.Background(),
+			commoncap.CapabilityRequest{
+				Metadata: commoncap.RequestMetadata{
+					WorkflowID:          workflowID2,
+					WorkflowExecutionID: workflowExecutionID2,
+				},
+			})
+		require.NoError(t, err)
+	}
+
+	for _, caller := range callers {
+		for i := 0; i < numCapabilityPeers; i++ {
+			msg := <-caller.receivedMessages
+			assert.Equal(t, remotetypes.Error_OK, msg.Error)
+
+			capabilityResponse, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+			require.NoError(t, err)
+			val := capabilityResponse.Value.Underlying["response"]
+
+			var valAsStr string
+			err = val.UnwrapTo(&valAsStr)
+			require.NoError(t, err)
+
+			assert.Equal(t, "1s", valAsStr)
+		}
+	}
+
+	closeServices(t, srvcs)
+}
+
 func Test_Server_DefaultExcludedAttributes(t *testing.T) {
 	ctx := testutils.Context(t)
 
@@ -226,7 +279,7 @@ func testRemoteExecutableCapabilityServer(ctx context.Context, t *testing.T,
 		capabilityPeer := capabilityPeers[i]
 		capabilityDispatcher := broker.NewDispatcherForNode(capabilityPeer)
 		capabilityNode := executable.NewServer(config, capabilityPeer, underlying, capInfo, capDonInfo, workflowDONs, capabilityDispatcher,
-			capabilityNodeResponseTimeout, lggr)
+			capabilityNodeResponseTimeout, 10, lggr)
 		require.NoError(t, capabilityNode.Start(ctx))
 		broker.RegisterReceiverNode(capabilityPeer, capabilityNode)
 		capabilityNodes[i] = capabilityNode

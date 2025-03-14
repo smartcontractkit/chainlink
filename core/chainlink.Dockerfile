@@ -43,7 +43,7 @@ COPY --from=buildgo /chainlink-solana .
 RUN go install ./pkg/solana/cmd/chainlink-solana
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
@@ -58,9 +58,11 @@ RUN curl https://www.postgresql.org/media/keys/ACCC4CF8.asc | apt-key add - \
 
 COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 
-# Install (but don't enable) LOOP Plugins
+# Install (but don't enable) feeds LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-feeds /usr/local/bin/
+# Install and enable Solana LOOP Plugin
 COPY --from=buildplugins /go/bin/chainlink-solana /usr/local/bin/
+ENV CL_SOLANA_CMD=chainlink-solana
 
 # CCIP specific
 COPY ./cci[p]/confi[g] /ccip-config

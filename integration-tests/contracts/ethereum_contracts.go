@@ -34,15 +34,14 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethlink_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_gas_aggregator_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/oracle_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/test_api_consumer_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 
 	"github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/wrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	iregistry22 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_registry_master_wrapper_2_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_keeper_registry_master_wrapper_2_1"
@@ -52,7 +51,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator_factory"
 )
 
 // OCRv2Config represents the config for the OCRv2 contract
@@ -475,20 +475,20 @@ func (e *EthereumOperatorFactory) DeployNewOperatorAndForwarder() (*types.Transa
 type EthereumOperator struct {
 	address  *common.Address
 	client   *seth.Client
-	operator *operator_wrapper.Operator
+	operator *operator.Operator
 	l        zerolog.Logger
 }
 
 func LoadEthereumOperator(logger zerolog.Logger, seth *seth.Client, contractAddress common.Address) (EthereumOperator, error) {
 
-	abi, err := operator_wrapper.OperatorMetaData.GetAbi()
+	abi, err := operator.OperatorMetaData.GetAbi()
 	if err != nil {
 		return EthereumOperator{}, err
 	}
 	seth.ContractStore.AddABI("EthereumOperator", *abi)
-	seth.ContractStore.AddBIN("EthereumOperator", common.FromHex(operator_wrapper.OperatorMetaData.Bin))
+	seth.ContractStore.AddBIN("EthereumOperator", common.FromHex(operator.OperatorMetaData.Bin))
 
-	operator, err := operator_wrapper.NewOperator(contractAddress, seth.Client)
+	operator, err := operator.NewOperator(contractAddress, seth.Client)
 	if err != nil {
 		return EthereumOperator{}, err
 	}

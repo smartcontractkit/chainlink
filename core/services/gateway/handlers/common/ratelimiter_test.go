@@ -8,7 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
-func TestRateLimiter_Simple(t *testing.T) {
+func TestRateLimiter_PerSender(t *testing.T) {
 	t.Parallel()
 
 	config := common.RateLimiterConfig{

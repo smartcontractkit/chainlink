@@ -29,7 +29,16 @@ import (
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
-var _ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
+var (
+	_ deployment.ChangeSet[DeployHomeChainConfig] = DeployHomeChainChangeset
+	// RemoveNodesFromCapRegChangeset is a changeset that removes nodes from the CapabilitiesRegistry contract.
+	// It fails validation
+	//  - if the changeset is executed neither by CapabilitiesRegistry contract owner nor by the node operator admin.
+	//	- if node is not already present in the CapabilitiesRegistry contract.
+	//  - if node is part of CapabilitiesDON
+	//  - if node is part of WorkflowDON
+	RemoveNodesFromCapRegChangeset = deployment.CreateChangeSet(removeNodesLogic, removeNodesPrecondition)
+)
 
 // DeployHomeChainChangeset is a separate changeset because it is a standalone deployment performed once in home chain for the entire CCIP deployment.
 func DeployHomeChainChangeset(env deployment.Environment, cfg DeployHomeChainConfig) (deployment.ChangesetOutput, error) {
@@ -433,6 +442,7 @@ func addNodes(
 		lggr.Infow("No new nodes to add")
 		return nil
 	}
+	lggr.Infow("Adding nodes", "chain", chain.String(), "nodes", p2pIDsByNodeOpId)
 	tx, err := capReg.AddNodes(chain.DeployerKey, nodeParams)
 	if err != nil {
 		lggr.Errorw("Failed to add nodes", "chain", chain.String(),
@@ -494,7 +504,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		return deployment.ChangesetOutput{}, err
 	}
 	if cfg.MCMS == nil {
-		_, err = homeChain.Confirm(tx)
+		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
@@ -527,5 +537,132 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 	}
 
 	e.Logger.Infof("Created proposal to remove dons")
+	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+}
+
+type RemoveNodesConfig struct {
+	HomeChainSel   uint64
+	P2PIDsToRemove [][32]byte
+	MCMSCfg        *changeset.MCMSConfig
+}
+
+func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) error {
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return err
+	}
+	if err := changeset.ValidateChain(env, state, c.HomeChainSel, c.MCMSCfg); err != nil {
+		return err
+	}
+	if len(c.P2PIDsToRemove) == 0 {
+		return errors.New("p2p ids to remove must be set")
+	}
+	for _, p2pID := range c.P2PIDsToRemove {
+		if bytes.Equal(p2pID[:], make([]byte, 32)) {
+			return errors.New("empty p2p id")
+		}
+	}
+
+	// Cap reg must exist
+	if state.Chains[c.HomeChainSel].CapabilityRegistry == nil {
+		return fmt.Errorf("cap reg does not exist for home chain %d", c.HomeChainSel)
+	}
+	capReg := state.Chains[c.HomeChainSel].CapabilityRegistry
+	nodeInfos, err := capReg.GetNodes(&bind.CallOpts{
+		Context: env.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get nodes from Capreg %s: %w", capReg.Address().String(), err)
+	}
+	capRegOwner, err := capReg.Owner(&bind.CallOpts{
+		Context: env.GetContext(),
+	})
+	if err != nil {
+		return fmt.Errorf("failed to get owner of Capreg %s: %w", capReg.Address().String(), err)
+	}
+	txSender := env.Chains[c.HomeChainSel].DeployerKey.From
+	if c.MCMSCfg != nil {
+		txSender = state.Chains[c.HomeChainSel].Timelock.Address()
+	}
+	existingP2PIDs := make(map[[32]byte]capabilities_registry.INodeInfoProviderNodeInfo)
+	for _, nodeInfo := range nodeInfos {
+		existingP2PIDs[nodeInfo.P2pId] = nodeInfo
+	}
+	for _, p2pID := range c.P2PIDsToRemove {
+		info, exists := existingP2PIDs[p2pID]
+		if !exists {
+			return fmt.Errorf("p2p id %x does not exist in Capreg %s", p2pID[:], capReg.Address().String())
+		}
+		nop, err := capReg.GetNodeOperator(nil, info.NodeOperatorId)
+		if err != nil {
+			return fmt.Errorf("failed to get node operator %d for node %x: %w", info.NodeOperatorId, p2pID[:], err)
+		}
+		if txSender != capRegOwner && txSender != nop.Admin {
+			return fmt.Errorf("tx sender %s is not the owner %s  of Capreg %s or admin %s for node %x",
+				txSender.String(), capRegOwner.String(), capReg.Address().String(), nop.Admin.String(), p2pID[:])
+		}
+		if len(info.CapabilitiesDONIds) > 0 {
+			return fmt.Errorf("p2p id %x is part of CapabilitiesDON, cannot remove", p2pID[:])
+		}
+		if info.WorkflowDONId != 0 {
+			return fmt.Errorf("p2p id %x is part of WorkflowDON, cannot remove", p2pID[:])
+		}
+	}
+
+	return nil
+}
+
+func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployment.ChangesetOutput, error) {
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	homeChainState := state.Chains[c.HomeChainSel]
+	homeChain := env.Chains[c.HomeChainSel]
+	txOpts := homeChain.DeployerKey
+	if c.MCMSCfg != nil {
+		txOpts = deployment.SimTransactOpts()
+	}
+	tx, err := homeChainState.CapabilityRegistry.RemoveNodes(txOpts, c.P2PIDsToRemove)
+	if c.MCMSCfg == nil {
+		_, err = deployment.ConfirmIfNoErrorWithABI(homeChain, tx, capabilities_registry.CapabilitiesRegistryABI, err)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove nodes from capreg %s: %w",
+				homeChainState.CapabilityRegistry.Address().String(), err)
+		}
+		env.Logger.Infof("Removed nodes using deployer key tx %s", tx.Hash().String())
+		return deployment.ChangesetOutput{}, nil
+	}
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	batchOperation, err := proposalutils.BatchOperationForChain(c.HomeChainSel,
+		homeChainState.CapabilityRegistry.Address().Hex(), tx.Data(), big.NewInt(0),
+		string(changeset.CapabilitiesRegistry), []string{})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create batch operation for home chain: %w", err)
+	}
+
+	timelocks := changeset.BuildTimelockAddressPerChain(env, state)
+	proposerMcms := changeset.BuildProposerMcmAddressesPerChain(env, state)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+	inspectors[c.HomeChainSel], err = proposalutils.McmsInspectorForChain(env, c.HomeChainSel)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get mcms inspector for chain %s: %w", homeChain.String(), err)
+	}
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		env,
+		timelocks,
+		proposerMcms,
+		inspectors,
+		[]mcmstypes.BatchOperation{batchOperation},
+		"Remove Nodes from CapabilitiesRegistry",
+		c.MCMSCfg.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	env.Logger.Infof("Created proposal to remove nodes")
 	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
