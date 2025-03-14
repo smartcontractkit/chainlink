@@ -1414,9 +1414,6 @@ type SetOCR3OffRampConfig struct {
 	RemoteChainSels    []uint64
 	CCIPHomeConfigType globals.ConfigType
 	MCMS               *changeset.MCMSConfig
-
-	// WARNING: Do not use if running this changeset in isolation
-	ActiveDigestOverrides map[uint64]map[cctypes.PluginType][32]byte
 }
 
 func (c SetOCR3OffRampConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
