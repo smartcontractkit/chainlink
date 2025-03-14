@@ -67,6 +67,10 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		var receiver remotetypes.Receiver
+
+		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
+		// and a CapabilitiesDon running a custom compute capability.
+		// The receiver will be updated with the created CapabilitiesDon's ID
 		th := setup(ctx, t, lggr, &receiver)
 		msgBody := &remotetypes.MessageBody{
 			Method:      remotetypes.MethodExecute,
@@ -76,6 +80,7 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			Sender:      th.workflowsNodes[0][:],
 		}
 
+		// we will now send a request to the receiver with a registered don's ID
 		executeReceiveSafetly(ctx, receiver, msgBody)
 		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
@@ -84,6 +89,10 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		var receiver remotetypes.Receiver
+
+		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
+		// and a CapabilitiesDon running a custom compute capability.
+		// The receiver will be updated with the created CapabilitiesDon's ID
 		th := setup(ctx, t, lggr, &receiver)
 
 		unregisteredDonID := uint32(3)
@@ -95,17 +104,23 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			Sender:      th.workflowsNodes[0][:],
 		}
 
+		// we will now send a request to the receiver with an unregistered don's ID
 		executeReceiveSafetly(ctx, receiver, msgBody)
 		assert.Len(t, observedLogs.FilterMessage("received request from unregistered don").All(), 1)
 	})
 
-	t.Run("receivers get updated when adding a new don", func(t *testing.T) {
+	t.Run("receivers gets updated when adding a new don", func(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		var receiver remotetypes.Receiver
+
+		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
+		// and a CapabilitiesDon running a custom compute capability.
+		// The receiver will be updated with the created CapabilitiesDon's ID
 		th := setup(ctx, t, lggr, &receiver)
 
-		// add a new workflow don
+		// we will now add a new workflow don to the state which reflects a new workflow don being added to the registrySyncer.
+		// this emulates what happens in the registrySyncer.Sync
 		newWorkflowDonID := uint32(3)
 		newWorkflowsNodes := []ragetypes.PeerID{
 			randomWord(),
@@ -156,6 +171,9 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		err = th.launcher.Launch(ctx, &th.state)
 		require.NoError(t, err)
 
+		// we will now send a request to the receiver with the new workflow don's ID
+		// the receiver should not log an error as the new workflow don is now registered
+		// given that the receiver was updated with the new workflow don's ID when the launcher.Launch was called
 		msgBody := &remotetypes.MessageBody{
 			Method:      remotetypes.MethodExecute,
 			MessageId:   []byte("message_id"),
