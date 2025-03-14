@@ -293,13 +293,13 @@ func (d *peerGroupDialer) Start() {
 	d.syncCancel = cf
 
 	go func() {
-		d.sync()
+		d.sync(ctx)
 
 		syncTicker := time.NewTicker(d.syncInterval)
 		for {
 			select {
 			case <-syncTicker.C:
-				d.sync()
+				d.sync(ctx)
 			case <-ctx.Done():
 				return
 			}
@@ -374,7 +374,12 @@ func calculateSyncActions(
 	return actions
 }
 
-func (d *peerGroupDialer) sync() {
+func (d *peerGroupDialer) sync(ctx context.Context) {
+	if ctx.Err() == context.Canceled {
+		d.lggr.Debugw("peer group dialer closed, returning from sync")
+		return
+	}
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -409,7 +414,7 @@ func (d *peerGroupDialer) sync() {
 			d.closePeerGroup(action.endpointConfigDigest)
 			actionLggr.Infow("Peer group closed successfully")
 		case ActionCreate:
-			if err := d.createPeerGroup(action.endpointConfigDigest, action.rmnHomeConfigDigest); err != nil {
+			if err := d.createPeerGroup(ctx, action.endpointConfigDigest, action.rmnHomeConfigDigest); err != nil {
 				actionLggr.Errorw("Failed to create peer group", "err", err)
 				// Consider closing all groups on error
 				d.closeExistingPeerGroups()
@@ -441,9 +446,15 @@ func (d *peerGroupDialer) closePeerGroup(endpointConfigDigest cciptypes.Bytes32)
 }
 
 func (d *peerGroupDialer) createPeerGroup(
+	ctx context.Context,
 	endpointConfigDigest cciptypes.Bytes32,
 	rmnHomeConfigDigest cciptypes.Bytes32,
 ) error {
+	if ctx.Err() == context.Canceled {
+		d.lggr.Debugw("peer group dialer closed, returning from createPeerGroup")
+		return nil
+	}
+
 	rmnNodesInfo, err := d.rmnHomeReader.GetRMNNodesInfo(rmnHomeConfigDigest)
 	if err != nil {
 		return fmt.Errorf("get RMN nodes info: %w", err)
