@@ -1883,10 +1883,6 @@ func withGetRequest[T any](ctx context.Context, url string, cb func(res *http.Re
 	}
 	defer res.Body.Close()
 
-	if res.StatusCode != http.StatusOK {
-		return empty, fmt.Errorf("GET request failed with status code %d", res.StatusCode)
-	}
-
 	return cb(res)
 }
 
@@ -1907,6 +1903,10 @@ func DownloadTarGzReleaseAssetFromGithub(
 	)
 
 	_, err := withGetRequest(ctx, url, func(res *http.Response) (any, error) {
+		if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("request failed with status %d - could not download tar.gz release artifact from Github (url = '%s')", res.StatusCode, url)
+		}
+
 		gzipReader, err := gzip.NewReader(res.Body)
 		if err != nil {
 			return nil, err
@@ -1946,6 +1946,10 @@ func GetLongShaFromGithub(ctx context.Context, owner string, repo string, sha st
 	)
 
 	return withGetRequest(ctx, url, func(res *http.Response) (string, error) {
+		if res.StatusCode != http.StatusOK {
+			return "", fmt.Errorf("request failed with status %d - could not retrieve long SHA from Github API (url = '%s')", res.StatusCode, url)
+		}
+
 		var parsed []GithubCommit
 		if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
 			return "", err
@@ -1987,11 +1991,11 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 
 	tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
 	if !ok {
-    // TODO: is there a better way to get the path to the repo root directory?
-    output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
-    if err != nil {
-      return err
-    }
+		// TODO: is there a better way to get the path to the repo root directory?
+		output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
+		if err != nil {
+			return err
+		}
 
 		version, err := GetSolanaCcipDependencyVersion(filepath.Join(strings.TrimSpace(string(output)), "go.mod"))
 		if err != nil {
