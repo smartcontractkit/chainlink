@@ -13,23 +13,18 @@ func main() {
 	rootDir := "../../contracts/solc/"
 	project := "automation"
 	inputClassName := ""
-	outClassName := ""
+	outputClassName := ""
 	pkgName := ""
-	switch len(os.Args) {
-	case 3:
+	if len(os.Args) == 4 {
 		inputClassName = os.Args[1]
-		outClassName = inputClassName
-		pkgName = os.Args[2]
-	case 4:
-		inputClassName = os.Args[1]
-		outClassName = os.Args[2]
+		outputClassName = os.Args[2]
 		pkgName = os.Args[3]
-	default:
+	} else {
 		panic("Unsupported number of args")
 	}
 
 	abiPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".abi.json"
 	binPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".bin"
 
-	genwrapper.GenWrapper(abiPath, binPath, outClassName, pkgName, "")
+	genwrapper.GenWrapper(abiPath, binPath, outputClassName, pkgName, "")
 }
