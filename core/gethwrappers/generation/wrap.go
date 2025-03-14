@@ -28,13 +28,5 @@ func main() {
 	abiPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".abi.json"
 	binPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".bin"
 
-	//if _, err := os.Stat(abiPath); errors.Is(err, os.ErrNotExist) {
-	//	println("Failed to read abi " + abiPath)
-	//}
-	//
-	//if _, err := os.Stat(binPath); errors.Is(err, os.ErrNotExist) {
-	//	println("Failed to read bin " + binPath)
-	//}
-
 	genwrapper.GenWrapper(abiPath, binPath, className, pkgName, outDirSuffix)
 }
