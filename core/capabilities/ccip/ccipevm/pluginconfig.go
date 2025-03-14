@@ -1,13 +1,11 @@
 package ccipevm
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
@@ -40,33 +38,26 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	}
 }
 
-func getEVMChainReaderConfig(
-	lggr logger.Logger,
-	chainID string,
-	destChainID string,
-	homeChainID string,
-	ofc ccipcommon.OffChainConfig,
-	chainSelector cciptypes.ChainSelector,
-) ([]byte, error) {
+func getEVMChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([]byte, error) {
 	var chainReaderConfig evmrelaytypes.ChainReaderConfig
-	if chainID == destChainID {
+	if params.ChainID == params.DestChainID {
 		chainReaderConfig = evmconfig.DestReaderConfig
 	} else {
 		chainReaderConfig = evmconfig.SourceReaderConfig
 	}
 
-	if !ofc.CommitEmpty() && ofc.Commit().PriceFeedChainSelector == chainSelector {
-		lggr.Debugw("Adding feed reader config", "chainID", chainID)
+	if !params.Ofc.CommitEmpty() && params.Ofc.Commit().PriceFeedChainSelector == params.ChainSelector {
+		params.Lggr.Debugw("Adding feed reader config", "chainID", params.ChainID)
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.FeedReaderConfig)
 	}
 
-	if isUSDCEnabled(ofc) {
-		lggr.Debugw("Adding USDC reader config", "chainID", chainID)
+	if isUSDCEnabled(params.Ofc) {
+		params.Lggr.Debugw("Adding USDC reader config", "chainID", params.ChainID)
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.USDCReaderConfig)
 	}
 
-	if chainID == homeChainID {
-		lggr.Debugw("Adding home chain reader config", "chainID", chainID)
+	if params.ChainID == params.HomeChainID {
+		params.Lggr.Debugw("Adding home chain reader config", "chainID", params.ChainID)
 		chainReaderConfig = evmconfig.MergeReaderConfigs(chainReaderConfig, evmconfig.HomeChainReaderConfigRaw)
 	}
 
@@ -78,17 +69,9 @@ func getEVMChainReaderConfig(
 	return marshaledConfig, nil
 }
 
-func getEVMChainWriter(
-	ctx context.Context,
-	chainID string,
-	relayer loop.Relayer,
-	transmitters map[types.RelayID][]string,
-	execBatchGasLimit uint64,
-	chainFamily string,
-	offrampProgramAddress []byte,
-) (types.ContractWriter, error) {
+func getEVMChainWriter(params ccipcommon.GetChainWriterConfigParams) (types.ContractWriter, error) {
 	var fromAddress common.Address
-	transmitter, ok := transmitters[types.NewRelayID(chainFamily, chainID)]
+	transmitter, ok := params.Transmitters[types.NewRelayID(params.ChainFamily, params.ChainID)]
 	if ok {
 		fromAddress = common.HexToAddress(transmitter[0])
 	}
@@ -96,7 +79,7 @@ func getEVMChainWriter(
 	evmConfig, err := evmconfig.ChainWriterConfigRaw(
 		fromAddress,
 		defaultCommitGasLimit,
-		execBatchGasLimit)
+		params.ExecBatchGasLimit)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create EVM chain writer config: %w", err)
 	}
@@ -106,9 +89,9 @@ func getEVMChainWriter(
 		return nil, fmt.Errorf("failed to marshal EVM chain writer config: %w", err)
 	}
 
-	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
+	cw, err := params.Relayer.NewContractWriter(params.Ctx, chainWriterConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID, err)
+		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", params.ChainID, err)
 	}
 
 	return cw, nil

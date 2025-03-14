@@ -376,7 +376,14 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to get chain selector from chain ID %s: %w", chainID, err1)
 		}
 
-		chainReaderConfig, err1 := pluginConfig.GetChainReaderConfig(i.lggr, chainID, destChainID, homeChainID, ofc, chainSelector)
+		chainReaderConfig, err1 := pluginConfig.GetChainReaderConfig(ccipcommon.GetChainReaderConfigParams{
+			Lggr:          i.lggr,
+			ChainID:       chainID,
+			DestChainID:   destChainID,
+			HomeChainID:   homeChainID,
+			Ofc:           ofc,
+			ChainSelector: chainSelector,
+		})
 		if err1 != nil {
 			return nil, nil, fmt.Errorf("failed to get chain reader config: %w", err1)
 		}
@@ -403,15 +410,15 @@ func (i *pluginOracleCreator) createReadersAndWriters(
 			return nil, nil, fmt.Errorf("failed to start contract reader for chain %s: %w", chainID, err2)
 		}
 
-		cw, err1 := pluginConfig.GetChainWriter(
-			ctx,
-			chainID,
-			relayer,
-			i.transmitters,
-			execBatchGasLimit,
-			relayChainFamily,
-			config.Config.OfframpAddress,
-		)
+		cw, err1 := pluginConfig.GetChainWriter(ccipcommon.GetChainWriterConfigParams{
+			Ctx:                   ctx,
+			ChainID:               chainID,
+			Relayer:               relayer,
+			Transmitters:          i.transmitters,
+			ExecBatchGasLimit:     execBatchGasLimit,
+			ChainFamily:           relayChainFamily,
+			OfframpProgramAddress: config.Config.OfframpAddress,
+		})
 		if err1 != nil {
 			return nil, nil, err1
 		}

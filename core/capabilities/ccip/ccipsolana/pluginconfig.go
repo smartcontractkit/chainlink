@@ -1,7 +1,6 @@
 package ccipsolana
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 
@@ -9,7 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -43,21 +41,13 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 	}
 }
 
-func getSolanaChainWriter(
-	ctx context.Context,
-	chainID string,
-	relayer loop.Relayer,
-	transmitters map[types.RelayID][]string,
-	execBatchGasLimit uint64,
-	chainFamily string,
-	offrampProgramAddress []byte,
-) (types.ContractWriter, error) {
-	if solana.PublicKeyLength != len(offrampProgramAddress) {
-		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(offrampProgramAddress))
+func getSolanaChainWriter(pararms ccipcommon.GetChainWriterConfigParams) (types.ContractWriter, error) {
+	if solana.PublicKeyLength != len(pararms.OfframpProgramAddress) {
+		return nil, fmt.Errorf("invalid offrampProgramAddress length: %d", len(pararms.OfframpProgramAddress))
 	}
 
-	offrampAddress := solana.PublicKeyFromBytes(offrampProgramAddress)
-	transmitter := transmitters[types.NewRelayID(chainFamily, chainID)]
+	offrampAddress := solana.PublicKeyFromBytes(pararms.OfframpProgramAddress)
+	transmitter := pararms.Transmitters[types.NewRelayID(pararms.ChainFamily, pararms.ChainID)]
 	solConfig, err := solanaconfig.GetSolanaChainWriterConfig(offrampAddress.String(), transmitter[0])
 	if err == nil {
 		return nil, fmt.Errorf("failed to get Solana chain writer config: %w", err)
@@ -67,24 +57,18 @@ func getSolanaChainWriter(
 		return nil, fmt.Errorf("failed to marshal Solana chain writer config: %w", err)
 	}
 
-	cw, err := relayer.NewContractWriter(ctx, chainWriterConfig)
+	cw, err := pararms.Relayer.NewContractWriter(pararms.Ctx, chainWriterConfig)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", chainID, err)
+		return nil, fmt.Errorf("failed to create chain writer for chain %s: %w", pararms.ChainID, err)
 	}
 
 	return cw, nil
 }
 
-func getSolanaChainReaderConfig(lggr logger.Logger,
-	chainID string,
-	destChainID string,
-	homeChainID string,
-	ofc ccipcommon.OffChainConfig,
-	chainSelector cciptypes.ChainSelector,
-) ([]byte, error) {
+func getSolanaChainReaderConfig(params ccipcommon.GetChainReaderConfigParams) ([]byte, error) {
 	var err error
 	var cfg config.ContractReader
-	if chainID == destChainID {
+	if params.ChainID == params.DestChainID {
 		cfg, err = solanaconfig.DestContractReaderConfig()
 		if err != nil {
 			return nil, fmt.Errorf("failed to get Solana dest contract reader config: %w", err)
