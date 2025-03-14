@@ -23,7 +23,7 @@ var (
 
 	DefaultOCRParamsForCommitForETH = CCIPOCRParams{
 		OCRParameters:        globals.CommitOCRParamsForEthereum,
-		CommitOffChainConfig: &globals.DefaultCommitOffChainCfg,
+		CommitOffChainConfig: &globals.CommitOffChainCfgForETH,
 	}
 
 	DefaultOCRParamsForExecForNonETH = CCIPOCRParams{
@@ -33,7 +33,7 @@ var (
 
 	DefaultOCRParamsForExecForETH = CCIPOCRParams{
 		OCRParameters:         globals.ExecOCRParamsForEthereum,
-		ExecuteOffChainConfig: &globals.DefaultExecuteOffChainCfg,
+		ExecuteOffChainConfig: &globals.ExecuteOffChainCfgForETH,
 	}
 
 	// Used for only testing with simulated chains

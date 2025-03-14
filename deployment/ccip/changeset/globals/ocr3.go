@@ -34,7 +34,7 @@ var (
 		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
+		DeltaRound:                  2 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
@@ -52,8 +52,7 @@ var (
 	CommitOCRParamsForEthereum = withOverrides(
 		CommitOCRParams,
 		types.OCRParameters{
-			DeltaRound: 90 * time.Second,
-			DeltaStage: 60 * time.Second,
+			DeltaRound: 15 * time.Second,
 		},
 	)
 )
@@ -61,17 +60,17 @@ var (
 var (
 	// ExecOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see ExecOCRParamsForEthereum).
 	ExecOCRParams = types.OCRParameters{
-		DeltaProgress:               100 * time.Second,
+		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
+		DeltaRound:                  2 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
 		Rmax:       3,
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
-		MaxDurationQuery:                        200 * time.Millisecond,
+		MaxDurationQuery:                        1 * time.Microsecond,
 		MaxDurationObservation:                  13 * time.Second,
 		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
@@ -82,8 +81,7 @@ var (
 	ExecOCRParamsForEthereum = withOverrides(
 		ExecOCRParams,
 		types.OCRParameters{
-			DeltaRound: 90 * time.Second,
-			DeltaStage: 60 * time.Second,
+			DeltaRound: 15 * time.Second,
 		},
 	)
 )
