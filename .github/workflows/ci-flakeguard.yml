@@ -31,7 +31,7 @@ jobs:
 
   trigger-flaky-test-detection-for-root-project:
       name: Flakeguard Root Project
-      if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }}
+      if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }} 
       uses: ./.github/workflows/flakeguard.yml
       with:
         repoUrl: 'https://github.com/smartcontractkit/chainlink'
