@@ -226,7 +226,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			common.NewAddressCodec(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}),
+			common.NewRealAddressCodec(ccipevm.AddressCodec{}, ccipsolana.AddressCodec{}),
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(

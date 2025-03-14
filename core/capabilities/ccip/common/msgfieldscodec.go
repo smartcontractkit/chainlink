@@ -1,4 +1,4 @@
-package types
+package common
 
 import cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 

@@ -10,10 +10,9 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 // MessageHasherV1 implements the MessageHasher interface.
@@ -21,10 +20,10 @@ import (
 // - "OnRamp 1.6.0-dev"
 type MessageHasherV1 struct {
 	lggr           logger.Logger
-	extraDataCodec types.ExtraDataCodec
+	extraDataCodec common.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec types.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec common.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,

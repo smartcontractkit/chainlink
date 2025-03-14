@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 )
 

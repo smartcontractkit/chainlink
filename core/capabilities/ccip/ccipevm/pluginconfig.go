@@ -11,16 +11,15 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type PluginConfig struct {
-	extraDataCodec cctypes.ExtraDataCodec
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-func NewPluginConfig(extraDataCodec cctypes.ExtraDataCodec) *PluginConfig {
+func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
 	return &PluginConfig{
 		extraDataCodec: extraDataCodec,
 	}

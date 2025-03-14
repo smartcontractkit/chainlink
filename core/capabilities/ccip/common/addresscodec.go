@@ -5,25 +5,24 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 )
 
-// AddressCodec is a struct that holds the chain specific address codecs
-type AddressCodec struct {
-	EVMAddressCodec    types.AddressCodec
-	SolanaAddressCodec types.AddressCodec
+// RealAddressCodec is a struct that holds the chain specific address codecs
+type RealAddressCodec struct {
+	EVMAddressCodec    AddressCodec
+	SolanaAddressCodec AddressCodec
 }
 
-// NewAddressCodec is a constructor for AddressCodec
-func NewAddressCodec(evmAddrCodec, solanaAddrCodec types.AddressCodec) AddressCodec {
-	return AddressCodec{
+// NewRealAddressCodec is a constructor for NewRealAddressCodec
+func NewRealAddressCodec(evmAddrCodec, solanaAddrCodec AddressCodec) RealAddressCodec {
+	return RealAddressCodec{
 		EVMAddressCodec:    evmAddrCodec,
 		SolanaAddressCodec: solanaAddrCodec,
 	}
 }
 
 // AddressBytesToString converts an address from bytes to string
-func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
+func (ac RealAddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chainSelector cciptypes.ChainSelector) (string, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return "", fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)
@@ -42,7 +41,7 @@ func (ac AddressCodec) AddressBytesToString(addr cciptypes.UnknownAddress, chain
 }
 
 // AddressStringToBytes converts an address from string to bytes
-func (ac AddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
+func (ac RealAddressCodec) AddressStringToBytes(addr string, chainSelector cciptypes.ChainSelector) (cciptypes.UnknownAddress, error) {
 	family, err := chainsel.GetSelectorFamily(uint64(chainSelector))
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain family for selector %d: %w", chainSelector, err)

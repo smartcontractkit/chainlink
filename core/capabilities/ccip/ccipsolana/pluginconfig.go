@@ -14,15 +14,14 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
-	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type PluginConfig struct {
-	extraDataCodec cctypes.ExtraDataCodec
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
-func NewPluginConfig(extraDataCodec cctypes.ExtraDataCodec) *PluginConfig {
+func NewPluginConfig(extraDataCodec ccipcommon.ExtraDataCodec) *PluginConfig {
 	return &PluginConfig{
 		extraDataCodec: extraDataCodec,
 	}
