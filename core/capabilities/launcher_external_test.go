@@ -22,6 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	remoteMocks "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types/mocks"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
@@ -168,6 +169,9 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			HashedCapabilityIds: [][32]byte{th.computeCapID},
 		}
 
+		// the dispatcher will return a remote.ErrReceiverExists error when trying to update the receiver with the new workflow don's ID
+		// this is because currently the key is formed by the fullComputeCapID and the capabilitiesDonID and a receiver already exists for this key
+		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).Return(remote.ErrReceiverExists).Once()
 		err = th.launcher.Launch(ctx, &th.state)
 		require.NoError(t, err)
 
@@ -188,11 +192,14 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 }
 
 type testHarness struct {
-	workflowDonID  uint32
-	workflowsNodes []ragetypes.PeerID
-	launcher       registrysyncer.Launcher
-	state          registrysyncer.LocalRegistry
-	computeCapID   [32]byte
+	workflowDonID     uint32
+	capabilitiesDonID uint32
+	workflowsNodes    []ragetypes.PeerID
+	launcher          registrysyncer.Launcher
+	dispatcher        *remoteMocks.Dispatcher
+	state             registrysyncer.LocalRegistry
+	computeCapID      [32]byte
+	fullComputeCapID  string
 }
 
 func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receiver *remotetypes.Receiver) testHarness {
@@ -339,18 +346,21 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receiver *remo
 
 	dispatcher.On("SetReceiver", fullComputeCapID, capabilitiesDonID, mock.AnythingOfType("*executable.server")).Run(func(args mock.Arguments) {
 		*receiver = args.Get(2).(remotetypes.Receiver)
-	}).Return(nil)
+	}).Return(nil).Once()
 
 	err = launcher.Launch(ctx, state)
 	require.NoError(t, err)
 	stateCopy := registrysyncer.DeepCopyLocalRegistry(state)
 
 	return testHarness{
-		workflowDonID:  workflowDonID,
-		workflowsNodes: workflowsNodes,
-		launcher:       launcher,
-		state:          stateCopy,
-		computeCapID:   computeCapID,
+		workflowDonID:     workflowDonID,
+		capabilitiesDonID: capabilitiesDonID,
+		workflowsNodes:    workflowsNodes,
+		launcher:          launcher,
+		dispatcher:        dispatcher,
+		state:             stateCopy,
+		computeCapID:      computeCapID,
+		fullComputeCapID:  fullComputeCapID,
 	}
 }
 
