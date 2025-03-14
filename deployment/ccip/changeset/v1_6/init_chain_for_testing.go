@@ -16,11 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 var InitChainForTestingChangeset = deployment.CreateChangeSet(initChainForTestingLogic, initChainForTestingPrecondition)
@@ -158,7 +161,20 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
 
-	// 7. Add new chain config to the home chain
+	// 7. Precompute the config digests and DON ID
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	donIdAndDigests, err := computeDigestsAndDonID(e, state, c)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to compute digests and DON ID: %w", err)
+	}
+	donID := donIdAndDigests.DonID
+	commitConfigDigest := donIdAndDigests.CommitDigest
+	execConfigDigest := donIdAndDigests.ExecDigest
+
+	// 8. Add new chain config to the home chain
 	out, err := UpdateChainConfigChangeset(e, UpdateChainConfigConfig{
 		HomeChainSelector: c.HomeChainSelector,
 		RemoteChainAdds: map[uint64]ChainConfig{
@@ -171,69 +187,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	////////////////////////
-	// START: HOME CHAIN PREP
-	////////////////////////
-
-	state, err := changeset.LoadOnchainState(e)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-	// Fetch the next DON ID from the capabilities registry
-	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
-		Context: e.GetContext(),
-	})
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get next DON ID: %w", err)
-	}
-	// Precompute config digest for each plugin (TODO: compute static config)
-	configCount, err := countConfigSetEvents(state.Chains[c.HomeChainSelector].CCIPHome, &bind.FilterOpts{
-		Start:   c.CCIPHomeDeploymentBlock,
-		End:     nil,
-		Context: e.GetContext(),
-	})
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to count ConfigSet events emitted by CCIPHome: %w", err)
-	}
-	offRampAddress, err := state.GetOffRampAddressBytes(c.NewChain.Selector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get off ramp address bytes: %w", err)
-	}
-	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get node info: %w", err)
-	}
-	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
-		state.Chains[c.HomeChainSelector].CCIPHome,
-		e.OCRSecrets,
-		offRampAddress,
-		c.NewChain.Selector,
-		nodes.NonBootstraps(),
-		state.Chains[c.HomeChainSelector].RMNHome.Address(),
-		c.NewChain.OCRParams.OCRParameters,
-		c.NewChain.OCRParams.CommitOffChainConfig,
-		c.NewChain.OCRParams.ExecuteOffChainConfig,
-	)
-
-	commitPluginOCR3Config, ok := newDONArgs[types.PluginTypeCCIPCommit]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("missing plugin %s in newDONArgs", types.PluginTypeCCIPCommit.String())
-	}
-	configCount++
-	commitConfigDigest, err := calculateConfigDigest(donID, types.PluginTypeCCIPCommit, commitPluginOCR3Config, configCount, c.HomeChainID, state.Chains[c.HomeChainSelector].CCIPHome.Address().Hex())
-
-	execPluginOCR3Config, ok := newDONArgs[types.PluginTypeCCIPExec]
-	if !ok {
-		return deployment.ChangesetOutput{}, fmt.Errorf("missing plugin %s in newDONArgs", types.PluginTypeCCIPExec.String())
-	}
-	configCount++
-	execConfigDigest, err := calculateConfigDigest(donID, types.PluginTypeCCIPExec, execPluginOCR3Config, configCount, c.HomeChainID, state.Chains[c.HomeChainSelector].CCIPHome.Address().Hex())
-
-	////////////////////////
-	// END: HOME CHAIN PREP
-	////////////////////////
-
-	// 8. Add the DON to the registry and set candidate for the commit plugin
+	// 9. Add the DON to the registry and set candidate for the commit plugin
 	out, err = AddDonAndSetCandidateChangeset(e, AddDonAndSetCandidateChangesetConfig{
 		SetCandidateConfigBase: SetCandidateConfigBase{
 			HomeChainSelector: c.HomeChainSelector,
@@ -252,7 +206,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	// 9. Set the candidate for the exec plugin
+	// 10. Set the candidate for the exec plugin
 	out, err = SetCandidateChangeset(e, SetCandidateChangesetConfig{
 		SetCandidateConfigBase: SetCandidateConfigBase{
 			HomeChainSelector: c.HomeChainSelector,
@@ -273,7 +227,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	// 10. Promote the candidates for the commit and exec plugins
+	// 11. Promote the candidates for the commit and exec plugins
 	out, err = PromoteCandidateChangeset(e, PromoteCandidateChangesetConfig{
 		HomeChainSelector: c.HomeChainSelector,
 		MCMS:              mcmsConfig,
@@ -305,7 +259,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	// 11. Set the OCR3 config on the off ramp on the new chain
+	// 12. Set the OCR3 config on the off ramp on the new chain
 	out, err = SetOCR3OffRampChangeset(e, SetOCR3OffRampConfig{
 		HomeChainSel:       c.HomeChainSelector,
 		RemoteChainSels:    []uint64{c.NewChain.Selector},
@@ -322,7 +276,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetOCR3OffRampChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
 
-	// 12. Update the fee quoter prices and destinations on the remote chains
+	// 13. Update the fee quoter prices and destinations on the remote chains
 	for _, remoteChain := range c.RemoteChains {
 		out, err := UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
 			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
@@ -331,6 +285,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 					GasPrices:   map[uint64]*big.Int{c.NewChain.Selector: c.NewChain.GasPrice},
 				},
 			},
+			MCMS: mcmsConfig,
 		})
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", remoteChain.Selector, err)
@@ -343,6 +298,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 					remoteChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
 				},
 			},
+			MCMS: mcmsConfig,
 		})
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", remoteChain.Selector, err)
@@ -350,7 +306,7 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 	}
 
-	// 13. Connect the new chain to the existing chains (use the test router)
+	// 14. Connect the new chain to the existing chains (use the test router)
 	testRouter := true
 	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
@@ -386,7 +342,39 @@ func initChainForTestingLogic(e deployment.Environment, c InitChainForTestingCon
 		- SetRMNRemoteOnRMNProxyChangeset
 	*/
 
-	return deployment.ChangesetOutput{}, nil
+	// 15. Aggregate all proposals.
+	var batches []mcmstypes.BatchOperation
+	for _, proposal := range allProposals {
+		batches = append(batches, proposal.Operations...)
+	}
+	// Store the timelocks, proposers, and inspectors for each chain.
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+	for _, op := range batches {
+		chainSel := uint64(op.ChainSelector)
+		timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
+		proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
+		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(e, chainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
+		}
+	}
+
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
+		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChain.Selector),
+		mcmsConfig.MinDelay,
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
+	}
+
+	return deployment.ChangesetOutput{AddressBook: newAddresses, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
 func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), new deployment.AddressBook, existing deployment.AddressBook) error {
@@ -513,4 +501,74 @@ func countConfigSetEvents(ccipHome *ccip_home.CCIPHome, opts *bind.FilterOpts) (
 	}
 
 	return count, nil
+}
+
+type donIdAndDigests struct {
+	DonID        uint32
+	CommitDigest [32]byte
+	ExecDigest   [32]byte
+}
+
+func computeDigestsAndDonID(e deployment.Environment, state changeset.CCIPOnChainState, c InitChainForTestingConfig) (donIdAndDigests, error) {
+	// Fetch the next DON ID from the capabilities registry
+	donID, err := state.Chains[c.HomeChainSelector].CapabilityRegistry.GetNextDONId(&bind.CallOpts{
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to get next DON ID: %w", err)
+	}
+	// Precompute config digest for each plugin (TODO: compute static config)
+	configCount, err := countConfigSetEvents(state.Chains[c.HomeChainSelector].CCIPHome, &bind.FilterOpts{
+		Start:   c.CCIPHomeDeploymentBlock,
+		End:     nil,
+		Context: e.GetContext(),
+	})
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to count ConfigSet events emitted by CCIPHome: %w", err)
+	}
+	offRampAddress, err := state.GetOffRampAddressBytes(c.NewChain.Selector)
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to get off ramp address bytes: %w", err)
+	}
+	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to get node info: %w", err)
+	}
+	newDONArgs, err := internal.BuildOCR3ConfigForCCIPHome(
+		state.Chains[c.HomeChainSelector].CCIPHome,
+		e.OCRSecrets,
+		offRampAddress,
+		c.NewChain.Selector,
+		nodes.NonBootstraps(),
+		state.Chains[c.HomeChainSelector].RMNHome.Address(),
+		c.NewChain.OCRParams.OCRParameters,
+		c.NewChain.OCRParams.CommitOffChainConfig,
+		c.NewChain.OCRParams.ExecuteOffChainConfig,
+	)
+
+	commitPluginOCR3Config, ok := newDONArgs[types.PluginTypeCCIPCommit]
+	if !ok {
+		return donIdAndDigests{}, fmt.Errorf("missing plugin %s in newDONArgs", types.PluginTypeCCIPCommit.String())
+	}
+	configCount++
+	commitConfigDigest, err := calculateConfigDigest(donID, types.PluginTypeCCIPCommit, commitPluginOCR3Config, configCount, c.HomeChainID, state.Chains[c.HomeChainSelector].CCIPHome.Address().Hex())
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to calculate config digest for commit plugin: %w", err)
+	}
+
+	execPluginOCR3Config, ok := newDONArgs[types.PluginTypeCCIPExec]
+	if !ok {
+		return donIdAndDigests{}, fmt.Errorf("missing plugin %s in newDONArgs", types.PluginTypeCCIPExec.String())
+	}
+	configCount++
+	execConfigDigest, err := calculateConfigDigest(donID, types.PluginTypeCCIPExec, execPluginOCR3Config, configCount, c.HomeChainID, state.Chains[c.HomeChainSelector].CCIPHome.Address().Hex())
+	if err != nil {
+		return donIdAndDigests{}, fmt.Errorf("failed to calculate config digest for exec plugin: %w", err)
+	}
+
+	return donIdAndDigests{
+		DonID:        donID,
+		CommitDigest: commitConfigDigest,
+		ExecDigest:   execConfigDigest,
+	}, nil
 }
