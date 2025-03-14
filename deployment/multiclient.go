@@ -2,6 +2,8 @@ package deployment
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"math/big"
 	"time"
 
@@ -11,7 +13,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/ethclient"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -58,7 +59,7 @@ func NewMultiClient(lggr logger.Logger, rpcsCfg RPCConfig, opts ...func(client *
 	// Set the chain name
 	chain, exists := chainsel.ChainBySelector(rpcsCfg.ChainSelector)
 	if !exists {
-		return nil, errors.Errorf("chain with selector %d not found", rpcsCfg.ChainSelector)
+		return nil, errors.New(fmt.Sprintf("chain with selector %d not found", rpcsCfg.ChainSelector))
 	}
 	mc := MultiClient{lggr: lggr, chainName: chain.Name}
 
@@ -205,7 +206,7 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 		}
 		mc.lggr.Infof("Client at index %d failed, trying next client chain %s", i, mc.chainName)
 	}
-	return errors.Wrapf(err, "All backup clients %v failed for chain %s", mc.Backups, mc.chainName)
+	return errors.Join(err, fmt.Errorf("All backup clients %v failed for chain %s", mc.Backups, mc.chainName))
 }
 
 func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Client, error) {
@@ -227,7 +228,7 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 	}, retry.Attempts(RPCDefaultDialRetryAttempts), retry.Delay(RPCDefaultDialRetryDelay))
 
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to dial endpoint '%s' for RPC %s for chain %s after retries", endpoint, rpc.Name, mc.chainName)
+		return nil, errors.Join(err, fmt.Errorf("failed to dial endpoint '%s' for RPC %s for chain %s after retries", endpoint, rpc.Name, mc.chainName))
 	}
 	return client, nil
 }

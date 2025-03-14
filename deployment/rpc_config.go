@@ -1,10 +1,9 @@
 package deployment
 
 import (
+	"errors"
 	"fmt"
 	"strings"
-
-	"github.com/pkg/errors"
 )
 
 type URLSchemePreference int
