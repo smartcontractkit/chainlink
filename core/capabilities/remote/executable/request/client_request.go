@@ -70,6 +70,7 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
 	}
 
+	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest)
 }
 
@@ -86,14 +87,15 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
-	lggr.Debugw("sending request to peers", "requestID", requestID, "schedule", peerIDToTransmissionDelay)
-
 	responseReceived := make(map[p2ptypes.PeerID]bool)
-
 	ctxWithCancel, cancelFn := context.WithCancel(ctx)
-	wg := &sync.WaitGroup{}
+
+	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay)
+
+	var wg sync.WaitGroup
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
+
 		wg.Add(1)
 		go func(ctx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
@@ -108,13 +110,13 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 
 			select {
 			case <-ctxWithCancel.Done():
-				lggr.Debugw("context done, not sending request to peer", "requestID", requestID, "peerID", peerID)
+				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
 				return
 			case <-time.After(delay):
-				lggr.Debugw("sending request to peer", "requestID", requestID, "peerID", peerID)
+				lggr.Debugw("sending request to peer", "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
-					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
+					lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
 				}
 			}
 		}(ctxWithCancel, peerID, delay)
@@ -130,7 +132,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan clientResponse, 1),
-		wg:                         wg,
+		wg:                         &wg,
 		lggr:                       lggr,
 	}, nil
 }
@@ -169,7 +171,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		return errors.New("sender missing from message")
 	}
 
-	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
+	c.lggr.Debugw("OnMessage called for client request")
 
 	sender, err := remote.ToPeerID(msg.Sender)
 	if err != nil {
@@ -199,10 +201,9 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.sendResponse(clientResponse{Result: msg.Payload})
 		}
 	} else {
-		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(msg.ErrorMsg))
 		c.errorCount[msg.ErrorMsg]++
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
-			c.sendResponse(clientResponse{Err: errors.New(msg.ErrorMsg)})
+			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
 		}
 	}
 	return nil
@@ -212,4 +213,9 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.respSent = true
+	if response.Err != nil {
+		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(response.Err.Error()))
+		return
+	}
+	c.lggr.Debugw("received OK response", "count", c.requiredIdenticalResponses)
 }

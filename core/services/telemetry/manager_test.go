@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -53,14 +54,14 @@ func TestManagerAgents(t *testing.T) {
 	tm := NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressBatchClient", reflect.TypeOf(tm.endpoints[0].client).String())
 	me := tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
-	require.Equal(t, "*telemetry.IngressAgentBatch", reflect.TypeOf(me).String())
+	assert.Equal(t, "*telemetry.TypedIngressAgentBatch", reflect.TypeOf(me).String())
 
 	tic = setupMockConfig(t, false)
 	tic.On("Endpoints").Return([]config.TelemetryIngressEndpoint{te})
 	tm = NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressClient", reflect.TypeOf(tm.endpoints[0].client).String())
 	me = tm.GenMonitoringEndpoint("network-1", "network-1-chainID-1", "", "")
-	require.Equal(t, "*telemetry.IngressAgent", reflect.TypeOf(me).String())
+	assert.Equal(t, "*telemetry.TypedIngressAgent", reflect.TypeOf(me).String())
 }
 
 func TestNewManager(t *testing.T) {

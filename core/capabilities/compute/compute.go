@@ -353,11 +353,12 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 		}
 
 		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-			URL:       req.Url,
-			Method:    req.Method,
-			Headers:   headersReq,
-			Body:      req.Body,
-			TimeoutMs: req.TimeoutMs,
+			URL:        req.Url,
+			Method:     req.Method,
+			Headers:    headersReq,
+			Body:       req.Body,
+			TimeoutMs:  req.TimeoutMs,
+			WorkflowID: req.Metadata.WorkflowId,
 		})
 		if err != nil {
 			return nil, err

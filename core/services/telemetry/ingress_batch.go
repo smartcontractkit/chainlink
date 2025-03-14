@@ -22,30 +22,52 @@ func NewIngressAgentBatchWrapper(telemetryIngressBatchClient synchronization.Tel
 
 // GenMonitoringEndpoint returns a new ingress batch agent instantiated with the batch client and a contractID
 func (t *IngressAgentBatchWrapper) GenMonitoringEndpoint(network string, chainID string, contractID string, telemType synchronization.TelemetryType) ocrtypes.MonitoringEndpoint {
-	return NewIngressAgentBatch(t.telemetryIngressBatchClient, network, chainID, contractID, telemType)
+	return NewTypedIngressAgent(t.telemetryIngressBatchClient, network, chainID, contractID, telemType)
 }
 
-// IngressAgentBatch allows for sending batch telemetry for a given contractID
-type IngressAgentBatch struct {
-	telemetryIngressBatchClient synchronization.TelemetryService
-	network                     string
-	chainID                     string
-	contractID                  string
-	telemType                   synchronization.TelemetryType
+func (t *IngressAgentBatchWrapper) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) MultitypeMonitoringEndpoint {
+	return NewMultiIngressAgent(t.telemetryIngressBatchClient, network, chainID, contractID)
 }
 
-// NewIngressAgentBatch creates a new IngressAgentBatch with the given batch client and contractID
-func NewIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryService, network string, chainID string, contractID string, telemType synchronization.TelemetryType) *IngressAgentBatch {
-	return &IngressAgentBatch{
-		telemetryIngressBatchClient,
-		network,
-		chainID,
-		contractID,
+// TypedIngressAgentBatch allows for sending batch telemetry for a given contractID
+type TypedIngressAgentBatch struct {
+	*MultiIngressAgentBatch
+	telemType synchronization.TelemetryType
+}
+
+// NewTypedIngressAgentBatch creates a new TypedIngressAgentBatch with the given batch client and contractID
+func NewTypedIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryService, network string, chainID string, contractID string, telemType synchronization.TelemetryType) *TypedIngressAgentBatch {
+	m := NewMultiIngressAgentBatch(telemetryIngressBatchClient, network, chainID, contractID)
+	return &TypedIngressAgentBatch{
+		m,
 		telemType,
 	}
 }
 
 // SendLog sends a telemetry log to the ingress server
-func (t *IngressAgentBatch) SendLog(telemetry []byte) {
+func (t *TypedIngressAgentBatch) SendLog(telemetry []byte) {
 	t.telemetryIngressBatchClient.Send(context.Background(), telemetry, t.contractID, t.telemType)
+}
+
+// MultiIngressAgentBatch allows for sending batch telemetry for a given contractID
+type MultiIngressAgentBatch struct {
+	telemetryIngressBatchClient synchronization.TelemetryService
+	network                     string
+	chainID                     string
+	contractID                  string
+}
+
+// NewMultiIngressAgentBatch creates a new MultiIngressAgentBatch with the given batch client and contractID
+func NewMultiIngressAgentBatch(telemetryIngressBatchClient synchronization.TelemetryService, network string, chainID string, contractID string) *MultiIngressAgentBatch {
+	return &MultiIngressAgentBatch{
+		telemetryIngressBatchClient,
+		network,
+		chainID,
+		contractID,
+	}
+}
+
+// SendTypedLog sends a telemetry log to the ingress server
+func (t *MultiIngressAgentBatch) SendTypedLog(telemType synchronization.TelemetryType, telemetry []byte) {
+	t.telemetryIngressBatchClient.Send(context.Background(), telemetry, t.contractID, telemType)
 }
