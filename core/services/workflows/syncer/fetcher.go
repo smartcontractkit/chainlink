@@ -121,5 +121,10 @@ func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byt
 		return nil, fmt.Errorf("execution error from gateway: %s", payload.ErrorMessage)
 	}
 
+	if payload.StatusCode < 200 || payload.StatusCode >= 300 {
+		// NOTE: redirects are currently not supported
+		return payload.Body, fmt.Errorf("request failed with status code: %d", payload.StatusCode)
+	}
+
 	return payload.Body, nil
 }
