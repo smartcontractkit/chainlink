@@ -27,10 +27,8 @@ var TestChain = chain_selectors.Chain{
 func NewMemoryEnv(t *testing.T, deployMCMS bool) deployment.Environment {
 	lggr := logger.TestLogger(t)
 	memEnvConf := memory.MemoryEnvironmentConfig{
-		Chains:         1,
-		Nodes:          4,
-		Bootstraps:     1,
-		RegistryConfig: deployment.CapabilityRegistryConfig{},
+		Chains: 1,
+		Nodes:  0,
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
