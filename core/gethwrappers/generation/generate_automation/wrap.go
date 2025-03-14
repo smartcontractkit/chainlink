@@ -15,15 +15,16 @@ func main() {
 	inputClassName := ""
 	outClassName := ""
 	pkgName := ""
-	if len(os.Args) == 3 {
+	switch len(os.Args) {
+	case 3:
 		inputClassName = os.Args[1]
 		outClassName = inputClassName
 		pkgName = os.Args[2]
-	} else if len(os.Args) == 4 {
+	case 4:
 		inputClassName = os.Args[1]
 		outClassName = os.Args[2]
 		pkgName = os.Args[3]
-	} else {
+	default:
 		panic("Unsupported number of args")
 	}
 
