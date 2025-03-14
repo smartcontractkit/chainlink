@@ -30,7 +30,7 @@ func TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD(t *testing.T) {
 	// import "github.com/stretchr/testify/require"
 
 	// Using require to check that randomValue is < 0.5
-	require.Less(t, randomValue, 0.2, "Random value should be less than 0.2")
+	require.Less(t, randomValue, 0.35, "Random value should be less")
 
 	t.Log("This test randomly passed")
 }
