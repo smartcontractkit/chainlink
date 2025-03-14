@@ -345,7 +345,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	}
 
 	initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:        "0863d8fed5fbada9f352f33c405e1753cbb7d72c",
+		GitCommitSha:        "1ed798f100c95a547efb67c6328d6f406179f2ab",
 		DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 		CleanDestinationDir: true,
 	}
@@ -404,7 +404,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
-	err = ValidateSolanaState(*e, solChainSelectors)
+	err = ValidateSolanaState(env, solChainSelectors)
 	if err != nil {
 		return *e, err
 	}
@@ -882,6 +882,8 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 		}
 	}
 	return rmnNodeConfigs, nil
+// Copy of https://github.com/smartcontractkit/chainlink/blob/a4de5b3bf6aa194df7387d38ba27d2d78c96ebd5/deployment/ccip/changeset/testhelpers/test_helpers.go#L1633
+// Original func uses the testing interface
 func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) error {
 	state, err := changeset.LoadOnchainStateSolana(e)
 	if err != nil {
@@ -963,18 +965,11 @@ func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) e
 }
 
 func FundSolDeployer(ctx context.Context, lggr logger.Logger, e deployment.Environment, envConfig devenv.EnvironmentConfig, solChainSelectors []uint64) error {
-
-	// TODO - See why this is not being passed as the deployer in env, tmp fix to fund for deployment testing
-	key, err := solana.PublicKeyFromBase58("9aKDDkPcxHQwsToj185ib1tH63BAE5gzoFJdazLjAAWA")
-	if err != nil {
-		return err
-	}
 	// Fund deployer
 	var sigs = make([]solana.Signature, 0, len(e.SolChains))
 	for i := range len(e.SolChains) {
 		lggr.Infof("Funding account: %s", envConfig.Chains[i].SolDeployerKey.PublicKey().String())
-		sig, err := e.SolChains[solChainSelectors[i]].Client.RequestAirdrop(ctx, envConfig.Chains[i].SolDeployerKey.PublicKey(), 100*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		_, err = e.SolChains[solChainSelectors[i]].Client.RequestAirdrop(ctx, key, 1000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
+		sig, err := e.SolChains[solChainSelectors[i]].Client.RequestAirdrop(ctx, envConfig.Chains[i].SolDeployerKey.PublicKey(), 10000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
 		if err != nil {
 			return err
 		}
