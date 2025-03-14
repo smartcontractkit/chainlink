@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 )
 
 // DeployFeeManager deploys FeeManager to the chains specified in the config.
@@ -17,7 +17,11 @@ type DeployFeeManager struct{}
 
 type DeployFeeManagerConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
-	ChainsToDeploy []uint64
+	ChainsToDeploy       []uint64
+	LinkTokenAddress     common.Address
+	NativeTokenAddress   common.Address
+	ProxyAddress         common.Address
+	RewardManagerAddress common.Address
 }
 
 func (cc DeployFeeManagerConfig) Validate() error {
@@ -62,7 +66,7 @@ func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc De
 		if !ok {
 			return fmt.Errorf("Chain not found for chain selector %d", chainSel)
 		}
-		_, err := changeset.DeployContract[*fee_manager.FeeManager](e, ab, chain, FeeManagerDeployFn())
+		_, err := changeset.DeployContract[*fee_manager_v0_5_0.FeeManager](e, ab, chain, FeeManagerDeployFn(cc))
 		if err != nil {
 			return err
 		}
@@ -87,23 +91,22 @@ func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc De
 }
 
 // FeeManagerDeployFn returns a function that deploys a FeeManager contract.
-func FeeManagerDeployFn() changeset.ContractDeployFn[*fee_manager.FeeManager] {
-	return func(chain deployment.Chain) *changeset.ContractDeployment[*fee_manager.FeeManager] {
-		ccsAddr, ccsTx, ccs, err := fee_manager.DeployFeeManager(
+func FeeManagerDeployFn(cfg DeployFeeManagerConfig) changeset.ContractDeployFn[*fee_manager_v0_5_0.FeeManager] {
+	return func(chain deployment.Chain) *changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager] {
+		ccsAddr, ccsTx, ccs, err := fee_manager_v0_5_0.DeployFeeManager(
 			chain.DeployerKey,
 			chain.Client,
-			// TODO: Scaffold fix next PR
-			common.HexToAddress("0x"),
-			common.HexToAddress("0x"),
-			common.HexToAddress("0x"),
-			common.HexToAddress("0x"),
+			cfg.LinkTokenAddress,
+			cfg.NativeTokenAddress,
+			cfg.ProxyAddress,
+			cfg.RewardManagerAddress,
 		)
 		if err != nil {
-			return &changeset.ContractDeployment[*fee_manager.FeeManager]{
+			return &changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager]{
 				Err: err,
 			}
 		}
-		return &changeset.ContractDeployment[*fee_manager.FeeManager]{
+		return &changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager]{
 			Address:  ccsAddr,
 			Contract: ccs,
 			Tx:       ccsTx,
