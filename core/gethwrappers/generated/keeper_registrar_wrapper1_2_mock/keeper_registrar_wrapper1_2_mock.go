@@ -30,17 +30,17 @@ var (
 	_ = abi.ConvertType
 )
 
-var KeeperRegistrar12MockMetaData = &bind.MetaData{
+var KeeperRegistrarMetaData = &bind.MetaData{
 	ABI: "[{\"type\":\"function\",\"name\":\"emitAutoApproveAllowedSenderSet\",\"inputs\":[{\"name\":\"senderAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"allowed\",\"type\":\"bool\",\"internalType\":\"bool\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitConfigChanged\",\"inputs\":[{\"name\":\"autoApproveConfigType\",\"type\":\"uint8\",\"internalType\":\"uint8\"},{\"name\":\"autoApproveMaxAllowed\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"keeperRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"minLINKJuels\",\"type\":\"uint96\",\"internalType\":\"uint96\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitOwnershipTransferRequested\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitOwnershipTransferred\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"internalType\":\"address\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitRegistrationApproved\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"displayName\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"upkeepId\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitRegistrationRejected\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"emitRegistrationRequested\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"internalType\":\"bytes32\"},{\"name\":\"name\",\"type\":\"string\",\"internalType\":\"string\"},{\"name\":\"encryptedEmail\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"upkeepContract\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"adminAddress\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"checkData\",\"type\":\"bytes\",\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint96\",\"internalType\":\"uint96\"},{\"name\":\"source\",\"type\":\"uint8\",\"internalType\":\"uint8\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"function\",\"name\":\"getRegistrationConfig\",\"inputs\":[],\"outputs\":[{\"name\":\"autoApproveConfigType\",\"type\":\"uint8\",\"internalType\":\"enumKeeperRegistrar1_2Mock.AutoApproveType\"},{\"name\":\"autoApproveMaxAllowed\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"approvedCount\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"keeperRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"minLINKJuels\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"s_approvedCount\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"s_autoApproveConfigType\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint8\",\"internalType\":\"enumKeeperRegistrar1_2Mock.AutoApproveType\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"s_autoApproveMaxAllowed\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint32\",\"internalType\":\"uint32\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"s_keeperRegistry\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"address\",\"internalType\":\"address\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"s_minLINKJuels\",\"inputs\":[],\"outputs\":[{\"name\":\"\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"stateMutability\":\"view\"},{\"type\":\"function\",\"name\":\"setRegistrationConfig\",\"inputs\":[{\"name\":\"_autoApproveConfigType\",\"type\":\"uint8\",\"internalType\":\"enumKeeperRegistrar1_2Mock.AutoApproveType\"},{\"name\":\"_autoApproveMaxAllowed\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"_approvedCount\",\"type\":\"uint32\",\"internalType\":\"uint32\"},{\"name\":\"_keeperRegistry\",\"type\":\"address\",\"internalType\":\"address\"},{\"name\":\"_minLINKJuels\",\"type\":\"uint256\",\"internalType\":\"uint256\"}],\"outputs\":[],\"stateMutability\":\"nonpayable\"},{\"type\":\"event\",\"name\":\"AutoApproveAllowedSenderSet\",\"inputs\":[{\"name\":\"senderAddress\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"allowed\",\"type\":\"bool\",\"indexed\":false,\"internalType\":\"bool\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"ConfigChanged\",\"inputs\":[{\"name\":\"autoApproveConfigType\",\"type\":\"uint8\",\"indexed\":false,\"internalType\":\"uint8\"},{\"name\":\"autoApproveMaxAllowed\",\"type\":\"uint32\",\"indexed\":false,\"internalType\":\"uint32\"},{\"name\":\"keeperRegistry\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"minLINKJuels\",\"type\":\"uint96\",\"indexed\":false,\"internalType\":\"uint96\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferRequested\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"OwnershipTransferred\",\"inputs\":[{\"name\":\"from\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"to\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RegistrationApproved\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"displayName\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"upkeepId\",\"type\":\"uint256\",\"indexed\":true,\"internalType\":\"uint256\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RegistrationRejected\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"}],\"anonymous\":false},{\"type\":\"event\",\"name\":\"RegistrationRequested\",\"inputs\":[{\"name\":\"hash\",\"type\":\"bytes32\",\"indexed\":true,\"internalType\":\"bytes32\"},{\"name\":\"name\",\"type\":\"string\",\"indexed\":false,\"internalType\":\"string\"},{\"name\":\"encryptedEmail\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"upkeepContract\",\"type\":\"address\",\"indexed\":true,\"internalType\":\"address\"},{\"name\":\"gasLimit\",\"type\":\"uint32\",\"indexed\":false,\"internalType\":\"uint32\"},{\"name\":\"adminAddress\",\"type\":\"address\",\"indexed\":false,\"internalType\":\"address\"},{\"name\":\"checkData\",\"type\":\"bytes\",\"indexed\":false,\"internalType\":\"bytes\"},{\"name\":\"amount\",\"type\":\"uint96\",\"indexed\":false,\"internalType\":\"uint96\"},{\"name\":\"source\",\"type\":\"uint8\",\"indexed\":true,\"internalType\":\"uint8\"}],\"anonymous\":false}]",
 	Bin: "0x608060405234801561001057600080fd5b50610ba0806100206000396000f3fe608060405234801561001057600080fd5b50600436106100ea5760003560e01c8063aee052f31161008c578063b59d75eb11610066578063b59d75eb14610259578063bb98fe561461026c578063ca40bcd314610285578063f7420bc21461029857600080fd5b8063aee052f314610220578063b019b4e814610233578063b49fd35b1461024657600080fd5b806384638bb6116100c857806384638bb61461014a578063850af0cb146101645780639e105f95146101bb578063adeab0b71461020d57600080fd5b80631701f938146100ef5780634882b5bd1461010457806355e8b24814610120575b600080fd5b6101026100fd36600461093a565b6102ab565b005b61010d60015481565b6040519081526020015b60405180910390f35b60005461013590610100900463ffffffff1681565b60405163ffffffff9091168152602001610117565b6000546101579060ff1681565b6040516101179190610a34565b6000546001546040516101179260ff811692610100820463ffffffff90811693650100000000008404909116926901000000000000000000900473ffffffffffffffffffffffffffffffffffffffff169190610a48565b6000546101e8906901000000000000000000900473ffffffffffffffffffffffffffffffffffffffff1681565b60405173ffffffffffffffffffffffffffffffffffffffff9091168152602001610117565b61010261021b366004610789565b610322565b61010261022e366004610888565b610350565b61010261024136600461071a565b61038e565b6101026102543660046108d8565b6103ec565b6101026102673660046107a2565b6104e9565b6000546101359065010000000000900463ffffffff1681565b61010261029336600461074d565b610551565b6101026102a636600461071a565b6105a7565b6040805160ff8616815263ffffffff8516602082015273ffffffffffffffffffffffffffffffffffffffff8416818301526bffffffffffffffffffffffff8316606082015290517f6293a703ec7145dfa23c5cde2e627d6a02e153fc2e9c03b14d1e22cbb4a7e9cd9181900360800190a150505050565b60405181907f3663fb28ebc87645eb972c9dad8521bf665c623f287e79f1c56f1eb374b82a2290600090a250565b80837fb9a292fb7e3edd920cd2d2829a3615a640c43fd7de0a0820aa0668feb4c37d4b846040516103819190610a98565b60405180910390a3505050565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167f8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e060405160405180910390a35050565b600080548691907fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0016600183600281111561042957610429610b35565b0217905550600080547fffffffffffffffffffffffffffffffffffffffffffffff0000000000000000ff1661010063ffffffff968716027fffffffffffffffffffffffffffffffffffffffffffffff00000000ffffffffff1617650100000000009490951693909302939093177fffffff0000000000000000000000000000000000000000ffffffffffffffffff16690100000000000000000073ffffffffffffffffffffffffffffffffffffffff929092169190910217905560015550565b8060ff168673ffffffffffffffffffffffffffffffffffffffff168a7fc3f5df4aefec026f610a3fcb08f19476492d69d2cb78b1c2eba259a8820e6a788b8b8a8a8a8a60405161053e96959493929190610ab2565b60405180910390a4505050505050505050565b8173ffffffffffffffffffffffffffffffffffffffff167f20c6237dac83526a849285a9f79d08a483291bdd3a056a0ef9ae94ecee1ad3568260405161059b911515815260200190565b60405180910390a25050565b8073ffffffffffffffffffffffffffffffffffffffff168273ffffffffffffffffffffffffffffffffffffffff167fed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae127860405160405180910390a35050565b803573ffffffffffffffffffffffffffffffffffffffff8116811461062957600080fd5b919050565b600082601f83011261063f57600080fd5b813567ffffffffffffffff8082111561065a5761065a610b64565b604051601f83017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0908116603f011681019082821181831017156106a0576106a0610b64565b816040528381528660208588010111156106b957600080fd5b836020870160208301376000602085830101528094505050505092915050565b803563ffffffff8116811461062957600080fd5b803560ff8116811461062957600080fd5b80356bffffffffffffffffffffffff8116811461062957600080fd5b6000806040838503121561072d57600080fd5b61073683610605565b915061074460208401610605565b90509250929050565b6000806040838503121561076057600080fd5b61076983610605565b91506020830135801515811461077e57600080fd5b809150509250929050565b60006020828403121561079b57600080fd5b5035919050565b60008060008060008060008060006101208a8c0312156107c157600080fd5b8935985060208a013567ffffffffffffffff808211156107e057600080fd5b6107ec8d838e0161062e565b995060408c013591508082111561080257600080fd5b61080e8d838e0161062e565b985061081c60608d01610605565b975061082a60808d016106d9565b965061083860a08d01610605565b955060c08c013591508082111561084e57600080fd5b5061085b8c828d0161062e565b93505061086a60e08b016106fe565b91506108796101008b016106ed565b90509295985092959850929598565b60008060006060848603121561089d57600080fd5b83359250602084013567ffffffffffffffff8111156108bb57600080fd5b6108c78682870161062e565b925050604084013590509250925092565b600080600080600060a086880312156108f057600080fd5b8535600381106108ff57600080fd5b945061090d602087016106d9565b935061091b604087016106d9565b925061092960608701610605565b949793965091946080013592915050565b6000806000806080858703121561095057600080fd5b610959856106ed565b9350610967602086016106d9565b925061097560408601610605565b9150610983606086016106fe565b905092959194509250565b6000815180845260005b818110156109b457602081850181015186830182015201610998565b818111156109c6576000602083870101525b50601f017fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffe0169290920160200192915050565b60038110610a30577f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b9052565b60208101610a4282846109f9565b92915050565b60a08101610a5682886109f9565b63ffffffff808716602084015280861660408401525073ffffffffffffffffffffffffffffffffffffffff841660608301528260808301529695505050505050565b602081526000610aab602083018461098e565b9392505050565b60c081526000610ac560c083018961098e565b8281036020840152610ad7818961098e565b905063ffffffff8716604084015273ffffffffffffffffffffffffffffffffffffffff861660608401528281036080840152610b13818661098e565b9150506bffffffffffffffffffffffff831660a0830152979650505050505050565b7f4e487b7100000000000000000000000000000000000000000000000000000000600052602160045260246000fd5b7f4e487b7100000000000000000000000000000000000000000000000000000000600052604160045260246000fdfea164736f6c6343000806000a",
 }
 
-var KeeperRegistrar12MockABI = KeeperRegistrar12MockMetaData.ABI
+var KeeperRegistrarABI = KeeperRegistrarMetaData.ABI
 
-var KeeperRegistrar12MockBin = KeeperRegistrar12MockMetaData.Bin
+var KeeperRegistrarBin = KeeperRegistrarMetaData.Bin
 
-func DeployKeeperRegistrar12Mock(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *KeeperRegistrar12Mock, error) {
-	parsed, err := KeeperRegistrar12MockMetaData.GetAbi()
+func DeployKeeperRegistrar(auth *bind.TransactOpts, backend bind.ContractBackend) (common.Address, *types.Transaction, *KeeperRegistrar, error) {
+	parsed, err := KeeperRegistrarMetaData.GetAbi()
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
@@ -48,134 +48,134 @@ func DeployKeeperRegistrar12Mock(auth *bind.TransactOpts, backend bind.ContractB
 		return common.Address{}, nil, nil, errors.New("GetABI returned nil")
 	}
 
-	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(KeeperRegistrar12MockBin), backend)
+	address, tx, contract, err := bind.DeployContract(auth, *parsed, common.FromHex(KeeperRegistrarBin), backend)
 	if err != nil {
 		return common.Address{}, nil, nil, err
 	}
-	return address, tx, &KeeperRegistrar12Mock{address: address, abi: *parsed, KeeperRegistrar12MockCaller: KeeperRegistrar12MockCaller{contract: contract}, KeeperRegistrar12MockTransactor: KeeperRegistrar12MockTransactor{contract: contract}, KeeperRegistrar12MockFilterer: KeeperRegistrar12MockFilterer{contract: contract}}, nil
+	return address, tx, &KeeperRegistrar{address: address, abi: *parsed, KeeperRegistrarCaller: KeeperRegistrarCaller{contract: contract}, KeeperRegistrarTransactor: KeeperRegistrarTransactor{contract: contract}, KeeperRegistrarFilterer: KeeperRegistrarFilterer{contract: contract}}, nil
 }
 
-type KeeperRegistrar12Mock struct {
+type KeeperRegistrar struct {
 	address common.Address
 	abi     abi.ABI
-	KeeperRegistrar12MockCaller
-	KeeperRegistrar12MockTransactor
-	KeeperRegistrar12MockFilterer
+	KeeperRegistrarCaller
+	KeeperRegistrarTransactor
+	KeeperRegistrarFilterer
 }
 
-type KeeperRegistrar12MockCaller struct {
+type KeeperRegistrarCaller struct {
 	contract *bind.BoundContract
 }
 
-type KeeperRegistrar12MockTransactor struct {
+type KeeperRegistrarTransactor struct {
 	contract *bind.BoundContract
 }
 
-type KeeperRegistrar12MockFilterer struct {
+type KeeperRegistrarFilterer struct {
 	contract *bind.BoundContract
 }
 
-type KeeperRegistrar12MockSession struct {
-	Contract     *KeeperRegistrar12Mock
+type KeeperRegistrarSession struct {
+	Contract     *KeeperRegistrar
 	CallOpts     bind.CallOpts
 	TransactOpts bind.TransactOpts
 }
 
-type KeeperRegistrar12MockCallerSession struct {
-	Contract *KeeperRegistrar12MockCaller
+type KeeperRegistrarCallerSession struct {
+	Contract *KeeperRegistrarCaller
 	CallOpts bind.CallOpts
 }
 
-type KeeperRegistrar12MockTransactorSession struct {
-	Contract     *KeeperRegistrar12MockTransactor
+type KeeperRegistrarTransactorSession struct {
+	Contract     *KeeperRegistrarTransactor
 	TransactOpts bind.TransactOpts
 }
 
-type KeeperRegistrar12MockRaw struct {
-	Contract *KeeperRegistrar12Mock
+type KeeperRegistrarRaw struct {
+	Contract *KeeperRegistrar
 }
 
-type KeeperRegistrar12MockCallerRaw struct {
-	Contract *KeeperRegistrar12MockCaller
+type KeeperRegistrarCallerRaw struct {
+	Contract *KeeperRegistrarCaller
 }
 
-type KeeperRegistrar12MockTransactorRaw struct {
-	Contract *KeeperRegistrar12MockTransactor
+type KeeperRegistrarTransactorRaw struct {
+	Contract *KeeperRegistrarTransactor
 }
 
-func NewKeeperRegistrar12Mock(address common.Address, backend bind.ContractBackend) (*KeeperRegistrar12Mock, error) {
-	abi, err := abi.JSON(strings.NewReader(KeeperRegistrar12MockABI))
+func NewKeeperRegistrar(address common.Address, backend bind.ContractBackend) (*KeeperRegistrar, error) {
+	abi, err := abi.JSON(strings.NewReader(KeeperRegistrarABI))
 	if err != nil {
 		return nil, err
 	}
-	contract, err := bindKeeperRegistrar12Mock(address, backend, backend, backend)
+	contract, err := bindKeeperRegistrar(address, backend, backend, backend)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12Mock{address: address, abi: abi, KeeperRegistrar12MockCaller: KeeperRegistrar12MockCaller{contract: contract}, KeeperRegistrar12MockTransactor: KeeperRegistrar12MockTransactor{contract: contract}, KeeperRegistrar12MockFilterer: KeeperRegistrar12MockFilterer{contract: contract}}, nil
+	return &KeeperRegistrar{address: address, abi: abi, KeeperRegistrarCaller: KeeperRegistrarCaller{contract: contract}, KeeperRegistrarTransactor: KeeperRegistrarTransactor{contract: contract}, KeeperRegistrarFilterer: KeeperRegistrarFilterer{contract: contract}}, nil
 }
 
-func NewKeeperRegistrar12MockCaller(address common.Address, caller bind.ContractCaller) (*KeeperRegistrar12MockCaller, error) {
-	contract, err := bindKeeperRegistrar12Mock(address, caller, nil, nil)
+func NewKeeperRegistrarCaller(address common.Address, caller bind.ContractCaller) (*KeeperRegistrarCaller, error) {
+	contract, err := bindKeeperRegistrar(address, caller, nil, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockCaller{contract: contract}, nil
+	return &KeeperRegistrarCaller{contract: contract}, nil
 }
 
-func NewKeeperRegistrar12MockTransactor(address common.Address, transactor bind.ContractTransactor) (*KeeperRegistrar12MockTransactor, error) {
-	contract, err := bindKeeperRegistrar12Mock(address, nil, transactor, nil)
+func NewKeeperRegistrarTransactor(address common.Address, transactor bind.ContractTransactor) (*KeeperRegistrarTransactor, error) {
+	contract, err := bindKeeperRegistrar(address, nil, transactor, nil)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockTransactor{contract: contract}, nil
+	return &KeeperRegistrarTransactor{contract: contract}, nil
 }
 
-func NewKeeperRegistrar12MockFilterer(address common.Address, filterer bind.ContractFilterer) (*KeeperRegistrar12MockFilterer, error) {
-	contract, err := bindKeeperRegistrar12Mock(address, nil, nil, filterer)
+func NewKeeperRegistrarFilterer(address common.Address, filterer bind.ContractFilterer) (*KeeperRegistrarFilterer, error) {
+	contract, err := bindKeeperRegistrar(address, nil, nil, filterer)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockFilterer{contract: contract}, nil
+	return &KeeperRegistrarFilterer{contract: contract}, nil
 }
 
-func bindKeeperRegistrar12Mock(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
-	parsed, err := KeeperRegistrar12MockMetaData.GetAbi()
+func bindKeeperRegistrar(address common.Address, caller bind.ContractCaller, transactor bind.ContractTransactor, filterer bind.ContractFilterer) (*bind.BoundContract, error) {
+	parsed, err := KeeperRegistrarMetaData.GetAbi()
 	if err != nil {
 		return nil, err
 	}
 	return bind.NewBoundContract(address, *parsed, caller, transactor, filterer), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _KeeperRegistrar12Mock.Contract.KeeperRegistrar12MockCaller.contract.Call(opts, result, method, params...)
+func (_KeeperRegistrar *KeeperRegistrarRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _KeeperRegistrar.Contract.KeeperRegistrarCaller.contract.Call(opts, result, method, params...)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.KeeperRegistrar12MockTransactor.contract.Transfer(opts)
+func (_KeeperRegistrar *KeeperRegistrarRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.KeeperRegistrarTransactor.contract.Transfer(opts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.KeeperRegistrar12MockTransactor.contract.Transact(opts, method, params...)
+func (_KeeperRegistrar *KeeperRegistrarRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.KeeperRegistrarTransactor.contract.Transact(opts, method, params...)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
-	return _KeeperRegistrar12Mock.Contract.contract.Call(opts, result, method, params...)
+func (_KeeperRegistrar *KeeperRegistrarCallerRaw) Call(opts *bind.CallOpts, result *[]interface{}, method string, params ...interface{}) error {
+	return _KeeperRegistrar.Contract.contract.Call(opts, result, method, params...)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.contract.Transfer(opts)
+func (_KeeperRegistrar *KeeperRegistrarTransactorRaw) Transfer(opts *bind.TransactOpts) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.contract.Transfer(opts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.contract.Transact(opts, method, params...)
+func (_KeeperRegistrar *KeeperRegistrarTransactorRaw) Transact(opts *bind.TransactOpts, method string, params ...interface{}) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.contract.Transact(opts, method, params...)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) GetRegistrationConfig(opts *bind.CallOpts) (GetRegistrationConfig,
+func (_KeeperRegistrar *KeeperRegistrarCaller) GetRegistrationConfig(opts *bind.CallOpts) (GetRegistrationConfig,
 
 	error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "getRegistrationConfig")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "getRegistrationConfig")
 
 	outstruct := new(GetRegistrationConfig)
 	if err != nil {
@@ -192,21 +192,21 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) GetRegistrationConfig
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) GetRegistrationConfig() (GetRegistrationConfig,
+func (_KeeperRegistrar *KeeperRegistrarSession) GetRegistrationConfig() (GetRegistrationConfig,
 
 	error) {
-	return _KeeperRegistrar12Mock.Contract.GetRegistrationConfig(&_KeeperRegistrar12Mock.CallOpts)
+	return _KeeperRegistrar.Contract.GetRegistrationConfig(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) GetRegistrationConfig() (GetRegistrationConfig,
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) GetRegistrationConfig() (GetRegistrationConfig,
 
 	error) {
-	return _KeeperRegistrar12Mock.Contract.GetRegistrationConfig(&_KeeperRegistrar12Mock.CallOpts)
+	return _KeeperRegistrar.Contract.GetRegistrationConfig(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SApprovedCount(opts *bind.CallOpts) (uint32, error) {
+func (_KeeperRegistrar *KeeperRegistrarCaller) SApprovedCount(opts *bind.CallOpts) (uint32, error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "s_approvedCount")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "s_approvedCount")
 
 	if err != nil {
 		return *new(uint32), err
@@ -218,17 +218,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SApprovedCount(opts *
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SApprovedCount() (uint32, error) {
-	return _KeeperRegistrar12Mock.Contract.SApprovedCount(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarSession) SApprovedCount() (uint32, error) {
+	return _KeeperRegistrar.Contract.SApprovedCount(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) SApprovedCount() (uint32, error) {
-	return _KeeperRegistrar12Mock.Contract.SApprovedCount(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) SApprovedCount() (uint32, error) {
+	return _KeeperRegistrar.Contract.SApprovedCount(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SAutoApproveConfigType(opts *bind.CallOpts) (uint8, error) {
+func (_KeeperRegistrar *KeeperRegistrarCaller) SAutoApproveConfigType(opts *bind.CallOpts) (uint8, error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "s_autoApproveConfigType")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "s_autoApproveConfigType")
 
 	if err != nil {
 		return *new(uint8), err
@@ -240,17 +240,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SAutoApproveConfigTyp
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SAutoApproveConfigType() (uint8, error) {
-	return _KeeperRegistrar12Mock.Contract.SAutoApproveConfigType(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarSession) SAutoApproveConfigType() (uint8, error) {
+	return _KeeperRegistrar.Contract.SAutoApproveConfigType(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) SAutoApproveConfigType() (uint8, error) {
-	return _KeeperRegistrar12Mock.Contract.SAutoApproveConfigType(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) SAutoApproveConfigType() (uint8, error) {
+	return _KeeperRegistrar.Contract.SAutoApproveConfigType(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SAutoApproveMaxAllowed(opts *bind.CallOpts) (uint32, error) {
+func (_KeeperRegistrar *KeeperRegistrarCaller) SAutoApproveMaxAllowed(opts *bind.CallOpts) (uint32, error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "s_autoApproveMaxAllowed")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "s_autoApproveMaxAllowed")
 
 	if err != nil {
 		return *new(uint32), err
@@ -262,17 +262,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SAutoApproveMaxAllowe
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SAutoApproveMaxAllowed() (uint32, error) {
-	return _KeeperRegistrar12Mock.Contract.SAutoApproveMaxAllowed(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarSession) SAutoApproveMaxAllowed() (uint32, error) {
+	return _KeeperRegistrar.Contract.SAutoApproveMaxAllowed(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) SAutoApproveMaxAllowed() (uint32, error) {
-	return _KeeperRegistrar12Mock.Contract.SAutoApproveMaxAllowed(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) SAutoApproveMaxAllowed() (uint32, error) {
+	return _KeeperRegistrar.Contract.SAutoApproveMaxAllowed(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SKeeperRegistry(opts *bind.CallOpts) (common.Address, error) {
+func (_KeeperRegistrar *KeeperRegistrarCaller) SKeeperRegistry(opts *bind.CallOpts) (common.Address, error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "s_keeperRegistry")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "s_keeperRegistry")
 
 	if err != nil {
 		return *new(common.Address), err
@@ -284,17 +284,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SKeeperRegistry(opts 
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SKeeperRegistry() (common.Address, error) {
-	return _KeeperRegistrar12Mock.Contract.SKeeperRegistry(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarSession) SKeeperRegistry() (common.Address, error) {
+	return _KeeperRegistrar.Contract.SKeeperRegistry(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) SKeeperRegistry() (common.Address, error) {
-	return _KeeperRegistrar12Mock.Contract.SKeeperRegistry(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) SKeeperRegistry() (common.Address, error) {
+	return _KeeperRegistrar.Contract.SKeeperRegistry(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SMinLINKJuels(opts *bind.CallOpts) (*big.Int, error) {
+func (_KeeperRegistrar *KeeperRegistrarCaller) SMinLINKJuels(opts *bind.CallOpts) (*big.Int, error) {
 	var out []interface{}
-	err := _KeeperRegistrar12Mock.contract.Call(opts, &out, "s_minLINKJuels")
+	err := _KeeperRegistrar.contract.Call(opts, &out, "s_minLINKJuels")
 
 	if err != nil {
 		return *new(*big.Int), err
@@ -306,112 +306,112 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCaller) SMinLINKJuels(opts *b
 
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SMinLINKJuels() (*big.Int, error) {
-	return _KeeperRegistrar12Mock.Contract.SMinLINKJuels(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarSession) SMinLINKJuels() (*big.Int, error) {
+	return _KeeperRegistrar.Contract.SMinLINKJuels(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockCallerSession) SMinLINKJuels() (*big.Int, error) {
-	return _KeeperRegistrar12Mock.Contract.SMinLINKJuels(&_KeeperRegistrar12Mock.CallOpts)
+func (_KeeperRegistrar *KeeperRegistrarCallerSession) SMinLINKJuels() (*big.Int, error) {
+	return _KeeperRegistrar.Contract.SMinLINKJuels(&_KeeperRegistrar.CallOpts)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitAutoApproveAllowedSenderSet(opts *bind.TransactOpts, senderAddress common.Address, allowed bool) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitAutoApproveAllowedSenderSet", senderAddress, allowed)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitAutoApproveAllowedSenderSet(opts *bind.TransactOpts, senderAddress common.Address, allowed bool) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitAutoApproveAllowedSenderSet", senderAddress, allowed)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitAutoApproveAllowedSenderSet(senderAddress common.Address, allowed bool) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitAutoApproveAllowedSenderSet(&_KeeperRegistrar12Mock.TransactOpts, senderAddress, allowed)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitAutoApproveAllowedSenderSet(senderAddress common.Address, allowed bool) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitAutoApproveAllowedSenderSet(&_KeeperRegistrar.TransactOpts, senderAddress, allowed)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitAutoApproveAllowedSenderSet(senderAddress common.Address, allowed bool) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitAutoApproveAllowedSenderSet(&_KeeperRegistrar12Mock.TransactOpts, senderAddress, allowed)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitAutoApproveAllowedSenderSet(senderAddress common.Address, allowed bool) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitAutoApproveAllowedSenderSet(&_KeeperRegistrar.TransactOpts, senderAddress, allowed)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitConfigChanged(opts *bind.TransactOpts, autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitConfigChanged", autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitConfigChanged(opts *bind.TransactOpts, autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitConfigChanged", autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitConfigChanged(autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitConfigChanged(&_KeeperRegistrar12Mock.TransactOpts, autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitConfigChanged(autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitConfigChanged(&_KeeperRegistrar.TransactOpts, autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitConfigChanged(autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitConfigChanged(&_KeeperRegistrar12Mock.TransactOpts, autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitConfigChanged(autoApproveConfigType uint8, autoApproveMaxAllowed uint32, keeperRegistry common.Address, minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitConfigChanged(&_KeeperRegistrar.TransactOpts, autoApproveConfigType, autoApproveMaxAllowed, keeperRegistry, minLINKJuels)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitOwnershipTransferRequested(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitOwnershipTransferRequested", from, to)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitOwnershipTransferRequested(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitOwnershipTransferRequested", from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitOwnershipTransferRequested(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitOwnershipTransferRequested(&_KeeperRegistrar12Mock.TransactOpts, from, to)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitOwnershipTransferRequested(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitOwnershipTransferRequested(&_KeeperRegistrar.TransactOpts, from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitOwnershipTransferRequested(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitOwnershipTransferRequested(&_KeeperRegistrar12Mock.TransactOpts, from, to)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitOwnershipTransferRequested(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitOwnershipTransferRequested(&_KeeperRegistrar.TransactOpts, from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitOwnershipTransferred(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitOwnershipTransferred", from, to)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitOwnershipTransferred(opts *bind.TransactOpts, from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitOwnershipTransferred", from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitOwnershipTransferred(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitOwnershipTransferred(&_KeeperRegistrar12Mock.TransactOpts, from, to)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitOwnershipTransferred(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitOwnershipTransferred(&_KeeperRegistrar.TransactOpts, from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitOwnershipTransferred(from common.Address, to common.Address) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitOwnershipTransferred(&_KeeperRegistrar12Mock.TransactOpts, from, to)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitOwnershipTransferred(from common.Address, to common.Address) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitOwnershipTransferred(&_KeeperRegistrar.TransactOpts, from, to)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitRegistrationApproved(opts *bind.TransactOpts, hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitRegistrationApproved", hash, displayName, upkeepId)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitRegistrationApproved(opts *bind.TransactOpts, hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitRegistrationApproved", hash, displayName, upkeepId)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationApproved(&_KeeperRegistrar12Mock.TransactOpts, hash, displayName, upkeepId)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationApproved(&_KeeperRegistrar.TransactOpts, hash, displayName, upkeepId)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationApproved(&_KeeperRegistrar12Mock.TransactOpts, hash, displayName, upkeepId)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitRegistrationApproved(hash [32]byte, displayName string, upkeepId *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationApproved(&_KeeperRegistrar.TransactOpts, hash, displayName, upkeepId)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitRegistrationRejected(opts *bind.TransactOpts, hash [32]byte) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitRegistrationRejected", hash)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitRegistrationRejected(opts *bind.TransactOpts, hash [32]byte) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitRegistrationRejected", hash)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitRegistrationRejected(hash [32]byte) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationRejected(&_KeeperRegistrar12Mock.TransactOpts, hash)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitRegistrationRejected(hash [32]byte) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationRejected(&_KeeperRegistrar.TransactOpts, hash)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitRegistrationRejected(hash [32]byte) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationRejected(&_KeeperRegistrar12Mock.TransactOpts, hash)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitRegistrationRejected(hash [32]byte) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationRejected(&_KeeperRegistrar.TransactOpts, hash)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) EmitRegistrationRequested(opts *bind.TransactOpts, hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "emitRegistrationRequested", hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) EmitRegistrationRequested(opts *bind.TransactOpts, hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "emitRegistrationRequested", hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationRequested(&_KeeperRegistrar12Mock.TransactOpts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
+func (_KeeperRegistrar *KeeperRegistrarSession) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationRequested(&_KeeperRegistrar.TransactOpts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.EmitRegistrationRequested(&_KeeperRegistrar12Mock.TransactOpts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) EmitRegistrationRequested(hash [32]byte, name string, encryptedEmail []byte, upkeepContract common.Address, gasLimit uint32, adminAddress common.Address, checkData []byte, amount *big.Int, source uint8) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.EmitRegistrationRequested(&_KeeperRegistrar.TransactOpts, hash, name, encryptedEmail, upkeepContract, gasLimit, adminAddress, checkData, amount, source)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactor) SetRegistrationConfig(opts *bind.TransactOpts, _autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.contract.Transact(opts, "setRegistrationConfig", _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarTransactor) SetRegistrationConfig(opts *bind.TransactOpts, _autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.contract.Transact(opts, "setRegistrationConfig", _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockSession) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.SetRegistrationConfig(&_KeeperRegistrar12Mock.TransactOpts, _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarSession) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.SetRegistrationConfig(&_KeeperRegistrar.TransactOpts, _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockTransactorSession) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
-	return _KeeperRegistrar12Mock.Contract.SetRegistrationConfig(&_KeeperRegistrar12Mock.TransactOpts, _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
+func (_KeeperRegistrar *KeeperRegistrarTransactorSession) SetRegistrationConfig(_autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error) {
+	return _KeeperRegistrar.Contract.SetRegistrationConfig(&_KeeperRegistrar.TransactOpts, _autoApproveConfigType, _autoApproveMaxAllowed, _approvedCount, _keeperRegistry, _minLINKJuels)
 }
 
-type KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator struct {
-	Event *KeeperRegistrar12MockAutoApproveAllowedSenderSet
+type KeeperRegistrarAutoApproveAllowedSenderSetIterator struct {
+	Event *KeeperRegistrarAutoApproveAllowedSenderSet
 
 	contract *bind.BoundContract
 	event    string
@@ -422,7 +422,7 @@ type KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Next() bool {
+func (it *KeeperRegistrarAutoApproveAllowedSenderSetIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -431,7 +431,7 @@ func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Next() bool 
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockAutoApproveAllowedSenderSet)
+			it.Event = new(KeeperRegistrarAutoApproveAllowedSenderSet)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -446,7 +446,7 @@ func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Next() bool 
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockAutoApproveAllowedSenderSet)
+		it.Event = new(KeeperRegistrarAutoApproveAllowedSenderSet)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -461,43 +461,43 @@ func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Next() bool 
 	}
 }
 
-func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Error() error {
+func (it *KeeperRegistrarAutoApproveAllowedSenderSetIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator) Close() error {
+func (it *KeeperRegistrarAutoApproveAllowedSenderSetIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockAutoApproveAllowedSenderSet struct {
+type KeeperRegistrarAutoApproveAllowedSenderSet struct {
 	SenderAddress common.Address
 	Allowed       bool
 	Raw           types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterAutoApproveAllowedSenderSet(opts *bind.FilterOpts, senderAddress []common.Address) (*KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterAutoApproveAllowedSenderSet(opts *bind.FilterOpts, senderAddress []common.Address) (*KeeperRegistrarAutoApproveAllowedSenderSetIterator, error) {
 
 	var senderAddressRule []interface{}
 	for _, senderAddressItem := range senderAddress {
 		senderAddressRule = append(senderAddressRule, senderAddressItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "AutoApproveAllowedSenderSet", senderAddressRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "AutoApproveAllowedSenderSet", senderAddressRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator{contract: _KeeperRegistrar12Mock.contract, event: "AutoApproveAllowedSenderSet", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarAutoApproveAllowedSenderSetIterator{contract: _KeeperRegistrar.contract, event: "AutoApproveAllowedSenderSet", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchAutoApproveAllowedSenderSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockAutoApproveAllowedSenderSet, senderAddress []common.Address) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchAutoApproveAllowedSenderSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarAutoApproveAllowedSenderSet, senderAddress []common.Address) (event.Subscription, error) {
 
 	var senderAddressRule []interface{}
 	for _, senderAddressItem := range senderAddress {
 		senderAddressRule = append(senderAddressRule, senderAddressItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "AutoApproveAllowedSenderSet", senderAddressRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "AutoApproveAllowedSenderSet", senderAddressRule)
 	if err != nil {
 		return nil, err
 	}
@@ -507,8 +507,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchAutoApproveAll
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockAutoApproveAllowedSenderSet)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "AutoApproveAllowedSenderSet", log); err != nil {
+				event := new(KeeperRegistrarAutoApproveAllowedSenderSet)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "AutoApproveAllowedSenderSet", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -529,17 +529,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchAutoApproveAll
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseAutoApproveAllowedSenderSet(log types.Log) (*KeeperRegistrar12MockAutoApproveAllowedSenderSet, error) {
-	event := new(KeeperRegistrar12MockAutoApproveAllowedSenderSet)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "AutoApproveAllowedSenderSet", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseAutoApproveAllowedSenderSet(log types.Log) (*KeeperRegistrarAutoApproveAllowedSenderSet, error) {
+	event := new(KeeperRegistrarAutoApproveAllowedSenderSet)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "AutoApproveAllowedSenderSet", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockConfigChangedIterator struct {
-	Event *KeeperRegistrar12MockConfigChanged
+type KeeperRegistrarConfigChangedIterator struct {
+	Event *KeeperRegistrarConfigChanged
 
 	contract *bind.BoundContract
 	event    string
@@ -550,7 +550,7 @@ type KeeperRegistrar12MockConfigChangedIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockConfigChangedIterator) Next() bool {
+func (it *KeeperRegistrarConfigChangedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -559,7 +559,7 @@ func (it *KeeperRegistrar12MockConfigChangedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockConfigChanged)
+			it.Event = new(KeeperRegistrarConfigChanged)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -574,7 +574,7 @@ func (it *KeeperRegistrar12MockConfigChangedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockConfigChanged)
+		it.Event = new(KeeperRegistrarConfigChanged)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -589,16 +589,16 @@ func (it *KeeperRegistrar12MockConfigChangedIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockConfigChangedIterator) Error() error {
+func (it *KeeperRegistrarConfigChangedIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockConfigChangedIterator) Close() error {
+func (it *KeeperRegistrarConfigChangedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockConfigChanged struct {
+type KeeperRegistrarConfigChanged struct {
 	AutoApproveConfigType uint8
 	AutoApproveMaxAllowed uint32
 	KeeperRegistry        common.Address
@@ -606,18 +606,18 @@ type KeeperRegistrar12MockConfigChanged struct {
 	Raw                   types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterConfigChanged(opts *bind.FilterOpts) (*KeeperRegistrar12MockConfigChangedIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterConfigChanged(opts *bind.FilterOpts) (*KeeperRegistrarConfigChangedIterator, error) {
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "ConfigChanged")
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "ConfigChanged")
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockConfigChangedIterator{contract: _KeeperRegistrar12Mock.contract, event: "ConfigChanged", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarConfigChangedIterator{contract: _KeeperRegistrar.contract, event: "ConfigChanged", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchConfigChanged(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockConfigChanged) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchConfigChanged(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarConfigChanged) (event.Subscription, error) {
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "ConfigChanged")
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "ConfigChanged")
 	if err != nil {
 		return nil, err
 	}
@@ -627,8 +627,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchConfigChanged(
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockConfigChanged)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "ConfigChanged", log); err != nil {
+				event := new(KeeperRegistrarConfigChanged)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "ConfigChanged", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -649,17 +649,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchConfigChanged(
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseConfigChanged(log types.Log) (*KeeperRegistrar12MockConfigChanged, error) {
-	event := new(KeeperRegistrar12MockConfigChanged)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "ConfigChanged", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseConfigChanged(log types.Log) (*KeeperRegistrarConfigChanged, error) {
+	event := new(KeeperRegistrarConfigChanged)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "ConfigChanged", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockOwnershipTransferRequestedIterator struct {
-	Event *KeeperRegistrar12MockOwnershipTransferRequested
+type KeeperRegistrarOwnershipTransferRequestedIterator struct {
+	Event *KeeperRegistrarOwnershipTransferRequested
 
 	contract *bind.BoundContract
 	event    string
@@ -670,7 +670,7 @@ type KeeperRegistrar12MockOwnershipTransferRequestedIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Next() bool {
+func (it *KeeperRegistrarOwnershipTransferRequestedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -679,7 +679,7 @@ func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockOwnershipTransferRequested)
+			it.Event = new(KeeperRegistrarOwnershipTransferRequested)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -694,7 +694,7 @@ func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockOwnershipTransferRequested)
+		it.Event = new(KeeperRegistrarOwnershipTransferRequested)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -709,22 +709,22 @@ func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Error() error {
+func (it *KeeperRegistrarOwnershipTransferRequestedIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferRequestedIterator) Close() error {
+func (it *KeeperRegistrarOwnershipTransferRequestedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockOwnershipTransferRequested struct {
+type KeeperRegistrarOwnershipTransferRequested struct {
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrar12MockOwnershipTransferRequestedIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrarOwnershipTransferRequestedIterator, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -735,14 +735,14 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterOwnershipTran
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockOwnershipTransferRequestedIterator{contract: _KeeperRegistrar12Mock.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarOwnershipTransferRequestedIterator{contract: _KeeperRegistrar.contract, event: "OwnershipTransferRequested", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -753,7 +753,7 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "OwnershipTransferRequested", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -763,8 +763,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockOwnershipTransferRequested)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+				event := new(KeeperRegistrarOwnershipTransferRequested)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -785,17 +785,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseOwnershipTransferRequested(log types.Log) (*KeeperRegistrar12MockOwnershipTransferRequested, error) {
-	event := new(KeeperRegistrar12MockOwnershipTransferRequested)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseOwnershipTransferRequested(log types.Log) (*KeeperRegistrarOwnershipTransferRequested, error) {
+	event := new(KeeperRegistrarOwnershipTransferRequested)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "OwnershipTransferRequested", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockOwnershipTransferredIterator struct {
-	Event *KeeperRegistrar12MockOwnershipTransferred
+type KeeperRegistrarOwnershipTransferredIterator struct {
+	Event *KeeperRegistrarOwnershipTransferred
 
 	contract *bind.BoundContract
 	event    string
@@ -806,7 +806,7 @@ type KeeperRegistrar12MockOwnershipTransferredIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Next() bool {
+func (it *KeeperRegistrarOwnershipTransferredIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -815,7 +815,7 @@ func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockOwnershipTransferred)
+			it.Event = new(KeeperRegistrarOwnershipTransferred)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -830,7 +830,7 @@ func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockOwnershipTransferred)
+		it.Event = new(KeeperRegistrarOwnershipTransferred)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -845,22 +845,22 @@ func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Error() error {
+func (it *KeeperRegistrarOwnershipTransferredIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockOwnershipTransferredIterator) Close() error {
+func (it *KeeperRegistrarOwnershipTransferredIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockOwnershipTransferred struct {
+type KeeperRegistrarOwnershipTransferred struct {
 	From common.Address
 	To   common.Address
 	Raw  types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrar12MockOwnershipTransferredIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrarOwnershipTransferredIterator, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -871,14 +871,14 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterOwnershipTran
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "OwnershipTransferred", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockOwnershipTransferredIterator{contract: _KeeperRegistrar12Mock.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarOwnershipTransferredIterator{contract: _KeeperRegistrar.contract, event: "OwnershipTransferred", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error) {
 
 	var fromRule []interface{}
 	for _, fromItem := range from {
@@ -889,7 +889,7 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 		toRule = append(toRule, toItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "OwnershipTransferred", fromRule, toRule)
 	if err != nil {
 		return nil, err
 	}
@@ -899,8 +899,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockOwnershipTransferred)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+				event := new(KeeperRegistrarOwnershipTransferred)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -921,17 +921,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchOwnershipTrans
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseOwnershipTransferred(log types.Log) (*KeeperRegistrar12MockOwnershipTransferred, error) {
-	event := new(KeeperRegistrar12MockOwnershipTransferred)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseOwnershipTransferred(log types.Log) (*KeeperRegistrarOwnershipTransferred, error) {
+	event := new(KeeperRegistrarOwnershipTransferred)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "OwnershipTransferred", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockRegistrationApprovedIterator struct {
-	Event *KeeperRegistrar12MockRegistrationApproved
+type KeeperRegistrarRegistrationApprovedIterator struct {
+	Event *KeeperRegistrarRegistrationApproved
 
 	contract *bind.BoundContract
 	event    string
@@ -942,7 +942,7 @@ type KeeperRegistrar12MockRegistrationApprovedIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Next() bool {
+func (it *KeeperRegistrarRegistrationApprovedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -951,7 +951,7 @@ func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockRegistrationApproved)
+			it.Event = new(KeeperRegistrarRegistrationApproved)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -966,7 +966,7 @@ func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockRegistrationApproved)
+		it.Event = new(KeeperRegistrarRegistrationApproved)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -981,23 +981,23 @@ func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Error() error {
+func (it *KeeperRegistrarRegistrationApprovedIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockRegistrationApprovedIterator) Close() error {
+func (it *KeeperRegistrarRegistrationApprovedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockRegistrationApproved struct {
+type KeeperRegistrarRegistrationApproved struct {
 	Hash        [32]byte
 	DisplayName string
 	UpkeepId    *big.Int
 	Raw         types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterRegistrationApproved(opts *bind.FilterOpts, hash [][32]byte, upkeepId []*big.Int) (*KeeperRegistrar12MockRegistrationApprovedIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterRegistrationApproved(opts *bind.FilterOpts, hash [][32]byte, upkeepId []*big.Int) (*KeeperRegistrarRegistrationApprovedIterator, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
@@ -1009,14 +1009,14 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterRegistrationA
 		upkeepIdRule = append(upkeepIdRule, upkeepIdItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "RegistrationApproved", hashRule, upkeepIdRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "RegistrationApproved", hashRule, upkeepIdRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockRegistrationApprovedIterator{contract: _KeeperRegistrar12Mock.contract, event: "RegistrationApproved", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarRegistrationApprovedIterator{contract: _KeeperRegistrar.contract, event: "RegistrationApproved", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationApproved(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationApproved, hash [][32]byte, upkeepId []*big.Int) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchRegistrationApproved(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationApproved, hash [][32]byte, upkeepId []*big.Int) (event.Subscription, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
@@ -1028,7 +1028,7 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationAp
 		upkeepIdRule = append(upkeepIdRule, upkeepIdItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "RegistrationApproved", hashRule, upkeepIdRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "RegistrationApproved", hashRule, upkeepIdRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1038,8 +1038,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationAp
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockRegistrationApproved)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationApproved", log); err != nil {
+				event := new(KeeperRegistrarRegistrationApproved)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationApproved", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1060,17 +1060,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationAp
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseRegistrationApproved(log types.Log) (*KeeperRegistrar12MockRegistrationApproved, error) {
-	event := new(KeeperRegistrar12MockRegistrationApproved)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationApproved", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseRegistrationApproved(log types.Log) (*KeeperRegistrarRegistrationApproved, error) {
+	event := new(KeeperRegistrarRegistrationApproved)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationApproved", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockRegistrationRejectedIterator struct {
-	Event *KeeperRegistrar12MockRegistrationRejected
+type KeeperRegistrarRegistrationRejectedIterator struct {
+	Event *KeeperRegistrarRegistrationRejected
 
 	contract *bind.BoundContract
 	event    string
@@ -1081,7 +1081,7 @@ type KeeperRegistrar12MockRegistrationRejectedIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Next() bool {
+func (it *KeeperRegistrarRegistrationRejectedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -1090,7 +1090,7 @@ func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockRegistrationRejected)
+			it.Event = new(KeeperRegistrarRegistrationRejected)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1105,7 +1105,7 @@ func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockRegistrationRejected)
+		it.Event = new(KeeperRegistrarRegistrationRejected)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1120,42 +1120,42 @@ func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Error() error {
+func (it *KeeperRegistrarRegistrationRejectedIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockRegistrationRejectedIterator) Close() error {
+func (it *KeeperRegistrarRegistrationRejectedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockRegistrationRejected struct {
+type KeeperRegistrarRegistrationRejected struct {
 	Hash [32]byte
 	Raw  types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterRegistrationRejected(opts *bind.FilterOpts, hash [][32]byte) (*KeeperRegistrar12MockRegistrationRejectedIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterRegistrationRejected(opts *bind.FilterOpts, hash [][32]byte) (*KeeperRegistrarRegistrationRejectedIterator, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
 		hashRule = append(hashRule, hashItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "RegistrationRejected", hashRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "RegistrationRejected", hashRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockRegistrationRejectedIterator{contract: _KeeperRegistrar12Mock.contract, event: "RegistrationRejected", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarRegistrationRejectedIterator{contract: _KeeperRegistrar.contract, event: "RegistrationRejected", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRejected(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationRejected, hash [][32]byte) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchRegistrationRejected(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationRejected, hash [][32]byte) (event.Subscription, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
 		hashRule = append(hashRule, hashItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "RegistrationRejected", hashRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "RegistrationRejected", hashRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1165,8 +1165,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRe
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockRegistrationRejected)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationRejected", log); err != nil {
+				event := new(KeeperRegistrarRegistrationRejected)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationRejected", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1187,17 +1187,17 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRe
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseRegistrationRejected(log types.Log) (*KeeperRegistrar12MockRegistrationRejected, error) {
-	event := new(KeeperRegistrar12MockRegistrationRejected)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationRejected", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseRegistrationRejected(log types.Log) (*KeeperRegistrarRegistrationRejected, error) {
+	event := new(KeeperRegistrarRegistrationRejected)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationRejected", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
 	return event, nil
 }
 
-type KeeperRegistrar12MockRegistrationRequestedIterator struct {
-	Event *KeeperRegistrar12MockRegistrationRequested
+type KeeperRegistrarRegistrationRequestedIterator struct {
+	Event *KeeperRegistrarRegistrationRequested
 
 	contract *bind.BoundContract
 	event    string
@@ -1208,7 +1208,7 @@ type KeeperRegistrar12MockRegistrationRequestedIterator struct {
 	fail error
 }
 
-func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Next() bool {
+func (it *KeeperRegistrarRegistrationRequestedIterator) Next() bool {
 
 	if it.fail != nil {
 		return false
@@ -1217,7 +1217,7 @@ func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Next() bool {
 	if it.done {
 		select {
 		case log := <-it.logs:
-			it.Event = new(KeeperRegistrar12MockRegistrationRequested)
+			it.Event = new(KeeperRegistrarRegistrationRequested)
 			if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 				it.fail = err
 				return false
@@ -1232,7 +1232,7 @@ func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Next() bool {
 
 	select {
 	case log := <-it.logs:
-		it.Event = new(KeeperRegistrar12MockRegistrationRequested)
+		it.Event = new(KeeperRegistrarRegistrationRequested)
 		if err := it.contract.UnpackLog(it.Event, it.event, log); err != nil {
 			it.fail = err
 			return false
@@ -1247,16 +1247,16 @@ func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Next() bool {
 	}
 }
 
-func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Error() error {
+func (it *KeeperRegistrarRegistrationRequestedIterator) Error() error {
 	return it.fail
 }
 
-func (it *KeeperRegistrar12MockRegistrationRequestedIterator) Close() error {
+func (it *KeeperRegistrarRegistrationRequestedIterator) Close() error {
 	it.sub.Unsubscribe()
 	return nil
 }
 
-type KeeperRegistrar12MockRegistrationRequested struct {
+type KeeperRegistrarRegistrationRequested struct {
 	Hash           [32]byte
 	Name           string
 	EncryptedEmail []byte
@@ -1269,7 +1269,7 @@ type KeeperRegistrar12MockRegistrationRequested struct {
 	Raw            types.Log
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterRegistrationRequested(opts *bind.FilterOpts, hash [][32]byte, upkeepContract []common.Address, source []uint8) (*KeeperRegistrar12MockRegistrationRequestedIterator, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) FilterRegistrationRequested(opts *bind.FilterOpts, hash [][32]byte, upkeepContract []common.Address, source []uint8) (*KeeperRegistrarRegistrationRequestedIterator, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
@@ -1286,14 +1286,14 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) FilterRegistrationR
 		sourceRule = append(sourceRule, sourceItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.FilterLogs(opts, "RegistrationRequested", hashRule, upkeepContractRule, sourceRule)
+	logs, sub, err := _KeeperRegistrar.contract.FilterLogs(opts, "RegistrationRequested", hashRule, upkeepContractRule, sourceRule)
 	if err != nil {
 		return nil, err
 	}
-	return &KeeperRegistrar12MockRegistrationRequestedIterator{contract: _KeeperRegistrar12Mock.contract, event: "RegistrationRequested", logs: logs, sub: sub}, nil
+	return &KeeperRegistrarRegistrationRequestedIterator{contract: _KeeperRegistrar.contract, event: "RegistrationRequested", logs: logs, sub: sub}, nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationRequested, hash [][32]byte, upkeepContract []common.Address, source []uint8) (event.Subscription, error) {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) WatchRegistrationRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationRequested, hash [][32]byte, upkeepContract []common.Address, source []uint8) (event.Subscription, error) {
 
 	var hashRule []interface{}
 	for _, hashItem := range hash {
@@ -1310,7 +1310,7 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRe
 		sourceRule = append(sourceRule, sourceItem)
 	}
 
-	logs, sub, err := _KeeperRegistrar12Mock.contract.WatchLogs(opts, "RegistrationRequested", hashRule, upkeepContractRule, sourceRule)
+	logs, sub, err := _KeeperRegistrar.contract.WatchLogs(opts, "RegistrationRequested", hashRule, upkeepContractRule, sourceRule)
 	if err != nil {
 		return nil, err
 	}
@@ -1320,8 +1320,8 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRe
 			select {
 			case log := <-logs:
 
-				event := new(KeeperRegistrar12MockRegistrationRequested)
-				if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationRequested", log); err != nil {
+				event := new(KeeperRegistrarRegistrationRequested)
+				if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationRequested", log); err != nil {
 					return err
 				}
 				event.Raw = log
@@ -1342,9 +1342,9 @@ func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) WatchRegistrationRe
 	}), nil
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12MockFilterer) ParseRegistrationRequested(log types.Log) (*KeeperRegistrar12MockRegistrationRequested, error) {
-	event := new(KeeperRegistrar12MockRegistrationRequested)
-	if err := _KeeperRegistrar12Mock.contract.UnpackLog(event, "RegistrationRequested", log); err != nil {
+func (_KeeperRegistrar *KeeperRegistrarFilterer) ParseRegistrationRequested(log types.Log) (*KeeperRegistrarRegistrationRequested, error) {
+	event := new(KeeperRegistrarRegistrationRequested)
+	if err := _KeeperRegistrar.contract.UnpackLog(event, "RegistrationRequested", log); err != nil {
 		return nil, err
 	}
 	event.Raw = log
@@ -1359,61 +1359,61 @@ type GetRegistrationConfig struct {
 	MinLINKJuels          *big.Int
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12Mock) ParseLog(log types.Log) (generated.AbigenLog, error) {
+func (_KeeperRegistrar *KeeperRegistrar) ParseLog(log types.Log) (generated.AbigenLog, error) {
 	switch log.Topics[0] {
-	case _KeeperRegistrar12Mock.abi.Events["AutoApproveAllowedSenderSet"].ID:
-		return _KeeperRegistrar12Mock.ParseAutoApproveAllowedSenderSet(log)
-	case _KeeperRegistrar12Mock.abi.Events["ConfigChanged"].ID:
-		return _KeeperRegistrar12Mock.ParseConfigChanged(log)
-	case _KeeperRegistrar12Mock.abi.Events["OwnershipTransferRequested"].ID:
-		return _KeeperRegistrar12Mock.ParseOwnershipTransferRequested(log)
-	case _KeeperRegistrar12Mock.abi.Events["OwnershipTransferred"].ID:
-		return _KeeperRegistrar12Mock.ParseOwnershipTransferred(log)
-	case _KeeperRegistrar12Mock.abi.Events["RegistrationApproved"].ID:
-		return _KeeperRegistrar12Mock.ParseRegistrationApproved(log)
-	case _KeeperRegistrar12Mock.abi.Events["RegistrationRejected"].ID:
-		return _KeeperRegistrar12Mock.ParseRegistrationRejected(log)
-	case _KeeperRegistrar12Mock.abi.Events["RegistrationRequested"].ID:
-		return _KeeperRegistrar12Mock.ParseRegistrationRequested(log)
+	case _KeeperRegistrar.abi.Events["AutoApproveAllowedSenderSet"].ID:
+		return _KeeperRegistrar.ParseAutoApproveAllowedSenderSet(log)
+	case _KeeperRegistrar.abi.Events["ConfigChanged"].ID:
+		return _KeeperRegistrar.ParseConfigChanged(log)
+	case _KeeperRegistrar.abi.Events["OwnershipTransferRequested"].ID:
+		return _KeeperRegistrar.ParseOwnershipTransferRequested(log)
+	case _KeeperRegistrar.abi.Events["OwnershipTransferred"].ID:
+		return _KeeperRegistrar.ParseOwnershipTransferred(log)
+	case _KeeperRegistrar.abi.Events["RegistrationApproved"].ID:
+		return _KeeperRegistrar.ParseRegistrationApproved(log)
+	case _KeeperRegistrar.abi.Events["RegistrationRejected"].ID:
+		return _KeeperRegistrar.ParseRegistrationRejected(log)
+	case _KeeperRegistrar.abi.Events["RegistrationRequested"].ID:
+		return _KeeperRegistrar.ParseRegistrationRequested(log)
 
 	default:
 		return nil, fmt.Errorf("abigen wrapper received unknown log topic: %v", log.Topics[0])
 	}
 }
 
-func (KeeperRegistrar12MockAutoApproveAllowedSenderSet) Topic() common.Hash {
+func (KeeperRegistrarAutoApproveAllowedSenderSet) Topic() common.Hash {
 	return common.HexToHash("0x20c6237dac83526a849285a9f79d08a483291bdd3a056a0ef9ae94ecee1ad356")
 }
 
-func (KeeperRegistrar12MockConfigChanged) Topic() common.Hash {
+func (KeeperRegistrarConfigChanged) Topic() common.Hash {
 	return common.HexToHash("0x6293a703ec7145dfa23c5cde2e627d6a02e153fc2e9c03b14d1e22cbb4a7e9cd")
 }
 
-func (KeeperRegistrar12MockOwnershipTransferRequested) Topic() common.Hash {
+func (KeeperRegistrarOwnershipTransferRequested) Topic() common.Hash {
 	return common.HexToHash("0xed8889f560326eb138920d842192f0eb3dd22b4f139c87a2c57538e05bae1278")
 }
 
-func (KeeperRegistrar12MockOwnershipTransferred) Topic() common.Hash {
+func (KeeperRegistrarOwnershipTransferred) Topic() common.Hash {
 	return common.HexToHash("0x8be0079c531659141344cd1fd0a4f28419497f9722a3daafe3b4186f6b6457e0")
 }
 
-func (KeeperRegistrar12MockRegistrationApproved) Topic() common.Hash {
+func (KeeperRegistrarRegistrationApproved) Topic() common.Hash {
 	return common.HexToHash("0xb9a292fb7e3edd920cd2d2829a3615a640c43fd7de0a0820aa0668feb4c37d4b")
 }
 
-func (KeeperRegistrar12MockRegistrationRejected) Topic() common.Hash {
+func (KeeperRegistrarRegistrationRejected) Topic() common.Hash {
 	return common.HexToHash("0x3663fb28ebc87645eb972c9dad8521bf665c623f287e79f1c56f1eb374b82a22")
 }
 
-func (KeeperRegistrar12MockRegistrationRequested) Topic() common.Hash {
+func (KeeperRegistrarRegistrationRequested) Topic() common.Hash {
 	return common.HexToHash("0xc3f5df4aefec026f610a3fcb08f19476492d69d2cb78b1c2eba259a8820e6a78")
 }
 
-func (_KeeperRegistrar12Mock *KeeperRegistrar12Mock) Address() common.Address {
-	return _KeeperRegistrar12Mock.address
+func (_KeeperRegistrar *KeeperRegistrar) Address() common.Address {
+	return _KeeperRegistrar.address
 }
 
-type KeeperRegistrar12MockInterface interface {
+type KeeperRegistrarInterface interface {
 	GetRegistrationConfig(opts *bind.CallOpts) (GetRegistrationConfig,
 
 		error)
@@ -1444,47 +1444,47 @@ type KeeperRegistrar12MockInterface interface {
 
 	SetRegistrationConfig(opts *bind.TransactOpts, _autoApproveConfigType uint8, _autoApproveMaxAllowed uint32, _approvedCount uint32, _keeperRegistry common.Address, _minLINKJuels *big.Int) (*types.Transaction, error)
 
-	FilterAutoApproveAllowedSenderSet(opts *bind.FilterOpts, senderAddress []common.Address) (*KeeperRegistrar12MockAutoApproveAllowedSenderSetIterator, error)
+	FilterAutoApproveAllowedSenderSet(opts *bind.FilterOpts, senderAddress []common.Address) (*KeeperRegistrarAutoApproveAllowedSenderSetIterator, error)
 
-	WatchAutoApproveAllowedSenderSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockAutoApproveAllowedSenderSet, senderAddress []common.Address) (event.Subscription, error)
+	WatchAutoApproveAllowedSenderSet(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarAutoApproveAllowedSenderSet, senderAddress []common.Address) (event.Subscription, error)
 
-	ParseAutoApproveAllowedSenderSet(log types.Log) (*KeeperRegistrar12MockAutoApproveAllowedSenderSet, error)
+	ParseAutoApproveAllowedSenderSet(log types.Log) (*KeeperRegistrarAutoApproveAllowedSenderSet, error)
 
-	FilterConfigChanged(opts *bind.FilterOpts) (*KeeperRegistrar12MockConfigChangedIterator, error)
+	FilterConfigChanged(opts *bind.FilterOpts) (*KeeperRegistrarConfigChangedIterator, error)
 
-	WatchConfigChanged(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockConfigChanged) (event.Subscription, error)
+	WatchConfigChanged(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarConfigChanged) (event.Subscription, error)
 
-	ParseConfigChanged(log types.Log) (*KeeperRegistrar12MockConfigChanged, error)
+	ParseConfigChanged(log types.Log) (*KeeperRegistrarConfigChanged, error)
 
-	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrar12MockOwnershipTransferRequestedIterator, error)
+	FilterOwnershipTransferRequested(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrarOwnershipTransferRequestedIterator, error)
 
-	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchOwnershipTransferRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarOwnershipTransferRequested, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParseOwnershipTransferRequested(log types.Log) (*KeeperRegistrar12MockOwnershipTransferRequested, error)
+	ParseOwnershipTransferRequested(log types.Log) (*KeeperRegistrarOwnershipTransferRequested, error)
 
-	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrar12MockOwnershipTransferredIterator, error)
+	FilterOwnershipTransferred(opts *bind.FilterOpts, from []common.Address, to []common.Address) (*KeeperRegistrarOwnershipTransferredIterator, error)
 
-	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
+	WatchOwnershipTransferred(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarOwnershipTransferred, from []common.Address, to []common.Address) (event.Subscription, error)
 
-	ParseOwnershipTransferred(log types.Log) (*KeeperRegistrar12MockOwnershipTransferred, error)
+	ParseOwnershipTransferred(log types.Log) (*KeeperRegistrarOwnershipTransferred, error)
 
-	FilterRegistrationApproved(opts *bind.FilterOpts, hash [][32]byte, upkeepId []*big.Int) (*KeeperRegistrar12MockRegistrationApprovedIterator, error)
+	FilterRegistrationApproved(opts *bind.FilterOpts, hash [][32]byte, upkeepId []*big.Int) (*KeeperRegistrarRegistrationApprovedIterator, error)
 
-	WatchRegistrationApproved(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationApproved, hash [][32]byte, upkeepId []*big.Int) (event.Subscription, error)
+	WatchRegistrationApproved(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationApproved, hash [][32]byte, upkeepId []*big.Int) (event.Subscription, error)
 
-	ParseRegistrationApproved(log types.Log) (*KeeperRegistrar12MockRegistrationApproved, error)
+	ParseRegistrationApproved(log types.Log) (*KeeperRegistrarRegistrationApproved, error)
 
-	FilterRegistrationRejected(opts *bind.FilterOpts, hash [][32]byte) (*KeeperRegistrar12MockRegistrationRejectedIterator, error)
+	FilterRegistrationRejected(opts *bind.FilterOpts, hash [][32]byte) (*KeeperRegistrarRegistrationRejectedIterator, error)
 
-	WatchRegistrationRejected(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationRejected, hash [][32]byte) (event.Subscription, error)
+	WatchRegistrationRejected(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationRejected, hash [][32]byte) (event.Subscription, error)
 
-	ParseRegistrationRejected(log types.Log) (*KeeperRegistrar12MockRegistrationRejected, error)
+	ParseRegistrationRejected(log types.Log) (*KeeperRegistrarRegistrationRejected, error)
 
-	FilterRegistrationRequested(opts *bind.FilterOpts, hash [][32]byte, upkeepContract []common.Address, source []uint8) (*KeeperRegistrar12MockRegistrationRequestedIterator, error)
+	FilterRegistrationRequested(opts *bind.FilterOpts, hash [][32]byte, upkeepContract []common.Address, source []uint8) (*KeeperRegistrarRegistrationRequestedIterator, error)
 
-	WatchRegistrationRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrar12MockRegistrationRequested, hash [][32]byte, upkeepContract []common.Address, source []uint8) (event.Subscription, error)
+	WatchRegistrationRequested(opts *bind.WatchOpts, sink chan<- *KeeperRegistrarRegistrationRequested, hash [][32]byte, upkeepContract []common.Address, source []uint8) (event.Subscription, error)
 
-	ParseRegistrationRequested(log types.Log) (*KeeperRegistrar12MockRegistrationRequested, error)
+	ParseRegistrationRequested(log types.Log) (*KeeperRegistrarRegistrationRequested, error)
 
 	ParseLog(log types.Log) (generated.AbigenLog, error)
 
