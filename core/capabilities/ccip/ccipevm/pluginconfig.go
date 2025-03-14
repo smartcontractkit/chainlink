@@ -37,7 +37,7 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 			return NewMessageHasherV1(lggr, p.extraDataCodec)
 		},
 		TokenDataEncoder:     NewEVMTokenDataEncoder(),
-		GasEstimateProvider:  NewGasEstimateProvider(),
+		GasEstimateProvider:  NewGasEstimateProvider(p.extraDataCodec),
 		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return NewEVMRMNCrypto(lggr) },
 		GetChainReaderWriter: GetCRCW{},
 	}

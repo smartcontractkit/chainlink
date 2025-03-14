@@ -73,19 +73,19 @@ func (h *baseHandler) createBootstrapJob(ctx context.Context, client cmd.HTTPCli
 		TOML: fmt.Sprintf(bootstrapJobSpec, contractAddr, h.cfg.ChainID),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %s", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
-		return fmt.Errorf("failed to create bootstrap job: %s", err)
+		return fmt.Errorf("failed to create bootstrap job: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("failed to read error response body: %s", err)
+			return fmt.Errorf("failed to read error response body: %w", err)
 		}
 
 		return fmt.Errorf("unable to create bootstrap job: '%v' [%d]", string(body), resp.StatusCode)
