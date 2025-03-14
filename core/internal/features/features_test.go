@@ -52,12 +52,12 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/consumer_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/multiwordconsumer_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
@@ -294,7 +294,7 @@ type OperatorContracts struct {
 	linkToken                 *link_token_interface.LinkToken
 	multiWord                 *multiwordconsumer_wrapper.MultiWordConsumer
 	singleWord                *consumer_wrapper.Consumer
-	operator                  *operator_wrapper.Operator
+	operator                  *operator.Operator
 	sim                       types.Backend
 }
 
@@ -308,7 +308,7 @@ func setupOperatorContracts(t *testing.T) OperatorContracts {
 	require.NoError(t, err)
 	b.Commit()
 
-	operatorAddress, _, operatorContract, err := operator_wrapper.DeployOperator(user, b.Client(), linkTokenAddress, user.From)
+	operatorAddress, _, operatorContract, err := operator.DeployOperator(user, b.Client(), linkTokenAddress, user.From)
 	require.NoError(t, err)
 	b.Commit()
 

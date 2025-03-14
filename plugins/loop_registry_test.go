@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -113,7 +114,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	envCfg := registeredLoop.EnvCfg
 
-	require.Equal(t, &url.URL{Scheme: "fake", Host: "database.url"}, envCfg.DatabaseURL)
+	require.Equal(t, (*commonconfig.SecretURL)(&url.URL{Scheme: "fake", Host: "database.url"}), envCfg.DatabaseURL)
 	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
 	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
 	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)
