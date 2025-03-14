@@ -2014,7 +2014,7 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 			version = longSha
 		}
 
-		tag = fmt.Sprintf("solana-artifacts-localtest-%s", version)
+		tag = "solana-artifacts-localtest-" + version
 	}
 
 	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
