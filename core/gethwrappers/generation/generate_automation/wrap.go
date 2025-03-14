@@ -12,16 +12,9 @@ import (
 func main() {
 	rootDir := "../../contracts/solc/"
 	project := "automation"
-	inputClassName := ""
-	outputClassName := ""
-	pkgName := ""
-	if len(os.Args) == 4 {
-		inputClassName = os.Args[1]
-		outputClassName = os.Args[2]
-		pkgName = os.Args[3]
-	} else {
-		panic("Unsupported number of args")
-	}
+	inputClassName := os.Args[1]
+	outputClassName := os.Args[2]
+	pkgName := os.Args[3]
 
 	abiPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".abi.json"
 	binPath := rootDir + project + "/" + inputClassName + "/" + inputClassName + ".sol/" + inputClassName + ".bin"
