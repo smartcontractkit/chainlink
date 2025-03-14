@@ -398,10 +398,25 @@ jobs:
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
         run: |
-          # Fix flakeguard binary path
+          # Ensure flakeguard is on PATH
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
       
+          ######################################
+          # 1. Retrieve Artifact Link for Main Failed Logs
+          ######################################
+          MAIN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json"
+          echo "Attempting to retrieve main failed-logs artifact link..."
+          MAIN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
+            --github-repository "${{ github.repository }}" \
+            --github-run-id "${{ github.run_id }}" \
+            --failed-tests-artifact-name "$MAIN_FAILED_LOGS_ARTIFACT_NAME" \
+          )"
+          echo "Main failed-logs artifact link: $MAIN_ARTIFACT_LINK"
+      
+          ######################################
+          # 2. Send Main Report to Splunk
+          ######################################
           MAIN_FILE="${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json"
           if [ -f "$MAIN_FILE" ]; then
             echo "Main test report found. Sending main report to Splunk..."
@@ -409,7 +424,8 @@ jobs:
               --report-path "$MAIN_FILE" \
               --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
               --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-              --splunk-event "${{ github.event_name }}"
+              --splunk-event "${{ github.event_name }}" \
+              --failed-logs-url "$MAIN_ARTIFACT_LINK"
       
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ]; then
@@ -420,14 +436,29 @@ jobs:
             echo "No main report found at '$MAIN_FILE'. Skipping Splunk send for main report."
           fi
       
+          ######################################
+          # 3. Send Rerun Report to Splunk
+          ######################################
           RERUN_FILE="${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json"
           if [ -f "$RERUN_FILE" ]; then
-            echo "Rerun test report found. Sending rerun report to Splunk..."
+            echo "Rerun test report found. Attempting to retrieve rerun failed-logs artifact link..."
+      
+            # Retrieve the RERUN report artifact link
+            RERUN_FAILED_LOGS_ARTIFACT_NAME="${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json"
+            RERUN_ARTIFACT_LINK="$(flakeguard get-gh-artifact \
+              --github-repository "${{ github.repository }}" \
+              --github-run-id "${{ github.run_id }}" \
+              --failed-tests-artifact-name "$RERUN_FAILED_LOGS_ARTIFACT_NAME" \
+            )"
+            echo "Rerun failed-logs artifact link: $RERUN_ARTIFACT_LINK"
+      
+            echo "Sending rerun report to Splunk..."
             flakeguard send-to-splunk \
               --report-path "$RERUN_FILE" \
               --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
               --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
-              --splunk-event "${{ github.event_name }}"
+              --splunk-event "${{ github.event_name }}" \
+              --failed-logs-url "$RERUN_ARTIFACT_LINK"
       
             EXIT_CODE=$?
             if [ $EXIT_CODE -ne 0 ]; then
@@ -437,7 +468,7 @@ jobs:
           else
             echo "No rerun report found at '$RERUN_FILE'. Skipping Splunk send for rerun report."
           fi
-
+        
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
