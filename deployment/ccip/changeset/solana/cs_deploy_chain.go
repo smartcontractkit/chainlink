@@ -47,7 +47,7 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
 		types.ManyChainMultisigProgram:     deployment.McmProgramName,
 		types.RBACTimelockProgram:          deployment.TimelockProgramName,
-		ccipChangeset.CCIPReceiver:         deployment.ReceiverProgramName,
+		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
 	}
 }
 
@@ -1072,11 +1072,7 @@ func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 
-	if err := validateRouterConfig(chain, chainState); err != nil {
-		return err
-	}
-
-	return nil
+	return validateRouterConfig(chain, chainState)
 }
 
 func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {

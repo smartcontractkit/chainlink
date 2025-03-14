@@ -63,8 +63,7 @@ type SolCCIPChainState struct {
 	FeeAggregator solana.PublicKey
 
 	// test programs
-	TestRouter solana.PublicKey
-	Receiver   solana.PublicKey // for tests only
+	Receiver   solana.PublicKey
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -136,9 +135,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case TestRouter:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
