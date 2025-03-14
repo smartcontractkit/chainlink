@@ -17,6 +17,9 @@ env:
   # when they should not be using it, while still allowing us to DRY up the setup
   DB_URL: postgresql://postgres:postgres@localhost:5432/chainlink_test?sslmode=disable
 
+  # TODO: this should be removed before merging
+  SOLANA_CCIP_CONTRACTS_TAG: solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec
+
 jobs:
   filter:
     name: Detect Changes
@@ -82,11 +85,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 
@@ -137,7 +135,7 @@ jobs:
         if: ${{ always() }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
         with:
-          print-logs: 'true'
+          print-logs: "true"
 
   scan:
     name: SonarQube Scan
@@ -218,11 +216,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 
@@ -249,7 +242,7 @@ jobs:
         if: ${{ always() }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
         with:
-          print-logs: 'true'
+          print-logs: "true"
 
   run-race-tests:
     name: Tests (race)
@@ -269,11 +262,6 @@ jobs:
 
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
-
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
@@ -316,4 +304,4 @@ jobs:
         if: ${{ always() }}
         uses: smartcontractkit/.github/actions/setup-postgres@7aa7ce23687ba493e9ba9c6ad47a063e60ae3433 # setup-postgres@0.1.0
         with:
-          print-logs: 'true'
+          print-logs: "true"
