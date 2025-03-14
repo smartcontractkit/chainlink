@@ -311,11 +311,13 @@ func (d *peerGroupDialer) Close() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.closeExistingPeerGroups()
-
+	// cancel the sync loop so that we don't try to create new peer groups
+	// while we're shutting them down.
 	if d.syncCancel != nil {
 		d.syncCancel()
 	}
+
+	d.closeExistingPeerGroups()
 
 	return nil
 }
@@ -375,13 +377,13 @@ func calculateSyncActions(
 }
 
 func (d *peerGroupDialer) sync(ctx context.Context) {
-	if ctx.Err() == context.Canceled {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	if ctx.Err() != nil {
 		d.lggr.Debugw("peer group dialer closed, returning from sync")
 		return
 	}
-
-	d.mu.Lock()
-	defer d.mu.Unlock()
 
 	activeRmnHomeDigest, candidateRmnHomeDigest := d.rmnHomeReader.GetAllConfigDigests()
 
@@ -411,7 +413,7 @@ func (d *peerGroupDialer) sync(ctx context.Context) {
 
 		switch action.actionType {
 		case ActionClose:
-			d.closePeerGroup(action.endpointConfigDigest)
+			d.closePeerGroup(ctx, action.endpointConfigDigest)
 			actionLggr.Infow("Peer group closed successfully")
 		case ActionCreate:
 			if err := d.createPeerGroup(ctx, action.endpointConfigDigest, action.rmnHomeConfigDigest); err != nil {
@@ -425,7 +427,12 @@ func (d *peerGroupDialer) sync(ctx context.Context) {
 }
 
 // Helper function to close specific peer group
-func (d *peerGroupDialer) closePeerGroup(endpointConfigDigest cciptypes.Bytes32) {
+func (d *peerGroupDialer) closePeerGroup(ctx context.Context, endpointConfigDigest cciptypes.Bytes32) {
+	if ctx.Err() != nil {
+		d.lggr.Debugw("peer group dialer closed, returning from closePeerGroup")
+		return
+	}
+
 	lggr := d.lggr.With("genericEndpointConfigDigest", endpointConfigDigest.String())
 
 	for i, digest := range d.activeEndpointConfigDigests {
@@ -450,7 +457,7 @@ func (d *peerGroupDialer) createPeerGroup(
 	endpointConfigDigest cciptypes.Bytes32,
 	rmnHomeConfigDigest cciptypes.Bytes32,
 ) error {
-	if ctx.Err() == context.Canceled {
+	if ctx.Err() != nil {
 		d.lggr.Debugw("peer group dialer closed, returning from createPeerGroup")
 		return nil
 	}
