@@ -13,11 +13,11 @@ const (
 	evmDestExecDataKey = "destGasAmount"
 )
 
-// ExtraDataDecoder is a concrete implementation of ExtraDataDecoder
-type ExtraDataDecoder struct{}
+// ExtraDataCodec is a concrete implementation of ExtraDataDecoder
+type ExtraDataCodec struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
@@ -29,7 +29,7 @@ func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) 
 }
 
 // DecodeExtraArgsToMap reformats bytes into a chain agnostic map[string]any representation for extra args
-func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}

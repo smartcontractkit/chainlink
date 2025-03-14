@@ -11,7 +11,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind/backends"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 	"github.com/stretchr/testify/assert"
@@ -101,13 +100,13 @@ var randomExecuteReport = func(t *testing.T, d *testSetupData, chainSelector uin
 func TestExecutePluginCodecV1(t *testing.T) {
 	d := testSetup(t)
 	ctx := testutils.Context(t)
-	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
 	destGasAmount := rand.Uint32()
 	gasLimit := utils.RandUint256()
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything).Return(map[string]any{
 		"destgasamount": destGasAmount,
 	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything).Return(map[string]any{
 		"gasLimit":                utils.RandUint256(),
 		"accountIsWritableBitmap": gasLimit,
 	}, nil)
@@ -175,7 +174,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			codec := NewExecutePluginCodecV1(mockExtraDataCodec)
+			codec := NewExecutePluginCodecV1(ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 			report := tc.report(randomExecuteReport(t, d, tc.chainSelector, tc.gasLimit, tc.destGasAmount))
 			bytes, err := codec.Encode(ctx, report)
 			if tc.expErr {
@@ -217,7 +216,6 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{})
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 
