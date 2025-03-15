@@ -1987,7 +1987,7 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
-	const name = "archive.tar.gz"
+	const name = "artifacts.tar.gz"
 
 	// TODO: this should be removed before merging
 	tag := "solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec"
