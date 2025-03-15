@@ -160,14 +160,11 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
-	// TODO: randomize the order of chains to send from
-	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
+	index := mathrand.Intn(len(otherCS))
 	return otherCS[index], nil
 }
 
