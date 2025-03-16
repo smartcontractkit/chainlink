@@ -1,8 +1,10 @@
 package jobs
 
 import (
+	"bytes"
 	"fmt"
 	"strings"
+	"text/template"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -248,55 +250,45 @@ func MockCapabilities(nodeID string) *jobv1.ProposeJobRequest {
 	}
 }
 
-func TextWorkflow(nodeID string) *jobv1.ProposeJobRequest {
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec: `
+func TextWorkflow(nodeID string, workflowName string, feeds []string) *jobv1.ProposeJobRequest {
+	const workflowTemplateLoad = `
 type = "workflow"
- schemaVersion = 1
- name = "test-workflow-with-mock"
- externalJobID = "65a75326-65f3-4a40-b8f5-407d2376ce7d"
- forwardingAllowed = false
- workflowID = "2ab944834c5b3e58aa71e4a4a29d6382b613f833302550277cbc3f5cc2be5226"
- workflow = """
-name: abcdefgasd
+schemaVersion = 1
+name = "{{ .WorkflowName }}"
+externalJobID = "{{ .JobID }}"
+workflow = """
+name: "{{ .WorkflowName }}"
 owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
 triggers:
-  - id: streams-trigger@1.0.0
-    config:
-      maxFrequencyMs: 5000
-      feedIds:
-        - '0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e' # BTC/USD
-        - '0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874' # ETH/USD
-        - '0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca' # LINK/USD
+ - id: streams-trigger@1.0.0
+   config:
+     maxFrequencyMs: 5000
+     feedIds:
+{{- range .FeedIDs }}
+       - '{{ . }}'
+{{- end }}
 
 consensus:
-  - id: offchain_reporting@1.0.0
-    ref: ccip_feeds
-    inputs:
-      observations:
-        - $(trigger.outputs)
-    config:
-      report_id: '0001'
-      key_id: 'evm'
-      aggregation_method: data_feeds
-      aggregation_config:
-        allowedPartialStaleness: '0.5'
-        feeds:
-          '0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e':  # BTC/USD
-            deviation: '0.01'
-            heartbeat: 600
-            remappedID: '0x666666666666'
-          '0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874': # ETH/USD
-            deviation: '0.01'
-            heartbeat: 600
-            remappedID: '0x777777777777'
-          '0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca': # LINK/USD
-            deviation: '0.01'
-            heartbeat: 600
-      encoder: EVM
-      encoder_config:
-        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+ - id: offchain_reporting@1.0.0
+   ref: ccip_feeds
+   inputs:
+     observations:
+       - $(trigger.outputs)
+   config:
+     report_id: '0001'
+     key_id: 'evm'
+     aggregation_method: data_feeds
+     aggregation_config:
+       allowedPartialStaleness: '0.5'
+       feeds:
+{{- range .FeedIDs }}
+        '{{ . }}':
+          deviation: '0.01'
+          heartbeat: 600
+{{- end }}
+     encoder: EVM
+     encoder_config:
+       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
 
 targets:
   - id: write_ethereum@1.0.0
@@ -306,7 +298,85 @@ targets:
       address: '0x24309990d635A6C5FF711503BfCb942dd25F96A0'
       deltaStage: 10s
       schedule: oneAtATime
+
 """
-`,
+`
+
+	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
+
+	if err != nil {
+		panic(err)
 	}
+	var renderedTemplate bytes.Buffer
+	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
+		"WorkflowName": workflowName,
+		"FeedIDs":      feeds,
+		"JobID":        uuid.NewString(),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   renderedTemplate.String()}
+
+	//	return &jobv1.ProposeJobRequest{
+	//		NodeId: nodeID,
+	//		Spec: `
+	//type = "workflow"
+	// schemaVersion = 1
+	// name = "test-workflow-with-mock"
+	// externalJobID = "65a75326-65f3-4a40-b8f5-407d2376ce7d"
+	// forwardingAllowed = false
+	// workflowID = "2ab944834c5b3e58aa71e4a4a29d6382b613f833302550277cbc3f5cc2be5226"
+	// workflow = """
+	//name: abcdefgasd
+	//owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+	//triggers:
+	//  - id: streams-trigger@1.0.0
+	//    config:
+	//      maxFrequencyMs: 5000
+	//      feedIds:
+	//        - '0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e'
+	//        - '0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874'
+	//        - '0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca'
+	//
+	//consensus:
+	//  - id: offchain_reporting@1.0.0
+	//    ref: ccip_feeds
+	//    inputs:
+	//      observations:
+	//        - $(trigger.outputs)
+	//    config:
+	//      report_id: '0001'
+	//      key_id: 'evm'
+	//      aggregation_method: data_feeds
+	//      aggregation_config:
+	//        allowedPartialStaleness: '0.5'
+	//        feeds:
+	//          '0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e':  # BTC/USD
+	//            deviation: '0.01'
+	//            heartbeat: 600
+	//          '0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874': # ETH/USD
+	//            deviation: '0.01'
+	//            heartbeat: 600
+	//          '0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca': # LINK/USD
+	//            deviation: '0.01'
+	//            heartbeat: 600
+	//      encoder: EVM
+	//      encoder_config:
+	//        abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+	//
+	//targets:
+	//  - id: write_ethereum@1.0.0
+	//    inputs:
+	//      signed_report: $(ccip_feeds.outputs)
+	//    config:
+	//      address: '0x24309990d635A6C5FF711503BfCb942dd25F96A0'
+	//      deltaStage: 10s
+	//      schedule: oneAtATime
+	//"""
+	//`,
+	//	}
 }

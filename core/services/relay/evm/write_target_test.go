@@ -122,7 +122,7 @@ func TestEvmWrite(t *testing.T) {
 	ht.On("LatestAndFinalizedBlock", mock.Anything).Return(&evmtypes.Head{}, &evmtypes.Head{}, nil)
 	chain.On("HeadTracker").Return(ht)
 
-	chain.On("Client").Return(evmClient)
+	chain.On("API").Return(evmClient)
 
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		a := testutils.NewAddress()

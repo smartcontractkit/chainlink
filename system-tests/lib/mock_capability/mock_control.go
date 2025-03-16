@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"os"
+	"strings"
 
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
@@ -13,6 +15,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	pb2 "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -20,30 +23,66 @@ import (
 )
 
 type MockCapabilityController struct {
-	lggr    zerolog.Logger
-	Clients []pb.MockCapabilityClient
+	lggr  zerolog.Logger
+	Nodes []MockClient
+}
+
+type MockClient struct {
+	API pb.MockCapabilityClient
+	URL string
 }
 
 func NewMockCapabilityController(lggr zerolog.Logger) *MockCapabilityController {
-	return &MockCapabilityController{Clients: make([]pb.MockCapabilityClient, 0), lggr: lggr}
+	return &MockCapabilityController{Nodes: make([]MockClient, 0), lggr: lggr}
+}
+
+func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool) (*MockCapabilityController, error) {
+	bytes, err := os.ReadFile("cache/mock-clients.txt")
+	if err != nil {
+		return nil, fmt.Errorf("failed to read URLs from cache: %w", err)
+	}
+
+	addresses := strings.Split(strings.TrimSpace(string(bytes)), "\n")
+	if len(addresses) == 0 {
+		return nil, fmt.Errorf("no URLs found in cache file")
+	}
+
+	controller := NewMockCapabilityController(lggr)
+	if err := controller.ConnectAll(addresses, useInsecure, false); err != nil {
+		return nil, fmt.Errorf("failed to connect to cached URLs: %w", err)
+	}
+
+	return controller, nil
 }
 
 // ConnectAll connects to all addresses, for CTFv2 test useInsecure should be true, for CRIB useInsecure should be false
-func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bool) error {
+func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bool, cacheClients bool) error {
+	if cacheClients {
+		cacheDir := "cache"
+		if err := os.MkdirAll(cacheDir, 0755); err != nil {
+			return fmt.Errorf("failed to create cache directory: %w", err)
+		}
+
+		urlsBytes := []byte(strings.Join(addresses, "\n"))
+		if err := os.WriteFile("cache/mock-clients.txt", urlsBytes, 0644); err != nil {
+			return fmt.Errorf("failed to save URLs to cache: %w", err)
+		}
+	}
 	for _, p := range addresses {
 		client, err := proxyConnectToOne(p, useInsecure)
 		if err != nil {
 			return err
 		}
-		c.Clients = append(c.Clients, client)
+		c.Nodes = append(c.Nodes, client)
 
 	}
+
 	return nil
 }
 
 func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info pb.RegisterToWorkflowRequest) error {
-	for _, client := range c.Clients {
-		_, err := client.RegisterToWorkflow(ctx, &info)
+	for _, client := range c.Nodes {
+		_, err := client.API.RegisterToWorkflow(ctx, &info)
 		if err != nil {
 			return err
 		}
@@ -52,8 +91,8 @@ func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info 
 }
 
 func (c *MockCapabilityController) Execute(ctx context.Context, info pb.ExecutableRequest) error {
-	for _, client := range c.Clients {
-		_, err := client.Execute(ctx, &info)
+	for _, client := range c.Nodes {
+		_, err := client.API.Execute(ctx, &info)
 		if err != nil {
 			return err
 		}
@@ -62,8 +101,8 @@ func (c *MockCapabilityController) Execute(ctx context.Context, info pb.Executab
 }
 
 func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb.CapabilityInfo) error {
-	for _, client := range c.Clients {
-		_, err := client.CreateCapability(ctx, &info)
+	for _, client := range c.Nodes {
+		_, err := client.API.CreateCapability(ctx, &info)
 		if err != nil {
 			return err
 		}
@@ -72,7 +111,7 @@ func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb
 }
 
 func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
-	for _, client := range c.Clients {
+	for _, client := range c.Nodes {
 		data := pb.SendTriggerEventRequest{
 			ID:      id,
 			EventID: eventID,
@@ -80,7 +119,7 @@ func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, e
 		}
 		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
 
-		_, err := client.SendTriggerEvent(ctx, &data)
+		_, err := client.API.SendTriggerEvent(ctx, &data)
 		if err != nil {
 			return err
 		}
@@ -88,11 +127,11 @@ func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, e
 	return nil
 }
 
-func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan pb.ExecutableRequest) error {
-	for _, client := range c.Clients {
-		hook, errC := client.HookExecutables(context.TODO())
+func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan capabilities.CapabilityRequest) error {
+	for _, client := range c.Nodes {
+		hook, errC := client.API.HookExecutables(context.TODO())
 		if errC != nil {
-			return errC
+			return fmt.Errorf("cannot hook into executable at %s", client.URL)
 		}
 
 		go func() {
@@ -106,8 +145,33 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 				if err != nil {
 					log.Fatalf("can not receive %v", err)
 				}
-				ch <- *resp
-				c.lggr.Info().Msgf("Got hook event %v+", resp)
+
+				config, err := BytesToMap(resp.Config)
+				if err != nil {
+					log.Fatalf("can not decode config: %v", err)
+				}
+				input, err := BytesToMap(resp.Inputs)
+				if err != nil {
+					log.Fatalf("can not decode input: %v", err)
+				}
+
+				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
+				ch <- capabilities.CapabilityRequest{
+					Metadata: capabilities.RequestMetadata{
+						WorkflowID:               resp.RequestMetadata.WorkflowID,
+						WorkflowOwner:            resp.RequestMetadata.WorkflowOwner,
+						WorkflowExecutionID:      resp.RequestMetadata.WorkflowExecutionID,
+						WorkflowName:             resp.RequestMetadata.WorkflowName,
+						WorkflowDonID:            resp.RequestMetadata.WorkflowDonID,
+						WorkflowDonConfigVersion: resp.RequestMetadata.WorkflowDonConfigVersion,
+						ReferenceID:              resp.RequestMetadata.ReferenceID,
+						DecodedWorkflowName:      resp.RequestMetadata.DecodedWorkflowName,
+					},
+					Config: config,
+					Inputs: input,
+				}
+				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
+				//c.lggr.Info().Msgf("Got hook event %v+", resp)
 
 				//Process request
 				r := pb.ExecutableResponse{
@@ -119,7 +183,7 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 				if err != nil {
 					panic(err.Error())
 				}
-				c.lggr.Info().Msgf("Sent hook response %v+", r)
+				//c.lggr.Info().Msgf("Sent hook response %v+", r)
 
 			}
 		}()
@@ -127,17 +191,17 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 	return nil
 }
 
-func proxyConnectToOne(address string, useInsecure bool) (pb.MockCapabilityClient, error) {
+func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
 	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
 	if useInsecure {
 		creds = insecure.NewCredentials()
 	}
 	conn, err := grpc.NewClient(address, grpc.WithTransportCredentials(creds))
 	if err != nil {
-		return nil, err
+		return MockClient{}, err
 	}
 	client := pb.NewMockCapabilityClient(conn)
-	return client, nil
+	return MockClient{API: client, URL: address}, nil
 
 }
 
@@ -155,4 +219,26 @@ func MapToBytes(m *values.Map) ([]byte, error) {
 		return nil, err
 	}
 	return bytes, nil
+}
+func BytesToMap(b []byte) (*values.Map, error) {
+	var o pb2.Value
+	if err := proto.Unmarshal(b, &o); err != nil {
+		return nil, err
+	}
+
+	vm := values.Map{Underlying: make(map[string]values.Value)}
+
+	if o.Value == nil {
+		return &vm, nil
+	}
+
+	for k, v := range o.GetMapValue().Fields {
+		val, err := values.FromProto(v)
+		if err != nil {
+			return nil, err
+		}
+		vm.Underlying[k] = val
+	}
+
+	return &vm, nil
 }

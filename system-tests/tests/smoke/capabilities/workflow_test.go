@@ -4,11 +4,8 @@ import (
 	"bufio"
 	"context"
 	"crypto/tls"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
 	"math/big"
-	"math/rand/v2"
 	"net"
 	"os"
 	"os/exec"
@@ -22,26 +19,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/rpc"
 	ut "github.com/go-playground/universal-translator"
 	"github.com/go-playground/validator/v10"
-	"github.com/google/uuid"
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
-	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
-	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/clnode"
@@ -49,15 +38,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
-	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/mock_capability"
-	pb3 "github.com/smartcontractkit/chainlink/system-tests/lib/mock_capability/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
@@ -100,8 +80,13 @@ type TestConfig struct {
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput   `toml:"workflow_registry_configuration"`
 	FeedConsumer                  *keystonetypes.DeployFeedConsumerInput `toml:"feed_consumer"`
 	Infra                         *InfraInput                            `toml:"infra" validate:"required"`
+	WorkflowLoad                  *WorkflowLoad                          `toml:"workflow_load"`
 }
-
+type WorkflowLoad struct {
+	Feeds         int
+	Jobs          int
+	FeedAddresses [][]string
+}
 type InfraInput struct {
 	InfraType string     `toml:"type" validate:"oneof=crib docker"`
 	CRIB      *CRIBInput `toml:"crib"`
@@ -452,6 +437,11 @@ func CreateInfrastructure(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
+	err = waitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "RPC endpoint not available")
+	}
+
 	sethClient, err := seth.NewClientBuilder().
 		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
 		WithPrivateKeys([]string{pkey}).
@@ -607,7 +597,7 @@ func (ns *NixShell) Close() error {
 	return ns.cmd.Process.Kill()
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]string) *setupOutput {
 	envInput := InfrastructureInput{
 		jdInput:         in.JD,
 		nodeSetInput:    mustSetCapabilitiesFn(in.NodeSets),
@@ -973,17 +963,20 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
-	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
-		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       envOutput.blockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      extraAllowedPorts,
-			ExtraAllowedIPs:        extraAllowedIPs,
-			CronCapBinName:         cronCapabilityAssetFile,
-			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
-		},
-	)
+	jobSpecInput := keystonetypes.GeneratePoRJobSpecsInput{
+		BlockchainOutput:      envOutput.blockchainOutput,
+		DonsWithMetadata:      fullCldOutput.DonTopology.DonsWithMetadata,
+		OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
+		ExtraAllowedPorts:     extraAllowedPorts,
+		ExtraAllowedIPs:       extraAllowedIPs,
+		CronCapBinName:        cronCapabilityAssetFile,
+	}
+
+	if topology.GatewayConnectorOutput != nil {
+		jobSpecInput.GatewayConnectorOutput = topology.GatewayConnectorOutput
+	}
+
+	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(&jobSpecInput, loadFeedAddresses)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
 	// Create jobs
@@ -1101,7 +1094,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1198,7 +1191,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1301,7 +1294,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1405,7 +1398,7 @@ func TestKeystoneWithOCR3Workflow_GatewayDon_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1510,7 +1503,7 @@ func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1618,7 +1611,7 @@ func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1689,514 +1682,43 @@ func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 
-func TestKeystoneWithOCR3Workflow_TwoDons_WriteDON_Mock(t *testing.T) {
-	testLogger := framework.L
+func waitForRPCEndpoint(lggr zerolog.Logger, url string, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
-
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       []string{keystonetypes.MockCapability, keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON, keystonetypes.WorkflowDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{keystonetypes.WriteEVMCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
-			},
+	// Try immediately first
+	client, err := rpc.DialContext(ctx, url)
+	if err == nil {
+		defer client.Close()
+		var blockNumber string
+		if err := client.CallContext(ctx, &blockNumber, "eth_blockNumber"); err == nil {
+			return nil
 		}
 	}
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, nil, nil, mustSetCapabilitiesFn)
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
-			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
-		}
-	})
-
-	_, err = feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
-	require.NoError(t, err, "failed to create feeds consumer instance")
-
-	//Mock capability start
-	testLogger.Info().Msg("Connecting to mock capabilities")
-
-	// 0. Connect to mock capabilities
-	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
-	require.NoError(t, mocksClient.ConnectAll([]string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}, true))
-
-	// 1. The write_geth-testnet capability is exposed from the write DON and the mock capability is hosted on the "workflow" DON,
-	// we must wait until the workflow don registers the remote capability
-	targetCapabilityID := "write_geth-testnet@1.0.0"
-	targetCapabilityType := pb3.CapabilityType_Target
-	ctx := tests.Context(t)
-	testLogger.Info().Msg("Waiting for write_geth-testnet@1.0.0 to be exposed")
-
-	wg := sync.WaitGroup{}
-	wg.Add(1)
-	go func() {
-		for {
-			select {
-			case <-time.After(time.Second * 10):
-				found := false
-				for _, c := range mocksClient.Clients {
-					list, err2 := c.List(ctx, &pb3.ListRequest{})
-					require.NoError(t, err2)
-					for _, l := range list.CapInfos {
-						if l.ID == targetCapabilityID {
-							found = true
-						}
-					}
-					if !found {
-						break
-					}
-				}
-
-				if found {
-					wg.Done()
-					return
-				}
-			}
-		}
-	}()
-
-	wg.Wait()
-
-	testLogger.Info().Msg("RegisterToWorkflow on write_geth-testnet@1.0.0")
-	// 2. Register workflow to write_geth-testnet@1.0.0 on all nodes of the worflow don
-	// For the write target RegisterToWorkflow does not do anything!!
-	//require.NoError(t, mocksClient.RegisterToWorkflow(ctx, pb3.RegisterToWorkflowRequest{
-	//	ID:                   targetCapabilityID,
-	//	CapabilityType:       targetCapabilityType,
-	//	RegistrationMetadata: nil, //TODO
-	//	Config:               nil, //TODO
-	//}))
-
-	// 3. Call Execute
-
-	config, err := values.WrapMap(targets.Config{
-		Address:  testutils.NewAddress().String(),
-		GasLimit: nil, //TODO
-	})
-	require.NoError(t, err)
-	configBytes, err := mock_capability.MapToBytes(config)
-	require.NoError(t, err)
-
-	inputs, err := values.WrapMap(targets.Inputs{
-		SignedReport: types2.SignedReport{
-			Report:     nil,
-			Context:    nil,
-			Signatures: nil,
-			ID:         nil,
-		},
-	})
-	require.NoError(t, err)
-	inputsBytes, err := mock_capability.MapToBytes(inputs)
-	require.NoError(t, err)
-	for {
-		select {
-		case <-time.After(time.Second * 15):
-			testLogger.Info().Msg("Execute on write_geth-testnet@1.0.0")
-			require.NoError(t, mocksClient.Execute(ctx, pb3.ExecutableRequest{
-				ID:             targetCapabilityID,
-				CapabilityType: targetCapabilityType,
-				RequestMetadata: &pb3.Metadata{
-					WorkflowID:               "some-workflow",
-					WorkflowOwner:            "",
-					WorkflowExecutionID:      "95ef5e32deb99a10ee6804bc4af13855687559d7ff6552ac6dbb2ce0abbadeed",
-					WorkflowName:             "nonexistent workflow",
-					WorkflowDonID:            0,
-					WorkflowDonConfigVersion: 0,
-					ReferenceID:              "",
-					DecodedWorkflowName:      "",
-				}, //TODO
-				Config: configBytes,
-				Inputs: inputsBytes,
-			}))
-		}
-	}
-	time.Sleep(time.Minute * 10)
-}
-
-func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 1, "expected 2 node sets in the test config")
-
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.MockCapability},
-				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.CapabilitiesDON},
-				BootstrapNodeIndex: 0,
-			},
-			//{
-			//	Input:              input[1],
-			//	Capabilities:       []string{keystonetypes.MockCapability},
-			//	DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-			//	BootstrapNodeIndex: 0,
-			//},
-		}
-	}
-
-	setupOutput := setupTestEnvironment(t, testLogger, in, nil, nil, mustSetCapabilitiesFn)
-
-	ctx := tests.Context(t)
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
-			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
-		}
-	})
-
-	testLogger.Info().Msg("Connecting to mock capabilities...")
-
-	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
-	mockClientsAddress := make([]string, 0)
-	for i, _ := range setupOutput.nodeOutput[0].CLNodes {
-		if i == 0 {
-			continue
-		}
-		// crib-local-base-3-mock.main.stage.cldev.sh
-		mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("crib-local-base-%d-mock.main.stage.cldev.sh:443", i-1))
-	}
-
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, false)) //Capability don ports
-
-	testLogger.Info().Msg("Hooking into mock executable capabilities")
-
-	receiveChannel := make(chan pb3.ExecutableRequest, 1000)
-	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
-
-	//Get ocr key
-	kb := make([]ocr2key.KeyBundle, 0)
-	for _, don := range setupOutput.donTopology.DonsWithMetadata {
-		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
-			for i, n := range don.DON.Nodes {
-				if i == 0 {
-					continue // Skip bootstrap nodeker
-				}
-
-				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
-				require.NoError(t, err)
-				b, err2 := json.Marshal(key)
-				require.NoError(t, err2)
-				kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
-				require.NoError(t, err2)
-				kb = append(kb, kk)
-			}
-		}
-	}
-
-	labels := map[string]string{
-		"go_test_name": "test1",
-		"branch":       "profile-check",
-		"commit":       "profile-check",
-	}
-
-	_, err = wasp.NewProfile().
-		Add(wasp.NewGenerator(&wasp.Config{
-			LoadType: wasp.RPS,
-			Schedule: wasp.Combine(
-				wasp.Plain(4, 10*time.Minute),
-			),
-			Gun:                   NewStreamsGun(mocksClient, kb, []string{"0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca"}, "streams-trigger@1.0.0", receiveChannel),
-			Labels:                labels,
-			LokiConfig:            wasp.NewEnvLokiConfig(),
-			RateLimitUnitDuration: time.Minute,
-		})).
-		Run(true)
-	require.NoError(t, err)
-
-	//go sendReports(t.Context(), t, mocksClient, testLogger, kb)
-	//time.Sleep(time.Minute * 30)
-
-}
-
-func sendReports(ctx context.Context, t *testing.T, capProxy *mock_capability.MockCapabilityController, lggr zerolog.Logger, keyBundles []ocr2key.KeyBundle) {
+	// If immediate check fails, start periodic checks
+	ticker := time.NewTicker(time.Second * 30)
+	defer ticker.Stop()
 
 	for {
 		select {
 		case <-ctx.Done():
-			lggr.Error().Msg("reports context canceled")
-			return
-		case <-time.After(time.Second * 10):
-			r1, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x000351de403f638036014add21a5abd5f464bf21d11aa356dfc6dbe4e2384e4e", keyBundles)
-			require.NoError(t, err)
-			r2, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x0003f2f4cae1891f647db8d73c87a7a03888bd176afdb7206853da9abfc92874", keyBundles)
-			require.NoError(t, err)
-			r3, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), "0x00034db6355441c80b613f666757c63777dae7743885a9c594ca25d9f9b896ca", keyBundles)
-			require.NoError(t, err)
-
-			event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
-				Payload:   []datastreams.FeedReport{*r1, *r2, *r3},
-				Metadata:  datastreams.Metadata{},
-				Timestamp: time.Now().Unix(),
-			})
-			require.NoError(t, err)
-
-			eventBytes, err := mock_capability.MapToBytes(event)
-			require.NoError(t, err)
-
-			require.NoError(t, capProxy.SendTrigger(ctx, "streams-trigger@1.0.0", uuid.New().String(), eventBytes))
-		}
-	}
-}
-
-var _ wasp.Gun = (*StreamsGun)(nil)
-
-type StreamsGun struct {
-	capProxy    *mock_capability.MockCapabilityController
-	keyBundles  []ocr2key.KeyBundle
-	feeds       []string
-	triggerID   string
-	waitChans   map[string]chan interface{}
-	recieveChan <-chan pb3.ExecutableRequest
-	mu          sync.Mutex
-}
-
-func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds []string, triggerID string, ch <-chan pb3.ExecutableRequest) *StreamsGun {
-	sg := &StreamsGun{
-		capProxy:    capProxy,
-		keyBundles:  keyBundles,
-		feeds:       feeds,
-		triggerID:   triggerID,
-		recieveChan: ch,
-	}
-	go sg.waitHOOKloop()
-	return sg
-}
-
-func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
-	eventID := uuid.NewString()
-	err := s.prepareWaitHOOK(eventID)
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	reports := make([]datastreams.FeedReport, 0)
-	for _, feed := range s.feeds {
-		r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), time.Now().UnixMilli(), feed, s.keyBundles)
-		if err != nil {
-			return &wasp.Response{Error: err.Error()}
-		}
-		reports = append(reports, *r)
-	}
-
-	event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
-		Payload:   reports,
-		Metadata:  datastreams.Metadata{},
-		Timestamp: time.Now().Unix(),
-	})
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	eventBytes, err := mock_capability.MapToBytes(event)
-
-	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, eventID, eventBytes)
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
-	//Wait for hook back with the same eventID
-	err = s.waitForHOOK(eventID)
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-	return &wasp.Response{}
-}
-
-func (s *StreamsGun) waitHOOKloop() error {
-	for {
-		select {
-		case m, ok := <-s.recieveChan:
-			if !ok {
-				return fmt.Errorf("channel closed")
+			return fmt.Errorf("timeout waiting for RPC endpoint %s to be available", url)
+		case <-ticker.C:
+			lggr.Info().Msgf("waiting for %s to become available", url)
+			client, err := rpc.DialContext(ctx, url)
+			if err != nil {
+				continue
 			}
-			s.mu.Lock()
+			defer client.Close()
 
-			//TODO @george-dorin: check if the evenID is present somewhere, m.ID is not good I think
-			//Check if exist
-			if ch, exist := s.waitChans[m.ID]; exist {
-				s.mu.Unlock()
-				ch <- m //This is blocking
-			} else {
-				s.mu.Unlock()
+			var blockNumber string
+			if err := client.CallContext(ctx, &blockNumber, "eth_blockNumber"); err != nil {
+				continue
 			}
+
+			// If we get here, the endpoint is responding
+			return nil
 		}
 	}
-
-	return nil
-}
-
-func (s *StreamsGun) prepareWaitHOOK(eventID string) error {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if s.waitChans == nil {
-		s.waitChans = make(map[string]chan interface{})
-	}
-	if _, exists := s.waitChans[eventID]; exists {
-		return fmt.Errorf("cannot prepare for HOOK, eventID  %q already exits", eventID)
-	}
-	s.waitChans[eventID] = make(chan interface{})
-	return nil
-}
-
-func (s *StreamsGun) waitForHOOK(eventID string) error {
-	s.mu.Lock()
-
-	if ch, exists := s.waitChans[eventID]; exists {
-		s.mu.Unlock()
-		return fmt.Errorf("cannot wait for HOOK, eventID  %q already exits", eventID)
-	} else {
-		s.mu.Unlock()
-		<-ch
-		return nil
-	}
-
-}
-
-func createFeedReport(price *big.Int, observationTimestamp int64,
-	feedIDString string,
-	keyBundles []ocr2key.KeyBundle) (*datastreams.FeedReport, error) {
-	reportCtx := ocrTypes.ReportContext{}
-	rawCtx := RawReportContext(reportCtx)
-
-	bytes, err := hex.DecodeString(feedIDString[2:])
-	if err != nil {
-		return nil, err
-	}
-	var feedIDBytes [32]byte
-	copy(feedIDBytes[:], bytes)
-
-	fullReport, err := newReport(feedIDBytes, price, observationTimestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	report := &datastreams.FeedReport{
-		FeedID:               feedIDString,
-		FullReport:           fullReport,
-		BenchmarkPrice:       price.Bytes(),
-		ObservationTimestamp: observationTimestamp,
-		Signatures:           [][]byte{},
-		ReportContext:        rawCtx,
-	}
-
-	for _, key := range keyBundles {
-		sig, err := key.Sign(reportCtx, report.FullReport)
-		if err != nil {
-			return nil, err
-		}
-		report.Signatures = append(report.Signatures, sig)
-	}
-
-	return report, nil
-}
-func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
-	rc := evmutil.RawReportContext(reportCtx)
-	flat := []byte{}
-	for _, r := range rc {
-		flat = append(flat, r[:]...)
-	}
-	return flat
-}
-
-func newReport(feedID [32]byte, price *big.Int, timestamp int64) ([]byte, error) {
-	lggr, _ := logger.NewLogger()
-	v3Codec := reportcodec.NewReportCodec(feedID, lggr)
-	raw, err := v3Codec.BuildReport(context.TODO(), v3.ReportFields{
-		BenchmarkPrice: price,
-
-		Timestamp: uint32(timestamp),
-		Bid:       big.NewInt(0),
-		Ask:       big.NewInt(0),
-		LinkFee:   big.NewInt(0),
-		NativeFee: big.NewInt(0),
-	})
-	if err != nil {
-		return nil, err
-	}
-	return raw, nil
 }

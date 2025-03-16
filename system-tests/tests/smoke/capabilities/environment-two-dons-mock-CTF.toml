@@ -5,20 +5,19 @@ docker_cmd_params = ["-b", "5"]
 
 [jd]
 # change to your version
-#image = "job-distributor:0.9.0"
 image = "localhost:5000/job-distributor:sha-707362c-amd64"
 
-[workflow_load]
-feeds = 10
-jobs = 2
-
 [infra]
-type = "crib"
+type = "docker"
 
 [infra.crib]
 namespace = "crib-local"
 folder_location = "/Users/ionita/crib/deployments/cre"
 provider = "kind"
+
+[workflow_load]
+feeds = 10
+jobs = 2
 
 [workflow_config]
 workflow_name = "abcdefgasd"
@@ -49,8 +48,7 @@ volume_name = "workflow_volume"
 [nodesets.node_specs.node]
 #docker_ctx = "../../../.."
 #docker_file = "plugins/chainlink.Dockerfile"
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
@@ -68,10 +66,8 @@ user_config_overrides = """
       """
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -89,10 +85,8 @@ user_config_overrides = """
       """
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -110,10 +104,8 @@ user_config_overrides = """
       """
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -131,10 +123,8 @@ user_config_overrides = """
       """
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -162,10 +152,8 @@ image = "postgres:12.0"
 port = 13200
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
+image = "localhost:5000/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -181,11 +169,10 @@ user_config_overrides = """
 
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
-custom_ports = ['13401:3456']
+image = "localhost:5000/chainlink:develop"
+capabilities = ["./amd64_mock"]
+custom_ports = ['13401:7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -198,12 +185,12 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
-custom_ports = ['13402:3456']
+image = "localhost:5000/chainlink:develop"
+capabilities = ["./amd64_mock"]
+custom_ports = ['13402:7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -216,12 +203,12 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
-custom_ports = ['13403:3456']
+image = "localhost:5000/chainlink:develop"
+capabilities = ["./amd64_mock"]
+custom_ports = ['13403:7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -234,12 +221,12 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-#image = "localhost:5001/chainlink:develop"
-custom_ports = ['13404:3456']
+image = "localhost:5000/chainlink:develop"
+capabilities = ["./amd64_mock"]
+custom_ports = ['13404:7777']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -252,31 +239,3 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
-
-#[[nodesets]]
-#nodes = 1
-#override_mode = "each"
-#http_port_range_start = 10300
-#name = "gateway"
-#
-#[nodesets.db]
-#image = "postgres:12.0"
-#port = 13300
-#
-#[[nodesets.node_specs]]
-#
-#[nodesets.node_specs.node]
-#image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:5616a0b22c00bc6dac749893beca60da2af94985-plugins"
-##image = "localhost:5001/chainlink:develop"
-#user_config_overrides = """
-#      [Feature]
-#			LogPoller = true
-#
-#			[OCR2]
-#			Enabled = true
-#			DatabaseTimeout = '1s'
-#
-#			[P2P.V2]
-#			Enabled = true
-#			ListenAddresses = ['0.0.0.0:5001']
-#      """

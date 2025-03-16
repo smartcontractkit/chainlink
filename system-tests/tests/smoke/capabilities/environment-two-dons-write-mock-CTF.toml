@@ -6,15 +6,10 @@ chain_id = "1337"
 
 [jd]
   # change to your version
-image = "jd-test-1:0.9.0"
+image = "localhost:5000/job-distributor:sha-707362c-amd64"
 
 [infra]
-type = "crib"
-
-[infra.crib]
-namespace = "crib-local"
-folder_location = "/Users/ionita/crib/deployments/cre"
-provider = "kind"
+type = "docker"
 
 [workflow_config]
   workflow_name = "abcdefgasd"
@@ -62,6 +57,7 @@ provider = "kind"
 
     [nodesets.node_specs.node]
     image = "localhost:5000/chainlink:develop"
+    capabilities = ["./amd64_mock"]
     custom_ports = ['13401:7777']
       user_config_overrides = """
       [Feature]
@@ -80,6 +76,7 @@ provider = "kind"
 
     [nodesets.node_specs.node]
     image = "localhost:5000/chainlink:develop"
+    capabilities = ["./amd64_mock"]
     custom_ports = ['13402:7777']
       user_config_overrides = """
       [Feature]
@@ -98,6 +95,7 @@ provider = "kind"
 
     [nodesets.node_specs.node]
     image = "localhost:5000/chainlink:develop"
+    capabilities = ["./amd64_mock"]
     custom_ports = ['13403:7777']
       user_config_overrides = """
       [Feature]
@@ -116,6 +114,7 @@ provider = "kind"
 
     [nodesets.node_specs.node]
     image = "localhost:5000/chainlink:develop"
+    capabilities = ["./amd64_mock"]
     custom_ports = ['13404:7777']
       user_config_overrides = """
       [Feature]
