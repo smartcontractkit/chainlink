@@ -839,7 +839,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case errors.Is(capabilities.ErrStopExecution, err):
+	case err != nil && capabilities.ErrStopExecution.Is(err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
@@ -1273,8 +1273,14 @@ type Config struct {
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	RateLimiter          *ratelimiter.RateLimiter
-	WorkflowLimits       *syncerlimiter.Limits
+
+	// RateLimiter limits the workflow execution steps globally and per
+	// second that a workflow owner can make
+	RateLimiter *ratelimiter.RateLimiter
+
+	// WorkflowLimits specifies an upper limit on the count of workflows that can be
+	// running globally and per workflow owner.
+	WorkflowLimits *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int

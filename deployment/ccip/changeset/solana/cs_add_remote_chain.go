@@ -29,7 +29,6 @@ type AddRemoteChainToRouterConfig struct {
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMSSolana *MCMSConfigSolana
-	TestRouter bool
 }
 
 type RouterConfig struct {
@@ -48,16 +47,14 @@ func (cfg AddRemoteChainToRouterConfig) Validate(e deployment.Environment) error
 	if !ok {
 		return fmt.Errorf("chain %d not found in environment", cfg.ChainSelector)
 	}
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 
-	if !cfg.TestRouter {
-		if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
-			return err
-		}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{}); err != nil {
+		return err
 	}
-	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	var routerConfigAccount solRouter.Config
 	// already validated that router config exists
 	_ = chain.GetAccountDataBorshInto(context.Background(), routerConfigPDA, &routerConfigAccount)
@@ -130,7 +127,7 @@ func doAddRemoteChainToRouter(
 	chainSel := cfg.ChainSelector
 	updates := cfg.UpdatesByChain
 	chain := e.SolChains[chainSel]
-	ccipRouterID, routerConfigPDA, _ := s.SolChains[chainSel].GetRouterInfo(cfg.TestRouter)
+	ccipRouterID, routerConfigPDA, _ := s.SolChains[chainSel].GetRouterInfo()
 	offRampID := s.SolChains[chainSel].OffRamp
 	routerUsingMCMS := cfg.MCMSSolana != nil && cfg.MCMSSolana.RouterOwnedByTimelock
 	lookUpTableEntries := make([]solana.PublicKey, 0)
@@ -426,8 +423,6 @@ type AddRemoteChainToOffRampConfig struct {
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMSSolana *MCMSConfigSolana
-
-	TestRouter bool
 }
 
 type OffRampConfig struct {
