@@ -261,7 +261,7 @@ type GeneratePoRJobSpecsInput struct {
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
 	CronCapBinName         string
-	GatewayConnectorOutput GatewayConnectorOutput
+	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 func (g *GeneratePoRJobSpecsInput) Validate() error {
@@ -277,11 +277,13 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 	if g.CronCapBinName == "" {
 		return errors.New("cron cap bin name not set")
 	}
-	if g.GatewayConnectorOutput.Path == "" {
-		return errors.New("gateway connector path is not set")
-	}
-	if g.GatewayConnectorOutput.Port == 0 {
-		return errors.New("gateway connector port is not set")
+	if g.GatewayConnectorOutput != nil {
+		if g.GatewayConnectorOutput.Path == "" {
+			return errors.New("gateway connector path is not set")
+		}
+		if g.GatewayConnectorOutput.Port == 0 {
+			return errors.New("gateway connector port is not set")
+		}
 	}
 
 	return nil
@@ -324,9 +326,9 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.ForwarderAddress == (common.Address{}) {
 		return errors.New("forwarder address not set")
 	}
-	if g.GatewayConnectorOutput == nil {
-		return errors.New("gateway connector output not set")
-	}
+	//if g.GatewayConnectorOutput == nil {
+	//	return errors.New("gateway connector output not set")
+	//}
 
 	return nil
 }

@@ -1,14 +1,14 @@
 package por
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
-
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput, loadFeedAddresses [][]string) (types.DonsToJobSpecs, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -46,10 +46,13 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpe
 					return nil, errors.Wrap(ethAddressErr, "failed to get eth address from labels")
 				}
 			}
-			gatewayConnectorData.Dons = append(gatewayConnectorData.Dons, types.GatewayConnectorDons{
-				MembersEthAddresses: ethAddresses,
-				ID:                  donWithMetadata.DonMetadata.ID,
-			})
+			if gatewayConnectorData != nil {
+				gatewayConnectorData.Dons = append(gatewayConnectorData.Dons, types.GatewayConnectorDons{
+					MembersEthAddresses: ethAddresses,
+					ID:                  donWithMetadata.DonMetadata.ID,
+				})
+			}
+
 		}
 	}
 
@@ -62,6 +65,7 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpe
 			input.ExtraAllowedPorts,
 			input.ExtraAllowedIPs,
 			gatewayConnectorData,
+			loadFeedAddresses,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate job specs for don %d", donWithMetadata.DonMetadata.ID)
@@ -83,7 +87,8 @@ func generateDonJobSpecs(
 	cronCapBinName string,
 	extraAllowedPorts []int,
 	extraAllowedIPs []string,
-	gatewayConnectorOutput types.GatewayConnectorOutput,
+	gatewayConnectorOutput *types.GatewayConnectorOutput,
+	loadFeedAddresses [][]string,
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs)
 
@@ -105,7 +110,7 @@ func generateDonJobSpecs(
 			return nil, errors.Wrap(gatewayErr, "failed to get gateway node id from labels")
 		}
 
-		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, gatewayConnectorOutput)}
+		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, *gatewayConnectorOutput)}
 	}
 
 	// if it's only a gateway node, we don't need to create any other job specs
@@ -222,14 +227,17 @@ func generateDonJobSpecs(
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
-			jobSpec := jobs.TextWorkflow(nodeID)
-			jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
+			for i := range loadFeedAddresses {
+				jobSpec := jobs.TextWorkflow(nodeID, fmt.Sprintf("load_%d", i), loadFeedAddresses[i])
+				jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
 
-			if _, ok := jobSpecs[jobDesc]; !ok {
-				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-			} else {
-				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+				if _, ok := jobSpecs[jobDesc]; !ok {
+					jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
+				} else {
+					jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+				}
 			}
+
 		}
 
 	}
