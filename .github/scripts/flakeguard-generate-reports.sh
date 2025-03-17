@@ -33,7 +33,6 @@ flakeguard generate-test-report \
   --output-path "${MATRIX_TYPE_CMD}_flakeguard_report/main" \
   --codeowners-path "$GITHUB_WORKSPACE/.github/CODEOWNERS" \
   --repo-path "$GITHUB_WORKSPACE" \
-  --repo-url "$GH_INPUTS_REPO_URL" \
   --branch-name "$BRANCH_NAME" \
   --head-sha "$GITHUB_SHA" \
   --github-workflow-name "$GITHUB_WORKFLOW" \
