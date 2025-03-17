@@ -50,13 +50,12 @@ func prepareChaos(t *testing.T) (*ccip.Config, *havoc.NamespaceScopedChaosRunner
 }
 
 func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter time.Duration) {
-	config, cr, gc := prepareChaos(t)
+	config, cr, _ := prepareChaos(t)
 	cfg := config.Chaos
 
 	testCases := []struct {
-		name     string
-		run      func(t *testing.T)
-		validate func(t *testing.T)
+		name string
+		run  func(t *testing.T)
 	}{
 		{
 			name: "Realistic RPC Latency",
@@ -71,9 +70,10 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 						Correlation:       "0",
 						InjectionDuration: testDuration,
 					})
-				assert.NoError(t, err)
+				if err != nil {
+					t.Error("Failed to inject rpc latency", err)
+				}
 			},
-			validate: func(t *testing.T) {},
 		},
 	}
 
@@ -83,12 +83,8 @@ func runRealisticRPCLatencySuite(t *testing.T, testDuration, latency, jitter tim
 	// Run test cases
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
-			n := time.Now()
 			testCase.run(t)
 			time.Sleep(testDuration)
-			_, _, err := gc.Annotate(a(cfg.Namespace, testCase.name, cfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			assert.NoError(t, err)
-			testCase.validate(t)
 		})
 	}
 }
@@ -124,10 +120,14 @@ func runFullChaosSuite(t *testing.T) {
 			t.Run(tcName, func(t *testing.T) {
 				n := time.Now()
 				err := r.GethSetHead(blocks)
-				assert.NoError(t, err)
+				if err != nil {
+					t.Error("Failed to set block head on geth", err)
+				}
 				time.Sleep(chaosCfg.GetExperimentInterval())
 				_, _, err = gc.Annotate(a(chaosCfg.Namespace, tcName, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-				assert.NoError(t, err)
+				if err != nil {
+					t.Error("Failed to annotate grafana with chaos labels", err)
+				}
 			})
 		}
 	}
@@ -395,7 +395,9 @@ func runFullChaosSuite(t *testing.T) {
 			testCase.run(t)
 			time.Sleep(chaosCfg.GetExperimentInterval())
 			_, _, err := gc.Annotate(a(chaosCfg.Namespace, testCase.name, chaosCfg.DashboardUIDs, Ptr(n), Ptr(time.Now())))
-			assert.NoError(t, err)
+			if err != nil {
+				t.Error("Failed to annotate grafana with chaos labels", err)
+			}
 			testCase.validate(t)
 		})
 	}
