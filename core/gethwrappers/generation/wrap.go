@@ -21,7 +21,7 @@ func main() {
 	}
 
 	// Once vrf is moved to its own subfolder we can delete this rootDir override.
-	if project == "vrf" {
+	if project == "vrf" || project == "automation" {
 		rootDir = "../../contracts/solc/"
 	}
 

@@ -497,7 +497,7 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 
 	decodedMap, err := ExtraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
 	require.NoError(t, err)
-	gasLimit, err := parseExtraDataMap(decodedMap)
+	gasLimit, err := parseExtraArgsMap(decodedMap)
 	require.NoError(t, err)
 
 	return message_hasher.InternalAny2EVMRampMessage{
