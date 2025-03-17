@@ -1021,7 +1021,7 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse_Uncurse$
     path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
     test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 20m -count=1 -test.parallel=1 -json
