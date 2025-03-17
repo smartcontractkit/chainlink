@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -41,12 +42,13 @@ type GetChainReaderWriter interface {
 
 // PluginConfig is a struct that contains the configuration for a plugin.
 type PluginConfig struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	CommitPluginCodec          cciptypes.CommitPluginCodec
+	ExecutePluginCodec         cciptypes.ExecutePluginCodec
+	MessageHasher              func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder           cciptypes.TokenDataEncoder
+	GasEstimateProvider        cciptypes.EstimateProvider
+	RMNCrypto                  func(lggr logger.Logger) cciptypes.RMNCrypto
+	ContractTransmitterFactory cctypes.ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn    string
 	GetChainReaderWriter GetChainReaderWriter

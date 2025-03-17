@@ -69,6 +69,21 @@ optimizer_runs = 10_000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
 
+[profile.automation-compile-12]
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-21]
+solc_version = '0.8.16'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-22]
+solc_version = '0.8.19'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
 [profile.l2ep]
 solc_version = '0.8.24'
 optimizer_runs = 1_000_000

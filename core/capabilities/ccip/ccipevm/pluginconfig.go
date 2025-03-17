@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -36,10 +37,11 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return NewMessageHasherV1(lggr, p.extraDataCodec)
 		},
-		TokenDataEncoder:     NewEVMTokenDataEncoder(),
-		GasEstimateProvider:  NewGasEstimateProvider(p.extraDataCodec),
-		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return NewEVMRMNCrypto(lggr) },
-		GetChainReaderWriter: GetCRCW{},
+		TokenDataEncoder:           NewEVMTokenDataEncoder(),
+		GasEstimateProvider:        NewGasEstimateProvider(p.extraDataCodec),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return NewEVMRMNCrypto(lggr) },
+		ContractTransmitterFactory: ocrimpls.NewEVMContractTransmitterFactory(p.extraDataCodec),
+		GetChainReaderWriter:       GetCRCW{},
 	}
 }
 

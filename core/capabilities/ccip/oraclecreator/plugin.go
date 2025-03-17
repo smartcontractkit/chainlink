@@ -297,7 +297,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
+		transmitter = pluginConfig.ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -322,7 +322,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, destChainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
+		transmitter = pluginConfig.ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)

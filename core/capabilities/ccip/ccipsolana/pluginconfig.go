@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -35,10 +36,11 @@ func (p PluginConfig) InitializePluginConfig() ccipcommon.PluginConfig {
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return NewMessageHasherV1(lggr, p.extraDataCodec)
 		},
-		TokenDataEncoder:     NewSolanaTokenDataEncoder(),
-		GasEstimateProvider:  NewGasEstimateProvider(),
-		RMNCrypto:            func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		GetChainReaderWriter: GetCRCW{},
+		TokenDataEncoder:           NewSolanaTokenDataEncoder(),
+		GasEstimateProvider:        NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		ContractTransmitterFactory: ocrimpls.NewSVMContractTransmitterFactory(p.extraDataCodec),
+		GetChainReaderWriter:       GetCRCW{},
 	}
 }
 
