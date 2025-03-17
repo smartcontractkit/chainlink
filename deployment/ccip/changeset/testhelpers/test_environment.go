@@ -543,10 +543,11 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	envNodes, err := deployment.NodeInfo(e.Env.NodeIDs, e.Env.Offchain)
 	require.NoError(t, err)
 
-	downloadSolCcipProgramArtifactsOnce.Do(func() {
-		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath)
-		require.NoError(t, err)
-	})
+  // TODO: uncomment
+	// downloadSolCcipProgramArtifactsOnce.Do(func() {
+	// 	err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath)
+	// 	require.NoError(t, err)
+	// })
 
 	// Need to deploy prerequisites first so that we can form the USDC config
 	// no proposals to be made, timelock can be passed as nil here
