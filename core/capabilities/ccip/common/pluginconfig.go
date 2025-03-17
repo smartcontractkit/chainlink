@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
