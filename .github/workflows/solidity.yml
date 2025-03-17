@@ -151,10 +151,6 @@ jobs:
         working-directory: ./chainlink/contracts
         run: make wrappers-all
 
-      - name: Verify local solc binaries
-        working-directory: chainlink
-        run: ./tools/ci/check_solc_hashes
-
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}
         working-directory: chainlink

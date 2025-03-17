@@ -22,7 +22,6 @@ type SetDefaultCodeVersionConfig struct {
 	ChainSelector uint64
 	VersionEnum   uint8
 	MCMSSolana    *MCMSConfigSolana
-	TestRouter    bool
 }
 
 func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error {
@@ -32,7 +31,7 @@ func (cfg SetDefaultCodeVersionConfig) Validate(e deployment.Environment) error 
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	if err := validateOffRampConfig(chain, chainState); err != nil {
@@ -171,7 +170,6 @@ type UpdateSvmChainSelectorConfig struct {
 	OldChainSelector uint64
 	NewChainSelector uint64
 	MCMSSolana       *MCMSConfigSolana
-	TestRouter       bool
 }
 
 func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error {
@@ -181,7 +179,7 @@ func (cfg UpdateSvmChainSelectorConfig) Validate(e deployment.Environment) error
 	}
 	chainState := state.SolChains[cfg.OldChainSelector]
 	chain := e.SolChains[cfg.OldChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	if err := validateOffRampConfig(chain, chainState); err != nil {
@@ -377,7 +375,6 @@ type ConfigureCCIPVersionConfig struct {
 	DestChainSelector uint64
 	Operation         CCIPVersionOp
 	MCMSSolana        *MCMSConfigSolana
-	TestRouter        bool
 }
 
 func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
@@ -387,7 +384,7 @@ func (cfg ConfigureCCIPVersionConfig) Validate(e deployment.Environment) error {
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	routerDestChainPDA, err := solState.FindDestChainStatePDA(cfg.DestChainSelector, chainState.Router)
@@ -482,7 +479,6 @@ type RemoveOffRampConfig struct {
 	ChainSelector uint64
 	OffRamp       solana.PublicKey
 	MCMSSolana    *MCMSConfigSolana
-	TestRouter    bool
 }
 
 func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
@@ -492,7 +488,7 @@ func (cfg RemoveOffRampConfig) Validate(e deployment.Environment) error {
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	return ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, solana.PublicKey{})

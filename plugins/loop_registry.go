@@ -8,6 +8,7 @@ import (
 
 	"github.com/hashicorp/consul/sdk/freeport"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
@@ -74,7 +75,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 
 	if m.cfgDatabase != nil {
 		dbURL := m.cfgDatabase.URL()
-		envCfg.DatabaseURL = &dbURL
+		envCfg.DatabaseURL = (*commonconfig.SecretURL)(&dbURL)
 		envCfg.DatabaseIdleInTxSessionTimeout = m.cfgDatabase.DefaultIdleInTxSessionTimeout()
 		envCfg.DatabaseLockTimeout = m.cfgDatabase.DefaultLockTimeout()
 		envCfg.DatabaseQueryTimeout = m.cfgDatabase.DefaultQueryTimeout()
@@ -102,7 +103,7 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 		envCfg.TelemetryEmitterExportTimeout = m.cfgTelemetry.EmitterExportTimeout()
 		envCfg.TelemetryAuthPubKeyHex = m.telemetryAuthPubKeyHex
 	}
-	m.lggr.Debugf("Registered loopp %q with config %v, port %d", id, envCfg, envCfg.PrometheusPort)
+	m.lggr.Debugf("Registered loopp %q with port %d", id, envCfg.PrometheusPort)
 
 	// Add auth header after logging config
 	if m.cfgTelemetry != nil {

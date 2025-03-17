@@ -25,7 +25,6 @@ const (
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
-	cs.TestRouter:                  "programs/ccip-router/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
 	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
 	cs.BurnMintTokenPool:           "programs/example-burnmint-token-pool/src/lib.rs",
@@ -137,13 +136,10 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment, testRouter bool) error {
+func buildProject(e deployment.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
 	args := []string{"docker-build-contracts"}
-	if testRouter {
-		args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
-	}
 	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
@@ -160,22 +156,6 @@ type BuildSolanaConfig struct {
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
 	UpgradeKeys map[deployment.ContractType]string
-	TestRouter  bool
-}
-
-func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
-	// Filter files to only include those with "router" in the name
-	// ccip_router.so, ccip_router-keypair.json
-	var routerFiles []os.DirEntry
-
-	// Compile the regex pattern once
-	re := regexp.MustCompile(`(?i)router`)
-	for _, file := range files {
-		if re.MatchString(file.Name()) {
-			routerFiles = append(routerFiles, file)
-		}
-	}
-	return routerFiles, nil
 }
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
@@ -196,7 +176,7 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	}
 
 	// Build the project with Anchor
-	if err := buildProject(e, config.TestRouter); err != nil {
+	if err := buildProject(e); err != nil {
 		return fmt.Errorf("error building project: %w", err)
 	}
 
@@ -223,13 +203,6 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	files, err := os.ReadDir(deployFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read deploy directory: %w", err)
-	}
-
-	if config.TestRouter {
-		files, err = filterRouterFiles(files)
-		if err != nil {
-			return fmt.Errorf("failed to filter router files: %w", err)
-		}
 	}
 
 	for _, file := range files {

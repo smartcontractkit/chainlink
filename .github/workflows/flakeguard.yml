@@ -133,7 +133,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df5b0374ca878f1f3f4982b9a00f16844549e176 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -335,7 +335,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df5b0374ca878f1f3f4982b9a00f16844549e176 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -345,6 +345,11 @@ jobs:
           GH_INPUTS_MAX_PASS_RATIO: ${{ inputs.maxPassRatio }}
           CL_DATABASE_URL: ${{ env.DB_URL }}
         run: |
+          # Ensure that any failure in a pipeline is detected.
+          set -o pipefail
+          # Do not exit immediately on command failure so we can capture the exit code.
+          set +e
+
           flakeguard run \
             --ignore-parent-failures-on-subtests=true \
             --project-path=$GH_INPUTS_PROJECT_PATH \
@@ -355,7 +360,7 @@ jobs:
             --shuffle=${{ env.RUN_WITH_SHUFFLE }} \
             --shuffle-seed=${{ env.SHUFFLE_SEED }} \
             --skip-tests=${{ env.SKIPPED_TESTS }} \
-            --output-json=test-result.json \
+            --main-results-path=test-result.json \
             --omit-test-outputs-on-success=${{ env.OMIT_TEST_OUTPUTS_ON_SUCCESS }}
 
           # Output the status of the flakeguard run to files so that the next step can aggregate them and act accordingly
@@ -424,7 +429,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@f37328505de41f1ffc2bc7fac371391d2d865520 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df5b0374ca878f1f3f4982b9a00f16844549e176 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -440,21 +445,21 @@ jobs:
           PATH=$PATH:$(go env GOPATH)/bin
           export PATH
 
-          current_branch_name="${{ github.head_ref || github.ref_name }} "
-
-          # Aggregate Flakeguard test results
-          flakeguard aggregate-results \
-            --results-path ./ci_test_results \
+          # Aggregate all Flakeguard test results into a single report
+          flakeguard generate-test-report \
+            --test-results-dir ./ci_test_results \
             --output-path ./flakeguard-report \
             --repo-path "${{ github.workspace }}" \
             --codeowners-path "${{ github.workspace }}/.github/CODEOWNERS" \
             --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO" \
             --repo-url "$GH_INPUTS_REPO_URL" \
-            --branch-name "$current_branch_name" \
+            --branch-name "${{ github.head_ref || github.ref_name }}" \
             --base-sha "${{ needs.get-tests.outputs.git_base_sha }}" \
             --head-sha "${{ needs.get-tests.outputs.git_head_sha }}" \
             --github-workflow-name "${{ github.workflow }}" \
             --github-workflow-run-url "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" \
+            --gen-report-id \
+
           EXIT_CODE=$?
           if [ $EXIT_CODE -eq 2 ]; then
             echo "ERROR: Flakeguard encountered an error while aggregating results"
@@ -464,37 +469,37 @@ jobs:
 
           # Print out the summary file
           echo -e "\nFlakeguard Summary:"
-          jq .summary_data ./flakeguard-report/all-test-results.json
+          jq .summary_data ./flakeguard-report/all-test-report.json
 
           # Read the summary from the generated report
-          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-results.json)
+          summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-report.json)
           echo "summary=$summary" >> $GITHUB_OUTPUT
 
-      - name: Upload All Test Results as Artifact
+      - name: Upload All Test Report as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/all-test-results.json
-          name: all-test-results-${{ needs.get-tests.outputs.workflow_id }}.json
+          path: ./flakeguard-report/all-test-report.json
+          name: all-test-report-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Upload Failed Test Results as Artifact
+      - name: Upload Failed Test Report as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/failed-test-results.json
-          name: failed-test-results-${{ needs.get-tests.outputs.workflow_id }}.json
+          path: ./flakeguard-report/failed-test-report.json
+          name: failed-test-report-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Upload Failed Test Results With Logs as Artifact
+      - name: Upload Failed Test Report With Logs as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         uses: actions/upload-artifact@v4
         with:
-          path: ./flakeguard-report/failed-test-results-with-logs.json
-          name: failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
+          path: ./flakeguard-report/failed-test-report-with-logs.json
+          name: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
 
-      - name: Get GitHub Failed Test Results Artifact Link
+      - name: Get GitHub Failed Test Report Artifact Link
         id: get-failed-logs-url
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
         shell: bash
@@ -503,7 +508,7 @@ jobs:
           ARTIFACT_LINK=$(flakeguard get-gh-artifact \
             --github-repository "${{ github.repository }}" \
             --github-run-id "${{ github.run_id }}" \
-            --failed-tests-artifact-name "failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json")
+            --failed-tests-artifact-name "failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json")
           
           echo "Artifact link is: $ARTIFACT_LINK"
           echo "url=$ARTIFACT_LINK" >> $GITHUB_OUTPUT
@@ -520,7 +525,7 @@ jobs:
 
           # Send the aggregated test report to Splunk
           flakeguard send-to-splunk \
-            --report-path ./flakeguard-report/all-test-results.json \
+            --report-path ./flakeguard-report/all-test-report.json \
             --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
             --splunk-url "${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}" \
             --splunk-token "${{ secrets.FLAKEGUARD_SPLUNK_HEC }}" \
@@ -531,7 +536,7 @@ jobs:
             exit $EXIT_CODE
           fi
 
-      - name: Generate Flakeguard Reports
+      - name: Generate Flakeguard Github Reports
         shell: bash
         if: success() || failure()
         id: generate-report
@@ -548,13 +553,13 @@ jobs:
 
           # Check if the event is a pull request
           if [ "$GH_EVENT_NAME" = "pull_request" ]; then
-            flakeguard generate-report \
-              --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --output-path ./flakeguard-report \
+            flakeguard generate-github-report \
+              --flakeguard-report ./flakeguard-report/all-test-report.json \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
               --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \
-              --generate-pr-comment \
+              --pr-comment-md-path ./flakeguard-report/all-test-pr-comment.md \
               --base-branch "$GH_EVENT_PULL_REQUEST_BASE_REF" \
               --current-branch "${{ github.head_ref }}" \
               --current-commit-sha "$GH_EVENT_PULL_REQUEST_HEAD_SHA" \
@@ -562,9 +567,9 @@ jobs:
               --action-run-id "${{ github.run_id }}" \
               --max-pass-ratio "$GH_INPUTS_MAX_PASS_RATIO"
           else
-            flakeguard generate-report \
-              --aggregated-results-path ./flakeguard-report/all-test-results.json \
-              --output-path ./flakeguard-report \
+            flakeguard generate-github-report \
+              --flakeguard-report ./flakeguard-report/all-test-report.json \
+              --summary-report-md-path ./flakeguard-report/all-test-summary.md \
               --github-repository "${{ github.repository }}" \
               --github-run-id "${{ github.run_id }}" \
               --failed-logs-url "${{ steps.get-failed-logs-url.outputs.url }}" \

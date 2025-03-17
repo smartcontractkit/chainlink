@@ -39,7 +39,7 @@ var (
 	// Used for only testing with simulated chains
 	OcrParamsForTest = CCIPOCRParams{
 		OCRParameters: types.OCRParameters{
-			DeltaProgress:                           10 * time.Second,
+			DeltaProgress:                           30 * time.Second, // Lower DeltaProgress can lead to timeouts when running tests locally
 			DeltaResend:                             10 * time.Second,
 			DeltaInitial:                            20 * time.Second,
 			DeltaRound:                              2 * time.Second,

@@ -27,6 +27,7 @@ func (ct ContractType) String() string {
 }
 
 var (
+	Version0_5_0 = *semver.MustParse("0.5.0")
 	Version1_0_0 = *semver.MustParse("1.0.0")
 	Version1_1_0 = *semver.MustParse("1.1.0")
 	Version1_2_0 = *semver.MustParse("1.2.0")

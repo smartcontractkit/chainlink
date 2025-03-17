@@ -68,6 +68,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_ethusd_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/mock_v3_aggregator_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 
@@ -88,6 +89,8 @@ var (
 	DefaultLinkPrice = deployment.E18Mult(20)
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
+
+	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -1309,6 +1312,26 @@ func NewMintTokenWithCustomSender(auth *bind.TransactOpts, sender *bind.Transact
 	return MintTokenInfo{auth: auth, sender: sender, tokens: tokens}
 }
 
+// ApproveToken approves the router to spend the given amount of tokens
+func ApproveToken(env deployment.Environment, src uint64, tokenAddress common.Address, routerAddress common.Address, amount *big.Int) error {
+	token, err := erc20.NewERC20(tokenAddress, env.Chains[src].Client)
+	if err != nil {
+		return err
+	}
+
+	tx, err := token.Approve(env.Chains[src].DeployerKey, routerAddress, amount)
+	if err != nil {
+		return err
+	}
+
+	_, err = env.Chains[src].Confirm(tx)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // MintAndAllow mints tokens for deployers and allow router to spend them
 func MintAndAllow(
 	t *testing.T,
@@ -1677,7 +1700,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
-			FindReceiverTargetAccount(chainState.Receiver),
+			changeset.FindReceiverTargetAccount(chainState.Receiver),
 			externalExecutionConfigPDA,
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
 			solana.SystemProgramID,
@@ -1686,11 +1709,6 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
 		require.NoError(t, err)
 	}
-}
-
-func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
-	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
-	return receiverTargetAccount
 }
 
 func TransferOwnershipSolana(

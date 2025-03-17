@@ -21,6 +21,7 @@ const (
 	MessageDonIdMaxLen            = 64
 	MessageReceiverLen            = 2 + 2*20
 	NullChar                      = "\x00"
+	MethodInternalError           = "internal_error"
 )
 
 /*

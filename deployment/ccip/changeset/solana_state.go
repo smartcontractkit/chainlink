@@ -63,8 +63,7 @@ type SolCCIPChainState struct {
 	FeeAggregator solana.PublicKey
 
 	// test programs
-	TestRouter solana.PublicKey
-	Receiver   solana.PublicKey // for tests only
+	Receiver solana.PublicKey
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -136,9 +135,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case TestRouter:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -357,18 +353,7 @@ func ValidateOwnershipSolana(
 	return nil
 }
 
-func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (router, routerConfigPDA solana.PublicKey, err error) {
-	if testRouter {
-		if s.TestRouter.IsZero() {
-			return solana.PublicKey{}, solana.PublicKey{}, errors.New("test router not found in existing state, deploy the test router first")
-		}
-		routerConfigPDA, _, err = solState.FindConfigPDA(s.TestRouter)
-		if err != nil {
-			return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
-		}
-		return s.TestRouter, routerConfigPDA, nil
-	}
-
+func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.PublicKey, err error) {
 	if s.Router.IsZero() {
 		return solana.PublicKey{}, solana.PublicKey{}, errors.New("router not found in existing state, deploy the router first")
 	}
@@ -377,4 +362,9 @@ func (s SolCCIPChainState) GetRouterInfo(testRouter bool) (router, routerConfigP
 		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
 	}
 	return s.Router, routerConfigPDA, nil
+}
+
+func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
+	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
+	return receiverTargetAccount
 }
