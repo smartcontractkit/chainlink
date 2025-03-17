@@ -301,7 +301,7 @@ func ExecuteMCMSTimelockProposalV2(t *testing.T, env deployment.Environment, tim
 		}
 	}
 
-	timelockExecutable, err := mcmslib.NewTimelockExecutable(timelockProposal, executorsMap)
+	timelockExecutable, err := mcmslib.NewTimelockExecutable(env.GetContext(), timelockProposal, executorsMap)
 	require.NoError(t, err)
 
 	require.Eventually(t, func() bool {

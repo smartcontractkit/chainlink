@@ -74,7 +74,7 @@ func GetPolygonEdgeRLPHeader(jsonRPCClient *rpc.Client, blockNum *big.Int) (rlpH
 	var h PolygonEdgeHeader
 	err = jsonRPCClient.Call(&h, "eth_getBlockByNumber", "0x"+blockNum.Text(16), true)
 	if err != nil {
-		return nil, "", fmt.Errorf("failed to get poloygon-edge header: %+v", err)
+		return nil, "", fmt.Errorf("failed to get poloygon-edge header: %w", err)
 	}
 
 	ar := &fastrlp.Arena{}
@@ -113,11 +113,11 @@ func MarshalRLPWith(arena *fastrlp.Arena, h *PolygonEdgeHeader) (*fastrlp.Value,
 
 	extraDataBytes, err := h.ExtraData.Decode()
 	if err != nil {
-		return nil, fmt.Errorf("failed to hex decode polygon-edge ExtraData: %+v", err)
+		return nil, fmt.Errorf("failed to hex decode polygon-edge ExtraData: %w", err)
 	}
 	extraDataBytes, err = GetIbftExtraClean(extraDataBytes)
 	if err != nil {
-		return nil, fmt.Errorf("GetIbftExtraClean error : %+v", err)
+		return nil, fmt.Errorf("GetIbftExtraClean error : %w", err)
 	}
 	vv.Set(arena.NewCopyBytes(extraDataBytes))
 	vv.Set(arena.NewCopyBytes(h.MixHash.Bytes()))
@@ -125,7 +125,7 @@ func MarshalRLPWith(arena *fastrlp.Arena, h *PolygonEdgeHeader) (*fastrlp.Value,
 	nonceHexString := h.Nonce.String()
 	nonceBytes, err := hexutil.Decode(nonceHexString)
 	if err != nil {
-		return nil, fmt.Errorf("failed to hex decode polygon-edge ExtraData: %+v", err)
+		return nil, fmt.Errorf("failed to hex decode polygon-edge ExtraData: %w", err)
 	}
 	vv.Set(arena.NewCopyBytes(nonceBytes))
 
@@ -158,7 +158,7 @@ func GetIbftExtraClean(extra []byte) (cleanedExtra []byte, err error) {
 	hexExtra = strings.TrimLeft(hexExtra, "0")
 	extra, err = hex.DecodeString(hexExtra)
 	if err != nil {
-		return nil, fmt.Errorf("invalid extra data in polygon-edge chain: %+v", err)
+		return nil, fmt.Errorf("invalid extra data in polygon-edge chain: %w", err)
 	}
 
 	var extraData []interface{}

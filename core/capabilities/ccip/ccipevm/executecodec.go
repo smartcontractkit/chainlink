@@ -104,7 +104,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
-			gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+			gasLimit, err := parseExtraArgsMap(decodedExtraArgsMap)
 			if err != nil {
 				return nil, fmt.Errorf("decode extra args to get gas limit: %w", err)
 			}

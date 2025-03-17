@@ -477,13 +477,13 @@ func (h *eventHandler) workflowRegisteredEvent(
 	if payload.SecretsURL != "" {
 		fetchedSecrets, fetchErr := h.fetchFn(ctx, payload.SecretsURL, safeUint32(h.limits.MaxSecretsSize))
 		if fetchErr != nil {
-			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, err)
+			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, fetchErr)
 		}
 
 		// sanity check by decoding the secrets
-		_, decryptErr := h.decryptSecrets(secrets, string(payload.WorkflowOwner))
+		_, decryptErr := h.decryptSecrets(fetchedSecrets, hex.EncodeToString(payload.WorkflowOwner))
 		if decryptErr != nil {
-			return fmt.Errorf("failed to decrypt secrets %s: %w", payload.SecretsURL, err)
+			return fmt.Errorf("failed to decrypt secrets %s: %w", payload.SecretsURL, decryptErr)
 		}
 		secrets = fetchedSecrets
 	}
