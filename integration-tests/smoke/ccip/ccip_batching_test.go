@@ -282,7 +282,7 @@ func Test_CCIPBatching_SingleSource(t *testing.T) {
 	ccipBatchingSingleSource(t)
 }
 
-func Test_CCIPBatching_SingleSource_MultiplReports(t *testing.T) {
+func Test_CCIPBatching_SingleSource_MultipleReports(t *testing.T) {
 	opt := testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 		params.CommitOffChainConfig.MultipleReportsEnabled = true
 		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
