@@ -284,11 +284,76 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
+          USE_FLAKEGUARD: true 
         run: |
           # See: https://github.com/golang/go/issues/69179
           GODEBUG=goindex=0
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
+      - name: Generate Flakeguard Test Reports
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        env:
+          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_WORKFLOW: ${{ github.workflow }}
+          GITHUB_SERVER_URL: ${{ github.server_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_HEAD_REF: ${{ github.head_ref }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: ./.github/scripts/flakeguard-generate-reports.sh   
+
+      - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore 
+          
+      - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json
+          retention-days: 7
+          if-no-files-found: ignore           
+
+      - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
+          retention-days: 7
+          if-no-files-found: ignore
+          
+      - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
+          path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json
+          retention-days: 7
+          if-no-files-found: ignore          
+
+      - name: Send Flakeguard Reports to Splunk
+        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
+          GITHUB_WORKSPACE: ${{ github.workspace }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
+          FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+        run: ./.github/scripts/flakeguard-send-report-to-splunk.sh
+        
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
