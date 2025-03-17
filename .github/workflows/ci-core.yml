@@ -237,13 +237,6 @@ jobs:
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        # do not build for core tests, core 'integration' tests, or fuzz tests
-        if: ${{ matrix.type.should-run == 'true' && matrix.type.build-solana-artifacts == 'true' }}
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-wasmd
