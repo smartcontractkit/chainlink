@@ -19,8 +19,8 @@ func Test_MergeWithOverrides(t *testing.T) {
 	assert.Equal(t, ExecOCRParams.MaxDurationShouldTransmitAcceptedReport, ExecOCRParamsForEthereum.MaxDurationShouldTransmitAcceptedReport)
 	assert.Equal(t, ExecOCRParams.MaxDurationQuery, ExecOCRParamsForEthereum.MaxDurationQuery)
 
-	assert.Equal(t, 15*time.Second, ExecOCRParamsForEthereum.DeltaRound)
+	assert.Equal(t, 5*time.Second, ExecOCRParamsForEthereum.DeltaRound)
 	assert.Equal(t, 25*time.Second, ExecOCRParamsForEthereum.DeltaStage)
-	assert.Equal(t, 1*time.Microsecond, ExecOCRParams.MaxDurationQuery)
-	assert.Equal(t, 1*time.Microsecond, ExecOCRParamsForEthereum.MaxDurationQuery)
+	assert.Equal(t, 100*time.Millisecond, ExecOCRParams.MaxDurationQuery)
+	assert.Equal(t, 100*time.Millisecond, ExecOCRParamsForEthereum.MaxDurationQuery)
 }
