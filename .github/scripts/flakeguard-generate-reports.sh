@@ -27,6 +27,8 @@ fi
 MAIN_REPORT_ID=$(uuidgen)
 echo "Using Main Report ID: $MAIN_REPORT_ID"
 
+go get github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f6887061b2ea2ac7f0849f539fe36a8f6c7054f
+
 # Generate the main test report
 flakeguard generate-test-report \
   --test-results-dir "${MATRIX_TYPE_CMD}_flakeguard_results/main/test_results.json" \
