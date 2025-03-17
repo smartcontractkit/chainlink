@@ -28,11 +28,11 @@ var (
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
 )
 
-// ExtraDataCodec is a helper struct for decoding extra data
-type ExtraDataCodec struct{}
+// ExtraDataDecoder is a helper struct for decoding extra data
+type ExtraDataDecoder struct{}
 
 // DecodeExtraArgsToMap is a helper function for converting Borsh encoded extra args bytes into map[string]any
-func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
@@ -73,7 +73,7 @@ func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[str
 }
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
-func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
 	return map[string]interface{}{
 		svmDestExecDataKey: bytesToUint32BE(destExecData),
 	}, nil

@@ -4,8 +4,15 @@ import (
 	"fmt"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
+
+// ChainSpecificAddressCodec is an interface that defines the methods for encoding and decoding addresses
+type ChainSpecificAddressCodec interface {
+	AddressBytesToString([]byte) (string, error)
+	AddressStringToBytes(string) ([]byte, error)
+}
 
 // AddressCodec is a struct that holds the chain specific address codecs
 type AddressCodec struct {
@@ -13,11 +20,25 @@ type AddressCodec struct {
 	SolanaAddressCodec ChainSpecificAddressCodec
 }
 
-// NewAddressCodec is a constructor for NewAddressCodec
-func NewAddressCodec(evmAddrCodec, solanaAddrCodec ChainSpecificAddressCodec) AddressCodec {
+// AddressCodecParams is a struct that holds the parameters for creating a AddressCodec
+type AddressCodecParams struct {
+	evmAddressCodec    ChainSpecificAddressCodec
+	solanaAddressCodec ChainSpecificAddressCodec
+}
+
+// NewAddressCodecParams is a constructor for AddressCodecParams
+func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
+	return AddressCodecParams{
+		evmAddressCodec:    evmAddressCodec,
+		solanaAddressCodec: solanaAddressCodec,
+	}
+}
+
+// NewAddressCodec is a constructor for AddressCodec
+func NewAddressCodec(params AddressCodecParams) AddressCodec {
 	return AddressCodec{
-		EVMAddressCodec:    evmAddrCodec,
-		SolanaAddressCodec: solanaAddrCodec,
+		EVMAddressCodec:    params.evmAddressCodec,
+		SolanaAddressCodec: params.solanaAddressCodec,
 	}
 }
 

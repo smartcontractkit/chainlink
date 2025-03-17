@@ -120,12 +120,6 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			initialDeployConfig,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployForTest),
-			ccipChangesetSolana.DeployForTestConfig{
-				ChainSelector: solChainSelectors[0],
-			},
-		),
-		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
 			ccipChangesetSolana.SetFeeAggregatorConfig{
 				ChainSelector: solChainSelectors[0],

@@ -19,44 +19,41 @@ type ProposalData struct {
 	tx       *gethTypes.Transaction
 }
 
-// MultiChainProposalConfig is a map of chain selector to a list of proposals to be executed on that chain
-type MultiChainProposalConfig map[uint64][]ProposalData
-
-func BuildMultiChainProposals(env deployment.Environment, description string, proposalConfig MultiChainProposalConfig, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
+func BuildMCMProposals(env deployment.Environment, description string, chainSelector uint64, pd []ProposalData, minDelay time.Duration) (*mcmslib.TimelockProposal, error) {
 	state, _ := LoadOnchainState(env)
+	chain := env.Chains[chainSelector]
+	chainState := state.Chains[chainSelector]
 
-	var timelocksPerChain = map[uint64]string{}
-	var proposerMCMSes = map[uint64]string{}
-	var inspectorPerChain = map[uint64]sdk.Inspector{}
-	var batches []mcmstypes.BatchOperation
-
-	for chainSelector, proposalData := range proposalConfig {
-		chain := env.Chains[chainSelector]
-		chainState := state.Chains[chainSelector]
-
-		inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
-		timelocksPerChain[chainSelector] = chainState.Timelock.Address().Hex()
-		proposerMCMSes[chainSelector] = chainState.ProposerMcm.Address().Hex()
-
-		var transactions []mcmstypes.Transaction
-		for _, proposal := range proposalData {
-			transactions = append(transactions, mcmstypes.Transaction{
-				To:               proposal.contract,
-				Data:             proposal.tx.Data(),
-				AdditionalFields: json.RawMessage(`{"value": 0}`),
-			})
-		}
-		batches = append(batches, mcmstypes.BatchOperation{
-			ChainSelector: mcmstypes.ChainSelector(chainSelector),
-			Transactions:  transactions,
+	var transactions []mcmstypes.Transaction
+	for _, proposal := range pd {
+		transactions = append(transactions, mcmstypes.Transaction{
+			To:               proposal.contract,
+			Data:             proposal.tx.Data(),
+			AdditionalFields: json.RawMessage(`{"value": 0}`),
 		})
 	}
+
+	ops := &mcmstypes.BatchOperation{
+		ChainSelector: mcmstypes.ChainSelector(chainSelector),
+		Transactions:  transactions,
+	}
+
+	timelocksPerChain := map[uint64]string{
+		chainSelector: chainState.Timelock.Address().Hex(),
+	}
+	proposerMCMSes := map[uint64]string{
+		chainSelector: chainState.ProposerMcm.Address().Hex(),
+	}
+
+	inspectorPerChain := map[uint64]sdk.Inspector{}
+	inspectorPerChain[chainSelector] = evm.NewInspector(chain.Client)
+
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(
 		env,
 		timelocksPerChain,
 		proposerMCMSes,
 		inspectorPerChain,
-		batches,
+		[]mcmstypes.BatchOperation{*ops},
 		description,
 		minDelay,
 	)

@@ -29,16 +29,12 @@ func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipCon
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 	}
 
-	proposalConfig := MultiChainProposalConfig{
-		c.ChainSelector: []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
-			},
+	proposal, err := BuildMCMProposals(env, "accept ownership to timelock", c.ChainSelector, []ProposalData{
+		{
+			contract: c.ContractAddress.Hex(),
+			tx:       tx,
 		},
-	}
-
-	proposal, err := BuildMultiChainProposals(env, "accept ownership to timelock", proposalConfig, c.McmsConfig.MinDelay)
+	}, c.McmsConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}

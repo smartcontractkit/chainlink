@@ -63,7 +63,8 @@ type SolCCIPChainState struct {
 	FeeAggregator solana.PublicKey
 
 	// test programs
-	Receiver solana.PublicKey
+	TestRouter solana.PublicKey
+	Receiver   solana.PublicKey // for tests only
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -135,6 +136,9 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
+		case TestRouter:
+			pub := solana.MustPublicKeyFromBase58(address)
+			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -362,9 +366,4 @@ func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.Publi
 		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
 	}
 	return s.Router, routerConfigPDA, nil
-}
-
-func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
-	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
-	return receiverTargetAccount
 }

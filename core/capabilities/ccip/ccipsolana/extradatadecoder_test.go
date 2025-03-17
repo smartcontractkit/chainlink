@@ -15,7 +15,7 @@ import (
 )
 
 func Test_decodeExtraArgs(t *testing.T) {
-	extraDataDecoder := &ExtraDataCodec{}
+	extraDataDecoder := &ExtraDataDecoder{}
 	t.Run("decode dest exec data into map svm", func(t *testing.T) {
 		destGasAmount := uint32(10000)
 		encoded := make([]byte, 4)

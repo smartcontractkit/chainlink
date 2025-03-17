@@ -22,12 +22,14 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -37,7 +39,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-var extraDataCodec = ccipcommon.NewExtraDataCodec(ExtraDataCodec{}, ccipsolana.ExtraDataCodec{})
+var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
 
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
@@ -91,7 +93,7 @@ func testHasherEVM2EVM(ctx context.Context, t *testing.T, d *testSetupData, evmE
 	expectedHash, err := d.contract.Hash(&bind.CallOpts{Context: ctx}, evmMsg, ccipMsg.Header.OnRamp)
 	require.NoError(t, err)
 
-	evmMsgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+	evmMsgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 	actualHash, err := evmMsgHasher.Hash(ctx, ccipMsg)
 	require.NoError(t, err)
 
@@ -266,7 +268,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
 		require.NoError(t, err)
 
-		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 		require.Equal(t, expectedMsgHash, msgH.String())
@@ -338,7 +340,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		)
 
-		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 
@@ -432,7 +434,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		//	rmnMsgHash = "0xb6ea678f918293745bfb8db05d79dcf08986c7da3e302ac5f6782618a6f11967"
 		//)
 
-		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+		h := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 		msgH, err := h.Hash(tests.Context(t), msg)
 		require.NoError(t, err)
 
@@ -457,7 +459,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		err = json.Unmarshal(data, &msgs)
 		require.NoError(t, err)
 
-		msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
+		msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
 
 		for _, msg := range msgs {
 			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg, msg.Header.SourceChainSelector)
@@ -479,7 +481,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector cciptypes.ChainSelector) message_hasher.InternalAny2EVMRampMessage {
 	var tokenAmounts []message_hasher.InternalAny2EVMTokenTransfer
 	for _, rta := range msg.TokenAmounts {
-		decodedMap, err := extraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, sourceSelector)
+		decodedMap, err := ExtraDataCodec.DecodeTokenAmountDestExecData(rta.DestExecData, sourceSelector)
 		require.NoError(t, err)
 		gasAmount, err := extractDestGasAmountFromMap(decodedMap)
 		require.NoError(t, err)
@@ -493,7 +495,7 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 		})
 	}
 
-	decodedMap, err := extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
+	decodedMap, err := ExtraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
 	require.NoError(t, err)
 	gasLimit, err := parseExtraArgsMap(decodedMap)
 	require.NoError(t, err)

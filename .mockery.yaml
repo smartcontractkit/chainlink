@@ -27,8 +27,7 @@ packages:
       OracleCreator:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common:
     interfaces:
-      ChainSpecificExtraDataCodec:
-      ChainSpecificAddressCodec:
+      ExtraDataCodec:
   github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types:
     interfaces:
       Dispatcher:

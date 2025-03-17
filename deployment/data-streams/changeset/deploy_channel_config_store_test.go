@@ -5,14 +5,13 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 func TestDeployChannelConfigStore(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	e := newMemoryEnv(t)
 	cc := DeployChannelConfigStoreConfig{
-		ChainsToDeploy: []uint64{testutil.TestChain.Selector},
+		ChainsToDeploy: []uint64{TestChain.Selector},
 	}
 	out, err := DeployChannelConfigStore{}.Apply(e, cc)
 	require.NoError(t, err)
@@ -22,7 +21,7 @@ func TestDeployChannelConfigStore(t *testing.T) {
 	require.Len(t, ab, 1)
 
 	for sel, addrMap := range ab {
-		require.Equal(t, testutil.TestChain.Selector, sel)
+		require.Equal(t, TestChain.Selector, sel)
 		for _, tv := range addrMap {
 			require.Equal(t, types.ChannelConfigStore, tv.Type)
 		}
