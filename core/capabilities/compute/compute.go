@@ -389,18 +389,22 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 }
 
 const (
-	defaultNumWorkers      = 3
-	defaultMaxMemoryMBs    = 128
-	defaultMaxTickInterval = 100 * time.Millisecond
-	defaultMaxTimeout      = 10 * time.Second
+	defaultNumWorkers                = 3
+	defaultMaxMemoryMBs              = 128
+	defaultMaxTickInterval           = 100 * time.Millisecond
+	defaultMaxTimeout                = 10 * time.Second
+	defaultMaxCompressedBinarySize   = 20 * 1024 * 1024  // 20 MB
+	defaultMaxDecompressedBinarySize = 100 * 1024 * 1024 // 100 MB
 )
 
 type Config struct {
 	webapi.ServiceConfig
-	NumWorkers      int
-	MaxMemoryMBs    uint64
-	MaxTimeout      time.Duration
-	MaxTickInterval time.Duration
+	NumWorkers                int
+	MaxMemoryMBs              uint64
+	MaxTimeout                time.Duration
+	MaxTickInterval           time.Duration
+	MaxCompressedBinarySize   uint64
+	MaxDecompressedBinarySize uint64
 }
 
 func (c *Config) ApplyDefaults() {
@@ -415,6 +419,12 @@ func (c *Config) ApplyDefaults() {
 	}
 	if c.MaxTickInterval == 0 {
 		c.MaxTickInterval = defaultMaxTickInterval
+	}
+	if c.MaxCompressedBinarySize == 0 {
+		c.MaxCompressedBinarySize = uint64(defaultMaxCompressedBinarySize)
+	}
+	if c.MaxDecompressedBinarySize == 0 {
+		c.MaxDecompressedBinarySize = uint64(defaultMaxDecompressedBinarySize)
 	}
 }
 

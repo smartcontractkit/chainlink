@@ -125,19 +125,22 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_1,
       onRamp: ON_RAMP_ADDRESS_1,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[1] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_2,
       onRamp: ON_RAMP_ADDRESS_2,
-      isEnabled: false
+      isEnabled: false,
+      isRMNVerificationDisabled: false
     });
     sourceChainConfigs[2] = OffRamp.SourceChainConfigArgs({
       router: s_destRouter,
       sourceChainSelector: SOURCE_CHAIN_SELECTOR_3,
       onRamp: ON_RAMP_ADDRESS_3,
-      isEnabled: true
+      isEnabled: true,
+      isRMNVerificationDisabled: false
     });
     _setupMultipleOffRampsFromConfigs(sourceChainConfigs);
   }
@@ -169,7 +172,6 @@ contract OffRampSetup is FeeQuoterSetup, MultiOCR3BaseSetup {
     return OffRamp.DynamicConfig({
       feeQuoter: feeQuoter,
       permissionLessExecutionThresholdSeconds: 60 * 60,
-      isRMNVerificationDisabled: false,
       messageInterceptor: address(0)
     });
   }

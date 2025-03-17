@@ -20,8 +20,6 @@ import (
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil/sqltest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	stkcfg "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	"github.com/smartcontractkit/chainlink/v2/core/cmd"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -488,39 +486,31 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 	// config 3 chains but only enable 2 => should only be 2 relayer
 	nEnabledChains := 2
 	tConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-1"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "starknet-id-1",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-2"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "starknet-id-2",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("disabled-starknet-id-1"),
-				Enabled:   ptr(false),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "disabled-starknet-id-1",
+				"Enabled":   ptr(false),
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
 
 	t2Config := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("starknet-id-3"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "starknet-id-3",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -529,17 +519,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 		LoopRegistry: reg,
 	}
 
-	// not parallel; shared state
-	t.Run("no plugin", func(t *testing.T) {
-		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
-		require.NoError(t, err)
-		require.NotNil(t, relayers)
-		require.Len(t, relayers, nEnabledChains)
-		// no using plugin, so registry should be empty
-		require.Len(t, reg.List(), 0)
-	})
-
-	t.Run("plugin", func(t *testing.T) {
+	t.Run("plugin-cmd", func(t *testing.T) {
 		t.Setenv("CL_STARKNET_CMD", "phony_starknet_cmd")
 
 		relayers, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
@@ -552,20 +532,16 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 	// test that duplicate enabled chains is an error when
 	duplicateConfig := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
-		c.Starknet = stkcfg.TOMLConfigs{
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("dupe"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+		c.Starknet = chainlink.RawConfigs{
+			{
+				"ChainID":   "dupe",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
-			&stkcfg.TOMLConfig{
-				ChainID:   ptr[string]("dupe"),
-				Enabled:   ptr(true),
-				Chain:     stkcfg.Chain{},
-				Nodes:     []*stkcfg.Node{},
-				FeederURL: commoncfg.MustParseURL("https://feeder.url"),
+			{
+				"ChainID":   "dupe",
+				"Enabled":   true,
+				"FeederURL": commoncfg.MustParseURL("https://feeder.url"),
 			},
 		}
 	})
@@ -588,7 +564,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 		_, err := rf.NewStarkNet(ks, t2Config.StarknetConfigs())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to parse Starknet env file")
+		require.ErrorContains(t, err, "failed to parse env file")
 	})
 
 	t.Run("plugin already registered", func(t *testing.T) {
@@ -596,7 +572,7 @@ func TestSetupStarkNetRelayer(t *testing.T) {
 
 		_, err := rf.NewStarkNet(ks, tConfig.StarknetConfigs())
 		require.Error(t, err)
-		require.Contains(t, err.Error(), "failed to create StarkNet LOOP command")
+		require.ErrorContains(t, err, "failed to create LOOP command")
 	})
 }
 

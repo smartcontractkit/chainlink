@@ -7,7 +7,6 @@ import {OptimismL1Fees} from "./OptimismL1Fees.sol";
 /// @dev VRFCoordinatorV2_5_Optimism combines VRFCoordinatorV2_5 base contract with
 /// @dev Optimism specific opcodes and L1 gas fee calculations.
 /// @dev This coordinator contract is used for all chains in the OP stack (e.g. Base).
-// solhint-disable-next-line contract-name-camelcase
 contract VRFCoordinatorV2_5_Optimism is VRFCoordinatorV2_5, OptimismL1Fees {
   constructor(address blockhashStore) VRFCoordinatorV2_5(blockhashStore) {}
 

@@ -8,8 +8,8 @@ import {IRMNRemote} from "../interfaces/IRMNRemote.sol";
 import {Router} from "../Router.sol";
 import {Internal} from "../libraries/Internal.sol";
 import {RateLimiter} from "../libraries/RateLimiter.sol";
-import {WETH9} from "./WETH9.sol";
 
+import {WETH9} from "../../vendor/canonical-weth/WETH9.sol";
 import {Test} from "forge-std/Test.sol";
 
 contract BaseTest is Test {

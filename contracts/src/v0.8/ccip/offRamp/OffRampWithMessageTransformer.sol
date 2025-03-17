@@ -16,7 +16,7 @@ contract OffRampWithMessageTransformer is OffRamp {
     SourceChainConfigArgs[] memory sourceChainConfigs,
     address messageTransformerAddr
   ) OffRamp(staticConfig, dynamicConfig, sourceChainConfigs) {
-    if (address(messageTransformerAddr) == address(0)) {
+    if (messageTransformerAddr == address(0)) {
       revert ZeroAddressNotAllowed();
     }
     s_messageTransformer = messageTransformerAddr;
@@ -33,7 +33,7 @@ contract OffRampWithMessageTransformer is OffRamp {
   function setMessageTransformer(
     address messageTransformerAddr
   ) external onlyOwner {
-    if (address(messageTransformerAddr) == address(0)) {
+    if (messageTransformerAddr == address(0)) {
       revert ZeroAddressNotAllowed();
     }
     s_messageTransformer = messageTransformerAddr;

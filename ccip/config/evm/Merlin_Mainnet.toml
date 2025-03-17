@@ -1,0 +1,10 @@
+ChainID = 4200
+
+[GasEstimator]
+BumpPercent = 40
+Mode = "FeeHistory"
+# The FeeHistory estimator does not enforce PriceMin, setting it to 0 to not place any limits on the price
+PriceMin = "0"
+
+[GasEstimator.FeeHistory]
+CacheTimeout = "4s"

@@ -4,7 +4,6 @@ pragma solidity 0.8.19;
 import "forge-std/Test.sol";
 
 import {LinkToken} from "../../../shared/token/ERC677/LinkToken.sol";
-import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
 import {ERC20Mock6Decimals} from "../../mocks/ERC20Mock6Decimals.sol";
 import {MockV3Aggregator} from "../../../shared/mocks/MockV3Aggregator.sol";
 import {AutomationForwarderLogic} from "../../AutomationForwarderLogic.sol";
@@ -17,10 +16,12 @@ import {AutomationRegistryLogicC2_3} from "../../v2_3/AutomationRegistryLogicC2_
 import {IAutomationRegistryMaster2_3 as Registry, AutomationRegistryBase2_3} from "../../interfaces/v2_3/IAutomationRegistryMaster2_3.sol";
 import {AutomationRegistrar2_3} from "../../v2_3/AutomationRegistrar2_3.sol";
 import {ChainModuleBase} from "../../chains/ChainModuleBase.sol";
-import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {MockUpkeep} from "../../mocks/MockUpkeep.sol";
 import {IWrappedNative} from "../../interfaces/v2_3/IWrappedNative.sol";
-import {WETH9} from "../WETH9.sol";
+
+import {ERC20Mock} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/mocks/ERC20Mock.sol";
+import {IERC20Metadata as IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/extensions/IERC20Metadata.sol";
+import {WETH9} from "../../../vendor/canonical-weth/WETH9.sol";
 
 /**
  * @title BaseTest provides basic test setup procedures and dependencies for use by other
@@ -137,10 +138,10 @@ contract BaseTest is Test {
     usdToken6.mint(FINANCE_ADMIN, 1000e6);
     usdToken6.mint(STRANGER, 1000e6);
 
-    weth.mint(OWNER, 1000e18);
-    weth.mint(UPKEEP_ADMIN, 1000e18);
-    weth.mint(FINANCE_ADMIN, 1000e18);
-    weth.mint(STRANGER, 1000e18);
+    deal(address(weth), OWNER, 100 ether);
+    deal(address(weth), UPKEEP_ADMIN, 100 ether);
+    deal(address(weth), FINANCE_ADMIN, 100 ether);
+    deal(address(weth), STRANGER, 100 ether);
 
     vm.stopPrank();
   }

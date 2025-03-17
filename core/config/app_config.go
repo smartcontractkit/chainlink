@@ -20,7 +20,6 @@ type AppConfig interface {
 	ShutdownGracePeriod() time.Duration
 	InsecureFastScrypt() bool
 	EVMEnabled() bool
-	EVMRPCEnabled() bool
 	CosmosEnabled() bool
 	SolanaEnabled() bool
 	StarkNetEnabled() bool
@@ -37,6 +36,7 @@ type AppConfig interface {
 	AuditLogger() AuditLogger
 	AutoPprof() AutoPprof
 	Capabilities() Capabilities
+	Workflows() Workflows
 	Database() Database
 	Feature() Feature
 	FluxMonitor() FluxMonitor

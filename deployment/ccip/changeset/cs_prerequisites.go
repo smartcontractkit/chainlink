@@ -7,25 +7,27 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
-	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/price_registry_1_2_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/weth9"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -52,7 +54,6 @@ func DeployPrerequisitesChangeset(env deployment.Environment, cfg DeployPrerequi
 	return deployment.ChangesetOutput{
 		Proposals:   []timelock.MCMSWithTimelockProposal{},
 		AddressBook: ab,
-		JobSpecs:    nil,
 	}, nil
 }
 
@@ -74,9 +75,6 @@ type DeployPrerequisiteConfig struct {
 type DeployPrerequisiteConfigPerChain struct {
 	ChainSelector uint64
 	Opts          []PrerequisiteOpt
-	// TODO handle tokens and feeds in prerequisite config
-	Tokens map[TokenSymbol]common.Address
-	Feeds  map[TokenSymbol]common.Address
 }
 
 func (c DeployPrerequisiteConfig) Validate() error {
@@ -164,29 +162,31 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	var rmnAddr common.Address
 	// if we are setting up 1.5 version, deploy RMN contract based on the config provided
 	// else deploy the mock RMN contract
-	if deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil {
-		if chainState.RMN == nil {
-			rmn, err := deployment.DeployContract(lggr, chain, ab,
-				func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
-					rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
-						chain.DeployerKey,
-						chain.Client,
-						*deployOpts.LegacyDeploymentCfg.RMNConfig,
-					)
-					return deployment.ContractDeploy[*rmn_contract.RMNContract]{
-						Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
-					}
-				})
-			if err != nil {
-				lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
-				return err
-			}
-			rmnAddr = rmn.Address
-		} else {
-			lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
-			rmnAddr = chainState.RMN.Address()
+	switch {
+	// if RMN is found in state use that
+	case chainState.RMN != nil && chainState.RMN.Address() != (common.Address{}):
+		lggr.Infow("RMN already deployed", "chain", chain.String(), "address", chainState.RMN.Address)
+		rmnAddr = chainState.RMN.Address()
+	// if RMN is not found in state and LegacyDeploymentCfg is provided, deploy RMN contract based on the config
+	case deployOpts.LegacyDeploymentCfg != nil && deployOpts.LegacyDeploymentCfg.RMNConfig != nil:
+		rmn, err := deployment.DeployContract(lggr, chain, ab,
+			func(chain deployment.Chain) deployment.ContractDeploy[*rmn_contract.RMNContract] {
+				rmnAddress, tx2, rmnC, err2 := rmn_contract.DeployRMNContract(
+					chain.DeployerKey,
+					chain.Client,
+					*deployOpts.LegacyDeploymentCfg.RMNConfig,
+				)
+				return deployment.ContractDeploy[*rmn_contract.RMNContract]{
+					Address: rmnAddress, Contract: rmnC, Tx: tx2, Tv: deployment.NewTypeAndVersion(RMN, deployment.Version1_5_0), Err: err2,
+				}
+			})
+		if err != nil {
+			lggr.Errorw("Failed to deploy RMN", "chain", chain.String(), "err", deployment.MaybeDataErr(err))
+			return err
 		}
-	} else {
+		rmnAddr = rmn.Address
+	default:
+		// otherwise deploy the mock RMN contract
 		if chainState.MockRMN == nil {
 			rmn, err := deployment.DeployContract(lggr, chain, ab,
 				func(chain deployment.Chain) deployment.ContractDeploy[*mock_rmn_contract.MockRMNContract] {
@@ -547,7 +547,7 @@ func deployUSDC(
 				Address:  tokenPoolAddress,
 				Contract: tokenPoolContract,
 				Tx:       tx,
-				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_0_0),
+				Tv:       deployment.NewTypeAndVersion(USDCTokenPool, deployment.Version1_5_1),
 				Err:      err2,
 			}
 		})

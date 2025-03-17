@@ -108,4 +108,3 @@ compileContract automation/v2_3/AutomationUtils2_3.sol
 compileContract automation/interfaces/v2_3/IAutomationRegistryMaster2_3.sol
 
 compileContract automation/testhelpers/MockETHUSDAggregator.sol
-compileContract automation/test/WETH9.sol

@@ -59,7 +59,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
   }
 
   // Reverts.
-
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_EmptySubset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(0, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -68,6 +68,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_EmptySuperset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 0);
     _convertArrayToSortedSet(subset, OFFSET);
@@ -76,6 +77,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_NotASubset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -85,6 +87,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_UnsortedSubset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -94,6 +97,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_UnsortedSuperset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -104,6 +108,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_HasDuplicates_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -114,6 +119,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SubsetLargerThanSuperset_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(6, 5);
     _convertArrayToSortedSet(subset, OFFSET);
@@ -123,6 +129,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SubsetEqualsSuperset_NoRevert() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(5, 5);
     _convertArrayToSortedSet(subset, OFFSET);
@@ -131,6 +138,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SingleElementSubset() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(1, 5);
     _convertArrayToSortedSet(superset, OFFSET);
@@ -139,6 +147,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SingleElementSubsetAndSuperset_Equal() public pure {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(1, 1);
     _convertArrayToSortedSet(subset, OFFSET);
@@ -147,6 +156,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SingleElementSubsetAndSuperset_NotEqual_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(1, 1);
     _convertArrayToSortedSet(subset, OFFSET);
@@ -156,6 +166,7 @@ contract SortedSetValidationUtil_CheckIsValidUniqueSubsetTest is SortedSetValida
     SortedSetValidationUtil._checkIsValidUniqueSubset(subset, superset);
   }
 
+  /// forge-config: default.allow_internal_expect_revert = true
   function test__checkIsValidUniqueSubset_SupersetHasDuplicates_Reverts() public {
     (bytes32[] memory subset, bytes32[] memory superset) = _createSets(3, 5);
     _convertArrayToSortedSet(superset, OFFSET);

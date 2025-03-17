@@ -6,10 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
-
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	mcmslib "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms/sdk"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -40,6 +39,7 @@ type mcmsTransaction struct {
 	Address     common.Address
 	ChainSel    uint64
 	ContractSet *changeset.ContractSet
+	Env         deployment.Environment
 }
 
 func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Transaction, error)) (deployment.ChangesetOutput, error) {
@@ -50,28 +50,31 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		return deployment.ChangesetOutput{}, err
 	}
 
-	op := timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(m.ChainSel),
-		Batch: []mcms.Operation{
-			{
-				Data:  tx.Data(),
-				To:    m.Address,
-				Value: big.NewInt(0),
-			},
-		},
+	op, err := proposalutils.BatchOperationForChain(m.ChainSel, m.Address.Hex(), tx.Data(), big.NewInt(0), "", nil)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
 	}
 
-	timelocksPerChain := map[uint64]common.Address{
-		m.ChainSel: m.ContractSet.Timelock.Address(),
+	timelocksPerChain := map[uint64]string{
+		m.ChainSel: m.ContractSet.Timelock.Address().Hex(),
 	}
-	proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-		m.ChainSel: m.ContractSet.ProposerMcm,
+	proposerMCMSes := map[uint64]string{
+		m.ChainSel: m.ContractSet.ProposerMcm.Address().Hex(),
+	}
+	inspector, err := proposalutils.McmsInspectorForChain(m.Env, m.ChainSel)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	inspectorPerChain := map[uint64]sdk.Inspector{
+		m.ChainSel: inspector,
 	}
 
-	proposal, err := proposalutils.BuildProposalFromBatches(
+	proposal, err := proposalutils.BuildProposalFromBatchesV2(
+		m.Env,
 		timelocksPerChain,
 		proposerMCMSes,
-		[]timelock.BatchChainOperation{op},
+		inspectorPerChain,
+		[]mcmstypes.BatchOperation{op},
 		m.Description,
 		m.Config.MinDuration,
 	)
@@ -80,6 +83,6 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 	}
 
 	return deployment.ChangesetOutput{
-		Proposals: []timelock.MCMSWithTimelockProposal{*proposal},
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
 	}, nil
 }

@@ -88,6 +88,7 @@ func UpdateAuthorizedAddresses(env deployment.Environment, req *UpdateAuthorized
 			Address:     registry.Address(),
 			ChainSel:    chain.Selector,
 			ContractSet: &cs,
+			Env:         env,
 		}
 	} else {
 		s = &simpleTransaction{

@@ -7,7 +7,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 )
 
 // evmChainDefaults returns generated Markdown for the EVM per-chain defaults. See v2.Defaults.

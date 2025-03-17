@@ -11,9 +11,9 @@ import (
 )
 
 type UpdateNodeCapabilitiesImplRequest struct {
-	Chain             deployment.Chain
-	ContractSet       *ContractSet
-	P2pToCapabilities map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
+	Chain                deployment.Chain
+	CapabilitiesRegistry *kcr.CapabilitiesRegistry
+	P2pToCapabilities    map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability
 
 	UseMCMS bool
 }
@@ -22,7 +22,7 @@ func (req *UpdateNodeCapabilitiesImplRequest) Validate() error {
 	if len(req.P2pToCapabilities) == 0 {
 		return errors.New("p2pToCapabilities is empty")
 	}
-	if req.ContractSet == nil {
+	if req.CapabilitiesRegistry == nil {
 		return errors.New("registry is nil")
 	}
 
@@ -38,7 +38,7 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	for _, cap := range req.P2pToCapabilities {
 		capabilities = append(capabilities, cap...)
 	}
-	op, err := AddCapabilities(lggr, req.ContractSet.CapabilitiesRegistry, req.Chain, capabilities, req.UseMCMS)
+	op, err := AddCapabilities(lggr, req.CapabilitiesRegistry, req.Chain, capabilities, req.UseMCMS)
 	if err != nil {
 		return nil, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -49,11 +49,11 @@ func UpdateNodeCapabilitiesImpl(lggr logger.Logger, req *UpdateNodeCapabilitiesI
 	}
 
 	updateNodesReq := &UpdateNodesRequest{
-		Chain:        req.Chain,
-		P2pToUpdates: p2pToUpdates,
-		ContractSet:  req.ContractSet,
-		Ops:          op,
-		UseMCMS:      req.UseMCMS,
+		Chain:                req.Chain,
+		P2pToUpdates:         p2pToUpdates,
+		CapabilitiesRegistry: req.CapabilitiesRegistry,
+		Ops:                  op,
+		UseMCMS:              req.UseMCMS,
 	}
 	resp, err := UpdateNodes(lggr, updateNodesReq)
 	if err != nil {

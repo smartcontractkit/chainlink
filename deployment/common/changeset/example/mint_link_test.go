@@ -8,6 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/example"
 )
@@ -29,15 +30,15 @@ func TestMintLink(t *testing.T) {
 	linkState, err := changeset.MaybeLoadLinkTokenChainState(chain, addrs)
 	require.NoError(t, err)
 
-	_, err = changeset.ApplyChangesets(t, env, nil, []changeset.ChangesetApplication{
-		{
-			Changeset: changeset.WrapChangeSet(example.AddMintersBurnersLink),
-			Config: &example.AddMintersBurnersLinkConfig{
+	_, err = changeset.Apply(t, env, nil,
+		changeset.Configure(
+			deployment.CreateLegacyChangeSet(example.AddMintersBurnersLink),
+			&example.AddMintersBurnersLinkConfig{
 				ChainSelector: chainSelector,
 				Minters:       []common.Address{chain.DeployerKey.From},
 			},
-		},
-	})
+		),
+	)
 	require.NoError(t, err)
 
 	timelockAddress := mcmsState.Timelock.Address()

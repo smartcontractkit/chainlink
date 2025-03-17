@@ -4,6 +4,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/config"
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -12,12 +13,23 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 )
 
+// DeployMCMSOption is a function that modifies a TypeAndVersion before or after deployment.
+type DeployMCMSOption func(*deployment.TypeAndVersion)
+
+// WithLabel is a functional option that sets a label on the TypeAndVersion.
+func WithLabel(label string) DeployMCMSOption {
+	return func(tv *deployment.TypeAndVersion) {
+		tv.AddLabel(label)
+	}
+}
+
 func DeployMCMSWithConfig(
 	contractType deployment.ContractType,
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
 	mcmConfig config.Config,
+	options ...DeployMCMSOption,
 ) (*deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig], error) {
 	groupQuorums, groupParents, signerAddresses, signerGroups := mcmConfig.ExtractSetConfigInputs()
 	mcm, err := deployment.DeployContract[*owner_helpers.ManyChainMultiSig](lggr, chain, ab,
@@ -26,8 +38,14 @@ func DeployMCMSWithConfig(
 				chain.DeployerKey,
 				chain.Client,
 			)
+
+			tv := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+			for _, option := range options {
+				option(&tv)
+			}
+
 			return deployment.ContractDeploy[*owner_helpers.ManyChainMultiSig]{
-				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0), Err: err2,
+				Address: mcmAddr, Contract: mcm, Tx: tx, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {
@@ -42,7 +60,7 @@ func DeployMCMSWithConfig(
 		groupParents,
 		false,
 	)
-	if _, err := deployment.ConfirmIfNoError(chain, mcmsTx, err); err != nil {
+	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, mcmsTx, owner_helpers.ManyChainMultiSigABI, err); err != nil {
 		lggr.Errorw("Failed to confirm mcm config", "chain", chain.String(), "err", err)
 		return mcm, err
 	}
@@ -64,13 +82,16 @@ func DeployMCMSWithTimelockContractsBatch(
 	ab deployment.AddressBook,
 	cfgByChain map[uint64]types.MCMSWithTimelockConfig,
 ) error {
+	deployGrp := errgroup.Group{}
 	for chainSel, cfg := range cfgByChain {
-		_, err := DeployMCMSWithTimelockContracts(lggr, chains[chainSel], ab, cfg)
-		if err != nil {
+		cfg := cfg
+		chainSel := chainSel
+		deployGrp.Go(func() error {
+			_, err := DeployMCMSWithTimelockContracts(lggr, chains[chainSel], ab, cfg)
 			return err
-		}
+		})
 	}
-	return nil
+	return deployGrp.Wait()
 }
 
 // DeployMCMSWithTimelockContracts deploys an MCMS for
@@ -84,15 +105,20 @@ func DeployMCMSWithTimelockContracts(
 	ab deployment.AddressBook,
 	config types.MCMSWithTimelockConfig,
 ) (*MCMSWithTimelockDeploy, error) {
-	bypasser, err := DeployMCMSWithConfig(types.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser)
+	opts := []DeployMCMSOption{}
+	if config.Label != nil {
+		opts = append(opts, WithLabel(*config.Label))
+	}
+
+	bypasser, err := DeployMCMSWithConfig(types.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
 	if err != nil {
 		return nil, err
 	}
-	canceller, err := DeployMCMSWithConfig(types.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller)
+	canceller, err := DeployMCMSWithConfig(types.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
 	if err != nil {
 		return nil, err
 	}
-	proposer, err := DeployMCMSWithConfig(types.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer)
+	proposer, err := DeployMCMSWithConfig(types.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -114,8 +140,14 @@ func DeployMCMSWithTimelockContracts(
 				[]common.Address{canceller.Address, proposer.Address, bypasser.Address}, // cancellers
 				[]common.Address{bypasser.Address},                                      // bypassers
 			)
+
+			tv := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+			if config.Label != nil {
+				tv.AddLabel(*config.Label)
+			}
+
 			return deployment.ContractDeploy[*owner_helpers.RBACTimelock]{
-				Address: timelock, Contract: cc, Tx: tx2, Tv: deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0), Err: err2,
+				Address: timelock, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {
@@ -130,8 +162,14 @@ func DeployMCMSWithTimelockContracts(
 				chain.Client,
 				timelock.Address,
 			)
+
+			tv := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+			if config.Label != nil {
+				tv.AddLabel(*config.Label)
+			}
+
 			return deployment.ContractDeploy[*owner_helpers.CallProxy]{
-				Address: callProxy, Contract: cc, Tx: tx2, Tv: deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0), Err: err2,
+				Address: callProxy, Contract: cc, Tx: tx2, Tv: tv, Err: err2,
 			}
 		})
 	if err != nil {

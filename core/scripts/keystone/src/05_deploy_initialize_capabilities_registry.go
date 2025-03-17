@@ -269,7 +269,6 @@ func (c *deployAndInitializeCapabilitiesRegistryCommand) Run(args []string) {
 	if err != nil {
 		log.Printf("workflowDON: failed to AddDON: %s", err)
 	}
-
 }
 
 func deployCapabilitiesRegistry(env helpers.Environment) *kcr.CapabilitiesRegistry {

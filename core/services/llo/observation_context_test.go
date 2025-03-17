@@ -60,7 +60,8 @@ func TestObservationContext_Observe(t *testing.T) {
 	ctx := tests.Context(t)
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
-	oc := newObservationContext(r, telem)
+	lggr := logger.TestLogger(t)
+	oc := newObservationContext(lggr, r, telem)
 	opts := llo.DSOpts(nil)
 
 	missingStreamID := streams.StreamID(0)
@@ -128,7 +129,8 @@ func TestObservationContext_Observe_concurrencyStressTest(t *testing.T) {
 	ctx := tests.Context(t)
 	r := &mockRegistry{}
 	telem := &mockTelemeter{}
-	oc := newObservationContext(r, telem)
+	lggr := logger.TestLogger(t)
+	oc := newObservationContext(lggr, r, telem)
 	opts := llo.DSOpts(nil)
 
 	streamID := streams.StreamID(1)
@@ -252,7 +254,7 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(t, err)
 
 		telem := &mockTelemeter{}
-		oc := newObservationContext(r, telem)
+		oc := newObservationContext(lggr, r, telem)
 		opts := llo.DSOpts(nil)
 
 		val, err := oc.Observe(ctx, streams.StreamID(1), opts)
@@ -337,7 +339,7 @@ result3 -> result3_parse -> multiply3;
 	}
 
 	telem := &mockTelemeter{}
-	oc := newObservationContext(r, telem)
+	oc := newObservationContext(lggr, r, telem)
 	opts := llo.DSOpts(nil)
 
 	// concurrency stress test

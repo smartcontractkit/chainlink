@@ -11,12 +11,12 @@ import (
 	"sort"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
@@ -28,8 +28,8 @@ type CapabilityConfig struct {
 }
 
 type UpdateDonRequest struct {
-	Chain       deployment.Chain
-	ContractSet *ContractSet // contract set for the given chain
+	Chain                deployment.Chain
+	CapabilitiesRegistry *kcr.CapabilitiesRegistry
 
 	P2PIDs            []p2pkey.PeerID    // this is the unique identifier for the don
 	CapabilityConfigs []CapabilityConfig // if Config subfield is nil, a default config is used
@@ -39,10 +39,10 @@ type UpdateDonRequest struct {
 
 func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabilitiesRequest {
 	out := &AppendNodeCapabilitiesRequest{
-		Chain:             r.Chain,
-		ContractSet:       r.ContractSet,
-		P2pToCapabilities: make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
-		UseMCMS:           r.UseMCMS,
+		Chain:                r.Chain,
+		CapabilitiesRegistry: r.CapabilitiesRegistry,
+		P2pToCapabilities:    make(map[p2pkey.PeerID][]kcr.CapabilitiesRegistryCapability),
+		UseMCMS:              r.UseMCMS,
 	}
 	for _, p2pid := range r.P2PIDs {
 		if _, exists := out.P2pToCapabilities[p2pid]; !exists {
@@ -56,7 +56,7 @@ func (r *UpdateDonRequest) AppendNodeCapabilitiesRequest() *AppendNodeCapabiliti
 }
 
 func (r *UpdateDonRequest) Validate() error {
-	if r.ContractSet.CapabilitiesRegistry == nil {
+	if r.CapabilitiesRegistry == nil {
 		return errors.New("registry is required")
 	}
 	if len(r.P2PIDs) == 0 {
@@ -67,7 +67,7 @@ func (r *UpdateDonRequest) Validate() error {
 
 type UpdateDonResponse struct {
 	DonInfo kcr.CapabilitiesRegistryDONInfo
-	Ops     *timelock.BatchChainOperation
+	Ops     *types.BatchOperation
 }
 
 func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, error) {
@@ -75,7 +75,7 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 		return nil, fmt.Errorf("failed to validate request: %w", err)
 	}
 
-	registry := req.ContractSet.CapabilitiesRegistry
+	registry := req.CapabilitiesRegistry
 	getDonsResp, err := registry.GetDONs(&bind.CallOpts{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get Dons: %w", err)
@@ -84,6 +84,14 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 	don, err := lookupDonByPeerIDs(getDonsResp, req.P2PIDs)
 	if err != nil {
 		return nil, fmt.Errorf("failed to lookup don by p2pIDs: %w", err)
+	}
+
+	if don.AcceptsWorkflows {
+		// TODO: CRE-277 ensure forwarders are support the next DON version
+		// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/CapabilitiesRegistry.sol#L812
+		// and
+		// https://github.com/smartcontractkit/chainlink/blob/4fc61bb156fe57bfd939b836c02c413ad1209ebb/contracts/src/v0.8/keystone/KeystoneForwarder.sol#L274
+		return nil, fmt.Errorf("refusing to update workflow don %d at config version %d because we cannot validate that all forwarder contracts are ready to accept the new configure version", don.Id, don.ConfigCount)
 	}
 	cfgs, err := computeConfigs(registry, req.CapabilityConfigs)
 	if err != nil {
@@ -99,28 +107,22 @@ func UpdateDon(_ logger.Logger, req *UpdateDonRequest) (*UpdateDonResponse, erro
 		err = deployment.DecodeErr(kcr.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call UpdateDON: %w", err)
 	}
-	var ops *timelock.BatchChainOperation
+	var ops types.BatchOperation
 	if !req.UseMCMS {
 		_, err = req.Chain.Confirm(tx)
 		if err != nil {
 			return nil, fmt.Errorf("failed to confirm UpdateDON transaction %s: %w", tx.Hash().String(), err)
 		}
 	} else {
-		ops = &timelock.BatchChainOperation{
-			ChainIdentifier: mcms.ChainIdentifier(req.Chain.Selector),
-			Batch: []mcms.Operation{
-				{
-					To:    registry.Address(),
-					Data:  tx.Data(),
-					Value: big.NewInt(0),
-				},
-			},
+		ops, err = proposalutils.BatchOperationForChain(req.Chain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create batch operation: %w", err)
 		}
 	}
 
 	out := don
 	out.CapabilityConfigurations = cfgs
-	return &UpdateDonResponse{DonInfo: out, Ops: ops}, nil
+	return &UpdateDonResponse{DonInfo: out, Ops: &ops}, nil
 }
 
 func PeerIDsToBytes(p2pIDs []p2pkey.PeerID) [][32]byte {

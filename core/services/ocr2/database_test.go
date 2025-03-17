@@ -13,6 +13,7 @@ import (
 
 	medianconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/median/config"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -20,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 const defaultPluginID = 0
@@ -45,10 +45,10 @@ func MustInsertOCROracleSpec(t *testing.T, db *sqlx.DB, transmitterAddress types
 
 	require.NoError(t, db.Get(&spec, `INSERT INTO ocr2_oracle_specs (
 relay, relay_config, contract_id, p2pv2_bootstrappers, ocr_key_bundle_id, monitoring_endpoint, transmitter_id, 
-blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, plugin_type, plugin_config, onchain_signing_strategy, created_at, updated_at) VALUES (
+blockchain_timeout, contract_config_tracker_poll_interval, contract_config_confirmations, plugin_type, plugin_config, onchain_signing_strategy, allow_no_bootstrappers, created_at, updated_at) VALUES (
 'ethereum', '{}', $1, '{}', $2, $3, $4,
-0, 0, 0, 'median', $5, '{}', NOW(), NOW()
-) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), jsonConfig))
+0, 0, 0, 'median', $5, '{}', $6, NOW(), NOW()
+) RETURNING *`, cltest.NewEIP55Address().String(), cltest.DefaultOCR2KeyBundleID, "chain.link:1234", transmitterAddress.String(), jsonConfig, true))
 	return spec
 }
 

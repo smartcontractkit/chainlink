@@ -8,7 +8,6 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promauto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
@@ -58,10 +57,10 @@ func (t *transmitter) Close() error {
 
 func (t *transmitter) Transmit(
 	ctx context.Context,
-	digest types.ConfigDigest,
+	digest ocr2types.ConfigDigest,
 	seqNr uint64,
 	report ocr3types.ReportWithInfo[llotypes.ReportInfo],
-	sigs []types.AttributedOnchainSignature,
+	sigs []ocr2types.AttributedOnchainSignature,
 ) error {
 	lggr := t.lggr
 	{
@@ -75,8 +74,8 @@ func (t *transmitter) Transmit(
 					"report.Report.ConfigDigest", r.ConfigDigest,
 					"report.Report.SeqNr", r.SeqNr,
 					"report.Report.ChannelID", r.ChannelID,
-					"report.Report.ValidAfterSeconds", r.ValidAfterSeconds,
-					"report.Report.ObservationTimestampSeconds", r.ObservationTimestampSeconds,
+					"report.Report.ValidAfterNanoseconds", r.ValidAfterNanoseconds,
+					"report.Report.ObservationTimestampNanoseconds", r.ObservationTimestampNanoseconds,
 					"report.Report.Values", r.Values,
 					"report.Report.Specimen", r.Specimen,
 				)

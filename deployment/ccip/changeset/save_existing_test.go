@@ -30,27 +30,27 @@ func TestSaveExistingCCIP(t *testing.T) {
 	cfg := commonchangeset.ExistingContractsConfig{
 		ExistingContracts: []commonchangeset.Contract{
 			{
-				Address:        common.BigToAddress(big.NewInt(1)),
+				Address:        common.BigToAddress(big.NewInt(1)).String(),
 				TypeAndVersion: deployment.NewTypeAndVersion(commontypes.LinkToken, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(2)),
+				Address:        common.BigToAddress(big.NewInt(2)).String(),
 				TypeAndVersion: deployment.NewTypeAndVersion(changeset.WETH9, deployment.Version1_0_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(3)),
+				Address:        common.BigToAddress(big.NewInt(3)).String(),
 				TypeAndVersion: deployment.NewTypeAndVersion(changeset.TokenAdminRegistry, deployment.Version1_5_0),
 				ChainSelector:  chain1,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(4)),
+				Address:        common.BigToAddress(big.NewInt(4)).String(),
 				TypeAndVersion: deployment.NewTypeAndVersion(changeset.RegistryModule, deployment.Version1_5_0),
 				ChainSelector:  chain2,
 			},
 			{
-				Address:        common.BigToAddress(big.NewInt(5)),
+				Address:        common.BigToAddress(big.NewInt(5)).String(),
 				TypeAndVersion: deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_2_0),
 				ChainSelector:  chain2,
 			},

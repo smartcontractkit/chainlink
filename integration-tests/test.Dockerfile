@@ -21,9 +21,6 @@ RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
 FROM ${BASE_IMAGE}:${IMAGE_VERSION}
 
 RUN mkdir -p /go/testdir/integration-tests/scripts
-# Dependency of CosmWasm/wasmd
-COPY --from=build-env /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
-RUN chmod 755 /usr/lib/libwasmvm.*.so
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/

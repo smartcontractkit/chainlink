@@ -33,7 +33,10 @@ import (
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	automationForwarderLogic "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_forwarder_logic"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/dummy_protocol_wrapper"
@@ -54,8 +57,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ocr2keeper/evmregistry/v21/mercury/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
-	"github.com/smartcontractkit/chainlink/v2/evm/assets"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 func TestFilterNamesFromSpec21(t *testing.T) {
@@ -89,9 +90,9 @@ func TestIntegration_KeeperPluginConditionalUpkeep(t *testing.T) {
 	lggr := logger.TestLogger(t)
 
 	// setup blockchain
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+	steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+	carrol := evmtestutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(10000).ToInt()},
 		steve.From:  {Balance: assets.Ether(10000).ToInt()},
@@ -185,9 +186,9 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
-	sergey := testutils.MustNewSimTransactor(t) // owns all the link
-	steve := testutils.MustNewSimTransactor(t)  // registry owner
-	carrol := testutils.MustNewSimTransactor(t) // upkeep owner
+	sergey := evmtestutils.MustNewSimTransactor(t) // owns all the link
+	steve := evmtestutils.MustNewSimTransactor(t)  // registry owner
+	carrol := evmtestutils.MustNewSimTransactor(t) // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		sergey.From: {Balance: assets.Ether(10000).ToInt()},
 		steve.From:  {Balance: assets.Ether(10000).ToInt()},
@@ -278,9 +279,9 @@ func TestIntegration_KeeperPluginLogUpkeep_Retry(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
-	linkOwner := testutils.MustNewSimTransactor(t)     // owns all the link
-	registryOwner := testutils.MustNewSimTransactor(t) // registry owner
-	upkeepOwner := testutils.MustNewSimTransactor(t)   // upkeep owner
+	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
+	registryOwner := evmtestutils.MustNewSimTransactor(t) // registry owner
+	upkeepOwner := evmtestutils.MustNewSimTransactor(t)   // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		linkOwner.From:     {Balance: assets.Ether(10000).ToInt()},
 		registryOwner.From: {Balance: assets.Ether(10000).ToInt()},
@@ -398,9 +399,9 @@ func TestIntegration_KeeperPluginLogUpkeep_ErrHandler(t *testing.T) {
 	g := gomega.NewWithT(t)
 
 	// setup blockchain
-	linkOwner := testutils.MustNewSimTransactor(t)     // owns all the link
-	registryOwner := testutils.MustNewSimTransactor(t) // registry owner
-	upkeepOwner := testutils.MustNewSimTransactor(t)   // upkeep owner
+	linkOwner := evmtestutils.MustNewSimTransactor(t)     // owns all the link
+	registryOwner := evmtestutils.MustNewSimTransactor(t) // registry owner
+	upkeepOwner := evmtestutils.MustNewSimTransactor(t)   // upkeep owner
 	genesisData := gethtypes.GenesisAlloc{
 		linkOwner.From:     {Balance: assets.Ether(10000).ToInt()},
 		registryOwner.From: {Balance: assets.Ether(10000).ToInt()},

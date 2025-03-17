@@ -44,13 +44,13 @@ func FuzzReportCodecPremiumLegacy_Decode(f *testing.F) {
 
 func newValidPremiumLegacyReport() llo.Report {
 	return llo.Report{
-		ConfigDigest:                types.ConfigDigest{1, 2, 3},
-		SeqNr:                       32,
-		ChannelID:                   llotypes.ChannelID(31),
-		ValidAfterSeconds:           28,
-		ObservationTimestampSeconds: 34,
-		Values:                      []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}},
-		Specimen:                    false,
+		ConfigDigest:                    types.ConfigDigest{1, 2, 3},
+		SeqNr:                           32,
+		ChannelID:                       llotypes.ChannelID(31),
+		ValidAfterNanoseconds:           28 * 1e9,
+		ObservationTimestampNanoseconds: 34 * 1e9,
+		Values:                          []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36)), &llo.Quote{Bid: decimal.NewFromInt(37), Benchmark: decimal.NewFromInt(38), Ask: decimal.NewFromInt(39)}},
+		Specimen:                        false,
 	}
 }
 
@@ -252,4 +252,84 @@ func Test_LLOExtraHash(t *testing.T) {
 	donID := uint32(8)
 	extraHash := LLOExtraHash(donID)
 	assert.Equal(t, "0x0000000000000000000000000000000000000000000000000000000800000001", extraHash.String())
+}
+
+func Test_ReportCodecPremiumLegacy_Verify(t *testing.T) {
+	c := ReportCodecPremiumLegacy{}
+	t.Run("unrecognized fields in opts", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"unknown":"field"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "unknown field")
+	})
+	t.Run("invalid opts", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`"invalid"`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid Opts, got: \"\\\"invalid\\\"\"; json: cannot unmarshal string into Go value of type evm.ReportFormatEVMPremiumLegacyOpts")
+	})
+	t.Run("negative BaseUSDFee", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"-1"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "baseUSDFee must be non-negative")
+	})
+	t.Run("zero feedID", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"feedID":"0x"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid Opts, got: \"{\\\"feedID\\\":\\\"0x\\\"}\"; hex string has length 0, want 64 for common.Hash")
+	})
+	t.Run("incorrect number of streams", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"1","feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "ReportFormatEVMPremiumLegacy requires exactly 3 streams (NativePrice, LinkPrice, Quote); got: []")
+	})
+	t.Run("invalid feedID", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"1","feedID":"foo"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "invalid Opts, got: \"{\\\"baseUSDFee\\\":\\\"1\\\",\\\"feedID\\\":\\\"foo\\\"}\"; json: cannot unmarshal hex string without 0x prefix into Go struct field ReportFormatEVMPremiumLegacyOpts.feedID of type common.Hash")
+	})
+	t.Run("valid", func(t *testing.T) {
+		cd := llotypes.ChannelDefinition{
+			Streams: []llotypes.Stream{
+				{
+					StreamID:   1,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   2,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+				{
+					StreamID:   3,
+					Aggregator: llotypes.AggregatorMedian,
+				},
+			},
+			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
+			Opts:         []byte(`{"baseUSDFee":"1","feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+		}
+		err := c.Verify(tests.Context(t), cd)
+		require.NoError(t, err)
+	})
 }

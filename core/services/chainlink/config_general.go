@@ -13,12 +13,10 @@ import (
 	"go.uber.org/multierr"
 	"go.uber.org/zap/zapcore"
 
-	coscfg "github.com/smartcontractkit/chainlink-cosmos/pkg/cosmos/config"
-	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
-	starknet "github.com/smartcontractkit/chainlink-starknet/relayer/pkg/chainlink/config"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
+	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
+	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -27,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
-	evmcfg "github.com/smartcontractkit/chainlink/v2/evm/config/toml"
 )
 
 // generalConfig is a wrapper to adapt Config to the config.GeneralConfig interface.
@@ -195,10 +192,13 @@ func (o *GeneralConfigOpts) parse() (err error) {
 }
 
 func (g *generalConfig) EVMConfigs() evmcfg.EVMConfigs {
+	if g.c.EVM == nil {
+		return evmcfg.EVMConfigs{} // return empty to pass nil check
+	}
 	return g.c.EVM
 }
 
-func (g *generalConfig) CosmosConfigs() coscfg.TOMLConfigs {
+func (g *generalConfig) CosmosConfigs() RawConfigs {
 	return g.c.Cosmos
 }
 
@@ -206,7 +206,7 @@ func (g *generalConfig) SolanaConfigs() solcfg.TOMLConfigs {
 	return g.c.Solana
 }
 
-func (g *generalConfig) StarknetConfigs() starknet.TOMLConfigs {
+func (g *generalConfig) StarknetConfigs() RawConfigs {
 	return g.c.Starknet
 }
 
@@ -308,23 +308,7 @@ func (g *generalConfig) AutoPprof() config.AutoPprof {
 }
 
 func (g *generalConfig) EVMEnabled() bool {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			return true
-		}
-	}
-	return false
-}
-
-func (g *generalConfig) EVMRPCEnabled() bool {
-	for _, c := range g.c.EVM {
-		if c.IsEnabled() {
-			if len(c.Nodes) > 0 {
-				return true
-			}
-		}
-	}
-	return false
+	return g.c.EVM.Enabled()
 }
 
 func (g *generalConfig) SolanaEnabled() bool {
@@ -426,6 +410,10 @@ func (g *generalConfig) AutoPprofProfileRoot() string {
 
 func (g *generalConfig) Capabilities() config.Capabilities {
 	return &capabilitiesConfig{c: g.c.Capabilities}
+}
+
+func (g *generalConfig) Workflows() config.Workflows {
+	return &workflowsConfig{c: g.c.Workflows}
 }
 
 func (g *generalConfig) Database() coreconfig.Database {
@@ -533,6 +521,13 @@ func (g *generalConfig) Mercury() coreconfig.Mercury {
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
+}
+
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+	return &importedEthKeyConfigs{s: g.secrets.EVM}
+}
+func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
+	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }
 
 func (g *generalConfig) Tracing() coreconfig.Tracing {

@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 
 	"github.com/stretchr/testify/require"
@@ -45,6 +46,11 @@ var rlConfig = ratelimiter.Config{
 	GlobalBurst:    1000,
 	PerSenderRPS:   30.0,
 	PerSenderBurst: 30,
+}
+
+var wlConfig = syncerlimiter.Config{
+	Global:   200,
+	PerOwner: 200,
 }
 
 type testEvtHandler struct {
@@ -354,9 +360,13 @@ func Test_SecretsWorker(t *testing.T) {
 
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
+
 	handler := &testSecretsWorkEventHandler{
 		wrappedHandler: syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl),
+			emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl),
 		registeredCh: make(chan syncer.Event, 1),
 	}
 
@@ -399,6 +409,83 @@ func Test_SecretsWorker(t *testing.T) {
 	}, tests.WaitTimeout(t), time.Second)
 }
 
+func Test_RegistrySyncer_SkipsEventsNotBelongingToDON(t *testing.T) {
+	var (
+		lggr      = logger.TestLogger(t)
+		backendTH = testutils.NewEVMBackendTH(t)
+
+		giveTicker      = time.NewTicker(500 * time.Millisecond)
+		giveBinaryURL   = "https://original-url.com"
+		donID           = uint32(1)
+		otherDonID      = uint32(2)
+		skippedWorkflow = RegisterWorkflowCMD{
+			Name:      "test-wf2",
+			DonID:     otherDonID,
+			Status:    uint8(1),
+			BinaryURL: giveBinaryURL,
+		}
+		giveWorkflow = RegisterWorkflowCMD{
+			Name:      "test-wf",
+			DonID:     donID,
+			Status:    uint8(1),
+			BinaryURL: "someurl",
+		}
+		wantContents = "updated contents"
+	)
+
+	defer giveTicker.Stop()
+
+	// Deploy a test workflow_registry
+	wfRegistryAddr, _, wfRegistryC, err := workflow_registry_wrapper.DeployWorkflowRegistry(backendTH.ContractsOwner, backendTH.Backend.Client())
+	backendTH.Backend.Commit()
+	require.NoError(t, err)
+
+	from := [20]byte(backendTH.ContractsOwner.From)
+	id, err := pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte(""), "")
+	require.NoError(t, err)
+	giveWorkflow.ID = id
+
+	from = [20]byte(backendTH.ContractsOwner.From)
+	id, err = pkgworkflows.GenerateWorkflowID(from[:], "test-wf", []byte(wantContents), []byte("dummy config"), "")
+	require.NoError(t, err)
+	skippedWorkflow.ID = id
+
+	handler := newTestEvtHandler()
+
+	worker := syncer.NewWorkflowRegistry(
+		lggr,
+		func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
+			return backendTH.NewContractReader(ctx, t, bytes)
+		},
+		wfRegistryAddr.Hex(),
+		syncer.WorkflowEventPollerConfig{QueryCount: 20},
+		handler,
+		&testDonNotifier{
+			don: capabilities.DON{
+				ID: donID,
+			},
+			err: nil,
+		},
+		syncer.WithTicker(giveTicker.C),
+	)
+
+	// setup contract state to allow the secrets to be updated
+	updateAllowedDONs(t, backendTH, wfRegistryC, []uint32{donID, otherDonID}, true)
+	updateAuthorizedAddress(t, backendTH, wfRegistryC, []common.Address{backendTH.ContractsOwner.From}, true)
+
+	servicetest.Run(t, worker)
+
+	// generate a log event
+	registerWorkflow(t, backendTH, wfRegistryC, skippedWorkflow)
+	registerWorkflow(t, backendTH, wfRegistryC, giveWorkflow)
+
+	require.Eventually(t, func() bool {
+		// we process events in order, and should only receive 1 event
+		// the first is skipped as it belongs to another don.
+		return len(handler.GetEvents()) == 1
+	}, tests.WaitTimeout(t), time.Second)
+}
+
 func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	var (
 		ctx       = coretestutils.Context(t)
@@ -438,8 +525,12 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
+
 	handler := syncer.NewEventHandler(lggr, orm, fetcherFn, nil, nil,
-		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, syncer.WithEngineRegistry(er))
+		emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, wl, syncer.WithEngineRegistry(er))
 
 	worker := syncer.NewWorkflowRegistry(
 		lggr,
@@ -538,6 +629,8 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	require.NoError(t, err)
 	handler := syncer.NewEventHandler(
 		lggr,
 		orm,
@@ -548,6 +641,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 		clockwork.NewFakeClock(),
 		workflowkey.Key{},
 		rl,
+		wl,
 		syncer.WithEngineRegistry(er),
 		syncer.WithEngineFactoryFn(mf.new),
 	)

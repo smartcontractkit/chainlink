@@ -79,64 +79,100 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 
 // MaybeLoadMCMSWithTimelockChainState looks for the addresses corresponding to
 // contracts deployed with DeployMCMSWithTimelock and loads them into a
-// MCMSWithTimelockState struct. If none of the contracts are found, the state struct will be nil.
+// MCMSWithTimelockState struct.  If none of the contracts are found, the state struct will be nil.
+//
 // An error indicates:
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
-func MaybeLoadMCMSWithTimelockChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*MCMSWithTimelockState, error) {
-	state := MCMSWithTimelockState{
-		MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
+func MaybeLoadMCMSWithTimelockChainState(
+	chain deployment.Chain,
+	addresses map[string]deployment.TypeAndVersion,
+) (*MCMSWithTimelockState, error) {
+	var (
+		state = MCMSWithTimelockState{
+			MCMSWithTimelockContracts: &proposalutils.MCMSWithTimelockContracts{},
+		}
+
+		// We expect one of each contract on the chain.
+		timelock  = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+		callProxy = deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+		proposer  = deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+		canceller = deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+		bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+
+		// the same contract can have different roles
+		multichain    = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		proposerMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		bypasserMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+		cancellerMCMS = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
+	)
+
+	// Convert map keys to a slice
+	proposerMCMS.Labels.Add(types.ProposerRole.String())
+	bypasserMCMS.Labels.Add(types.BypasserRole.String())
+	cancellerMCMS.Labels.Add(types.CancellerRole.String())
+	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
+		proposerMCMS, bypasserMCMS, cancellerMCMS,
 	}
-	// We expect one of each contract on the chain.
-	timelock := deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-	callProxy := deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-	proposer := deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-	canceller := deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-	bypasser := deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 
 	// Ensure we either have the bundle or not.
-	_, err := deployment.AddressesContainBundle(addresses,
-		map[deployment.TypeAndVersion]struct{}{
-			timelock: {}, proposer: {}, canceller: {}, bypasser: {}, callProxy: {},
-		})
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
 
-	for address, tvStr := range addresses {
-		switch tvStr {
-		case timelock:
+	for address, tv := range addresses {
+		switch {
+		case tv.Type == timelock.Type && tv.Version.String() == timelock.Version.String():
 			tl, err := owner_helpers.NewRBACTimelock(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.Timelock = tl
-		case callProxy:
+		case tv.Type == callProxy.Type && tv.Version.String() == callProxy.Version.String():
 			cp, err := owner_helpers.NewCallProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.CallProxy = cp
-		case proposer:
+		case tv.Type == proposer.Type && tv.Version.String() == proposer.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.ProposerMcm = mcms
-		case bypasser:
+		case tv.Type == bypasser.Type && tv.Version.String() == bypasser.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.BypasserMcm = mcms
-		case canceller:
+		case tv.Type == canceller.Type && tv.Version.String() == canceller.Version.String():
 			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
 			}
 			state.CancellerMcm = mcms
+		case tv.Type == multichain.Type && tv.Version.String() == multichain.Version.String():
+			// Contract of type ManyChainMultiSig must be labeled to assign to the proper state
+			// field.  If a specifically typed contract already occupies the field, then this
+			// contract will be ignored.
+			mcms, err := owner_helpers.NewManyChainMultiSig(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return nil, err
+			}
+			if tv.Labels.Contains(types.ProposerRole.String()) && state.ProposerMcm == nil {
+				state.ProposerMcm = mcms
+			}
+			if tv.Labels.Contains(types.BypasserRole.String()) && state.BypasserMcm == nil {
+				state.BypasserMcm = mcms
+			}
+			if tv.Labels.Contains(types.CancellerRole.String()) && state.CancellerMcm == nil {
+				state.CancellerMcm = mcms
+			}
 		}
+
 	}
 	return &state, nil
 }
@@ -176,14 +212,18 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
-	// Perhaps revisit if we have a use case for multiple.
-	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{linkToken: {}})
+
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{linkToken}
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check link token on chain %s error: %w", chain.Name(), err)
 	}
+
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case linkToken:
+		if tvStr.Type == linkToken.Type && tvStr.Version.String() == linkToken.Version.String() {
 			lt, err := link_token.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err
@@ -208,14 +248,18 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)
-	// Perhaps revisit if we have a use case for multiple.
-	_, err := deployment.AddressesContainBundle(addresses, map[deployment.TypeAndVersion]struct{}{staticLinkToken: {}})
+
+	// Convert map keys to a slice
+	wantTypes := []deployment.TypeAndVersion{staticLinkToken}
+
+	// Ensure we either have the bundle or not.
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check static link token on chain %s error: %w", chain.Name(), err)
 	}
+
 	for address, tvStr := range addresses {
-		switch tvStr {
-		case staticLinkToken:
+		if tvStr.Type == staticLinkToken.Type && tvStr.Version.String() == staticLinkToken.Version.String() {
 			lt, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return nil, err

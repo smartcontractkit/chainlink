@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	logmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -22,7 +23,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/evm/client/clienttest"
 )
 
 const syncInterval = 1000 * time.Hour // prevents sync timer from triggering during test
@@ -38,7 +38,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 	db := pgtest.NewSqlxDB(t)
 	cfg := configtest.NewGeneralConfig(t, nil)
 	korm := keeper.NewORM(db, logger.TestLogger(t))
-	ethClient := evmtest.NewEthClientMockWithDefaultChain(t)
+	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	keyStore := cltest.NewKeyStore(t, db)
 	lbMock := logmocks.NewBroadcaster(t)
 	lbMock.On("AddDependents", 1).Maybe()
@@ -47,7 +47,7 @@ func setupRegistrySync(t *testing.T, version keeper.RegistryVersion) (
 		DB:             db,
 		Client:         ethClient,
 		LogBroadcaster: lbMock,
-		GeneralConfig:  cfg,
+		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),

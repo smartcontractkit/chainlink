@@ -10,6 +10,7 @@ exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-versi
 exec chainlink --remote-node-url $NODEURL nodes cosmos list
 cmp stdout out.txt
 
+-- go:build.integration --
 -- testdb.txt --
 CL_DATABASE_URL
 -- testport.txt --

@@ -10,13 +10,13 @@ import (
 
 	"github.com/smartcontractkit/libocr/offchainreporting"
 
+	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
+	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
-	evmconfig "github.com/smartcontractkit/chainlink/v2/evm/config"
-	"github.com/smartcontractkit/chainlink/v2/evm/config/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 type GeneralConfig interface {

@@ -20,8 +20,15 @@ type NopView struct {
 	OCRKeys      map[string]OCRKeyView `json:"ocrKeys"`
 	PayeeAddress string                `json:"payeeAddress"`
 	CSAKey       string                `json:"csaKey"`
+	WorkflowKey  string                `json:"workflowKey"`
 	IsConnected  bool                  `json:"isConnected"`
 	IsEnabled    bool                  `json:"isEnabled"`
+	Labels       []LabelView           `json:"labels"`
+}
+
+type LabelView struct {
+	Key   string  `json:"key"`
+	Value *string `json:"value"`
 }
 
 type OCRKeyView struct {
@@ -33,10 +40,12 @@ type OCRKeyView struct {
 	KeyBundleID               string `json:"keyBundleID"`
 }
 
-func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[string]NopView, error) {
+func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[string]NopView, error) {
 	nv := make(map[string]NopView)
-	nodes, err := deployment.NodeInfo(nodeIds, oc)
-	if err != nil {
+	nodes, err := deployment.NodeInfo(nodeIDs, oc)
+	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
+		fmt.Printf("WARNING: Missing node metadata:\n%s", err.Error())
+	} else if err != nil {
 		return nv, err
 	}
 	for _, node := range nodes {
@@ -52,6 +61,13 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 		if nodeName == "" {
 			nodeName = node.NodeID
 		}
+		labels := []LabelView{}
+		for _, l := range nodeDetails.Node.Labels {
+			labels = append(labels, LabelView{
+				Key:   l.Key,
+				Value: l.Value,
+			})
+		}
 		nop := NopView{
 			NodeID:       node.NodeID,
 			PeerID:       node.PeerID.String(),
@@ -59,8 +75,10 @@ func GenerateNopsView(nodeIds []string, oc deployment.OffchainClient) (map[strin
 			OCRKeys:      make(map[string]OCRKeyView),
 			PayeeAddress: node.AdminAddr,
 			CSAKey:       nodeDetails.Node.PublicKey,
+			WorkflowKey:  nodeDetails.Node.GetWorkflowKey(),
 			IsConnected:  nodeDetails.Node.IsConnected,
 			IsEnabled:    nodeDetails.Node.IsEnabled,
+			Labels:       labels,
 		}
 		for details, ocrConfig := range node.SelToOCRConfig {
 			nop.OCRKeys[details.ChainName] = OCRKeyView{

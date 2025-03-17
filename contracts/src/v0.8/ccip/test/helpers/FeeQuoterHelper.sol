@@ -60,7 +60,7 @@ contract FeeQuoterHelper is FeeQuoter {
   function parseEVMExtraArgsFromBytes(
     bytes calldata extraArgs,
     uint64 destChainSelector
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
     return _parseEVMExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
@@ -73,7 +73,7 @@ contract FeeQuoterHelper is FeeQuoter {
     bytes calldata extraArgs,
     uint64 destChainSelector,
     bool enforceOutOfOrder
-  ) external view returns (Client.EVMExtraArgsV2 memory) {
+  ) external view returns (Client.GenericExtraArgsV2 memory) {
     return _parseEVMExtraArgsFromBytes(
       extraArgs,
       s_destChainConfigs[destChainSelector].defaultTxGasLimit,
@@ -91,10 +91,10 @@ contract FeeQuoterHelper is FeeQuoter {
 
   function processChainFamilySelector(
     uint64 chainFamilySelector,
-    bool isMessageWithTokenTransfer,
+    bytes calldata messageReceiver,
     bytes calldata extraArgs
-  ) external view returns (bytes memory, bool) {
-    return _processChainFamilySelector(chainFamilySelector, isMessageWithTokenTransfer, extraArgs);
+  ) external view returns (bytes memory, bool, bytes memory) {
+    return _processChainFamilySelector(chainFamilySelector, messageReceiver, extraArgs);
   }
 
   function validateDestFamilyAddress(
@@ -111,12 +111,5 @@ contract FeeQuoterHelper is FeeQuoter {
     uint256 feedValue
   ) external pure returns (uint224) {
     return _calculateRebasedValue(dataFeedDecimal, tokenDecimal, feedValue);
-  }
-
-  function resolveGasLimitForDestination(
-    bytes calldata extraArgs,
-    DestChainConfig memory destChainConfig
-  ) external pure returns (uint256 gasLimit) {
-    return _resolveGasLimitForDestination(extraArgs, destChainConfig);
   }
 }

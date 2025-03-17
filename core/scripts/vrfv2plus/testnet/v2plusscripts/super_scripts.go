@@ -22,6 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/model"
 	"github.com/smartcontractkit/chainlink/core/scripts/common/vrf/util"
 
+	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
@@ -32,8 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/vrfkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/proof"
-	evmclient "github.com/smartcontractkit/chainlink/v2/evm/client"
-	evmtypes "github.com/smartcontractkit/chainlink/v2/evm/types"
 )
 
 var coordinatorV2PlusABI = evmtypes.MustGetABI(vrf_coordinator_v2plus_interface.IVRFCoordinatorV2PlusInternalABI)
@@ -755,7 +755,7 @@ func VRFV2PlusDeployUniverse(e helpers.Environment,
 	if len(vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey) > 0 {
 		fmt.Println("\nRegistering proving key...")
 
-		//NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
+		// NOTE - register proving key against EOA account, and not against Oracle's sending address in other to be able
 		// easily withdraw funds from Coordinator contract back to EOA account
 		RegisterCoordinatorProvingKey(e, *coordinator, vrfKeyRegistrationConfig.VRFKeyUncompressedPubKey, provingKeyMaxGasPrice)
 

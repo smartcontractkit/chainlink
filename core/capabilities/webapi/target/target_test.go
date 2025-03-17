@@ -51,6 +51,7 @@ func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
+	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 

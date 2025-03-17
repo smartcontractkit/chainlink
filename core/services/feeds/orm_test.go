@@ -1736,7 +1736,7 @@ func createJob(t *testing.T, db *sqlx.DB, externalJobID uuid.UUID) *job.Job {
 		pipelineORM  = pipeline.NewORM(db, lggr, config.JobPipeline().MaxSuccessfulRuns())
 		bridgeORM    = bridges.NewORM(db)
 		legacyChains = evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
-			GeneralConfig:  config,
+			ChainConfigs:   config.EVMConfigs(),
 			DatabaseConfig: config.Database(),
 			FeatureConfig:  config.Feature(),
 			ListenerConfig: config.Database().Listener(),

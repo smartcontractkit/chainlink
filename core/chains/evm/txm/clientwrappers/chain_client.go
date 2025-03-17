@@ -6,8 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
-	"github.com/smartcontractkit/chainlink/v2/evm/client"
 )
 
 type ChainClient struct {

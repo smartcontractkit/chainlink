@@ -944,6 +944,7 @@ type OCR2Spec {
     pluginType: String!
     pluginConfig: Map!
     feedID: String
+    allowNoBootstrappers: Boolean!
 }
 
 type VRFSpec {

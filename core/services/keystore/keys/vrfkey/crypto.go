@@ -9,9 +9,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
-	"github.com/smartcontractkit/chainlink/v2/evm/utils"
 )
 
 // This file contains golang re-implementations of functions on the VRF solidity

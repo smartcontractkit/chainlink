@@ -71,7 +71,13 @@ contract MessageHasher {
   }
 
   function encodeEVMExtraArgsV2(
-    Client.EVMExtraArgsV2 memory extraArgs
+    Client.GenericExtraArgsV2 memory extraArgs
+  ) public pure returns (bytes memory) {
+    return Client._argsToBytes(extraArgs);
+  }
+
+  function encodeGenericExtraArgsV2(
+    Client.GenericExtraArgsV2 memory extraArgs
   ) public pure returns (bytes memory) {
     return Client._argsToBytes(extraArgs);
   }
@@ -82,11 +88,18 @@ contract MessageHasher {
     return Client.EVMExtraArgsV1(gasLimit);
   }
 
+  function decodeGenericExtraArgsV2(
+    uint256 gasLimit,
+    bool allowOutOfOrderExecution
+  ) public pure returns (Client.GenericExtraArgsV2 memory) {
+    return Client.GenericExtraArgsV2({gasLimit: gasLimit, allowOutOfOrderExecution: allowOutOfOrderExecution});
+  }
+
   function decodeEVMExtraArgsV2(
     uint256 gasLimit,
     bool allowOutOfOrderExecution
-  ) public pure returns (Client.EVMExtraArgsV2 memory) {
-    return Client.EVMExtraArgsV2({gasLimit: gasLimit, allowOutOfOrderExecution: allowOutOfOrderExecution});
+  ) public pure returns (Client.GenericExtraArgsV2 memory) {
+    return Client.GenericExtraArgsV2({gasLimit: gasLimit, allowOutOfOrderExecution: allowOutOfOrderExecution});
   }
 
   function encodeSVMExtraArgsV1(

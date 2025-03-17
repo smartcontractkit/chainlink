@@ -2,6 +2,7 @@ package job_test
 
 import (
 	_ "embed"
+	"fmt"
 	"reflect"
 	"testing"
 	"time"
@@ -346,5 +347,32 @@ func TestWorkflowSpec_Validate(t *testing.T) {
 		err := w.Validate(testutils.Context(t))
 		require.NoError(t, err)
 		require.NotEmpty(t, w.WorkflowID)
+	})
+
+	t.Run("WASM can validate from TOML", func(t *testing.T) {
+		const wasmWorkfowTomlTemplate = `
+			workflow_owner = "%s"
+			workflow_name = "%s"
+			spec_type = "%s"
+			workflow = "%s"
+			config = "%s"
+		`
+		configLocation := "testdata/config.json"
+		tomlSpec := fmt.Sprintf(wasmWorkfowTomlTemplate,
+			"0x0123456789012345678901234567890123456788",
+			"wf-2",
+			job.WASMFile,
+			createTestBinary(t),
+			configLocation,
+		)
+		var w job.WorkflowSpec
+		err := toml.Unmarshal([]byte(tomlSpec), &w)
+		require.NoError(t, err)
+
+		err = w.Validate(testutils.Context(t))
+		require.NoError(t, err)
+		require.NotEmpty(t, w.WorkflowID)
+		assert.Equal(t, "0123456789012345678901234567890123456788", w.WorkflowOwner)
+		assert.Equal(t, "wf-2", w.WorkflowName)
 	})
 }
