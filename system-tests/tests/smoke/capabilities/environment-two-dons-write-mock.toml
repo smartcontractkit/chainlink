@@ -1,150 +1,51 @@
-
 [blockchain_a]
 chain_id = "1337"
-  type = "anvil"
-  docker_cmd_params = ["-b", "5"]
+type = "anvil"
+docker_cmd_params = ["-b", "5"]
 
 [jd]
-  # change to your version
-image = "jd-test-1:0.9.0"
+# change to your version
+image = "job-distributor:0.9.0"
 
 [infra]
 type = "crib"
 
 [infra.crib]
-namespace = "crib-local"
+namespace = "crib-write-don-load-test"
 folder_location = "/Users/ionita/crib/deployments/cre"
-provider = "kind"
+provider = "aws"
 
 [workflow_config]
-  workflow_name = "abcdefgasd"
-  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+workflow_name = "abcdefgasd"
+feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
-  use_cre_cli = false
-  should_compile_new_workflow = false
+use_cre_cli = false
+should_compile_new_workflow = false
 
-  [workflow_config.dependencies]
-  capabilities_version = "v1.0.2-alpha"
-  cre_cli_version = "v0.1.5"
+[workflow_config.dependencies]
+capabilities_version = "v1.0.2-alpha"
+cre_cli_version = "v0.1.5"
 
-  [workflow_config.compiled_config]
-    binary_url = "xxx"
-    config_url = "xxx"
-
-[[nodesets]]
-  nodes = 5
-  override_mode = "each"
-  http_port_range_start = 10100
-  name = "mock"
-
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13000
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-    custom_ports = ['13401:7777']
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-    custom_ports = ['13402:7777']
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-    custom_ports = ['13403:7777']
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-    custom_ports = ['13404:7777']
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
+[workflow_config.compiled_config]
+binary_url = "xxx"
+config_url = "xxx"
 
 [[nodesets]]
-  nodes = 3
-  override_mode = "each"
-  http_port_range_start = 10200
-  name = "write"
+nodes = 5
+override_mode = "each"
+http_port_range_start = 10100
+name = "mock"
 
-  [nodesets.db]
-    image = "postgres:12.0"
-    port = 13100
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
 
-  [[nodesets.node_specs]]
+[[nodesets.node_specs]]
 
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-      user_config_overrides = """
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+user_config_overrides = """
       [Feature]
 			LogPoller = true
 
@@ -157,11 +58,116 @@ provider = "kind"
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
-  [[nodesets.node_specs]]
+[[nodesets.node_specs]]
 
-    [nodesets.node_specs.node]
-    image = "localhost:5000/chainlink:develop"
-      user_config_overrides = """
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+custom_ports = ['13401:7777']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+custom_ports = ['13402:7777']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+custom_ports = ['13403:7777']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+custom_ports = ['13404:7777']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+nodes = 5
+override_mode = "each"
+http_port_range_start = 10200
+name = "write"
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13100
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+user_config_overrides = """
       [Feature]
 			LogPoller = true
 
@@ -176,7 +182,8 @@ provider = "kind"
 [[nodesets.node_specs]]
 
 [nodesets.node_specs.node]
-image = "localhost:5000/chainlink:develop"
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -189,3 +196,47 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+
+[nodesets.node_specs.node]
+#image = "localhost:5001/chainlink:develop"
+image= "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+
+            [Telemetry]
+            Enabled = true
+            Endpoint = '<otel_collector_hostname>:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 0.1
+            EmitterExportTimeout = '30s'
+      """
+
