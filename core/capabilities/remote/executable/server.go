@@ -172,19 +172,6 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 
 	r.lggr.Debugw("received request", "msgId", msg.MessageId, "requestID", requestID)
 
-	requestIDs := r.messageIDToRequestIDs[messageID]
-	if requestIDs == nil {
-		requestIDs = map[string]bool{}
-		r.messageIDToRequestIDs[messageID] = requestIDs
-	}
-	requestIDs[requestID] = true
-
-	if len(requestIDs) > 1 {
-		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
-		// so a warning is logged
-		r.logNonDeterministicRequestsWarning(requestIDs, messageID)
-	}
-
 	if _, ok := r.requestIDToRequest[requestID]; !ok {
 		callingDon, ok := r.workflowDONs[msg.CallerDonId]
 		if !ok {
@@ -198,6 +185,19 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			message:   msg,
 			messageID: messageID,
 		}
+	}
+
+	requestIDs := r.messageIDToRequestIDs[messageID]
+	if requestIDs == nil {
+		requestIDs = map[string]bool{}
+		r.messageIDToRequestIDs[messageID] = requestIDs
+	}
+	requestIDs[requestID] = true
+
+	if len(requestIDs) > 1 {
+		// This is a potential attack vector as well as a situation that will occur if the client is sending non-deterministic payloads
+		// so a warning is logged
+		r.logNonDeterministicRequestsWarning(requestIDs, messageID)
 	}
 
 	reqAndMsgID := r.requestIDToRequest[requestID]
