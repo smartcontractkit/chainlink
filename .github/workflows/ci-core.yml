@@ -302,7 +302,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: scripts/flakeguard-generate-reports.sh   
+        run: ./.github/scripts/flakeguard-generate-reports.sh   
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
         if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -352,7 +352,7 @@ jobs:
           GITHUB_EVENT_NAME: ${{ github.event_name }}
           FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
           FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-        run: scripts/flakeguard-send-report-to-splunk.sh
+        run: ./.github/scripts/flakeguard-send-report-to-splunk.sh
         
       - name: Print Races
         id: print-races
