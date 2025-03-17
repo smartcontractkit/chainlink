@@ -150,7 +150,7 @@ func (c *Capability) Execute(ctx context.Context, req capabilities.CapabilityReq
 		if err != nil {
 			return capabilities.CapabilityResponse{}, err
 		}
-		c.lggr.Debugw("received gateway response", "resp", resp)
+		c.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var payload ghcapabilities.Response
 		err = json.Unmarshal(resp.Body.Payload, &payload)
 		if err != nil {
