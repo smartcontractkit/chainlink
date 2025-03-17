@@ -3,6 +3,7 @@ package offchain
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
@@ -26,7 +27,7 @@ func (f *NodesFilter) filter() *nodeapiv1.ListNodesRequest_Filter {
 		{
 			Key:   "don_id",
 			Op:    jdtypesv1.SelectorOp_EQ,
-			Value: pointer.To(fmt.Sprintf("%d", f.DONID)),
+			Value: pointer.To(strconv.FormatUint(f.DONID, 10)),
 		},
 		{
 			Key:   "environment",
@@ -82,11 +83,11 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get nodes: %w", err)
 	}
-	//Propose jobs
+	// Propose jobs
 	jobLabels := []*ptypes.Label{
 		&ptypes.Label{
 			Key:   "don_id",
-			Value: pointer.To(fmt.Sprintf("%d", nodeFilters.DONID)),
+			Value: pointer.To(strconv.FormatUint(nodeFilters.DONID, 10)),
 		},
 	}
 

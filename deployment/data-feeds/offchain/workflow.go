@@ -47,7 +47,7 @@ func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName
 		JobName:       workflowJobName,
 		ExternalJobID: externalID,
 		Workflow:      wfStr,
-		WorkflowID:    getWorkflowId(wfStr),
+		WorkflowID:    getWorkflowID(wfStr),
 		WorkflowOwner: wf.Owner,
 	}
 
@@ -66,10 +66,13 @@ func (wfCfg *WorkflowJobCfg) createSpec() (string, error) {
 
 	b := &bytes.Buffer{}
 	err = t.ExecuteTemplate(b, workflowPath, wfCfg)
+	if err != nil {
+		return "", err
+	}
 	return b.String(), nil
 }
 
-func getWorkflowId(wf string) string {
+func getWorkflowID(wf string) string {
 	sha256Hash := sha256.New()
 	sha256Hash.Write([]byte(wf))
 	cid := sha256Hash.Sum(nil)
@@ -110,7 +113,7 @@ func externalJobID(wfid []byte, nodeID string) (string, error) {
 	nb = sha256Hash.Sum(nil)
 
 	for i, b := range nb[:16] {
-		externalJobID[i] = externalJobID[i] ^ b
+		externalJobID[i] ^= b
 	}
 	// tag as valid UUID v4 https://github.com/google/uuid/blob/0f11ee6918f41a04c201eceeadf612a377bc7fbc/version4.go#L53-L54
 	externalJobID[6] = (externalJobID[6] & 0x0f) | 0x40 // Version 4

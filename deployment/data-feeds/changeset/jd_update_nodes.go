@@ -37,13 +37,9 @@ func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deploy
 		var labels []*ptypes.Label
 		if node.AppendLabels {
 			currentLabels := nodeInfo.GetLabels()
-			for _, l := range currentLabels {
-				labels = append(labels, l)
-			}
+			labels = append(labels, currentLabels...)
 		}
-		for _, nl := range node.Labels {
-			labels = append(labels, nl)
-		}
+		labels = append(labels, node.Labels...)
 
 		_, err = env.Offchain.UpdateNode(env.GetContext(), &nodev1.UpdateNodeRequest{
 			Id:        nodeInfo.GetId(),

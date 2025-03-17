@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
+	"strconv"
 	"text/template"
 
 	"github.com/google/uuid"
@@ -22,8 +23,8 @@ type BootstrapJobCfg struct {
 	ChainID       string
 }
 
-func createBoostrapExternalJobID(DONID uint64, evmChainSel uint64) (string, error) {
-	in := []byte(fmt.Sprintf("%d", DONID) + "-ocr3-capability-job-spec")
+func createBoostrapExternalJobID(donID uint64, evmChainSel uint64) (string, error) {
+	in := []byte(strconv.FormatUint(donID, 10) + "-ocr3-capability-job-spec")
 	b := make([]byte, 8)
 	binary.BigEndian.PutUint64(b, evmChainSel)
 	in = append(in, b...)
@@ -42,8 +43,8 @@ func createBoostrapExternalJobID(DONID uint64, evmChainSel uint64) (string, erro
 	return id.String(), nil
 }
 
-func JobSpecFromBootstrap(DONID uint64, chainSelector uint64, bootstrapJobName string, contract string) (string, error) {
-	externalID, err := createBoostrapExternalJobID(DONID, chainSelector)
+func JobSpecFromBootstrap(donID uint64, chainSelector uint64, bootstrapJobName string, contract string) (string, error) {
+	externalID, err := createBoostrapExternalJobID(donID, chainSelector)
 	if err != nil {
 		return "", fmt.Errorf("failed to get bootstrap external job id: %w", err)
 	}
@@ -75,5 +76,8 @@ func (btCfg *BootstrapJobCfg) createSpec() (string, error) {
 
 	b := &bytes.Buffer{}
 	err = t.ExecuteTemplate(b, bootstrapPath, btCfg)
+	if err != nil {
+		return "", err
+	}
 	return b.String(), nil
 }

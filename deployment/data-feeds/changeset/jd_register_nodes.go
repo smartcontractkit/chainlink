@@ -3,6 +3,7 @@ package changeset
 import (
 	"errors"
 	"fmt"
+	"strconv"
 
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
@@ -59,7 +60,7 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 				},
 				&ptypes.Label{
 					Key:   "don_id",
-					Value: pointer.To(fmt.Sprintf("%d", don.ID)),
+					Value: pointer.To(strconv.Itoa(don.ID)),
 				},
 			}
 			if node.IsBootstrap {
@@ -74,9 +75,7 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 				})
 			}
 			// extra labels
-			for _, nl := range node.Labels {
-				labels = append(labels, nl)
-			}
+			labels = append(labels, node.Labels...)
 
 			// if node doesn't exist, attempt to register it
 			if err != nil {
