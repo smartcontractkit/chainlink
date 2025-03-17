@@ -141,7 +141,7 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 }
 
 func Test_CCIPBatching_MultiSource(t *testing.T) {
-	ccipBatching_MultiSource(t)
+	ccipBatchingMultiSource(t)
 }
 
 func Test_CCIPBatching_MultiSource_MultiReports(t *testing.T) {
@@ -150,10 +150,10 @@ func Test_CCIPBatching_MultiSource_MultiReports(t *testing.T) {
 		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 		return params
 	})
-	ccipBatching_MultiSource(t, opt)
+	ccipBatchingMultiSource(t, opt)
 }
 
-func ccipBatching_MultiSource(t *testing.T, opts ...testhelpers.TestOps) {
+func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t, opts...)
@@ -279,7 +279,7 @@ func ccipBatching_MultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 }
 
 func Test_CCIPBatching_SingleSource(t *testing.T) {
-	ccipBatching_SingleSource(t)
+	ccipBatchingSingleSource(t)
 }
 
 func Test_CCIPBatching_SingleSource_MultiplReports(t *testing.T) {
@@ -288,10 +288,10 @@ func Test_CCIPBatching_SingleSource_MultiplReports(t *testing.T) {
 		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 		return params
 	})
-	ccipBatching_SingleSource(t, opt)
+	ccipBatchingSingleSource(t, opt)
 }
 
-func ccipBatching_SingleSource(t *testing.T, opts ...testhelpers.TestOps) {
+func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {
 	// Setup 3 chains, with 2 lanes going to the dest.
 	ctx := testhelpers.Context(t)
 	setup := newBatchTestSetup(t, opts...)
