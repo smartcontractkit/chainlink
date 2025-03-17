@@ -1153,7 +1153,7 @@ func DeployTransferableTokenSolana(
 					TokenAddress: solTestTokenPool.RemoteAddress{
 						Address: evmToken.Address().Bytes(),
 					},
-					Decimals: 9,
+					Decimals: 18,
 				},
 				InboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
