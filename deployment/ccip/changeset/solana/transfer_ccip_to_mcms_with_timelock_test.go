@@ -344,8 +344,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 			FeeQuoter:             true,
 			OffRamp:               true,
 			RMNRemote:             true,
-			BurnMintTokenPools:    []solana.PublicKey{burnMintPoolConfigPDA},
-			LockReleaseTokenPools: []solana.PublicKey{lockReleasePoolConfigPDA},
+			BurnMintTokenPools:    map[solana.PublicKey]solana.PublicKey{tokenAddressBurnMint: tokenAddressBurnMint},
+			LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{tokenAddressLockRelease: tokenAddressLockRelease},
 		})
 
 	// 5. Now verify on-chain that each contract’s “config account” authority is the Timelock PDA.
