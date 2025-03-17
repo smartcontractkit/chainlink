@@ -31,6 +31,8 @@ type DONConfigSchema struct {
 	Nodes []MinimalNodeCfg `json:"nodes"`
 }
 
+const productLabel = "data-feeds"
+
 func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
 	dons, _ := shared.LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 
@@ -44,14 +46,14 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 			labels := []*ptypes.Label{
 				&ptypes.Label{
 					Key:   "product",
-					Value: pointer.To("data-feeds"),
+					Value: pointer.To(productLabel),
 				},
 				&ptypes.Label{
 					Key:   "domain",
-					Value: pointer.To("data-feeds"),
+					Value: pointer.To(productLabel),
 				},
 				&ptypes.Label{
-					Key:   "data-feeds",
+					Key:   productLabel,
 					Value: pointer.To(""),
 				},
 				&ptypes.Label{
