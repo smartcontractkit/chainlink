@@ -133,13 +133,13 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 }
 
 func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
+	if c.McmsConfig == nil {
+		return errors.New("mcms config is required")
+	}
+
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
-	}
-
-	if c.McmsConfig == nil {
-		return errors.New("mcms config is required")
 	}
 
 	return ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector)
