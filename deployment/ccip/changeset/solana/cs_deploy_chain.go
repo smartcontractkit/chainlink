@@ -29,6 +29,7 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 )
@@ -46,6 +47,7 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
 		types.ManyChainMultisigProgram:     deployment.McmProgramName,
 		types.RBACTimelockProgram:          deployment.TimelockProgramName,
+		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
 	}
 }
 
@@ -1052,5 +1054,66 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 
 	return deployment.ChangesetOutput{
 		AddressBook: newAddresses,
+	}, nil
+}
+
+type DeployForTestConfig struct {
+	ChainSelector uint64
+}
+
+func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+
+	return validateRouterConfig(chain, chainState)
+}
+
+func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	ab := deployment.NewMemoryAddressBook()
+
+	var receiverAddress solana.PublicKey
+	var err error
+	if chainState.Receiver.IsZero() {
+		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
+		}
+	} else {
+		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+		receiverAddress = chainState.Receiver
+	}
+
+	solTestReceiver.SetProgramID(receiverAddress)
+	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(receiverAddress)
+	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+		chainState.Router,
+		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
+		externalExecutionConfigPDA,
+		chain.DeployerKey.PublicKey(),
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if ixErr != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
+	}
+	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
+	}
+
+	return deployment.ChangesetOutput{
+		AddressBook: ab,
 	}, nil
 }

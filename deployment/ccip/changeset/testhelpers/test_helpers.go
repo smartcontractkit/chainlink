@@ -1709,7 +1709,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
-			FindReceiverTargetAccount(chainState.Receiver),
+			changeset.FindReceiverTargetAccount(chainState.Receiver),
 			externalExecutionConfigPDA,
 			e.SolChains[solSelector].DeployerKey.PublicKey(),
 			solana.SystemProgramID,
@@ -1718,11 +1718,6 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 		err = e.SolChains[solSelector].Confirm([]solana.Instruction{instruction})
 		require.NoError(t, err)
 	}
-}
-
-func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
-	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
-	return receiverTargetAccount
 }
 
 func TransferOwnershipSolana(
