@@ -24,7 +24,7 @@ func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsCon
 
 	bootstrapJobSpec, err := offchain.JobSpecFromBootstrap(c.NodeFilter.DONID, c.ChainSelector, c.BootstrapJobName, c.Contract)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from workflow: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from bootstrap: %w", err)
 	}
 
 	return offchain.ProposeJobs(ctx, env, bootstrapJobSpec, c.NodeFilter)
