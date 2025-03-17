@@ -30,9 +30,14 @@ func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsCon
 	return offchain.ProposeJobs(ctx, env, bootstrapJobSpec, c.NodeFilter)
 }
 
-func proposeBtJobsToJDPrecondition(_ deployment.Environment, c types.ProposeBtJobsConfig) error {
+func proposeBtJobsToJDPrecondition(env deployment.Environment, c types.ProposeBtJobsConfig) error {
 	if c.NodeFilter == nil {
 		return errors.New("node labels are required")
+	}
+
+	_, ok := env.Chains[c.ChainSelector]
+	if !ok {
+		return fmt.Errorf("chain not found in env %d", c.ChainSelector)
 	}
 
 	return nil

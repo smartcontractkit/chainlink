@@ -18,7 +18,7 @@ type NodeConfigSchema struct {
 	ID           string          `json:"id"`            // node id
 	Name         string          `json:"name"`          // new node name
 	Labels       []*ptypes.Label `json:"labels"`        // new labels
-	AppendLabels bool            `json:"append_labels"` // if true, append labels to existing labels, otherwise replace
+	AppendLabels bool            `json:"append_labels"` // if true, append new labels to existing labels, otherwise replace
 }
 
 func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {

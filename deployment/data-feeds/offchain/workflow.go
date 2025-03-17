@@ -11,6 +11,7 @@ import (
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 

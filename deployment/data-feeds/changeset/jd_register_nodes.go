@@ -14,7 +14,7 @@ import (
 )
 
 // RegisterNodesToJDChangeset is a changeset that reads node info from a JSON file and registers them in Job Distributor
-// Register a node with a set of base labels and optionally with additional wxtra labels
+// Register a node with a set of base labels and optionally with additional extra labels
 var RegisterNodesToJDChangeset = deployment.CreateChangeSet(registerNodesToJDLogic, registerNodesToJDLogicPrecondition)
 
 type MinimalNodeCfg struct {
@@ -48,6 +48,10 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 				&ptypes.Label{
 					Key:   "domain",
 					Value: pointer.To("data-feeds"),
+				},
+				&ptypes.Label{
+					Key:   "data-feeds",
+					Value: pointer.To(""),
 				},
 				&ptypes.Label{
 					Key:   "environment",
@@ -88,7 +92,7 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 				}
 				continue
 			}
-			env.Logger.Infow("Node already registered", "name", node.Name, "id", n.Node.Id)
+			env.Logger.Infow("Node already registered, use UpdatesNodesJDChangeset to update node labels or name", "name", node.Name, "id", n.Node.Id)
 		}
 	}
 

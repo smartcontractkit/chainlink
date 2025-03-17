@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -139,7 +140,7 @@ type NodeConfig struct {
 }
 
 type ProposeWfJobsConfig struct {
-	InputFileName   string
+	InputFileName   string // workflow yaml file path
 	InputFS         embed.FS
 	WorkflowJobName string
 	NodeFilter      *offchain.NodesFilter
