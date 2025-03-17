@@ -364,7 +364,7 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 			return nil, err
 		}
 
-		log.Debugw("received gateway response", "resp", resp)
+		log.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var response wasmpb.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {

@@ -127,6 +127,9 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 			if t.Name() == "TestValidateSyncUSDCDomainsWithChainsConfig/Domain_mapping_not_defined" {
 				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-113")
 			}
+			if t.Name() == "TestValidateSyncUSDCDomainsWithChainsConfig/Chain_selector_is_not_valid" {
+				tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-195")
+			}
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
 				testCfg.Chains = 2
 				testCfg.PrerequisiteDeploymentOnly = true
