@@ -46,7 +46,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	}{
 		{
 			name:   "success",
-			env: e,
+			env:    e,
 			config: config,
 		},
 	}

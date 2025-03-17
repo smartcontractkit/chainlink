@@ -28,7 +28,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, numNodes int) deployment.Enviro
 	lggr := logger.TestLogger(t)
 	memEnvConf := memory.MemoryEnvironmentConfig{
 		Chains: 1,
-		Nodes: numNodes,
+		Nodes:  numNodes,
 	}
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
