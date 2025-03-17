@@ -67,12 +67,12 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 	t.Run("receiver receives request from registered don", func(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-		var receiver remotetypes.Receiver
+		receivers := make(map[receiverKey]remotetypes.Receiver, 0)
 
 		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
 		// and a CapabilitiesDon running a custom compute capability.
 		// The receiver will be updated with the created CapabilitiesDon's ID
-		th := setup(ctx, t, lggr, &receiver)
+		th := setup(ctx, t, lggr, receivers)
 		msgBody := &remotetypes.MessageBody{
 			Method:      remotetypes.MethodExecute,
 			MessageId:   []byte("message_id"),
@@ -82,19 +82,23 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		}
 
 		// we will now send a request to the receiver with a registered don's ID
-		executeReceiveSafetly(ctx, receiver, msgBody)
+		executeReceiveSafetly(ctx, receivers[receiverKey{
+			capID:           th.fullComputeCapID,
+			capabilityDonID: th.capabilitiesDonID,
+		}], msgBody)
 		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
 
 	t.Run("receiver receives request from an unregistered don", func(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-		var receiver remotetypes.Receiver
+
+		receivers := make(map[receiverKey]remotetypes.Receiver, 0)
 
 		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
 		// and a CapabilitiesDon running a custom compute capability.
 		// The receiver will be updated with the created CapabilitiesDon's ID
-		th := setup(ctx, t, lggr, &receiver)
+		th := setup(ctx, t, lggr, receivers)
 
 		unregisteredDonID := uint32(3)
 		msgBody := &remotetypes.MessageBody{
@@ -106,19 +110,22 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		}
 
 		// we will now send a request to the receiver with an unregistered don's ID
-		executeReceiveSafetly(ctx, receiver, msgBody)
+		executeReceiveSafetly(ctx, receivers[receiverKey{
+			capID:           th.fullComputeCapID,
+			capabilityDonID: th.capabilitiesDonID,
+		}], msgBody)
 		assert.Len(t, observedLogs.FilterMessage("received request from unregistered don").All(), 1)
 	})
 
 	t.Run("receivers gets updated when adding a new don", func(t *testing.T) {
 		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
-		var receiver remotetypes.Receiver
+		receivers := make(map[receiverKey]remotetypes.Receiver, 0)
 
 		// setup will create and start a launcher with a capabilities registry reflecting a current state of a WorkflowDon
 		// and a CapabilitiesDon running a custom compute capability.
 		// The receiver will be updated with the created CapabilitiesDon's ID
-		th := setup(ctx, t, lggr, &receiver)
+		th := setup(ctx, t, lggr, receivers)
 
 		// we will now add a new workflow don to the state which reflects a new workflow don being added to the registrySyncer.
 		// this emulates what happens in the registrySyncer.Sync
@@ -169,9 +176,28 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			HashedCapabilityIds: [][32]byte{th.computeCapID},
 		}
 
-		// the dispatcher will return a remote.ErrReceiverExists error when trying to update the receiver with the new workflow don's ID
-		// this is because currently the key is formed by the fullComputeCapID and the capabilitiesDonID and a receiver already exists for this key
-		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).Return(remote.ErrReceiverExists).Once()
+		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).Return(nil).Once()
+
+		// the dispatcher will return a remote.ErrReceiverExists error when trying to add the new workflow don receiver
+		// if the key formed by the fullComputeCapID and the capabilitiesDonID already exists in the receivers map
+		var returnErr error
+		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).
+			Run(func(args mock.Arguments) {
+				// Store the receiver if not found
+				_, found := receivers[receiverKey{
+					capID:           th.fullComputeCapID,
+					capabilityDonID: th.capabilitiesDonID,
+				}]
+				if found {
+					returnErr = remote.ErrReceiverExists
+				} else {
+					receivers[receiverKey{
+						capID:           th.fullComputeCapID,
+						capabilityDonID: th.capabilitiesDonID,
+					}] = args.Get(2).(remotetypes.Receiver)
+					returnErr = nil
+				}
+			}).Return(returnErr).Once()
 		err = th.launcher.Launch(ctx, &th.state)
 		require.NoError(t, err)
 
@@ -186,7 +212,10 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			Sender:      newWorkflowsNodes[0][:],
 		}
 
-		executeReceiveSafetly(ctx, receiver, msgBody)
+		executeReceiveSafetly(ctx, receivers[receiverKey{
+			capID:           th.fullComputeCapID,
+			capabilityDonID: th.capabilitiesDonID,
+		}], msgBody)
 		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
 }
@@ -202,7 +231,7 @@ type testHarness struct {
 	fullComputeCapID  string
 }
 
-func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receiver *remotetypes.Receiver) testHarness {
+func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receivers map[receiverKey]remotetypes.Receiver) testHarness {
 	registry := corecapabilities.NewRegistry(lggr)
 	fullComputeCapID := "custom-compute@1.0.0"
 	mt := newMockAction(capabilities.MustNewCapabilityInfo(
@@ -345,7 +374,10 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receiver *remo
 	}
 
 	dispatcher.On("SetReceiver", fullComputeCapID, capabilitiesDonID, mock.AnythingOfType("*executable.server")).Run(func(args mock.Arguments) {
-		*receiver = args.Get(2).(remotetypes.Receiver)
+		receivers[receiverKey{
+			capID:           fullComputeCapID,
+			capabilityDonID: capabilitiesDonID,
+		}] = args.Get(2).(remotetypes.Receiver)
 	}).Return(nil).Once()
 
 	err = launcher.Launch(ctx, state)
@@ -397,4 +429,9 @@ func randomWord() [32]byte {
 		panic(err)
 	}
 	return [32]byte(word)
+}
+
+type receiverKey struct {
+	capID           string
+	capabilityDonID uint32
 }
