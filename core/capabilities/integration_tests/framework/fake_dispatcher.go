@@ -115,7 +115,7 @@ func (a *FakeRageP2PNetwork) GetCapabilityRegistrations() map[CapabilityRegistra
 	return copiedRegistrations
 }
 
-func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, receiver remotetypes.Receiver) {
+func (a *FakeRageP2PNetwork) registerReceiverNode(nodePeerID p2ptypes.PeerID, capabilityID string, capabilityDonID uint32, workflowDonID uint32, receiver remotetypes.Receiver) {
 	a.mux.Lock()
 	defer a.mux.Unlock()
 
@@ -225,8 +225,9 @@ type brokerDispatcher struct {
 }
 
 type key struct {
-	capId string
-	donId uint32
+	capID           string
+	capabilityDonID uint32
+	workflowDonID   uint32
 }
 
 func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.MessageBody) error {
@@ -239,20 +240,21 @@ func (t *brokerDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Mes
 	return nil
 }
 
-func (t *brokerDispatcher) SetReceiver(capabilityId string, donId uint32, receiver remotetypes.Receiver) error {
+func (t *brokerDispatcher) SetReceiver(capabilityId string, capabilityDonID uint32, workflowDonID uint32, receiver remotetypes.Receiver) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	k := key{capabilityId, donId}
+	k := key{capabilityId, capabilityDonID, workflowDonID}
 	_, ok := t.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", remote.ErrReceiverExists, capabilityId, donId)
+		return fmt.Errorf("%w: receiver already exists for capability %s capability don %d and workflow don %d", remote.ErrReceiverExists, capabilityId, capabilityDonID, workflowDonID)
 	}
 	t.receivers[k] = receiver
 
-	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityId, donId, receiver)
+	t.broker.(*FakeRageP2PNetwork).registerReceiverNode(t.callerPeerID, capabilityId, capabilityDonID, workflowDonID, receiver)
 	return nil
 }
-func (t *brokerDispatcher) RemoveReceiver(capabilityId string, donId uint32) {}
+func (t *brokerDispatcher) RemoveReceiver(capabilityId string, capabilityDonID uint32, workflowDonID uint32) {
+}
 
 func (t *brokerDispatcher) Start(context.Context) error { return nil }
 

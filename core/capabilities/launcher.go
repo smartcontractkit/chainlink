@@ -308,7 +308,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 				)
 				return triggerCap, nil
 			}
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTriggerFn)
+			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, myDON, newTriggerFn)
 			if err != nil {
 				return fmt.Errorf("failed to add trigger shim: %w", err)
 			}
@@ -324,7 +324,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 				return client, nil
 			}
 
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newActionFn)
+			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, myDON, newActionFn)
 			if err != nil {
 				return fmt.Errorf("failed to add action shim: %w", err)
 			}
@@ -342,7 +342,7 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 				return client, nil
 			}
 
-			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, newTargetFn)
+			err := w.addToRegistryAndSetDispatcher(ctx, capability, remoteDON, myDON, newTargetFn)
 			if err != nil {
 				return fmt.Errorf("failed to add target shim: %w", err)
 			}
@@ -359,13 +359,13 @@ type capabilityService interface {
 	services.Service
 }
 
-func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
+func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability registrysyncer.Capability, capabilityDon registrysyncer.DON, workflowDon registrysyncer.DON, newCapFn func(info capabilities.CapabilityInfo) (capabilityService, error)) error {
 	capabilityID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capabilityID,
 		capability.CapabilityType,
 		fmt.Sprintf("Remote Capability for %s", capabilityID),
-		&don.DON,
+		&capabilityDon.DON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create remote capability info: %w", err)
@@ -390,13 +390,14 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 
 	err = w.dispatcher.SetReceiver(
 		capabilityID,
-		don.ID,
+		capabilityDon.ID,
+		workflowDon.ID,
 		cp,
 	)
 	if err != nil {
 		return err
 	}
-	w.lggr.Debugw("Setting receiver for capability", "id", capabilityID, "donID", don.ID)
+	w.lggr.Debugw("Setting receiver for capability", "id", capabilityID, "capabilityDonID", capabilityDon.ID, "workflowDonID", workflowDon.ID)
 	err = cp.Start(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to start capability: %w", err)
@@ -411,13 +412,13 @@ var (
 	defaultMaxParallelCapabilityExecuteRequests = 1000
 )
 
-func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, don registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
+func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.PeerID, capabilityDon registrysyncer.DON, state *registrysyncer.LocalRegistry, remoteWorkflowDONs []registrysyncer.DON) error {
 	idsToDONs := map[uint32]capabilities.DON{}
 	for _, d := range remoteWorkflowDONs {
 		idsToDONs[d.ID] = d.DON
 	}
 
-	for cid, c := range don.CapabilityConfigurations {
+	for cid, c := range capabilityDon.CapabilityConfigurations {
 		capability, ok := state.IDsToCapabilities[cid]
 		if !ok {
 			return fmt.Errorf("could not find capability matching id %s", cid)
@@ -440,7 +441,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					capabilityConfig.RemoteTriggerConfig,
 					triggerCapability,
 					info,
-					don.DON,
+					capabilityDon.DON,
 					idsToDONs,
 					w.dispatcher,
 					w.lggr,
@@ -448,10 +449,12 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 				return publisher, nil
 			}
 
-			err := w.addReceiver(ctx, capability, don, newTriggerPublisher)
-			if err != nil {
-				w.lggr.Errorw("failed to add server-side receiver for a trigger capability - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
+			for _, workflowDon := range remoteWorkflowDONs {
+				err := w.addReceiver(ctx, capability, capabilityDon, workflowDon, newTriggerPublisher)
+				if err != nil {
+					w.lggr.Errorw("failed to add server-side receiver for a trigger capability - it won't be exposed remotely", "id", cid, "error", err)
+					// continue attempting other capabilities
+				}
 			}
 		case capabilities.CapabilityTypeAction:
 			newActionServer := func(cap capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error) {
@@ -470,7 +473,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					myPeerID,
 					actionCapability,
 					info,
-					don.DON,
+					capabilityDon.DON,
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
@@ -479,10 +482,12 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 				), nil
 			}
 
-			err = w.addReceiver(ctx, capability, don, newActionServer)
-			if err != nil {
-				w.lggr.Errorw("failed to add action server-side receiver - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
+			for _, workflowDon := range remoteWorkflowDONs {
+				err = w.addReceiver(ctx, capability, capabilityDon, workflowDon, newActionServer)
+				if err != nil {
+					w.lggr.Errorw("failed to add action server-side receiver - it won't be exposed remotely", "id", cid, "error", err)
+					// continue attempting other capabilities
+				}
 			}
 		case capabilities.CapabilityTypeConsensus:
 			w.lggr.Warn("no remote client configured for capability type consensus, skipping configuration")
@@ -503,7 +508,7 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 					myPeerID,
 					targetCapability,
 					info,
-					don.DON,
+					capabilityDon.DON,
 					idsToDONs,
 					w.dispatcher,
 					defaultTargetRequestTimeout,
@@ -512,10 +517,12 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 				), nil
 			}
 
-			err := w.addReceiver(ctx, capability, don, newTargetServer)
-			if err != nil {
-				w.lggr.Errorw("failed to add server-side receiver for a target capability - it won't be exposed remotely", "id", cid, "error", err)
-				// continue attempting other capabilities
+			for _, workflowDon := range remoteWorkflowDONs {
+				err := w.addReceiver(ctx, capability, capabilityDon, workflowDon, newTargetServer)
+				if err != nil {
+					w.lggr.Errorw("failed to add server-side receiver for a target capability - it won't be exposed remotely", "id", cid, "error", err)
+					// continue attempting other capabilities
+				}
 			}
 		default:
 			w.lggr.Warnf("unknown capability type, skipping configuration: %+v", capability)
@@ -524,13 +531,13 @@ func (w *launcher) exposeCapabilities(ctx context.Context, myPeerID p2ptypes.Pee
 	return nil
 }
 
-func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, don registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error)) error {
+func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Capability, capabilityDon registrysyncer.DON, workflowDon registrysyncer.DON, newReceiverFn func(capability capabilities.BaseCapability, info capabilities.CapabilityInfo) (remotetypes.ReceiverService, error)) error {
 	capID := capability.ID
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capability.CapabilityType,
 		fmt.Sprintf("Remote Capability for %s", capability.ID),
-		&don.DON,
+		&capabilityDon.DON,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to instantiate remote capability for receiver: %w", err)
@@ -545,12 +552,12 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 		return fmt.Errorf("failed to instantiate receiver: %w", err)
 	}
 
-	w.lggr.Debugw("Enabling external access for capability", "id", capID, "donID", don.ID)
-	err = w.dispatcher.SetReceiver(capID, don.ID, receiver)
+	w.lggr.Debugw("Enabling external access for capability", "id", capID, "capabilityDonID", capabilityDon.ID, "workflowDonID", workflowDon.ID)
+	err = w.dispatcher.SetReceiver(capID, capabilityDon.ID, workflowDon.ID, receiver)
 	if errors.Is(err, remote.ErrReceiverExists) {
 		// If a receiver already exists, let's log the error for debug purposes, but
 		// otherwise short-circuit here. We've handled this capability in a previous iteration.
-		w.lggr.Debugf("receiver already exists for cap ID %s and don ID %d: %s", capID, don.ID, err)
+		w.lggr.Debugf("receiver already exists for cap ID %s, capabilityDon ID %d and workflowDon ID %d: %s", capID, capabilityDon.ID, workflowDon.ID, err)
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("failed to set receiver: %w", err)

@@ -85,6 +85,7 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		executeReceiveSafetly(ctx, receivers[receiverKey{
 			capID:           th.fullComputeCapID,
 			capabilityDonID: th.capabilitiesDonID,
+			workflowDonID:   th.workflowDonID,
 		}], msgBody)
 		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
@@ -113,6 +114,7 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		executeReceiveSafetly(ctx, receivers[receiverKey{
 			capID:           th.fullComputeCapID,
 			capabilityDonID: th.capabilitiesDonID,
+			workflowDonID:   th.workflowDonID,
 		}], msgBody)
 		assert.Len(t, observedLogs.FilterMessage("received request from unregistered don").All(), 1)
 	})
@@ -176,17 +178,18 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 			HashedCapabilityIds: [][32]byte{th.computeCapID},
 		}
 
-		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).Return(nil).Once()
+		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, th.workflowDonID, mock.AnythingOfType("*executable.server")).Return(nil).Once()
 
 		// the dispatcher will return a remote.ErrReceiverExists error when trying to add the new workflow don receiver
-		// if the key formed by the fullComputeCapID and the capabilitiesDonID already exists in the receivers map
+		// if the key formed by fullComputeCapID, capabilitiesDonID and the workflowDonID already exists in the receivers map
 		var returnErr error
-		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, mock.AnythingOfType("*executable.server")).
+		th.dispatcher.On("SetReceiver", th.fullComputeCapID, th.capabilitiesDonID, newWorkflowDonID, mock.AnythingOfType("*executable.server")).
 			Run(func(args mock.Arguments) {
 				// Store the receiver if not found
 				_, found := receivers[receiverKey{
 					capID:           th.fullComputeCapID,
 					capabilityDonID: th.capabilitiesDonID,
+					workflowDonID:   newWorkflowDonID,
 				}]
 				if found {
 					returnErr = remote.ErrReceiverExists
@@ -194,7 +197,8 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 					receivers[receiverKey{
 						capID:           th.fullComputeCapID,
 						capabilityDonID: th.capabilitiesDonID,
-					}] = args.Get(2).(remotetypes.Receiver)
+						workflowDonID:   newWorkflowDonID,
+					}] = args.Get(3).(remotetypes.Receiver)
 					returnErr = nil
 				}
 			}).Return(returnErr).Once()
@@ -215,6 +219,7 @@ func TestLauncher_UpdatesReceiverWithNewDON(t *testing.T) {
 		executeReceiveSafetly(ctx, receivers[receiverKey{
 			capID:           th.fullComputeCapID,
 			capabilityDonID: th.capabilitiesDonID,
+			workflowDonID:   newWorkflowDonID,
 		}], msgBody)
 		assert.Empty(t, observedLogs.FilterMessage("received request from unregistered don").All())
 	})
@@ -270,7 +275,7 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receivers map[
 	}
 
 	capabilitiesDonID := uint32(2)
-	capabilityNodes := []ragetypes.PeerID{
+	capabilitiesNodes := []ragetypes.PeerID{
 		wrapper.GetPeer().ID(),
 		randomWord(),
 		randomWord(),
@@ -300,7 +305,7 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receivers map[
 					F:                uint8(1),
 					IsPublic:         true,
 					AcceptsWorkflows: false,
-					Members:          capabilityNodes,
+					Members:          capabilitiesNodes,
 				},
 				CapabilityConfigurations: map[string]registrysyncer.CapabilityConfiguration{
 					fullComputeCapID: {},
@@ -314,31 +319,31 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receivers map[
 			},
 		},
 		IDsToNodes: map[p2ptypes.PeerID]kcr.INodeInfoProviderNodeInfo{
-			capabilityNodes[0]: {
+			capabilitiesNodes[0]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
-				P2pId:               capabilityNodes[0],
+				P2pId:               capabilitiesNodes[0],
 				EncryptionPublicKey: randomWord(),
 				HashedCapabilityIds: [][32]byte{computeCapID},
 			},
-			capabilityNodes[1]: {
+			capabilitiesNodes[1]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
-				P2pId:               capabilityNodes[1],
+				P2pId:               capabilitiesNodes[1],
 				EncryptionPublicKey: randomWord(),
 				HashedCapabilityIds: [][32]byte{computeCapID},
 			},
-			capabilityNodes[2]: {
+			capabilitiesNodes[2]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
-				P2pId:               capabilityNodes[2],
+				P2pId:               capabilitiesNodes[2],
 				EncryptionPublicKey: randomWord(),
 				HashedCapabilityIds: [][32]byte{computeCapID},
 			},
-			capabilityNodes[3]: {
+			capabilitiesNodes[3]: {
 				NodeOperatorId:      1,
 				Signer:              randomWord(),
-				P2pId:               capabilityNodes[3],
+				P2pId:               capabilitiesNodes[3],
 				EncryptionPublicKey: randomWord(),
 				HashedCapabilityIds: [][32]byte{computeCapID},
 			},
@@ -373,11 +378,12 @@ func setup(ctx context.Context, t *testing.T, lggr logger.Logger, receivers map[
 		},
 	}
 
-	dispatcher.On("SetReceiver", fullComputeCapID, capabilitiesDonID, mock.AnythingOfType("*executable.server")).Run(func(args mock.Arguments) {
+	dispatcher.On("SetReceiver", fullComputeCapID, capabilitiesDonID, workflowDonID, mock.AnythingOfType("*executable.server")).Run(func(args mock.Arguments) {
 		receivers[receiverKey{
 			capID:           fullComputeCapID,
 			capabilityDonID: capabilitiesDonID,
-		}] = args.Get(2).(remotetypes.Receiver)
+			workflowDonID:   workflowDonID,
+		}] = args.Get(3).(remotetypes.Receiver)
 	}).Return(nil).Once()
 
 	err = launcher.Launch(ctx, state)
@@ -434,4 +440,5 @@ func randomWord() [32]byte {
 type receiverKey struct {
 	capID           string
 	capabilityDonID uint32
+	workflowDonID   uint32
 }

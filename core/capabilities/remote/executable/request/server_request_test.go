@@ -210,11 +210,12 @@ func (t *testDispatcher) HealthReport() map[string]error {
 	return nil
 }
 
-func (t *testDispatcher) SetReceiver(capabilityID string, donID uint32, receiver types.Receiver) error {
+func (t *testDispatcher) SetReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32, receiver types.Receiver) error {
 	return nil
 }
 
-func (t *testDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
+func (t *testDispatcher) RemoveReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32) {
+}
 
 func (t *testDispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	t.msgs = append(t.msgs, msgBody)

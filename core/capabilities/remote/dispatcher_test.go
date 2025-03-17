@@ -131,26 +131,26 @@ func TestDispatcher_Receive(t *testing.T) {
 	require.NoError(t, dispatcher.Start(ctx))
 
 	rcv := newReceiver()
-	err = dispatcher.SetReceiver(capID1, donID1, rcv)
+	err = dispatcher.SetReceiver(capID1, capabilityDonID1, workflowDonID1, rcv)
 	require.NoError(t, err)
 
 	// supported capability
-	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload1))
 	// unknown capability
-	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID2, donID1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID2, capabilityDonID1, []byte(payload1))
 	// sender doesn't match
-	invalid := encodeAndSign(t, privKey1, peerID1, peerID2, capID2, donID1, []byte(payload1))
+	invalid := encodeAndSign(t, privKey1, peerID1, peerID2, capID2, capabilityDonID1, []byte(payload1))
 	invalid.Sender = peerID2
 	recvCh <- invalid
 	// supported capability again
-	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload2))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload2))
 
 	m := <-rcv.ch
 	require.Equal(t, payload1, string(m.Payload))
 	m = <-rcv.ch
 	require.Equal(t, payload2, string(m.Payload))
 
-	dispatcher.RemoveReceiver(capID1, donID1)
+	dispatcher.RemoveReceiver(capID1, capabilityDonID1, workflowDonID1)
 	require.NoError(t, dispatcher.Close())
 }
 
@@ -189,7 +189,7 @@ func TestDispatcher_RespondWithError(t *testing.T) {
 	require.NoError(t, dispatcher.Start(ctx))
 
 	// unknown capability
-	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	recvCh <- encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload1))
 	responseDestPeerID := <-sendCh
 	require.Equal(t, peerID1, responseDestPeerID)
 

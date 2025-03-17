@@ -16,11 +16,12 @@ import (
 )
 
 const (
-	capID1   = "cap1"
-	capID2   = "cap2"
-	donID1   = uint32(1)
-	payload1 = "hello world"
-	payload2 = "goodbye world"
+	capID1           = "cap1"
+	capID2           = "cap2"
+	capabilityDonID1 = uint32(1)
+	workflowDonID1   = uint32(2)
+	payload1         = "hello world"
+	payload2         = "goodbye world"
 )
 
 func TestValidateMessage(t *testing.T) {
@@ -28,20 +29,20 @@ func TestValidateMessage(t *testing.T) {
 	_, peerID2 := newKeyPair(t)
 
 	// valid
-	p2pMsg := encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	p2pMsg := encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload1))
 	body, err := remote.ValidateMessage(p2pMsg, peerID2)
 	require.NoError(t, err)
 	require.Equal(t, peerID1[:], body.Sender)
 	require.Equal(t, payload1, string(body.Payload))
 
 	// invalid sender
-	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload1))
 	p2pMsg.Sender = peerID2
 	_, err = remote.ValidateMessage(p2pMsg, peerID2)
 	require.Error(t, err)
 
 	// invalid receiver
-	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, donID1, []byte(payload1))
+	p2pMsg = encodeAndSign(t, privKey1, peerID1, peerID2, capID1, capabilityDonID1, []byte(payload1))
 	_, err = remote.ValidateMessage(p2pMsg, peerID1)
 	require.Error(t, err)
 }

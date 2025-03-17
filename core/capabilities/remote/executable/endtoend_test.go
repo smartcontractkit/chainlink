@@ -430,10 +430,11 @@ func (t *nodeDispatcher) Send(peerID p2ptypes.PeerID, msgBody *remotetypes.Messa
 	return nil
 }
 
-func (t *nodeDispatcher) SetReceiver(capabilityID string, donID uint32, receiver remotetypes.Receiver) error {
+func (t *nodeDispatcher) SetReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32, receiver remotetypes.Receiver) error {
 	return nil
 }
-func (t *nodeDispatcher) RemoveReceiver(capabilityID string, donID uint32) {}
+func (t *nodeDispatcher) RemoveReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32) {
+}
 
 type abstractTestCapability struct {
 }

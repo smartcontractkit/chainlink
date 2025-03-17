@@ -43,8 +43,9 @@ type dispatcher struct {
 }
 
 type key struct {
-	capID string
-	donID uint32
+	capID           string
+	capabilityDonID uint32
+	workflowDonID   uint32
 }
 
 var _ services.Service = &dispatcher{}
@@ -104,13 +105,13 @@ type receiver struct {
 	ch     chan *types.MessageBody
 }
 
-func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Receiver) error {
+func (d *dispatcher) SetReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32, rec types.Receiver) error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	k := key{capabilityID, donID}
+	k := key{capabilityID, capabilityDonID, workflowDonID}
 	_, ok := d.receivers[k]
 	if ok {
-		return fmt.Errorf("%w: receiver already exists for capability %s and don %d", ErrReceiverExists, capabilityID, donID)
+		return fmt.Errorf("%w: receiver already exists for capability %s capability don %d and workflow don %d", ErrReceiverExists, capabilityID, capabilityDonID, workflowDonID)
 	}
 
 	receiverCh := make(chan *types.MessageBody, d.cfg.ReceiverBufferSize())
@@ -135,19 +136,19 @@ func (d *dispatcher) SetReceiver(capabilityID string, donID uint32, rec types.Re
 		ch:     receiverCh,
 	}
 
-	d.lggr.Debugw("receiver set", "capabilityId", capabilityID, "donId", donID)
+	d.lggr.Debugw("receiver set", "capabilityId", capabilityID, "capabilityDonId", capabilityDonID, "workflowDonId", workflowDonID)
 	return nil
 }
 
-func (d *dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
+func (d *dispatcher) RemoveReceiver(capabilityID string, capabilityDonID uint32, workflowDonID uint32) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	receiverKey := key{capabilityID, donID}
+	receiverKey := key{capabilityID, capabilityDonID, workflowDonID}
 	if receiver, ok := d.receivers[receiverKey]; ok {
 		receiver.cancel()
 		delete(d.receivers, receiverKey)
-		d.lggr.Debugw("receiver removed", "capabilityId", capabilityID, "donId", donID)
+		d.lggr.Debugw("receiver removed", "capabilityId", capabilityID, "capabilityDonId", capabilityDonID, "workflowDonId", workflowDonID)
 	}
 }
 
@@ -191,22 +192,22 @@ func (d *dispatcher) receive() {
 				d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
 				continue
 			}
-			k := key{body.CapabilityId, body.CapabilityDonId}
+			k := key{body.CapabilityId, body.CapabilityDonId, body.WorkflowDonId}
 			d.mu.RLock()
 			receiver, ok := d.receivers[k]
 			d.mu.RUnlock()
 			if !ok {
-				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID)
+				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capID), "capabilityDonId", k.capabilityDonID, "workflowDonId", k.workflowDonID)
 				d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 				continue
 			}
 
 			receiverQueueUsage := float64(len(receiver.ch)) / float64(d.cfg.ReceiverBufferSize())
-			capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.donID), 10)).Set(receiverQueueUsage)
+			capReceiveChannelUsage.WithLabelValues(k.capID, strconv.FormatUint(uint64(k.capabilityDonID), 10)).Set(receiverQueueUsage)
 			select {
 			case receiver.ch <- body:
 			default:
-				d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capID, "donId", k.donID)
+				d.lggr.Warnw("receiver channel full, dropping message", "capabilityId", k.capID, "capabilityDonId", k.capabilityDonID, "workflowDonId", k.workflowDonID)
 			}
 		}
 	}
