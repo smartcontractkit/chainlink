@@ -14,7 +14,7 @@ import (
 func Test_decodeExtraData(t *testing.T) {
 	d := testSetup(t)
 	gasLimit := big.NewInt(rand.Int63())
-	extraDataDecoder := &ExtraDataDecoder{}
+	extraDataDecoder := &ExtraDataCodec{}
 
 	t.Run("decode extra args into map evm v1", func(t *testing.T) {
 		encoded, err := d.contract.EncodeEVMExtraArgsV1(nil, message_hasher.ClientEVMExtraArgsV1{

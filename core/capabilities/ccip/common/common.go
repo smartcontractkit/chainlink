@@ -4,9 +4,19 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/crypto"
-
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 )
+
+// ExtraDataDecoded contains a generic representation of chain specific message parameters. A
+// map from string to any is used to account for different parameters required for sending messages
+// to different destinations.
+type ExtraDataDecoded struct {
+	// ExtraArgsDecoded contain message specific extra args.
+	ExtraArgsDecoded map[string]any
+	// DestExecDataDecoded contain token transfer specific extra args.
+	DestExecDataDecoded []map[string]any
+}
 
 // HashedCapabilityID returns the hashed capability id in a manner equivalent to the capability registry.
 func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32]byte, err error) {
@@ -20,4 +30,30 @@ func HashedCapabilityID(capabilityLabelledName, capabilityVersion string) (r [32
 	h := crypto.Keccak256(abiEncoded)
 	copy(r[:], h)
 	return r, nil
+}
+
+type OffChainConfig struct {
+	CommitOffchainConfig *pluginconfig.CommitOffchainConfig
+	ExecOffchainConfig   *pluginconfig.ExecuteOffchainConfig
+}
+
+func (ofc OffChainConfig) CommitEmpty() bool {
+	return ofc.CommitOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) ExecEmpty() bool {
+	return ofc.ExecOffchainConfig == nil
+}
+
+func (ofc OffChainConfig) Commit() *pluginconfig.CommitOffchainConfig {
+	return ofc.CommitOffchainConfig
+}
+
+func (ofc OffChainConfig) Exec() *pluginconfig.ExecuteOffchainConfig {
+	return ofc.ExecOffchainConfig
+}
+
+// IsValid Exactly one of both plugins should be empty at any given time.
+func (ofc OffChainConfig) IsValid() bool {
+	return (ofc.CommitEmpty() && !ofc.ExecEmpty()) || (!ofc.CommitEmpty() && ofc.ExecEmpty())
 }

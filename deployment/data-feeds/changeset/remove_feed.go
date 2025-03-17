@@ -32,8 +32,7 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (depl
 	}
 
 	if c.McmsConfig == nil {
-		_, err = chain.Confirm(removeConfigTx)
-		if err != nil {
+		if _, err := deployment.ConfirmIfNoError(chain, removeConfigTx, err); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeConfigTx.Hash().String(), err)
 		}
 	}
@@ -45,24 +44,26 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (depl
 	}
 
 	if c.McmsConfig == nil {
-		_, err = chain.Confirm(removeProxyMappingTx)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeConfigTx.Hash().String(), err)
+		if _, err := deployment.ConfirmIfNoError(chain, removeProxyMappingTx, err); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", removeProxyMappingTx.Hash().String(), err)
 		}
 		return deployment.ChangesetOutput{}, nil
 	}
 
-	txs := []ProposalData{
-		{
-			contract: contract.Address().Hex(),
-			tx:       removeConfigTx,
-		},
-		{
-			contract: contract.Address().Hex(),
-			tx:       removeProxyMappingTx,
+	proposalConfig := MultiChainProposalConfig{
+		c.ChainSelector: []ProposalData{
+			{
+				contract: contract.Address().Hex(),
+				tx:       removeConfigTx,
+			},
+			{
+				contract: contract.Address().Hex(),
+				tx:       removeProxyMappingTx,
+			},
 		},
 	}
-	proposal, err := BuildMCMProposals(env, "proposal to remove a feed from cache", c.ChainSelector, txs, c.McmsConfig.MinDelay)
+
+	proposal, err := BuildMultiChainProposals(env, "proposal to remove a feed from cache", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}

@@ -27,7 +27,7 @@ require (
 	github.com/slack-go/slack v0.15.0
 	github.com/smartcontractkit/chain-selectors v1.0.44
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250312142421-a8f5bd293fe5
-	github.com/smartcontractkit/chainlink-common v0.4.2-0.20250312183113-15c7c2d9d670
+	github.com/smartcontractkit/chainlink-common v0.5.1-0.20250314131019-e227d4e2dc2f
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250311180911-0754238e140b
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
@@ -443,7 +443,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib/grafana v1.51.0 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
-	github.com/smartcontractkit/mcms v0.13.0 // indirect
+	github.com/smartcontractkit/mcms v0.14.0 // indirect
 	github.com/smartcontractkit/tdh2/go/ocr2/decryptionplugin v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.3 // indirect
 	github.com/sony/gobreaker/v2 v2.1.0 // indirect

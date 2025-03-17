@@ -12,13 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
 )
 
-const (
-	svmV1DecodeName    = "decodeSVMExtraArgsV1"
-	evmV1DecodeName    = "decodeEVMExtraArgsV1"
-	evmV2DecodeName    = "decodeEVMExtraArgsV2"
-	evmDestExecDataKey = "destGasAmount"
-)
-
 // abiEncodeMethodInputs encodes the inputs for a method call.
 // example abi: `[{ "name" : "method", "type": "function", "inputs": [{"name": "a", "type": "uint256"}]}]`
 func abiEncodeMethodInputs(abiDef abi.ABI, inputs ...interface{}) ([]byte, error) {

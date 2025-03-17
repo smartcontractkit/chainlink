@@ -12,14 +12,12 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ag_binary "github.com/gagliardetto/binary"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 )
 
