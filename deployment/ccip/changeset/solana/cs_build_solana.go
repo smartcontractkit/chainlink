@@ -2,19 +2,24 @@ package solana
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/google/go-github/v58/github"
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"golang.org/x/oauth2"
 )
 
 // Configuration
@@ -191,19 +196,7 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 		if config.CreateDestinationDir || config.CleanDestinationDir {
 			return errors.New("create or clean destination dir cannot be true when using verified builds. This could delete the private keypair files")
 		}
-		output, err := runCommand("gh",
-			[]string{
-				"release",
-				"download",
-				"solana-artifacts-localtest-" + config.GitCommitSha,
-				"--clobber",
-				"--repo",
-				repoOrgAndName,
-				"--dir",
-				config.DestinationDir}, ".")
-		if err != nil {
-			return fmt.Errorf("failed to download release: %s %w", output, err)
-		}
+		downloadRelease(e, config.DestinationDir)
 	} else {
 		// Clone the repository
 		if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
@@ -341,4 +334,95 @@ func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.Ch
 	}
 
 	return deployment.ChangesetOutput{}, nil
+}
+
+func downloadRelease(e deployment.Environment, destination string) {
+	owner := "smartcontractkit"
+	repo := "chainlink-ccip"
+	tag := "solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec"
+	// destination := "../../../domains/ccip/testnet/inputs/"
+
+	// ✅ Try getting GITHUB_TOKEN (only if needed)
+	githubToken := os.Getenv("GITHUB_TOKEN")
+
+	// ✅ Create a context
+	ctx := e.GetContext()
+
+	var client *github.Client
+
+	if githubToken != "" {
+		// ✅ Use authentication if a token is provided
+		fmt.Println("🔑 Using authenticated GitHub client")
+		ts := oauth2.StaticTokenSource(&oauth2.Token{AccessToken: githubToken})
+		tc := oauth2.NewClient(ctx, ts)
+		client = github.NewClient(tc)
+	} else {
+		// ✅ Use an **unauthenticated** GitHub client (public repo access)
+		fmt.Println("🌍 No GITHUB_TOKEN found, using public GitHub client")
+		client = github.NewClient(&http.Client{})
+	}
+
+	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repo, tag)
+
+	if err != nil {
+		fmt.Printf("failed to find release %s: %v", tag, err)
+		// return fmt.Errorf("failed to find release %s: %w", tag, err)
+	}
+
+	fmt.Printf("Found release: %s (ID: %d)\n", *release.TagName, *release.ID)
+
+	for _, asset := range release.Assets {
+		fmt.Printf("Downloading asset: %s (ID: %d)\n", *asset.Name, *asset.ID)
+		err := downloadFile(ctx, client, owner, repo, *asset.ID, destination, *asset.Name)
+		if err != nil {
+			fmt.Printf("failed to download asset %s: %v", *asset.Name, err)
+		} else {
+			fmt.Printf("Downloaded %s successfully\n", *asset.Name)
+		}
+	}
+	return
+}
+
+func downloadFile(ctx context.Context, client *github.Client, owner, repo string, assetID int64, destDir, filename string) error {
+	// 🔹 Step 1: Try to get the asset download URL
+	fmt.Printf("🔍 Getting asset download URL for asset ID: %d\n", assetID)
+	asset, _, err := client.Repositories.GetReleaseAsset(ctx, owner, repo, assetID)
+	if err != nil {
+		return fmt.Errorf("failed to get asset metadata: %w", err)
+	}
+
+	downloadURL := asset.GetBrowserDownloadURL()
+	if downloadURL == "" {
+		return fmt.Errorf("no browser download URL available for asset %d", assetID)
+	}
+
+	fmt.Println("🔗 Downloading from:", downloadURL)
+
+	// 🔹 Step 2: Download using HTTP (handles both auth & public repos)
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return fmt.Errorf("failed to download asset: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// 🔹 Step 3: Create directory and save file
+	if err := os.MkdirAll(destDir, os.ModePerm); err != nil {
+		return fmt.Errorf("failed to create destination directory: %w", err)
+	}
+
+	filePath := filepath.Join(destDir, filename)
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		return fmt.Errorf("failed to create file: %w", err)
+	}
+	defer outFile.Close()
+
+	// 🔹 Step 4: Write to file
+	_, err = io.Copy(outFile, resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to save asset: %w", err)
+	}
+
+	fmt.Printf("✅ Asset saved to %s\n", filePath)
+	return nil
 }
