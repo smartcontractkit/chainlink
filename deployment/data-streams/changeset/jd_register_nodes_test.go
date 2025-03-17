@@ -18,7 +18,7 @@ func TestRegisterNodesWithJD(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
-	e := testutil.NewMemoryEnv(t, false)
+	e := testutil.NewMemoryEnv(t, false, 1)
 
 	jobClient, ok := e.Offchain.(*memory.JobClient)
 	require.True(t, ok, "expected Offchain to be of type *memory.JobClient")

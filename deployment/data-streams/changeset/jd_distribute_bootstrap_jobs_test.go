@@ -14,7 +14,7 @@ import (
 func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	t.Parallel()
 
-	e := testutil.NewMemoryEnv(t, false)
+	e := testutil.NewMemoryEnv(t, false, 1)
 
 	// pick the first EVM chain selector
 	chainSelector := e.AllChainSelectors()[0]
