@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/assert"

@@ -10,12 +10,12 @@ import (
 
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
-	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 	"github.com/stretchr/testify/assert"
 
 	framework "github.com/smartcontractkit/chainlink-testing-framework/framework/grafana"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/rpc"
 	"github.com/smartcontractkit/chainlink-testing-framework/havoc"
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
@@ -105,9 +105,9 @@ type cribNetworkConfig []struct {
 }
 
 func readCRIBConfig(t *testing.T, cfg *ccip.Config) cribNetworkConfig {
-	f, err := os.ReadFile(fmt.Sprintf("%s/ccip-v2-scripts-chains-details.json", *cfg.Load.CribEnvDirectory))
+	f, _ := os.ReadFile(fmt.Sprintf("%s/ccip-v2-scripts-chains-details.json", *cfg.Load.CribEnvDirectory))
 	var cribNetworkConfig cribNetworkConfig
-	err = json.Unmarshal(f, &cribNetworkConfig)
+	err := json.Unmarshal(f, &cribNetworkConfig)
 	assert.NoError(t, err)
 	return cribNetworkConfig
 }
@@ -137,7 +137,7 @@ func runFullChaosSuite(t *testing.T) {
 		run      func(t *testing.T)
 		validate func(t *testing.T)
 	}{
-		//reorgs
+		// reorgs
 		{
 			name: "Chain reorgs below finality",
 			run: func(t *testing.T) {
@@ -256,23 +256,25 @@ func runFullChaosSuite(t *testing.T) {
 			validate: func(t *testing.T) {},
 		},
 		// TODO: add RMNv2 then uncomment
-		//{
-		//	name: "Two slow RMN nodes",
-		//	run: func(t *testing.T) {
-		//		_, err := cr.RunPodDelay(context.Background(),
-		//			havoc.PodDelayCfg{
-		//				Namespace:         chaosCfg.Namespace,
-		//				LabelKey:          "app.kubernetes.io/instance",
-		//				LabelValues:       []string{"rmn-0", "rmn-1"},
-		//				Latency:           200 * time.Millisecond,
-		//				Jitter:            200 * time.Millisecond,
-		//				Correlation:       "0",
-		//				InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
-		//			})
-		//		assert.NoError(t, err)
-		//	},
-		//	validate: func(t *testing.T) {},
-		//},
+		/**
+		{
+			name: "Two slow RMN nodes",
+			run: func(t *testing.T) {
+				_, err := cr.RunPodDelay(context.Background(),
+					havoc.PodDelayCfg{
+						Namespace:         chaosCfg.Namespace,
+						LabelKey:          "app.kubernetes.io/instance",
+						LabelValues:       []string{"rmn-0", "rmn-1"},
+						Latency:           200 * time.Millisecond,
+						Jitter:            200 * time.Millisecond,
+						Correlation:       "0",
+						InjectionDuration: chaosCfg.GetExperimentInjectionInterval(),
+					})
+				assert.NoError(t, err)
+			},
+			validate: func(t *testing.T) {},
+		},
+		*/
 		// network partition
 		{
 			name: "2 CL nodes <> 2 CL nodes partition",
