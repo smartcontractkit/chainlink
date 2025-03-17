@@ -11,7 +11,7 @@ env:
 jobs:
   checks:
     name: "Checks"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
       ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
@@ -57,7 +57,7 @@ jobs:
 
   build-sign-publish-chainlink:
     needs: [checks]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     environment: build-publish
     permissions:
       id-token: write

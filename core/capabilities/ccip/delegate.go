@@ -205,6 +205,12 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
 	}
 
+	addressCodec := common.NewAddressCodec(
+		common.NewAddressCodecParams(
+			ccipevm.AddressCodec{},
+			ccipsolana.AddressCodec{},
+		))
+
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
 	// of other bootstrap oracles. however, plugin oracles, at least initially,
@@ -226,11 +232,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			common.NewAddressCodec(
-				common.NewAddressCodecParams(
-					ccipevm.AddressCodec{},
-					ccipsolana.AddressCodec{},
-				)),
+			addressCodec,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(
@@ -240,6 +242,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
+			addressCodec,
 		)
 	}
 
