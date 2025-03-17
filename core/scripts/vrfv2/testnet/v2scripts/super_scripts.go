@@ -3,6 +3,7 @@ package v2scripts
 import (
 	"context"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
@@ -89,7 +90,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	reqsForTier5 := deployCmd.Int64("reqs-for-tier-5", constants.ReqsForTier5, "requests for tier 5")
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
-		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+		helpers.PanicErr(errors.New("simulation block must be 'pending' or 'latest'"))
 	}
 
 	helpers.ParseArgs(

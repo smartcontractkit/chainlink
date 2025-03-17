@@ -10,16 +10,15 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestRegisterNodesWithJD(t *testing.T) {
 	t.Parallel()
 
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	e := newMemoryEnv(t, lggr)
+	e := testutil.NewMemoryEnv(t, false)
 
 	jobClient, ok := e.Offchain.(*memory.JobClient)
 	require.True(t, ok, "expected Offchain to be of type *memory.JobClient")

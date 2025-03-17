@@ -208,7 +208,7 @@ func Test_RemoteExecutionCapability_CapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
+			assert.ErrorContains(t, responseError, "failed to execute capability")
 		}, workflowID1)
 	})
 
@@ -232,7 +232,7 @@ func Test_RemoteExecutableCapability_RandomCapabilityError(t *testing.T) {
 
 	methods = append(methods, func(ctx context.Context, caller commoncap.ExecutableCapability) {
 		executeCapability(ctx, t, caller, transmissionSchedule, func(t *testing.T, responseCh commoncap.CapabilityResponse, responseError error) {
-			assert.Equal(t, "error executing request: failed to execute capability", responseError.Error())
+			assert.ErrorContains(t, responseError, "failed to execute capability")
 		}, workflowID1)
 	})
 

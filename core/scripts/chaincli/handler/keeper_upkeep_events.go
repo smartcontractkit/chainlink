@@ -29,7 +29,7 @@ func (k *Keeper) UpkeepCounterEvents(ctx context.Context, hexAddr string, fromBl
 	if err != nil {
 		log.Fatalln("Failed to get upkeep iterator", err)
 	}
-	filename := fmt.Sprintf("%s.csv", hexAddr)
+	filename := hexAddr + ".csv"
 	file, err := os.Create(filename)
 	if err != nil {
 		log.Fatalln("failed to open file", err)

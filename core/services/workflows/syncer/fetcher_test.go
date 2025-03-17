@@ -51,7 +51,7 @@ func TestNewFetcherService(t *testing.T) {
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID))
+		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 200))
 		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
 			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Return(nil).Times(1)
@@ -91,7 +91,7 @@ func TestNewFetcherService(t *testing.T) {
 		require.NoError(t, fetcher.Start(ctx))
 		defer fetcher.Close()
 
-		gatewayResp := gatewayResponse(t, msgID, donID) // gateway response that is not signed
+		gatewayResp := gatewayResponse(t, msgID, donID, 500) // gateway response that is not signed
 		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
 			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 		}).Return(nil).Times(1)
@@ -136,14 +136,36 @@ func TestNewFetcherService(t *testing.T) {
 		_, err = fetcher.Fetch(ctx, url, math.MaxUint32)
 		require.Error(t, err, "execution error from gateway: http: request body too large")
 	})
+
+	t.Run("NOK-bad_requet", func(t *testing.T) {
+		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+		fetcher := NewFetcherService(lggr, wrapper)
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID, 500))
+		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			fetcher.och.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
+		}).Return(nil).Times(1)
+		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+
+		payload, err := fetcher.Fetch(ctx, url, 0)
+		require.ErrorContains(t, err, "request failed with status code")
+
+		expectedPayload := []byte("response body")
+		require.Equal(t, expectedPayload, payload)
+	})
 }
 
-// gatewayResponse creates an unsigned gateway response with a status code of 200 and a response body.
-func gatewayResponse(t *testing.T, msgID string, donID string) *api.Message {
+// gatewayResponse creates an unsigned gateway response with a response body.
+func gatewayResponse(t *testing.T, msgID string, donID string, statusCode int) *api.Message {
 	headers := map[string]string{"Content-Type": "application/json"}
 	body := []byte("response body")
 	responsePayload, err := json.Marshal(ghcapabilities.Response{
-		StatusCode: 200,
+		StatusCode: statusCode,
 		Headers:    headers,
 		Body:       body,
 	})

@@ -10,14 +10,16 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
-	solCommomUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solToken "github.com/gagliardetto/solana-go/programs/token"
+
+	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
 var _ deployment.ChangeSet[DeploySolanaTokenConfig] = DeploySolanaToken
 var _ deployment.ChangeSet[MintSolanaTokenConfig] = MintSolanaToken
 var _ deployment.ChangeSet[CreateSolanaTokenATAConfig] = CreateSolanaTokenATA
-var _ deployment.ChangeSet[SetTokenMintAuthorityConfig] = SetTokenMintAuthority
+var _ deployment.ChangeSet[SetTokenAuthorityConfig] = SetTokenAuthority
 
 // TODO: add option to set token mint authority by taking in its public key
 // might need to take authority private key if it needs to sign that
@@ -63,7 +65,7 @@ func DeploySolanaToken(e deployment.Environment, cfg DeploySolanaTokenConfig) (d
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	err = chain.Confirm(instructions, solCommomUtil.AddSigners(mintPrivKey))
+	err = chain.Confirm(instructions, solCommonUtil.AddSigners(mintPrivKey))
 	if err != nil {
 		e.Logger.Errorw("Failed to confirm instructions for token deployment", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
@@ -201,13 +203,14 @@ func CreateSolanaTokenATA(e deployment.Environment, cfg CreateSolanaTokenATAConf
 	return deployment.ChangesetOutput{}, nil
 }
 
-type SetTokenMintAuthorityConfig struct {
+type SetTokenAuthorityConfig struct {
 	ChainSelector uint64
+	AuthorityType solToken.AuthorityType
 	TokenPubkey   solana.PublicKey
 	NewAuthority  solana.PublicKey
 }
 
-func SetTokenMintAuthority(e deployment.Environment, cfg SetTokenMintAuthorityConfig) (deployment.ChangesetOutput, error) {
+func SetTokenAuthority(e deployment.Environment, cfg SetTokenAuthorityConfig) (deployment.ChangesetOutput, error) {
 	chain := e.SolChains[cfg.ChainSelector]
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
@@ -217,22 +220,24 @@ func SetTokenMintAuthority(e deployment.Environment, cfg SetTokenMintAuthorityCo
 		return deployment.ChangesetOutput{}, err
 	}
 
-	ix, err := solTokenUtil.SetTokenMintAuthority(
-		tokenprogramID,
+	ix, err := solToken.NewSetAuthorityInstruction(
+		cfg.AuthorityType,
 		cfg.NewAuthority,
 		cfg.TokenPubkey,
 		chain.DeployerKey.PublicKey(),
-	)
+		solana.PublicKeySlice{},
+	).ValidateAndBuild()
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
+	tokenIx := &solTokenUtil.TokenInstruction{Instruction: ix, Program: tokenprogramID}
 
 	// confirm instructions
-	if err = chain.Confirm([]solana.Instruction{ix}); err != nil {
-		e.Logger.Errorw("Failed to confirm instructions for ATA creation", "chain", chain.String(), "err", err)
+	if err = chain.Confirm([]solana.Instruction{tokenIx}); err != nil {
+		e.Logger.Errorw("Failed to confirm instructions for SetTokenAuthority", "chain", chain.String(), "err", err)
 		return deployment.ChangesetOutput{}, err
 	}
-	e.Logger.Infow("Set token mint authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String())
+	e.Logger.Infow("Set token authority on", "chain", cfg.ChainSelector, "for token", cfg.TokenPubkey.String(), "newAuthority", cfg.NewAuthority.String(), "authorityType", cfg.AuthorityType)
 
 	return deployment.ChangesetOutput{}, nil
 }

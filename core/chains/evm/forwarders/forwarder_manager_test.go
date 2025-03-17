@@ -28,8 +28,8 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 )
 
 func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
@@ -46,7 +46,7 @@ func TestFwdMgr_MaybeForwardTransaction(t *testing.T) {
 	}, simulated.WithBlockGasLimit(10e6))
 	t.Cleanup(func() { b.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, b.Client(), linkAddr, owner.From)
+	operatorAddr, _, _, err := operator.DeployOperator(owner, b.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), linkAddr, owner.From, operatorAddr, []byte{})
 	require.NoError(t, err)
@@ -113,7 +113,7 @@ func TestFwdMgr_AccountUnauthorizedToForward_SkipsForwarding(t *testing.T) {
 	}, simulated.WithBlockGasLimit(10e6))
 	t.Cleanup(func() { b.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, b.Client(), linkAddr, owner.From)
+	operatorAddr, _, _, err := operator.DeployOperator(owner, b.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 
 	forwarderAddr, _, _, err := authorized_forwarder.DeployAuthorizedForwarder(owner, b.Client(), linkAddr, owner.From, operatorAddr, []byte{})
@@ -162,7 +162,7 @@ func TestFwdMgr_InvalidForwarderForOCR2FeedsStates(t *testing.T) {
 	}, simulated.WithBlockGasLimit(10e6))
 	t.Cleanup(func() { ec.Close() })
 	linkAddr := common.HexToAddress("0x01BE23585060835E02B77ef475b0Cc51aA1e0709")
-	operatorAddr, _, _, err := operator_wrapper.DeployOperator(owner, ec.Client(), linkAddr, owner.From)
+	operatorAddr, _, _, err := operator.DeployOperator(owner, ec.Client(), linkAddr, owner.From)
 	require.NoError(t, err)
 
 	forwarderAddr, _, forwarder, err := authorized_forwarder.DeployAuthorizedForwarder(owner, ec.Client(), linkAddr, owner.From, operatorAddr, []byte{})

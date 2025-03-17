@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"log"
 
@@ -137,12 +138,12 @@ func (c *Config) Validate() error {
 	keepersFields := [][]string{c.KeeperURLs, c.KeeperEmails, c.KeeperPasswords, c.KeeperKeys}
 	for i := 0; i < len(keepersFields); i++ {
 		if len(keepersFields[i]) != 0 && len(keepersFields[i]) != c.KeepersCount {
-			return fmt.Errorf("keepers config length doesn't match expected keeper count, check keeper env vars")
+			return errors.New("keepers config length doesn't match expected keeper count, check keeper env vars")
 		}
 	}
 
 	if c.UpkeepType > 4 {
-		return fmt.Errorf("unknown upkeep type")
+		return errors.New("unknown upkeep type")
 	}
 
 	return nil
