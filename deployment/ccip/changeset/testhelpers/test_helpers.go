@@ -505,7 +505,7 @@ func SendRequestSol(
 	base := ccip_router.NewCcipSendInstruction(
 		destinationChainSelector,
 		message,
-		[]byte{}, // starting indices for accounts: TODO:
+		[]byte{}, // starting indices for accounts, calculated later
 		s.RouterConfigPDA,
 		destinationChainStatePDA,
 		noncePDA,
@@ -530,20 +530,53 @@ func SendRequestSol(
 
 	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
 
-	// userTokenAccount, ok := token0.User[user.PublicKey()]
-	// require.True(t, ok)
+	requiredAccounts := len(base.AccountMetaSlice)
+	tokenIndexes := []byte{}
 
-	// tokenMetas, addressTables, err := soltokens.ParseTokenLookupTable(ctx, client, token0, userTokenAccount)
-	// require.NoError(t, err)
-	// base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+	// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
+	solconfig.FeeQuoterProgram = s.FeeQuoter
+	solconfig.CcipRouterProgram = s.Router
+
+	// Append token accounts to the account metas
+	for _, tokenAmount := range message.TokenAmounts {
+		token := tokenAmount.Token
+		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
+		require.NoError(t, err)
+
+		// Set the token pool's lookup table address
+		var tokenAdminRegistry solRouter.TokenAdminRegistry
+		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
+		require.NoError(t, err)
+		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
+
+		// invalid config account, maybe this billing stuff isn't right
+
+		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
+		require.NoError(t, err)
+		tokenPool.Chain[cfg.DestChain] = chainPDA
+
+		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
+		require.NoError(t, err)
+		tokenPool.Billing[cfg.DestChain] = billingPDA
+
+		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
+		require.NoError(t, err)
+
+		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
+		require.NoError(t, err)
+		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+		maps.Copy(addressTables, tokenAddressTables)
+	}
+	base.SetTokenIndexes(tokenIndexes)
 
 	ix, err := base.ValidateAndBuild()
 	require.NoError(t, err)
 
-	// ixApprove, err := soltokens.TokenApproveChecked(1, 0, token0.Program, userTokenAccount, token0.Mint.PublicKey(), solconfig.ExternalTokenPoolsSignerPDA, user.PublicKey(), nil)
-	// require.NoError(t, err)
+	fmt.Printf("IX LEN: %v %v\n", len(base.AccountMetaSlice), len(ix.Accounts()))
 
-	// ixs := []solana.Instruction{ixApprove, ix}
+	// for some reason onchain doesn't see extraAccounts
+
 	ixs := []solana.Instruction{ix}
 	result := soltestutils.SendAndConfirmWithLookupTables(ctx, t, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
 	require.NotNil(t, result)
@@ -552,8 +585,7 @@ func SendRequestSol(
 	ccipMessageSentEvent := solccip.EventCCIPMessageSent{}
 	printEvents := true
 	require.NoError(t, solcommon.ParseEvent(result.Meta.LogMessages, "CCIPMessageSent", &ccipMessageSentEvent, printEvents))
-	// require.Equal(t, 1, len(ccipMessageSentEvent.Message.TokenAmounts))
-	// ta := ccipMessageSentEvent.Message.TokenAmounts[0]
+	require.Equal(t, len(message.TokenAmounts), len(ccipMessageSentEvent.Message.TokenAmounts))
 
 	// TODO: fee bumping?
 
@@ -1077,7 +1109,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubkey:   solTokenAddress.String(),
 				AmountToAddress: map[string]uint64{
-					solDeployerKey.String(): uint64(1000),
+					solDeployerKey.String(): uint64(1000e9),
 				},
 			},
 		),
@@ -1145,7 +1177,7 @@ func DeployTransferableTokenSolana(
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
 					DeciBps:           0,
-					DestGasOverhead:   100,
+					DestGasOverhead:   90000,
 					DestBytesOverhead: 100,
 					IsEnabled:         true,
 				},
@@ -1534,7 +1566,7 @@ func Transfer(
 	env deployment.Environment,
 	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
-	tokens []router.ClientEVMTokenAmount,
+	tokens any,
 	receiver []byte,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
@@ -1543,14 +1575,32 @@ func Transfer(
 	block, err := LatestBlock(ctx, env, destChain)
 	require.NoError(t, err)
 	startBlocks[destChain] = &block
+	family, err := chainsel.GetSelectorFamily(sourceChain)
+	require.NoError(t, err)
 
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(receiver, 32),
-		Data:         data,
-		TokenAmounts: tokens,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    extraArgs,
-	})
+	var msg any
+	switch family {
+	case chainsel.FamilyEVM:
+		msg = router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			Data:         data,
+			TokenAmounts: tokens.([]router.ClientEVMTokenAmount),
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    extraArgs,
+		}
+	case chainsel.FamilySolana:
+		msg = ccip_router.SVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			Data:         data,
+			TokenAmounts: tokens.([]ccip_router.SVMTokenAmount),
+			ExtraArgs:    extraArgs,
+		}
+
+	default:
+		t.Errorf("unsupported source chain: %v", family)
+	}
+
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, msg)
 	return msgSentEvent, startBlocks
 }
 
@@ -1561,6 +1611,7 @@ type TestTransferRequest struct {
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
+	SolTokens             []ccip_router.SVMTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
@@ -1599,8 +1650,21 @@ func TransferMultiple(
 				DestChainSelector:   tt.DestChain,
 			}
 
+			// TODO: inline this in Transfer
+			family, err := chainsel.GetSelectorFamily(tt.SourceChain)
+			require.NoError(t, err)
+			var tokens any
+			switch family {
+			case chainsel.FamilyEVM:
+				tokens = tt.Tokens
+			case chainsel.FamilySolana:
+				tokens = tt.SolTokens
+			default:
+				t.Errorf("unsupported source chain: %v", family)
+			}
+
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
