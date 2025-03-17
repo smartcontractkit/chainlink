@@ -1991,7 +1991,6 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 
 	tag, ok := os.LookupEnv("SOLANA_CCIP_CONTRACTS_TAG")
 	if !ok {
-		// TODO: is there a better way to get the path to the repo root directory?
 		output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
 		if err != nil {
 			return err
