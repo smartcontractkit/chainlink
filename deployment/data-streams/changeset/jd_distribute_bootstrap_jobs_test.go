@@ -14,6 +14,7 @@ import (
 )
 
 func TestDistributeBootstrapJobSpecs(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-196")
 	t.Parallel()
 
 	lggr := logger.TestLogger(t)

@@ -34,6 +34,7 @@ const (
 	TimelockProgramName             = "timelock"
 	McmProgramName                  = "mcm"
 	RMNRemoteProgramName            = "rmn_remote"
+	ReceiverProgramName             = "test_ccip_receiver"
 )
 
 // SolChain represents a Solana chain.
@@ -110,11 +111,7 @@ func (c SolChain) DeployProgram(logger logger.Logger, programName string, isUpgr
 		programFile,                // .so file
 		"--keypair", c.KeypairPath, // deployer keypair
 		"--url", c.URL, // rpc url
-	}
-
-	// For test router deployments, add --use-rpc flag
-	if strings.Contains(c.ProgramsPath, "test_router") {
-		baseArgs = append(baseArgs, "--use-rpc")
+		"--use-rpc", // use rpc for deployment
 	}
 
 	var cmd *exec.Cmd
