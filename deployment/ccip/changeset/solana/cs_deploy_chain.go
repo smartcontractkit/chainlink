@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"path/filepath"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -30,9 +29,9 @@ import (
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
+	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
@@ -40,7 +39,6 @@ var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsCha
 func getTypeToProgramDeployName() map[deployment.ContractType]string {
 	return map[deployment.ContractType]string{
 		ccipChangeset.Router:               deployment.RouterProgramName,
-		ccipChangeset.TestRouter:           deployment.RouterProgramName,
 		ccipChangeset.OffRamp:              deployment.OffRampProgramName,
 		ccipChangeset.FeeQuoter:            deployment.FeeQuoterProgramName,
 		ccipChangeset.BurnMintTokenPool:    deployment.BurnMintTokenPoolProgramName,
@@ -49,6 +47,7 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 		types.AccessControllerProgram:      deployment.AccessControllerProgramName,
 		types.ManyChainMultisigProgram:     deployment.McmProgramName,
 		types.RBACTimelockProgram:          deployment.TimelockProgramName,
+		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
 	}
 }
 
@@ -974,7 +973,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 	}
 	chain := e.SolChains[cfg.ChainSelector]
 
-	if err := validateRouterConfig(chain, chainState, false); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 
@@ -1058,130 +1057,63 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	}, nil
 }
 
-type DeployTestRouterConfig struct {
-	ChainSelector        uint64
-	UpdateOffRamp        bool
-	TestRouterPathSuffix string
-	BuildConfig          BuildSolanaConfig
+type DeployForTestConfig struct {
+	ChainSelector uint64
 }
 
-func DeployTestRouter(
-	e deployment.Environment,
-	config DeployTestRouterConfig,
-) (deployment.ChangesetOutput, error) {
-	state, err := ccipChangeset.LoadOnchainStateSolana(e)
-	chain := e.SolChains[config.ChainSelector]
+func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
+	state, err := ccipChangeset.LoadOnchainState(e)
 	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	chainState, chainExists := state.SolChains[cfg.ChainSelector]
+	if !chainExists {
+		return fmt.Errorf("chain %d not found in existing state", cfg.ChainSelector)
+	}
+	chain := e.SolChains[cfg.ChainSelector]
+
+	return validateRouterConfig(chain, chainState)
+}
+
+func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
+	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
-	chainState, chainExists := state.SolChains[chain.Selector]
-	if !chainExists {
-		return deployment.ChangesetOutput{}, fmt.Errorf("chain %s not found in existing state, deploy the link token first", chain.String())
-	}
-	if chainState.LinkToken.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get link token address for chain %s", chain.String())
-	}
-	if chainState.FeeQuoter.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get fee quoter address for chain %s", chain.String())
-	}
-	if chainState.OffRamp.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp address for chain %s", chain.String())
-	}
-	newAddresses := deployment.NewMemoryAddressBook()
 
-	if config.BuildConfig.GitCommitSha != "" {
-		err = BuildSolana(e, config.BuildConfig)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
-		}
-	}
+	state, _ := ccipChangeset.LoadOnchainState(e)
+	chainState := state.SolChains[cfg.ChainSelector]
+	chain := e.SolChains[cfg.ChainSelector]
+	ab := deployment.NewMemoryAddressBook()
 
-	// TEST ROUTER DEPLOY
-	var testRouterProgram solana.PublicKey
-	if chainState.TestRouter.IsZero() {
-		// deploy router
-		chainProgramsPath := chain.ProgramsPath
-		// change programs path to find test router binary in the test router directory
-		chain.ProgramsPath = filepath.Join(chain.ProgramsPath, config.TestRouterPathSuffix)
-		testRouterProgram, err = DeployAndMaybeSaveToAddressBook(e, chain, newAddresses, ccipChangeset.TestRouter, deployment.Version1_0_0, false)
+	var receiverAddress solana.PublicKey
+	var err error
+	if chainState.Receiver.IsZero() {
+		receiverAddress, err = DeployAndMaybeSaveToAddressBook(e, chain, ab, ccipChangeset.Receiver, deployment.Version1_0_0, false)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy program: %w", err)
 		}
-		// restore programs path
-		chain.ProgramsPath = chainProgramsPath
 	} else {
-		e.Logger.Infow("Using existing test router", "addr", chainState.TestRouter.String())
-		testRouterProgram = chainState.TestRouter
-	}
-	solRouter.SetProgramID(testRouterProgram)
-
-	// TEST ROUTER INITIALIZE
-	var routerConfigAccount solRouter.Config
-	routerConfigPDA, _, _ := solState.FindConfigPDA(testRouterProgram)
-	err = chain.GetAccountDataBorshInto(e.GetContext(), routerConfigPDA, &routerConfigAccount)
-	if err != nil {
-		if err2 := initializeRouter(e, chain, testRouterProgram, chainState.LinkToken, chainState.FeeQuoter, chainState.RMNRemote); err2 != nil {
-			return deployment.ChangesetOutput{}, err2
-		}
-	} else {
-		e.Logger.Infow("test router already initialized, skipping initialization", "chain", chain.String())
+		e.Logger.Infow("Using existing receiver", "addr", chainState.Receiver.String())
+		receiverAddress = chainState.Receiver
 	}
 
-	instructions := []solana.Instruction{}
-
-	// turn offramp to test router
-	if config.UpdateOffRamp {
-		var referenceAddressesAccount solOffRamp.ReferenceAddresses
-		offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(chainState.OffRamp)
-		if err = chain.GetAccountDataBorshInto(e.GetContext(), offRampReferenceAddressesPDA, &referenceAddressesAccount); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get offramp reference addresses: %w", err)
-		}
-		solOffRamp.SetProgramID(chainState.OffRamp)
-		ix, err := solOffRamp.NewUpdateReferenceAddressesInstruction(
-			testRouterProgram, // switch to test router
-			referenceAddressesAccount.FeeQuoter,
-			referenceAddressesAccount.OfframpLookupTable,
-			referenceAddressesAccount.RmnRemote,
-			chainState.OffRampConfigPDA,
-			offRampReferenceAddressesPDA,
-			chain.DeployerKey.PublicKey(),
-		).ValidateAndBuild()
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
-		}
-		instructions = append(instructions, ix)
-	}
-
-	// create ata for test router for wsol and link token
-	billingSignerPDA, _, _ := solState.FindFeeBillingSignerPDA(testRouterProgram)
-	testRouterATALinkIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
-		solana.Token2022ProgramID,
-		chainState.LinkToken,
-		billingSignerPDA,
+	solTestReceiver.SetProgramID(receiverAddress)
+	externalExecutionConfigPDA, _, _ := solState.FindExternalExecutionConfigPDA(receiverAddress)
+	instruction, ixErr := solTestReceiver.NewInitializeInstruction(
+		chainState.Router,
+		ccipChangeset.FindReceiverTargetAccount(receiverAddress),
+		externalExecutionConfigPDA,
 		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create ata for test router for link token: %w", err)
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+	if ixErr != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", ixErr)
 	}
-	instructions = append(instructions, testRouterATALinkIx)
-
-	testRouterATAWSOLIx, _, err := solTokenUtil.CreateAssociatedTokenAccount(
-		solana.TokenProgramID,
-		chainState.WSOL,
-		billingSignerPDA,
-		chain.DeployerKey.PublicKey(),
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create ata for test router for link token: %w", err)
-	}
-	instructions = append(instructions, testRouterATAWSOLIx)
-
-	if err := chain.Confirm(instructions); err != nil {
+	if err = chain.Confirm([]solana.Instruction{instruction}); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm instructions: %w", err)
 	}
 
 	return deployment.ChangesetOutput{
-		AddressBook: newAddresses,
+		AddressBook: ab,
 	}, nil
 }

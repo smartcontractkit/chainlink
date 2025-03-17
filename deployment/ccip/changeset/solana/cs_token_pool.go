@@ -75,7 +75,6 @@ type TokenPoolConfig struct {
 	ChainSelector uint64
 	PoolType      solTestTokenPool.PoolType
 	TokenPubKey   string
-	TestRouter    bool
 }
 
 func (cfg TokenPoolConfig) Validate(e deployment.Environment) error {
@@ -110,7 +109,7 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	tokenprogramID, _ := chainState.TokenToTokenProgram(tokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	poolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	rmnRemoteAddress := chainState.RMNRemote
 	// ata for token pool
 	createI, tokenPoolATA, err := solTokenUtil.CreateAssociatedTokenAccount(
@@ -470,7 +469,6 @@ type TokenPoolLookupTableConfig struct {
 	ChainSelector uint64
 	TokenPubKey   string
 	PoolType      solTestTokenPool.PoolType
-	TestRouter    bool
 }
 
 func (cfg TokenPoolLookupTableConfig) Validate(e deployment.Environment) error {
@@ -499,7 +497,7 @@ func AddTokenPoolLookupTable(e deployment.Environment, cfg TokenPoolLookupTableC
 	} else if cfg.PoolType == solTestTokenPool.LockAndRelease_PoolType {
 		tokenPool = chainState.LockReleaseTokenPool
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	tokenPoolChainConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, tokenPool)
 	tokenPoolSigner, _ := solTokenUtil.TokenPoolSignerAddress(tokenPubKey, tokenPool)
@@ -548,7 +546,6 @@ type SetPoolConfig struct {
 	TokenPubKey     string
 	WritableIndexes []uint8
 	MCMSSolana      *MCMSConfigSolana
-	TestRouter      bool
 }
 
 func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
@@ -559,15 +556,13 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	state, _ := ccipChangeset.LoadOnchainState(e)
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
-	if !cfg.TestRouter {
-		if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
-			return err
-		}
+	if err := ValidateMCMSConfigSolana(e, cfg.MCMSSolana, chain, chainState, tokenPubKey); err != nil {
+		return err
 	}
-	routerProgramAddress, _, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, _, _ := chainState.GetRouterInfo()
 	tokenAdminRegistryPDA, _, err := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
@@ -593,7 +588,7 @@ func SetPool(e deployment.Environment, cfg SetPoolConfig) (deployment.ChangesetO
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
 	tokenPubKey := solana.MustPublicKeyFromBase58(cfg.TokenPubKey)
-	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo(cfg.TestRouter)
+	routerProgramAddress, routerConfigPDA, _ := chainState.GetRouterInfo()
 	solRouter.SetProgramID(routerProgramAddress)
 	tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenPubKey, routerProgramAddress)
 	lookupTablePubKey := chainState.TokenPoolLookupTable[tokenPubKey]
@@ -708,6 +703,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			cfg.Accounts,
 			cfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -733,6 +729,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			cfg.Accounts,
 			cfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -823,6 +820,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 		ix, err = solBurnMintTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -846,6 +844,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 		ix, err = solLockReleaseTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -953,6 +952,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		ix, err := solLockReleaseTokenPool.NewSetCanAcceptLiquidityInstruction(
 			cfg.SetCfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -1034,6 +1034,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		ix, err := solLockReleaseTokenPool.NewSetRebalancerInstruction(
 			cfg.RebalancerCfg.Rebalancer,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -1183,6 +1184,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 			ix, err = solBurnMintTokenPool.NewSetRouterInstruction(
 				cfg.SetRouterCfg.Router,
 				poolConfigPDA,
+				tokenPubKey,
 				authority,
 			).ValidateAndBuild()
 			if err != nil {
@@ -1224,6 +1226,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 			ix, err = solLockReleaseTokenPool.NewSetRouterInstruction(
 				cfg.SetRouterCfg.Router,
 				poolConfigPDA,
+				tokenPubKey,
 				authority,
 			).ValidateAndBuild()
 			if err != nil {
