@@ -74,7 +74,7 @@ func CreateOCRJobsLocal(
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
@@ -90,7 +90,7 @@ func CreateOCRJobsLocal(
 			}
 			err = node.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s CL node failed: %w", bta.URL, err)
 			}
 
 			bootstrapPeers := []*nodeclient.ChainlinkClient{bootstrapNode}
@@ -99,7 +99,7 @@ func CreateOCRJobsLocal(
 				EVMChainID:         evmChainID.String(),
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 			}

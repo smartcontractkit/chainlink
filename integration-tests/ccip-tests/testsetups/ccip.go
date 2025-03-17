@@ -1463,6 +1463,9 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 		})
 	}
 
+	fmt.Println("DEBUG: Mockserver URL: ", testConfig.EnvInput.Mockserver)
+	fmt.Println("DEBUG: Mockserver Instance: ", ccipEnv.MockServer)
+
 	t.Cleanup(func() {
 		if configureCLNode {
 			if ccipEnv.LocalCluster != nil {

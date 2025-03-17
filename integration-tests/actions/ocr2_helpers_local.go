@@ -106,11 +106,11 @@ func CreateOCRv2JobsLocal(
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s on CL node failed: %w", bta.URL, err)
 			}
 			err = chainlinkNode.MustCreateBridge(juelsBridge)
 			if err != nil {
-				return fmt.Errorf("creating bridge on CL node failed: %w", err)
+				return fmt.Errorf("creating bridge to %s CL node failed: %w", juelsBridge.URL, err)
 			}
 
 			ocrSpec := &nodeclient.OCR2TaskJobSpec{
