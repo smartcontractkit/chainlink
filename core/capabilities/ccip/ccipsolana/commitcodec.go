@@ -192,13 +192,17 @@ func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
 }
 
 func decodeLEToBigInt(data []byte) cciptypes.BigInt {
+	// Avoid modifying original data
+	buf := make([]byte, len(data))
+	copy(buf, data)
+
 	// Reverse the byte array to convert it from little-endian to big-endian
-	for i, j := 0, len(data)-1; i < j; i, j = i+1, j-1 {
-		data[i], data[j] = data[j], data[i]
+	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
+		buf[i], buf[j] = buf[j], buf[i]
 	}
 
 	// Use big.Int.SetBytes to construct the big.Int
-	bi := new(big.Int).SetBytes(data)
+	bi := new(big.Int).SetBytes(buf)
 	if bi.Cmp(big.NewInt(0)) == 0 {
 		return cciptypes.NewBigInt(big.NewInt(0))
 	}
