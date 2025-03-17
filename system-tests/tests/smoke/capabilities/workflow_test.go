@@ -630,6 +630,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		_, err = nixShell.RunCommand("devspace purge")
 		require.NoError(t, err, "failed to run devspace purge")
 
+		// this is needed to ensure that the namespace comes online before deploying the geth chain
+		_, err = nixShell.RunCommand("crib init")
+		require.NoError(t, err, "failed to run crib init")
+
 		_, err = nixShell.RunCommand("devspace run deploy-geth-chain")
 		require.NoError(t, err, "failed to run devspace run deploy-geth-chain")
 	}
