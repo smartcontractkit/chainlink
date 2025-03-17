@@ -37,7 +37,7 @@ ComputeUnitPriceMax = 1000 # Default
 ComputeUnitPriceMin = 0 # Default
 # ComputeUnitPriceDefault is the default price per compute unit price, and the starting base fee when FeeEstimatorMode = 'fixed'
 ComputeUnitPriceDefault = 0 # Default
-# FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+# FeeBumpPeriod is the amount of time before a tx is retried with a fee bump. WARNING: If FeeBumpPeriod is shorter than blockhash expiration, multiple valid transactions can exist in parallel. This can result in higher costs and can cause unexpected behaviors if contracts do not de-dupe txs
 FeeBumpPeriod = '3s' # Default
 # BlockHistoryPollPeriod is the rate to poll for blocks in the block history fee estimator
 BlockHistoryPollPeriod = '5s' # Default

@@ -15558,7 +15558,7 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 ```toml
 FeeBumpPeriod = '3s' # Default
 ```
-FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump. WARNING: If FeeBumpPeriod is shorter than blockhash expiration, multiple valid transactions can exist in parallel. This can result in higher costs and can cause unexpected behaviors if contracts do not de-dupe txs
 
 ### BlockHistoryPollPeriod
 ```toml

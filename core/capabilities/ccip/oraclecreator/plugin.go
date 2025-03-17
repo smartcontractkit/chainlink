@@ -69,7 +69,7 @@ var plugins = map[string]plugin{
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
 		TokenDataEncoder:           ccipevm.NewEVMTokenDataEncoder(),
-		GasEstimateProvider:        ccipevm.NewGasEstimateProvider(),
+		GasEstimateProvider:        ccipevm.NewGasEstimateProvider(extraDataCodec),
 		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
 		ContractTransmitterFactory: &ocrimpls.EVMContractTransmitterFactory{},
 	},
