@@ -2,6 +2,7 @@ package ccipevm
 
 import (
 	"fmt"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
