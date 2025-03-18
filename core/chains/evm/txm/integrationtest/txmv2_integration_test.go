@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -22,11 +21,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"gopkg.in/guregu/null.v4"
 
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/libocr/offchainreporting2/reportingplugin/median"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
@@ -34,18 +31,14 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_factory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -297,9 +290,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		return string(addrBytes)
 	}
 
-	// TODO(gg): add more randomness/uniqueness to make sure oracles don't clash for peer id
+	createP2PVariant := func(tweak byte) string {
+		p2pBytes := []byte(p2pKeyId.Raw())
+		p2pBytes[len(p2pBytes)-1] ^= tweak
+		return string(p2pBytes)
+	}
 
-	length := len(p2pKeyId.Raw())
 	oracleCurrentNode := confighelper.OracleIdentityExtra{
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
@@ -315,7 +311,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x02),
-			PeerID:            p2pKeyId.Raw()[:length-1] + "2",
+			PeerID:            createP2PVariant(0x02),
 			TransmitAccount:   types.Account(createTransmitterVariant(0x02)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -326,7 +322,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x03),
-			PeerID:            p2pKeyId.Raw()[:length-1] + "3",
+			PeerID:            createP2PVariant(0x03),
 			TransmitAccount:   types.Account(createTransmitterVariant(0x03)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -337,7 +333,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x04),
-			PeerID:            p2pKeyId.Raw()[:length-1] + "4",
+			PeerID:            createP2PVariant(0x04),
 			TransmitAccount:   types.Account(createTransmitterVariant(0x04)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -490,12 +486,16 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// """
 	// `
 
+	pl, err := pipeline.Parse(observationSource)
+	require.NoErrorf(t, err, "Failed to parse observation source")
+
 	jb := &job.Job{
 		Type:              job.OffchainReporting2,
 		SchemaVersion:     1,
 		Name:              null.StringFrom("SVR job 1"),
 		CronSpec:          &job.CronSpec{CronSchedule: "@every 1s"},
 		PipelineSpec:      &pipeline.Spec{},
+		Pipeline:          *pl,
 		ExternalJobID:     uuid.New(),
 		ForwardingAllowed: true,
 		MaxTaskDuration:   *models.NewInterval(0 * time.Second),
@@ -709,107 +709,6 @@ func setupBlockchain(t *testing.T) (*bind.TransactOpts, evmtypes.Backend) {
 	return contractOwner, backend
 }
 
-func generateConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, inOnchainConfig []byte) (
-	signers []types.OnchainPublicKey,
-	transmitters []types.Account,
-	f uint8,
-	outOnchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) {
-	rawReportingPluginConfig := datastreamsllo.OffchainConfig{}
-	reportingPluginConfig, err := rawReportingPluginConfig.Encode()
-	require.NoError(t, err)
-
-	signers, transmitters, f, outOnchainConfig, offchainConfigVersion, offchainConfig, err = ocr3confighelper.ContractSetConfigArgsForTests(
-		2*time.Second,        // DeltaProgress
-		20*time.Second,       // DeltaResend
-		400*time.Millisecond, // DeltaInitial
-		500*time.Millisecond, // DeltaRound
-		250*time.Millisecond, // DeltaGrace
-		300*time.Millisecond, // DeltaCertifiedCommitRequest
-		1*time.Minute,        // DeltaStage
-		100,                  // rMax
-		[]int{len(oracles)},  // S
-		oracles,
-		reportingPluginConfig, // reportingPluginConfig []byte,
-		nil,                   // maxDurationInitialization
-		0,                     // maxDurationQuery
-		250*time.Millisecond,  // maxDurationObservation
-		0,                     // maxDurationShouldAcceptAttestedReport
-		0,                     // maxDurationShouldTransmitAcceptedReport
-		int(fNodes),           // f
-		inOnchainConfig,       // encoded onchain config
-	)
-
-	require.NoError(t, err)
-
-	return
-}
-
-func setStagingConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest ocr2types.ConfigDigest) ocr2types.ConfigDigest {
-	return setBlueGreenConfig(t, donID, steve, backend, configurator, configuratorAddress, nodes, oracles, &predecessorConfigDigest)
-}
-
-func setBlueGreenConfig(t *testing.T, donID uint32, steve *bind.TransactOpts, backend evmtypes.Backend, configurator *configurator.Configurator, configuratorAddress common.Address, nodes []Node, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) ocr2types.ConfigDigest {
-	signers, _, _, onchainConfig, offchainConfigVersion, offchainConfig := generateBlueGreenConfig(t, oracles, predecessorConfigDigest)
-
-	var onchainPubKeys [][]byte
-	for _, signer := range signers {
-		onchainPubKeys = append(onchainPubKeys, signer)
-	}
-	offchainTransmitters := make([][32]byte, 1)
-	for i := 0; i < 1; i++ {
-		offchainTransmitters[i] = nodes[i].ClientPubKey
-	}
-	donIDPadded := llo.DonIDToBytes32(donID)
-	isProduction := predecessorConfigDigest == nil
-	var err error
-	if isProduction {
-		_, err = configurator.SetProductionConfig(steve, donIDPadded, onchainPubKeys, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig)
-	} else {
-		_, err = configurator.SetStagingConfig(steve, donIDPadded, onchainPubKeys, offchainTransmitters, fNodes, onchainConfig, offchainConfigVersion, offchainConfig)
-	}
-	require.NoError(t, err)
-
-	// libocr requires a few confirmations to accept the config
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-	backend.Commit()
-
-	var topic common.Hash
-	if isProduction {
-		topic = llo.ProductionConfigSet
-	} else {
-		topic = llo.StagingConfigSet
-	}
-	logs, err := backend.Client().FilterLogs(testutils.Context(t), ethereum.FilterQuery{Addresses: []common.Address{configuratorAddress}, Topics: [][]common.Hash{[]common.Hash{topic, donIDPadded}}})
-	require.NoError(t, err)
-	require.GreaterOrEqual(t, len(logs), 1)
-
-	cfg, err := mercury.ConfigFromLog(logs[len(logs)-1].Data)
-	require.NoError(t, err)
-
-	return cfg.ConfigDigest
-}
-
-func generateBlueGreenConfig(t *testing.T, oracles []confighelper.OracleIdentityExtra, predecessorConfigDigest *ocr2types.ConfigDigest) (
-	signers []types.OnchainPublicKey,
-	transmitters []types.Account,
-	f uint8,
-	onchainConfig []byte,
-	offchainConfigVersion uint64,
-	offchainConfig []byte,
-) {
-	onchainConfig, err := (&datastreamsllo.EVMOnchainConfigCodec{}).Encode(datastreamsllo.OnchainConfig{
-		Version:                 1,
-		PredecessorConfigDigest: predecessorConfigDigest,
-	})
-	require.NoError(t, err)
-	return generateConfig(t, oracles, onchainConfig)
-}
-
 func mustNewType(t string) abi.Type {
 	result, err := abi.NewType(t, "", []abi.ArgumentMarshaling{})
 	if err != nil {
@@ -874,6 +773,51 @@ func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend e
 	_, err = bind.WaitMined(context.Background(), backend.Client(), signedTx)
 	return err
 }
+
+var observationSource = `
+//randomness
+   val1 [type="memo" value="10"]
+   val2 [type="memo" value="20"]
+   val3 [type="memo" value="30"]
+   val4 [type="memo" value="40"]
+   val5 [type="memo" value="50"]
+   val6 [type="memo" value="60"]
+   val7 [type="memo" value="70"]
+   val8 [type="memo" value="80"]
+   val9 [type="memo" value="90"]
+
+   random1 [type="any"]
+   random2 [type="any"]
+   random3 [type="any"]
+
+   val1 -> random1
+   val2 -> random2
+   val3 -> random3
+   val4 -> random1
+   val5 -> random2
+   val6 -> random3
+   val7 -> random1
+   val8 -> random2
+   val9 -> random3
+
+
+   // data source 1
+   ds1_multiply [type="multiply" times=100]
+
+	// data source 2
+   ds2_multiply [type="multiply" times=100]
+
+
+   // data source 3
+   ds3_multiply [type="multiply" times=100]
+
+
+   random1 -> ds1_multiply -> answer
+   random2 -> ds2_multiply -> answer
+   random3 -> ds3_multiply -> answer
+
+   answer [type=median]
+`
 
 var oevJobSpec = `
 type = "offchainreporting2"
