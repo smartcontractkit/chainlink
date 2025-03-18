@@ -29,6 +29,7 @@ func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
 	if config.GlobalBurst <= 0 || config.PerSenderBurst <= 0 {
 		return nil, errors.New("burst values must be positive")
 	}
+
 	return &RateLimiter{
 		global:    rate.NewLimiter(rate.Limit(config.GlobalRPS), config.GlobalBurst),
 		perSender: make(map[string]*rate.Limiter),
@@ -36,14 +37,33 @@ func NewRateLimiter(config RateLimiterConfig) (*RateLimiter, error) {
 	}, nil
 }
 
+// Allow checks that the sender is not rate limited,
+// and that there is not a global rate limit.
 func (rl *RateLimiter) Allow(sender string) bool {
 	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
 	senderLimiter, ok := rl.perSender[sender]
 	if !ok {
 		senderLimiter = rate.NewLimiter(rate.Limit(rl.config.PerSenderRPS), rl.config.PerSenderBurst)
 		rl.perSender[sender] = senderLimiter
 	}
-	rl.mu.Unlock()
 
 	return senderLimiter.Allow() && rl.global.Allow()
+}
+
+// Allow checks that the sender is not rate limited,
+// and that there is not a global rate limit.
+// Returns if allowed as separate outputs.
+func (rl *RateLimiter) AllowVerbose(sender string) (senderAllow bool, globalAllow bool) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	senderLimiter, ok := rl.perSender[sender]
+	if !ok {
+		senderLimiter = rate.NewLimiter(rate.Limit(rl.config.PerSenderRPS), rl.config.PerSenderBurst)
+		rl.perSender[sender] = senderLimiter
+	}
+
+	return senderLimiter.Allow(), rl.global.Allow()
 }

@@ -75,7 +75,7 @@ func TestYamlSpecFactory_GetSpec(t *testing.T) {
 
 	require.Equal(t, expected, actual)
 	assert.Equal(t, fmt.Sprintf("%x", sha256.Sum256([]byte(anyYamlSpec))), actualSha)
-	assert.Equal(t, anyYamlSpec, string(raw))
+	assert.YAMLEq(t, anyYamlSpec, string(raw))
 }
 
 func TestYamlSpecFactory_Config(t *testing.T) {

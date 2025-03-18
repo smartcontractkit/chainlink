@@ -172,7 +172,7 @@ func (backup *databaseBackup) runBackup(version string) (*backupResult, error) {
 
 	if backup.mode == config.DatabaseBackupModeLite {
 		for _, table := range excludedDataFromTables {
-			args = append(args, fmt.Sprintf("--exclude-table-data=%s", table))
+			args = append(args, "--exclude-table-data="+table)
 		}
 	}
 

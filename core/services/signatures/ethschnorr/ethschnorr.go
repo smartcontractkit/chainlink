@@ -18,6 +18,7 @@ package ethschnorr
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -67,19 +68,19 @@ func ChallengeHash(public kyber.Point, rAddress [20]byte, msg *big.Int) (
 	var err error
 	h := secp256k1Suite.Hash()
 	if _, herr := public.MarshalTo(h); herr != nil {
-		err = fmt.Errorf("failed to hash public key for signature: %s", herr)
+		err = fmt.Errorf("failed to hash public key for signature: %w", herr)
 	}
 	if err != nil && (msg.BitLen() > 256 || msg.Cmp(zero) == -1) {
-		err = fmt.Errorf("msg must be a uint256")
+		err = errors.New("msg must be a uint256")
 	}
 	if err == nil {
 		if _, herr := h.Write(msg.Bytes()); herr != nil {
-			err = fmt.Errorf("failed to hash message for signature: %s", herr)
+			err = fmt.Errorf("failed to hash message for signature: %w", herr)
 		}
 	}
 	if err == nil {
 		if _, herr := h.Write(rAddress[:]); herr != nil {
-			err = fmt.Errorf("failed to hash r for signature: %s", herr)
+			err = fmt.Errorf("failed to hash r for signature: %w", herr)
 		}
 	}
 	if err != nil {
@@ -92,7 +93,7 @@ func ChallengeHash(public kyber.Point, rAddress [20]byte, msg *big.Int) (
 // function Verify, or on-chain with SchnorrSECP256K1.sol.
 func Sign(private kyber.Scalar, msg *big.Int) (Signature, error) {
 	if !secp256k1.IsSecp256k1Scalar(private) {
-		return nil, fmt.Errorf("private key is not a secp256k1 scalar")
+		return nil, errors.New("private key is not a secp256k1 scalar")
 	}
 	// create random secret and public commitment to it
 	commitmentSecretKey := secp256k1Group.Scalar().Pick(
@@ -117,16 +118,16 @@ func Sign(private kyber.Scalar, msg *big.Int) (Signature, error) {
 func Verify(public kyber.Point, msg *big.Int, s Signature) error {
 	var err error
 	if !ValidSignature(s) {
-		err = fmt.Errorf("s is not a valid signature")
+		err = errors.New("s is not a valid signature")
 	}
 	if err == nil && !secp256k1.IsSecp256k1Point(public) {
-		err = fmt.Errorf("public key is not a secp256k1 point")
+		err = errors.New("public key is not a secp256k1 point")
 	}
 	if err == nil && !secp256k1.ValidPublicKey(public) {
-		err = fmt.Errorf("`public` is not a valid public key")
+		err = errors.New("`public` is not a valid public key")
 	}
 	if err == nil && (msg.Cmp(zero) == -1 || msg.Cmp(maxUint256) == 1) {
-		err = fmt.Errorf("msg is not a uint256")
+		err = errors.New("msg is not a uint256")
 	}
 	var challenge kyber.Scalar
 	var herr error
@@ -148,7 +149,7 @@ func Verify(public kyber.Point, msg *big.Int, s Signature) error {
 	maybeCommitmentPublicAddress := secp256k1.EthereumAddress(maybeCommitmentPublicKey)
 	if !bytes.Equal(s.CommitmentPublicAddress[:],
 		maybeCommitmentPublicAddress[:]) {
-		return fmt.Errorf("signature mismatch")
+		return errors.New("signature mismatch")
 	}
 	return nil
 }

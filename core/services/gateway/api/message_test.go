@@ -88,7 +88,7 @@ func TestMessage_MessageSignAndValidateSignature(t *testing.T) {
 
 	err = msg.Sign(privateKey)
 	require.NoError(t, err)
-	require.Equal(t, api.MessageSignatureHexEncodedLen, len(msg.Signature))
+	require.Len(t, msg.Signature, api.MessageSignatureHexEncodedLen)
 
 	// valid
 	signer, err := msg.ExtractSigner()

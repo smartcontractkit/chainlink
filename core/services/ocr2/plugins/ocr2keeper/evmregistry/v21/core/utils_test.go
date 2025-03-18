@@ -1,7 +1,7 @@
 package core
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -34,7 +34,7 @@ func TestUtils_GetTxBlock(t *testing.T) {
 		{
 			name:         "failure - eth call error",
 			txHash:       common.HexToHash("0xc48fbf05edaf18f6aaa7de24de28528546b874bb03728d624ca407b8fed582a3"),
-			ethCallError: fmt.Errorf("eth call failed"),
+			ethCallError: errors.New("eth call failed"),
 		},
 		{
 			name:   "failure - tx does not exist",

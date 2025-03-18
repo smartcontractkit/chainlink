@@ -60,7 +60,7 @@ func TestScalar_SmokeTestPick(t *testing.T) {
 	for i := 0; i < numScalarSamples; i++ {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
-		require.True(t, ToInt(f).Cmp(big.NewInt(1000000000)) == 1,
+		require.Equal(t, ToInt(f).Cmp(big.NewInt(1000000000)), 1,
 			"implausibly low value returned from Pick: %v", f)
 	}
 }
@@ -102,15 +102,15 @@ func TestScalar_Marshal(t *testing.T) {
 		f.Pick(randomStreamScalar)
 		observedScalar(t, f)
 		data, err := f.MarshalBinary()
-		require.Nil(t, err)
+		require.NoError(t, err)
 		err = g.UnmarshalBinary(data)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.True(t, g.Equal(f),
 			"roundtrip through serialization should give same "+
 				"result back: failed with %s", f)
 	}
 	marshalID := f.(*secp256k1Scalar).MarshalID()
-	require.Equal(t, string(marshalID[:]), "sp256.sc")
+	require.Equal(t, "sp256.sc", string(marshalID[:]))
 	data := make([]byte, 33)
 	require.Contains(t, f.UnmarshalBinary(data).Error(), "wrong length")
 	var buf bytes.Buffer
@@ -150,7 +150,7 @@ func TestScalar_AllowVarTime(t *testing.T) {
 }
 
 func TestScalar_String(t *testing.T) {
-	require.Equal(t, newScalar(bigZero).String(), "scalar{0}")
+	require.Equal(t, "scalar{0}", newScalar(bigZero).String())
 }
 
 func TestScalar_SetInt64(t *testing.T) {

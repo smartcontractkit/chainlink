@@ -642,7 +642,7 @@ func (r *ExecutionReportingPlugin) ShouldTransmitAcceptedReport(ctx context.Cont
 
 func (r *ExecutionReportingPlugin) isStaleReport(ctx context.Context, messages []cciptypes.EVM2EVMMessage) (bool, error) {
 	if len(messages) == 0 {
-		return true, fmt.Errorf("messages are empty")
+		return true, errors.New("messages are empty")
 	}
 
 	// If the first message is executed already, this execution report is stale.

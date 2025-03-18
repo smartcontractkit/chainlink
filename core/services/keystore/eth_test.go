@@ -52,7 +52,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(retrievedKeys))
+		require.Len(t, retrievedKeys, 1)
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		foundKey, err := ethKeyStore.Get(ctx, key.Address.Hex())
 		require.NoError(t, err)
@@ -68,14 +68,14 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, keyStore.Unlock(ctx, cltest.Password))
 		retrievedKeys, err = ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(retrievedKeys))
+		require.Len(t, retrievedKeys, 1)
 		require.Equal(t, key.Address, retrievedKeys[0].Address)
 		// adds 2nd key
 		_, err = ethKeyStore.Create(ctx, &cltest.FixtureChainID)
 		require.NoError(t, err)
 		retrievedKeys, err = ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(retrievedKeys))
+		require.Len(t, retrievedKeys, 2)
 	})
 
 	t.Run("GetAll ordering", func(t *testing.T) {
@@ -89,7 +89,7 @@ func Test_EthKeyStore(t *testing.T) {
 		}
 		retrievedKeys, err := ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 5, len(retrievedKeys))
+		require.Len(t, retrievedKeys, 5)
 
 		sort.Slice(keys, func(i, j int) bool { return keys[i].Cmp(keys[j]) < 0 })
 
@@ -105,7 +105,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(retrievedKeys))
+		require.Empty(t, retrievedKeys)
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
@@ -125,7 +125,7 @@ func Test_EthKeyStore(t *testing.T) {
 		require.NoError(t, err)
 		retrievedKeys, err := ethKeyStore.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(retrievedKeys))
+		require.Empty(t, retrievedKeys)
 		cltest.AssertCount(t, db, statesTableName, 0)
 	})
 
@@ -137,7 +137,7 @@ func Test_EthKeyStore(t *testing.T) {
 		sendingKeys1, err := ethKeyStore.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 		assert.NoError(t, err)
 
-		require.Equal(t, 1, len(sendingKeys1))
+		require.Len(t, sendingKeys1, 1)
 		cltest.AssertCount(t, db, statesTableName, 1)
 
 		err = ethKeyStore.EnsureKeys(ctx, &cltest.FixtureChainID)
@@ -145,7 +145,7 @@ func Test_EthKeyStore(t *testing.T) {
 		sendingKeys2, err := ethKeyStore.EnabledKeysForChain(ctx, testutils.FixtureChainID)
 		assert.NoError(t, err)
 
-		require.Equal(t, 1, len(sendingKeys2))
+		require.Len(t, sendingKeys2, 1)
 		require.Equal(t, sendingKeys1, sendingKeys2)
 	})
 
@@ -207,7 +207,7 @@ func Test_EthKeyStore(t *testing.T) {
 
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(ctx, testutils.FixtureChainID)
 		require.NoError(t, err)
-		assert.Len(t, enabledAddresses, 0)
+		assert.Empty(t, enabledAddresses)
 		enabledAddresses, err = ethKeyStore.EnabledAddressesForChain(ctx, big.NewInt(1337))
 		require.NoError(t, err)
 		assert.Len(t, enabledAddresses, 1)
@@ -407,7 +407,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll(ctx)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -454,12 +454,12 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 		ks.XXXTestingOnlyAdd(ctx, newKey)
 		keys, err := ks.GetAll(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, 1, len(keys))
+		assert.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		keys, err = ks.GetAll(ctx)
 		require.NoError(t, err)
-		assert.Equal(t, 0, len(keys))
+		assert.Empty(t, keys)
 		_, err = ks.Get(ctx, newKey.ID())
 		assert.Error(t, err)
 		_, err = ks.Delete(ctx, newKey.ID())
@@ -511,7 +511,7 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 
 			chainStates, err = ks.GetStatesForChain(ctx, testutils.SimulatedChainID)
 			require.NoError(t, err)
-			assert.Len(t, chainStates, 0)
+			assert.Empty(t, chainStates)
 		})
 	})
 }
@@ -537,7 +537,7 @@ func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
 			func() bool { return count.Load() >= expected },
 			10*time.Second,
 			100*time.Millisecond,
-			fmt.Sprintf("insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load()),
+			"insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load(),
 		)
 	}
 
@@ -602,7 +602,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 		require.NoError(t, ks.Enable(ctx, k.Address, testutils.SimulatedChainID))
 		key, err := ks.GetState(ctx, k.Address.Hex(), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Equal(t, key.Disabled, false)
+		require.False(t, key.Disabled)
 	})
 
 	t.Run("creates key, deletes it unsafely and then enable creates it again", func(t *testing.T) {
@@ -614,7 +614,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 		require.NoError(t, ks.Enable(ctx, k.Address, testutils.SimulatedChainID))
 		key, err := ks.GetState(ctx, k.Address.Hex(), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Equal(t, key.Disabled, false)
+		require.False(t, key.Disabled)
 	})
 
 	t.Run("creates key and enables it if it exists in the keystore, but is missing from key states db table", func(t *testing.T) {
@@ -623,7 +623,7 @@ func Test_EthKeyStore_Enable(t *testing.T) {
 		require.NoError(t, ks.Enable(ctx, k.Address, testutils.SimulatedChainID))
 		key, err := ks.GetState(ctx, k.Address.Hex(), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Equal(t, key.Disabled, false)
+		require.False(t, key.Disabled)
 	})
 
 	t.Run("errors if key is not present in keystore", func(t *testing.T) {
@@ -746,10 +746,10 @@ func Test_EthKeyStore_Delete(t *testing.T) {
 	assert.Len(t, keys, 2)
 	_, err = ks.GetState(ctx, addr1.Hex(), testutils.FixtureChainID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("state not found for eth key ID %s", addr1.Hex()))
+	assert.Contains(t, err.Error(), "state not found for eth key ID "+addr1.Hex())
 	_, err = ks.GetState(ctx, addr1.Hex(), testutils.SimulatedChainID)
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), fmt.Sprintf("state not found for eth key ID %s", addr1.Hex()))
+	assert.Contains(t, err.Error(), "state not found for eth key ID "+addr1.Hex())
 	_, err = ks.GetState(ctx, addr2.Hex(), testutils.FixtureChainID)
 	require.NoError(t, err)
 }
@@ -825,7 +825,7 @@ func Test_EthKeyStore_CheckEnabled(t *testing.T) {
 		addr := utils.RandomAddress()
 		err := ks.CheckEnabled(ctx, addr, testutils.FixtureChainID)
 		assert.Error(t, err)
-		require.Contains(t, err.Error(), fmt.Sprintf("no eth key exists with address %s", addr.Hex()))
+		require.Contains(t, err.Error(), "no eth key exists with address "+addr.Hex())
 	})
 
 	t.Run("returns error when key exists but has never been enabled (no state) for the given chain", func(t *testing.T) {
@@ -857,7 +857,7 @@ func Test_EthKeyStore_Disable(t *testing.T) {
 		require.NoError(t, ks.Disable(ctx, k.Address, testutils.SimulatedChainID))
 		key, err := ks.GetState(ctx, k.Address.Hex(), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Equal(t, key.Disabled, true)
+		require.True(t, key.Disabled)
 	})
 
 	t.Run("creates key and enables it if it exists in the keystore, but is missing from key states db table", func(t *testing.T) {
@@ -866,7 +866,7 @@ func Test_EthKeyStore_Disable(t *testing.T) {
 		require.NoError(t, ks.Disable(ctx, k.Address, testutils.SimulatedChainID))
 		key, err := ks.GetState(ctx, k.Address.Hex(), testutils.SimulatedChainID)
 		require.NoError(t, err)
-		require.Equal(t, key.Disabled, true)
+		require.True(t, key.Disabled)
 	})
 
 	t.Run("errors if key is not present in keystore", func(t *testing.T) {

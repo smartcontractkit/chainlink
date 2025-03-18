@@ -46,5 +46,5 @@ func TestInsertSelectDelete(t *testing.T) {
 	states, err = orm.SelectStatesByWorkIDs(ctx, []string{"0x1"})
 
 	require.NoError(t, err, "no error expected from select")
-	require.Len(t, states, 0, "records return should be empty since records were deleted")
+	require.Empty(t, states, "records return should be empty since records were deleted")
 }

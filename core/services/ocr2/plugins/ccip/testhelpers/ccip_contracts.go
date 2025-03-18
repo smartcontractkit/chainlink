@@ -1380,7 +1380,7 @@ func (args *ManualExecArgs) ApproxDestStartBlock(ctx context.Context) error {
 	for closestBlockHdr.Time > sendTxTime {
 		closestBlockNum = closestBlockNum - blockOffset
 		if closestBlockNum <= 0 {
-			return fmt.Errorf("approx destination blocknumber not found")
+			return errors.New("approx destination blocknumber not found")
 		}
 		closestBlockHdr, err = args.DestChain.HeaderByNumber(ctx, new(big.Int).SetUint64(closestBlockNum))
 		if err != nil {
@@ -1422,22 +1422,22 @@ func (args *ManualExecArgs) ExecuteManually(ctx context.Context) (*types.Transac
 	if args.SourceChainID == 0 ||
 		args.DestChainID == 0 ||
 		args.DestUser == nil {
-		return nil, fmt.Errorf("chain ids and owners are mandatory for source and dest chain")
+		return nil, errors.New("chain ids and owners are mandatory for source and dest chain")
 	}
 	if !common.IsHexAddress(args.CommitStore) ||
 		!common.IsHexAddress(args.OffRamp) ||
 		!common.IsHexAddress(args.OnRamp) {
-		return nil, fmt.Errorf("contract addresses must be valid hex address")
+		return nil, errors.New("contract addresses must be valid hex address")
 	}
 	if args.SendReqTxHash == "" {
-		return nil, fmt.Errorf("tx hash of ccip-send request are required")
+		return nil, errors.New("tx hash of ccip-send request are required")
 	}
 	if args.SourceStartBlock == nil {
-		return nil, fmt.Errorf("must provide the value of source block in/after which ccip-send tx was included")
+		return nil, errors.New("must provide the value of source block in/after which ccip-send tx was included")
 	}
 	if args.SeqNr == 0 {
 		if args.SendReqLogIndex == 0 {
-			return nil, fmt.Errorf("must provide the value of log index of ccip-send request")
+			return nil, errors.New("must provide the value of log index of ccip-send request")
 		}
 		// locate seq nr from CCIPSendRequested log
 		seqNr, err := args.FindSeqNrFromCCIPSendRequested()
@@ -1487,7 +1487,7 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 	}
 	leafHasher := v1_2_0.NewLeafHasher(args.SourceChainID, args.DestChainID, common.HexToAddress(args.OnRamp), mctx, onRampContract)
 	if leafHasher == nil {
-		return nil, fmt.Errorf("unable to create leaf hasher")
+		return nil, errors.New("unable to create leaf hasher")
 	}
 
 	var leaves [][32]byte
@@ -1580,7 +1580,7 @@ func (args *ManualExecArgs) execute(report *commit_store.CommitStoreCommitReport
 		return nil, err
 	}
 	if tree.Root() != report.MerkleRoot {
-		return nil, fmt.Errorf("root doesn't match")
+		return nil, errors.New("root doesn't match")
 	}
 
 	proof, err := tree.Prove([]int{prove})

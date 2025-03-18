@@ -23,11 +23,12 @@ var _ deployment.ChangeSet[TransferCCIPToMCMSWithTimelockSolanaConfig] = Transfe
 
 // CCIPContractsToTransfer is a struct that represents the contracts we want to transfer. Each contract set to true will be transferred.
 type CCIPContractsToTransfer struct {
-	Router                bool
-	FeeQuoter             bool
-	OffRamp               bool
-	LockReleaseTokenPools []solana.PublicKey
-	BurnMintTokenPools    []solana.PublicKey
+	Router    bool
+	FeeQuoter bool
+	OffRamp   bool
+	// Token Pool PDA -> Token Mint
+	LockReleaseTokenPools map[solana.PublicKey]solana.PublicKey
+	BurnMintTokenPools    map[solana.PublicKey]solana.PublicKey
 	RMNRemote             bool
 }
 
@@ -204,10 +205,11 @@ func TransferCCIPToMCMSWithTimelockSolana(
 				Transactions:  mcmsTxs,
 			})
 		}
-		if len(contractsToTransfer.LockReleaseTokenPools) > 0 {
+		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
 			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
 				ccipState,
-				contractsToTransfer.LockReleaseTokenPools,
+				tokenPoolConfigPDA,
+				tokenMint,
 				chainSelector,
 				solChain,
 				mcmState.TimelockProgram,
@@ -222,10 +224,11 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			})
 		}
 
-		if len(contractsToTransfer.BurnMintTokenPools) > 0 {
+		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.BurnMintTokenPools {
 			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
 				ccipState,
-				contractsToTransfer.BurnMintTokenPools,
+				tokenPoolConfigPDA,
+				tokenMint,
 				chainSelector,
 				solChain,
 				mcmState.TimelockProgram,

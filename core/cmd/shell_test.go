@@ -408,7 +408,7 @@ func TestSetupSolanaRelayer(t *testing.T) {
 		require.NotNil(t, relayers)
 		require.Len(t, relayers, nEnabledChains)
 		// no using plugin, so registry should be empty
-		require.Len(t, reg.List(), 0)
+		require.Empty(t, reg.List())
 	})
 
 	t.Run("plugin", func(t *testing.T) {

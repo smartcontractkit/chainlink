@@ -27,7 +27,7 @@ var printTests = false
 func printTest(t *testing.T, msg *big.Int, private kyber.Scalar,
 	public kyber.Point, signature Signature) {
 	privateBytes, err := private.MarshalBinary()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	pX, pY := secp256k1.Coordinates(public)
 	t.Logf("  ['%064x',\n   '%064x',\n   '%064x',\n   '%064x',\n   "+
 		"'%064x',\n   '%040x'],\n",

@@ -184,10 +184,10 @@ type CosmosFactoryConfig struct {
 func (c CosmosFactoryConfig) Validate() error {
 	var err error
 	if c.Keystore == nil {
-		err = errors.Join(err, fmt.Errorf("nil Keystore"))
+		err = errors.Join(err, errors.New("nil Keystore"))
 	}
 	if len(c.TOMLConfigs) == 0 {
-		err = errors.Join(err, fmt.Errorf("no CosmosConfigs provided"))
+		err = errors.Join(err, errors.New("no CosmosConfigs provided"))
 	}
 
 	if err != nil {

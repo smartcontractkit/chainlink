@@ -48,7 +48,7 @@ func TestStreamsConsensusAggregator(t *testing.T) {
 	newState := &datafeeds.DataFeedsOutcomeMetadata{}
 	err = proto.Unmarshal(outcome.Metadata, newState)
 	require.NoError(t, err)
-	require.Equal(t, P, len(newState.FeedInfo))
+	require.Len(t, newState.FeedInfo, P)
 
 	// run test aggregations
 	startTs := time.Now().UnixMilli()

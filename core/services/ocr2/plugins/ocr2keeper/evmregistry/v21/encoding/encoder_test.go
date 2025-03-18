@@ -95,11 +95,11 @@ func TestReportEncoder_EncodeExtract(t *testing.T) {
 				return
 			}
 
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Len(t, b, tc.reportSize)
 
 			results, err := encoder.Extract(b)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Len(t, results, len(tc.results))
 
 			for i, r := range results {

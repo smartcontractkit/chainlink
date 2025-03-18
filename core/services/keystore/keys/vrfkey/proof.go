@@ -1,6 +1,7 @@
 package vrfkey
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -43,7 +44,7 @@ func (p *Proof) WellFormed() bool {
 // given publicKey and seed, and no error was encountered
 func (p *Proof) VerifyVRFProof() (bool, error) {
 	if !p.WellFormed() {
-		return false, fmt.Errorf("badly-formatted proof")
+		return false, errors.New("badly-formatted proof")
 	}
 	h, err := HashToCurve(p.PublicKey, p.Seed, func(*big.Int) {})
 	if err != nil {
@@ -51,7 +52,7 @@ func (p *Proof) VerifyVRFProof() (bool, error) {
 	}
 	err = checkCGammaNotEqualToSHash(p.C, p.Gamma, p.S, h)
 	if err != nil {
-		return false, fmt.Errorf("c*γ = s*hash (disallowed in solidity verifier)")
+		return false, errors.New("c*γ = s*hash (disallowed in solidity verifier)")
 	}
 	// publicKey = secretKey*Generator. See GenerateProof for u, v, m, s
 	// c*secretKey*Generator + (m - c*secretKey)*Generator = m*Generator = u

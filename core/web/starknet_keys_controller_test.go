@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -83,13 +82,13 @@ func TestStarkNetKeysController_Delete_HappyPath(t *testing.T) {
 	initialLength := len(keys)
 	key, _ := keyStore.StarkNet().Create(ctx)
 
-	response, cleanup := client.Delete(fmt.Sprintf("/v2/keys/starknet/%s", key.ID()))
+	response, cleanup := client.Delete("/v2/keys/starknet/" + key.ID())
 	t.Cleanup(cleanup)
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	assert.Error(t, utils.JustError(keyStore.StarkNet().Get(key.ID())))
 
 	keys, _ = keyStore.StarkNet().GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupStarkNetKeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.Master) {

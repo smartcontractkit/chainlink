@@ -45,7 +45,7 @@ func TestLoopRegistryServer_CantWriteToResponse(t *testing.T) {
 
 	rw := newResponseWriter()
 	s.discoveryHandler(rw, &http.Request{})
-	assert.Equal(t, rw.statusCode, http.StatusInternalServerError)
+	assert.Equal(t, http.StatusInternalServerError, rw.statusCode)
 	assert.Equal(t, 1, o.FilterMessageSnippet("could not write to response").Len())
 }
 
@@ -62,6 +62,6 @@ func TestLoopRegistryServer_CantMarshal(t *testing.T) {
 
 	rw := newResponseWriter()
 	s.discoveryHandler(rw, &http.Request{})
-	assert.Equal(t, rw.statusCode, http.StatusInternalServerError)
+	assert.Equal(t, http.StatusInternalServerError, rw.statusCode)
 	assert.Equal(t, 1, o.FilterMessageSnippet("could not write to response").Len())
 }

@@ -1427,7 +1427,7 @@ func (o *orm) PipelineRuns(ctx context.Context, jobID *int32, offset, size int) 
 		filter = fmt.Sprintf("JOIN job_pipeline_specs USING(pipeline_spec_id) WHERE job_pipeline_specs.job_id = %d", *jobID)
 	}
 	err = o.transact(ctx, false, func(tx *orm) error {
-		sql := fmt.Sprintf(`SELECT count(*) FROM pipeline_runs %s`, filter)
+		sql := "SELECT count(*) FROM pipeline_runs " + filter
 		if err = tx.ds.QueryRowxContext(ctx, sql).Scan(&count); err != nil {
 			return errors.Wrap(err, "error counting runs")
 		}

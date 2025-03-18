@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"math/big"
 	"net/http"
 	"testing"
@@ -69,7 +69,7 @@ func TestTransfersController_CreateSuccess_From(t *testing.T) {
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, errors.Errors, 0)
+	assert.Empty(t, errors.Errors)
 
 	validateTxCount(t, app.GetDB(), 1)
 }
@@ -111,7 +111,7 @@ func TestTransfersController_CreateSuccess_From_WEI(t *testing.T) {
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, errors.Errors, 0)
+	assert.Empty(t, errors.Errors)
 
 	validateTxCount(t, app.GetDB(), 1)
 }
@@ -158,7 +158,7 @@ func TestTransfersController_CreateSuccess_From_BalanceMonitorDisabled(t *testin
 
 	errors := cltest.ParseJSONAPIErrors(t, resp.Body)
 	assert.Equal(t, http.StatusOK, resp.StatusCode)
-	assert.Len(t, errors.Errors, 0)
+	assert.Empty(t, errors.Errors)
 
 	validateTxCount(t, app.GetDB(), 1)
 }
@@ -367,7 +367,7 @@ func TestTransfersController_FindTxAttempt(t *testing.T) {
 	t.Run("failed to find tx", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		find := func(_ context.Context, _ int64) (txmgr.Tx, error) {
-			return txmgr.Tx{}, fmt.Errorf("ERRORED")
+			return txmgr.Tx{}, errors.New("ERRORED")
 		}
 		_, err := web.FindTxAttempt(ctx, time.Second, tx, find)
 		assert.ErrorContains(t, err, "failed to find transaction")

@@ -300,10 +300,10 @@ func (l *functionsListener) HandleOffchainRequest(ctx context.Context, request *
 		return fmt.Errorf("HandleOffchainRequest: invalid request ID length %d", len(request.RequestId))
 	}
 	if len(request.SubscriptionOwner) != common.AddressLength || len(request.RequestInitiator) != common.AddressLength {
-		return fmt.Errorf("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
+		return errors.New("HandleOffchainRequest: SubscriptionOwner and RequestInitiator must be set to valid addresses")
 	}
 	if request.Timestamp < uint64(time.Now().Unix()-int64(l.pluginConfig.RequestTimeoutSec)) {
-		return fmt.Errorf("HandleOffchainRequest: request timestamp is too old")
+		return errors.New("HandleOffchainRequest: request timestamp is too old")
 	}
 
 	var requestId RequestID

@@ -137,7 +137,7 @@ func (ks *eth) Create(ctx context.Context, chainIDs ...*big.Int) (ethkey.KeyV2, 
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to add eth key")
 	}
 	ks.notify()
-	ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", key.Address.Hex()), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
+	ks.logger.Infow("Created EVM key with ID "+key.Address.Hex(), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
 	return key, err
 }
 
@@ -164,7 +164,7 @@ func (ks *eth) EnsureKeys(ctx context.Context, chainIDs ...*big.Int) (err error)
 		if err != nil {
 			return fmt.Errorf("failed to add key %s for chain %s: %w", newKey.Address, chainID, err)
 		}
-		ks.logger.Infow(fmt.Sprintf("Created EVM key with ID %s", newKey.Address.Hex()), "address", newKey.Address.Hex(), "evmChainID", chainID)
+		ks.logger.Infow("Created EVM key with ID "+newKey.Address.Hex(), "address", newKey.Address.Hex(), "evmChainID", chainID)
 	}
 
 	return nil
@@ -529,7 +529,7 @@ func (ks *eth) XXXTestingOnlySetState(ctx context.Context, state ethkey.State) {
 	}
 	existingState, exists := ks.keyStates.ChainIDKeyID[state.EVMChainID.String()][state.KeyID()]
 	if !exists {
-		panic(fmt.Sprintf("key not found with ID %s", state.KeyID()))
+		panic("key not found with ID " + state.KeyID())
 	}
 	*existingState = state
 	sql := `UPDATE evm.key_states SET address = :address, is_disabled = :is_disabled, evm_chain_id = :evm_chain_id, updated_at = NOW()

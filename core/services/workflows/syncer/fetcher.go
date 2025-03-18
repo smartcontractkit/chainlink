@@ -42,6 +42,12 @@ func (s *FetcherService) Start(ctx context.Context) error {
 		outgoingConnectorLggr := s.lggr.Named("OutgoingConnectorHandler")
 
 		webAPIConfig := webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      webapi.DefaultGlobalRPS,
+				GlobalBurst:    webapi.DefaultGlobalBurst,
+				PerSenderRPS:   webapi.DefaultWorkflowRPS,
+				PerSenderBurst: webapi.DefaultWorkflowBurst,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -100,7 +106,7 @@ func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byt
 		return nil, fmt.Errorf("invalid response from gateway: %w", err)
 	}
 
-	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId)
+	s.lggr.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 
 	var payload ghcapabilities.Response
 	if err = json.Unmarshal(resp.Body.Payload, &payload); err != nil {
@@ -113,6 +119,11 @@ func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byt
 
 	if payload.ExecutionError {
 		return nil, fmt.Errorf("execution error from gateway: %s", payload.ErrorMessage)
+	}
+
+	if payload.StatusCode < 200 || payload.StatusCode >= 300 {
+		// NOTE: redirects are currently not supported
+		return payload.Body, fmt.Errorf("request failed with status code: %d", payload.StatusCode)
 	}
 
 	return payload.Body, nil
