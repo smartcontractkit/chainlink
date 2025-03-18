@@ -207,6 +207,20 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		}
 	}
 
+	// Update the fee quoter destinations on the new chain
+	destChainConfigs := make(map[uint64]fee_quoter.FeeQuoterDestChainConfig, len(c.RemoteChains))
+	for _, remoteChain := range c.RemoteChains {
+		destChainConfigs[remoteChain.Selector] = remoteChain.FeeQuoterDestChainConfig
+	}
+	_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			c.NewChain.Selector: destChainConfigs,
+		},
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
+	}
+
 	// Update the fee quoter prices on the new chain
 	gasPrices := make(map[uint64]*big.Int, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
@@ -222,20 +236,6 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-	}
-
-	// Update the fee quoter destinations on the new chain
-	destChainConfigs := make(map[uint64]fee_quoter.FeeQuoterDestChainConfig, len(c.RemoteChains))
-	for _, remoteChain := range c.RemoteChains {
-		destChainConfigs[remoteChain.Selector] = remoteChain.FeeQuoterDestChainConfig
-	}
-	_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
-		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-			c.NewChain.Selector: destChainConfigs,
-		},
-	})
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
 
 	// Fetch the next DON ID from the capabilities registry
@@ -334,89 +334,6 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	return deployment.ChangesetOutput{AddressBook: newAddresses, MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 }
 
-// connectRampsAndRouters updates the onRamp and offRamp to point at the router for the given remote chains.
-// It also sets the onRamp and offRamp on the router for the given remote chains.
-// This function will add the proposals required to make these changes to the proposalAggregate slice.
-func connectRampsAndRouters(
-	e deployment.Environment,
-	chainSelector uint64,
-	remoteChains map[uint64]ConnectionConfig,
-	mcmsConfig *changeset.MCMSConfig,
-	testRouter bool,
-	proposalAggregate []mcmslib.TimelockProposal,
-) ([]mcmslib.TimelockProposal, error) {
-	// Update offRamp sources on the new chain.
-	offRampUpdatesOnNew := make(map[uint64]OffRampSourceUpdate, len(remoteChains))
-	for remoteChainSelector, remoteChain := range remoteChains {
-		offRampUpdatesOnNew[remoteChainSelector] = OffRampSourceUpdate{
-			TestRouter:                testRouter,
-			IsRMNVerificationDisabled: remoteChain.RMNVerificationDisabled,
-			IsEnabled:                 true,
-		}
-	}
-	out, err := UpdateOffRampSourcesChangeset(e, UpdateOffRampSourcesConfig{
-		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
-			chainSelector: offRampUpdatesOnNew,
-		},
-		MCMS:               mcmsConfig,
-		SkipOwnershipCheck: true,
-	})
-	if err != nil {
-		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset on chain with selector %d: %w", chainSelector, err)
-	}
-	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
-
-	// Update onRamp destinations on the new chain.
-	onRampUpdatesOnNew := make(map[uint64]OnRampDestinationUpdate, len(remoteChains))
-	for remoteChainSelector, remoteChain := range remoteChains {
-		onRampUpdatesOnNew[remoteChainSelector] = OnRampDestinationUpdate{
-			TestRouter:       testRouter,
-			AllowListEnabled: remoteChain.AllowListEnabled,
-			IsEnabled:        true,
-		}
-	}
-	out, err = UpdateOnRampsDestsChangeset(e, UpdateOnRampDestsConfig{
-		UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
-			chainSelector: onRampUpdatesOnNew,
-		},
-		MCMS:               mcmsConfig,
-		SkipOwnershipCheck: true,
-	})
-	if err != nil {
-		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateOnRampsDestsChangeset on chain with selector %d: %w", chainSelector, err)
-	}
-	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
-
-	// Update router ramps on the new chain.
-	offRampUpdates := make(map[uint64]bool, len(remoteChains))
-	onRampUpdates := make(map[uint64]bool, len(remoteChains))
-	for remoteChainSelector := range remoteChains {
-		offRampUpdates[remoteChainSelector] = true
-		onRampUpdates[remoteChainSelector] = true
-	}
-	cfg := mcmsConfig
-	if testRouter { // Again, test router does not use MCMS. We are making this assumption.
-		cfg = nil
-	}
-	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
-		TestRouter: testRouter,
-		UpdatesByChain: map[uint64]RouterUpdates{
-			chainSelector: RouterUpdates{
-				OnRampUpdates:  onRampUpdates,
-				OffRampUpdates: offRampUpdates,
-			},
-		},
-		MCMS:               cfg,
-		SkipOwnershipCheck: true,
-	})
-	if err != nil {
-		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset on chain with selector %d: %w", chainSelector, err)
-	}
-	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
-
-	return proposalAggregate, nil
-}
-
 ///////////////////////////////////
 // END AddCandidatesForNewChainChangeset
 ///////////////////////////////////
@@ -467,7 +384,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 
 	candidate := globals.ConfigTypeActive
 	if c.MCMSConfig != nil {
-		candidate = globals.ConfigTypeCandidate // If going through MCMS, the config will be candidate during checks
+		candidate = globals.ConfigTypeCandidate // If going through MCMS, the config will be candidate during changeset validation
 	}
 	// Set the OCR3 config on the off ramp on the new chain
 	out, err = SetOCR3OffRampChangeset(e, SetOCR3OffRampConfig{
@@ -481,6 +398,19 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 
 	// Update the fee quoter prices and destinations on the remote chains
 	for _, remoteChain := range c.RemoteChains {
+		_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
+			UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+				remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+					c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
+				},
+			},
+			MCMS: c.MCMSConfig,
+		})
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", remoteChain.Selector, err)
+		}
+		allProposals = append(allProposals, out.MCMSTimelockProposals...)
+
 		out, err := UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
 			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 				remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
@@ -494,39 +424,20 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", remoteChain.Selector, err)
 		}
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
-
-		_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
-			UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-				remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-					c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
-				},
-			},
-			MCMS: c.MCMSConfig,
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", remoteChain.Selector, err)
-		}
-		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 	}
 
 	// Connect the new chain to the existing chains (use the test router)
 	testRouter := true
 	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
 	for _, remoteChain := range c.RemoteChains {
-		connections[remoteChain.Selector] = ConnectionConfig{
-			RMNVerificationDisabled: remoteChain.RMNVerificationDisabled,
-			AllowListEnabled:        remoteChain.AllowListEnabled,
-		}
+		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
 	}
 	cfg := ConnectNewChainConfig{
-		RemoteChains:     connections,
-		NewChainSelector: c.NewChain.Selector,
-		NewChainConnectionConfig: ConnectionConfig{
-			RMNVerificationDisabled: c.NewChain.RMNVerificationDisabled,
-			AllowListEnabled:        c.NewChain.AllowListEnabled,
-		},
-		TestRouter: &testRouter,
-		MCMSConfig: c.MCMSConfig,
+		RemoteChains:             connections,
+		NewChainSelector:         c.NewChain.Selector,
+		NewChainConnectionConfig: c.NewChain.ConnectionConfig,
+		TestRouter:               &testRouter,
+		MCMSConfig:               c.MCMSConfig,
 	}
 	err = ConnectNewChainChangeset.VerifyPreconditions(e, cfg)
 	if err != nil {
@@ -791,6 +702,89 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		return deployment.ChangesetOutput{}, nil
 	}
 	return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
+}
+
+// connectRampsAndRouters updates the onRamp and offRamp to point at the router for the given remote chains.
+// It also sets the onRamp and offRamp on the router for the given remote chains.
+// This function will add the proposals required to make these changes to the proposalAggregate slice.
+func connectRampsAndRouters(
+	e deployment.Environment,
+	chainSelector uint64,
+	remoteChains map[uint64]ConnectionConfig,
+	mcmsConfig *changeset.MCMSConfig,
+	testRouter bool,
+	proposalAggregate []mcmslib.TimelockProposal,
+) ([]mcmslib.TimelockProposal, error) {
+	// Update offRamp sources on the new chain.
+	offRampUpdatesOnNew := make(map[uint64]OffRampSourceUpdate, len(remoteChains))
+	for remoteChainSelector, remoteChain := range remoteChains {
+		offRampUpdatesOnNew[remoteChainSelector] = OffRampSourceUpdate{
+			TestRouter:                testRouter,
+			IsRMNVerificationDisabled: remoteChain.RMNVerificationDisabled,
+			IsEnabled:                 true,
+		}
+	}
+	out, err := UpdateOffRampSourcesChangeset(e, UpdateOffRampSourcesConfig{
+		UpdatesByChain: map[uint64]map[uint64]OffRampSourceUpdate{
+			chainSelector: offRampUpdatesOnNew,
+		},
+		MCMS:               mcmsConfig,
+		SkipOwnershipCheck: true,
+	})
+	if err != nil {
+		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset on chain with selector %d: %w", chainSelector, err)
+	}
+	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
+
+	// Update onRamp destinations on the new chain.
+	onRampUpdatesOnNew := make(map[uint64]OnRampDestinationUpdate, len(remoteChains))
+	for remoteChainSelector, remoteChain := range remoteChains {
+		onRampUpdatesOnNew[remoteChainSelector] = OnRampDestinationUpdate{
+			TestRouter:       testRouter,
+			AllowListEnabled: remoteChain.AllowListEnabled,
+			IsEnabled:        true,
+		}
+	}
+	out, err = UpdateOnRampsDestsChangeset(e, UpdateOnRampDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]OnRampDestinationUpdate{
+			chainSelector: onRampUpdatesOnNew,
+		},
+		MCMS:               mcmsConfig,
+		SkipOwnershipCheck: true,
+	})
+	if err != nil {
+		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateOnRampsDestsChangeset on chain with selector %d: %w", chainSelector, err)
+	}
+	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
+
+	// Update router ramps on the new chain.
+	offRampUpdates := make(map[uint64]bool, len(remoteChains))
+	onRampUpdates := make(map[uint64]bool, len(remoteChains))
+	for remoteChainSelector := range remoteChains {
+		offRampUpdates[remoteChainSelector] = true
+		onRampUpdates[remoteChainSelector] = true
+	}
+	cfg := mcmsConfig
+	if testRouter { // Again, test router does not use MCMS. We are making this assumption.
+		cfg = nil
+	}
+	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
+		TestRouter: testRouter,
+		UpdatesByChain: map[uint64]RouterUpdates{
+			chainSelector: RouterUpdates{
+				OnRampUpdates:  onRampUpdates,
+				OffRampUpdates: offRampUpdates,
+			},
+		},
+		MCMS:               cfg,
+		SkipOwnershipCheck: true,
+	})
+	if err != nil {
+		return []mcmslib.TimelockProposal{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset on chain with selector %d: %w", chainSelector, err)
+	}
+	proposalAggregate = append(proposalAggregate, out.MCMSTimelockProposals...)
+
+	return proposalAggregate, nil
 }
 
 ///////////////////////////////////

@@ -241,20 +241,16 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 		MCMS *changeset.MCMSConfig
 	}
 
-	/*
-		mcmsConfig := &changeset.MCMSConfig{
-			MinDelay:   0 * time.Second,
-			MCMSAction: timelock.Schedule,
-		}
-	*/
+	mcmsConfig := &changeset.MCMSConfig{
+		MinDelay:   0 * time.Second,
+		MCMSAction: timelock.Schedule,
+	}
 
 	tests := []test{
-		/* TODO: This one is breaking @ PromoteNewChainForTestingChangeset, something with FeeQuoter.updatePrices
 		{
 			Msg:  "Remote chains owned by MCMS",
 			MCMS: mcmsConfig,
 		},
-		*/
 		{
 			Msg:  "Remote chains not owned by MCMS",
 			MCMS: nil,
@@ -263,12 +259,14 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.Msg, func(t *testing.T) {
+			chainIDs := []uint64{
+				chain_selectors.ETHEREUM_MAINNET.EvmChainID,
+				chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID,
+				chain_selectors.ETHEREUM_MAINNET_OPTIMISM_1.EvmChainID,
+			}
+
 			deployedEnvironment, _ := testhelpers.NewMemoryEnvironment(t, func(testCfg *testhelpers.TestConfigs) {
-				testCfg.ChainIDs = []uint64{
-					chain_selectors.ETHEREUM_MAINNET.EvmChainID,
-					chain_selectors.ETHEREUM_MAINNET_ARBITRUM_1.EvmChainID,
-					chain_selectors.ETHEREUM_MAINNET_OPTIMISM_1.EvmChainID,
-				}
+				testCfg.ChainIDs = chainIDs
 			})
 			e := deployedEnvironment.Env
 			state, err := changeset.LoadOnchainState(e)
@@ -277,10 +275,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			// Identify and delete addresses from the new chain
 			var newChainSelector uint64
 			var linkAddress common.Address
-			remoteChainSelectors := make([]uint64, 0, 2)
-			addressesByChain := make(map[uint64]map[string]deployment.TypeAndVersion, 2)
+			remoteChainSelectors := make([]uint64, 0, len(chainIDs)-1)
+			addressesByChain := make(map[uint64]map[string]deployment.TypeAndVersion, len(chainIDs)-1)
 			for _, selector := range e.AllChainSelectors() {
-				if selector != deployedEnvironment.HomeChainSel && selector != deployedEnvironment.FeedChainSel && newChainSelector == 0 {
+				if selector != deployedEnvironment.HomeChainSel && newChainSelector == 0 {
 					newChainSelector = selector
 					linkAddress = state.Chains[selector].LinkToken.Address()
 				} else {
@@ -372,7 +370,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						AllowListEnabled:        false,
 					},
 					Selector:                 selector,
-					GasPrice:                 big.NewInt(1000000000),
+					GasPrice:                 big.NewInt(1e17),
 					TokenPrices:              map[common.Address]*big.Int{},
 					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 				}
@@ -389,7 +387,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						AllowListEnabled:        false,
 					},
 					Selector:                 newChainSelector,
-					GasPrice:                 big.NewInt(1000000000),
+					GasPrice:                 big.NewInt(1e17),
 					TokenPrices:              map[common.Address]*big.Int{},
 					FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
 				},
