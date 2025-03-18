@@ -28,11 +28,10 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{}))
-
 func TestMessageHasher_EVM2SVM(t *testing.T) {
+	var extraDataCodec = ccipcommon.NewExtraDataCodec(ccipevm.ExtraDataCodec{}, ExtraDataCodec{})
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
-	msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
+	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, msgAccounts)
@@ -42,14 +41,14 @@ func TestMessageHasher_EVM2SVM(t *testing.T) {
 
 func TestMessageHasher_InvalidReceiver(t *testing.T) {
 	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
+	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
 
 	// Set receiver to a []byte of 2 length
 	any2AnyMsg.Receiver = []byte{0, 0}
-	mockExtraDataCodec := &mocks.ExtraDataCodec{}
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
-	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	}, nil).Maybe()
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"AccountIsWritableBitmap": uint64(10),
 		"Accounts": [][32]byte{
@@ -57,8 +56,8 @@ func TestMessageHasher_InvalidReceiver(t *testing.T) {
 			[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
-	}, nil)
-	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
+	}, nil).Maybe()
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }
@@ -68,11 +67,11 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 
 	// Set DestTokenAddress to a []byte of 2 length
 	any2AnyMsg.TokenAmounts[0].DestTokenAddress = []byte{0, 0}
-	mockExtraDataCodec := &mocks.ExtraDataCodec{}
-	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+	mockExtraDataCodec := mocks.NewChainSpecificExtraDataCodec(t)
+	mockExtraDataCodec.On("DecodeDestExecDataToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
-	}, nil)
-	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+	}, nil).Maybe()
+	mockExtraDataCodec.On("DecodeExtraArgsToMap", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"AccountIsWritableBitmap": uint64(10),
 		"Accounts": [][32]byte{
@@ -80,8 +79,8 @@ func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
 			[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
 			[32]byte(solana.SystemProgramID.Bytes()),
 		},
-	}, nil)
-	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
+	}, nil).Maybe()
+	msgHasher := NewMessageHasherV1(logger.Test(t), ccipcommon.NewExtraDataCodec(mockExtraDataCodec, mockExtraDataCodec))
 	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.Error(t, err)
 }

@@ -373,7 +373,7 @@ func ManuallyExecuteAll(
 	lookbackDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
+	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataCodec{}))
 	for _, seqNr := range msgSeqNrs {
 		err := manuallyExecuteSingle(
 			ctx,

@@ -2,31 +2,35 @@ package ccipevm
 
 import (
 	"fmt"
-
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// ExtraDataDecoder is a concrete implementation of ExtraDataDecoder
-type ExtraDataDecoder struct{}
+const (
+	svmV1DecodeName    = "decodeSVMExtraArgsV1"
+	evmV1DecodeName    = "decodeEVMExtraArgsV1"
+	evmV2DecodeName    = "decodeEVMExtraArgsV2"
+	evmDestExecDataKey = "destGasAmount"
+)
+
+// ExtraDataCodec is a concrete implementation of ExtraDataDecoder
+type ExtraDataCodec struct{}
 
 // DecodeDestExecDataToMap reformats bytes into a chain agnostic map[string]interface{} representation for dest exec data
-func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
+func (d ExtraDataCodec) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]interface{}, error) {
 	destGasAmount, err := abiDecodeUint32(destExecData)
 	if err != nil {
 		return nil, fmt.Errorf("decode dest gas amount: %w", err)
 	}
-
 	return map[string]interface{}{
 		evmDestExecDataKey: destGasAmount,
 	}, nil
 }
 
 // DecodeExtraArgsToMap reformats bytes into a chain agnostic map[string]any representation for extra args
-func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
+func (d ExtraDataCodec) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[string]any, error) {
 	if len(extraArgs) < 4 {
 		return nil, fmt.Errorf("extra args too short: %d, should be at least 4 (i.e the extraArgs tag)", len(extraArgs))
 	}
-
 	var method string
 	var extraByteOffset int
 	switch string(extraArgs[:4]) {
@@ -46,14 +50,12 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	default:
 		return nil, fmt.Errorf("unknown extra args tag: %x", extraArgs)
 	}
-
 	output := make(map[string]any)
 	args := make(map[string]interface{})
 	err := messageHasherABI.Methods[method].Inputs.UnpackIntoMap(args, extraArgs[extraByteOffset:])
 	if err != nil {
 		return nil, fmt.Errorf("abi decode extra args %v: %w", method, err)
 	}
-
 	for k, val := range args {
 		output[k] = val
 	}
