@@ -224,7 +224,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
-			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
 		}
 		existingVersion, ok := versions[tvStr.Type]
