@@ -3,33 +3,25 @@ package changeset
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/jd"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
-
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 )
 
 func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-196")
 	t.Parallel()
 
-	lggr := logger.TestLogger(t)
-
-	cfg := memory.MemoryEnvironmentConfig{
-		Nodes:  1,
-		Chains: 1,
-	}
-	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	e := testutil.NewMemoryEnv(t, false, 1)
 
 	// pick the first EVM chain selector
-	chainSelector := env.AllChainSelectors()[0]
+	chainSelector := e.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
-	err := env.ExistingAddresses.Save(chainSelector, "0x4170ed0880ac9a755fd29b2688956bd959f923f4",
+	err := e.ExistingAddresses.Save(chainSelector, "0x4170ed0880ac9a755fd29b2688956bd959f923f4",
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -55,7 +47,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	}{
 		{
 			name:   "success",
-			env:    env,
+			env:    e,
 			config: config,
 		},
 	}
