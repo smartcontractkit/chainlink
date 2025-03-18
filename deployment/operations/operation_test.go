@@ -51,7 +51,7 @@ func Test_Operation_Execute(t *testing.T) {
 	}
 
 	op := NewOperation("sum", version, description, handler)
-	e := NewBundle(context.Background, log)
+	e := NewBundle(context.Background, log, nil)
 	input := OpInput{
 		A: 1,
 		B: 2,
