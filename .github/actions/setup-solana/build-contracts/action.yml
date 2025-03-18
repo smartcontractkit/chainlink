@@ -13,9 +13,7 @@ runs:
     - name: Download Release Artifacts
       shell: bash
       run: |
-        short_revision=$(grep "github.com/smartcontractkit/chainlink-ccip/chains/solana" deployment/go.mod | awk '{print $2}' | cut -d'-' -f3)
-        echo "CCIP Short SHA = $short_revision"
-        curl -L -o artifacts.tar.gz "https://github.com/smartcontractkit/chainlink-ccip/releases/download/solana-artifacts-localtest-$short_revision/artifacts.tar.gz"
+        curl -L -o artifacts.tar.gz "https://github.com/smartcontractkit/chainlink-ccip/releases/download/solana-artifacts-localtest-2eeef629c303/artifacts.tar.gz"
         file artifacts.tar.gz
         tar -xzvf artifacts.tar.gz
         mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
