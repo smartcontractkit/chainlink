@@ -41,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/testhelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
@@ -195,6 +196,16 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoError(t, err, "could not get node's eth keys")
 
 	t.Logf("Keys are %#v", keys)
+
+	// fund addresses
+
+	err = fundAddressOf(primaryTransmitterKey, contractOwner, backend)
+	require.NoError(t, err, "Funding primary transmitter shouldn't fail")
+	backend.Commit()
+	err = fundAddressOf(secondaryTransmitterKey, contractOwner, backend)
+	require.NoError(t, err, "Funding secondary transmitter shouldn't fail")
+	backend.Commit()
+	t.Logf("Funded primary and secondary transmitter")
 
 	_, err = operatorInstance.AcceptAuthorizedReceivers(contractOwner, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
 	require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
@@ -805,6 +816,63 @@ func mustNewType(t string) abi.Type {
 		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
 	}
 	return result
+}
+
+func fundAddressOf(key ethkey.KeyV2, contractOwner *bind.TransactOpts, backend evmtypes.Backend) error {
+
+	// backend.Client().SendTransaction()
+	// contractOwner.From
+	// backend.Client().
+	// 	// 4. Fund addresses
+	// 	for i := range primaryAddresses {
+	// 		require.NoError(t, ns.SendETH(sethClient.Client, pkey, primaryAddresses[i].String(), big.NewFloat(0.2)), "Failed to fund primary address")
+	// 		require.NoError(t, ns.SendETH(sethClient.Client, pkey, secondaryAddresses[i].String(), big.NewFloat(0.2)), "Failed to fund secondary address")
+	// 	}
+
+	// privateKey, err := crypto.HexToECDSA(key)
+	// if err != nil {
+	// 	return er.Wrap(err, "failed to parse private key")
+	// }
+	wei := new(big.Int)
+	amount := big.NewFloat(0.2)
+	amountWei := new(big.Float).Mul(amount, big.NewFloat(1e18))
+	amountWei.Int(wei)
+
+	// publicKey := privateKey.Public()
+	// publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	// if !ok {
+	// 	return fmt.Errorf("error casting public key to ECDSA")
+	// }
+	// fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
+
+	backend.Client().PendingNonceAt(context.Background(), key.Address)
+	nonce, err := backend.Client().PendingNonceAt(context.Background(), contractOwner.From)
+	if err != nil {
+		return fmt.Errorf("failed to fetch nonce: %w", err)
+	}
+
+	gasPrice, err := backend.Client().SuggestGasPrice(context.Background())
+	if err != nil {
+		return fmt.Errorf("failed to fetch gas price: %w", err)
+	}
+	gasLimit := uint64(21000) // Standard gas limit for ETH transfer
+
+	tx := gethtypes.NewTransaction(nonce, key.Address, wei, gasLimit, gasPrice, nil)
+
+	signedTx, err := contractOwner.Signer(contractOwner.From, tx)
+	if err != nil {
+		return fmt.Errorf("failed to sign transaction: %w", err)
+	}
+
+	err = backend.Client().SendTransaction(context.Background(), signedTx)
+	if err != nil {
+		return fmt.Errorf("failed to send transaction: %w", err)
+	}
+
+	backend.Commit()
+
+	_, err = bind.WaitMined(context.Background(), backend.Client(), signedTx)
+	return err
 }
 
 var oevJobSpec = `
