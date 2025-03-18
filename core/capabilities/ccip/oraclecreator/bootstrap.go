@@ -72,7 +72,11 @@ func (o *bootstrapOracle) Start() error {
 		return fmt.Errorf("failed to start RMNHome reader: %w", err)
 	}
 
-	o.peerGroupDialer.Start()
+	if err := o.peerGroupDialer.Start(); err != nil {
+		// Clean up RMN components if peer group dialer fails to start
+		_ = o.rmnHomeReader.Close()
+		return fmt.Errorf("failed to start peer group dialer: %w", err)
+	}
 
 	// Then start the base oracle (bootstrapper)
 	if err := o.baseOracle.Start(); err != nil {
@@ -287,8 +291,8 @@ func newPeerGroupDialer(
 	}
 }
 
-func (d *peerGroupDialer) Start() {
-	d.StateMachine.StartOnce("peerGroupDialer", func() error {
+func (d *peerGroupDialer) Start() error {
+	return d.StateMachine.StartOnce("peerGroupDialer", func() error {
 		d.lggr.Infow("Starting peer group dialer")
 
 		d.wg.Add(1)
