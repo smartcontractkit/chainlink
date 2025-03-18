@@ -866,8 +866,7 @@ func DeployTransferableTokenSolana(
 	addresses deployment.AddressBook,
 	evmTokenName string,
 ) (*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error,
-) {
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
@@ -1524,8 +1523,7 @@ type TokenBalanceAccumulator map[uint64]map[TokenReceiverIdentifier]*big.Int
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver common.Address,
-	expectedBalance map[common.Address]*big.Int,
-) {
+	expectedBalance map[common.Address]*big.Int) {
 	for token, balance := range expectedBalance {
 		tkIdentifier := TokenReceiverIdentifier{token, receiver}
 
