@@ -303,7 +303,6 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 
 // TestV1_5_Message_RMNRemote this test verify that 1.5 lane can be uncuresed when using RMNRemote
 func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-197")
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
@@ -463,11 +462,21 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	err = tLocalEnv.RestartChainlinkNodes(t)
 	require.NoError(t, err)
 
-	select {
-	case <-commitFound:
-		return
-	case <-time.After(5 * time.Minute):
-		t.Fatal("timed out waiting for commit")
+	timeUntilTimeout := 10 * time.Minute
+	if deadline, ok := t.Context().Deadline(); ok {
+		timeUntilTimeout = time.Until(deadline)
+	}
+
+	for {
+		select {
+		case <-commitFound:
+			return
+		case <-time.Tick(3 * time.Minute):
+			err = tLocalEnv.RestartChainlinkNodes(t)
+			require.NoError(t, err)
+		case <-time.Tick(timeUntilTimeout):
+			t.Fatal("timed out waiting for commit")
+		}
 	}
 }
 

@@ -703,6 +703,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			cfg.Accounts,
 			cfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -728,6 +729,7 @@ func ConfigureTokenPoolAllowList(e deployment.Environment, cfg ConfigureTokenPoo
 			cfg.Accounts,
 			cfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 			solana.SystemProgramID,
 		).ValidateAndBuild()
@@ -818,6 +820,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 		ix, err = solBurnMintTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -841,6 +844,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 		ix, err = solLockReleaseTokenPool.NewRemoveFromAllowListInstruction(
 			cfg.Accounts,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -948,6 +952,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		ix, err := solLockReleaseTokenPool.NewSetCanAcceptLiquidityInstruction(
 			cfg.SetCfg.Enabled,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -1029,6 +1034,7 @@ func LockReleaseLiquidityOps(e deployment.Environment, cfg LockReleaseLiquidityO
 		ix, err := solLockReleaseTokenPool.NewSetRebalancerInstruction(
 			cfg.RebalancerCfg.Rebalancer,
 			poolConfigPDA,
+			tokenPubKey,
 			authority,
 		).ValidateAndBuild()
 		if err != nil {
@@ -1178,6 +1184,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 			ix, err = solBurnMintTokenPool.NewSetRouterInstruction(
 				cfg.SetRouterCfg.Router,
 				poolConfigPDA,
+				tokenPubKey,
 				authority,
 			).ValidateAndBuild()
 			if err != nil {
@@ -1219,6 +1226,7 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 			ix, err = solLockReleaseTokenPool.NewSetRouterInstruction(
 				cfg.SetRouterCfg.Router,
 				poolConfigPDA,
+				tokenPubKey,
 				authority,
 			).ValidateAndBuild()
 			if err != nil {

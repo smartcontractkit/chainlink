@@ -60,7 +60,6 @@ func TestRMN_IncorrectSig(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-199")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching one lane RMN-enabled the other RMN-disabled",
 		waitForExec: true,
@@ -87,7 +86,6 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatching(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-123")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "messages on two lanes including batching",
 		waitForExec: true,
@@ -111,7 +109,6 @@ func TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause(t *testing
 }
 
 func TestRMN_MultipleMessagesOnOneLaneNoWaitForExec(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-201")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "multiple messages for rmn batching inspection and one rmn node down",
 		waitForExec: false, // do not wait for execution reports
@@ -156,7 +153,6 @@ func TestRMN_NotEnoughObservers(t *testing.T) {
 }
 
 func TestRMN_DifferentSigners(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-200")
 	runRmnTestCase(t, rmnTestCase{
 		name: "different signers and different observers",
 		homeChainConfig: homeChainConfig{
@@ -206,7 +202,6 @@ func TestRMN_NotEnoughSigners(t *testing.T) {
 }
 
 func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-202")
 	runRmnTestCase(t, rmnTestCase{
 		name:        "different rmn nodes support different chains",
 		waitForExec: false,
@@ -233,7 +228,6 @@ func TestRMN_DifferentRmnNodesForDifferentChains(t *testing.T) {
 }
 
 func TestRMN_TwoMessagesOneSourceChainCursed(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-122")
 	runRmnTestCase(t, rmnTestCase{
 		name:                "two messages, one source chain is cursed the other chain was cursed but curse is revoked",
 		passIfNoCommitAfter: 15 * time.Second,
@@ -417,6 +411,21 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 		t.Fatalf("test case is wrong: no message was sent to non-cursed chains when you " +
 			"define curse subjects, your test case should have at least one message not expected to be delivered")
 	}
+
+	// Trying to replay logs at intervals to avoid test flakiness
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				t.Logf("replaying logs after waiting for more than 1 minute")
+				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+			case <-t.Context().Done():
+				return
+			}
+		}
+	}()
 
 	commitReportReceived := make(chan struct{})
 	go func() {
