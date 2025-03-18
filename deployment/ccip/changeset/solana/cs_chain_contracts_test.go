@@ -1,9 +1,7 @@
 package solana_test
 
 import (
-	"fmt"
 	"math/big"
-	"os"
 	"testing"
 	"time"
 
@@ -26,7 +24,6 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -56,13 +53,6 @@ func TestAddRemoteChain(t *testing.T) {
 	// Default env just has 2 chains with all contracts
 	// deployed but no lanes.
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithSolChains(1))
-
-	// TODO: remove
-	files, issue := os.ReadDir(memory.ProgramsPath)
-	require.NoError(t, issue)
-	for _, file := range files {
-		fmt.Println(file.Name())
-	}
 
 	evmChain := tenv.Env.AllChainSelectors()[0]
 	evmChain2 := tenv.Env.AllChainSelectors()[1]
