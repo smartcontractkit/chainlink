@@ -1954,7 +1954,9 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, overwri
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
 
-	tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
+	tag := "solana-artifacts-localtest-2eeef629c303"
+	ok := true
+	// tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
 	if !ok {
 		output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
 		if err != nil {
