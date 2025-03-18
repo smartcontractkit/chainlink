@@ -12,11 +12,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -132,7 +134,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 
 		{name: "2 evm chains with 3 nodes",
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
+				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
 						ChainConfigs:   cfg.EVMConfigs(),
 						DatabaseConfig: cfg.Database(),
@@ -141,7 +143,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						MailMon:        &mailbox.Monitor{},
 						DS:             db,
 					},
-					CSAETHKeystore: keyStore,
+					EthKeystore: keyStore.Eth(),
+					CSAKeystore: &keystore.CSASigner{CSA: keyStore.CSA()},
 				}),
 			},
 			expectedEVMChainCnt: 2,
@@ -154,10 +157,8 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "2 solana chain with 2 node",
-
 			initFuncs: []chainlink.CoreRelayerChainInitFunc{
-				chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-					Keystore:    keyStore.Solana(),
+				chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
 					TOMLConfigs: cfg.SolanaConfigs()}),
 			},
 			expectedSolanaChainCnt: 2,
@@ -170,11 +171,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 		},
 
 		{name: "all chains",
-
-			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(testctx, factory, chainlink.SolanaFactoryConfig{
-				Keystore:    keyStore.Solana(),
+			initFuncs: []chainlink.CoreRelayerChainInitFunc{chainlink.InitSolana(factory, keyStore.Solana(), chainlink.SolanaFactoryConfig{
 				TOMLConfigs: cfg.SolanaConfigs()}),
-				chainlink.InitEVM(testctx, factory, chainlink.EVMFactoryConfig{
+				chainlink.InitEVM(factory, chainlink.EVMFactoryConfig{
 					ChainOpts: legacyevm.ChainOpts{
 						ChainConfigs:   cfg.EVMConfigs(),
 						DatabaseConfig: cfg.Database(),
@@ -184,10 +183,11 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 						MailMon: &mailbox.Monitor{},
 						DS:      db,
 					},
-					CSAETHKeystore: keyStore,
+					EthKeystore: keyStore.Eth(),
+					CSAKeystore: &keystore.CSASigner{CSA: keyStore.CSA()},
 				}),
-				chainlink.InitStarknet(testctx, factory, keyStore.StarkNet(), cfg.StarknetConfigs()),
-				chainlink.InitCosmos(testctx, factory, keyStore.Cosmos(), cfg.CosmosConfigs()),
+				chainlink.InitStarknet(factory, keyStore.StarkNet(), cfg.StarknetConfigs()),
+				chainlink.InitCosmos(factory, keyStore.Cosmos(), cfg.CosmosConfigs()),
 			},
 			expectedEVMChainCnt: 2,
 			expectedEVMNodeCnt:  3,

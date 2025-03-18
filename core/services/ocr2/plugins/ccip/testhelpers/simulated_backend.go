@@ -17,7 +17,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // FirstBlockAge is used to compute first block's timestamp in SimulatedBackend (time.Now() - FirstBlockAge)
@@ -40,21 +39,6 @@ func SetupChain(t *testing.T) (*simulated.Backend, *bind.TransactOpts) {
 	chain.Commit()
 	return chain, user
 }
-
-type EthKeyStoreSim struct {
-	ETHKS keystore.Eth
-	CSAKS keystore.CSA
-}
-
-func (ks EthKeyStoreSim) CSA() keystore.CSA {
-	return ks.CSAKS
-}
-
-func (ks EthKeyStoreSim) Eth() keystore.Eth {
-	return ks.ETHKS
-}
-
-var _ keystore.Eth = EthKeyStoreSim{}.ETHKS
 
 func ConfirmTxs(t *testing.T, txs []*ethtypes.Transaction, chain *Backend) {
 	chain.Commit()

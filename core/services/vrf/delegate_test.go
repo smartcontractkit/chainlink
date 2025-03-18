@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
@@ -82,14 +83,14 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 	btORM := bridges.NewORM(db)
 	ks := keystore.NewInMemory(db, utils.FastScryptParams, lggr)
 	_, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, ks.Eth(), nil, nil, nil)
+	evmKs := keys.NewChainStore(keystore.NewEthSigner(ks.Eth(), ec.ConfiguredChainID()), ec.ConfiguredChainID())
+	txm, err := txmgr.NewTxm(db, evmConfig, evmConfig.GasEstimator(), evmConfig.Transactions(), nil, dbConfig, dbConfig.Listener(), ec, logger.TestLogger(t), nil, evmKs, nil, nil, nil)
 	orm := heads.NewORM(*testutils.FixtureChainID, db)
 	require.NoError(t, orm.IdempotentInsertHead(testutils.Context(t), cltest.Head(51)))
 	jrm := job.NewORM(db, prm, btORM, ks, lggr)
 	t.Cleanup(func() { assert.NoError(t, jrm.Close()) })
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		LogBroadcaster: lb,
-		KeyStore:       ks.Eth(),
 		Client:         ec,
 		DB:             db,
 		ChainConfigs:   cfg.EVMConfigs(),
@@ -97,6 +98,7 @@ func buildVrfUni(t *testing.T, db *sqlx.DB, cfg chainlink.GeneralConfig) vrfUniv
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
 		TxManager:      txm,
+		KeyStore:       ks.Eth(),
 	})
 	pr := pipeline.NewRunner(prm, btORM, cfg.JobPipeline(), cfg.WebServer(), legacyChains, ks.Eth(), ks.VRF(), lggr, nil, nil)
 	require.NoError(t, ks.Unlock(ctx, testutils.Password))

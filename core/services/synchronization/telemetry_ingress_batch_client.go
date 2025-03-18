@@ -9,14 +9,18 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/smartcontractkit/wsrpc"
-	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 	"google.golang.org/grpc/connectivity"
+
+	"github.com/smartcontractkit/wsrpc"
+	"github.com/smartcontractkit/wsrpc/credentials"
+	"github.com/smartcontractkit/wsrpc/examples/simple/keys"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
@@ -43,7 +47,8 @@ type telemetryIngressBatchClient struct {
 	eng *services.Engine
 
 	url             *url.URL
-	ks              keystore.CSA
+	csaKeyStore     keystore.CSA
+	csaSigner       *core.Ed25519Signer
 	serverPubKeyHex string
 
 	connected   atomic.Bool
@@ -67,14 +72,14 @@ type telemetryIngressBatchClient struct {
 
 // NewTelemetryIngressBatchClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
+func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, csaKeyStore keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint, telemMaxBatchSize uint, telemSendInterval time.Duration, telemSendTimeout time.Duration, useUniconn bool) TelemetryService {
 	c := &telemetryIngressBatchClient{
 		telemBufferSize:   telemBufferSize,
 		telemMaxBatchSize: telemMaxBatchSize,
 		telemSendInterval: telemSendInterval,
 		telemSendTimeout:  telemSendTimeout,
 		url:               url,
-		ks:                ks,
+		csaKeyStore:       csaKeyStore,
 		serverPubKeyHex:   serverPubKeyHex,
 		logging:           logging,
 		workers:           make(map[string]*telemetryIngressBatchWorker),
@@ -96,19 +101,33 @@ func NewTelemetryIngressBatchClient(url *url.URL, serverPubKeyHex string, ks key
 // server does come back up, wsrpc will establish the connection without any interaction
 // on behalf of the node operator.
 func (tc *telemetryIngressBatchClient) start(ctx context.Context) error {
-	clientPrivKey, err := tc.getCSAPrivateKey()
-	if err != nil {
-		return err
-	}
-
 	serverPubKey := keys.FromHex(tc.serverPubKeyHex)
 
 	// Initialize a new wsrpc client caller
 	// This is used to call RPC methods on the server
 	if tc.telemClient == nil { // only preset for tests
+		key, err := keystore.GetDefault(ctx, tc.csaKeyStore)
+		if err != nil {
+			return err
+		}
+		tc.csaSigner, err = core.NewEd25519Signer(key.ID(), keystore.CSASigner{CSA: tc.csaKeyStore}.Sign)
+		if err != nil {
+			return err
+		}
 		if tc.useUniConn {
 			tc.eng.Go(func(ctx context.Context) {
-				conn, err := wsrpc.DialUniWithContext(ctx, tc.eng, tc.url.String(), clientPrivKey, serverPubKey)
+				conn, err := func() (*wsrpc.UniClientConn, error) {
+					pubs, err := credentials.ValidPublicKeysFromEd25519(serverPubKey)
+					if err != nil {
+						return nil, err
+					}
+					tlsConfig, err := credentials.NewClientTLSSigner(tc.csaSigner, pubs)
+					if err != nil {
+						return nil, err
+					}
+					conn := wsrpc.NewTLSUniClientConn(tc.eng, tc.url.String(), tlsConfig)
+					return conn, conn.Dial(ctx)
+				}()
 				if err != nil {
 					if ctx.Err() != nil {
 						tc.eng.Warnw("gave up connecting to telemetry endpoint", "err", err)
@@ -123,8 +142,8 @@ func (tc *telemetryIngressBatchClient) start(ctx context.Context) error {
 				tc.connected.Store(true)
 			})
 		} else {
-			// Spawns a goroutine that will eventually connect
-			conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.eng))
+			// Spawns a goroutine that will eventually connect. Don't pass ctx, which is cancelled after returning.
+			conn, err := wsrpc.Dial(tc.url.String(), wsrpc.WithTransportSigner(tc.csaSigner, serverPubKey), wsrpc.WithLogger(tc.eng))
 			if err != nil {
 				return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %w", err)
 			}
@@ -163,27 +182,17 @@ func (tc *telemetryIngressBatchClient) startHealthMonitoring(ctx context.Context
 }
 
 // Close disconnects the wsrpc client from the ingress server and waits for all workers to exit
-func (tc *telemetryIngressBatchClient) close() error {
+func (tc *telemetryIngressBatchClient) close() (err error) {
 	if tc.healthMonitorCancel != nil {
 		tc.healthMonitorCancel()
 	}
 	if (tc.useUniConn && tc.connected.Load()) || !tc.useUniConn {
-		return tc.closeFn()
+		err = errors.Join(err, tc.closeFn())
 	}
-	return nil
-}
-
-// getCSAPrivateKey gets the client's CSA private key
-func (tc *telemetryIngressBatchClient) getCSAPrivateKey() (privkey []byte, err error) {
-	keys, err := tc.ks.GetAll()
-	if err != nil {
-		return privkey, err
+	if tc.csaSigner != nil {
+		err = errors.Join(err, tc.csaSigner.Close())
 	}
-	if len(keys) < 1 {
-		return privkey, errors.New("CSA key does not exist")
-	}
-
-	return keys[0].Raw(), nil
+	return
 }
 
 // Send directs incoming telmetry messages to the worker responsible for pushing it to

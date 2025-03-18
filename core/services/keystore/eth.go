@@ -6,16 +6,15 @@ import (
 	"math/big"
 	"sort"
 	"strings"
-	"sync"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
+	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -34,10 +33,6 @@ type Eth interface {
 	Add(ctx context.Context, address common.Address, chainID *big.Int) error
 
 	EnsureKeys(ctx context.Context, chainIDs ...*big.Int) error
-	SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func())
-
-	SignTx(ctx context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
-	SignMessage(ctx context.Context, address common.Address, message []byte) ([]byte, error)
 
 	EnabledKeysForChain(ctx context.Context, chainID *big.Int) (keys []ethkey.KeyV2, err error)
 	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
@@ -48,49 +43,76 @@ type Eth interface {
 	GetStateForKey(ctx context.Context, key ethkey.KeyV2) (ethkey.State, error)
 	GetStatesForChain(ctx context.Context, chainID *big.Int) ([]ethkey.State, error)
 	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)
-	GetResourceMutex(ctx context.Context, address common.Address) (*ResourceMutex, error)
+	GetResourceMutex(ctx context.Context, address common.Address) *evmkeystore.Mutex
 
 	XXXTestingOnlySetState(ctx context.Context, keyState ethkey.State)
 	XXXTestingOnlyAdd(ctx context.Context, key ethkey.KeyV2)
+}
+
+var _ loop.Keystore = &EthSigner{}
+
+type EthSigner struct {
+	Eth
+	chainID *big.Int
+}
+
+func NewEthSigner(eth Eth, chainID *big.Int) *EthSigner {
+	return &EthSigner{Eth: eth, chainID: chainID}
+}
+
+func (e *EthSigner) Accounts(ctx context.Context) (accounts []string, err error) {
+	as, err := e.EnabledAddressesForChain(ctx, e.chainID)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range as {
+		accounts = append(accounts, a.String())
+	}
+	return
+}
+
+func (e *EthSigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	k, err := e.Get(ctx, account)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if data == nil {
+		return nil, nil
+	}
+	return crypto.Sign(data, k.ToEcdsaPrivKey())
 }
 
 type eth struct {
 	*keyManager
 	keystateORM
 	ds            sqlutil.DataSource
-	subscribers   [](chan struct{})
-	subscribersMu *sync.RWMutex
-	resourceMutex map[common.Address]*ResourceMutex // ResourceMutex is an internal field and ought not be persisted to the database. Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
+	resourceMutex map[common.Address]*evmkeystore.Mutex // ResourceMutex is an internal field and ought not be persisted to the database. Its main usage is to verify that the same key is not used for both TXMv1 and TXMv2 (usage in both TXMs will cause nonce drift and will lead to missing transactions). This functionality should be removed after we completely switch to TXMv2
 }
 
 // GetResourceMutex gets the resource mutex associates with the address if no resource mutex is found a new one is created
-func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) (*ResourceMutex, error) {
+func (ks *eth) GetResourceMutex(ctx context.Context, address common.Address) *evmkeystore.Mutex {
 	ks.lock.Lock()
 	defer ks.lock.Unlock()
-	if ks.isLocked() {
-		return nil, ErrLocked
-	}
 
 	if ks.resourceMutex == nil {
-		ks.resourceMutex = make(map[common.Address]*ResourceMutex)
+		ks.resourceMutex = make(map[common.Address]*evmkeystore.Mutex)
 	}
 
 	_, exists := ks.resourceMutex[address]
 	if !exists {
-		ks.resourceMutex[address] = NewResourceMutex()
+		ks.resourceMutex[address] = &evmkeystore.Mutex{}
 	}
-	return ks.resourceMutex[address], nil
+	return ks.resourceMutex[address]
 }
 
 var _ Eth = &eth{}
 
 func newEthKeyStore(km *keyManager, orm keystateORM, ds sqlutil.DataSource) *eth {
 	return &eth{
-		keystateORM:   orm,
-		keyManager:    km,
-		ds:            ds,
-		subscribers:   make([](chan struct{}), 0),
-		subscribersMu: new(sync.RWMutex),
+		keystateORM: orm,
+		keyManager:  km,
+		ds:          ds,
 	}
 }
 
@@ -136,7 +158,6 @@ func (ks *eth) Create(ctx context.Context, chainIDs ...*big.Int) (ethkey.KeyV2, 
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to add eth key")
 	}
-	ks.notify()
 	ks.logger.Infow("Created EVM key with ID "+key.Address.Hex(), "address", key.Address.Hex(), "evmChainIDs", chainIDs)
 	return key, err
 }
@@ -188,7 +209,6 @@ func (ks *eth) Import(ctx context.Context, keyJSON []byte, password string, chai
 	if err != nil {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to add eth key")
 	}
-	ks.notify()
 	return key, nil
 }
 
@@ -231,7 +251,6 @@ func (ks *eth) addKey(ctx context.Context, ds sqlutil.DataSource, address common
 	}
 	// consider: do we really need a cache of the keystates?
 	ks.keyStates.add(state)
-	ks.notify()
 	return nil
 }
 
@@ -260,7 +279,6 @@ func (ks *eth) enable(ctx context.Context, address common.Address, chainID *big.
 	} else {
 		ks.keyStates.enable(address, chainID, state.UpdatedAt)
 	}
-	ks.notify()
 	return nil
 }
 
@@ -288,7 +306,6 @@ func (ks *eth) disable(ctx context.Context, address common.Address, chainID *big
 	} else {
 		ks.keyStates.disable(address, chainID, state.UpdatedAt)
 	}
-	ks.notify()
 	return nil
 }
 
@@ -310,39 +327,7 @@ func (ks *eth) Delete(ctx context.Context, id string) (ethkey.KeyV2, error) {
 		return ethkey.KeyV2{}, errors.Wrap(err, "unable to remove eth key")
 	}
 	ks.keyStates.delete(key.Address)
-	ks.notify()
 	return key, nil
-}
-
-func (ks *eth) SubscribeToKeyChanges(ctx context.Context) (ch chan struct{}, unsub func()) {
-	ch = make(chan struct{}, 1)
-	ks.subscribersMu.Lock()
-	defer ks.subscribersMu.Unlock()
-	ks.subscribers = append(ks.subscribers, ch)
-	return ch, func() {
-		ks.subscribersMu.Lock()
-		defer ks.subscribersMu.Unlock()
-		for i, sub := range ks.subscribers {
-			if sub == ch {
-				ks.subscribers = append(ks.subscribers[:i], ks.subscribers[i+1:]...)
-				close(ch)
-			}
-		}
-	}
-}
-
-func (ks *eth) SignTx(ctx context.Context, address common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
-	if ks.isLocked() {
-		return nil, ErrLocked
-	}
-	key, err := ks.getByID(address.String())
-	if err != nil {
-		return nil, err
-	}
-	signer := types.LatestSignerForChainID(chainID)
-	return types.SignTx(tx, signer, key.ToEcdsaPrivKey())
 }
 
 // EnabledKeysForChain returns all keys that are enabled for the given chain
@@ -556,25 +541,6 @@ func (ks *eth) XXXTestingOnlyAdd(ctx context.Context, key ethkey.KeyV2) {
 	}
 }
 
-// SignMessage signs the provided message using the private key associated with the given address,
-// following the EIP-191 specific identifier (e.g., keccak256("\x19Ethereum Signed Message:\n"${message length}${message}))
-func (ks *eth) SignMessage(ctx context.Context, address common.Address, data []byte) ([]byte, error) {
-	ks.lock.RLock()
-	defer ks.lock.RUnlock()
-	if ks.isLocked() {
-		return nil, ErrLocked
-	}
-	key, err := ks.getByID(address.Hex())
-	if err != nil {
-		return nil, err
-	}
-	signature, err := crypto.Sign(accounts.TextHash(data), key.ToEcdsaPrivKey())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to sign data")
-	}
-	return signature, nil
-}
-
 // caller must hold lock!
 func (ks *eth) getByID(id string) (ethkey.KeyV2, error) {
 	key, found := ks.keyRing.Eth[id]
@@ -607,7 +573,7 @@ func (ks *eth) keysForChain(chainID *big.Int, includeDisabled bool) (keys []ethk
 
 // caller must hold lock!
 func (ks *eth) add(ctx context.Context, key ethkey.KeyV2, chainIDs ...*big.Int) (err error) {
-	err = ks.safeAddKey(ctx, key, func(tx sqlutil.DataSource) (serr error) {
+	return ks.safeAddKey(ctx, key, func(tx sqlutil.DataSource) (serr error) {
 		for _, chainID := range chainIDs {
 			if serr = ks.addKey(ctx, tx, key.Address, chainID); serr != nil {
 				return serr
@@ -615,20 +581,4 @@ func (ks *eth) add(ctx context.Context, key ethkey.KeyV2, chainIDs ...*big.Int) 
 		}
 		return nil
 	})
-	if len(chainIDs) > 0 {
-		ks.notify()
-	}
-	return err
-}
-
-// notify notifies subscribers that eth keys have changed
-func (ks *eth) notify() {
-	ks.subscribersMu.RLock()
-	defer ks.subscribersMu.RUnlock()
-	for _, ch := range ks.subscribers {
-		select {
-		case ch <- struct{}{}:
-		default:
-		}
-	}
 }

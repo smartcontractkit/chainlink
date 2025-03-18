@@ -2,7 +2,6 @@ package chainlink
 
 import (
 	"cmp"
-	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -14,8 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/env"
@@ -50,43 +51,40 @@ func (r *RelayerFactory) NewDummy(config DummyFactoryConfig) (loop.Relayer, erro
 
 type EVMFactoryConfig struct {
 	legacyevm.ChainOpts
-	evmrelay.CSAETHKeystore
+	EthKeystore   keystore.Eth
+	CSAKeystore   coretypes.Keystore
 	MercuryConfig coreconfig.Mercury
 }
 
-func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (map[types.RelayID]evmrelay.LOOPRelayAdapter, error) {
+func (r *RelayerFactory) NewEVM(config EVMFactoryConfig) (map[types.RelayID]evmrelay.LOOPRelayAdapter, error) {
 	// TODO impl EVM loop. For now always 'fallback' to an adapter and embedded chain
-
 	relayers := make(map[types.RelayID]evmrelay.LOOPRelayAdapter)
-
 	lggr := r.Logger.Named("EVM")
 
-	// override some common opts with the factory values. this seems weird... maybe other signatures should change, or this should take a different type...
-	ccOpts := legacyevm.ChainRelayOpts{
-		Logger:    lggr,
-		KeyStore:  config.CSAETHKeystore.Eth(),
-		ChainOpts: config.ChainOpts,
-	}
-
-	legacyChains, err := evmrelay.NewLegacyChains(ctx, ccOpts)
+	legacyChains, err := evmrelay.NewLegacyChains(lggr, config.EthKeystore, config.ChainOpts)
 	if err != nil {
 		return nil, err
+	}
+	newChainStore := config.GenChainStore
+	if newChainStore == nil {
+		newChainStore = keys.NewChainStore
 	}
 	for _, chain := range legacyChains {
 		relayID := types.RelayID{Network: relay.NetworkEVM, ChainID: chain.ID().String()}
 		chain := chain
 
 		relayerOpts := evmrelay.RelayerOpts{
-			DS:                    ccOpts.DS,
+			DS:                    config.DS,
 			Registerer:            r.Registerer,
-			CSAETHKeystore:        config.CSAETHKeystore,
+			EVMKeystore:           newChainStore(keystore.NewEthSigner(config.EthKeystore, chain.ID()), chain.ID()),
+			CSAKeystore:           config.CSAKeystore,
 			MercuryPool:           r.MercuryPool,
 			MercuryConfig:         config.MercuryConfig,
 			CapabilitiesRegistry:  r.CapabilitiesRegistry,
 			HTTPClient:            r.HTTPClient,
 			RetirementReportCache: r.RetirementReportCache,
 		}
-		relayer, err2 := evmrelay.NewRelayer(ctx, lggr.Named(relayID.ChainID), chain, relayerOpts)
+		relayer, err2 := evmrelay.NewRelayer(lggr.Named(relayID.ChainID), chain, relayerOpts)
 		if err2 != nil {
 			err = errors.Join(err, err2)
 			continue
@@ -100,18 +98,14 @@ func (r *RelayerFactory) NewEVM(ctx context.Context, config EVMFactoryConfig) (m
 }
 
 type SolanaFactoryConfig struct {
-	Keystore keystore.Solana
 	solcfg.TOMLConfigs
 	DS sqlutil.DataSource
 }
 
-func (r *RelayerFactory) NewSolana(config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
-	chainCfgs, ds, ks := config.TOMLConfigs, config.DS, config.Keystore
+func (r *RelayerFactory) NewSolana(ks coretypes.Keystore, config SolanaFactoryConfig) (map[types.RelayID]loop.Relayer, error) {
+	chainCfgs, ds := config.TOMLConfigs, config.DS
 	solanaRelayers := make(map[types.RelayID]loop.Relayer)
-	var (
-		solLggr = r.Logger.Named("Solana")
-		signer  = &keystore.SolanaSigner{Solana: ks}
-	)
+	var solLggr = r.Logger.Named("Solana")
 
 	unique := make(map[string]struct{})
 	// create one relayer per chain id
@@ -152,12 +146,12 @@ func (r *RelayerFactory) NewSolana(config SolanaFactoryConfig) (map[types.RelayI
 				return nil, fmt.Errorf("failed to create Solana LOOP command: %w", err)
 			}
 
-			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), signer, r.CapabilitiesRegistry)
+			solanaRelayers[relayID] = loop.NewRelayerService(lggr, r.GRPCOpts, solCmdFn, string(cfgTOML), ks, r.CapabilitiesRegistry)
 		} else {
 			// fallback to embedded chain
 			opts := solana.ChainOpts{
 				Logger:   lggr,
-				KeyStore: signer,
+				KeyStore: ks,
 				DS:       ds,
 			}
 
@@ -171,9 +165,8 @@ func (r *RelayerFactory) NewSolana(config SolanaFactoryConfig) (map[types.RelayI
 	return solanaRelayers, nil
 }
 
-func (r *RelayerFactory) NewStarkNet(ks keystore.StarkNet, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	loopKs := &keystore.StarknetLooppSigner{StarkNet: ks}
-	return r.NewLOOPRelayer("StarkNet", relay.NetworkStarkNet, env.StarknetPlugin, loopKs, chainCfgs)
+func (r *RelayerFactory) NewStarkNet(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("StarkNet", relay.NetworkStarkNet, env.StarknetPlugin, ks, chainCfgs)
 }
 
 type CosmosFactoryConfig struct {
@@ -196,14 +189,12 @@ func (c CosmosFactoryConfig) Validate() error {
 	return err
 }
 
-func (r *RelayerFactory) NewCosmos(ks keystore.Cosmos, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	loopKs := &keystore.CosmosLoopKeystore{Cosmos: ks}
-	return r.NewLOOPRelayer("Cosmos", relay.NetworkCosmos, env.CosmosPlugin, loopKs, chainCfgs)
+func (r *RelayerFactory) NewCosmos(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Cosmos", relay.NetworkCosmos, env.CosmosPlugin, ks, chainCfgs)
 }
 
-func (r *RelayerFactory) NewAptos(ks keystore.Aptos, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	loopKs := &keystore.AptosLooppSigner{Aptos: ks}
-	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, loopKs, chainCfgs)
+func (r *RelayerFactory) NewAptos(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Aptos", relay.NetworkAptos, env.AptosPlugin, ks, chainCfgs)
 }
 
 func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.Plugin, ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
@@ -252,7 +243,6 @@ func (r *RelayerFactory) NewLOOPRelayer(name string, network string, plugin env.
 	return relayers, nil
 }
 
-func (r *RelayerFactory) NewTron(ks keystore.Tron, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
-	loopKs := &keystore.TronLOOPKeystore{Tron: ks}
-	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, loopKs, chainCfgs)
+func (r *RelayerFactory) NewTron(ks coretypes.Keystore, chainCfgs RawConfigs) (map[types.RelayID]loop.Relayer, error) {
+	return r.NewLOOPRelayer("Tron", relay.NetworkTron, env.TronPlugin, ks, chainCfgs)
 }
