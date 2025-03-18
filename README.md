@@ -141,10 +141,10 @@ It is encourage for any node operator building from the official Chainlink docke
 You will need `cosign` in order to do this verification. [Follow the instruction here to install cosign](https://docs.sigstore.dev/system_config/installation/).
 
 ```bash
-# tag is the tagged release version - ie. v2.16.0
-cosign verify public.ecr.aws/chainlink/chainlink:${tag} \
+# tag is the tagged release version - ie. 2.16.0
+cosign verify index.docker.io/smartcontract/chainlink:${tag} \
       --certificate-oidc-issuer https://token.actions.githubusercontent.com \
-      --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@refs/tags/${tag}"
+      --certificate-identity "https://github.com/smartcontractkit/chainlink/.github/workflows/build-publish.yml@refs/tags/v${tag}"
 ```
 
 ## Development
