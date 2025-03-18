@@ -50,7 +50,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
-	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
@@ -1622,22 +1621,22 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
 	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipRouterProgram.String(), tv)
+	err := e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_router"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipLogicReceiver.String(), tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.FeeQuoterProgram.String(), tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["fee_quoter"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.CcipOfframpProgram.String(), tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_offramp"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111111BurnMint", tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["example_burnmint_token_pool"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111LockReLease", tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["example_lockrelease_token_pool"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
@@ -1649,7 +1648,7 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, solTestConfig.RMNRemoteProgram.String(), tv)
+	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["rmn_remote"], tv)
 	require.NoError(t, err)
 }
 

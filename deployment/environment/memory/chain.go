@@ -29,7 +29,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
-	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -225,19 +224,20 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 	}
 }
 
+// chainlink-ccip has dynamic resolution which does not work across repos
 var SolanaProgramIDs = map[string]string{
-	"ccip_router":                    solTestConfig.CcipRouterProgram.String(),
-	"test_token_pool":                solTestConfig.CcipTokenPoolProgram.String(),
-	"example_burnmint_token_pool":    solTestConfig.CcipBasePoolBurnMint.String(),
-	"example_lockrelease_token_pool": solTestConfig.CcipBasePoolLockRelease.String(),
-	"fee_quoter":                     solTestConfig.FeeQuoterProgram.String(),
-	"test_ccip_receiver":             solTestConfig.CcipLogicReceiver.String(),
-	"ccip_offramp":                   solTestConfig.CcipOfframpProgram.String(),
-	"mcm":                            solTestConfig.McmProgram.String(),
-	"timelock":                       solTestConfig.TimelockProgram.String(),
-	"access_controller":              solTestConfig.AccessControllerProgram.String(),
-	"external_program_cpi_stub":      solTestConfig.ExternalCpiStubProgram.String(),
-	"rmn_remote":                     solTestConfig.RMNRemoteProgram.String(),
+	"ccip_router":                    "Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C",
+	"test_token_pool":                "JuCcZ4smxAYv9QHJ36jshA7pA3FuQ3vQeWLUeAtZduJ",
+	"example_burnmint_token_pool":    "41FGToCmdaWa1dgZLKFAjvmx6e6AjVTX7SVRibvsMGVB",
+	"example_lockrelease_token_pool": "8eqh8wppT9c5rw4ERqNCffvU6cNFJWff9WmkcYtmGiqC",
+	"fee_quoter":                     "FeeQPGkKDeRV1MgoYfMH6L8o3KeuYjwUZrgn4LRKfjHi",
+	"test_ccip_receiver":             "EvhgrPhTDt4LcSPS2kfJgH6T6XWZ6wT3X9ncDGLT1vui",
+	"ccip_offramp":                   "offqSMQWgQud6WJz694LRzkeN5kMYpCHTpXQr3Rkcjm",
+	"mcm":                            "5vNJx78mz7KVMjhuipyr9jKBKcMrKYGdjGkgE4LUmjKk",
+	"timelock":                       "DoajfR5tK24xVw51fWcawUZWhAXD8yrBJVacc13neVQA",
+	"access_controller":              "6KsN58MTnRQ8FfPaXHiFPPFGDRioikj9CdPvPxZJdCjb",
+	"external_program_cpi_stub":      "2zZwzyptLqwFJFEFxjPvrdhiGpH9pJ3MfrrmZX6NTKxm",
+	"rmn_remote":                     "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7",
 }
 
 var once = &sync.Once{}
