@@ -41,28 +41,40 @@ func TestConnectNewChain(t *testing.T) {
 
 	tests := []test{
 		{
-			Msg:                        "MCMS config is not defined",
-			TransferRemoteChainsToMCMS: false,
+			Msg:                        "MCMS config should be defined",
+			TransferRemoteChainsToMCMS: true,
 			MCMS:                       nil,
-			ErrStr:                     "mcms config is required",
+			ErrStr:                     "not owned by deployer key",
 		},
 		{
-			Msg:                        "Remote chains are not transferred to MCMS",
+			Msg:                        "MCMS config should be undefined",
 			TransferRemoteChainsToMCMS: false,
 			MCMS:                       mcmsConfig,
 			ErrStr:                     "not owned by timelock",
 		},
 		{
-			Msg:                        "Use production router",
+			Msg:                        "Use production router (with MCMS)",
 			TransferRemoteChainsToMCMS: true,
 			TestRouter:                 false,
 			MCMS:                       mcmsConfig,
 		},
 		{
-			Msg:                        "Use test router",
+			Msg:                        "Use production router (without MCMS)",
+			TransferRemoteChainsToMCMS: false,
+			TestRouter:                 false,
+			MCMS:                       nil,
+		},
+		{
+			Msg:                        "Use test router (with MCMS)",
 			TransferRemoteChainsToMCMS: true,
 			TestRouter:                 true,
 			MCMS:                       mcmsConfig,
+		},
+		{
+			Msg:                        "Use test router (without MCMS)",
+			TransferRemoteChainsToMCMS: false,
+			TestRouter:                 true,
+			MCMS:                       nil,
 		},
 	}
 
@@ -155,7 +167,7 @@ func TestConnectNewChain(t *testing.T) {
 					expectedAllowListEnabled = false
 					expectedRMNVerificationDisabled = false
 					remoteSelectors = remoteChainSelectors
-					if !test.TestRouter {
+					if !test.TestRouter && test.MCMS != nil {
 						// New chain must have all contracts owned by timelock
 						mustHaveOwner(t, state.Chains[selector].OnRamp, state.Chains[selector].Timelock.Address().Hex())
 						mustHaveOwner(t, state.Chains[selector].OffRamp, state.Chains[selector].Timelock.Address().Hex())

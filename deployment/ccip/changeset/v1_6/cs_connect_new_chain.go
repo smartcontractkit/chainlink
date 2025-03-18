@@ -18,19 +18,13 @@ import (
 	"github.com/smartcontractkit/mcms/types"
 )
 
+// TODO: NO MCMS option
+
 // ConnectNewChainChangeset activates connects a new chain with other chains by updating onRamp, offRamp, and router contracts.
 // When running this changeset, the onRamp, offRamp, and router contracts on the new chain should NOT be owned by MCMS yet.
 // If connecting to production routers, this changeset will ensure that ALL chain contracts on the new chain are transferred to MCMS.
 // This changeset enforces that the onRamp, offRamp, and router contracts on other chains are already owned by MCMS, regardless of the desired router.
 var ConnectNewChainChangeset = deployment.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
-
-// ConnectionConfig defines how a chain should connect with other chains
-type ConnectionConfig struct {
-	// RMNVerificationDisabled is true if we do not want the RMN to bless messages from this chain.
-	RMNVerificationDisabled bool
-	// AllowListEnabled is true if we want an allowlist to dictate who can send messages to this chain.
-	AllowListEnabled bool
-}
 
 // ConnectNewChainConfig is a configuration struct for ConnectNewChainChangeset.
 type ConnectNewChainConfig struct {
@@ -42,11 +36,10 @@ type ConnectNewChainConfig struct {
 	RemoteChains map[uint64]ConnectionConfig
 	// TestRouter is true if we want to connect via test routers.
 	TestRouter *bool
-	// MCMSConfig is the MCMS configuration.
+	// MCMSConfig is the MCMS configuration, omit to use deployer key only.
 	MCMSConfig *changeset.MCMSConfig
 }
 
-// ValidateNewChain validates the new chain.
 func (c ConnectNewChainConfig) ValidateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
 	err := deployment.IsValidChainSelector(c.NewChainSelector)
 	if err != nil {
@@ -58,6 +51,8 @@ func (c ConnectNewChainConfig) ValidateNewChain(env deployment.Environment, stat
 		return fmt.Errorf("chain with selector %d not found", c.NewChainSelector)
 	}
 
+	// When running this changeset, there is no case in which the new chain contract should be owned by MCMS,
+	// which is why we do not use MCMSConfig to determine the ownedByMCMS variable.
 	err = c.validateChain(env.GetContext(), chainState, env.Chains[c.NewChainSelector].DeployerKey.From, false)
 	if err != nil {
 		return fmt.Errorf("failed to validate chain with selector %d: %w", c.NewChainSelector, err)
@@ -66,7 +61,6 @@ func (c ConnectNewChainConfig) ValidateNewChain(env deployment.Environment, stat
 	return nil
 }
 
-// ValidateRemoteChains validates the remote chains.
 func (c ConnectNewChainConfig) ValidateRemoteChains(env deployment.Environment, state changeset.CCIPOnChainState) error {
 	for remoteChainSelector := range c.RemoteChains {
 		err := deployment.IsValidChainSelector(remoteChainSelector)
@@ -79,7 +73,9 @@ func (c ConnectNewChainConfig) ValidateRemoteChains(env deployment.Environment, 
 			return fmt.Errorf("chain with selector %d not found", remoteChainSelector)
 		}
 
-		err = c.validateChain(env.GetContext(), chainState, env.Chains[remoteChainSelector].DeployerKey.From, true)
+		// The remote chain may or may not be owned by MCMS, as MCMS is not really used in staging.
+		// Therefore, we use the presence of MCMSConfig to determine the ownedByMCMS variable.
+		err = c.validateChain(env.GetContext(), chainState, env.Chains[remoteChainSelector].DeployerKey.From, c.MCMSConfig != nil)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain with selector %d: %w", remoteChainSelector, err)
 		}
@@ -120,6 +116,7 @@ func (c ConnectNewChainConfig) validateChain(ctx context.Context, state changese
 	if err != nil {
 		return fmt.Errorf("failed to validate ownership of router: %w", err)
 	}
+
 	// Test router should always be owned by deployer key
 	err = commoncs.ValidateOwnership(ctx, false, deployerKey, state.Timelock.Address(), state.TestRouter)
 	if err != nil {
@@ -130,10 +127,6 @@ func (c ConnectNewChainConfig) validateChain(ctx context.Context, state changese
 }
 
 func connectNewChainPrecondition(env deployment.Environment, c ConnectNewChainConfig) error {
-	if c.MCMSConfig == nil {
-		return fmt.Errorf("mcms config is required")
-	}
-
 	if c.TestRouter == nil {
 		return fmt.Errorf("must define whether to use the test router")
 	}
@@ -164,7 +157,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
 	var ownershipTransferProposals []timelock.MCMSWithTimelockProposal
-	if !*c.TestRouter {
+	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
 		allContracts := []commoncs.Ownable{
 			state.Chains[c.NewChainSelector].OnRamp,
@@ -262,6 +255,10 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		batches = append(batches, proposal.Operations...)
 	}
 
+	if len(batches) == 0 {
+		return deployment.ChangesetOutput{}, nil
+	}
+
 	// Store the timelocks, proposers, and inspectors for each chain.
 	timelocks := make(map[uint64]string)
 	proposers := make(map[uint64]string)
@@ -353,7 +350,7 @@ func connectRampsAndRouters(
 		onRampUpdates[remoteChainSelector] = true
 	}
 	cfg := mcmsConfig
-	if testRouter {
+	if testRouter { // Again, test router does not use MCMS. We are making this assumption.
 		cfg = nil
 	}
 	out, err = UpdateRouterRampsChangeset(e, UpdateRouterRampsConfig{
