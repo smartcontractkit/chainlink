@@ -341,7 +341,7 @@ jobs:
           if-no-files-found: ignore          
 
       - name: Send Flakeguard Reports to Splunk
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
