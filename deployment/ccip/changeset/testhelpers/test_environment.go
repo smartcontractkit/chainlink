@@ -493,12 +493,13 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 }
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
+	lggr := logger.Test(t)
+
 	downloadSolCcipProgramArtifactsOnce.Do(func() {
-		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath, false, true)
+		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath, lggr)
 		require.NoError(t, err)
 	})
 
-	lggr := logger.Test(t)
 	tc := tEnv.TestConfigs()
 	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()
@@ -674,7 +675,8 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 				AttestationAPI:         endpoint,
 				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
 				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
-			}})
+			},
+		})
 	}
 
 	timelockContractsPerChain := make(map[uint64]*proposalutils.TimelockExecutionContracts)

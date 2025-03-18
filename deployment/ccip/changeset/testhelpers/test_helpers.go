@@ -1949,7 +1949,7 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, overwrite bool, verbose bool) error {
+func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
@@ -1983,28 +1983,7 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, overwri
 				return err
 			}
 
-			if overwrite {
-				outFile, err := os.Create(outPath)
-				if err != nil {
-					return err
-				}
-				defer outFile.Close()
-
-				if _, err := io.Copy(outFile, r); err != nil {
-					return err
-				}
-
-				if verbose {
-					fmt.Printf("Created %s\n", outPath)
-				}
-
-				return nil
-			}
-
-			outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
-			if errors.Is(err, os.ErrExist) {
-				return nil
-			}
+			outFile, err := os.Create(outPath)
 			if err != nil {
 				return err
 			}
@@ -2014,9 +1993,11 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, overwri
 				return err
 			}
 
-			if verbose {
-				fmt.Printf("Created %s\n", outPath)
+			if lggr != nil {
+				lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
 			}
+
+			return nil
 		}
 
 		return nil
