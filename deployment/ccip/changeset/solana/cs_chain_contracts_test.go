@@ -1,6 +1,7 @@
 package solana_test
 
 import (
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -153,6 +154,10 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 
 	var offRampSourceChain solOffRamp.SourceChain
 	offRampEvmSourceChainPDA, _, _ := solState.FindOfframpSourceChainPDA(evmChain, state.SolChains[solChain].OffRamp)
+  // TODO: remove
+  fmt.Println("********************************")
+  fmt.Println(offRampEvmSourceChainPDA.String())
+  fmt.Println("********************************")
 	err = e.SolChains[solChain].GetAccountDataBorshInto(e.GetContext(), offRampEvmSourceChainPDA, &offRampSourceChain)
 	require.NoError(t, err)
 	require.True(t, offRampSourceChain.Config.IsEnabled)
