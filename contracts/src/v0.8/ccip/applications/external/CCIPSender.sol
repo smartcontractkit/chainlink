@@ -15,6 +15,8 @@ import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 /// are known initially.
 /// @dev The ccipSend function does NOT support pre-funding message-fees, and must acquire fee-tokens from the
 /// user before the call to the router is made.
+/// @dev This contract has not been audited and should not be used in a production setting. It is thus recommended
+/// that legacy contracts be used instead for safety purposes.
 contract CCIPSender is CCIPBase {
   using SafeERC20 for IERC20;
 

@@ -20,9 +20,9 @@ abstract contract CCIPReceiverLegacy is IAny2EVMMessageReceiver, IERC165 {
     i_ccipRouter = router;
   }
 
-  /// @notice IERC165 supports an interfaceId
-  /// @param interfaceId The interfaceId to check
-  /// @return true if the interfaceId is supported
+  /// @notice IERC165 supports an interfaceId.
+  /// @param interfaceId The interfaceId to check.
+  /// @return true if the interfaceId is supported.
   /// @dev Should indicate whether the contract implements IAny2EVMMessageReceiver
   /// e.g. return interfaceId == type(IAny2EVMMessageReceiver).interfaceId || interfaceId == type(IERC165).interfaceId
   /// This allows CCIP to check if ccipReceive is available before calling it.

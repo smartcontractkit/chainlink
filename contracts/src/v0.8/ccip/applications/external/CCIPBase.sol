@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.0;
 
 import {OwnerIsCreator} from "../../../shared/access/OwnerIsCreator.sol";
 
@@ -7,12 +7,17 @@ import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/tok
 import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Address} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/Address.sol";
 
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
+
 /// @title CCIPBase
 /// @notice This contains the boilerplate code for managing chains and tokens your contract may interact with as part of CCIP.
 /// @dev This contract is abstract, but does not have any functions which must be implemented by a child.
+/// @dev This contract has not been audited and should not be used in a production setting. It is thus recommended
+/// that legacy contracts be used instead for safety purposes.
 abstract contract CCIPBase is OwnerIsCreator {
   using SafeERC20 for IERC20;
   using Address for address payable;
+  using EnumerableSet for EnumerableSet.Bytes32Set;
 
   error ZeroAddressNotAllowed();
   error InvalidRouter(address router);
@@ -46,13 +51,15 @@ abstract contract CCIPBase is OwnerIsCreator {
     bytes recipient; // The address to send messages to on the destination chain.
     bytes extraArgsBytes; // Specifies extraArgs to pass into ccipSend. It will be applied to every outgoing message
     // for a specific chain by default.
-    mapping(bytes recipient => bool isApproved) approvedSender; // Mapping is nested to support workflows where Dapps
-      // may need to receive messages from one-or-more contracts on a source chain, or to support one-sided dapp upgrades.
+    EnumerableSet.Bytes32Set approvedSenders; // A set of all remote addresses authorized to send messages to this contract
+      // from a specific source chain. Since remote addresses are ABI encoded, they are hashed to store in the set.
   }
 
+  /// @notice The address of the CCIP Router to send/receive messages.
   address internal s_ccipRouter;
 
-  mapping(uint64 destChainSelector => RemoteChainConfig) public s_chainConfigs;
+  /// @notice The mapping of a CCIP remote chain selector to a Dapp's remote counterpart configuration.
+  mapping(uint64 destChainSelector => RemoteChainConfig) internal s_chainConfigs;
 
   constructor(
     address router
@@ -66,6 +73,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   // ================================================================
 
   /// @notice returns the address of the CCIP Router set at contract deployment.
+  /// @return address the address of the CCIP Router.
   function getRouter() public view virtual returns (address) {
     return s_ccipRouter;
   }
@@ -95,13 +103,15 @@ abstract contract CCIPBase is OwnerIsCreator {
     ApprovedSenderUpdate[] calldata removes
   ) external virtual onlyOwner {
     for (uint256 i = 0; i < removes.length; ++i) {
-      delete s_chainConfigs[removes[i].destChainSelector].approvedSender[removes[i].sender];
+      // delete s_chainConfigs[removes[i].destChainSelector].approvedSender[removes[i].sender];
+      s_chainConfigs[removes[i].destChainSelector].approvedSenders.remove(keccak256(removes[i].sender));
 
       emit ApprovedSenderRemoved(removes[i].destChainSelector, removes[i].sender);
     }
 
     for (uint256 i = 0; i < adds.length; ++i) {
-      s_chainConfigs[adds[i].destChainSelector].approvedSender[adds[i].sender] = true;
+      // s_chainConfigs[adds[i].destChainSelector].approvedSender[adds[i].sender] = true;
+      s_chainConfigs[adds[i].destChainSelector].approvedSenders.add(keccak256(adds[i].sender));
 
       emit ApprovedSenderAdded(adds[i].destChainSelector, adds[i].sender);
     }
@@ -114,7 +124,8 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @param senderAddr The address which sent the message on the source chain, abi-encoded if evm-compatible.
   /// @return bool Whether the address is approved or not to invoke functions on this contract.
   function isApprovedSender(uint64 sourceChainSelector, bytes calldata senderAddr) external view returns (bool) {
-    return s_chainConfigs[sourceChainSelector].approvedSender[senderAddr];
+    // return s_chainConfigs[sourceChainSelector].contains(approvedSender[senderAddr];
+    return s_chainConfigs[sourceChainSelector].approvedSenders.contains(keccak256(senderAddr));
   }
 
   // ===============================================================
@@ -133,7 +144,7 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @param token The address of the token to recover, or address(0) for native tokens
   /// @param to A payable address to send the recovered tokens to
   /// @param amount the amount of tokens (or native) to recover, denominated in wei
-  function withdrawTokens(address token, address to, uint256 amount) external onlyOwner {
+  function withdrawTokens(address token, address to, uint256 amount) external virtual onlyOwner {
     if (token == address(0)) {
       payable(to).sendValue(amount);
     } else {
@@ -212,7 +223,10 @@ abstract contract CCIPBase is OwnerIsCreator {
   /// @dev The modifier will revert if either the sender is not approved OR if the relevant chain is currently disabled.
   modifier isValidSender(uint64 chainSelector, bytes memory sender) virtual {
     // If the chain is disabled, then short-circuit trigger a revert because no sender should be valid.
-    if (s_chainConfigs[chainSelector].recipient.length == 0 || !s_chainConfigs[chainSelector].approvedSender[sender]) {
+    if (
+      s_chainConfigs[chainSelector].recipient.length == 0
+        || !s_chainConfigs[chainSelector].approvedSenders.contains(keccak256(sender))
+    ) {
       revert InvalidSender(sender);
     }
     _;

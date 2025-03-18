@@ -12,6 +12,8 @@ import {SafeERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/
 /// @title CCIPClient
 /// @notice This contract implements logic for sending and receiving CCIP Messages. It utilizes CCIPReceiver's defensive patterns by default.
 /// @dev CCIPReceiver and CCIPSender cannot be simultaneously imported due to similar parents so CCIPSender functionality has been duplicated.
+/// @dev This contract has not been audited and should not be used in a production setting. It is thus recommended
+/// that legacy contracts be used instead for safety purposes.
 contract CCIPClient is CCIPReceiver {
   using SafeERC20 for IERC20;
 

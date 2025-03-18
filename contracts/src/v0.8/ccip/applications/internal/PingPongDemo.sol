@@ -5,10 +5,15 @@ import {Client} from "../../libraries/Client.sol";
 import {CCIPClient} from "../external/CCIPClient.sol";
 
 import {IERC20} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/IERC20.sol";
+import {EnumerableSet} from "../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/structs/EnumerableSet.sol";
 
 /// @title PingPongDemo
 /// @notice A simple ping-pong contract for demonstrating cross-chain communication
+/// @dev This contract has not been audited and should not be used in a production setting. It is thus recommended
+/// that legacy contracts be used instead for safety purposes.
 contract PingPongDemo is CCIPClient {
+  using EnumerableSet for EnumerableSet.Bytes32Set;
+
   event Ping(uint256 pingPongCount);
   event Pong(uint256 pingPongCount);
   event OutOfOrderExecutionChange(bool isOutOfOrder);
@@ -77,7 +82,7 @@ contract PingPongDemo is CCIPClient {
     s_counterpartAddress = counterpartAddress;
 
     // Approve the counterpart contract under validSender.
-    s_chainConfigs[counterpartChainSelector].approvedSender[abi.encode(counterpartAddress)] = true;
+    s_chainConfigs[counterpartChainSelector].approvedSenders.add(keccak256(abi.encode(counterpartAddress)));
 
     // Approve the counterpart Chain selector under validChain.
     s_chainConfigs[counterpartChainSelector].recipient = abi.encode(counterpartAddress);
