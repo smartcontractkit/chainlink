@@ -33,7 +33,7 @@ func (r *OutputReader) ReadNodesDetails() NodesDetails {
 }
 
 func (r *OutputReader) ReadRMNNodeConfigs() []RMNNodeConfig {
-	byteValue := r.readFile(RMNNodeConfigsFileName)
+	byteValue := r.readFile(RMNNodeIdentitiesFileName)
 
 	var result []RMNNodeConfig
 

@@ -1,10 +1,10 @@
 package crib
 
 const (
-	AddressBookFileName    = "ccip-v2-scripts-address-book.json"
-	NodesDetailsFileName   = "ccip-v2-scripts-nodes-details.json"
-	ChainsConfigsFileName  = "ccip-v2-scripts-chains-details.json"
-	RMNNodeConfigsFileName = "ccip-v2-scripts-rmn-node-configs.json"
+	AddressBookFileName       = "address-book.json"
+	NodesDetailsFileName      = "nodes-details.json"
+	ChainsConfigsFileName     = "chains-details.json"
+	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
 )
 
 type CRIBEnv struct {
