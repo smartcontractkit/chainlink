@@ -19,3 +19,4 @@ runs:
         # tar -xzvf artifacts.tar.gz
         # mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
         # cp -v target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        # ls -lah /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
