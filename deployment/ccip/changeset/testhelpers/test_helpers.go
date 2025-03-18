@@ -1957,7 +1957,7 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr lo
 	tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
 	if !ok {
 		_, currentFile, _, _ := runtime.Caller(0)
-		deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+		deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentFile))))
 		if lggr != nil {
 			lggr.Infof("Inferring release tag from the go.mod in: %s", deploymentDir)
 		}
