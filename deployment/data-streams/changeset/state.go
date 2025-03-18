@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 
+	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	verifier "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
@@ -27,6 +28,7 @@ type DataStreamsChainState struct {
 	Configurators       map[common.Address]*configurator.Configurator
 	ChannelConfigStores map[common.Address]*channel_config_store.ChannelConfigStore
 	FeeManagers         map[common.Address]*fee_manager.FeeManager
+	RewardManagers      map[common.Address]*rewardManager.RewardManager
 	Verifiers           map[common.Address]*verifier.Verifier
 	VerifierProxys      map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy
 }
@@ -69,6 +71,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	cc.Configurators = make(map[common.Address]*configurator.Configurator)
 	cc.ChannelConfigStores = make(map[common.Address]*channel_config_store.ChannelConfigStore)
 	cc.FeeManagers = make(map[common.Address]*fee_manager.FeeManager)
+	cc.RewardManagers = make(map[common.Address]*rewardManager.RewardManager)
 	cc.Verifiers = make(map[common.Address]*verifier.Verifier)
 	cc.VerifierProxys = make(map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy)
 
@@ -94,6 +97,13 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 				return &cc, err
 			}
 			cc.Configurators[common.HexToAddress(address)] = ccs
+
+		case deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
+			ccs, err := rewardManager.NewRewardManager(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return &cc, err
+			}
+			cc.RewardManagers[common.HexToAddress(address)] = ccs
 
 		case deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
 			ccs, err := verifier.NewVerifier(common.HexToAddress(address), chain.Client)
