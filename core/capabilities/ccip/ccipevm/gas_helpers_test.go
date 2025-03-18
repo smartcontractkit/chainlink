@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -77,7 +78,9 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 				TokenAmounts: getTokenAmounts(t, tt.args.numTokens, tt.args.tokenGasOverhead),
 				ExtraArgs:    tt.args.extraArgs,
 			}
-			ep := EstimateProvider{}
+			// Set the source chain selector to be EVM for now
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			ep := EstimateProvider{extraDataCodec: ExtraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v)", tt.args.dataLen, tt.args.numTokens)
@@ -133,8 +136,9 @@ func TestCalculateMaxGas(t *testing.T) {
 				TokenAmounts: getTokenAmounts(t, tt.numberOfTokens, tt.tokenGasOverhead),
 				ExtraArgs:    tt.extraArgs,
 			}
-			ep := EstimateProvider{}
 
+			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
+			ep := EstimateProvider{extraDataCodec: ExtraDataCodec}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
 			t.Log("want", tt.want, "got", gotTree+gotMsg)
@@ -178,7 +182,7 @@ func makeExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 }
 
 func getTokenAmounts(t *testing.T, numTokens int, tokenGasOverhead uint32) []ccipocr3.RampTokenAmount {
-	tokenDestGasOverhead, err := TokenDestGasOverheadABI.Pack(tokenGasOverhead)
+	tokenDestGasOverhead, err := abiEncodeUint32(tokenGasOverhead)
 	require.NoError(t, err)
 
 	tokenAmounts := make([]ccipocr3.RampTokenAmount, numTokens)

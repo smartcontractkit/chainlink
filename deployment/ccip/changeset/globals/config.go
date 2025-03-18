@@ -17,13 +17,15 @@ const (
 	PermissionLessExecutionThreshold  = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
-	BatchGasLimit                     = 6_500_000
-	InflightCacheExpiry               = 1 * time.Minute
-	RootSnoozeTime                    = 5 * time.Minute
-	BatchingStrategyID                = 0
-	GasPriceDeviationPPB              = 1000
-	DAGasPriceDeviationPPB            = 0
-	OptimisticConfirmations           = 1
+	// Building batches with 6.5m and transmit with 8m to account for overhead.
+	BatchGasLimit               = 6_500_000
+	InflightCacheExpiry         = 1 * time.Minute
+	RootSnoozeTime              = 5 * time.Minute
+	BatchingStrategyID          = 0
+	GasPriceDeviationPPB        = 1000
+	DAGasPriceDeviationPPB      = 0
+	OptimisticConfirmations     = 1
+	TransmissionDelayMultiplier = 15 * time.Second
 	// ======================================
 
 	// ========= Onchain consts =========
@@ -34,29 +36,51 @@ const (
 )
 
 var (
+	// DefaultCommitOffChainCfg represents the default offchain configuration for the Commit plugin
+	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
+	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultCommitOffChainCfg = pluginconfig.CommitOffchainConfig{
-		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(30 * time.Minute),
-		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(30 * time.Minute),
+		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(TokenPriceBatchWriteFrequency),
 		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
-		MaxReportTransmissionCheckAttempts: 5,
+		MaxReportTransmissionCheckAttempts: 10,
 		RMNSignaturesTimeout:               6900 * time.Millisecond,
 		RMNEnabled:                         true,
 		MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
 		SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
-		TransmissionDelayMultiplier:        1 * time.Minute,
+		// TransmissionDelayMultiplier for non-ETH (i.e, typically fast) chains should be pretty aggressive.
+		// e.g assuming a 2s blocktime, 15 seconds is ~8 blocks.
+		TransmissionDelayMultiplier:        TransmissionDelayMultiplier,
 		InflightPriceCheckRetries:          10,
 		MerkleRootAsyncObserverDisabled:    false,
 		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
 		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+		ChainFeeAsyncObserverDisabled:      false,
 		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
 		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+		TokenPriceAsyncObserverDisabled:    false,
+		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
+		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+
+		// Remaining fields cannot be statically set:
+		// PriceFeedChainSelector: , // Must be configured in CLD
+		// TokenInfo: , // Must be configured in CLD
 	}
+
+	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
+	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
+	// Notable overrides are for Ethereum, which has a slower block time.
 	DefaultExecuteOffChainCfg = pluginconfig.ExecuteOffchainConfig{
-		BatchGasLimit:               6_500_000, // Building batches with 6.5m and transmit with 8m to account for overhead. Clarify with offchain
-		InflightCacheExpiry:         *config.MustNewDuration(5 * time.Minute),
-		RootSnoozeTime:              *config.MustNewDuration(5 * time.Minute), // does not work now
-		MessageVisibilityInterval:   *config.MustNewDuration(8 * time.Hour),
-		BatchingStrategyID:          0,
-		TransmissionDelayMultiplier: 1 * time.Minute, // Clarify with offchain
+		BatchGasLimit:               BatchGasLimit,
+		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
+		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
+		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		BatchingStrategyID:          BatchingStrategyID,
+		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
+		MaxReportMessages:           0,
+		MaxSingleChainReports:       0,
+
+		// Remaining fields cannot be statically set:
+		// TokenDataObservers: , // Must be configured in CLD
 	}
 )

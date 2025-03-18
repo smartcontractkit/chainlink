@@ -30,6 +30,12 @@ const (
 )
 
 var defaultConfig = webapi.ServiceConfig{
+	OutgoingRateLimiter: common.RateLimiterConfig{
+		GlobalRPS:      100.0,
+		GlobalBurst:    100,
+		PerSenderRPS:   100.0,
+		PerSenderBurst: 100,
+	},
 	RateLimiter: common.RateLimiterConfig{
 		GlobalRPS:      100.0,
 		GlobalBurst:    100,

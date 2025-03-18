@@ -85,11 +85,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load proxy contract %w", err)
 	}
 	tx, err := proxyContract.TransferOwnership(chain.DeployerKey, common.HexToAddress(timelockAddr))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create transfer ownership tx %w", err)
-	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
@@ -111,22 +107,24 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
 
-	txs := []ProposalData{
-		{
-			contract: proxyContract.Address().Hex(),
-			tx:       acceptProxyOwnerShipTx,
-		},
-		{
-			contract: dataFeedsCache.Address().Hex(),
-			tx:       setFeedConfigTx,
-		},
-		{
-			contract: dataFeedsCache.Address().Hex(),
-			tx:       setProxyMappingTx,
+	proposalConfig := MultiChainProposalConfig{
+		c.ChainSelector: []ProposalData{
+			{
+				contract: proxyContract.Address().Hex(),
+				tx:       acceptProxyOwnerShipTx,
+			},
+			{
+				contract: dataFeedsCache.Address().Hex(),
+				tx:       setFeedConfigTx,
+			},
+			{
+				contract: dataFeedsCache.Address().Hex(),
+				tx:       setProxyMappingTx,
+			},
 		},
 	}
 
-	proposals, err := BuildMCMProposals(env, "accept AggregatorProxy ownership to timelock. set feed config and proxy mapping on cache", c.ChainSelector, txs, c.McmsConfig.MinDelay)
+	proposals, err := BuildMultiChainProposals(env, "accept AggregatorProxy ownership to timelock. set feed config and proxy mapping on cache", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -135,6 +133,10 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 }
 
 func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWithProxyConfig) error {
+	if c.McmsConfig == nil {
+		return errors.New("mcms config is required")
+	}
+
 	_, ok := env.Chains[c.ChainSelector]
 	if !ok {
 		return fmt.Errorf("chain not found in env %d", c.ChainSelector)

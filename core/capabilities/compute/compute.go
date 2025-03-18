@@ -353,17 +353,18 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 		}
 
 		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-			URL:       req.Url,
-			Method:    req.Method,
-			Headers:   headersReq,
-			Body:      req.Body,
-			TimeoutMs: req.TimeoutMs,
+			URL:        req.Url,
+			Method:     req.Method,
+			Headers:    headersReq,
+			Body:       req.Body,
+			TimeoutMs:  req.TimeoutMs,
+			WorkflowID: req.Metadata.WorkflowId,
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugw("received gateway response", "resp", resp)
+		log.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var response wasmpb.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {

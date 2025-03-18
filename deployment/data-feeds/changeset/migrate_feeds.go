@@ -59,23 +59,13 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 
 	// Set the feed config
 	tx, err := contract.SetDecimalFeedConfigs(chain.DeployerKey, dataIDs, descriptions, c.WorkflowMetadata)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 
 	// Set the proxy to dataId mapping
 	tx, err = contract.UpdateDataIdMappingsForProxies(chain.DeployerKey, addresses, dataIDs)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to update feed proxy mapping %w", err)
-	}
-
-	_, err = chain.Confirm(tx)
-	if err != nil {
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 

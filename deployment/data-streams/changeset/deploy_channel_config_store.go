@@ -5,8 +5,8 @@ import (
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
-	data_streams "github.com/smartcontractkit/chainlink/deployment/data-streams"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 )
 
@@ -60,7 +60,7 @@ func performDeployment(e deployment.Environment, ab deployment.AddressBook, cc D
 		if !ok {
 			return fmt.Errorf("Chain not found for chain selector %d", chainSel)
 		}
-		_, err := deployContract[*channel_config_store.ChannelConfigStore](e, ab, chain, channelConfigStoreDeployFn())
+		_, err := DeployContract[*channel_config_store.ChannelConfigStore](e, ab, chain, channelConfigStoreDeployFn())
 		if err != nil {
 			return err
 		}
@@ -69,12 +69,12 @@ func performDeployment(e deployment.Environment, ab deployment.AddressBook, cc D
 			e.Logger.Errorw("Failed to get chain addresses", "err", err)
 			return err
 		}
-		chainState, err := data_streams.LoadChainConfig(chain, chainAddresses)
+		chainState, err := LoadChainState(e.Logger, chain, chainAddresses)
 		if err != nil {
 			e.Logger.Errorw("Failed to load chain state", "err", err)
 			return err
 		}
-		if chainState.ChannelConfigStores == nil || len(chainState.ChannelConfigStores[chain.Selector]) == 0 {
+		if len(chainState.ChannelConfigStores) == 0 {
 			errNoCCS := errors.New("no ChannelConfigStore on chain")
 			e.Logger.Error(errNoCCS)
 			return errNoCCS

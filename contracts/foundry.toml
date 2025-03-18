@@ -48,16 +48,19 @@ src = 'src/v0.8/functions'
 test = 'src/v0.8/functions/tests'
 gas_price = 3_000_000_000         # 3 gwei
 
+#Used in tests with different solidity versions.
 [profile.vrf]
 optimizer_runs = 1_000
 src = 'src/v0.8/vrf'
 test = 'src/v0.8/vrf/test'
 
-[profile.vrfv2plus_coordinator]
-optimizer_runs = 500
+[profile.vrf-compile]
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
-[profile.vrfv2plus]
+[profile.vrfv2plus-compile]
+solc_version = '0.8.19'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
@@ -65,6 +68,21 @@ src = 'src/v0.8/vrf'
 optimizer_runs = 10_000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
+
+[profile.automation-compile-12]
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-21]
+solc_version = '0.8.16'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-22]
+solc_version = '0.8.19'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
 
 [profile.l2ep]
 solc_version = '0.8.24'

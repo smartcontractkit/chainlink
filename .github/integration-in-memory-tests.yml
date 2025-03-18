@@ -13,7 +13,7 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run "^TestMigrateFromV1_5ToV1_6$"
 
   - id: smoke/ccip/ccip_fees_test.go:*
     path: integration-tests/smoke/ccip/ccip_fees_test.go
@@ -45,22 +45,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 25m -test.parallel=2 -count=1 -json
-
-  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote$
-    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote$ -timeout 18m -count=1 -test.parallel=1 -json
-
-  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse$
-    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
-    test_env_type: in-memory
-    runs_on: ubuntu-latest
-    triggers:
-      - PR Integration CCIP Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse$ -timeout 18m -count=1 -test.parallel=1 -json
 
   - id: smoke/ccip/ccip_add_chain_test.go:*
     path: integration-tests/smoke/ccip/ccip_add_chain_test.go
