@@ -325,7 +325,7 @@ func ValidateOwnershipSolana(
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
-			return fmt.Errorf("failed to validate ownership for example_burnmint_token_pool: %w", err)
+			return fmt.Errorf("failed to validate ownership for burnmint_token_pool: %w", err)
 		}
 	case LockReleaseTokenPool:
 		programData := solTestTokenPool.State{}
@@ -336,7 +336,7 @@ func ValidateOwnershipSolana(
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
-			return fmt.Errorf("failed to validate ownership for example_lockrelease_token_pool: %w", err)
+			return fmt.Errorf("failed to validate ownership for lockrelease_token_pool: %w", err)
 		}
 	case RMNRemote:
 		programData := rmn_remote.Config{}
