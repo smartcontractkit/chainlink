@@ -295,7 +295,7 @@ jobs:
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
-        if: ${{ always() && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         env:
           MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
