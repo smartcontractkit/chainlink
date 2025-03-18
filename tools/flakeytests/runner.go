@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log"
 	"os"
@@ -62,12 +61,12 @@ type testCommand struct {
 
 func (t *testCommand) test(pkg string, tests []string, w io.Writer) error {
 	replacedPkg := strings.Replace(pkg, t.repo, "", -1)
-	cmd := exec.Command(t.command, fmt.Sprintf(".%s", replacedPkg)) //#nosec
+	cmd := exec.Command(t.command, "."+replacedPkg) //#nosec
 	cmd.Env = os.Environ()
 
 	if len(tests) > 0 {
 		testFilter := strings.Join(tests, "|")
-		cmd.Env = append(cmd.Env, fmt.Sprintf("TEST_FLAGS=-run %s", testFilter))
+		cmd.Env = append(cmd.Env, "TEST_FLAGS=-run "+testFilter)
 	}
 
 	cmd.Stdout = io.MultiWriter(os.Stdout, w)

@@ -189,7 +189,7 @@ func TestIntegration_Gateway_NoFullNodes_BasicConnectionAndMessage(t *testing.T)
 	require.NoError(t, respMsg.Validate())
 	require.Equal(t, strings.ToLower(nodeKeys.Address), respMsg.Body.Sender)
 	require.Equal(t, messageId2, respMsg.Body.MessageId)
-	require.Equal(t, nodeResponsePayload, string(respMsg.Body.Payload))
+	require.JSONEq(t, nodeResponsePayload, string(respMsg.Body.Payload))
 }
 
 func newHttpRequestObject(t *testing.T, messageId string, userUrl string, signerKey *ecdsa.PrivateKey) *http.Request {

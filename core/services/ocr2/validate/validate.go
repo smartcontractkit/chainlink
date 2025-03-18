@@ -348,7 +348,7 @@ func validateOCR2CCIPCommitSpec(jsonConfig job.JSONConfig) error {
 	emptyPipeline := strings.Trim(cfg.TokenPricesUSDPipeline, "\n\t ") == ""
 	emptyPriceGetter := cfg.PriceGetterConfig == nil
 	if emptyPipeline && emptyPriceGetter {
-		return fmt.Errorf("either tokenPricesUSDPipeline or priceGetterConfig must be set")
+		return errors.New("either tokenPricesUSDPipeline or priceGetterConfig must be set")
 	}
 	if !emptyPipeline && !emptyPriceGetter {
 		return fmt.Errorf("only one of tokenPricesUSDPipeline or priceGetterConfig must be set: %s and %v", cfg.TokenPricesUSDPipeline, cfg.PriceGetterConfig)

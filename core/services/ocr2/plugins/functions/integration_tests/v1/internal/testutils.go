@@ -509,10 +509,10 @@ func mockEALambdaExecutionResponse(t *testing.T, request map[string]any) []byte 
 	require.Equal(t, functions.LocationInline, int(data["codeLocation"].(float64)))
 	if len(request["nodeProvidedSecrets"].(string)) > 0 {
 		require.Equal(t, functions.LocationRemote, int(data["secretsLocation"].(float64)))
-		require.Equal(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
+		require.JSONEq(t, fmt.Sprintf(`{"0x0":"%s"}`, DefaultSecretsBase64), request["nodeProvidedSecrets"].(string))
 	}
 	args := data["args"].([]interface{})
-	require.Equal(t, 2, len(args))
+	require.Len(t, args, 2)
 	require.Equal(t, DefaultArg1, args[0].(string))
 	require.Equal(t, DefaultArg2, args[1].(string))
 	source := data["source"].(string)

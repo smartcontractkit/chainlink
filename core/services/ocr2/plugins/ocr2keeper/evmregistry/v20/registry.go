@@ -2,8 +2,10 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -44,14 +46,14 @@ const (
 )
 
 var (
-	ErrLogReadFailure                = fmt.Errorf("failure reading logs")
-	ErrHeadNotAvailable              = fmt.Errorf("head not available")
-	ErrRegistryCallFailure           = fmt.Errorf("registry chain call failure")
-	ErrBlockKeyNotParsable           = fmt.Errorf("block identifier not parsable")
-	ErrUpkeepKeyNotParsable          = fmt.Errorf("upkeep key not parsable")
-	ErrInitializationFailure         = fmt.Errorf("failed to initialize registry")
-	ErrContextCancelled              = fmt.Errorf("context was cancelled")
-	ErrABINotParsable                = fmt.Errorf("error parsing abi")
+	ErrLogReadFailure                = errors.New("failure reading logs")
+	ErrHeadNotAvailable              = errors.New("head not available")
+	ErrRegistryCallFailure           = errors.New("registry chain call failure")
+	ErrBlockKeyNotParsable           = errors.New("block identifier not parsable")
+	ErrUpkeepKeyNotParsable          = errors.New("upkeep key not parsable")
+	ErrInitializationFailure         = errors.New("failed to initialize registry")
+	ErrContextCancelled              = errors.New("context was cancelled")
+	ErrABINotParsable                = errors.New("error parsing abi")
 	ActiveUpkeepIDBatchSize    int64 = 1000
 	FetchUpkeepConfigBatchSize       = 50
 	separator                        = "|"
@@ -73,7 +75,7 @@ type LatestBlockGetter interface {
 func NewEVMRegistryService(addr common.Address, client legacyevm.Chain, lggr logger.Logger) (*EvmRegistry, error) {
 	keeperRegistryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %w", ErrABINotParsable, err)
 	}
 
 	registry, err := keeper_registry_wrapper2_0.NewKeeperRegistry(addr, client.Client())
@@ -319,7 +321,7 @@ func (r *EvmRegistry) initialize(ctx context.Context) error {
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(startupCtx)
 	if err != nil {
-		return fmt.Errorf("failed to get ids from contract: %s", err)
+		return fmt.Errorf("failed to get ids from contract: %w", err)
 	}
 
 	var offset int
@@ -331,7 +333,7 @@ func (r *EvmRegistry) initialize(ctx context.Context) error {
 
 		actives, err := r.getUpkeepConfigs(startupCtx, ids[offset:offset+batch])
 		if err != nil {
-			return fmt.Errorf("failed to get configs for id batch (length '%d'): %s", batch, err)
+			return fmt.Errorf("failed to get configs for id batch (length '%d'): %w", batch, err)
 		}
 
 		for _, active := range actives {
@@ -357,7 +359,7 @@ func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 	var err error
 
 	if end, err = r.poller.LatestBlock(ctx); err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	r.mu.Lock()
@@ -379,7 +381,7 @@ func (r *EvmRegistry) pollLogs(ctx context.Context) error {
 			upkeepStateEvents,
 			r.addr,
 		); err != nil {
-			return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
+			return fmt.Errorf("%w: %w", ErrLogReadFailure, err)
 		}
 
 		for _, log := range logs {
@@ -485,7 +487,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
-			n = fmt.Sprintf("%d", opts.BlockNumber.Int64())
+			n = strconv.FormatInt(opts.BlockNumber.Int64(), 10)
 		}
 
 		return nil, fmt.Errorf("%w: failed to get contract state at block number '%s'", err, n)
@@ -556,15 +558,15 @@ func splitKey(key ocr2keepers.UpkeepKey) (*big.Int, *big.Int, error) {
 
 	parts := strings.Split(string(key), separator)
 	if len(parts) != 2 {
-		return nil, nil, fmt.Errorf("unsplittable key")
+		return nil, nil, errors.New("unsplittable key")
 	}
 
 	if block, ok = new(big.Int).SetString(parts[0], 10); !ok {
-		return nil, nil, fmt.Errorf("could not get block from key")
+		return nil, nil, errors.New("could not get block from key")
 	}
 
 	if id, ok = new(big.Int).SetString(parts[1], 10); !ok {
-		return nil, nil, fmt.Errorf("could not get id from key")
+		return nil, nil, errors.New("could not get id from key")
 	}
 
 	return block, id, nil
@@ -727,12 +729,12 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	for i, id := range ids {
 		opts, err := r.buildCallOpts(ctx, nil)
 		if err != nil {
-			return nil, fmt.Errorf("failed to get call opts: %s", err)
+			return nil, fmt.Errorf("failed to get call opts: %w", err)
 		}
 
 		payload, err := r.abi.Pack("getUpkeep", id)
 		if err != nil {
-			return nil, fmt.Errorf("failed to pack id with abi: %s", err)
+			return nil, fmt.Errorf("failed to pack id with abi: %w", err)
 		}
 
 		args := []interface{}{
@@ -757,7 +759,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 	}
 
 	if err := r.client.BatchCallContext(ctx, uReqs); err != nil {
-		return nil, fmt.Errorf("rpc error: %s", err)
+		return nil, fmt.Errorf("rpc error: %w", err)
 	}
 
 	var (
@@ -773,7 +775,7 @@ func (r *EvmRegistry) getUpkeepConfigs(ctx context.Context, ids []*big.Int) ([]a
 			var err error
 			results[i], err = r.packer.UnpackUpkeepResult(ids[i], *uResults[i])
 			if err != nil {
-				return nil, fmt.Errorf("failed to unpack result: %s", err)
+				return nil, fmt.Errorf("failed to unpack result: %w", err)
 			}
 		}
 	}

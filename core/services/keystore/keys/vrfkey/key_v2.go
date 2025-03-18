@@ -72,7 +72,7 @@ func (key KeyV2) Raw() Raw {
 func (key KeyV2) GenerateProofWithNonce(seed, nonce *big.Int) (Proof, error) {
 	secretKey := secp256k1.ScalarToHash(*key.k).Big()
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
-		return Proof{}, fmt.Errorf("badly-formatted key or seed")
+		return Proof{}, errors.New("badly-formatted key or seed")
 	}
 	skAsScalar := secp256k1.IntToScalar(secretKey)
 	publicKey := Secp256k1Curve.Point().Mul(skAsScalar, nil)
@@ -152,7 +152,7 @@ func keyFromScalar(k kyber.Scalar) (KeyV2, error) {
 	}
 	var publicKey secp256k1.PublicKey
 	if l := copy(publicKey[:], rawPublicKey); l != secp256k1.CompressedPublicKeyLength {
-		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
+		panic(errors.New("failed to copy correct length in serialized public key"))
 	}
 	return KeyV2{
 		k:         &k,

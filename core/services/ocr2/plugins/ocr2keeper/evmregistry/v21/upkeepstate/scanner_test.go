@@ -1,7 +1,7 @@
 package upkeepstate
 
 import (
-	"fmt"
+	"errors"
 	"sort"
 	"testing"
 
@@ -42,7 +42,7 @@ func TestPerformedEventsScanner(t *testing.T) {
 			[]string{"111"},
 			[]logpoller.Log{},
 			[]string{},
-			fmt.Errorf("test-error"),
+			errors.New("test-error"),
 			true,
 		},
 		{
@@ -152,7 +152,7 @@ func TestPerformedEventsScanner_Batch(t *testing.T) {
 	)
 
 	require.NoError(t, err)
-	require.Equal(t, 2, len(ids))
+	require.Len(t, ids, 2)
 	sort.Slice(ids, func(i, j int) bool {
 		return ids[i] < ids[j]
 	})

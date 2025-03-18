@@ -359,7 +359,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Borsh encoded extra args
-		ea := fee_quoter.EVMExtraArgsV2{
+		ea := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}

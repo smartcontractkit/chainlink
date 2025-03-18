@@ -1,7 +1,7 @@
 package plugins
 
 import (
-	"fmt"
+	"errors"
 	"strings"
 	"testing"
 
@@ -32,7 +32,7 @@ func TestNewCmdFactory_RegisterSuccess(t *testing.T) {
 
 func TestNewCmdFactory_RegisterFail(t *testing.T) {
 	mockRegister := func(id string) (*RegisteredLoop, error) {
-		return nil, fmt.Errorf("registration failed")
+		return nil, errors.New("registration failed")
 	}
 
 	cmdConfig := CmdConfig{

@@ -562,7 +562,7 @@ func GetEVMEffectiveTransmitterID(ctx context.Context, jb *job.Job, chain legacy
 	// ForwardingAllowed cannot be set with Mercury, so this should always be false for mercury jobs
 	if jb.ForwardingAllowed {
 		if chain == nil {
-			return "", fmt.Errorf("job forwarding requires non-nil chain")
+			return "", errors.New("job forwarding requires non-nil chain")
 		}
 
 		var err error
@@ -695,18 +695,18 @@ func (d *Delegate) newServicesGenericPlugin(
 
 		ps, err2 := loop.NewProviderServer(provider, types.OCR2PluginType(pCfg.ProviderType), d.lggr)
 		if err2 != nil {
-			return nil, fmt.Errorf("cannot start EVM provider server: %s", err2)
+			return nil, fmt.Errorf("cannot start EVM provider server: %w", err2)
 		}
 		providerClientConn, err2 = ps.GetConn()
 		if err2 != nil {
-			return nil, fmt.Errorf("cannot connect to EVM provider server: %s", err)
+			return nil, fmt.Errorf("cannot connect to EVM provider server: %w", err)
 		}
 		srvs = append(srvs, ps)
 	}
 
 	pc, err := json.Marshal(pCfg.Config)
 	if err != nil {
-		return nil, fmt.Errorf("cannot dump plugin config to string before sending to plugin: %s", err)
+		return nil, fmt.Errorf("cannot dump plugin config to string before sending to plugin: %w", err)
 	}
 
 	pluginConfig := core.ReportingPluginServiceConfig{
@@ -1613,7 +1613,7 @@ func (d *Delegate) newServicesOCR2Functions(
 func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.Relay != relay.NetworkEVM {
-		return nil, fmt.Errorf("non evm chains are not supported for CCIP commit")
+		return nil, errors.New("non evm chains are not supported for CCIP commit")
 	}
 	dstRid, err := spec.RelayID()
 	if err != nil {
@@ -1757,7 +1757,7 @@ func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, de
 func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig, transmitterID string) (types.CCIPCommitProvider, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.Relay != relay.NetworkEVM {
-		return nil, fmt.Errorf("non evm chains are not supported for CCIP commit")
+		return nil, errors.New("non evm chains are not supported for CCIP commit")
 	}
 
 	dstRid, err := spec.RelayID()
@@ -1792,7 +1792,7 @@ func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, plu
 	}
 	dstProvider, ok := provider.(types.CCIPCommitProvider)
 	if !ok {
-		return nil, fmt.Errorf("could not coerce PluginProvider to CCIPCommitProvider")
+		return nil, errors.New("could not coerce PluginProvider to CCIPCommitProvider")
 	}
 
 	return dstProvider, nil
@@ -1848,7 +1848,7 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 	}
 	srcProvider, ok := provider.(types.CCIPCommitProvider)
 	if !ok {
-		return nil, 0, fmt.Errorf("could not coerce PluginProvider to CCIPCommitProvider")
+		return nil, 0, errors.New("could not coerce PluginProvider to CCIPCommitProvider")
 	}
 
 	return
@@ -1857,7 +1857,7 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.Relay != relay.NetworkEVM {
-		return nil, fmt.Errorf("non evm chains are not supported for CCIP execution")
+		return nil, errors.New("non evm chains are not supported for CCIP execution")
 	}
 	dstRid, err := spec.RelayID()
 
@@ -1917,7 +1917,7 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string) (types.CCIPExecProvider, error) {
 	spec := jb.OCR2OracleSpec
 	if spec.Relay != relay.NetworkEVM {
-		return nil, fmt.Errorf("non evm chains are not supported for CCIP execution")
+		return nil, errors.New("non evm chains are not supported for CCIP execution")
 	}
 	dstRid, err := spec.RelayID()
 
@@ -1952,7 +1952,7 @@ func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, plugi
 	}
 	dstProvider, ok := provider.(types.CCIPExecProvider)
 	if !ok {
-		return nil, fmt.Errorf("could not coerce PluginProvider to CCIPExecProvider")
+		return nil, errors.New("could not coerce PluginProvider to CCIPExecProvider")
 	}
 
 	return dstProvider, nil

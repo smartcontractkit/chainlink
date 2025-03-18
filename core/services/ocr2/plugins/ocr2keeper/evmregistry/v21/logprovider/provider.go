@@ -30,8 +30,8 @@ import (
 var (
 	LogProviderServiceName = "LogEventProvider"
 
-	ErrHeadNotAvailable   = fmt.Errorf("head not available")
-	ErrBlockLimitExceeded = fmt.Errorf("block limit exceeded")
+	ErrHeadNotAvailable   = errors.New("head not available")
+	ErrBlockLimitExceeded = errors.New("block limit exceeded")
 
 	// AllowedLogsPerUpkeep is the maximum number of logs allowed per upkeep every single call.
 	AllowedLogsPerUpkeep = 5
@@ -203,7 +203,7 @@ func (p *logEventProvider) HealthReport() map[string]error {
 func (p *logEventProvider) GetLatestPayloads(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 	prommetrics.AutomationLogProviderLatestBlock.Set(float64(latest.BlockNumber))
 	payloads := p.getLogsFromBuffer(latest.BlockNumber)
@@ -308,7 +308,7 @@ func (p *logEventProvider) ReadLogs(pctx context.Context, ids ...*big.Int) error
 
 	latest, err := p.poller.LatestBlock(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 	if latest.BlockNumber == 0 {
 		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, "latest block is 0")

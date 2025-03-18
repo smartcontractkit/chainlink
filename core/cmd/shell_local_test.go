@@ -1,8 +1,8 @@
 package cmd_test
 
 import (
+	"errors"
 	"flag"
-	"fmt"
 	"math/big"
 	"os"
 	"strconv"
@@ -542,7 +542,7 @@ func TestShell_RemoveBlocks(t *testing.T) {
 		flagSetApplyFromAction(shell.RemoveBlocks, set, "")
 		require.NoError(t, set.Set("start", "10000"))
 		require.NoError(t, set.Set("evm-chain-id", "12"))
-		expectedError := fmt.Errorf("failed to delete log poller's data")
+		expectedError := errors.New("failed to delete log poller's data")
 		app.On("DeleteLogPollerDataAfter", mock.Anything, big.NewInt(12), int64(10000)).Return(expectedError).Once()
 		c := cli.NewContext(nil, set, nil)
 		err := shell.RemoveBlocks(c)

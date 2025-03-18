@@ -3,7 +3,6 @@ package allowlist_test
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -325,7 +324,7 @@ func TestExtractContractVersion(t *testing.T) {
 	}
 
 	var errInvalidVersion = func(v string) *string {
-		ev := fmt.Sprintf("version not found in string: %s", v)
+		ev := "version not found in string: " + v
 		return &ev
 	}
 

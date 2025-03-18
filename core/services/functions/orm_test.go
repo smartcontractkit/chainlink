@@ -1,7 +1,6 @@
 package functions_test
 
 import (
-	"errors"
 	"testing"
 	"time"
 
@@ -100,7 +99,7 @@ func TestORM_CreateRequestsAndFindByID(t *testing.T) {
 		newReq := &functions.Request{RequestID: id1, RequestTxHash: &txHash1, ReceivedAt: ts1}
 		err := orm.CreateRequest(testutils.Context(t), newReq)
 		require.Error(t, err)
-		require.True(t, errors.Is(err, functions.ErrDuplicateRequestID))
+		require.ErrorIs(t, err, functions.ErrDuplicateRequestID)
 	})
 }
 
@@ -249,7 +248,7 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 		ctx := testutils.Context(t)
 		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 2)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(result), "incorrect results length")
+		require.Len(t, result, 2, "incorrect results length")
 		require.Equal(t, id1, result[0].RequestID, "incorrect results order")
 		require.Equal(t, id2, result[1].RequestID, "incorrect results order")
 
@@ -264,14 +263,14 @@ func TestORM_FindOldestEntriesByState(t *testing.T) {
 		ctx := testutils.Context(t)
 		result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 20)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(result), "incorrect results length")
+		require.Len(t, result, 3, "incorrect results length")
 	})
 
 	t.Run("no matching entries", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		result, err := orm.FindOldestEntriesByState(ctx, functions.RESULT_READY, 10)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(result), "incorrect results length")
+		require.Empty(t, result, "incorrect results length")
 	})
 }
 
@@ -297,18 +296,18 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 
 	results, err := orm.TimeoutExpiredResults(ctx, now.Add(-35*time.Minute), 1)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(results), "not respecting limit")
+	require.Len(t, results, 1, "not respecting limit")
 	require.Equal(t, ids[0], results[0], "incorrect results order")
 
 	results, err = orm.TimeoutExpiredResults(ctx, now.Add(-15*time.Minute), 10)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(results), "incorrect results length")
+	require.Len(t, results, 2, "incorrect results length")
 	require.Equal(t, ids[1], results[0], "incorrect results order")
 	require.Equal(t, ids[3], results[1], "incorrect results order")
 
 	results, err = orm.TimeoutExpiredResults(ctx, now.Add(-15*time.Minute), 10)
 	require.NoError(t, err)
-	require.Equal(t, 0, len(results), "not idempotent")
+	require.Empty(t, results, "not idempotent")
 
 	expectedFinalStates := []functions.RequestState{
 		functions.TIMED_OUT,
@@ -320,7 +319,7 @@ func TestORM_TimeoutExpiredResults(t *testing.T) {
 	for i, expectedState := range expectedFinalStates {
 		req, err := orm.FindById(ctx, ids[i])
 		require.NoError(t, err)
-		require.Equal(t, req.State, expectedState, "incorrect state")
+		require.Equal(t, expectedState, req.State, "incorrect state")
 	}
 }
 
@@ -364,7 +363,7 @@ func TestORM_PruneOldestRequests(t *testing.T) {
 	// verify only the newest one is left after pruning
 	result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 20)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(result), "incorrect results length")
+	require.Len(t, result, 1, "incorrect results length")
 	require.Equal(t, ids[4], result[0].RequestID, "incorrect results order")
 }
 
@@ -388,5 +387,5 @@ func TestORM_PruneOldestRequests_Large(t *testing.T) {
 	// verify there's 100 left
 	result, err := orm.FindOldestEntriesByState(ctx, functions.IN_PROGRESS, 200)
 	require.NoError(t, err)
-	require.Equal(t, 100, len(result), "incorrect results length")
+	require.Len(t, result, 100, "incorrect results length")
 }

@@ -1,7 +1,6 @@
 package telemetry
 
 import (
-	"fmt"
 	"math/big"
 	"net/url"
 	"reflect"
@@ -158,12 +157,12 @@ func TestNewManager(t *testing.T) {
 	require.Equal(t, uint(123), m.bufferSize)
 	require.Equal(t, ks, m.ks)
 	require.Equal(t, "TelemetryManager", m.Name())
-	require.Equal(t, true, m.logging)
+	require.True(t, m.logging)
 	require.Equal(t, uint(51), m.maxBatchSize)
 	require.Equal(t, time.Millisecond*512, m.sendInterval)
 	require.Equal(t, time.Second*7, m.sendTimeout)
-	require.Equal(t, true, m.uniConn)
-	require.Equal(t, true, m.useBatchSend)
+	require.True(t, m.uniConn)
+	require.True(t, m.useBatchSend)
 
 	logs := logObs.TakeAll()
 	for i, e := range endpoints {
@@ -179,20 +178,20 @@ func TestNewManager(t *testing.T) {
 					found = true
 				}
 			}
-			require.Equal(t, true, found, "cannot find log: %s", e.expectedError)
+			require.True(t, found, "cannot find log: %s", e.expectedError)
 		}
 	}
 
 	require.Equal(t, "TelemetryManager", m.Name())
 
-	require.Nil(t, m.Start(testutils.Context(t)))
+	require.NoError(t, m.Start(testutils.Context(t)))
 	t.Cleanup(func() {
 		require.NoError(t, m.Close())
 	})
 	testutils.WaitForLogMessageCount(t, logObs, "error connecting error while dialing dial tcp", 3)
 
 	hr := m.HealthReport()
-	require.Equal(t, 4, len(hr))
+	require.Len(t, hr, 4)
 }
 
 func TestCorrectEndpointRouting(t *testing.T) {
@@ -264,8 +263,8 @@ func TestCorrectEndpointRouting(t *testing.T) {
 
 	// Known networks and chainID
 	for i, e := range testEndpoints {
-		telemType := fmt.Sprintf("TelemType_%s", e.chainID)
-		contractID := fmt.Sprintf("contractID_%s", e.chainID)
+		telemType := "TelemType_" + e.chainID
+		contractID := "contractID_" + e.chainID
 		me := tm.GenMonitoringEndpoint(
 			e.network,
 			e.chainID,
@@ -275,7 +274,7 @@ func TestCorrectEndpointRouting(t *testing.T) {
 		me.SendLog([]byte(e.chainID))
 		require.Equal(t, 0, obsLogs.Len())
 
-		require.Equal(t, i+1, len(clientSent))
+		require.Len(t, clientSent, i+1)
 		require.Equal(t, contractID, clientSent[i].ContractID)
 		require.Equal(t, telemType, string(clientSent[i].TelemType))
 		require.Equal(t, []byte(e.chainID), clientSent[i].Telemetry)

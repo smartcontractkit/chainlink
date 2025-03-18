@@ -208,7 +208,7 @@ func TestORM_WebAuthn(t *testing.T) {
 
 	was, err := orm.GetUserWebAuthn(ctx, initial.Email)
 	require.NoError(t, err)
-	assert.Len(t, was, 0)
+	assert.Empty(t, was)
 
 	cred := webauthn.Credential{
 		ID:              []byte("test-id"),

@@ -126,7 +126,7 @@ func (tc *telemetryIngressBatchClient) start(ctx context.Context) error {
 			// Spawns a goroutine that will eventually connect
 			conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.eng))
 			if err != nil {
-				return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %v", err)
+				return fmt.Errorf("could not start TelemIngressBatchClient, Dial returned error: %w", err)
 			}
 			tc.telemClient = telemPb.NewTelemClient(conn)
 			tc.closeFn = func() error { conn.Close(); return nil }

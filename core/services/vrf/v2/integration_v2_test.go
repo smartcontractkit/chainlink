@@ -1126,8 +1126,8 @@ func testEoa(
 
 	// Ensure there is only one log broadcast (our EOA request), and that
 	// it hasn't been marked as consumed yet.
-	require.Equal(t, 1, len(broadcastsBeforeFinality))
-	require.Equal(t, false, broadcastsBeforeFinality[0].Consumed)
+	require.Len(t, broadcastsBeforeFinality, 1)
+	require.False(t, broadcastsBeforeFinality[0].Consumed)
 
 	// Create new blocks until the finality depth has elapsed.
 	for i := 0; i < int(finalityDepth); i++ {
@@ -1148,8 +1148,8 @@ func testEoa(
 
 	// Ensure that there is still only one log broadcast (our EOA request), but that
 	// it has been marked as "consumed," such that it won't be retried.
-	require.Equal(t, 1, len(broadcastsAfterFinality))
-	require.Equal(t, true, broadcastsAfterFinality[0].Consumed)
+	require.Len(t, broadcastsAfterFinality, 1)
+	require.True(t, broadcastsAfterFinality[0].Consumed)
 
 	t.Log("Done!")
 }
@@ -2123,7 +2123,7 @@ func TestStartingCountsV1(t *testing.T) {
 	var counts map[[32]byte]uint64
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
-	assert.Equal(t, 0, len(counts))
+	assert.Empty(t, counts)
 	err = ks.Unlock(ctx, testutils.Password)
 	require.NoError(t, err)
 	k, err := ks.Eth().Create(testutils.Context(t), testutils.SimulatedChainID)
@@ -2276,7 +2276,7 @@ func TestStartingCountsV1(t *testing.T) {
 
 	counts, err = listenerV1.GetStartingResponseCountsV1(testutils.Context(t))
 	require.NoError(t, err)
-	assert.Equal(t, 3, len(counts))
+	assert.Len(t, counts, 3)
 	assert.Equal(t, uint64(1), counts[evmutils.PadByteToHash(0x10)])
 	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x11)])
 	assert.Equal(t, uint64(2), counts[evmutils.PadByteToHash(0x12)])
@@ -2284,7 +2284,7 @@ func TestStartingCountsV1(t *testing.T) {
 	countsV2, err := listenerV2.GetStartingResponseCountsV2(testutils.Context(t))
 	require.NoError(t, err)
 	t.Log(countsV2)
-	assert.Equal(t, 3, len(countsV2))
+	assert.Len(t, countsV2, 3)
 	assert.Equal(t, uint64(1), countsV2[big.NewInt(0x10).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x11).String()])
 	assert.Equal(t, uint64(2), countsV2[big.NewInt(0x12).String()])

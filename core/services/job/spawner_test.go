@@ -296,7 +296,7 @@ func TestSpawner_CreateJobDeleteJob(t *testing.T) {
 
 		lggr := logger.TestLogger(t)
 		legacyChains := evmtest.NewLegacyChains(t, testopts)
-		assert.Equal(t, legacyChains.Len(), 1)
+		assert.Equal(t, 1, legacyChains.Len())
 		chain := evmtest.MustGetDefaultChain(t, legacyChains)
 
 		evmRelayer, err := evmrelayer.NewRelayer(ctx, lggr, chain, evmrelayer.RelayerOpts{

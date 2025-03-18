@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -67,7 +68,7 @@ func TestPriceService_writeGasPrices(t *testing.T) {
 
 			var gasPricesError error
 			if tc.gasPriceError {
-				gasPricesError = fmt.Errorf("gas prices error")
+				gasPricesError = errors.New("gas prices error")
 			}
 
 			mockOrm := ccipmocks.NewORM(t)
@@ -138,7 +139,7 @@ func TestPriceService_writeTokenPrices(t *testing.T) {
 
 			var tokenPricesError error
 			if tc.tokenPriceError {
-				tokenPricesError = fmt.Errorf("token prices error")
+				tokenPricesError = errors.New("token prices error")
 			}
 
 			mockOrm := ccipmocks.NewORM(t)
@@ -200,7 +201,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 			name:                "price getter returned an error",
 			sourceNativeToken:   sourceNativeToken,
 			priceGetterRespData: nil,
-			priceGetterRespErr:  fmt.Errorf("some random network error"),
+			priceGetterRespErr:  errors.New("some random network error"),
 			expErr:              true,
 		},
 		{
@@ -273,7 +274,7 @@ func TestPriceService_observeGasPriceUpdates(t *testing.T) {
 				return
 			}
 			assert.NoError(t, err)
-			assert.True(t, tc.expSourceGasPriceUSD.Cmp(sourceGasPriceUSD) == 0)
+			assert.Equal(t, tc.expSourceGasPriceUSD.Cmp(sourceGasPriceUSD), 0)
 		})
 	}
 }
@@ -349,7 +350,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 			},
 			sourceNativeToken:   tokens[0],
 			priceGetterRespData: nil,
-			priceGetterRespErr:  fmt.Errorf("some random network error"),
+			priceGetterRespErr:  errors.New("some random network error"),
 			expErr:              true,
 		},
 		{
@@ -461,7 +462,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 
 			destPriceReg := ccipdatamocks.NewPriceRegistryReader(t)
 			if tc.expDecimalErr {
-				destPriceReg.On("GetTokensDecimals", mock.Anything, finalDestTokens).Return([]uint8{}, fmt.Errorf("Token not found")).Maybe()
+				destPriceReg.On("GetTokensDecimals", mock.Anything, finalDestTokens).Return([]uint8{}, errors.New("Token not found")).Maybe()
 			} else {
 				destPriceReg.On("GetTokensDecimals", mock.Anything, finalDestTokens).Return(destDecimals, nil).Maybe()
 			}
@@ -687,12 +688,12 @@ func TestPriceService_GetGasAndTokenPrices(t *testing.T) {
 
 			mockOrm := ccipmocks.NewORM(t)
 			if tc.gasPriceError {
-				mockOrm.On("GetGasPricesByDestChain", ctx, destChainSelector).Return(nil, fmt.Errorf("gas prices error")).Once()
+				mockOrm.On("GetGasPricesByDestChain", ctx, destChainSelector).Return(nil, errors.New("gas prices error")).Once()
 			} else {
 				mockOrm.On("GetGasPricesByDestChain", ctx, destChainSelector).Return(tc.ormGasPricesResult, nil).Once()
 			}
 			if tc.tokenPriceError {
-				mockOrm.On("GetTokenPricesByDestChain", ctx, destChainSelector).Return(nil, fmt.Errorf("token prices error")).Once()
+				mockOrm.On("GetTokenPricesByDestChain", ctx, destChainSelector).Return(nil, errors.New("token prices error")).Once()
 			} else {
 				mockOrm.On("GetTokenPricesByDestChain", ctx, destChainSelector).Return(tc.ormTokenPricesResult, nil).Once()
 			}

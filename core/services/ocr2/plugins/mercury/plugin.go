@@ -83,7 +83,7 @@ func NewServices(
 	var pluginConfig config.PluginConfig
 	if len(jb.OCR2OracleSpec.PluginConfig) == 0 {
 		if !enableTriggerCapability {
-			return nil, fmt.Errorf("at least one transmission option must be configured")
+			return nil, errors.New("at least one transmission option must be configured")
 		}
 	} else {
 		err := json.Unmarshal(jb.OCR2OracleSpec.PluginConfig.Bytes(), &pluginConfig)

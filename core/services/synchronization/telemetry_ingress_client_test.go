@@ -54,7 +54,7 @@ func TestTelemetryIngressClient_Send_HappyPath(t *testing.T) {
 		assert.Equal(t, telemPayload.ContractID, telemReq.Address)
 		assert.Equal(t, telemPayload.Telemetry, telemReq.Telemetry)
 		assert.Equal(t, string(synchronization.OCR), telemReq.TelemetryType)
-		assert.Greater(t, telemReq.SentAt, int64(0))
+		assert.Positive(t, telemReq.SentAt)
 	})
 
 	// Send telemetry

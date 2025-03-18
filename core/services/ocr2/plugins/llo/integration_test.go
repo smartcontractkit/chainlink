@@ -1952,7 +1952,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 		oracles = append(oracles, confighelper.OracleIdentityExtra{
 			OracleIdentity: confighelper.OracleIdentity{
 				OnchainPublicKey:  offchainPublicKey,
-				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+				TransmitAccount:   ocr2types.Account(hex.EncodeToString(transmitter[:])),
 				OffchainPublicKey: kb.OffchainPublicKey(),
 				PeerID:            peerID,
 			},

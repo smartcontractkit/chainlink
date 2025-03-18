@@ -360,7 +360,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
-	require.Equal(t, false, restart)
+	require.False(t, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
@@ -368,7 +368,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	require.NoError(t, err)
 	run = &r
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
-	require.Equal(t, 2, len(run.PipelineTaskRuns))
+	require.Len(t, run.PipelineTaskRuns, 2)
 	// and ds1 is not finished
 	task := run.ByDotID("ds1")
 	require.NotNil(t, task)
@@ -391,7 +391,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	restart, err = orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
-	require.Equal(t, false, restart)
+	require.False(t, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
@@ -399,7 +399,7 @@ func Test_PipelineORM_StoreRun_ShouldUpsert(t *testing.T) {
 	require.NoError(t, err)
 	run = &r
 	// this is an incomplete run, so partial results should be present (regardless of saveSuccessfulTaskRuns)
-	require.Equal(t, 2, len(run.PipelineTaskRuns))
+	require.Len(t, run.PipelineTaskRuns, 2)
 	// and ds1 is finished
 	task = run.ByDotID("ds1")
 	require.NotNil(t, task)
@@ -463,13 +463,13 @@ func Test_PipelineORM_StoreRun_DetectsRestarts(t *testing.T) {
 	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// new data available! immediately restart the run
-	require.Equal(t, true, restart)
+	require.True(t, restart)
 	// the run is still in progress
 	require.Equal(t, pipeline.RunStatusRunning, run.State)
 
 	// confirm we now contain the latest restart data merged with local task data
 	ds1 := run.ByDotID("ds1")
-	require.Equal(t, ds1.Output.Val, int64(2))
+	require.Equal(t, int64(2), ds1.Output.Val)
 	require.True(t, ds1.FinishedAt.Valid)
 }
 
@@ -535,8 +535,8 @@ func Test_PipelineORM_StoreRun_UpdateTaskRunResult(t *testing.T) {
 	r, start, err := orm.UpdateTaskRunResult(ctx, ds1_id, pipeline.Result{Value: "foo"})
 	run = &r
 	require.NoError(t, err)
-	assert.Greater(t, run.ID, int64(0))
-	assert.Greater(t, run.PipelineSpec.ID, int32(0)) // Make sure it actually loaded everything
+	assert.Positive(t, run.ID)
+	assert.Positive(t, run.PipelineSpec.ID) // Make sure it actually loaded everything
 
 	require.Len(t, run.PipelineTaskRuns, 3)
 	// assert that run should be in "running" state
@@ -587,7 +587,7 @@ func Test_PipelineORM_DeleteRun(t *testing.T) {
 	restart, err := orm.StoreRun(ctx, run)
 	require.NoError(t, err)
 	// no new data, so we don't need a restart
-	require.Equal(t, false, restart)
+	require.False(t, restart)
 	// the run is paused
 	require.Equal(t, pipeline.RunStatusSuspended, run.State)
 
@@ -629,7 +629,7 @@ func Test_PipelineORM_DeleteRunsOlderThan(t *testing.T) {
 		restart, err := orm.StoreRun(ctx, run)
 		assert.NoError(t, err)
 		// no new data, so we don't need a restart
-		assert.Equal(t, false, restart)
+		assert.False(t, restart)
 
 		runsIds = append(runsIds, run.ID)
 	}
@@ -903,7 +903,7 @@ func Test_Prune(t *testing.T) {
 	porm.Prune(tests.Context(t), jobID2)
 
 	cnt := pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps1.ID, pipeline.RunStatusCompleted)
-	assert.Equal(t, cnt, 20)
+	assert.Equal(t, 20, cnt)
 
 	cnt = pgtest.MustCount(t, db, "SELECT count(*) FROM pipeline_runs WHERE pipeline_spec_id = $1 AND state = $2", ps2.ID, pipeline.RunStatusCompleted)
 	assert.Equal(t, 2, cnt)

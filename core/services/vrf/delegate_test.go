@@ -233,7 +233,7 @@ func TestDelegate_ReorgAttackProtection(t *testing.T) {
 	// Wait until the log is present
 	waitForChannel(t, added, time.Second, "request not added to the queue")
 	reqs := listener.ReqsConfirmedAt()
-	if assert.Equal(t, 1, len(reqs)) {
+	if assert.Len(t, reqs, 1) {
 		// It should be confirmed at 10+6*(2^2)
 		assert.Equal(t, uint64(34), reqs[0])
 	}
@@ -331,7 +331,7 @@ func TestDelegate_ValidLog(t *testing.T) {
 		waitForChannel(t, runComplete, 2*time.Second, "pipeline not complete")
 		runs, err := vuni.prm.GetAllRuns(ctx)
 		require.NoError(t, err)
-		require.Equal(t, i+1, len(runs))
+		require.Len(t, runs, i+1)
 		assert.False(t, runs[0].FatalErrors.HasError())
 		// Should have 4 tasks all completed
 		assert.Len(t, runs[0].PipelineTaskRuns, 4)
@@ -406,7 +406,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 	// Should create a run that errors in the vrf task
 	runs, err := vuni.prm.GetAllRuns(ctx)
 	require.NoError(t, err)
-	require.Equal(t, len(runs), 1)
+	require.Len(t, runs, 1)
 	for _, tr := range runs[0].PipelineTaskRuns {
 		if tr.Type == pipeline.TaskTypeVRF {
 			assert.Contains(t, tr.Error.String, "invalid key hash")
@@ -422,7 +422,7 @@ func TestDelegate_InvalidLog(t *testing.T) {
 
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
-	require.Len(t, txes, 0)
+	require.Empty(t, txes)
 }
 
 func TestFulfilledCheck(t *testing.T) {
@@ -470,7 +470,7 @@ func TestFulfilledCheck(t *testing.T) {
 	// Should consume the log with no run
 	runs, err := vuni.prm.GetAllRuns(ctx)
 	require.NoError(t, err)
-	require.Equal(t, len(runs), 0)
+	require.Empty(t, runs)
 }
 
 func Test_CheckFromAddressMaxGasPrices(t *testing.T) {

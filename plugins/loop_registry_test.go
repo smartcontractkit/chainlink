@@ -20,7 +20,7 @@ func TestPluginPortManager(t *testing.T) {
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
-	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
+	require.Positive(t, pFoo.EnvCfg.PrometheusPort)
 	// test duplicate
 	pNil, err := m.Register("foo")
 	require.ErrorIs(t, err, ErrExists)
@@ -109,7 +109,7 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Test case 1: Register new loop
 	registeredLoop, err := loopRegistry.Register("testID")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
 
 	envCfg := registeredLoop.EnvCfg

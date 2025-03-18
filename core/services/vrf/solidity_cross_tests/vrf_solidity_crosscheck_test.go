@@ -366,7 +366,7 @@ func TestVRF_MarshalProof(t *testing.T) {
 		require.NoError(t, err, "failed to marshal VRF proof for on-chain verification")
 		response, err := deployVRFTestHelper(t).RandomValueFromVRFProof(nil, mproof[:])
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
-		require.True(t, response.Cmp(proof.Output) == 0,
+		require.Equal(t, response.Cmp(proof.Output), 0,
 			"on-chain VRF output differs from off-chain!")
 		corruptionTargetByte := r.Int63n(int64(len(mproof)))
 		// Only the lower 160 bits of the word containing uWitness have any effect

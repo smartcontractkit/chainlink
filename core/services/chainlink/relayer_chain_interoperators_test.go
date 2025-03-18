@@ -221,7 +221,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				allChainsStats, cnt, err := cr.ChainStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allChainsStats, expectedChainCnt)
-				assert.Equal(t, cnt, len(allChainsStats))
+				assert.Len(t, allChainsStats, cnt)
 				assert.Len(t, cr.Slice(), expectedChainCnt)
 
 				// should be one relayer per chain and one service per relayer
@@ -232,7 +232,7 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				allNodeStats, cnt, err := cr.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, allNodeStats, expectedNodeCnt)
-				assert.Equal(t, cnt, len(allNodeStats))
+				assert.Len(t, allNodeStats, cnt)
 			}
 
 			gotRelayerNetworks := make(map[string]struct{})
@@ -277,9 +277,9 @@ func TestCoreRelayerChainInteroperators(t *testing.T) {
 				nodesStats, cnt, err := interops.NodeStatuses(testctx, 0, 0)
 				assert.NoError(t, err)
 				assert.Len(t, nodesStats, expectedNodeCnt)
-				assert.Equal(t, cnt, len(nodesStats))
+				assert.Len(t, nodesStats, cnt)
 			}
-			assert.EqualValues(t, gotRelayerNetworks, tt.expectedRelayerNetworks)
+			assert.EqualValues(t, tt.expectedRelayerNetworks, gotRelayerNetworks)
 
 			allRelayerIds := [][]types.RelayID{
 				tt.expectedEVMRelayerIds,

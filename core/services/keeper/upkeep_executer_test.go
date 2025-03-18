@@ -344,12 +344,12 @@ func Test_UpkeepExecuter_PerformsUpkeep_Error(t *testing.T) {
 	head := newHead()
 	executer.OnNewLongestChain(testutils.Context(t), &head)
 
-	g.Eventually(wasCalled.Load).Should(gomega.Equal(true))
+	g.Eventually(wasCalled.Load).Should(gomega.BeTrue())
 
 	txStore := txmgr.NewTxStore(db, logger.TestLogger(t))
 	txes, err := txStore.GetAllTxes(testutils.Context(t))
 	require.NoError(t, err)
-	require.Len(t, txes, 0)
+	require.Empty(t, txes)
 }
 
 func ptr[T any](t T) *T { return &t }
