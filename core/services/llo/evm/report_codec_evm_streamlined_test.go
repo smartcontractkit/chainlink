@@ -26,7 +26,8 @@ func TestReportCodecEVMStreamlined(t *testing.T) {
 	t.Run("Encode", func(t *testing.T) {
 		t.Run("one value, without feed ID - fits into one evm word", func(t *testing.T) {
 			cd := llotypes.ChannelDefinition{
-				Opts: []byte(`{"abi":[{"type":"int160"}]}`),
+				ReportFormat: 42,
+				Opts:         []byte(`{"abi":[{"type":"int128"}]}`),
 			}
 			payload, err := codec.Encode(ctx, llo.Report{
 				ChannelID:             1,
@@ -37,9 +38,14 @@ func TestReportCodecEVMStreamlined(t *testing.T) {
 			}, cd)
 			require.NoError(t, err)
 			require.Len(t, payload, 32)
-			assert.Equal(t, "00000001", hex.EncodeToString(payload[:4]))                                  // channel ID
-			assert.Equal(t, "00000000499602d2", hex.EncodeToString(payload[4:12]))                        // timestamp
-			assert.Equal(t, "0000000000000000000000000000000042f693bf", hex.EncodeToString(payload[12:])) // value
+			// Report Format
+			assert.Equal(t, "0000002a", hex.EncodeToString(payload[:4]))
+			// Channel ID
+			assert.Equal(t, "00000001", hex.EncodeToString(payload[4:8]))
+			// Timestamp
+			assert.Equal(t, "00000000499602d2", hex.EncodeToString(payload[8:16]))
+			// Value
+			assert.Equal(t, "00000000000000000000000042f693bf", hex.EncodeToString(payload[16:]))
 		})
 		t.Run("one value, with feed ID - fits into two evm words", func(t *testing.T) {
 			feedID := "1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef"
