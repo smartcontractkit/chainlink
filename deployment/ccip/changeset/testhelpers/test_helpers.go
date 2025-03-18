@@ -11,8 +11,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"os/exec"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
@@ -1954,16 +1954,15 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr lo
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
 
-	tag := "solana-artifacts-localtest-2eeef629c303"
-	ok := true
-	// tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
+	tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
 	if !ok {
-		output, err := exec.CommandContext(ctx, "git", "rev-parse", "--show-toplevel").Output()
-		if err != nil {
-			return err
+		_, currentFile, _, _ := runtime.Caller(0)
+		deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
+		if lggr != nil {
+			lggr.Infof("Inferring release tag from the go.mod in: %s", deploymentDir)
 		}
 
-		version, err := GetSolanaCcipDependencyVersion(filepath.Join(strings.TrimSpace(string(output)), "go.mod"))
+		version, err := GetSolanaCcipDependencyVersion(filepath.Join(deploymentDir, "go.mod"))
 		if err != nil {
 			return err
 		}
@@ -1974,6 +1973,10 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr lo
 		}
 
 		tag = "solana-artifacts-localtest-" + version
+	}
+
+	if lggr != nil {
+		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
 	}
 
 	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {

@@ -13,8 +13,9 @@ runs:
     - name: Download Release Artifacts
       shell: bash
       run: |
-        curl -L -o artifacts.tar.gz "https://github.com/smartcontractkit/chainlink-ccip/releases/download/solana-artifacts-localtest-2eeef629c303/artifacts.tar.gz"
-        file artifacts.tar.gz
-        tar -xzvf artifacts.tar.gz
-        mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
-        cp -v target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        echo "Artifacts will be downloaded in test cases"
+        # curl -L -o artifacts.tar.gz "https://github.com/smartcontractkit/chainlink-ccip/releases/download/solana-artifacts-localtest-2eeef629c303/artifacts.tar.gz"
+        # file artifacts.tar.gz
+        # tar -xzvf artifacts.tar.gz
+        # mkdir -p /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
+        # cp -v target/deploy/*.so /home/runner/work/chainlink/chainlink/deployment/ccip/changeset/internal/solana_contracts
