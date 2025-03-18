@@ -286,9 +286,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		return string(addrBytes)
 	}
 
-	// TODO(gg): add more randomness/uniqueness to make sure oracles don't clash
+	// TODO(gg): add more randomness/uniqueness to make sure oracles don't clash for peer id
 
-	length := len(p2pKeyId.String())
+	length := len(p2pKeyId.Raw())
 	oracleCurrentNode := confighelper.OracleIdentityExtra{
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
@@ -304,7 +304,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x02),
-			PeerID:            p2pKeyId.String()[:length-2] + "2",
+			PeerID:            p2pKeyId.Raw()[:length-1] + "2",
 			TransmitAccount:   types.Account(createTransmitterVariant(0x02)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -315,7 +315,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x03),
-			PeerID:            p2pKeyId.String()[:length-2] + "3",
+			PeerID:            p2pKeyId.Raw()[:length-1] + "3",
 			TransmitAccount:   types.Account(createTransmitterVariant(0x03)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -326,7 +326,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		OracleIdentity: confighelper.OracleIdentity{
 			OnchainPublicKey:  onchainPkBytes,
 			OffchainPublicKey: createVariant(0x04),
-			PeerID:            p2pKeyId.String()[:length-2] + "4",
+			PeerID:            p2pKeyId.Raw()[:length-1] + "4",
 			TransmitAccount:   types.Account(createTransmitterVariant(0x04)),
 		},
 		ConfigEncryptionPublicKey: node.KeyBundle.ConfigEncryptionPublicKey(),
@@ -364,29 +364,20 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	signerAddresses := []common.Address{common.BytesToAddress(signerKeys[0]), common.HexToAddress("0xAD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0xCD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0x1D1479C185d32EB90533a08b36B3CFa5F84A0E6B")}
 	require.Greater(t, len(signerAddresses), 3, "Expected more than 3 signers")
 
+	_, err = operatorInstance.AcceptAuthorizedReceivers(contractOwner, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
+
 	// Convert transmitters to addresses (needed?)
-	transmitterAddresses := []common.Address{common.BytesToAddress(signerKeys[0]), common.HexToAddress("0xAD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0xCD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0x1D1479C185d32EB90533a08b36B3CFa5F84A0E6B")}
+	transmitterAddresses := []common.Address{primaryTransmitterKey.EIP55Address.Address(), common.HexToAddress("0xAD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0xCD1479C185d32EB90533a08b36B3CFa5F84A0E6B"), common.HexToAddress("0x1D1479C185d32EB90533a08b36B3CFa5F84A0E6B")}
 	require.Equalf(t, len(signerAddresses), len(transmitterAddresses), "Expected the same number of signers and transmitters")
 
-	// TODO(gg): need this?
-	// // Replace transmitter with forwarders
-	// var transmitterAddresses []common.Address
-
-	// for i := range workerNodes {
-	// 	t, _, err := workerNodes[i].GetForwarders()
-	// 	if err != nil {
-	// 		return nil, errors.New("cannot get forwarder from node")
-	// 	}
-	// 	if len(t.Data) < 1 {
-	// 		return nil, errors.New("no forwarders found on node")
-	// 	}
-	// 	transmitterAddresses = append(transmitterAddresses, common.HexToAddress(t.Data[0].Attributes.Address))
-	// }
+	// Replace transmitter with forwarders
+	// transmitterAddresses := []common.Address{forwarder.Address()}
 
 	onchainConfig, err := testhelpers.GenerateDefaultOCR2OnchainConfig(big.NewInt(1), big.NewInt(50000000000000000)) // MinimumAnswer MaximumAnswer
 	require.NoError(t, err, "Failed to generate default ocr2 on-chain configuration")
 
 	t.Logf("signerAddresses: %#v", signerAddresses)
+	t.Logf("transmitterAddresses: %#v", transmitterAddresses)
 	t.Logf("f: %d", f)
 	t.Logf("ok? %t", 3*f >= uint8(len(signerAddresses)))
 	_, err = dualAggregatorInstance.SetConfig(contractOwner, signerAddresses, transmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
