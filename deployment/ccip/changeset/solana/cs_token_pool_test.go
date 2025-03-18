@@ -201,14 +201,18 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 					_, _ = testhelpers.TransferOwnershipSolana(
 						t, &e, solChain, false,
 						ccipChangesetSolana.CCIPContractsToTransfer{
-							BurnMintTokenPools: []solana.PublicKey{poolConfigPDA},
+							BurnMintTokenPools: map[solana.PublicKey]solana.PublicKey{
+								poolConfigPDA: tokenAddress,
+							},
 						})
 					burnAndMintOwnedByTimelock[tokenAddress] = true
 				} else {
 					_, _ = testhelpers.TransferOwnershipSolana(
 						t, &e, solChain, false,
 						ccipChangesetSolana.CCIPContractsToTransfer{
-							LockReleaseTokenPools: []solana.PublicKey{poolConfigPDA},
+							LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{
+								poolConfigPDA: tokenAddress,
+							},
 						})
 					lockAndReleaseOwnedByTimelock[tokenAddress] = true
 				}
