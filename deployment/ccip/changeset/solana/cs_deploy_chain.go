@@ -302,10 +302,10 @@ func initializeFeeQuoter(
 	feeQuoterConfigPDA, _, _ := solState.FindFqConfigPDA(feeQuoterAddress)
 
 	instruction, err := solFeeQuoter.NewInitializeInstruction(
-		linkTokenAddress,
 		params.DefaultMaxFeeJuelsPerMsg,
 		ccipRouterProgram,
 		feeQuoterConfigPDA,
+		linkTokenAddress,
 		chain.DeployerKey.PublicKey(),
 		solana.SystemProgramID,
 		feeQuoterAddress,
