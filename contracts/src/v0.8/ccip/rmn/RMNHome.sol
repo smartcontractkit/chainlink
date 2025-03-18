@@ -74,20 +74,20 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
   error RevokingZeroDigestNotAllowed();
   error NoOpStateTransitionNotAllowed();
 
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct Node {
     bytes32 peerId; //            Used for p2p communication.
     bytes32 offchainPublicKey; // Observations are signed with this public key, and are only verified offchain.
   }
 
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct SourceChain {
     uint64 chainSelector; // ─╮ The Source chain selector.
     uint64 fObserve; // ──────╯ Maximum number of faulty observers; f+1 observers required to agree on an observation for this source chain.
     uint256 observerNodesBitmap; // ObserverNodesBitmap & (1<<i) == (1<<i) iff StaticConfig.nodes[i] is an observer for this source chain.
   }
 
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct StaticConfig {
     // No sorting requirement for nodes, but ensure that SourceChain.observerNodesBitmap in the home chain config &
     // Signer.nodeIndex in the remote chain configs are appropriately updated when changing this field.
@@ -95,6 +95,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
     bytes offchainConfig; // Offchain configuration for RMN nodes.
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct DynamicConfig {
     // No sorting requirement for source chains, it is most gas efficient to append new source chains to the right.
     SourceChain[] sourceChains;
@@ -103,7 +104,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
 
   /// @notice The main struct stored in the contract, containing the static and dynamic parts of the config as well as
   /// the version and the digest of the config.
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct VersionedConfig {
     uint32 version;
     bytes32 configDigest;
@@ -177,7 +178,7 @@ contract RMNHome is Ownable2StepMsgSender, ITypeAndVersion {
     return (versionedConfig, false);
   }
 
-  /// RMN depends on this function, if changing, please notify the RMN maintainers.
+  /// @dev RMN depends on this function, if changing, please notify the RMN maintainers.
   function getAllConfigs()
     external
     view

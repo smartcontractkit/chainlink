@@ -78,7 +78,7 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   }
 
   /// @dev Struct that contains the static configuration.
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint96 maxFeeJuelsPerMsg; // ─╮ Maximum fee that can be charged for a message.

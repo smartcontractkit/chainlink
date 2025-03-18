@@ -161,7 +161,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
 
   /// @notice CapabilityConfiguration is a struct that holds the capability configuration
   /// for a specific DON
-  /// RMN depends on this struct, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct CapabilityConfiguration {
     /// @notice The capability Id
     bytes32 capabilityId;
@@ -200,6 +200,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
     mapping(uint32 configCount => DONCapabilityConfig donConfig) config;
   }
 
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   struct DONInfo {
     /// @notice Computed. Auto-increment.
     uint32 id;
@@ -853,7 +854,7 @@ contract CapabilitiesRegistry is INodeInfoProvider, OwnerIsCreator, ITypeAndVers
 
   /// @notice Returns the list of configured DONs
   /// @return DONInfo[] The list of configured DONs
-  /// RMN depends on this function, if changing, please notify the RMN maintainers.
+  /// Note RMN depends on this struct, if changing, please notify the RMN maintainers.
   function getDONs() external view returns (DONInfo[] memory) {
     /// Minus one to account for s_nextDONId starting at index 1
     uint32 donId = s_nextDONId;
