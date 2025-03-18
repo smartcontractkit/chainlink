@@ -1928,35 +1928,6 @@ func DownloadTarGzReleaseAssetFromGithub(
 	return err
 }
 
-func GetLongShaFromGithub(ctx context.Context, owner string, repo string, sha string) (string, error) {
-	type GithubCommit struct {
-		Sha string `json:"sha"`
-	}
-
-	url := fmt.Sprintf(
-		"https://api.github.com/repos/%s/%s/commits?sha=%s&per_page=1",
-		owner,
-		repo,
-		sha,
-	)
-
-	return withGetRequest(ctx, url, func(res *http.Response) (string, error) {
-		if res.StatusCode != http.StatusOK {
-			return "", fmt.Errorf("request failed with status %d - could not retrieve long SHA from Github API (url = '%s')", res.StatusCode, url)
-		}
-
-		var parsed []GithubCommit
-		if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
-			return "", err
-		}
-
-		if len(parsed) == 0 {
-			return "", errors.New("failed to get long SHA")
-		}
-		return parsed[0].Sha, nil
-	})
-}
-
 func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 
@@ -1979,7 +1950,7 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
+func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, overwrite bool) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
@@ -1998,14 +1969,7 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 
 		tokens := strings.Split(version, "-")
 		if len(tokens) == 3 {
-			shortSha := tokens[len(tokens)-1]
-
-			longSha, err := GetLongShaFromGithub(ctx, ownr, repo, shortSha)
-			if err != nil {
-				return err
-			}
-
-			version = longSha
+			version = tokens[len(tokens)-1]
 		}
 
 		tag = "solana-artifacts-localtest-" + version
@@ -2018,7 +1982,24 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string) error {
 				return err
 			}
 
-			outFile, err := os.Create(outPath)
+			if overwrite {
+				outFile, err := os.Create(outPath)
+				if err != nil {
+					return err
+				}
+				defer outFile.Close()
+
+				if _, err := io.Copy(outFile, r); err != nil {
+					return err
+				}
+
+				return nil
+			}
+
+			outFile, err := os.OpenFile(outPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, os.ModePerm)
+			if errors.Is(err, os.ErrExist) {
+				return nil
+			}
 			if err != nil {
 				return err
 			}

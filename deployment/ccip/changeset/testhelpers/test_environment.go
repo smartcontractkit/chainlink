@@ -494,7 +494,7 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	downloadSolCcipProgramArtifactsOnce.Do(func() {
-		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath)
+		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath, false)
 		require.NoError(t, err)
 	})
 
