@@ -18,7 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	mocks3 "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+	keymocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	mocks2 "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 )
@@ -48,7 +48,7 @@ func TestManagerAgents(t *testing.T) {
 
 	lggr, _ := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 
-	ks := mocks3.NewCSA(t)
+	ks := keymocks.NewCSA(t)
 
 	tm := NewManager(tic, ks, lggr)
 	require.Equal(t, "*synchronization.telemetryIngressBatchClient", reflect.TypeOf(tm.endpoints[0].client).String())
@@ -148,10 +148,11 @@ func TestNewManager(t *testing.T) {
 
 	lggr, logObs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
 
-	ks := mocks3.NewCSA(t)
-
-	ks.On("GetAll").Return([]csakey.KeyV2{csakey.MustNewV2XXXTestingOnly(big.NewInt(0))}, nil)
-
+	ks := keymocks.NewCSA(t)
+	ks.On("EnsureKey", mock.Anything).Return(nil)
+	key := csakey.MustNewV2XXXTestingOnly(big.NewInt(0))
+	ks.On("GetAll").Return([]csakey.KeyV2{key}, nil)
+	ks.On("Get", key.ID()).Return(key, nil)
 	m := NewManager(tic, ks, lggr)
 
 	require.Equal(t, uint(123), m.bufferSize)
@@ -199,8 +200,8 @@ func TestCorrectEndpointRouting(t *testing.T) {
 	tic.On("Endpoints").Return(nil)
 
 	lggr, obsLogs := logger.TestLoggerObserved(t, zapcore.InfoLevel)
-	ks := mocks3.NewCSA(t)
 
+	ks := keymocks.NewCSA(t)
 	tm := NewManager(tic, ks, lggr)
 
 	type testEndpoint struct {

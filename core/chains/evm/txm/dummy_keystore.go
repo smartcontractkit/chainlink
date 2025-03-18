@@ -8,7 +8,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
 )
 
@@ -35,13 +34,6 @@ func (k *DummyKeystore) Add(privateKeyString string) error {
 	address := crypto.PubkeyToAddress(*publicKeyECDSA)
 	k.privateKeyMap[address] = privateKey
 	return nil
-}
-
-func (k *DummyKeystore) SignTx(_ context.Context, fromAddress common.Address, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error) {
-	if key, exists := k.privateKeyMap[fromAddress]; exists {
-		return types.SignTx(tx, types.LatestSignerForChainID(chainID), key)
-	}
-	return nil, fmt.Errorf("private key for address: %v not found", fromAddress)
 }
 
 func (k *DummyKeystore) SignMessage(ctx context.Context, address common.Address, data []byte) ([]byte, error) {

@@ -19,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -1415,8 +1415,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
-		DB:             db,
 		KeyStore:       keyStore.Eth(),
+		DB:             db,
 	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
@@ -2361,12 +2361,10 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		`,
 			dtTransmitterAddress.Address.String())
 
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
 		require.NoError(t, err)
 
@@ -2377,12 +2375,10 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 
 	t.Run("keys locked but job spec misconfigured", func(t *testing.T) {
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true

@@ -31,18 +31,19 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	evmlogger "github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -137,10 +138,11 @@ type coordinatorV2Universe struct {
 	batchCoordinatorContractAddress    common.Address
 }
 
-func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Master, ec *clienttest.Client) txmgrcommon.TxManager[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee] {
+func makeTestTxm(t *testing.T, txStore txmgr.TestEvmTxStore, keyStore keystore.Eth, ec *clienttest.Client) txmgrcommon.TxManager[*big.Int, *types.Head, common.Address, common.Hash, common.Hash, types.Nonce, gas.EvmFee] {
 	_, _, evmConfig := txmgr.MakeTestConfigs(t)
 	txmConfig := txmgr.NewEvmTxmConfig(evmConfig)
-	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), keyStore.Eth(), logger.TestLogger(t), nil, nil,
+	ks := keys.NewStore(keystore.NewEthSigner(keyStore, ec.ConfiguredChainID()))
+	txm := txmgr.NewEvmTxm(ec.ConfiguredChainID(), txmConfig, evmConfig.Transactions(), ks, logger.TestLogger(t), nil, nil,
 		nil, txStore, nil, nil, nil, nil, nil, nil)
 
 	return txm
@@ -2103,7 +2105,7 @@ func TestStartingCountsV1(t *testing.T) {
 	ec := clienttest.NewClient(t)
 	ec.On("ConfiguredChainID").Return(testutils.SimulatedChainID)
 	ec.On("LatestBlockHeight", mock.Anything).Return(big.NewInt(2), nil).Maybe()
-	txm := makeTestTxm(t, txStore, ks, ec)
+	txm := makeTestTxm(t, txStore, ks.Eth(), ec)
 	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		KeyStore:       ks.Eth(),
 		Client:         ec,

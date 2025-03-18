@@ -145,15 +145,15 @@ func (ks *cosmos) getByID(id string) (cosmoskey.Key, error) {
 	return key, nil
 }
 
-// CosmosLoopKeystore implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
+// CosmosLoopSigner implements the [github.com/smartcontractkit/chainlink-common/pkg/loop.Keystore] interface and
 // handles signing for Cosmos messages.
-type CosmosLoopKeystore struct {
+type CosmosLoopSigner struct {
 	Cosmos
 }
 
-var _ loop.Keystore = &CosmosLoopKeystore{}
+var _ loop.Keystore = &CosmosLoopSigner{}
 
-func (lk *CosmosLoopKeystore) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
+func (lk *CosmosLoopSigner) Sign(ctx context.Context, id string, hash []byte) ([]byte, error) {
 	k, err := lk.Get(id)
 	if err != nil {
 		return nil, err
@@ -166,7 +166,7 @@ func (lk *CosmosLoopKeystore) Sign(ctx context.Context, id string, hash []byte) 
 	return k.ToPrivKey().Sign(hash)
 }
 
-func (lk *CosmosLoopKeystore) Accounts(ctx context.Context) ([]string, error) {
+func (lk *CosmosLoopSigner) Accounts(ctx context.Context) ([]string, error) {
 	keys, err := lk.GetAll()
 	if err != nil {
 		return nil, err
@@ -174,7 +174,7 @@ func (lk *CosmosLoopKeystore) Accounts(ctx context.Context) ([]string, error) {
 
 	accounts := []string{}
 	for _, k := range keys {
-		accounts = append(accounts, k.PublicKeyStr())
+		accounts = append(accounts, k.ID())
 	}
 
 	return accounts, nil

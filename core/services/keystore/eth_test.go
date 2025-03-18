@@ -5,19 +5,14 @@ import (
 	"fmt"
 	"math/big"
 	"sort"
-	"sync/atomic"
 	"testing"
-	"time"
 
-	"github.com/ethereum/go-ethereum/accounts"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
@@ -336,55 +331,6 @@ func Test_EthKeyStore_GetRoundRobinAddress(t *testing.T) {
 	})
 }
 
-func Test_EthKeyStore_SignTx(t *testing.T) {
-	t.Parallel()
-
-	ctx := testutils.Context(t)
-
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-
-	chainID := big.NewInt(evmclient.NullClientChainID)
-	tx := cltest.NewLegacyTransaction(0, testutils.NewAddress(), big.NewInt(53), 21000, big.NewInt(1000000000), []byte{1, 2, 3, 4})
-
-	randomAddress := testutils.NewAddress()
-	_, err := ethKeyStore.SignTx(ctx, randomAddress, tx, chainID)
-	require.EqualError(t, err, "Key not found")
-
-	signed, err := ethKeyStore.SignTx(ctx, k.Address, tx, chainID)
-	require.NoError(t, err)
-
-	require.NotEqual(t, tx, signed)
-}
-
-func Test_EthKeyStore_SignMessage(t *testing.T) {
-	t.Parallel()
-
-	ctx := testutils.Context(t)
-
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	ethKeyStore := keyStore.Eth()
-
-	k, _ := cltest.MustInsertRandomKey(t, ethKeyStore)
-
-	pubKeyBytes := crypto.FromECDSAPub(&k.ToEcdsaPrivKey().PublicKey)
-
-	message := []byte("this is a message")
-
-	signedMessage, err := keyStore.Eth().SignMessage(ctx, k.Address, message)
-	require.NoError(t, err)
-	sigPublicKey, err := crypto.Ecrecover(accounts.TextHash(message), signedMessage)
-	require.NoError(t, err)
-	require.Equal(t, pubKeyBytes, sigPublicKey)
-
-	_, err = keyStore.Eth().SignMessage(ctx, utils.RandomAddress(), message)
-	require.ErrorContains(t, err, "Key not found")
-}
-
 func Test_EthKeyStore_E2E(t *testing.T) {
 	t.Parallel()
 
@@ -514,77 +460,6 @@ func Test_EthKeyStore_E2E(t *testing.T) {
 			assert.Empty(t, chainStates)
 		})
 	})
-}
-
-func Test_EthKeyStore_SubscribeToKeyChanges(t *testing.T) {
-	t.Parallel()
-
-	ctx := testutils.Context(t)
-
-	chDone := make(chan struct{})
-	defer func() { close(chDone) }()
-	db := pgtest.NewSqlxDB(t)
-	keyStore := cltest.NewKeyStore(t, db)
-	ks := keyStore.Eth()
-	chSub, unsubscribe := ks.SubscribeToKeyChanges(ctx)
-	defer unsubscribe()
-
-	var count atomic.Int32
-
-	assertCountAtLeast := func(expected int32) {
-		require.Eventually(
-			t,
-			func() bool { return count.Load() >= expected },
-			10*time.Second,
-			100*time.Millisecond,
-			"insufficient number of callbacks triggered. Expected %d, got %d", expected, count.Load(),
-		)
-	}
-
-	go func() {
-		for {
-			select {
-			case _, ok := <-chSub:
-				if !ok {
-					return
-				}
-				count.Add(1)
-			case <-chDone:
-				return
-			}
-		}
-	}()
-
-	drainAndReset := func() {
-		for len(chSub) > 0 {
-			<-chSub
-		}
-		count.Store(0)
-	}
-
-	err := ks.EnsureKeys(ctx, &cltest.FixtureChainID)
-	require.NoError(t, err)
-	assertCountAtLeast(1)
-
-	drainAndReset()
-
-	// Create the key includes a state, triggering notify
-	k1, err := ks.Create(ctx, testutils.FixtureChainID)
-	require.NoError(t, err)
-	assertCountAtLeast(1)
-
-	drainAndReset()
-
-	// Enabling the key for a new state triggers the notification callback again
-	require.NoError(t, ks.Add(ctx, k1.Address, testutils.SimulatedChainID))
-	require.NoError(t, ks.Enable(ctx, k1.Address, testutils.SimulatedChainID))
-	assertCountAtLeast(1)
-
-	drainAndReset()
-
-	// Disabling triggers a notify
-	require.NoError(t, ks.Disable(ctx, k1.Address, testutils.SimulatedChainID))
-	assertCountAtLeast(1)
 }
 
 func Test_EthKeyStore_Enable(t *testing.T) {

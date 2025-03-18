@@ -1285,13 +1285,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		Client:         ethClient,
 	})
 
@@ -1349,7 +1349,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	for _, re := range chainsAndConfig.Slice() {
+	for _, re := range legacyChains.Slice() {
 		servicetest.Run(t, re)
 	}
 	var newHeads evmtestutils.RawSub[*types.Head]
@@ -1359,7 +1359,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	legacyChains := chainsAndConfig.NewLegacyChains()
 	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice, nil, nil)
