@@ -278,6 +278,10 @@ jobs:
           echo "COUNT=50" >> $GITHUB_ENV
           echo "FUZZ_TIMEOUT_MINUTES=10">> $GITHUB_ENV
 
+      - name: Install flakeguard
+        shell: bash
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f6887061b2ea2ac7f0849f539fe36a8f6c7054f # flakguard@0.1.0
+        
       - name: Run tests
         if: ${{ matrix.type.should-run == 'true' }}
         id: run-tests
