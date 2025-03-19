@@ -142,6 +142,8 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 			}
 		}
 
+		// TODO: we need to expand/refactor the way labeled addresses are filtered
+		// see: https://smartcontract-it.atlassian.net/browse/CRE-363
 		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
 
 		for addr, tv := range forwarderAddrs {
