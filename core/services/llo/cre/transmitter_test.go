@@ -40,14 +40,14 @@ func Test_Transmitter(t *testing.T) {
 	require.NoError(t, err)
 
 	t.Run("invalid config", func(t *testing.T) {
-		req := buildRegistrationRequest(t, "myID123", []streamstypes.LLOStreamId{12345, 67890}, 2300)
+		req := buildRegistrationRequest(t, "myID123", []streamstypes.LLOStreamID{12345, 67890}, 2300)
 		_, err = tr.RegisterTrigger(t.Context(), req)
 		require.Error(t, err)
 	})
 
 	t.Run("two registrations", func(t *testing.T) {
-		req1 := buildRegistrationRequest(t, "wf1_trigger1", []streamstypes.LLOStreamId{12345, 67890}, 1000)
-		req2 := buildRegistrationRequest(t, "wf2_trigger1", []streamstypes.LLOStreamId{67890}, 3000)
+		req1 := buildRegistrationRequest(t, "wf1_trigger1", []streamstypes.LLOStreamID{12345, 67890}, 1000)
+		req2 := buildRegistrationRequest(t, "wf2_trigger1", []streamstypes.LLOStreamID{67890}, 3000)
 		respCh1, err := tr.RegisterTrigger(t.Context(), req1)
 		require.NoError(t, err)
 		respCh2, err := tr.RegisterTrigger(t.Context(), req2)
@@ -62,12 +62,11 @@ func Test_Transmitter(t *testing.T) {
 		require.Len(t, respCh1, 4) // every second
 		require.Len(t, respCh2, 1) // every 3 seconds
 	})
-
 }
 
-func buildRegistrationRequest(t *testing.T, triggerID string, streamIds []streamstypes.LLOStreamId, maxFrequencyMs uint64) capabilities.TriggerRegistrationRequest {
+func buildRegistrationRequest(t *testing.T, triggerID string, streamIDs []streamstypes.LLOStreamID, maxFrequencyMs uint64) capabilities.TriggerRegistrationRequest {
 	cfg := &streamstypes.LLOTriggerConfig{
-		StreamIds:      streamIds,
+		StreamIDs:      streamIDs,
 		MaxFrequencyMs: maxFrequencyMs,
 	}
 	wrappedCfg, err := values.WrapMap(cfg)

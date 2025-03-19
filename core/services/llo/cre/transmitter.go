@@ -177,13 +177,13 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	tsMs := p.Timestamp / 1000000 // nanoseconds -> milliseconds
-	if tsMs/uint64(t.config.TriggerTickerMinResolutionMs) == t.lastReportMs/uint64(t.config.TriggerTickerMinResolutionMs) {
+	tsMs := p.Timestamp / 1000000                                                                                           // nanoseconds -> milliseconds
+	if tsMs/uint64(t.config.TriggerTickerMinResolutionMs) == t.lastReportMs/uint64(t.config.TriggerTickerMinResolutionMs) { //nolint:gosec // disable G115
 		// ignore reports that are too frequent
 		return nil
 	}
 	t.lastReportMs = tsMs
-	alignedTsMs := tsMs - tsMs%uint64(t.config.TriggerTickerMinResolutionMs)
+	alignedTsMs := tsMs - tsMs%uint64(t.config.TriggerTickerMinResolutionMs) //nolint:gosec // disable G115
 	capResponse := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: t.CapabilityInfo.ID,
@@ -195,7 +195,7 @@ func (t *transmitter) processNewEvent(ctx context.Context, event *capabilities.O
 	t.eng.Debugw("ProcessReport pushing event", "eventID", p.EventID, "tsMs", tsMs, "alignedTsMs", alignedTsMs)
 	nIncludedSubscribers := 0
 	for _, sub := range t.subscribers {
-		if alignedTsMs%uint64(sub.config.MaxFrequencyMs) == 0 {
+		if alignedTsMs%sub.config.MaxFrequencyMs == 0 {
 			// include this subscriber
 			select {
 			case sub.ch <- capResponse:
@@ -240,7 +240,7 @@ func validateConfig(registerConfig *values.Map, capabilityConfig *TransmitterCon
 	if err := registerConfig.UnwrapTo(cfg); err != nil {
 		return nil, err
 	}
-	if int64(cfg.MaxFrequencyMs)%int64(capabilityConfig.TriggerTickerMinResolutionMs) != 0 {
+	if int64(cfg.MaxFrequencyMs)%int64(capabilityConfig.TriggerTickerMinResolutionMs) != 0 { //nolint:gosec // disable G115
 		return nil, fmt.Errorf("MaxFrequencyMs must be a multiple of %d", capabilityConfig.TriggerTickerMinResolutionMs)
 	}
 	return cfg, nil
