@@ -2,6 +2,7 @@ package grpc
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"encoding/hex"
 	"errors"
@@ -31,7 +32,7 @@ type client struct {
 	services.Service
 	eng *services.Engine
 
-	clientPrivKey   ed25519.PrivateKey
+	clientSigner    crypto.Signer
 	clientPubKeyHex string
 	serverPubKey    ed25519.PublicKey
 	serverURL       string
@@ -41,10 +42,10 @@ type client struct {
 }
 
 type ClientOpts struct {
-	Logger        logger.Logger
-	ClientPrivKey ed25519.PrivateKey
-	ServerPubKey  ed25519.PublicKey
-	ServerURL     string
+	Logger       logger.Logger
+	ClientSigner crypto.Signer
+	ServerPubKey ed25519.PublicKey
+	ServerURL    string
 }
 
 func NewClient(opts ClientOpts) Client {
@@ -53,8 +54,8 @@ func NewClient(opts ClientOpts) Client {
 
 func newClient(opts ClientOpts) Client {
 	c := &client{
-		clientPrivKey:   opts.ClientPrivKey,
-		clientPubKeyHex: hex.EncodeToString(opts.ClientPrivKey.Public().(ed25519.PublicKey)),
+		clientSigner:    opts.ClientSigner,
+		clientPubKeyHex: hex.EncodeToString(opts.ClientSigner.Public().(ed25519.PublicKey)),
 		serverPubKey:    opts.ServerPubKey,
 		serverURL:       opts.ServerURL,
 	}
@@ -67,7 +68,7 @@ func newClient(opts ClientOpts) Client {
 }
 
 func (c *client) start(context.Context) error {
-	cMtls, err := mtls.NewTransportCredentials(c.clientPrivKey, []ed25519.PublicKey{c.serverPubKey})
+	cMtls, err := mtls.NewTransportSigner(c.clientSigner, []ed25519.PublicKey{c.serverPubKey})
 	if err != nil {
 		return fmt.Errorf("failed to create client mTLS credentials: %w", err)
 	}

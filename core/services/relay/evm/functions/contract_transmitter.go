@@ -18,8 +18,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -27,10 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/encoding"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
-
-type roundRobinKeystore interface {
-	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
-}
 
 type txManager interface {
 	CreateTransaction(ctx context.Context, txRequest txmgr.TxRequest) (tx txmgr.Tx, err error)
@@ -58,8 +54,7 @@ type contractTransmitter struct {
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
-	chainID                     *big.Int
-	keystore                    roundRobinKeystore
+	keystore                    keys.RoundRobin
 }
 
 var _ FunctionsContractTransmitter = &contractTransmitter{}
@@ -81,8 +76,7 @@ func NewFunctionsContractTransmitter(
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
-	chainID *big.Int,
-	keystore roundRobinKeystore,
+	keystore keys.RoundRobin,
 ) (*contractTransmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
@@ -116,13 +110,12 @@ func NewFunctionsContractTransmitter(
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
 		strategy:                    strategy,
 		checker:                     checker,
-		chainID:                     chainID,
 		keystore:                    keystore,
 	}, nil
 }
 
 func (oc *contractTransmitter) createEthTransaction(ctx context.Context, toAddress common.Address, payload []byte) error {
-	roundRobinFromAddress, err := oc.keystore.GetRoundRobinAddress(ctx, oc.chainID, oc.fromAddresses...)
+	roundRobinFromAddress, err := oc.keystore.GetNextAddress(ctx, oc.fromAddresses...)
 	if err != nil {
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}

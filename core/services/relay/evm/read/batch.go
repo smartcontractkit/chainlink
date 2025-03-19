@@ -14,8 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-
-	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 )
 
 var errEmptyOutput = errors.New("rpc call output is empty (make sure that the contract method exists and rpc is healthy)")
@@ -72,12 +70,16 @@ type BatchCaller interface {
 	BatchCall(ctx context.Context, blockNumber uint64, batchRequests BatchCall) (BatchResult, error)
 }
 
+type EVMBatchCaller interface {
+	BatchCallContext(context.Context, []rpc.BatchElem) error
+}
+
 // dynamicLimitedBatchCaller makes batched rpc calls and perform retries by reducing the batch size on each retry.
 type dynamicLimitedBatchCaller struct {
 	bc *defaultEvmBatchCaller
 }
 
-func NewDynamicLimitedBatchCaller(lggr logger.Logger, codec types.Codec, evmClient client.Client, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint) BatchCaller {
+func NewDynamicLimitedBatchCaller(lggr logger.Logger, codec types.Codec, evmClient EVMBatchCaller, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint) BatchCaller {
 	return &dynamicLimitedBatchCaller{
 		bc: newDefaultEvmBatchCaller(lggr, evmClient, codec, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit),
 	}
@@ -89,7 +91,7 @@ func (c *dynamicLimitedBatchCaller) BatchCall(ctx context.Context, blockNumber u
 
 type defaultEvmBatchCaller struct {
 	lggr                  logger.Logger
-	evmClient             client.Client
+	evmClient             EVMBatchCaller
 	codec                 types.Codec
 	batchSizeLimit        uint
 	parallelRpcCallsLimit uint
@@ -100,7 +102,7 @@ type defaultEvmBatchCaller struct {
 // batchCallLimit defines the maximum number of calls for BatchCallLimit method, pass 0 to keep the default.
 // backOffMultiplier defines the back-off strategy for retries on BatchCallDynamicLimitRetries method, pass 0 to keep the default.
 func newDefaultEvmBatchCaller(
-	lggr logger.Logger, evmClient client.Client, codec types.Codec, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
+	lggr logger.Logger, evmClient EVMBatchCaller, codec types.Codec, batchSizeLimit, backOffMultiplier, parallelRpcCallsLimit uint,
 ) *defaultEvmBatchCaller {
 	batchSize := uint(DefaultRpcBatchSizeLimit)
 	if batchSizeLimit > 0 {

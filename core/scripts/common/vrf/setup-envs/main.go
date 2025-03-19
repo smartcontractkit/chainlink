@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
@@ -128,7 +129,7 @@ func main() {
 	fmt.Println("Using Coordinator type:", *coordinatorType)
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
-		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+		helpers.PanicErr(errors.New("simulation block must be 'pending' or 'latest'"))
 	}
 
 	fundingAmount := decimal.RequireFromString(*nodeSendingKeyFundingAmount).BigInt()

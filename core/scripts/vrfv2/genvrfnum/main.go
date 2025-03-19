@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"runtime"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -86,9 +87,9 @@ func main() {
 				preSeed := preseed(keyHash, sender, *subID, nonce)
 				record = append(record,
 					keyHash.String(), sender.String(), // keyHash, sender addr
-					fmt.Sprintf("%d", *subID), fmt.Sprintf("%d", nonce), hexutil.Encode(preSeed[:]), // subId, nonce, preseed
-					*blockhashStr, fmt.Sprintf("%d", *blockNum), // blockhash, blocknum
-					fmt.Sprintf("%d", *cbGasLimit), fmt.Sprintf("%d", *numWords)) // cb gas limit, num words
+					strconv.FormatUint(*subID, 10), strconv.FormatUint(nonce, 10), hexutil.Encode(preSeed[:]), // subId, nonce, preseed
+					*blockhashStr, strconv.FormatUint(*blockNum, 10), // blockhash, blocknum
+					strconv.FormatUint(uint64(*cbGasLimit), 10), strconv.FormatUint(uint64(*numWords), 10)) // cb gas limit, num words
 
 				preseedData := proof.PreSeedDataV2{
 					PreSeed:          preSeed,

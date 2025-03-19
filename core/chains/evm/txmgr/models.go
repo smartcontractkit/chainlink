@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
 
@@ -24,7 +24,7 @@ type (
 	Reaper                 = txmgr.Reaper[*big.Int]
 	TxStore                = txmgrtypes.TxStore[common.Address, *big.Int, common.Hash, common.Hash, *evmtypes.Receipt, evmtypes.Nonce, gas.EvmFee]
 	TransactionStore       = txmgrtypes.TransactionStore[common.Address, *big.Int, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	KeyStore               = txmgrtypes.KeyStore[common.Address, *big.Int]
+	KeyStore               = txmgrtypes.KeyStore[common.Address]
 	TxAttemptBuilder       = txmgrtypes.TxAttemptBuilder[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
 	NonceTracker           = txmgrtypes.SequenceTracker[common.Address, evmtypes.Nonce]
 	TransmitCheckerFactory = txmgr.TransmitCheckerFactory[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
@@ -45,7 +45,7 @@ type (
 	Finalizer              = txmgrtypes.Finalizer[common.Hash, *evmtypes.Head]
 )
 
-var _ KeyStore = (keystore.Eth)(nil) // check interface in txmgr to avoid circular import
+var _ KeyStore = (keys.Addresses)(nil) // check interface in txmgr to avoid circular import
 
 const (
 	// TransmitCheckerTypeSimulate is a checker that simulates the transaction before executing on

@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
+	"errors"
 
 	"github.com/smartcontractkit/chainlink-automation/pkg/v3/types"
 	ocr2keepers "github.com/smartcontractkit/chainlink-common/pkg/types/automation"
@@ -30,7 +30,7 @@ func NewUpkeepProvider(activeUpkeeps ActiveUpkeepList, bs *BlockSubscriber, lp l
 func (p *upkeepProvider) GetActiveUpkeeps(_ context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock := p.bs.latestBlock.Load()
 	if latestBlock == nil {
-		return nil, fmt.Errorf("no latest block found when fetching active upkeeps")
+		return nil, errors.New("no latest block found when fetching active upkeeps")
 	}
 	var payloads []ocr2keepers.UpkeepPayload
 	for _, uid := range p.activeUpkeeps.View(types.ConditionTrigger) {

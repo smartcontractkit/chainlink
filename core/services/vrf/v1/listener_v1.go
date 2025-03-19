@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -153,7 +154,7 @@ func (lsn *Listener) Start(ctx context.Context) error {
 		go lsn.RunLogListener([]func(){unsubscribeLogs}, spec.MinIncomingConfirmations)
 		go lsn.RunHeadListener(unsubscribeHeadBroadcaster)
 
-		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", fmt.Sprint(lsn.Job.ID))
+		lsn.MailMon.Monitor(lsn.ReqLogs, "VRFListener", "RequestLogs", strconv.Itoa(int(lsn.Job.ID)))
 		return nil
 	})
 }

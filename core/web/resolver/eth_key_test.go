@@ -71,8 +71,8 @@ func TestResolver_ETHKeys(t *testing.T) {
 		},
 	}
 	gError := errors.New("error")
-	keysError := fmt.Errorf("error getting unlocked keys: %v", gError)
-	statesError := fmt.Errorf("error getting key states: %v", gError)
+	keysError := fmt.Errorf("error getting unlocked keys: %w", gError)
+	statesError := fmt.Errorf("error getting key states: %w", gError)
 
 	evmMockConfig := mockEvmConfig{linkAddr: "0x5431F5F973781809D18643b87B44921b11355d81", gasEstimatorMock: mocks2.NewGasEstimator(t)}
 	evmMockConfig.gasEstimatorMock.On("PriceMaxKey", mock.Anything).Return(assets.NewWeiI(1))

@@ -202,7 +202,7 @@ func TestParseOutput(t *testing.T) {
 		},
 		{
 			name:       "has err",
-			dataAndErr: rpclib.DataAndErr{Outputs: []any{"abc"}, Err: fmt.Errorf("some err")},
+			dataAndErr: rpclib.DataAndErr{Outputs: []any{"abc"}, Err: errors.New("some err")},
 			outputIdx:  0,
 			expErr:     true,
 		},

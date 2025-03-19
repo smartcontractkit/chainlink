@@ -494,7 +494,7 @@ func TestShell_Profile(t *testing.T) {
 
 	ents, err := os.ReadDir(tDir)
 	require.NoError(t, err)
-	require.Greater(t, len(ents), 0, "ents %+v", ents)
+	require.NotEmpty(t, ents, "ents %+v", ents)
 }
 
 func TestShell_Profile_Unauthenticated(t *testing.T) {

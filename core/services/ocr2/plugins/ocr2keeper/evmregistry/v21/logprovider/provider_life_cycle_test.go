@@ -1,7 +1,7 @@
 package logprovider
 
 import (
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -174,7 +174,7 @@ func TestEventLogProvider_RefreshActiveUpkeeps(t *testing.T) {
 
 	newIds, err := p.RefreshActiveUpkeeps(ctx)
 	require.NoError(t, err)
-	require.Len(t, newIds, 0)
+	require.Empty(t, newIds)
 	mp.On("HasFilter", p.filterName(core.GenUpkeepID(types.LogTrigger, "2222").BigInt())).Return(true)
 	newIds, err = p.RefreshActiveUpkeeps(
 		ctx,
@@ -210,7 +210,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				FilterSelector:  0,
 				Topic0:          eventSig,
 			},
-			fmt.Errorf("invalid contract address: zeroed"),
+			errors.New("invalid contract address: zeroed"),
 		},
 		{
 			"invalid topic0",
@@ -218,7 +218,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				ContractAddress: contractAddress,
 				FilterSelector:  0,
 			},
-			fmt.Errorf("invalid topic0: zeroed"),
+			errors.New("invalid topic0: zeroed"),
 		},
 		{
 			"success",
@@ -227,7 +227,7 @@ func TestLogEventProvider_ValidateLogTriggerConfig(t *testing.T) {
 				FilterSelector:  8,
 				Topic0:          eventSig,
 			},
-			fmt.Errorf("invalid filter selector: larger or equal to 8"),
+			errors.New("invalid filter selector: larger or equal to 8"),
 		},
 	}
 

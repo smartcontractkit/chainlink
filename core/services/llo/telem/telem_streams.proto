@@ -24,6 +24,8 @@ message LLOBridgeTelemetry {
     int64 observation_timestamp = 15;
 }
 
+// LLOObservationTelemetry packet sent for each stream on every call to
+// Observation (once per round)
 message LLOObservationTelemetry {
     uint32 stream_id = 1;
     int32 stream_value_type = 2;

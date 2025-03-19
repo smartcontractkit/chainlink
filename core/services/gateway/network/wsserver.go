@@ -27,6 +27,29 @@ type WebSocketServerConfig struct {
 	HandshakeTimeoutMillis uint32
 }
 
+const (
+	defaultRWTimeoutMillis = 10_000
+	defaultMsgSizeBytes    = 1_000_000
+)
+
+func (c *WebSocketServerConfig) applyDefaults() {
+	if c.HTTPServerConfig.ReadTimeoutMillis == 0 {
+		c.HTTPServerConfig.ReadTimeoutMillis = defaultRWTimeoutMillis
+	}
+	if c.HTTPServerConfig.WriteTimeoutMillis == 0 {
+		c.HTTPServerConfig.WriteTimeoutMillis = defaultRWTimeoutMillis
+	}
+	if c.HTTPServerConfig.RequestTimeoutMillis == 0 {
+		c.HTTPServerConfig.RequestTimeoutMillis = defaultRWTimeoutMillis
+	}
+	if c.HTTPServerConfig.MaxRequestBytes == 0 {
+		c.HTTPServerConfig.MaxRequestBytes = defaultMsgSizeBytes
+	}
+	if c.HandshakeTimeoutMillis == 0 {
+		c.HandshakeTimeoutMillis = defaultRWTimeoutMillis
+	}
+}
+
 type webSocketServer struct {
 	services.StateMachine
 	config            *WebSocketServerConfig
@@ -40,6 +63,7 @@ type webSocketServer struct {
 }
 
 func NewWebSocketServer(config *WebSocketServerConfig, acceptor ConnectionAcceptor, lggr logger.Logger) WebSocketServer {
+	config.applyDefaults()
 	baseCtx, cancelBaseCtx := context.WithCancel(context.Background())
 	upgrader := &websocket.Upgrader{
 		HandshakeTimeout: time.Duration(config.HandshakeTimeoutMillis) * time.Millisecond,
@@ -78,13 +102,13 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	}
 	authBytes, err := base64.StdEncoding.DecodeString(authHeader)
 	if err != nil {
-		s.lggr.Error("received auth header can't be base64-decoded", err)
+		s.lggr.Errorw("received auth header can't be base64-decoded", "err", err)
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
 	attemptId, challenge, err := s.acceptor.StartHandshake(authBytes)
 	if err != nil {
-		s.lggr.Error("received invalid auth header", err)
+		s.lggr.Errorw("received invalid auth header", "err", err)
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
@@ -94,22 +118,23 @@ func (s *webSocketServer) handleRequest(w http.ResponseWriter, r *http.Request) 
 	hdr.Add(WsServerHandshakeChallengeHeaderName, challengeStr)
 	conn, err := s.upgrader.Upgrade(w, r, hdr)
 	if err != nil {
-		s.lggr.Error("failed websocket upgrade", err)
+		s.lggr.Errorw("failed websocket upgrade", "err", err)
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return
 	}
 
+	conn.SetReadLimit(s.config.MaxRequestBytes)
 	msgType, response, err := conn.ReadMessage()
 	if err != nil || msgType != websocket.BinaryMessage {
-		s.lggr.Error("invalid handshake message", msgType, err)
+		s.lggr.Errorw("invalid handshake message", "msgType", msgType, "err", err)
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return
 	}
 
 	if err = s.acceptor.FinalizeHandshake(attemptId, response, conn); err != nil {
-		s.lggr.Error("unable to finalize handshake", err)
+		s.lggr.Errorw("unable to finalize handshake", "err", err)
 		conn.Close()
 		s.acceptor.AbortHandshake(attemptId)
 		return

@@ -73,7 +73,7 @@ func TestCodec_WrapUnwrap(t *testing.T) {
 	// correct reports but wrong signatures
 	unwrapped, err := codec.Unwrap(wrapped)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(unwrapped))
+	require.Len(t, unwrapped, 2)
 	require.Equal(t, price1.Bytes(), unwrapped[0].BenchmarkPrice)
 	require.Equal(t, price2.Bytes(), unwrapped[1].BenchmarkPrice)
 	require.Equal(t, timestamp1, unwrapped[0].ObservationTimestamp)

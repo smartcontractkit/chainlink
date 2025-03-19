@@ -53,7 +53,7 @@ func (k *Keeper) streamLogs(ctx context.Context, pattern string, grep, vgrep []s
 	}
 
 	if len(containerNames) == 0 {
-		panic(fmt.Sprintf("no container names matching regex: %s", pattern))
+		panic("no container names matching regex: " + pattern)
 	}
 
 	containerChannels := make([]chan string, len(containerNames))

@@ -86,9 +86,9 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	require.True(t, ok, "Expected Renders[0] to be *cmd.EVMForwarderPresenter, got %T", r.Renders[0])
 
 	// Assert fwdr is listed
-	require.Nil(t, client.ListForwarders(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListForwarders(cltest.EmptyCLIContext()))
 	fwds := *r.Renders[1].(*cmd.EVMForwarderPresenters)
-	require.Equal(t, 1, len(fwds))
+	require.Len(t, fwds, 1)
 	assert.Equal(t, createOutput.ID, fwds[0].ID)
 
 	// Delete fwdr
@@ -101,10 +101,10 @@ func TestShell_TrackEVMForwarder(t *testing.T) {
 	require.NoError(t, client.DeleteForwarder(c))
 
 	// Assert fwdr is not listed
-	require.Nil(t, client.ListForwarders(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListForwarders(cltest.EmptyCLIContext()))
 	require.Len(t, r.Renders, 3)
 	fwds = *r.Renders[2].(*cmd.EVMForwarderPresenters)
-	require.Equal(t, 0, len(fwds))
+	require.Empty(t, fwds)
 }
 
 func TestShell_TrackEVMForwarder_BadAddress(t *testing.T) {
