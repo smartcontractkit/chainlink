@@ -37,15 +37,15 @@ var (
 		// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
 		// If we want to produce a report every 20 seconds we would set DeltaRound to 10s
 		// At a ~2s block time, this gives us a commit report every ~10 blocks.
-		DeltaRound:                  5 * time.Second,
-		DeltaGrace:                  2 * time.Second,
+		DeltaRound:                  10 * time.Second,
+		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage:                              25 * time.Second,
 		Rmax:                                    3,
 		MaxDurationQuery:                        7 * time.Second,
 		MaxDurationObservation:                  13 * time.Second,
-		MaxDurationShouldAcceptAttestedReport:   7 * time.Second,
+		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 	}
 
@@ -66,19 +66,19 @@ var (
 var (
 	// ExecOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see ExecOCRParamsForEthereum).
 	ExecOCRParams = types.OCRParameters{
-		DeltaProgress:               100 * time.Second,
+		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
 		DeltaRound:                  2 * time.Second,
-		DeltaGrace:                  2 * time.Second,
+		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
 		Rmax:       3,
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
-		MaxDurationQuery:                        200 * time.Millisecond,
+		MaxDurationQuery:                        100 * time.Millisecond,
 		MaxDurationObservation:                  13 * time.Second,
-		MaxDurationShouldAcceptAttestedReport:   7 * time.Second,
+		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
 	}
 
