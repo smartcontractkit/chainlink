@@ -9,18 +9,21 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
 
-func BenchmarkEthConfirmer(t *testing.B) {
-	db := testutils.NewSqlxDB(t)
-	txStore := cltest.NewTestTxStore(t, db)
-	ethClient := clienttest.NewClientWithDefaultChainID(t)
-	evmcfg := configtest.NewChainScopedConfig(t, func(c *toml.EVMConfig) {
+func BenchmarkEthConfirmer(b *testing.B) {
+	db := testutils.NewSqlxDB(b)
+	txStore := cltest.NewTestTxStore(b, db)
+	ethClient := clienttest.NewClientWithDefaultChainID(b)
+	evmcfg := configtest.NewChainScopedConfig(b, func(c *toml.EVMConfig) {
 		c.GasEstimator.PriceMax = assets.GWei(500)
 	})
 
@@ -31,32 +34,33 @@ func BenchmarkEthConfirmer(t *testing.B) {
 	}
 	head.IsFinalized.Store(true)
 
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKeyReturningState(t, ethKeyStore)
-	ec := newEthConfirmer(t, txStore, ethClient, evmcfg, ethKeyStore, nil)
+	memKeystore := keystest.NewMemoryChainStore()
+	ethKeyStore := keys.NewChainStore(memKeystore, ethClient.ConfiguredChainID())
+	fromAddress := memKeystore.MustCreate(b)
+	ec := newEthConfirmer(b, txStore, ethClient, evmcfg, ethKeyStore, nil)
 	ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Maybe()
-	ctx := tests.Context(t)
+	ctx := tests.Context(b)
 
-	t.ResetTimer()
-	for n := 0; n < t.N; n++ {
-		etx1 := mustInsertConfirmedEthTxWithReceipt(t, txStore, fromAddress, 0, blockNum)
-		etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(t, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		etx1 := mustInsertConfirmedEthTxWithReceipt(b, txStore, fromAddress, 0, blockNum)
+		etx2 := mustInsertUnconfirmedTxWithBroadcastAttempts(b, txStore, 4, fromAddress, 1, blockNum, assets.NewWeiI(1))
 
 		var err error
-		t.StartTimer()
+		b.StartTimer()
 		err = ec.CheckForConfirmation(ctx, &head)
-		t.StopTimer()
-		require.NoError(t, err)
+		b.StopTimer()
+		require.NoError(b, err)
 
 		etx1, err = txStore.FindTxWithAttempts(ctx, etx1.ID)
-		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxConfirmed, etx1.State)
+		require.NoError(b, err)
+		require.Equal(b, txmgrcommon.TxConfirmed, etx1.State)
 
 		etx2, err = txStore.FindTxWithAttempts(ctx, etx2.ID)
-		require.NoError(t, err)
-		require.Equal(t, txmgrcommon.TxUnconfirmed, etx2.State)
+		require.NoError(b, err)
+		require.Equal(b, txmgrcommon.TxUnconfirmed, etx2.State)
 
-		deleteTx(ctx, t, &etx1, db)
-		deleteTx(ctx, t, &etx2, db)
+		deleteTx(ctx, b, &etx1, db)
+		deleteTx(ctx, b, &etx2, db)
 	}
 }

@@ -1026,7 +1026,7 @@ observationSource = """
 			}
 			metaLock.Lock()
 			defer metaLock.Unlock()
-			assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+			assert.Empty(t, expectedMeta, "expected metadata %v", expectedMeta)
 		})
 	}
 }
@@ -1256,7 +1256,7 @@ observationSource = """
 		}
 		metaLock.Lock()
 		defer metaLock.Unlock()
-		assert.Len(t, expectedMeta, 0, "expected metadata %v", expectedMeta)
+		assert.Empty(t, expectedMeta, "expected metadata %v", expectedMeta)
 	})
 }
 
@@ -1285,13 +1285,13 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	kst := cltest.NewKeyStore(t, db)
 	require.NoError(t, kst.Unlock(ctx, cltest.Password))
 
-	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		ChainConfigs:   cfg.EVMConfigs(),
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		Client:         ethClient,
 	})
 
@@ -1349,7 +1349,7 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 	ethClient.On("HeadByHash", mock.Anything, h41.Hash).Return(&h41, nil).Maybe()
 	ethClient.On("HeadByHash", mock.Anything, h42.Hash).Return(&h42, nil).Maybe()
 
-	for _, re := range chainsAndConfig.Slice() {
+	for _, re := range legacyChains.Slice() {
 		servicetest.Run(t, re)
 	}
 	var newHeads evmtestutils.RawSub[*types.Head]
@@ -1359,7 +1359,6 @@ func TestIntegration_BlockHistoryEstimator(t *testing.T) {
 		t.Fatal("timed out waiting for app to subscribe")
 	}
 
-	legacyChains := chainsAndConfig.NewLegacyChains()
 	chain := evmtest.MustGetDefaultChain(t, legacyChains)
 	estimator := chain.GasEstimator()
 	gasPrice, gasLimit, err := estimator.GetFee(testutils.Context(t), nil, 500_000, maxGasPrice, nil, nil)
@@ -1402,13 +1401,13 @@ func triggerAllKeys(t *testing.T, app *cltest.TestApplication) {
 func assertPricesUint256(t *testing.T, usd, eur, jpy *big.Int, consumer *multiwordconsumer_wrapper.MultiWordConsumer) {
 	haveUsd, err := consumer.UsdInt(nil)
 	require.NoError(t, err)
-	assert.True(t, usd.Cmp(haveUsd) == 0)
+	assert.Equal(t, usd.Cmp(haveUsd), 0)
 	haveEur, err := consumer.EurInt(nil)
 	require.NoError(t, err)
-	assert.True(t, eur.Cmp(haveEur) == 0)
+	assert.Equal(t, eur.Cmp(haveEur), 0)
 	haveJpy, err := consumer.JpyInt(nil)
 	require.NoError(t, err)
-	assert.True(t, jpy.Cmp(haveJpy) == 0)
+	assert.Equal(t, jpy.Cmp(haveJpy), 0)
 }
 
 func ptr[T any](v T) *T { return &v }
@@ -1416,13 +1415,13 @@ func ptr[T any](v T) *T { return &v }
 func assertPipelineTaskRunsSuccessful(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
-		require.True(t, run.Error.IsZero(), fmt.Sprintf("pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero()))
+		require.True(t, run.Error.IsZero(), "pipeline.Task run failed (idx: %v, dotID: %v, error: '%v')", i, run.GetDotID(), run.Error.ValueOrZero())
 	}
 }
 
 func assertPipelineTaskRunsErrored(t testing.TB, runs []pipeline.TaskRun) {
 	t.Helper()
 	for i, run := range runs {
-		require.False(t, run.Error.IsZero(), fmt.Sprintf("expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output))
+		require.False(t, run.Error.IsZero(), "expected pipeline.Task run to have failed, but it succeeded (idx: %v, dotID: %v, output: '%v')", i, run.GetDotID(), run.Output)
 	}
 }

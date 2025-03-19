@@ -2,7 +2,6 @@ package logprovider
 
 import (
 	"context"
-	"fmt"
 	"math"
 	"math/big"
 	"sort"
@@ -247,13 +246,13 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			"latest block error",
 			200,
 			0,
-			fmt.Errorf("test error"),
+			errors.New("test error"),
 			[]upkeepFilter{},
 			[]ocr2keepers.UpkeepState{},
 			nil,
 			[]logpoller.Log{},
 			nil,
-			fmt.Errorf("test error"),
+			errors.New("test error"),
 			[]string{},
 			[]int64{},
 		},
@@ -272,7 +271,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 				},
 			},
 			nil,
-			fmt.Errorf("test error"),
+			errors.New("test error"),
 			[]logpoller.Log{
 				{
 					BlockNumber: 2,
@@ -303,7 +302,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 			[]ocr2keepers.UpkeepState{},
 			nil,
 			[]logpoller.Log{},
-			fmt.Errorf("test error"),
+			errors.New("test error"),
 			nil,
 			[]string{},
 			[]int64{0},
@@ -436,7 +435,7 @@ func TestLogRecoverer_Recover(t *testing.T) {
 				filters := filterStore.GetFilters(func(f upkeepFilter) bool {
 					return f.upkeepID.String() == active.upkeepID.String()
 				})
-				require.Equal(t, 1, len(filters))
+				require.Len(t, filters, 1)
 				require.Equal(t, tc.lastRePollBlocks[i], filters[0].lastRePollBlock)
 			}
 
@@ -466,10 +465,10 @@ func TestLogRecoverer_SelectFilterBatch(t *testing.T) {
 	recoverer, _, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
 
 	batch := recoverer.selectFilterBatch(filters)
-	require.Equal(t, recoveryBatchSize, len(batch))
+	require.Len(t, batch, recoveryBatchSize)
 
 	batch = recoverer.selectFilterBatch(filters[:recoveryBatchSize/2])
-	require.Equal(t, recoveryBatchSize/2, len(batch))
+	require.Len(t, batch, recoveryBatchSize/2)
 }
 
 func TestLogRecoverer_getFilterBatch(t *testing.T) {
@@ -515,7 +514,7 @@ func TestLogRecoverer_getFilterBatch(t *testing.T) {
 			recoverer, filterStore, _, _ := setupTestRecoverer(t, time.Millisecond*50, int64(100))
 			filterStore.AddActiveUpkeeps(tc.filters...)
 			batch := recoverer.getFilterBatch(tc.offsetBlock)
-			require.Equal(t, tc.want, len(batch))
+			require.Len(t, batch, tc.want)
 		})
 	}
 }
@@ -1177,7 +1176,7 @@ func TestLogRecoverer_pending(t *testing.T) {
 			}
 			r.lock.Lock()
 			defer r.lock.Unlock()
-			require.Equal(t, 0, len(r.pending))
+			require.Empty(t, r.pending)
 		})
 	}
 }

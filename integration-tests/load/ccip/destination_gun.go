@@ -9,6 +9,8 @@ import (
 	mathrand "math/rand"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common/hexutil"
+
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -112,13 +114,15 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	}
 	if msg.FeeToken == common.HexToAddress("0x0") {
 		acc.Value = fee
-		defer func() { acc.Value = nil }()
 	}
+	msgWithoutData := msg
+	msgWithoutData.Data = nil
 	m.l.Debugw("sending message ",
 		"srcChain", src,
 		"dstChain", m.chainSelector,
 		"fee", fee,
-		"msg", msg)
+		"msg size", len(msg.Data),
+		"msgWithoutData", msgWithoutData)
 	tx, err := r.CcipSend(
 		acc,
 		m.chainSelector,
@@ -156,13 +160,11 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 
 // MustSourceChain will return a chain selector to send a message from
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
-	// TODO: make this smarter by checking if this chain has sent a message recently, if so, switch to the next chain
-	// Currently performing a round robin
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
+	index := mathrand.Intn(len(otherCS))
 	return otherCS[index], nil
 }
 
@@ -172,6 +174,11 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	rcv, err := utils.ABIEncode(`[{"type":"address"}]`, m.receiver)
 	if err != nil {
 		m.l.Error("Error encoding receiver address")
+		return router.ClientEVM2AnyMessage{}, 0, err
+	}
+	extraArgs, err := GetEVMExtraArgsV2(big.NewInt(0), *m.testConfig.OOOExecution)
+	if err != nil {
+		m.l.Error("Error encoding extra args")
 		return router.ClientEVM2AnyMessage{}, 0, err
 	}
 
@@ -197,7 +204,7 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	message := router.ClientEVM2AnyMessage{
 		Receiver:  rcv,
 		FeeToken:  common.HexToAddress("0x0"),
-		ExtraArgs: nil,
+		ExtraArgs: extraArgs,
 	}
 
 	// Set data length if it's a data transfer
@@ -237,4 +244,15 @@ func (m *DestinationGun) GetMessage(src uint64) (router.ClientEVM2AnyMessage, in
 	}
 
 	return message, gasLimit, nil
+}
+
+func GetEVMExtraArgsV2(gasLimit *big.Int, allowOutOfOrder bool) ([]byte, error) {
+	EVMV2Tag := hexutil.MustDecode("0x181dcf10")
+
+	encodedArgs, err := utils.ABIEncode(`[{"type":"uint256"},{"type":"bool"}]`, gasLimit, allowOutOfOrder)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(EVMV2Tag, encodedArgs...), nil
 }

@@ -495,7 +495,6 @@ type WithdrawBilledFundsConfig struct {
 	Amount        uint64
 	TokenPubKey   string
 	MCMSSolana    *MCMSConfigSolana
-	TestRouter    bool
 }
 
 func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
@@ -509,7 +508,7 @@ func (cfg WithdrawBilledFundsConfig) Validate(e deployment.Environment) error {
 	}
 	chainState := state.SolChains[cfg.ChainSelector]
 	chain := e.SolChains[cfg.ChainSelector]
-	if err := validateRouterConfig(chain, chainState, cfg.TestRouter); err != nil {
+	if err := validateRouterConfig(chain, chainState); err != nil {
 		return err
 	}
 	if err := validateFeeAggregatorConfig(chain, chainState); err != nil {

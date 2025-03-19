@@ -3,7 +3,7 @@ package job_test
 import (
 	"bytes"
 	"crypto/sha256"
-	"fmt"
+	"encoding/hex"
 	"os"
 	"os/exec"
 	"strings"
@@ -48,7 +48,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		expectedSha := sha256.New()
 		expectedSha.Write(rawBinary)
 		expectedSha.Write(config)
-		require.Equal(t, fmt.Sprintf("%x", expectedSha.Sum(nil)), actualSha)
+		require.Equal(t, hex.EncodeToString(expectedSha.Sum(nil)), actualSha)
 
 		require.Equal(t, *expected, actual)
 
@@ -71,7 +71,7 @@ func TestWasmFileSpecFactory(t *testing.T) {
 		expectedSha := sha256.New()
 		expectedSha.Write(rawBinary)
 		expectedSha.Write(config)
-		require.Equal(t, fmt.Sprintf("%x", expectedSha.Sum(nil)), actualSha)
+		require.Equal(t, hex.EncodeToString(expectedSha.Sum(nil)), actualSha)
 
 		require.Equal(t, *expected, actual)
 

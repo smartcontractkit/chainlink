@@ -286,7 +286,7 @@ func (r *logRecoverer) getLogTriggerCheckData(ctx context.Context, proposal ocr2
 func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.UpkeepPayload, error) {
 	latestBlock, err := r.poller.LatestBlock(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return nil, fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	r.lock.Lock()
@@ -330,7 +330,7 @@ func (r *logRecoverer) GetRecoveryProposals(ctx context.Context) ([]ocr2keepers.
 func (r *logRecoverer) recover(ctx context.Context) error {
 	latest, err := r.poller.LatestBlock(ctx)
 	if err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	start, offsetBlock := r.getRecoveryWindow(latest.BlockNumber)

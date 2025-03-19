@@ -4,21 +4,21 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func TestRegisterNodesWithJD(t *testing.T) {
 	t.Parallel()
+
 	ctx := testutils.Context(t)
-	lggr := logger.TestLogger(t)
-	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{Chains: 1, Nodes: 1})
+	e := testutil.NewMemoryEnv(t, false, 1)
 
 	jobClient, ok := e.Offchain.(*memory.JobClient)
 	require.True(t, ok, "expected Offchain to be of type *memory.JobClient")

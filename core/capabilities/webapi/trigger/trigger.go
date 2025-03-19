@@ -77,13 +77,13 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 	// Pass on the payload with the expectation that it's in an acceptable format for the executor
 	wrappedPayload, err := values.WrapMap(payload)
 	if err != nil {
-		return fmt.Errorf("error wrapping payload %s", err)
+		return fmt.Errorf("error wrapping payload %w", err)
 	}
 	topics := payload.Topics
 
 	// empty topics is error for V1
 	if len(topics) == 0 {
-		return fmt.Errorf("empty Workflow Topics")
+		return errors.New("empty Workflow Topics")
 	}
 
 	// workflows that have matched topics
@@ -123,7 +123,7 @@ func (h *triggerConnectorHandler) processTrigger(ctx context.Context, gatewayID 
 		}
 	}
 	if matchedWorkflows == 0 {
-		return fmt.Errorf("no Matching Workflow Topics")
+		return errors.New("no Matching Workflow Topics")
 	}
 
 	if fullyMatchedWorkflows > 0 {

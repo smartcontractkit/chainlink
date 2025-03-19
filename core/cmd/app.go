@@ -46,7 +46,7 @@ func NewApp(s *Shell) *cli.App {
 		},
 		cli.StringFlag{
 			Name:  "admin-credentials-file",
-			Usage: fmt.Sprintf("optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to %s", filepath.Join("<RootDir>", "apicredentials")),
+			Usage: "optional, applies only in client mode when making remote API calls. If provided, `FILE` containing admin credentials will be used for logging in, allowing to avoid an additional login step. If `FILE` is missing, it will be ignored. Defaults to " + filepath.Join("<RootDir>", "apicredentials"),
 		},
 		cli.StringFlag{
 			Name:  "remote-node-url",
@@ -223,7 +223,7 @@ func NewApp(s *Shell) *cli.App {
 				},
 			},
 			Before: func(c *cli.Context) error {
-				errNoDuplicateFlags := fmt.Errorf("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
+				errNoDuplicateFlags := errors.New("multiple commands with --config or --secrets flags. only one command may specify these flags. when secrets are used, they must be specific together in the same command")
 				if c.IsSet("config") {
 					if s.configFilesIsSet || s.secretsFileIsSet {
 						return errNoDuplicateFlags

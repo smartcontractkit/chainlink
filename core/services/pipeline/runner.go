@@ -2,10 +2,12 @@ package pipeline
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"net/http"
 	"sort"
+	"strconv"
 	"sync"
 	"time"
 
@@ -427,7 +429,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 
 		// NOTE: runTime can be very long now because it'll include suspend
 		runTime = run.FinishedAt.Time.Sub(run.CreatedAt)
-		PromPipelineRunTotalTimeToCompletion.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Set(float64(runTime))
+		PromPipelineRunTotalTimeToCompletion.WithLabelValues(strconv.Itoa(int(run.PipelineSpec.JobID)), run.PipelineSpec.JobName).Set(float64(runTime))
 	}
 
 	// Update run results
@@ -477,7 +479,7 @@ func (r *runner) run(ctx context.Context, pipeline *Pipeline, run *Run, vars Var
 
 		if run.HasFatalErrors() {
 			run.State = RunStatusErrored
-			PromPipelineRunErrors.WithLabelValues(fmt.Sprintf("%d", run.PipelineSpec.JobID), run.PipelineSpec.JobName).Inc()
+			PromPipelineRunErrors.WithLabelValues(strconv.Itoa(int(run.PipelineSpec.JobID)), run.PipelineSpec.JobName).Inc()
 		} else {
 			run.State = RunStatusCompleted
 		}
@@ -571,7 +573,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 	switch v := result.Value.(type) {
 	case []byte:
 		loggerFields = append(loggerFields, "resultString", fmt.Sprintf("%q", v))
-		loggerFields = append(loggerFields, "resultHex", fmt.Sprintf("%x", v))
+		loggerFields = append(loggerFields, "resultHex", hex.EncodeToString(v))
 	}
 	if r.config.VerboseLogging() {
 		l.Tracew("Pipeline task completed", loggerFields...)
@@ -596,7 +598,7 @@ func (r *runner) executeTaskRun(ctx context.Context, spec Spec, taskRun *memoryT
 func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 	elapsed := trr.FinishedAt.Time.Sub(trr.CreatedAt)
 
-	PromPipelineTaskExecutionTime.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type())).Set(float64(elapsed))
+	PromPipelineTaskExecutionTime.WithLabelValues(strconv.Itoa(int(spec.JobID)), spec.JobName, trr.Task.DotID(), string(trr.Task.Type())).Set(float64(elapsed))
 	var status string
 	if trr.Result.Error != nil {
 		status = "error"
@@ -609,7 +611,7 @@ func logTaskRunToPrometheus(trr TaskRunResult, spec Spec) {
 		bridgeName = bridgeTask.Name
 	}
 
-	PromPipelineTasksTotalFinished.WithLabelValues(fmt.Sprintf("%d", spec.JobID), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
+	PromPipelineTasksTotalFinished.WithLabelValues(strconv.Itoa(int(spec.JobID)), spec.JobName, trr.Task.DotID(), string(trr.Task.Type()), bridgeName, status).Inc()
 }
 
 // ExecuteAndInsertFinishedRun executes a run in memory then inserts the finished run/task run records, returning the final result

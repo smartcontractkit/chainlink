@@ -181,7 +181,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 			}
 
 			c.lggr.Infof("at timestamp %s upkeep %s received status code %d from mercury v0.3", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
-			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion03, fmt.Sprintf("%d", resp.StatusCode)).Inc()
+			prommetrics.AutomationStreamsResponses.WithLabelValues(prommetrics.StreamsVersion03, strconv.Itoa(resp.StatusCode)).Inc()
 			switch resp.StatusCode {
 			case http.StatusUnauthorized:
 				c.lggr.Errorf("at timestamp %s upkeep %s received status code %d from mercury v0.3, most likely this is caused by unauthorized upkeep", sl.Time.String(), sl.UpkeepId.String(), resp.StatusCode)
@@ -278,7 +278,7 @@ func (c *client) multiFeedsRequest(ctx context.Context, ch chan<- mercury.Mercur
 		},
 		// only retry when the error is 206 Partial Content, 404 Not Found, 500 Internal Server Error, 502 Bad Gateway, 503 Service Unavailable, 504 Gateway Timeout
 		retry.RetryIf(func(err error) bool {
-			return err.Error() == fmt.Sprintf("%d", http.StatusPartialContent) || err.Error() == fmt.Sprintf("%d", http.StatusNotFound) || err.Error() == fmt.Sprintf("%d", http.StatusInternalServerError) || err.Error() == fmt.Sprintf("%d", http.StatusBadGateway) || err.Error() == fmt.Sprintf("%d", http.StatusServiceUnavailable) || err.Error() == fmt.Sprintf("%d", http.StatusGatewayTimeout)
+			return err.Error() == strconv.Itoa(http.StatusPartialContent) || err.Error() == strconv.Itoa(http.StatusNotFound) || err.Error() == strconv.Itoa(http.StatusInternalServerError) || err.Error() == strconv.Itoa(http.StatusBadGateway) || err.Error() == strconv.Itoa(http.StatusServiceUnavailable) || err.Error() == strconv.Itoa(http.StatusGatewayTimeout)
 		}),
 		retry.Context(retryCtx),
 		retry.Delay(retryDelay),

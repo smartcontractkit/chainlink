@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
-	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/credentials"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput) (*types.FullCLDEnvironmentOutput, error) {
+func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentInput, credentials credentials.TransportCredentials) (*types.FullCLDEnvironmentOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -28,6 +28,22 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	dons := make([]*devenv.DON, len(input.NodeSetOutput))
 
 	var allNodesInfo []devenv.NodeInfo
+	chains := []devenv.ChainConfig{
+		{
+			ChainID:   input.SethClient.Cfg.Network.ChainID,
+			ChainName: input.SethClient.Cfg.Network.Name,
+			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
+			WSRPCs: []devenv.CribRPCs{{
+				External: input.BlockchainOutput.Nodes[0].HostWSUrl,
+				Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
+			}},
+			HTTPRPCs: []devenv.CribRPCs{{
+				External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
+				Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+			}},
+			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
+		},
+	}
 
 	for i, nodeOutput := range input.NodeSetOutput {
 		// assume that each nodeset has only one bootstrap node
@@ -37,31 +53,22 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
+		// if DON has no capabilities we don't need to create chain configs (e.g. for gateway nodes)
+		// we indicate to `devenv.NewEnvironment` that it should skip chain creation by passing an empty chain config
+		if len(nodeOutput.Capabilities) == 0 {
+			chains = []devenv.ChainConfig{}
+		}
+
 		jdConfig := devenv.JDConfig{
 			GRPC:     input.JdOutput.HostGRPCUrl,
 			WSRPC:    input.JdOutput.DockerWSRPCUrl,
-			Creds:    insecure.NewCredentials(),
+			Creds:    credentials,
 			NodeInfo: nodeInfo,
 		}
 
 		devenvConfig := devenv.EnvironmentConfig{
 			JDConfig: jdConfig,
-			Chains: []devenv.ChainConfig{
-				{
-					ChainID:   input.SethClient.Cfg.Network.ChainID,
-					ChainName: input.SethClient.Cfg.Network.Name,
-					ChainType: strings.ToUpper(input.BlockchainOutput.Family),
-					WSRPCs: []devenv.CribRPCs{{
-						External: input.BlockchainOutput.Nodes[0].HostWSUrl,
-						Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
-					}},
-					HTTPRPCs: []devenv.CribRPCs{{
-						External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
-						Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
-					}},
-					DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
-				},
-			},
+			Chains:   chains,
 		}
 
 		env, don, err := devenv.NewEnvironment(context.Background, lgr, devenvConfig)
@@ -98,16 +105,24 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 	}
 
-	// Create a JD client that can interact with all the nodes, otherwise if it has node IDs of nodes that belong only to one Don,
-	// it will still propose jobs to unknown nodes, but won't accept them automatically
-	jd, err := devenv.NewJDClient(context.Background(), devenv.JDConfig{
-		GRPC:     input.JdOutput.HostGRPCUrl,
-		WSRPC:    input.JdOutput.DockerWSRPCUrl,
-		Creds:    insecure.NewCredentials(),
-		NodeInfo: allNodesInfo,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create JD client")
+	var jd deployment.OffchainClient
+	var err error
+
+	if len(input.NodeSetOutput) > 0 {
+		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
+		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
+		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
+		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
+			GRPC:     input.JdOutput.HostGRPCUrl,
+			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			Creds:    credentials,
+			NodeInfo: allNodesInfo,
+		})
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to create JD client")
+		}
+	} else {
+		jd = envs[0].Offchain
 	}
 
 	// we assume that all DONs run on the same chain and that there's only one chain

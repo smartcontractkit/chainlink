@@ -266,7 +266,7 @@ func (m *donConnectionManager) SendToNode(ctx context.Context, nodeAddress strin
 	}
 	data, err := m.codec.EncodeRequest(msg)
 	if err != nil {
-		return fmt.Errorf("error encoding request for node %s: %v", nodeAddress, err)
+		return fmt.Errorf("error encoding request for node %s: %w", nodeAddress, err)
 	}
 	nodeState := m.nodes[nodeAddress]
 	if nodeState == nil {

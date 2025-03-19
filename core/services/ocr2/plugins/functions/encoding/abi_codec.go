@@ -41,11 +41,11 @@ func SliceToByte32(slice []byte) ([32]byte, error) {
 func getReportTypesV1() (abi.Arguments, error) {
 	bytes32ArrType, err := abi.NewType("bytes32[]", "", []abi.ArgumentMarshaling{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to create an ABI type object for bytes32[]")
+		return nil, errors.New("unable to create an ABI type object for bytes32[]")
 	}
 	bytesArrType, err := abi.NewType("bytes[]", "", []abi.ArgumentMarshaling{})
 	if err != nil {
-		return nil, fmt.Errorf("unable to create an ABI type object for bytes[]")
+		return nil, errors.New("unable to create an ABI type object for bytes[]")
 	}
 	return abi.Arguments([]abi.Argument{
 		{Name: "ids", Type: bytes32ArrType},

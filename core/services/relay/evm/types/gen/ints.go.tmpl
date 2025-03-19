@@ -1,3 +1,4 @@
+// this file is auto-generated. DO NOT EDIT
 package types
 
 import (
@@ -49,10 +50,10 @@ func (i *{{.Prefix}}int{{.Size}}) MarshalText() ([]byte, error) {
     return []byte(bi.String()), nil
 }
 
-func (i *{{.Prefix}}int{{.Size}}) Verify() error {
-	bi := (*big.Int)(i)
+func (i {{.Prefix}}int{{.Size}}) Verify() error {
+	bi := (big.Int)(i)
 	{{ if .Signed }}
-	if !codec.FitsInNBitsSigned({{.Size}}, bi) {
+	if !codec.FitsInNBitsSigned({{.Size}}, &bi) {
 		return types.ErrInvalidType
 	}
 	{{ else }}
@@ -63,7 +64,7 @@ func (i *{{.Prefix}}int{{.Size}}) Verify() error {
 	return nil
 }
 
-func (i *{{.Prefix}}int{{.Size}}) private() {}
+func (i {{.Prefix}}int{{.Size}}) private() {}
 
 func init() {
 	typeMap["{{.Prefix}}int{{.Size}}"] = &ABIEncodingType {

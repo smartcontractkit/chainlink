@@ -16,8 +16,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -35,7 +35,8 @@ import (
 type Delegate struct {
 	ds                    sqlutil.DataSource
 	jobORM                job.ORM
-	keyStore              keystore.Master
+	ethKeyStore           keystore.Eth
+	ocrKeyStore           keystore.OCR
 	pipelineRunner        pipeline.Runner
 	peerWrapper           *ocrcommon.SingletonPeerWrapper
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator
@@ -52,7 +53,8 @@ const ConfigOverriderPollInterval = 30 * time.Second
 func NewDelegate(
 	ds sqlutil.DataSource,
 	jobORM job.ORM,
-	keyStore keystore.Master,
+	ethKeyStore keystore.Eth,
+	ocrKeyStore keystore.OCR,
 	pipelineRunner pipeline.Runner,
 	peerWrapper *ocrcommon.SingletonPeerWrapper,
 	monitoringEndpointGen telemetry.MonitoringEndpointGenerator,
@@ -64,7 +66,8 @@ func NewDelegate(
 	return &Delegate{
 		ds:                    ds,
 		jobORM:                jobORM,
-		keyStore:              keyStore,
+		ethKeyStore:           ethKeyStore,
+		ocrKeyStore:           ocrKeyStore,
 		pipelineRunner:        pipelineRunner,
 		peerWrapper:           peerWrapper,
 		monitoringEndpointGen: monitoringEndpointGen,
@@ -186,7 +189,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			return nil, errors.New("Need at least one v2 bootstrap peer defined")
 		}
 
-		ocrkey, err := d.keyStore.OCR().Get(concreteSpec.EncryptedOCRKeyBundleID.String())
+		ocrkey, err := d.ocrKeyStore.Get(concreteSpec.EncryptedOCRKeyBundleID.String())
 		if err != nil {
 			return nil, err
 		}
@@ -224,6 +227,9 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			}
 		}
 
+		cid := chain.ID()
+		ks := keys.NewChainStore(keystore.NewEthSigner(d.ethKeyStore, cid), cid)
+
 		transmitter, err := ocrcommon.NewTransmitter(
 			chain.TxManager(),
 			[]common.Address{concreteSpec.TransmitterAddress.Address()},
@@ -231,8 +237,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) (services []
 			effectiveTransmitterAddress,
 			strategy,
 			checker,
-			chain.ID(),
-			d.keyStore.Eth(),
+			ks,
 		)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to create transmitter")

@@ -663,7 +663,7 @@ func prometheusHandler(token string, h http.Handler) gin.HandlerFunc {
 			return
 		}
 
-		bearer := fmt.Sprintf("Bearer %s", token)
+		bearer := "Bearer " + token
 
 		if header != bearer {
 			c.String(http.StatusUnauthorized, ginprom.ErrInvalidToken.Error())

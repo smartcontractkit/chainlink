@@ -597,7 +597,7 @@ func getPricesFromBridgeTaskByTelemetryField(lggr logger.Logger, bridgeTask pipe
 	for _, trr := range tasksWithTags {
 		attributes, err := parseTelemetryAttributes(trr.Task.TaskTags())
 		if err != nil {
-			lggr.Warnw(fmt.Sprintf("found telemetry attributes but cannot them, taskTags=%s", trr.Task.TaskTags()), "err", err)
+			lggr.Warnw("found telemetry attributes but cannot them, taskTags="+trr.Task.TaskTags(), "err", err)
 			continue
 		}
 
