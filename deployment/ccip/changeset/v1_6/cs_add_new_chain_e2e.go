@@ -198,13 +198,13 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteConfigChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
-		// Set the RMN remote on the RMN proxy
-		_, err = SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
-			ChainSelectors: []uint64{c.HomeChainSelector},
-		})
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteOnRMNProxyChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
-		}
+	}
+	// Set the RMN remote on the RMN proxy
+	_, err = SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
+		ChainSelectors: []uint64{c.NewChain.Selector},
+	})
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteOnRMNProxyChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
 
 	// Update the fee quoter destinations on the new chain
@@ -398,7 +398,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 
 	// Update the fee quoter prices and destinations on the remote chains
 	for _, remoteChain := range c.RemoteChains {
-		_, err = UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
+		out, err := UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
 			UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 				remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 					c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
@@ -411,7 +411,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 		}
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-		out, err := UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
+		out, err = UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
 			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
 				remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
 					TokenPrices: remoteChain.TokenPrices,

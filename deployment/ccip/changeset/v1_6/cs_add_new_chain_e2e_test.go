@@ -21,9 +21,41 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/stretchr/testify/require"
 )
+
+func checkConnectivity(
+	t *testing.T,
+	e deployment.Environment,
+	state changeset.CCIPOnChainState,
+	selector uint64,
+	remoteChainSelector uint64,
+	expectedRouter *router.Router,
+	expectedAllowListEnabled bool,
+	expectedRMNVerificationDisabled bool,
+) {
+	destChainConfig, err := state.Chains[selector].OnRamp.GetDestChainConfig(nil, remoteChainSelector)
+	require.NoError(t, err, "must get dest chain config from onRamp")
+	require.Equal(t, expectedRouter.Address().Hex(), destChainConfig.Router.Hex(), "router must equal expected")
+	require.Equal(t, expectedAllowListEnabled, destChainConfig.AllowlistEnabled, "allowListEnabled must equal expected")
+
+	srcChainConfig, err := state.Chains[selector].OffRamp.GetSourceChainConfig(nil, remoteChainSelector)
+	require.NoError(t, err, "must get src chain config from offRamp")
+	require.True(t, srcChainConfig.IsEnabled, "src chain config must be enabled")
+	require.Equal(t, expectedRMNVerificationDisabled, srcChainConfig.IsRMNVerificationDisabled, "rmnVerificationDisabled must equal expected")
+	require.Equal(t, common.LeftPadBytes(state.Chains[remoteChainSelector].OnRamp.Address().Bytes(), 32), srcChainConfig.OnRamp, "remote onRamp must be set on offRamp")
+	require.Equal(t, expectedRouter.Address().Hex(), srcChainConfig.Router.Hex(), "router must equal expected")
+
+	isOffRamp, err := expectedRouter.IsOffRamp(nil, remoteChainSelector, state.Chains[selector].OffRamp.Address())
+	require.NoError(t, err, "must check if router has offRamp")
+	require.True(t, isOffRamp, "router must have offRamp")
+	onRamp, err := expectedRouter.GetOnRamp(nil, remoteChainSelector)
+	require.NoError(t, err, "must get onRamp from router")
+	require.Equal(t, state.Chains[selector].OnRamp.Address().Hex(), onRamp.Hex(), "onRamp must equal expected")
+}
 
 func TestConnectNewChain(t *testing.T) {
 	t.Parallel()
@@ -206,27 +238,7 @@ func TestConnectNewChain(t *testing.T) {
 						expectedRouter = state.Chains[selector].TestRouter
 					}
 
-					// onRamp checks
-					destChainConfig, err := state.Chains[selector].OnRamp.GetDestChainConfig(nil, remoteChainSelector)
-					require.NoError(t, err, "must get dest chain config from onRamp")
-					require.Equal(t, expectedRouter.Address().Hex(), destChainConfig.Router.Hex(), "router must equal expected")
-					require.Equal(t, expectedAllowListEnabled, destChainConfig.AllowlistEnabled, "allowListEnabled must equal expected")
-
-					// offRamp checks
-					srcChainConfig, err := state.Chains[selector].OffRamp.GetSourceChainConfig(nil, remoteChainSelector)
-					require.NoError(t, err, "must get src chain config from offRamp")
-					require.True(t, srcChainConfig.IsEnabled, "src chain config must be enabled")
-					require.Equal(t, expectedRMNVerificationDisabled, srcChainConfig.IsRMNVerificationDisabled, "rmnVerificationDisabled must equal expected")
-					require.Equal(t, common.LeftPadBytes(state.Chains[remoteChainSelector].OnRamp.Address().Bytes(), 32), srcChainConfig.OnRamp, "remote onRamp must be set on offRamp")
-					require.Equal(t, expectedRouter.Address().Hex(), srcChainConfig.Router.Hex(), "router must equal expected")
-
-					// router checks
-					isOffRamp, err := expectedRouter.IsOffRamp(nil, remoteChainSelector, state.Chains[selector].OffRamp.Address())
-					require.NoError(t, err, "must check if router has offRamp")
-					require.True(t, isOffRamp, "router must have offRamp")
-					onRamp, err := expectedRouter.GetOnRamp(nil, remoteChainSelector)
-					require.NoError(t, err, "must get onRamp from router")
-					require.Equal(t, state.Chains[selector].OnRamp.Address().Hex(), onRamp.Hex(), "onRamp must equal expected")
+					checkConnectivity(t, e, state, selector, remoteChainSelector, expectedRouter, expectedAllowListEnabled, expectedRMNVerificationDisabled)
 				}
 			}
 		})
@@ -413,7 +425,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				},
 				CommitOCRParams: v1_6.DeriveOCRParamsForCommit(v1_6.SimulationTest, deployedEnvironment.FeedChainSel, nil, nil),
 				ExecOCRParams:   v1_6.DeriveOCRParamsForExec(v1_6.SimulationTest, nil, nil),
-				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, TODO: RMNRemoteConfig is skipped for now, we should enable it
+				// RMNRemoteConfig:   &v1_6.RMNRemoteConfig{...}, // TODO: Enable?
 			}
 
 			// Apply AddCandidatesForNewChainChangeset
@@ -434,7 +446,33 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			state, err = changeset.LoadOnchainState(e)
 			require.NoError(t, err, "must load onchain state")
 
-			// TODO: Checks!
+			capReg := state.Chains[deployedEnvironment.HomeChainSel].CapabilityRegistry
+			ccipHome := state.Chains[deployedEnvironment.HomeChainSel].CCIPHome
+			rmnProxy := state.Chains[newChainSelector].RMNProxy
+			rmnRemote := state.Chains[newChainSelector].RMNRemote
+			feeQuoter := state.Chains[newChainSelector].FeeQuoter
+
+			donID, err = internal.DonIDForChain(capReg, ccipHome, newChainSelector)
+			require.NoError(t, err, "must get DON ID for chain")
+
+			digests, err := ccipHome.GetConfigDigests(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+			candidateDigest := digests.CandidateConfigDigest
+			require.NoError(t, err, "must get config digests")
+			require.Empty(t, digests.ActiveConfigDigest, "active config digest must be empty")
+
+			rmn, err := rmnProxy.GetARM(nil)
+			require.NoError(t, err, "must get ARM")
+			require.Equal(t, rmnRemote.Address(), rmn, "RMN must be set on RMNProxy")
+
+			for _, remoteChain := range remoteChains {
+				destChainConfig, err := feeQuoter.GetDestChainConfig(nil, remoteChain.Selector)
+				require.NoError(t, err, "must get dest chain config from feeQuoter")
+				require.Equal(t, remoteChain.FeeQuoterDestChainConfig, destChainConfig, "dest chain config must equal expected")
+
+				gasPrice, err := feeQuoter.GetDestinationChainGasPrice(nil, remoteChain.Selector)
+				require.NoError(t, err, "must get dest chain gas price from feeQuoter")
+				require.Equal(t, remoteChain.GasPrice.String(), gasPrice.Value.String(), "gas price must equal expected")
+			}
 
 			// Apply PromoteNewChainForTestingChangeset
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
@@ -450,7 +488,54 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 			)
 			require.NoError(t, err, "must apply PromoteNewChainForTestingChangeset")
 
-			// TODO: Checks!
+			digests, err = ccipHome.GetConfigDigests(nil, donID, uint8(cctypes.PluginTypeCCIPCommit))
+			require.NoError(t, err, "must get config digests")
+			require.Empty(t, digests.CandidateConfigDigest, "candidate config digest must be empty")
+			require.Equal(t, candidateDigest, digests.ActiveConfigDigest, "active config digest must equal old candidate digest")
+
+			testRouter := state.Chains[newChain.Selector].TestRouter
+			for _, remoteChain := range remoteChains {
+				feeQuoterOnRemote := state.Chains[remoteChain.Selector].FeeQuoter
+				testRouterOnRemote := state.Chains[remoteChain.Selector].TestRouter
+
+				destChainConfig, err := feeQuoterOnRemote.GetDestChainConfig(nil, newChain.Selector)
+				require.NoError(t, err, "must get dest chain config from feeQuoter")
+				require.Equal(t, newChain.FeeQuoterDestChainConfig, destChainConfig, "dest chain config must equal expected")
+
+				gasPrice, err := feeQuoterOnRemote.GetDestinationChainGasPrice(nil, newChain.Selector)
+				require.NoError(t, err, "must get dest chain gas price from feeQuoter")
+				require.Equal(t, newChain.GasPrice.String(), gasPrice.Value.String(), "gas price must equal expected")
+
+				checkConnectivity(t, e, state, remoteChain.Selector, newChain.Selector, testRouterOnRemote, false, true)
+				checkConnectivity(t, e, state, newChain.Selector, remoteChain.Selector, testRouter, false, true)
+			}
+
+			// Apply ConnectNewChainChangeset to activate on prod routers
+			noTestRouter := false
+			remoteConnectionConfigs := make(map[uint64]v1_6.ConnectionConfig, len(remoteChainSelectors))
+			for _, remoteChain := range remoteChains {
+				remoteConnectionConfigs[remoteChain.Selector] = remoteChain.ConnectionConfig
+			}
+			e, err = commonchangeset.Apply(t, e, timelockContracts,
+				commonchangeset.Configure(
+					v1_6.ConnectNewChainChangeset,
+					v1_6.ConnectNewChainConfig{
+						NewChainSelector:         newChain.Selector,
+						NewChainConnectionConfig: newChain.ConnectionConfig,
+						RemoteChains:             remoteConnectionConfigs,
+						TestRouter:               &noTestRouter,
+						MCMSConfig:               test.MCMS,
+					},
+				),
+			)
+			require.NoError(t, err, "must apply ConnectNewChainChangeset")
+
+			router := state.Chains[newChain.Selector].Router
+			for _, remoteChain := range remoteChains {
+				routerOnRemote := state.Chains[remoteChain.Selector].Router
+				checkConnectivity(t, e, state, remoteChain.Selector, newChain.Selector, routerOnRemote, false, true)
+				checkConnectivity(t, e, state, newChain.Selector, remoteChain.Selector, router, false, true)
+			}
 		})
 	}
 }
