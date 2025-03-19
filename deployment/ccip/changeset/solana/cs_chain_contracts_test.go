@@ -49,8 +49,6 @@ func deployToken(t *testing.T, tenv deployment.Environment, solChain uint64) (de
 }
 
 func TestAddRemoteChain(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-242")
-
 	t.Parallel()
 	// Default env just has 2 chains with all contracts
 	// deployed but no lanes.
