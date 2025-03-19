@@ -160,7 +160,7 @@ func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string, plat
 	return keys, fileString, passphrase, nil
 }
 
-func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlatform string) (p2ptypes.PeerID, string, string, error) {
+func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlatform string) (peerID p2ptypes.PeerID, content string, passphrase string, err error) {
 	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
 		ContainerRequest: tc.ContainerRequest{
 			AutoRemove: false,
