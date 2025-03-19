@@ -3,6 +3,7 @@ package wrapper
 import (
 	"context"
 	"crypto/ed25519"
+	"errors"
 	"fmt"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -131,7 +132,7 @@ func (e *peerWrapper) Name() string {
 
 func (e *peerWrapper) Sign(msg []byte) ([]byte, error) {
 	if e.privateKey == nil {
-		return nil, fmt.Errorf("private key not set")
+		return nil, errors.New("private key not set")
 	}
 	return ed25519.Sign(e.privateKey, msg), nil
 }

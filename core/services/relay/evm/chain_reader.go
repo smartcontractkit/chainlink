@@ -21,7 +21,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
@@ -40,11 +39,16 @@ type chainReader struct {
 	lggr     logger.Logger
 	ht       logpoller.HeadTracker
 	lp       logpoller.LogPoller
-	client   evmclient.Client
+	client   EVMClient
 	parsed   *codec.ParsedTypes
 	bindings *read.BindingsRegistry
 	codec    commontypes.RemoteCodec
 	commonservices.StateMachine
+}
+
+type EVMClient interface {
+	read.EVMBatchCaller
+	read.EVMMethodClient
 }
 
 var _ ChainReaderService = (*chainReader)(nil)
@@ -52,7 +56,7 @@ var _ commontypes.ContractTypeProvider = &chainReader{}
 
 // NewChainReaderService is a constructor for ChainReader, returns nil if there is any error
 // Note that the ChainReaderService returned does not support anonymous events.
-func NewChainReaderService(_ context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client evmclient.Client, config types.ChainReaderConfig) (ChainReaderService, error) {
+func NewChainReaderService(_ context.Context, lggr logger.Logger, lp logpoller.LogPoller, ht logpoller.HeadTracker, client EVMClient, config types.ChainReaderConfig) (ChainReaderService, error) {
 	cr := &chainReader{
 		lggr:     logger.Named(lggr, "ChainReader"),
 		ht:       ht,

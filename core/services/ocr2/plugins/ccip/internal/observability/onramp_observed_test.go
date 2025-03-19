@@ -81,7 +81,7 @@ func TestOnRampObservedMethods(t *testing.T) {
 }
 
 func testMethod(t *testing.T, method reflect.Method, methodCalls map[string]MethodCall, excludedMethods []string, reader *mocks.OnRampReader, observed ObservedOnRampReader) {
-	t.Run(fmt.Sprintf("observability_wrapper_%s", method.Name), func(t *testing.T) {
+	t.Run("observability_wrapper_"+method.Name, func(t *testing.T) {
 		// Skip excluded methods.
 		for _, em := range excludedMethods {
 			if method.Name == em {

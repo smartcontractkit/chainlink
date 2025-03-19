@@ -66,10 +66,10 @@ func (m *LoopRegistry) Register(id string) (*RegisteredLoop, error) {
 	}
 	ports, err := freeport.Take(1)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get free port: %v", err)
+		return nil, fmt.Errorf("failed to get free port: %w", err)
 	}
 	if len(ports) != 1 {
-		return nil, fmt.Errorf("failed to get free port: no ports returned")
+		return nil, errors.New("failed to get free port: no ports returned")
 	}
 	envCfg := loop.EnvConfig{PrometheusPort: ports[0]}
 

@@ -3,7 +3,6 @@ package ocrcommon_test
 import (
 	"crypto/ed25519"
 	"crypto/rand"
-	"fmt"
 	"testing"
 
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
@@ -47,7 +46,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 
 		ctx := testutils.Context(t)
 
-		t.Run(fmt.Sprintf("%s StoreAnnouncement writes a value", tt.name), func(t *testing.T) {
+		t.Run(tt.name+" StoreAnnouncement writes a value", func(t *testing.T) {
 			ann := []byte{1, 2, 3}
 			err := dd1.StoreAnnouncement(ctx, "remote1", ann)
 			assert.NoError(t, err)
@@ -63,7 +62,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 			assert.NoError(t, err)
 		})
 
-		t.Run(fmt.Sprintf("%s ReadAnnouncements reads values filtered by given peerIDs", tt.name), func(t *testing.T) {
+		t.Run(tt.name+" ReadAnnouncements reads values filtered by given peerIDs", func(t *testing.T) {
 			announcements, err := dd1.ReadAnnouncements(ctx, []string{"remote1", "remote2"})
 			require.NoError(t, err)
 
@@ -78,7 +77,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
 		})
 
-		t.Run(fmt.Sprintf("%s is scoped to local peer ID", tt.name), func(t *testing.T) {
+		t.Run(tt.name+" is scoped to local peer ID", func(t *testing.T) {
 			ann := []byte{10, 11, 12}
 			err := dd2.StoreAnnouncement(ctx, "remote1", ann)
 			assert.NoError(t, err)
@@ -94,7 +93,7 @@ func Test_DiscovererDatabase(t *testing.T) {
 			assert.Equal(t, []byte{4, 5, 6}, announcements["remote1"])
 		})
 
-		t.Run(fmt.Sprintf("%s persists data across restarts", tt.name), func(t *testing.T) {
+		t.Run(tt.name+" persists data across restarts", func(t *testing.T) {
 			dd3 := ocrcommon.NewOCRDiscovererDatabase(db, localPeerID1.Raw())
 
 			announcements, err := dd3.ReadAnnouncements(ctx, []string{"remote1"})

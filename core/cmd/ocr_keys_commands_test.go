@@ -76,8 +76,8 @@ func TestShell_ListOCRKeyBundles(t *testing.T) {
 
 	requireOCRKeyCount(t, app, 1)
 
-	assert.Nil(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListOCRKeyBundles(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenters)
 	require.Equal(t, key.ID(), output[0].ID)
 }
@@ -96,7 +96,7 @@ func TestShell_CreateOCRKeyBundle(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, keys, 1)
 
-	require.Equal(t, 1, len(r.Renders))
+	require.Len(t, r.Renders, 1)
 	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenter)
 	require.Equal(t, output.ID, keys[0].ID())
 }
@@ -124,7 +124,7 @@ func TestShell_DeleteOCRKeyBundle(t *testing.T) {
 	require.NoError(t, client.DeleteOCRKeyBundle(c))
 	requireOCRKeyCount(t, app, 0) // Only fixture key remains
 
-	require.Equal(t, 1, len(r.Renders))
+	require.Len(t, r.Renders, 1)
 	output := *r.Renders[0].(*cmd.OCRKeyBundlePresenter)
 	assert.Equal(t, key.ID(), output.ID)
 }

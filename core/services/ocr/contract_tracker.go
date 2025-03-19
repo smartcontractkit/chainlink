@@ -2,7 +2,7 @@ package ocr
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -168,7 +168,7 @@ func (t *OCRContractTracker) Start(ctx context.Context) error {
 		t.wg.Add(1)
 		go t.processLogs()
 
-		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", fmt.Sprint(t.jobID))
+		t.mailMon.Monitor(t.configsMB, "OCRContractTracker", "Configs", strconv.Itoa(int(t.jobID)))
 
 		return nil
 	})
@@ -456,7 +456,7 @@ func getEventTopic(name string) gethCommon.Hash {
 	}
 	event, exists := abi.Events[name]
 	if !exists {
-		panic(fmt.Sprintf("abi.Events was missing %s", name))
+		panic("abi.Events was missing " + name)
 	}
 	return event.ID
 }

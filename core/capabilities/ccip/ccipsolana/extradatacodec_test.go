@@ -65,7 +65,7 @@ func Test_decodeExtraArgs(t *testing.T) {
 	})
 
 	t.Run("decode extra args into map evm", func(t *testing.T) {
-		extraArgs := fee_quoter.EVMExtraArgsV2{
+		extraArgs := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}

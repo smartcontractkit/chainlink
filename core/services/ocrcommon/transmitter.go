@@ -2,21 +2,22 @@ package ocrcommon
 
 import (
 	"context"
-	"math/big"
+	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
-type roundRobinKeystore interface {
-	GetRoundRobinAddress(ctx context.Context, chainID *big.Int, addresses ...common.Address) (address common.Address, err error)
+type RoundRobinKeyLocker interface {
+	keys.RoundRobin
+	keys.Locker
 }
 
 type txManager interface {
@@ -38,8 +39,7 @@ type transmitter struct {
 	effectiveTransmitterAddress common.Address
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
-	chainID                     *big.Int
-	keystore                    roundRobinKeystore
+	keystore                    keys.RoundRobin
 }
 
 // NewTransmitter creates a new eth transmitter
@@ -50,8 +50,7 @@ func NewTransmitter(
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
-	chainID *big.Int,
-	keystore roundRobinKeystore,
+	keystore keys.RoundRobin,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
@@ -65,7 +64,6 @@ func NewTransmitter(
 		effectiveTransmitterAddress: effectiveTransmitterAddress,
 		strategy:                    strategy,
 		checker:                     checker,
-		chainID:                     chainID,
 		keystore:                    keystore,
 	}, nil
 }
@@ -84,7 +82,6 @@ type ocr2FeedsTransmitter struct {
 // NewOCR2FeedsTransmitter creates a new eth transmitter that handles OCR2 Feeds specific logic surrounding forwarders.
 // ocr2FeedsTransmitter validates forwarders before every transmission, enabling smooth onchain config changes without job restarts.
 func NewOCR2FeedsTransmitter(
-	ctx context.Context,
 	txm txManagerOCR2,
 	fromAddresses []common.Address,
 	ocr2Aggregator common.Address,
@@ -92,8 +89,7 @@ func NewOCR2FeedsTransmitter(
 	effectiveTransmitterAddress common.Address,
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
-	chainID *big.Int,
-	ks keystore.Eth,
+	ks RoundRobinKeyLocker,
 	dualTransmissionConfig *evmtypes.DualTransmissionConfig,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
@@ -101,17 +97,13 @@ func NewOCR2FeedsTransmitter(
 		return nil, errors.New("nil keystore provided to transmitter")
 	}
 
-	if hasLock, err := keyHasLock(ctx, ks, effectiveTransmitterAddress, keystore.TXMv2); err != nil {
-		return nil, err
-	} else if hasLock {
-		return nil, errors.Errorf("key %s is used as a secondary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
+	if keyHasLock(ks, effectiveTransmitterAddress, keys.TXMv2) {
+		return nil, fmt.Errorf("key %s is used as a secondary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
 	}
 
 	if dualTransmissionConfig != nil {
-		if hasLock, err := keyHasLock(ctx, ks, dualTransmissionConfig.TransmitterAddress, keystore.TXMv1); err != nil {
-			return nil, err
-		} else if hasLock {
-			return nil, errors.Errorf("key %s is used as a primary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
+		if keyHasLock(ks, dualTransmissionConfig.TransmitterAddress, keys.TXMv1) {
+			return nil, fmt.Errorf("key %s is used as a primary transmitter in another job. primary and secondary transmitters cannot be mixed", effectiveTransmitterAddress.String())
 		}
 		return &ocr2FeedsDualTransmission{
 			ocr2Aggregator:                     ocr2Aggregator,
@@ -122,7 +114,6 @@ func NewOCR2FeedsTransmitter(
 			primaryEffectiveTransmitterAddress: effectiveTransmitterAddress,
 			strategy:                           strategy,
 			checker:                            checker,
-			chainID:                            chainID,
 			keystore:                           ks,
 			secondaryContractAddress:           dualTransmissionConfig.ContractAddress,
 			secondaryFromAddress:               dualTransmissionConfig.TransmitterAddress,
@@ -139,16 +130,15 @@ func NewOCR2FeedsTransmitter(
 			effectiveTransmitterAddress: effectiveTransmitterAddress,
 			strategy:                    strategy,
 			checker:                     checker,
-			chainID:                     chainID,
 			keystore:                    ks,
 		},
 	}, nil
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.fromAddresses...)
 	if err != nil {
-		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+		return fmt.Errorf("skipped OCR transmission, error getting round-robin address: %w", err)
 	}
 
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
@@ -161,7 +151,10 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		Checker:          t.checker,
 		Meta:             txMeta,
 	})
-	return errors.Wrap(err, "skipped OCR transmission")
+	if err != nil {
+		return fmt.Errorf("skipped OCR transmission: %w", err)
+	}
+	return nil
 }
 
 func (t *transmitter) CreateSecondaryEthTransaction(ctx context.Context, bytes []byte, meta *txmgr.TxMeta) error {
@@ -185,9 +178,9 @@ func (t *transmitter) forwarderAddress() common.Address {
 }
 
 func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.fromAddresses...)
 	if err != nil {
-		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
+		return fmt.Errorf("skipped OCR transmission, error getting round-robin address: %w", err)
 	}
 
 	forwarderAddress, err := t.forwarderAddress(ctx, roundRobinFromAddress, toAddress)
@@ -206,12 +199,15 @@ func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddre
 		Meta:             txMeta,
 	})
 
-	return errors.Wrap(err, "skipped OCR transmission")
+	if err != nil {
+		return fmt.Errorf("skipped OCR transmission: %w", err)
+	}
+	return nil
 }
 
 // FromAddress for ocr2FeedsTransmitter returns valid forwarder or effectiveTransmitterAddress if forwarders are not set.
 func (t *ocr2FeedsTransmitter) FromAddress(ctx context.Context) common.Address {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.fromAddresses...)
 	if err != nil {
 		return t.effectiveTransmitterAddress
 	}
@@ -250,11 +246,6 @@ func (t *ocr2FeedsTransmitter) CreateSecondaryEthTransaction(ctx context.Context
 	return errors.New("trying to send a secondary transmission on a non dual transmitter")
 }
 
-func keyHasLock(ctx context.Context, ks keystore.Eth, address common.Address, service keystore.ServiceType) (bool, error) {
-	rm, err := ks.GetResourceMutex(ctx, address)
-	if err != nil {
-		return false, err
-	}
-
-	return rm.IsLocked(service)
+func keyHasLock(ks keys.Locker, address common.Address, service keys.ServiceType) bool {
+	return ks.GetMutex(address).IsLocked(service)
 }

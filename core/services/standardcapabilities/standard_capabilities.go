@@ -73,12 +73,12 @@ func (s *standardCapabilities) Start(ctx context.Context) error {
 			Env: nil,
 		})
 		if err != nil {
-			return fmt.Errorf("error registering loop: %v", err)
+			return fmt.Errorf("error registering loop: %w", err)
 		}
 
 		s.capabilitiesLoop = loop.NewStandardCapabilitiesService(s.log, opts, cmdFn)
 		if err = s.capabilitiesLoop.Start(ctx); err != nil {
-			return fmt.Errorf("error starting standard capabilities service: %v", err)
+			return fmt.Errorf("error starting standard capabilities service: %w", err)
 		}
 
 		s.wg.Add(1)

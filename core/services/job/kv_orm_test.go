@@ -2,7 +2,7 @@ package job_test
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -47,7 +47,7 @@ func TestJobKVStore(t *testing.T) {
 	}
 
 	for i, insertBytes := range values {
-		testKey := "test_key_" + fmt.Sprint(i)
+		testKey := "test_key_" + strconv.Itoa(i)
 		require.NoError(t, kvStore.Store(ctx, testKey, insertBytes))
 
 		var readBytes []byte

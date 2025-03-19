@@ -1,7 +1,6 @@
 package pipeline_test
 
 import (
-	"fmt"
 	"math"
 	"math/big"
 	"testing"
@@ -527,7 +526,7 @@ func TestETHABIEncode_EncodeIntegers(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, result.Error)
-				assert.Equal(t, test.expected, result.Value, fmt.Sprintf("test: %s", test.name))
+				assert.Equal(t, test.expected, result.Value, "test: %s", test.name)
 			}
 		})
 	}
@@ -591,7 +590,7 @@ func TestETHABIEncode_EncodeIntegers_Overflow(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, result.Error)
-				assert.Equal(t, test.expected, result.Value, fmt.Sprintf("test: %s", test.name))
+				assert.Equal(t, test.expected, result.Value, "test: %s", test.name)
 			}
 		})
 	}

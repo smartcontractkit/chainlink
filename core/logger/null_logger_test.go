@@ -51,6 +51,6 @@ func TestNullLogger(t *testing.T) {
 		l.Panicw("msg")
 		l.Fatalw("msg")
 		l.Recover(nil)
-		assert.Nil(t, l.Sync())
+		assert.NoError(t, l.Sync())
 	})
 }

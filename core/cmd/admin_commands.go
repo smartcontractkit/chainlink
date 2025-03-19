@@ -289,7 +289,7 @@ func (s *Shell) DeleteUser(c *cli.Context) (err error) {
 		return s.errorOut(errors.New("email flag is empty, must specify an email"))
 	}
 
-	response, err := s.HTTP.Delete(s.ctx(), fmt.Sprintf("/v2/users/%s", email))
+	response, err := s.HTTP.Delete(s.ctx(), "/v2/users/"+email)
 	if err != nil {
 		return s.errorOut(err)
 	}
@@ -323,7 +323,7 @@ func (s *Shell) Profile(c *cli.Context) error {
 	seconds := c.Uint("seconds")
 	baseDir := c.String("output_dir")
 
-	genDir := filepath.Join(baseDir, fmt.Sprintf("debuginfo-%s", time.Now().Format(time.RFC3339)))
+	genDir := filepath.Join(baseDir, "debuginfo-"+time.Now().Format(time.RFC3339))
 
 	if err := os.Mkdir(genDir, 0o755); err != nil {
 		return s.errorOut(err)
@@ -415,7 +415,7 @@ func (s *Shell) Profile(c *cli.Context) error {
 		for err := range errs {
 			merr = errors.Join(merr, err)
 		}
-		return s.errorOut(fmt.Errorf("profile collection failed:\n%v", merr))
+		return s.errorOut(fmt.Errorf("profile collection failed:\n%w", merr))
 	}
 	return nil
 }

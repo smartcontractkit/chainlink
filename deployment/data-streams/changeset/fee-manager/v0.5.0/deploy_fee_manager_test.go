@@ -15,7 +15,7 @@ import (
 )
 
 func TestDeployFeeManager(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, false)
+	e := testutil.NewMemoryEnv(t, false, 0)
 
 	// Need the Link Token
 	e, err := commonChangesets.Apply(t, e, nil,
@@ -62,4 +62,5 @@ func TestDeployFeeManager(t *testing.T) {
 	}
 	require.NotEqual(t, "", fmAddress)
 	require.NotEqual(t, common.HexToAddress("0x0000000000000000000000000000000000000000").String(), fmAddress)
+
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -121,7 +122,7 @@ func Test_PrometheusReporter(t *testing.T) {
 
 func newLegacyChainContainer(t *testing.T, db *sqlx.DB) legacyevm.LegacyChainContainer {
 	config, dbConfig, evmConfig := txmgr.MakeTestConfigs(t)
-	keyStore := cltest.NewKeyStore(t, db).Eth()
+	keyStore := &keystest.FakeChainStore{}
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)
 	require.NoError(t, err)

@@ -24,7 +24,7 @@ fi
 
 if [ "$os" == "Linux" ] ; then
 	os="linux"
-    if [$arch != "x86_64"]; then
+    if [ "$arch" != "x86_64" ]; then
         echo "unsupported os $os-$arch update $0"
         exit 1
     fi
@@ -45,7 +45,7 @@ curl -LO $pb_url/download/v${VERSION}/$artifact
 if [[ ! -d $install_dir ]]; then
     mkdir $install_dir
 fi
-unzip -uo $artifact -d $install_dir
+unzip -o $artifact -d $install_dir
 rm $artifact
 
 echo "protoc $VERSION installed in $install_dir"

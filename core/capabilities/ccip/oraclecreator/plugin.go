@@ -264,7 +264,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
-			return nil, nil, fmt.Errorf("peer wrapper is not started")
+			return nil, nil, errors.New("peer wrapper is not started")
 		}
 
 		i.lggr.Infow("creating rmn peer client",
@@ -452,6 +452,7 @@ func decodeAndValidateOffchainConfig(
 		}
 		ofc.CommitOffchainConfig = &commitOffchainCfg
 	}
+
 	if !ofc.IsValid() {
 		return ccipcommon.OffChainConfig{}, errors.New("invalid offchain config: both commit and exec configs are either set or unset")
 	}

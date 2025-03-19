@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net"
 	"strings"
 	"testing"
@@ -97,6 +98,113 @@ func extractPeerID(b []byte) (p2ptypes.PeerID, error) {
 		return p2ptypes.PeerID{}, err
 	}
 	return peerID, nil
+}
+
+type RMNKeys struct {
+	OffchainPublicKey   ed25519.PublicKey
+	EVMOnchainPublicKey common.Address
+}
+
+func GenerateRMNKeyStore(lggr zerolog.Logger, image string, version string, platform string) (keys RMNKeys, fileString string, passphrase string, err error) {
+	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
+		ContainerRequest: tc.ContainerRequest{
+			AutoRemove: false,
+			Image:      fmt.Sprintf("%s:%s", image, version),
+			Env: map[string]string{
+				"AFN_PASSPHRASE": DefaultAFNPassphrase,
+			},
+			Cmd:           []string{"afn2proxy", "--generate", "--keystore", RMNKeyStore},
+			WaitingFor:    tcwait.ForExit(),
+			ImagePlatform: platform,
+		},
+		Started: true,
+		Logger:  &lggr,
+	})
+	defer func() {
+		if terminateErr := container.Terminate(context.Background()); terminateErr != nil {
+			log.Printf("Failed to stop container: %v", terminateErr)
+		}
+	}()
+
+	if err != nil {
+		return RMNKeys{}, "", "", err
+	}
+
+	// Copy the file from container
+	reader, err := container.CopyFileFromContainer(context.Background(), "/app/"+RMNKeyStore)
+	if err != nil {
+		log.Printf("Failed to copy file: %v", err)
+		return RMNKeys{}, "", "", err
+	}
+	defer reader.Close()
+
+	fileContents, err := io.ReadAll(reader)
+	if err != nil {
+		log.Printf("Failed to read file contents: %v", err)
+		return RMNKeys{}, "", "", err
+	}
+
+	fileString = string(fileContents)
+
+	address, publicKey, err := extractKeys(fileContents)
+	if err != nil {
+		return RMNKeys{}, "", "", err
+	}
+
+	keys = RMNKeys{
+		OffchainPublicKey:   publicKey,
+		EVMOnchainPublicKey: address,
+	}
+	passphrase = DefaultAFNPassphrase
+
+	return keys, fileString, passphrase, nil
+}
+
+func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlatform string) (peerID p2ptypes.PeerID, content string, passphrase string, err error) {
+	container, err := docker.StartContainerWithRetry(lggr, tc.GenericContainerRequest{
+		ContainerRequest: tc.ContainerRequest{
+			AutoRemove: false,
+			Image:      fmt.Sprintf("%s:%s", image, version),
+			Env: map[string]string{
+				"RAGEPROXY_PASSPHRASE": DefaultAFNPassphrase,
+			},
+			Cmd:           []string{"rageproxy", "--generate", "--keystore", ProxyKeyStore},
+			WaitingFor:    tcwait.ForExit(),
+			ImagePlatform: imagePlatform,
+		},
+		Started: true,
+		Logger:  &lggr,
+	})
+	defer (func() {
+		err := container.Terminate(context.Background())
+		if err != nil {
+			log.Printf("Failed to stop container: %v", err)
+		}
+	})()
+
+	if err != nil {
+		return p2ptypes.PeerID{}, "", "", err
+	}
+
+	// Copy the file from container
+	reader, err := container.CopyFileFromContainer(context.Background(), "/app/"+ProxyKeyStore)
+	if err != nil {
+		return p2ptypes.PeerID{}, "", "", err
+	}
+	defer reader.Close()
+
+	fileContents, err := io.ReadAll(reader)
+	if err != nil {
+		return p2ptypes.PeerID{}, "", "", err
+	}
+
+	fileString := string(fileContents)
+
+	peerID, err = extractPeerID(fileContents)
+	if err != nil {
+		return p2ptypes.PeerID{}, "", "", err
+	}
+	return peerID, fileString, DefaultAFNPassphrase, nil
 }
 
 func (proxy *RageProxy) Start(t *testing.T, lggr zerolog.Logger, networks []string) (tc.Container, error) {

@@ -496,7 +496,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	}
 	_, rpcError := ethClient.CallContract(ctx, call, txnReceiptDB.EVMReceipt.BlockNumber)
 	if rpcError == nil {
-		return nil, fmt.Errorf("error fetching revert reason %v: %v", txnReceiptDB.TxHash, err)
+		return nil, fmt.Errorf("error fetching revert reason %v: %w", txnReceiptDB.TxHash, err)
 	}
 	revertErr, err := evmclient.ExtractRPCError(rpcError)
 	lsn.l.Infow("InsufficientBalRevertedTxn",
@@ -505,7 +505,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 		"ParsingErr", err,
 	)
 	if err != nil {
-		return nil, fmt.Errorf("reverted_txn_reason_parse_err: %v", err)
+		return nil, fmt.Errorf("reverted_txn_reason_parse_err: %w", err)
 	}
 	revertErrDataStr := ""
 	revertErrDataBytes := []byte{}
@@ -535,7 +535,7 @@ func (lsn *listenerV2) filterSingleRevertedTxn(ctx context.Context,
 	callData := txData[4:] // Remove first 4 bytes of function signature
 	unpacked, err := coordinatorV2ABI.Methods["fulfillRandomWords"].Inputs.Unpack(callData)
 	if err != nil {
-		return nil, fmt.Errorf("invalid_txn_data_for_tx_pack: %s, err %v", tx.Hash().String(), err)
+		return nil, fmt.Errorf("invalid_txn_data_for_tx_pack: %s, err %w", tx.Hash().String(), err)
 	}
 	proof := abi.ConvertType(unpacked[0], new(vrf_coordinator_v2.VRFProof)).(*vrf_coordinator_v2.VRFProof)
 	reqCommitment := abi.ConvertType(unpacked[1], new(vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)).(*vrf_coordinator_v2.VRFCoordinatorV2RequestCommitment)
@@ -564,7 +564,7 @@ func (lsn *listenerV2) filterBatchRevertedTxn(ctx context.Context,
 	for _, proof := range *proofs {
 		payload, err := evmutils.ABIEncode(`[{"type":"bytes32"},{"type":"uint256"}]`, keyHash, proof.Seed)
 		if err != nil {
-			return nil, fmt.Errorf("ABI Encode Error: (err %v), (keyHash %v), (prood: %v)", err, keyHash, proof.Seed)
+			return nil, fmt.Errorf("ABI Encode Error: (err %w), (keyHash %v), (prood: %v)", err, keyHash, proof.Seed)
 		}
 		requestIDOfProof := common.BytesToHash(crypto.Keccak256(payload))
 		proofReqIDs = append(proofReqIDs, requestIDOfProof)
