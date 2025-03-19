@@ -257,8 +257,8 @@ ReaperMaxAge = '678h0m0s'
 [Capabilities.RateLimit]
 GlobalRPS = 200.0
 GlobalBurst = 200
-PerSenderRPS = 100.0
-PerSenderBurst = 100
+PerSenderRPS = 200.0
+PerSenderBurst = 200
 
 [Capabilities.Peering]
 IncomingMessageBufferSize = 13
@@ -321,6 +321,11 @@ EmitterExportTimeout = '1s'
 [Telemetry.ResourceAttributes]
 Baz = 'test'
 Foo = 'bar'
+
+[Workflows]
+[Workflows.Limits]
+Global = 200
+PerOwner = 200
 
 [[EVM]]
 ChainID = '1'

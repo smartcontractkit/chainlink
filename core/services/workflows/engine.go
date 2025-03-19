@@ -26,12 +26,18 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 )
 
 const (
 	fifteenMinutesSec            = 15 * 60
 	reservedFieldNameStepTimeout = "cre_step_timeout"
 	maxStepTimeoutOverrideSec    = 10 * 60 // 10 minutes
+)
+
+var (
+	errGlobalWorkflowCountLimitReached   = errors.New("global workflow count limit reached")
+	errPerOwnerWorkflowCountLimitReached = errors.New("per owner workflow count limit reached")
 )
 
 type stepRequest struct {
@@ -50,15 +56,9 @@ type stepUpdateManager struct {
 }
 
 func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
-	sucm.mu.RLock()
-	_, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
-	if ok {
-		return false
-	}
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
-	if _, ok = sucm.m[executionID]; ok {
+	if _, ok := sucm.m[executionID]; ok {
 		return false
 	}
 	sucm.m[executionID] = ch
@@ -75,9 +75,10 @@ func (sucm *stepUpdateManager) remove(executionID string) {
 }
 
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
-	sucm.mu.RLock()
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
 	stepUpdateCh, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
+
 	if !ok {
 		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
@@ -139,14 +140,30 @@ type Engine struct {
 
 	maxWorkerLimit int
 
-	clock       clockwork.Clock
-	ratelimiter *ratelimiter.RateLimiter
+	clock          clockwork.Clock
+	ratelimiter    *ratelimiter.RateLimiter
+	workflowLimits *syncerlimiter.Limits
+	meterReport    *MeteringReport
 }
 
 func (e *Engine) Start(_ context.Context) error {
 	return e.StartOnce("Engine", func() error {
 		// create a new context, since the one passed in via Start is short-lived.
 		ctx, _ := e.stopCh.NewCtx()
+
+		// validate if adding another workflow would exceed either the global or per owner engine count limit
+		ownerAllow, globalAllow := e.workflowLimits.Allow(e.workflow.owner)
+		if !globalAllow {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitGlobalCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errGlobalWorkflowCountLimitReached.Error(), e.logger)
+			return errGlobalWorkflowCountLimitReached
+		}
+
+		if !ownerAllow {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner).incrementWorkflowLimitPerOwnerCounter(ctx)
+			logCustMsg(ctx, e.cma.With(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowOwner, e.workflow.owner), errPerOwnerWorkflowCountLimitReached.Error(), e.logger)
+			return errPerOwnerWorkflowCountLimitReached
+		}
 
 		e.metrics.incrementWorkflowInitializationCounter(ctx)
 
@@ -520,7 +537,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 				return
 			}
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
-			e.logger.Debugw(fmt.Sprintf("received step update for execution %s", stepUpdate.ExecutionID),
+			e.logger.Debugw("received step update for execution "+stepUpdate.ExecutionID,
 				platform.KeyWorkflowExecutionID, stepUpdate.ExecutionID, platform.KeyStepRef, stepUpdate.Ref)
 			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
@@ -548,6 +565,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
+	e.meterReport = NewMeteringReport()
+
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
@@ -820,7 +839,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case errors.Is(capabilities.ErrStopExecution, err):
+	case err != nil && capabilities.ErrStopExecution.Is(err):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
@@ -1167,10 +1186,11 @@ func (e *Engine) Close() error {
 		// any triggers to ensure no new executions are triggered,
 		// then we'll close down any background goroutines,
 		// and finally, we'll deregister any workflow steps.
+
 		for idx, t := range e.workflow.triggers {
 			err := e.deregisterTrigger(ctx, t, idx)
 			if err != nil {
-				return err
+				e.logger.Errorf("failed to deregister trigger: %v", err)
 			}
 		}
 
@@ -1219,6 +1239,9 @@ func (e *Engine) Close() error {
 		if err != nil {
 			return err
 		}
+		// decrement the global and per owner engine counter
+		e.workflowLimits.Decrement(e.workflow.owner)
+
 		logCustMsg(ctx, e.cma, "workflow unregistered", e.logger)
 		e.metrics.incrementWorkflowUnregisteredCounter(ctx)
 		return nil
@@ -1250,7 +1273,14 @@ type Config struct {
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	RateLimiter          *ratelimiter.RateLimiter
+
+	// RateLimiter limits the workflow execution steps globally and per
+	// second that a workflow owner can make
+	RateLimiter *ratelimiter.RateLimiter
+
+	// WorkflowLimits specifies an upper limit on the count of workflows that can be
+	// running globally and per workflow owner.
+	WorkflowLimits *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int
@@ -1263,7 +1293,7 @@ type Config struct {
 
 const (
 	defaultWorkerLimit          = 100
-	defaultQueueSize            = 100000
+	defaultQueueSize            = 1000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 5 * time.Minute
@@ -1331,6 +1361,14 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		}
 	}
 
+	if cfg.WorkflowLimits == nil {
+		return nil, &workflowError{reason: "workflowLimits must be provided",
+			labels: map[string]string{
+				platform.KeyWorkflowID: cfg.WorkflowID,
+			},
+		}
+	}
+
 	// TODO: validation of the workflow spec
 	// We'll need to check, among other things:
 	// - that there are no step `ref` called `trigger` as this is reserved for any triggers
@@ -1384,6 +1422,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
+		workflowLimits:       cfg.WorkflowLimits,
 	}
 
 	return engine, nil

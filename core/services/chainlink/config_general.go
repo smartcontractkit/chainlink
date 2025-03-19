@@ -259,7 +259,7 @@ func validateEnv() (err error) {
 		k := kv[:i]
 		_, ok := os.LookupEnv(k)
 		if ok {
-			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %v", k, v2.ErrUnsupported))
+			err = multierr.Append(err, fmt.Errorf("environment variable %s must not be set: %w", k, v2.ErrUnsupported))
 		}
 	}
 	return
@@ -412,6 +412,10 @@ func (g *generalConfig) Capabilities() config.Capabilities {
 	return &capabilitiesConfig{c: g.c.Capabilities}
 }
 
+func (g *generalConfig) Workflows() config.Workflows {
+	return &workflowsConfig{c: g.c.Workflows}
+}
+
 func (g *generalConfig) Database() coreconfig.Database {
 	return &databaseConfig{c: g.c.Database, s: g.secrets.Secrets.Database, logSQL: g.logSQL}
 }
@@ -517,6 +521,13 @@ func (g *generalConfig) Mercury() coreconfig.Mercury {
 
 func (g *generalConfig) Threshold() coreconfig.Threshold {
 	return &thresholdConfig{s: g.secrets.Threshold}
+}
+
+func (g *generalConfig) ImportedEthKeys() coreconfig.ImportableEthKeyLister {
+	return &importedEthKeyConfigs{s: g.secrets.EVM}
+}
+func (g *generalConfig) ImportedP2PKey() coreconfig.ImportableKey {
+	return &importedP2PKeyConfig{s: g.secrets.P2PKey}
 }
 
 func (g *generalConfig) Tracing() coreconfig.Tracing {

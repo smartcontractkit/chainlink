@@ -13,7 +13,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
@@ -82,11 +81,15 @@ func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock com
 	return nil
 }
 
-// TODO: SOLANA_CCIP
-func ValidateOwnershipSolana(
-	ctx context.Context, mcms bool, deployerKey, timelock solana.PublicKey, timelockSeed state.PDASeed,
-	ccipRouter solana.PublicKey,
-) error {
-	// TODO: implement
+func ValidateOwnershipSolanaCommon(mcms bool, deployerKey solana.PublicKey, timelockSignerPDA solana.PublicKey, programOwner solana.PublicKey) error {
+	if !mcms {
+		if deployerKey.String() != programOwner.String() {
+			return fmt.Errorf("deployer key %s does not match owner %s", deployerKey.String(), programOwner.String())
+		}
+	} else {
+		if timelockSignerPDA.String() != programOwner.String() {
+			return fmt.Errorf("timelock signer PDA %s does not match owner %s", timelockSignerPDA.String(), programOwner.String())
+		}
+	}
 	return nil
 }

@@ -1,0 +1,167 @@
+
+[blockchain_a]
+  type = "anvil"
+  docker_cmd_params = ["-b", "5"]
+
+[jd]
+  # change to your version
+  image = "jd-test-1:latest"
+
+# fake data provider used as a mocked price source
+[fake]
+  port = 8171
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
+[workflow_config]
+	workflow_name = "abcdefgasd"
+  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+
+  use_cre_cli = true
+  should_compile_new_workflow = true
+  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
+  # config below assumes that you have it cloned next to chainlink repository
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+
+  [workflow_config.dependencies]
+  capabilities_version = "v1.0.2-alpha"
+  cre_cli_version = "v0.1.5"
+
+  [workflow_config.compiled_config]
+    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    config_url = "https://gist.githubusercontent.com/Tofel/a261990c5b177fe58f304a52d0998e51/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json2891974493"
+
+[[nodesets]]
+  nodes = 5
+  override_mode = "each"
+  http_port_range_start = 10100
+  name = "workflow"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13000
+    volume_name = "workflow_volume"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+  nodes = 1
+  override_mode = "each"
+  http_port_range_start = 10300
+  name = "gateway"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """

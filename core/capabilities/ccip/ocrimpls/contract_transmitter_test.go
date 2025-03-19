@@ -19,27 +19,30 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	evmconfig "github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
+	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/multi_ocr3_helper"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -47,6 +50,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
@@ -179,6 +184,170 @@ func testTransmitter(
 	require.Equal(t, seqNr, events[0].SequenceNumber, "seq num mismatch")
 }
 
+func abiEncodeUint32(data uint32) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
+}
+
+// Test EVM -> SVM extra data decoding in contract transmitter
+func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
+	extraDataCodec := ccipcommon.NewExtraDataCodec(
+		ccipcommon.NewExtraDataCodecParams(
+			ccipevm.ExtraDataDecoder{},
+			ccipsolana.ExtraDataDecoder{},
+		),
+	)
+	t.Run("fails when multiple reports are included", func(t *testing.T) {
+		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: reports,
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "unexpected report length, expected 1, got 2")
+	})
+	t.Run("fails when multiple report contains multiple messages", func(t *testing.T) {
+		reports := []ccipocr3.ExecutePluginReportSingleChain{{
+			Messages: []ccipocr3.Message{{}, {}},
+		}}
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: reports,
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "unexpected message length, expected 1, got 2")
+	})
+	t.Run("fails with invalid extra args", func(t *testing.T) {
+		// invalid encoded extra args
+		encoded := []byte{1, 2, 3, 4}
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "unknown extra args tag")
+	})
+	t.Run("fails with invalid extra exec data", func(t *testing.T) {
+		// invalid encoded extra args
+		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
+		encodedExecData := []byte{1, 2, 3, 4}
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+				TokenAmounts: []ccipocr3.RampTokenAmount{{
+					DestExecData: encodedExecData,
+				}},
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, _, err = ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.Contains(t, err.Error(), "abi: improperly formatted output")
+	})
+	t.Run("Successfully decodes valid EVM -> SOL report", func(t *testing.T) {
+		// hardcode abi encoded extra args for simplicity
+		encoded := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
+		destGasAmount := uint32(10000)
+		encodedExecData, err := abiEncodeUint32(destGasAmount)
+		require.NoError(t, err)
+
+		report := ccipocr3.ExecutePluginReportSingleChain{
+			SourceChainSelector: 5009297550715157269,
+			Messages: []ccipocr3.Message{{
+				Header: ccipocr3.RampMessageHeader{
+					// EVM
+					SourceChainSelector: 5009297550715157269,
+					// to SOL
+					DestChainSelector: 124615329519749607,
+				},
+				ExtraArgs: encoded,
+				TokenAmounts: []ccipocr3.RampTokenAmount{{
+					DestExecData: encodedExecData,
+				}},
+			}},
+		}
+
+		reportWithInfo := ccipocr3.ExecuteReportInfo{
+			AbstractReports: []ccipocr3.ExecutePluginReportSingleChain{report},
+		}
+
+		encodedExecReport, err := reportWithInfo.Encode()
+		require.NoError(t, err)
+
+		rwi := ocr3types.ReportWithInfo[[]byte]{
+			Report: randomReport(t, 96),
+			Info:   encodedExecReport,
+		}
+
+		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
+		require.NoError(t, err)
+
+		expectedArgs, ok := args.(ocrimpls.SVMExecCallArgs)
+		require.True(t, ok)
+
+		require.Equal(t, uint64(0x4), expectedArgs.ExtraData.ExtraArgsDecoded["accountIsWritableBitmap"])
+		require.Equal(t, [32]uint8{44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}, expectedArgs.ExtraData.ExtraArgsDecoded["accounts"].([][32]byte)[0])
+		require.False(t, expectedArgs.ExtraData.ExtraArgsDecoded["allowOutOfOrderExecution"].(bool))
+		require.Equal(t, destGasAmount, expectedArgs.ExtraData.ExtraArgsDecoded["computeUnits"])
+		require.Equal(t, [32]uint8{44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}, expectedArgs.ExtraData.ExtraArgsDecoded["tokenReceiver"])
+		require.Equal(t, destGasAmount, expectedArgs.ExtraData.DestExecDataDecoded[0]["destGasAmount"])
+	})
+}
+
 type testUniverse[RI any] struct {
 	simClient              *client.SimulatedBackendClient
 	backend                *simulated.Backend
@@ -206,14 +375,15 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	db := pgtest.NewSqlxDB(t)
 	owner := evmtestutils.MustNewSimTransactor(t)
 
+	keyStore := keystest.NewMemoryChainStore()
 	// create many transmitters but only need to fund one, rest are to get
 	// setOCR3Config to pass.
-	keyStore := cltest.NewKeyStore(t, db)
+	chainStore := keys.NewChainStore(keyStore, big.NewInt(1337))
 	var transmitters []common.Address
 	for i := 0; i < 4; i++ {
-		key, err := keyStore.Eth().Create(testutils.Context(t), big.NewInt(1337))
+		addr, err := keyStore.Create()
 		require.NoError(t, err, "failed to create key")
-		transmitters = append(transmitters, key.Address)
+		transmitters = append(transmitters, addr)
 	}
 
 	backend := simulated.NewBackend(types.GenesisAlloc{
@@ -296,7 +466,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	simClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	// create the chain writer service
-	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, keyStore.Eth())
+	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, chainStore)
 	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
@@ -316,7 +486,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		contractName,
 		methodTransmitWithSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.ToCommitCalldata,
+		ocrimpls.NewEVMCommitCalldataFunc(consts.MethodCommit),
 	)
 	transmitterWithoutSigs := ocrimpls.XXXNewContractTransmitterTestsOnly(
 		chainWriter,
@@ -324,7 +494,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 		contractName,
 		methodTransmitWithoutSignatures,
 		ocr3HelperAddr.Hex(),
-		ocrimpls.ToExecCalldata,
+		ocrimpls.EVMExecCallDataFunc,
 	)
 
 	return &testUniverse[[]byte]{
@@ -407,11 +577,7 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 	}
 }
 
-func makeTestEvmTxm(
-	t *testing.T,
-	db *sqlx.DB,
-	ethClient client.Client,
-	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
+func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore keys.ChainStore) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
 	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)

@@ -26,7 +26,7 @@ func TestTelemetryIngressConfig(t *testing.T) {
 
 	tec := cfg.TelemetryIngress().Endpoints()
 
-	assert.Equal(t, 1, len(tec))
+	assert.Len(t, tec, 1)
 	assert.Equal(t, "EVM", tec[0].Network())
 	assert.Equal(t, "1", tec[0].ChainID())
 	assert.Equal(t, "prom.test", tec[0].URL().String())

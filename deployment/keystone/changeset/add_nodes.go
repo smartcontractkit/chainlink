@@ -4,9 +4,9 @@ import (
 	"errors"
 	"fmt"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	"github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -236,20 +236,29 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 	// create mcms proposal if needed
 	out := deployment.ChangesetOutput{}
 	if useMCMS {
-		if resp.Ops == nil || len(resp.Ops.Batch) == 0 {
+		if resp.Ops == nil || len(resp.Ops.Transactions) == 0 {
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
-		timelocksPerChain := map[uint64]gethcommon.Address{
-			registryChain.Selector: registryChainContracts.Timelock.Address(),
+		timelocksPerChain := map[uint64]string{
+			registryChain.Selector: registryChainContracts.Timelock.Address().Hex(),
 		}
-		proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-			registryChain.Selector: registryChainContracts.ProposerMcm,
+		proposerMCMSes := map[uint64]string{
+			registryChain.Selector: registryChainContracts.ProposerMcm.Address().Hex(),
+		}
+		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		inspectorPerChain := map[uint64]mcmssdk.Inspector{
+			req.RegistryChainSel: inspector,
 		}
 
-		proposal, err := proposalutils.BuildProposalFromBatches(
+		proposal, err := proposalutils.BuildProposalFromBatchesV2(
+			env,
 			timelocksPerChain,
 			proposerMCMSes,
-			[]timelock.BatchChainOperation{*resp.Ops},
+			inspectorPerChain,
+			[]types.BatchOperation{*resp.Ops},
 			"proposal to add nodes",
 			req.MCMSConfig.MinDuration,
 		)
@@ -257,7 +266,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 			return out, fmt.Errorf("failed to build proposal: %w", err)
 		}
 
-		out.Proposals = []timelock.MCMSWithTimelockProposal{*proposal} //nolint:staticcheck //SA1019 ignoring deprecated field for compatibility; we don't have tools to generate the new field
+		out.MCMSTimelockProposals = []mcms.TimelockProposal{*proposal}
 	}
 	return out, nil
 }

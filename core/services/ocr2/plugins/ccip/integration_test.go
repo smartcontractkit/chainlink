@@ -377,12 +377,12 @@ func TestIntegration_CCIP(t *testing.T) {
 				// delete v1 jobs
 				for _, node := range ccipTH.Nodes {
 					id := node.FindJobIDForContract(t, commitStoreV1.Address())
-					require.Greater(t, id, int32(0))
+					require.Positive(t, id)
 					t.Logf("deleting job %d", id)
 					err = node.App.DeleteJob(context.Background(), id)
 					require.NoError(t, err)
 					id = node.FindJobIDForContract(t, offRampV1.Address())
-					require.Greater(t, id, int32(0))
+					require.Positive(t, id)
 					t.Logf("deleting job %d", id)
 					err = node.App.DeleteJob(context.Background(), id)
 					require.NoError(t, err)

@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -23,23 +24,24 @@ const (
 		30_000*3 // supportsInterface of ERC165Checker library performs 3 static-calls of 30k gas each
 	PerTokenOverheadGas = TokenAdminRegistryPoolLookupGas +
 		SupportsInterfaceCheck +
-		200_000 + // releaseOrMint using callWithExactGas
-		50_000 // transfer using callWithExactGas
+		200_000 // releaseOrMint using callWithExactGas
 	RateLimiterOverheadGas = 2_100 + // COLD_SLOAD_COST for accessing token bucket
 		5_000 // SSTORE_RESET_GAS for updating & decreasing token bucket
 	ConstantMessagePartBytes            = 10 * 32 // A message consists of 10 abi encoded fields 32B each (after encoding)
 	ExecutionStateProcessingOverheadGas = 2_100 + // COLD_SLOAD_COST for first reading the state
 		20_000 + // SSTORE_SET_GAS for writing from 0 (untouched) to non-zero (in-progress)
 		100 //# SLOAD_GAS = WARM_STORAGE_READ_COST for rewriting from non-zero (in-progress) to non-zero (success/failure)
-	// TODO: investigate the write overhead for v1.6
-	DestGasOverhead = 110_000 + 110_000 + 130_000 // 110K for commit, 110K for RMN, 130K for Exec
+	DestGasOverhead = 300_000 // Commit and Exec costs
 )
 
-func NewGasEstimateProvider() EstimateProvider {
-	return EstimateProvider{}
+func NewGasEstimateProvider(codec ccipcommon.ExtraDataCodec) EstimateProvider {
+	return EstimateProvider{
+		extraDataCodec: codec,
+	}
 }
 
 type EstimateProvider struct {
+	extraDataCodec ccipcommon.ExtraDataCodec
 }
 
 // CalculateMerkleTreeGas estimates the merkle tree gas based on number of requests
@@ -72,16 +74,26 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 	var data []byte = msg.Data
 	dataLength := len(data)
 
-	messageGasLimit, err := decodeExtraArgsV1V2(msg.ExtraArgs)
+	decodedMap, err := gp.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
-		return 0, fmt.Errorf("failed to decode extra args: %w", err)
+		return 0, fmt.Errorf("error decoding extra args: %w", err)
+	}
+
+	messageGasLimit, err := parseExtraArgsMap(decodedMap)
+	if err != nil {
+		return 0, fmt.Errorf("error parsing extra args map: %w", err)
 	}
 
 	var totalTokenDestGasOverhead uint64
 	for _, rampTokenAmount := range msg.TokenAmounts {
-		tokenDestGasOverhead, err := decodeTokenDestGasOverhead(rampTokenAmount.DestExecData)
+		decodedMap, err = gp.extraDataCodec.DecodeTokenAmountDestExecData(rampTokenAmount.DestExecData, msg.Header.SourceChainSelector)
 		if err != nil {
 			return 0, fmt.Errorf("failed to decode token dest gas overhead: %w", err)
+		}
+
+		tokenDestGasOverhead, err := extractDestGasAmountFromMap(decodedMap)
+		if err != nil {
+			return 0, fmt.Errorf("failed to extract dest gas amount from map: %w", err)
 		}
 		totalTokenDestGasOverhead += uint64(tokenDestGasOverhead)
 	}
@@ -106,8 +118,7 @@ func (gp EstimateProvider) CalculateMessageMaxGasWithError(msg cciptypes.Message
 		adminRegistryOverhead = TokenAdminRegistryWarmupCost
 	}
 
-	return DestGasOverhead +
-		messageGasLimit.Uint64() +
+	return messageGasLimit.Uint64() +
 		messageCallDataGas +
 		ExecutionStateProcessingOverheadGas +
 		SupportsInterfaceCheck +

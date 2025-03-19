@@ -773,7 +773,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	defer launcher.Close()
 
 	// Finally, assert that no services were added.
-	assert.Len(t, launcher.subServices, 0)
+	assert.Empty(t, launcher.subServices)
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {

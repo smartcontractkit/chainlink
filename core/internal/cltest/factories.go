@@ -83,13 +83,13 @@ func NewBridgeType(t testing.TB, opts BridgeOpts) (*bridges.BridgeTypeAuthentica
 	if opts.Name != "" {
 		btr.Name = bridges.MustParseBridgeName(opts.Name)
 	} else {
-		btr.Name = bridges.MustParseBridgeName(fmt.Sprintf("test_bridge_%s", rnd))
+		btr.Name = bridges.MustParseBridgeName("test_bridge_" + rnd)
 	}
 
 	if opts.URL != "" {
 		btr.URL = WebURL(t, opts.URL)
 	} else {
-		btr.URL = WebURL(t, fmt.Sprintf("https://bridge.example.com/api?%s", rnd))
+		btr.URL = WebURL(t, "https://bridge.example.com/api?"+rnd)
 	}
 
 	bta, bt, err := bridges.NewBridgeType(btr)
@@ -116,8 +116,8 @@ func WebURL(t testing.TB, unparsed string) models.WebURL {
 }
 
 // JSONFromString create JSON from given body and arguments
-func JSONFromString(t testing.TB, body string, args ...interface{}) models.JSON {
-	return JSONFromBytes(t, []byte(fmt.Sprintf(body, args...)))
+func JSONFromString(t testing.TB, body string) models.JSON {
+	return JSONFromBytes(t, []byte(body))
 }
 
 // JSONFromBytes creates JSON from a given byte array
@@ -162,7 +162,7 @@ func NewLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 	return types.NewTx(&tx)
 }
 
-func MustInsertUnconfirmedEthTx(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
+func MustInsertUnconfirmedEthTx(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, fromAddress common.Address, opts ...interface{}) txmgr.Tx {
 	broadcastAt := time.Now()
 	chainID := &FixtureChainID
 	for _, opt := range opts {
@@ -202,7 +202,7 @@ func MustInsertUnconfirmedEthTxWithBroadcastLegacyAttempt(t *testing.T, txStore 
 	return etx
 }
 
-func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
+func MustInsertConfirmedEthTxWithLegacyAttempt(t testing.TB, txStore txmgr.TestEvmTxStore, nonce int64, broadcastBeforeBlockNum int64, fromAddress common.Address) txmgr.Tx {
 	timeNow := time.Now()
 	etx := NewEthTx(fromAddress)
 	ctx := testutils.Context(t)
@@ -222,7 +222,7 @@ func MustInsertConfirmedEthTxWithLegacyAttempt(t *testing.T, txStore txmgr.TestE
 	return etx
 }
 
-func NewLegacyEthTxAttempt(t *testing.T, etxID int64) txmgr.TxAttempt {
+func NewLegacyEthTxAttempt(t testing.TB, etxID int64) txmgr.TxAttempt {
 	gasPrice := assets.NewWeiI(1)
 	return txmgr.TxAttempt{
 		ChainSpecificFeeLimit: 42,

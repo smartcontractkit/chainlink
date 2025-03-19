@@ -32,13 +32,14 @@ const (
 
 // NodeInfo holds the information required to create a node
 type NodeInfo struct {
-	CLConfig    clclient.ChainlinkConfig // config to connect to chainlink node via API
-	P2PPort     string                   // port for P2P communication
-	IsBootstrap bool                     // denotes if the node is a bootstrap node
-	Name        string                   // name of the node, used to identify the node, helpful in logs
-	AdminAddr   string                   // admin address to send payments to, applicable only for non-bootstrap nodes
-	MultiAddr   string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
-	Labels      map[string]string        // labels to use when registering the node with job distributor
+	CLConfig      clclient.ChainlinkConfig // config to connect to chainlink node via API
+	P2PPort       string                   // port for P2P communication
+	IsBootstrap   bool                     // denotes if the node is a bootstrap node
+	Name          string                   // name of the node, used to identify the node, helpful in logs
+	AdminAddr     string                   // admin address to send payments to, applicable only for non-bootstrap nodes
+	MultiAddr     string                   // multi address denoting node's FQN (needed for deriving P2PBootstrappers in OCR), applicable only for bootstrap nodes
+	Labels        map[string]string        // labels to use when registering the node with job distributor
+	ContainerName string                   // name of Docker container
 }
 
 type DON struct {
@@ -206,6 +207,10 @@ func (n *Node) Labels() []*ptypes.Label {
 	return n.labels
 }
 
+func (n *Node) AddLabel(label *ptypes.Label) {
+	n.labels = append(n.labels, label)
+}
+
 // CreateCCIPOCRSupportedChains creates a JobDistributorChainConfig for the node.
 // It works under assumption that the node is already registered with the job distributor.
 // It expects bootstrap nodes to have label with key "type" and value as "bootstrap".
@@ -258,6 +263,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			return fmt.Errorf("no OCR2 key bundle id found for node %s", n.Name)
 		}
 		n.Ocr2KeyBundleID = ocr2BundleId
+
 		// fetch node labels to know if the node is bootstrap or plugin
 		// if multi address is set, then it's a bootstrap node
 		isBootstrap := n.multiAddr != ""
@@ -345,6 +351,29 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 		return fmt.Errorf("no job proposal spec found for job id %s", idToAccept)
 	}
 	return nil
+}
+
+func (n *Node) DeleteJob(ctx context.Context, jobID string) error {
+	jobs, err := n.gqlClient.ListJobs(ctx, 0, 1000)
+	if err != nil {
+		return err
+	}
+	if jobs == nil || len(jobs.Jobs.Results) == 0 {
+		return fmt.Errorf("no jobs found for node %s", n.Name)
+	}
+	for _, job := range jobs.Jobs.Results {
+		if job.ExternalJobID == jobID {
+			spec, err := n.gqlClient.CancelJobProposalSpec(ctx, job.Id)
+			if err != nil {
+				return err
+			}
+			if spec == nil {
+				return fmt.Errorf("on deletion response no job proposal spec found for job id %s", jobID)
+			}
+			return nil
+		}
+	}
+	return fmt.Errorf("no job found for job id %s", jobID)
 }
 
 // RegisterNodeToJobDistributor fetches the CSA public key of the node and registers the node with the job distributor
@@ -449,7 +478,7 @@ func (n *Node) SetUpAndLinkJobDistributor(ctx context.Context, jd JobDistributor
 	// now create the job distributor in the node
 	id, err := n.CreateJobDistributor(ctx, jd)
 	if err != nil &&
-		(!strings.Contains(err.Error(), "only a single feeds manager is supported") || !strings.Contains(err.Error(), "DuplicateFeedsManagerError")) {
+		!strings.Contains(err.Error(), "DuplicateFeedsManagerError") {
 		return fmt.Errorf("failed to create job distributor in node %s: %w", n.Name, err)
 	}
 	// wait for the node to connect to the job distributor

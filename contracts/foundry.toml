@@ -6,7 +6,7 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8'
 test = 'test/v0.8'
 out = 'foundry-artifacts'
-cache_path  = 'foundry-cache'
+cache_path = 'foundry-cache'
 libs = ['node_modules']
 bytecode_hash = "none"
 ffi = false
@@ -41,21 +41,26 @@ optimizer_runs = 80_000
 via_ir = true
 
 [profile.functions]
+optimizer_runs = 1_000_000
 solc_version = '0.8.19'
-src = 'src/v0.8/functions/dev/v1_X'
-test = 'src/v0.8/functions/tests/v1_X'
-gas_price = 3_000_000_000 # 3 gwei
+evm_version = 'paris'
+src = 'src/v0.8/functions'
+test = 'src/v0.8/functions/tests'
+gas_price = 3_000_000_000         # 3 gwei
 
+#Used in tests with different solidity versions.
 [profile.vrf]
 optimizer_runs = 1_000
 src = 'src/v0.8/vrf'
 test = 'src/v0.8/vrf/test'
 
-[profile.vrfv2plus_coordinator]
-optimizer_runs = 500
+[profile.vrf-compile]
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
-[profile.vrfv2plus]
+[profile.vrfv2plus-compile]
+solc_version = '0.8.19'
 optimizer_runs = 1_000_000
 src = 'src/v0.8/vrf'
 
@@ -63,6 +68,21 @@ src = 'src/v0.8/vrf'
 optimizer_runs = 10_000
 src = 'src/v0.8/automation'
 test = 'src/v0.8/automation/test'
+
+[profile.automation-compile-12]
+solc_version = '0.8.6'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-21]
+solc_version = '0.8.16'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
+
+[profile.automation-compile-22]
+solc_version = '0.8.19'
+optimizer_runs = 1_000_000
+src = 'src/v0.8/automation'
 
 [profile.l2ep]
 solc_version = '0.8.24'
@@ -75,13 +95,6 @@ optimizer_runs = 1_000_000
 src = 'src/v0.8/llo-feeds'
 test = 'src/v0.8/llo-feeds/test'
 solc_version = '0.8.19'
-
-[profile.liquiditymanager]
-optimizer_runs = 1000000
-src = 'src/v0.8/liquiditymanager'
-test = 'src/v0.8/liquiditymanager/test'
-solc_version = '0.8.24'
-evm_version = 'paris'
 
 [profile.keystone]
 optimizer_runs = 1_000_000
@@ -101,7 +114,7 @@ optimizer_runs = 1_000_000
 solc_version = '0.8.24'
 src = 'src/v0.8/workflow'
 test = 'src/v0.8/workflow/test'
-via_ir = true # reconsider using the --via-ir flag if compilation takes too long
+via_ir = true                   # reconsider using the --via-ir flag if compilation takes too long
 evm_version = 'paris'
 
 [profile.data-feeds]

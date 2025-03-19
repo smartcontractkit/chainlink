@@ -1225,8 +1225,8 @@ but the host and port must be fully specified and cannot be empty. You can speci
 [Capabilities.RateLimit]
 GlobalRPS = 200 # Default
 GlobalBurst = 200 # Default
-PerSenderRPS = 100 # Default
-PerSenderBurst = 100 # Default
+PerSenderRPS = 200 # Default
+PerSenderBurst = 200 # Default
 ```
 
 
@@ -1244,13 +1244,13 @@ GlobalBurst is the global burst limit for the dispatcher.
 
 ### PerSenderRPS
 ```toml
-PerSenderRPS = 100 # Default
+PerSenderRPS = 200 # Default
 ```
 PerSenderRPS is the per-sender rate limit for the dispatcher.
 
 ### PerSenderBurst
 ```toml
-PerSenderBurst = 100 # Default
+PerSenderBurst = 200 # Default
 ```
 PerSenderBurst is the per-sender burst limit for the dispatcher.
 
@@ -1301,6 +1301,32 @@ MaxEncryptedSecretsSize is the maximum size of encrypted secrets that can be fet
 MaxConfigSize = '50.00kb' # Default
 ```
 MaxConfigSize is the maximum size of a config that can be fetched from the given config url.
+
+## Workflows
+```toml
+[Workflows]
+```
+
+
+## Workflows.Limits
+```toml
+[Workflows.Limits]
+Global = 200 # Default
+PerOwner = 200 # Default
+```
+
+
+### Global
+```toml
+Global = 200 # Default
+```
+Global is the maximum number of workflows that can be registered globally.
+
+### PerOwner
+```toml
+PerOwner = 200 # Default
+```
+PerOwner is the maximum number of workflows that can be registered per owner.
 
 ## Capabilities.ExternalRegistry
 ```toml
@@ -1962,8 +1988,8 @@ CertFile is the path to a PEM file of trusted root certificate authority certifi
 ## Mercury.Transmitter
 ```toml
 [Mercury.Transmitter]
-Protocol = "wsrpc" # Default
-TransmitQueueMaxSize = 100_000 # Default
+Protocol = "grpc" # Default
+TransmitQueueMaxSize = 250_000 # Default
 TransmitTimeout = "5s" # Default
 TransmitConcurrency = 100 # Default
 ReaperFrequency = "1h" # Default
@@ -1973,7 +1999,7 @@ Mercury.Transmitter controls settings for the mercury transmitter
 
 ### Protocol
 ```toml
-Protocol = "wsrpc" # Default
+Protocol = "grpc" # Default
 ```
 Protocol is the protocol to use for the transmitter.
 
@@ -1983,7 +2009,7 @@ Options are either:
 
 ### TransmitQueueMaxSize
 ```toml
-TransmitQueueMaxSize = 100_000 # Default
+TransmitQueueMaxSize = 250_000 # Default
 ```
 TransmitQueueMaxSize controls the size of the transmit queue. This is scoped
 per OCR instance. If the queue is full, the transmitter will start dropping
@@ -5476,7 +5502,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 6000000
+GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -5588,7 +5614,7 @@ ObservationGracePeriod = '1s'
 
 [OCR2]
 [OCR2.Automation]
-GasLimit = 6000000
+GasLimit = 11000000
 
 [Workflow]
 GasLimitDefault = 400000
@@ -6329,6 +6355,10 @@ TransactionPercentile = 60
 
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
+
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
 
 [HeadTracker]
 HistoryDepth = 100
@@ -11070,6 +11100,10 @@ TransactionPercentile = 60
 [GasEstimator.FeeHistory]
 CacheTimeout = '10s'
 
+[GasEstimator.DAOracle]
+OracleType = 'opstack'
+OracleAddress = '0x420000000000000000000000000000000000000F'
+
 [HeadTracker]
 HistoryDepth = 100
 MaxBufferSize = 3
@@ -15524,7 +15558,7 @@ ComputeUnitPriceDefault is the default price per compute unit price, and the sta
 ```toml
 FeeBumpPeriod = '3s' # Default
 ```
-FeeBumpPeriod is the amount of time before a tx is retried with a fee bump
+FeeBumpPeriod is the amount of time before a tx is retried with a fee bump. WARNING: If FeeBumpPeriod is shorter than blockhash expiration, multiple valid transactions can exist in parallel. This can result in higher costs and can cause unexpected behaviors if contracts do not de-dupe txs
 
 ### BlockHistoryPollPeriod
 ```toml

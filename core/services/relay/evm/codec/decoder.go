@@ -73,6 +73,7 @@ func extractDecoding(info types.CodecEntry, raw []byte) (any, error) {
 	if err := args.UnpackIntoMap(unpacked, raw); err != nil {
 		return nil, fmt.Errorf("%w: %w: for args %#v", commontypes.ErrInvalidEncoding, err, args)
 	}
+
 	var decode any = unpacked
 
 	if noName, ok := unpacked[""]; ok {
@@ -104,5 +105,6 @@ func MapstructureDecode(src, dest any) error {
 	if err = mDecoder.Decode(src); err != nil {
 		return fmt.Errorf("%w: %w", commontypes.ErrInvalidType, err)
 	}
+
 	return nil
 }

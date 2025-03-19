@@ -10,6 +10,7 @@ import (
 
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/statuschecker"
 )
@@ -39,7 +40,7 @@ type transmitter struct {
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
-	keystore                    roundRobinKeystore
+	keystore                    keys.RoundRobin
 	statuschecker               statuschecker.CCIPTransactionStatusChecker // Used for CCIP's idempotency key generation
 }
 
@@ -52,7 +53,7 @@ func NewTransmitter(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore roundRobinKeystore,
+	keystore keys.RoundRobin,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
@@ -79,7 +80,7 @@ func NewTransmitterWithStatusChecker(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore roundRobinKeystore,
+	keystore keys.RoundRobin,
 ) (Transmitter, error) {
 	t, err := NewTransmitter(txm, fromAddresses, gasLimit, effectiveTransmitterAddress, strategy, checker, chainID, keystore)
 
@@ -97,7 +98,7 @@ func NewTransmitterWithStatusChecker(
 }
 
 func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	roundRobinFromAddress, err := t.keystore.GetRoundRobinAddress(ctx, t.chainID, t.fromAddresses...)
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.fromAddresses...)
 	if err != nil {
 		return fmt.Errorf("skipped OCR transmission, error getting round-robin address: %w", err)
 	}

@@ -110,16 +110,19 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		return cciptypes.CommitPluginReport{}, err
 	}
 
-	merkleRoots := []cciptypes.MerkleRootChain{
-		{
-			ChainSel:      cciptypes.ChainSelector(commitReport.MerkleRoot.SourceChainSelector),
-			OnRampAddress: commitReport.MerkleRoot.OnRampAddress,
-			SeqNumsRange: cciptypes.NewSeqNumRange(
-				cciptypes.SeqNum(commitReport.MerkleRoot.MinSeqNr),
-				cciptypes.SeqNum(commitReport.MerkleRoot.MaxSeqNr),
-			),
-			MerkleRoot: commitReport.MerkleRoot.MerkleRoot,
-		},
+	var merkleRoots []cciptypes.MerkleRootChain
+	if commitReport.MerkleRoot != nil {
+		merkleRoots = []cciptypes.MerkleRootChain{
+			{
+				ChainSel:      cciptypes.ChainSelector(commitReport.MerkleRoot.SourceChainSelector),
+				OnRampAddress: commitReport.MerkleRoot.OnRampAddress,
+				SeqNumsRange: cciptypes.NewSeqNumRange(
+					cciptypes.SeqNum(commitReport.MerkleRoot.MinSeqNr),
+					cciptypes.SeqNum(commitReport.MerkleRoot.MaxSeqNr),
+				),
+				MerkleRoot: commitReport.MerkleRoot.MerkleRoot,
+			},
+		}
 	}
 
 	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
@@ -190,7 +193,7 @@ func decodeLEToBigInt(data []byte) cciptypes.BigInt {
 
 	// Use big.Int.SetBytes to construct the big.Int
 	bi := new(big.Int).SetBytes(data)
-	if bi.Int64() == 0 {
+	if bi.Cmp(big.NewInt(0)) == 0 {
 		return cciptypes.NewBigInt(big.NewInt(0))
 	}
 

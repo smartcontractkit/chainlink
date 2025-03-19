@@ -1,7 +1,7 @@
 package web
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -57,7 +57,7 @@ func (cc *LogController) Patch(c *gin.Context) {
 
 	// Validate request params
 	if request.Level == "" && request.SqlEnabled == nil {
-		jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("please check request params, no params configured"))
+		jsonAPIError(c, http.StatusBadRequest, errors.New("please check request params, no params configured"))
 		return
 	}
 

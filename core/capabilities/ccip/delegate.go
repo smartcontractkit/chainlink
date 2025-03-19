@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"golang.org/x/exp/maps"
 
 	"github.com/avast/retry-go/v4"
@@ -224,6 +226,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
+			common.NewAddressCodec(
+				common.NewAddressCodecParams(
+					ccipevm.AddressCodec{},
+					ccipsolana.AddressCodec{},
+				)),
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(

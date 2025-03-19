@@ -12,13 +12,10 @@ import (
 	"strings"
 	"testing"
 
-	gethParams "github.com/ethereum/go-ethereum/params"
 	"github.com/fatih/color"
 
 	cutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -39,8 +36,8 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	if err != nil {
 		wd = "<directory containing this test>"
 	}
-	require.Equal(t, versions.GethVersion, gethParams.Version,
-		color.HiRedString(utils.BoxOutput("please re-run `go generate %s` and commit the"+
+	require.Equal(t, versions.GethVersion, GethVersion,
+		color.HiRedString(BoxOutput("please re-run `go generate %s` and commit the"+
 			"changes", wd)))
 
 	for _, contractVersionInfo := range versions.ContractVersions {
@@ -52,8 +49,7 @@ func TestCheckContractHashesFromLastGoGenerate(t *testing.T) {
 	// Just check that LinkToken details haven't changed (they never ought to)
 	linkDetails, err := os.ReadFile(filepath.Join(getProjectRoot(t), "contracts/LinkToken.json"))
 	require.NoError(t, err, "could not read link contract details")
-	require.Equal(t, fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
-		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922",
+	require.Equal(t, "27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922", fmt.Sprintf("%x", sha256.Sum256(linkDetails)),
 		"should never differ!")
 }
 
@@ -97,7 +93,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	require.NoError(t, err)
 	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
-		utils.BoxOutput(`compiled %s and/or %s has changed; please rerun
+		BoxOutput(`compiled %s and/or %s has changed; please rerun
 %s,
 and commit the changes`, versionInfo.AbiPath, versionInfo.BinaryPath, recompileCommand))
 }

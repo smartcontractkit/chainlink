@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"slices"
@@ -272,7 +273,7 @@ func (p *priceService) observeGasPriceUpdates(
 	lggr logger.Logger,
 ) (sourceGasPriceUSD *big.Int, err error) {
 	if p.gasPriceEstimator == nil {
-		return nil, fmt.Errorf("gasPriceEstimator is not set yet")
+		return nil, errors.New("gasPriceEstimator is not set yet")
 	}
 
 	// Include wrapped native to identify the source native USD price, notice USD is in 1e18 scale, i.e. $1 = 1e18
@@ -292,7 +293,7 @@ func (p *priceService) observeGasPriceUpdates(
 		return nil, err
 	}
 	if sourceGasPrice == nil {
-		return nil, fmt.Errorf("missing gas price")
+		return nil, errors.New("missing gas price")
 	}
 	sourceGasPriceUSD, err = p.gasPriceEstimator.DenoteInUSD(ctx, sourceGasPrice, sourceNativePriceUSD)
 	if err != nil {
@@ -320,7 +321,7 @@ func (p *priceService) observeTokenPriceUpdates(
 	lggr logger.Logger,
 ) (tokenPricesUSD map[cciptypes.Address]*big.Int, err error) {
 	if p.destPriceRegistryReader == nil {
-		return nil, fmt.Errorf("destPriceRegistry is not set yet")
+		return nil, errors.New("destPriceRegistry is not set yet")
 	}
 	rawTokenPricesUSD, err := p.priceGetter.GetJobSpecTokenPricesUSD(ctx)
 	if err != nil {
@@ -383,7 +384,7 @@ func (p *priceService) observeTokenPriceUpdates(
 	}
 
 	if len(destTokensDecimals) != len(finalDestTokens) {
-		return nil, fmt.Errorf("mismatched token decimals and tokens")
+		return nil, errors.New("mismatched token decimals and tokens")
 	}
 
 	tokenPricesUSD = make(map[cciptypes.Address]*big.Int, len(rawTokenPricesUSD))

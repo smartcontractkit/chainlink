@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.23-bullseye as buildgo
+FROM golang:1.24-bullseye as buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -35,7 +35,7 @@ RUN make install-ocr3-capability
 RUN make install-plugins
 
 # Final image: ubuntu with chainlink binary
-FROM ubuntu:20.04
+FROM ubuntu:24.04
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
@@ -69,6 +69,7 @@ RUN chmod 755 /usr/lib/libwasmvm.*.so
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi
+
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location

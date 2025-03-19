@@ -9,13 +9,15 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/google/go-cmp/cmp"
-	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
-	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
@@ -25,6 +27,7 @@ import (
 )
 
 func TestDeployMCMSWithTimelockV2(t *testing.T) {
+	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 2, SolChains: 1}
@@ -127,7 +130,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 		changesetConfig,
 	)
-	setPreloadedSolanaAddresses(t, env, solanaSelectors[0])
+	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
 
 	// --- act ---
 	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
@@ -273,20 +276,6 @@ func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) s
 
 func timelockSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
 	return mcmschangesetstate.GetTimelockSignerPDA(programID, seed).String()
-}
-
-func setPreloadedSolanaAddresses(t *testing.T, env deployment.Environment, selector uint64) {
-	typeAndVersion := deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err := env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["mcm"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["access_controller"], typeAndVersion)
-	require.NoError(t, err)
-
-	typeAndVersion = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = env.ExistingAddresses.Save(selector, memory.SolanaProgramIDs["timelock"], typeAndVersion)
-	require.NoError(t, err)
 }
 
 func solanaTimelockConfig(

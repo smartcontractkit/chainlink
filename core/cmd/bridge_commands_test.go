@@ -85,9 +85,9 @@ func TestShell_IndexBridges(t *testing.T) {
 	err = app.BridgeORM().CreateBridgeType(ctx, bt2)
 	require.NoError(t, err)
 
-	require.Nil(t, client.IndexBridges(cltest.EmptyCLIContext()))
+	require.NoError(t, client.IndexBridges(cltest.EmptyCLIContext()))
 	bridges := *r.Renders[0].(*cmd.BridgePresenters)
-	require.Equal(t, 2, len(bridges))
+	require.Len(t, bridges, 2)
 	p := bridges[0]
 	assert.Equal(t, bt1.Name.String(), p.Name)
 	assert.Equal(t, bt1.URL.String(), p.URL)
@@ -158,7 +158,7 @@ func TestShell_CreateBridge(t *testing.T) {
 			if test.errored {
 				assert.Error(t, client.CreateBridge(c))
 			} else {
-				assert.Nil(t, client.CreateBridge(c))
+				assert.NoError(t, client.CreateBridge(c))
 			}
 		})
 	}

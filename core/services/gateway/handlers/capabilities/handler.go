@@ -221,7 +221,7 @@ func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 	err := json.Unmarshal(body.Payload, &payload)
 	if err != nil {
 		h.lggr.Errorw("error decoding payload", "err", err)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: fmt.Sprintf("error decoding payload %s", err.Error())}
+		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.UserMessageParseError, ErrMsg: "error decoding payload " + err.Error()}
 		close(callbackCh)
 		return nil
 	}
@@ -241,7 +241,7 @@ func (h *handler) HandleUserMessage(ctx context.Context, msg *api.Message, callb
 	// TODO: apply allowlist and rate-limiting here
 	if msg.Body.Method != MethodWebAPITrigger {
 		h.lggr.Errorw("unsupported method", "method", body.Method)
-		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: fmt.Sprintf("invalid method %s", msg.Body.Method)}
+		callbackCh <- handlers.UserCallbackPayload{Msg: msg, ErrCode: api.HandlerError, ErrMsg: "invalid method " + msg.Body.Method}
 		close(callbackCh)
 		return nil
 	}

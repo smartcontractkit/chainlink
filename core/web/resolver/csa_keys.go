@@ -1,8 +1,6 @@
 package resolver
 
 import (
-	"fmt"
-
 	"github.com/graph-gophers/graphql-go"
 	"github.com/pkg/errors"
 
@@ -26,7 +24,7 @@ func (r *CSAKeyResolver) ID() graphql.ID {
 
 // PubKey resolves the CSA Key public key string.
 func (r *CSAKeyResolver) PublicKey() string {
-	return fmt.Sprintf("csa_%s", r.key.PublicKeyString())
+	return "csa_" + r.key.PublicKeyString()
 }
 
 // Version resolves the CSA Key version number.

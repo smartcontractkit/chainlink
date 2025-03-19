@@ -22,7 +22,12 @@ var (
 // ContractType is a simple string type for identifying contract types.
 type ContractType string
 
+func (ct ContractType) String() string {
+	return string(ct)
+}
+
 var (
+	Version0_5_0 = *semver.MustParse("0.5.0")
 	Version1_0_0 = *semver.MustParse("1.0.0")
 	Version1_1_0 = *semver.MustParse("1.1.0")
 	Version1_2_0 = *semver.MustParse("1.2.0")
@@ -315,28 +320,37 @@ func tvKey(tv TypeAndVersion) typeVersionKey {
 	}
 }
 
-// AddressesContainBundle checks if the addresses
-// contains a single instance of all the addresses in the bundle.
-// It returns an error if there are more than one instance of a contract.
-func AddressesContainBundle(addrs map[string]TypeAndVersion, wantTypes []TypeAndVersion) (bool, error) {
-	// Count how many times each wanted TypeAndVersion is found
-	counts := make(map[typeVersionKey]int)
-	for _, wantTV := range wantTypes {
-		wantKey := tvKey(wantTV)
-		for _, haveTV := range addrs {
-			if wantTV.Equal(haveTV) {
-				// They match exactly (Type, Version, Labels)
-				counts[wantKey]++
-				if counts[wantKey] > 1 {
-					return false, fmt.Errorf("found more than one instance of contract %s %s (labels=%s)",
-						wantTV.Type, wantTV.Version.String(), wantTV.Labels.String())
-				}
-			}
+// EnsureDeduped ensures that each contract in the bundle only appears once
+// in the address map.  It returns an error if there are more than one instance of a contract.
+// Returns true if every value in the bundle is found once, false otherwise.
+func EnsureDeduped(addrs map[string]TypeAndVersion, bundle []TypeAndVersion) (bool, error) {
+	var (
+		grouped = toTypeAndVersionMap(addrs)
+		found   = make([]TypeAndVersion, 0)
+	)
+	for _, btv := range bundle {
+		key := tvKey(btv)
+		matched, ok := grouped[key]
+		if ok {
+			found = append(found, btv)
+		}
+		if len(matched) > 1 {
+			return false, fmt.Errorf("found more than one instance of contract %s v%s (labels=%s)",
+				key.Type, key.Version, key.Labels)
 		}
 	}
 
-	// Ensure we found *all* wantTypes exactly once
-	return len(counts) == len(wantTypes), nil
+	// Indicate if each TypeAndVersion in the bundle is found at least once
+	return len(found) == len(bundle), nil
+}
+
+// toTypeAndVersionMap groups contract addresses by unique TypeAndVersion.
+func toTypeAndVersionMap(addrs map[string]TypeAndVersion) map[typeVersionKey][]string {
+	tvkMap := make(map[typeVersionKey][]string)
+	for k, v := range addrs {
+		tvkMap[tvKey(v)] = append(tvkMap[tvKey(v)], k)
+	}
+	return tvkMap
 }
 
 // AddLabel adds a string to the LabelSet in the TypeAndVersion.

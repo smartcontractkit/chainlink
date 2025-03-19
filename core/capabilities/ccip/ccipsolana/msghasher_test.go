@@ -1,16 +1,17 @@
 package ccipsolana
 
 import (
-	"bytes"
 	cryptorand "crypto/rand"
 	"math/big"
 	"math/rand"
 	"testing"
 
-	agbinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
@@ -21,13 +22,29 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-func TestMessageHasher_Any2Solana(t *testing.T) {
-	any2AnyMsg, any2SolanaMsg, msgAccounts := createAny2SolanaMessages(t)
+var ExtraDataCodec = ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ExtraDataDecoder{}))
+
+func TestMessageHasher_EVM2SVM(t *testing.T) {
+	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
+	msgHasher := NewMessageHasherV1(logger.Test(t), ExtraDataCodec)
+	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	require.NoError(t, err)
+	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
+	require.NoError(t, err)
+	require.Equal(t, expectedHash, actualHash[:32])
+}
+
+func TestMessageHasher_InvalidReceiver(t *testing.T) {
+	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
+
+	// Set receiver to a []byte of 2 length
+	any2AnyMsg.Receiver = []byte{0, 0}
 	mockExtraDataCodec := &mocks.ExtraDataCodec{}
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
@@ -42,17 +59,36 @@ func TestMessageHasher_Any2Solana(t *testing.T) {
 		},
 	}, nil)
 	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
-	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
-	require.NoError(t, err)
-	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)
-	require.NoError(t, err)
-	require.Equal(t, expectedHash, actualHash[:32])
+	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	require.Error(t, err)
 }
 
-func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
-	messageID := utils.RandomBytes32()
+func TestMessageHasher_InvalidDestinationTokenAddress(t *testing.T) {
+	any2AnyMsg, _, _ := createEVM2SolanaMessages(t)
 
-	sourceChain := rand.Uint64()
+	// Set DestTokenAddress to a []byte of 2 length
+	any2AnyMsg.TokenAmounts[0].DestTokenAddress = []byte{0, 0}
+	mockExtraDataCodec := &mocks.ExtraDataCodec{}
+	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
+		"destGasAmount": uint32(10),
+	}, nil)
+	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
+		"ComputeUnits":            uint32(1000),
+		"AccountIsWritableBitmap": uint64(10),
+		"Accounts": [][32]byte{
+			[32]byte(config.CcipLogicReceiver.Bytes()),
+			[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
+			[32]byte(solana.SystemProgramID.Bytes()),
+		},
+	}, nil)
+	msgHasher := NewMessageHasherV1(logger.Test(t), mockExtraDataCodec)
+	_, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
+	require.Error(t, err)
+}
+
+func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any2SVMRampMessage, []solana.PublicKey) {
+	messageID := utils.RandomBytes32()
+	sourceChain := uint64(5009297550715157269) // evm mainnet
 	seqNum := rand.Uint64()
 	nonce := rand.Uint64()
 	destChain := rand.Uint64()
@@ -63,18 +99,15 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 
 	sender := abiEncodedAddress(t)
 	receiver := solana.MustPublicKeyFromBase58("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb")
-	computeUnit := uint32(1000)
-	bitmap := uint64(10)
 
 	extraArgs := ccip_offramp.Any2SVMRampExtraArgs{
-		ComputeUnits:     computeUnit,
-		IsWritableBitmap: bitmap,
+		ComputeUnits:     uint32(10000),
+		IsWritableBitmap: uint64(4),
 	}
-	var buf bytes.Buffer
-	encoder := agbinary.NewBorshEncoder(&buf)
-	err = extraArgs.MarshalWithEncoder(encoder)
-	require.NoError(t, err)
+	abiEncodedExtraArgs := []byte{31, 59, 58, 186, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 39, 16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 160, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 44, 230, 105, 156, 244, 184, 196, 235, 30, 58, 209, 82, 8, 202, 25, 73, 167, 169, 34, 150, 141, 129, 169, 150, 219, 160, 186, 44, 72, 156, 50, 170}
 	tokenAmount := cciptypes.NewBigInt(big.NewInt(rand.Int63()))
+	destGasAmount, err := abiEncodeUint32(10)
+	require.NoError(t, err)
 
 	ccipTokenAmounts := make([]cciptypes.RampTokenAmount, 5)
 	for z := 0; z < 5; z++ {
@@ -82,9 +115,7 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 			SourcePoolAddress: cciptypes.UnknownAddress("DS2tt4BX7YwCw7yrDNwbAdnYrxjeCPeGJbHmZEYC8RTb"),
 			DestTokenAddress:  receiver.Bytes(),
 			Amount:            tokenAmount,
-			DestExecDataDecoded: map[string]any{
-				"destGasAmount": uint32(10),
-			},
+			DestExecData:      destGasAmount,
 		}
 	}
 
@@ -127,22 +158,11 @@ func createAny2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 		TokenAmounts:   ccipTokenAmounts,
 		FeeToken:       []byte{},
 		FeeTokenAmount: cciptypes.NewBigIntFromInt64(0),
-		ExtraArgs:      buf.Bytes(),
-		ExtraArgsDecoded: map[string]any{
-			"ComputeUnits":            computeUnit,
-			"AccountIsWritableBitmap": bitmap,
-			"Accounts": [][32]byte{
-				[32]byte(config.CcipLogicReceiver.Bytes()),
-				[32]byte(config.ReceiverTargetAccountPDA.Bytes()),
-				[32]byte(solana.SystemProgramID.Bytes()),
-			},
-		},
+		ExtraArgs:      abiEncodedExtraArgs,
 	}
 
 	msgAccounts := []solana.PublicKey{
-		config.CcipLogicReceiver,
-		config.ReceiverTargetAccountPDA,
-		solana.SystemProgramID,
+		solana.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF"),
 	}
 	return any2AnyMsg, any2SolanaMsg, msgAccounts
 }
@@ -152,4 +172,8 @@ func abiEncodedAddress(t *testing.T) []byte {
 	encoded, err := utils.ABIEncode(`[{"type": "address"}]`, addr)
 	require.NoError(t, err)
 	return encoded
+}
+
+func abiEncodeUint32(data uint32) ([]byte, error) {
+	return utils.ABIEncode(`[{ "type": "uint32" }]`, data)
 }

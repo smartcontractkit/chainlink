@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv"
 	"time"
 )
 
@@ -70,7 +71,7 @@ type LokiReporter struct {
 func (l *LokiReporter) createRequest(report *Report) (pushRequest, error) {
 	vs := [][]string{}
 	now := l.now()
-	nows := fmt.Sprintf("%d", now.UnixNano())
+	nows := strconv.FormatInt(now.UnixNano(), 10)
 
 	for pkg, tests := range report.tests {
 		for t := range tests {
@@ -152,7 +153,7 @@ func (l *LokiReporter) makeRequest(ctx context.Context, pushReq pushRequest) err
 	}
 	req.Header.Add(
 		"Authorization",
-		fmt.Sprintf("Basic %s", base64.StdEncoding.EncodeToString([]byte(l.auth))),
+		"Basic "+base64.StdEncoding.EncodeToString([]byte(l.auth)),
 	)
 	req.Header.Add("Content-Type", "application/json")
 	resp, err := http.DefaultClient.Do(req)

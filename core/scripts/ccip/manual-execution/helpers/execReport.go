@@ -147,11 +147,11 @@ func (t *LeafHasher) ParseEVM2EVMLog(log types.Log) (*SendRequestedEvent, error)
 	return event, err
 }
 
-func NewLeafHasher(sourceChainID uint64, destChainId uint64, onRampId common.Address, ctx Ctx[[32]byte]) *LeafHasher {
+func NewLeafHasher(sourceChainID uint64, destChainID uint64, onRampID common.Address, ctx Ctx[[32]byte]) *LeafHasher {
 	geABI, _ := abi.JSON(strings.NewReader(OnRampABI))
 	return &LeafHasher{
 		geABI:        geABI,
-		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageHashV2")), sourceChainID, onRampId, destChainId),
+		metaDataHash: getMetaDataHash(ctx, ctx.Hash([]byte("EVM2EVMMessageHashV2")), sourceChainID, onRampID, destChainID),
 		ctx:          ctx,
 	}
 }
@@ -166,11 +166,11 @@ func Keccak256Fixed(in []byte) [32]byte {
 	return h
 }
 
-func getMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainId uint64, onRampId common.Address, destChainId uint64) H {
-	paddedOnRamp := onRampId.Hash()
+func getMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainID uint64, onRampID common.Address, destChainID uint64) H {
+	paddedOnRamp := onRampID.Hash()
 	return ctx.Hash(ConcatBytes(prefix[:],
-		math.U256Bytes(big.NewInt(0).SetUint64(sourceChainId)),
-		math.U256Bytes(big.NewInt(0).SetUint64(destChainId)), paddedOnRamp[:]))
+		math.U256Bytes(big.NewInt(0).SetUint64(sourceChainID)),
+		math.U256Bytes(big.NewInt(0).SetUint64(destChainID)), paddedOnRamp[:]))
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array

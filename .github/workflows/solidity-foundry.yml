@@ -33,7 +33,6 @@ jobs:
             { "name": "functions", "setup": { "run-coverage": false, "min-coverage": 98.5, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "keystone", "setup": { "run-coverage": true, "min-coverage": 72.8, "run-gas-snapshot": false, "run-forge-fmt": false }},
             { "name": "l2ep", "setup": { "run-coverage": true, "min-coverage": 65.0, "run-gas-snapshot": true, "run-forge-fmt": false }},
-            { "name": "liquiditymanager", "setup": { "run-coverage": true, "min-coverage": 40, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "llo-feeds", "setup": { "run-coverage": true, "min-coverage": 49.3, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "operatorforwarder", "setup": { "run-coverage": true, "min-coverage": 55.7, "run-gas-snapshot": true, "run-forge-fmt": false }},
             { "name": "shared", "setup": { "run-coverage": true, "extra-coverage-params": "--no-match-path='*CallWithExactGas*' --ir-minimum", "min-coverage": 32.6, "run-gas-snapshot": true, "run-forge-fmt": false }},
@@ -96,8 +95,6 @@ jobs:
               - 'contracts/src/v0.8/keystone/**/*.sol'
             l2ep:
               - 'contracts/src/v0.8/l2ep/**/*.sol'
-            liquiditymanager:
-              - 'contracts/src/v0.8/liquiditymanager/**/*.sol'
             llo-feeds:
               - 'contracts/src/v0.8/llo-feeds/**/*.sol'
             operatorforwarder:
@@ -348,12 +345,6 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.8"
-
-      - name: Install solc-select and solc
-        uses: smartcontractkit/.github/actions/setup-solc-select@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
-        with:
-          to_install: "0.8.24"
-          to_use: "0.8.24"
 
       - name: Install Slither
         uses: smartcontractkit/.github/actions/setup-slither@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0

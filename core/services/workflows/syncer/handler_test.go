@@ -26,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	wfstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer/mocks"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
@@ -80,6 +81,34 @@ var rlConfig = ratelimiter.Config{
 	PerSenderBurst: 30,
 }
 
+type decryptSecretsOutput struct {
+	output map[string]string
+	err    error
+}
+type mockDecrypter struct {
+	mocks map[string]decryptSecretsOutput
+}
+
+func (m *mockDecrypter) decryptSecrets(data []byte, owner string) (map[string]string, error) {
+	input := string(data) + owner
+	mock, exists := m.mocks[input]
+	if exists {
+		return mock.output, mock.err
+	}
+	return map[string]string{}, nil
+}
+
+func (m *mockDecrypter) registerMock(data []byte, owner string, output map[string]string, err error) {
+	input := string(data) + owner
+	m.mocks[input] = decryptSecretsOutput{output: output, err: err}
+}
+
+func newMockDecrypter() *mockDecrypter {
+	return &mockDecrypter{
+		mocks: map[string]decryptSecretsOutput{},
+	}
+}
+
 func Test_Handler(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	emitter := custmsg.NewLabeler()
@@ -88,6 +117,9 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
+
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -106,7 +138,9 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(int64(1), nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.Handle(ctx, giveEvent)
 		require.NoError(t, err)
 	})
@@ -116,13 +150,17 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
 		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "event type unsupported")
@@ -133,8 +171,12 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 
-		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, nil, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		giveURL := "https://original-url.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -158,6 +200,9 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
+
 		giveURL := "http://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -175,7 +220,9 @@ func Test_Handler(t *testing.T) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -186,6 +233,9 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
+
 		giveURL := "http://example.com"
 		giveBytes, err := crypto.Keccak256([]byte(giveURL))
 		require.NoError(t, err)
@@ -204,7 +254,9 @@ func Test_Handler(t *testing.T) {
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
 		mockORM.EXPECT().Update(matches.AnyContext, giveHash, "contents").Return(0, assert.AnError)
-		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl)
+		h := NewEventHandler(lggr, mockORM, fetcher, nil, nil, emitter, clockwork.NewFakeClock(), workflowkey.Key{}, rl, workflowLimits)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.Handle(ctx, giveEvent)
 		require.Error(t, err)
 		require.ErrorIs(t, err, assert.AnError)
@@ -515,13 +567,18 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		if tc.engineFactoryFn != nil {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
+
 		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 		h := NewEventHandler(lggr, orm, fetcher, store, registry, emitter, clockwork.NewFakeClock(),
-			workflowkey.Key{}, rl, opts...)
+			workflowkey.Key{}, rl, workflowLimits, opts...)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 
 		tc.validationFn(t, ctx, event, h, wfOwner, "workflow-name", wfID)
 	})
@@ -572,6 +629,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
 			orm,
@@ -582,8 +641,11 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			clockwork.NewFakeClock(),
 			workflowkey.Key{},
 			rl,
+			workflowLimits,
 			WithEngineRegistry(er),
 		)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
@@ -649,6 +711,8 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
 			orm,
@@ -659,8 +723,11 @@ func Test_workflowDeletedHandler(t *testing.T) {
 			clockwork.NewFakeClock(),
 			workflowkey.Key{},
 			rl,
+			workflowLimits,
 			WithEngineRegistry(er),
 		)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 
 		deleteEvent := WorkflowRegistryWorkflowDeletedV1{
 			WorkflowID:    giveWFID,
@@ -731,6 +798,8 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		require.NoError(t, err)
 		h := NewEventHandler(
 			lggr,
 			orm,
@@ -741,8 +810,11 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 			clockwork.NewFakeClock(),
 			workflowkey.Key{},
 			rl,
+			workflowLimits,
 			WithEngineRegistry(er),
 		)
+		decrypter := newMockDecrypter()
+		h.decryptSecrets = decrypter.decryptSecrets
 		err = h.workflowRegisteredEvent(ctx, active)
 		require.NoError(t, err)
 
@@ -880,6 +952,8 @@ func Test_Handler_SecretsFor(t *testing.T) {
 	}
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
 		orm,
@@ -890,14 +964,17 @@ func Test_Handler_SecretsFor(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		rl,
+		workflowLimits,
 	)
-
-	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	require.NoError(t, err)
-
 	expectedSecrets := map[string]string{
 		"Foo": "Bar",
 	}
+	decrypter := newMockDecrypter()
+	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
+	h.decryptSecrets = decrypter.decryptSecrets
+	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	require.NoError(t, err)
+
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
@@ -945,6 +1022,8 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 	}
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
 		orm,
@@ -955,14 +1034,18 @@ func Test_Handler_SecretsFor_RefreshesSecrets(t *testing.T) {
 		clockwork.NewFakeClock(),
 		encryptionKey,
 		rl,
+		workflowLimits,
 	)
+	expectedSecrets := map[string]string{
+		"Baz": "Bar",
+	}
+	decrypter := newMockDecrypter()
+	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
+	h.decryptSecrets = decrypter.decryptSecrets
 
 	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
-	expectedSecrets := map[string]string{
-		"Baz": "Bar",
-	}
 	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
@@ -1011,6 +1094,8 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 	clock := clockwork.NewFakeClock()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+	require.NoError(t, err)
 	h := NewEventHandler(
 		lggr,
 		orm,
@@ -1021,14 +1106,18 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 		clock,
 		encryptionKey,
 		rl,
+		workflowLimits,
 	)
+	expectedSecrets := map[string]string{
+		"Foo": "Bar",
+	}
+	decrypter := newMockDecrypter()
+	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
+	h.decryptSecrets = decrypter.decryptSecrets
 
 	gotSecrets, err := h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
 	require.NoError(t, err)
 
-	expectedSecrets := map[string]string{
-		"Foo": "Bar",
-	}
 	assert.Equal(t, expectedSecrets, gotSecrets)
 
 	// Now stub out an unparseable response, since we already fetched it recently above, we shouldn't need to refetch
@@ -1040,11 +1129,23 @@ func Test_Handler_SecretsFor_RefreshLogic(t *testing.T) {
 
 	assert.Equal(t, expectedSecrets, gotSecrets)
 
+	secretsPayload, err = generateSecrets(workflowOwner, map[string][]string{"Baz": []string{"Bar"}}, encryptionKey)
+	require.NoError(t, err)
+	fetcher.responseMap[url] = mockFetchResp{
+		Body: secretsPayload,
+	}
+
+	expectedSecrets = map[string]string{
+		"Baz": "Bar",
+	}
+	decrypter.registerMock(secretsPayload, workflowOwner, expectedSecrets, nil)
+
 	// Now advance so that we hit the freshness limit
 	clock.Advance(48 * time.Hour)
 
-	_, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
-	assert.ErrorContains(t, err, "unexpected end of JSON input")
+	gotSecrets, err = h.SecretsFor(testutils.Context(t), workflowOwner, workflowName, decodedWorkflowName, workflowID)
+	require.NoError(t, err)
+	assert.Equal(t, expectedSecrets, gotSecrets)
 }
 
 func generateSecrets(workflowOwner string, secretsMap map[string][]string, encryptionKey workflowkey.Key) ([]byte, error) {

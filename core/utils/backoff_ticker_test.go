@@ -13,8 +13,8 @@ func TestBackoffTicker_Bounds(t *testing.T) {
 
 	bt := NewBackoffTicker(1*time.Millisecond, 2*time.Second)
 	min, max := bt.Bounds()
-	assert.Equal(t, min, 1*time.Millisecond)
-	assert.Equal(t, max, 2*time.Second)
+	assert.Equal(t, 1*time.Millisecond, min)
+	assert.Equal(t, 2*time.Second, max)
 }
 
 func TestBackoffTicker_StartTwice(t *testing.T) {

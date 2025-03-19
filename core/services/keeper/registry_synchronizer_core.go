@@ -2,7 +2,7 @@ package keeper
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -95,7 +95,7 @@ func (rs *RegistrySynchronizer) Start(context.Context) error {
 			<-rs.chStop
 		}()
 
-		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", fmt.Sprint(rs.job.ID))
+		rs.mailMon.Monitor(rs.mbLogs, "RegistrySynchronizer", "Logs", strconv.Itoa(int(rs.job.ID)))
 
 		return nil
 	})

@@ -1,0 +1,23 @@
+name: Dependency Review
+description: Run dependency review for vulnerabilities.
+
+on:
+  merge_group:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  dependency-review:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Vulnerability Check
+        uses: smartcontractkit/.github/actions/dependency-review@0cc355785130a83a540187b609c5521094baed92 # dependency-review@1.0.0
+        with:
+          config-preset: default-vulnerability-check-high

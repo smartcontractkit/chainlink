@@ -2,6 +2,8 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"math/big"
 	"net"
@@ -13,17 +15,18 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	gethtypes "github.com/ethereum/go-ethereum/core/types"
-	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/exp/maps"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
@@ -35,21 +38,26 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	v2toml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger/audit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
+	feeds2 "github.com/smartcontractkit/chainlink/v2/core/services/feeds"
+	feedsMocks "github.com/smartcontractkit/chainlink/v2/core/services/feeds/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 type Node struct {
@@ -298,85 +306,45 @@ func NewNode(
 		clients[chainID] = client.NewSimulatedBackendClient(t, chain.Backend, big.NewInt(int64(chainID)))
 	}
 
-	// Create keystore
 	master := keystore.New(db, utils.FastScryptParams, lggr)
-	kStore := KeystoreSim{
-		eks: &EthKeystoreSim{
-			Eth: master.Eth(),
-		},
-		csa: master.CSA(),
-	}
+	ctx := tests.Context(t)
+	require.NoError(t, master.Unlock(ctx, "password"))
+	require.NoError(t, master.CSA().EnsureKey(ctx))
+	require.NoError(t, master.Workflow().EnsureKey(ctx))
 
-	// Build evm factory using clients + keystore.
-	mailMon := mailbox.NewMonitor("node", lggr.Named("mailbox"))
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   cfg.EVMConfigs(),
-			DatabaseConfig: cfg.Database(),
-			ListenerConfig: cfg.Database().Listener(),
-			FeatureConfig:  cfg.Feature(),
-			GenEthClient: func(i *big.Int) client.Client {
+	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		CREOpts: chainlink.CREOpts{
+			CapabilitiesRegistry: capabilities.NewRegistry(lggr),
+		},
+		Config:   cfg,
+		DS:       db,
+		KeyStore: master,
+		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
+			// Create ChainStores that always sign with 1337
+			fc.GenChainStore = func(ks core.Keystore, i *big.Int) keys.ChainStore {
+				return keys.NewChainStore(ks, big.NewInt(1337))
+			}
+			fc.GenEthClient = func(i *big.Int) client.Client {
 				ethClient, ok := clients[i.Uint64()]
 				if !ok {
 					t.Fatal("no backend for chainID", i)
 				}
 				return ethClient
-			},
-			MailMon: mailMon,
-			DS:      db,
+			}
 		},
-		CSAETHKeystore: kStore,
-	}
-
-	solanaOpts := chainlink.SolanaFactoryConfig{
-		Keystore:    master.Solana(),
-		TOMLConfigs: cfg.SolanaConfigs(),
-		DS:          db,
-	}
-
-	// Build Beholder auth
-	ctx := tests.Context(t)
-	require.NoError(t, master.Unlock(ctx, "password"))
-	require.NoError(t, master.CSA().EnsureKey(ctx))
-	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(master)
-	require.NoError(t, err)
-
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), cfg.Database(), cfg.Tracing(), cfg.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-
-	// Build relayer factory
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: capabilities.NewRegistry(lggr),
-	}
-	initOps := []chainlink.CoreRelayerChainInitFunc{
-		chainlink.InitEVM(context.Background(), relayerFactory, evmOpts),
-		chainlink.InitSolana(context.Background(), relayerFactory, solanaOpts),
-	}
-	rci, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	require.NoError(t, err)
-
-	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                     cfg,
-		DS:                         db,
-		KeyStore:                   master,
-		RelayerChainInteroperators: rci,
-		Logger:                     lggr,
-		ExternalInitiatorManager:   nil,
-		CloseLogger:                lggr.Sync,
-		UnrestrictedHTTPClient:     &http.Client{},
-		RestrictedHTTPClient:       &http.Client{},
-		AuditLogger:                audit.NoopLogger,
-		MailMon:                    mailMon,
-		LoopRegistry:               loopRegistry,
+		Logger:                   lggr,
+		ExternalInitiatorManager: nil,
+		CloseLogger:              lggr.Sync,
+		UnrestrictedHTTPClient:   &http.Client{},
+		RestrictedHTTPClient:     &http.Client{},
+		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() {
-		require.NoError(t, db.Close())
-	})
 	keys := CreateKeys(t, app, chains, solchains)
 
+	// JD
+
+	setupJD(t, app)
 	return &Node{
 		App: app,
 		Chains: slices.Concat(
@@ -392,6 +360,7 @@ func NewNode(
 type Keys struct {
 	PeerID        p2pkey.PeerID
 	CSA           csakey.KeyV2
+	WorkflowKey   workflowkey.Key
 	Transmitters  map[uint64]string // chainSelector => address
 	OCRKeyBundles map[chaintype.ChainType]ocr2key.KeyBundle
 }
@@ -407,9 +376,8 @@ func CreateKeys(t *testing.T,
 
 	err = app.GetKeyStore().CSA().EnsureKey(ctx)
 	require.NoError(t, err)
-	csaKeys, err := app.GetKeyStore().CSA().GetAll()
+	csaKey, err := keystore.GetDefault(ctx, app.GetKeyStore().CSA())
 	require.NoError(t, err)
-	csaKey := csaKeys[0]
 
 	p2pIDs, err := app.GetKeyStore().P2P().GetAll()
 	require.NoError(t, err)
@@ -574,27 +542,53 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 
 func ptr[T any](v T) *T { return &v }
 
-var _ keystore.Eth = &EthKeystoreSim{}
+func setupJD(t *testing.T, app chainlink.Application) {
+	secret := randomBytes32(t)
+	pkey, err := crypto.PublicKeyFromHex(hex.EncodeToString(secret))
+	require.NoError(t, err)
+	m := feeds2.RegisterManagerParams{
+		Name:      "In memory env test",
+		URI:       "http://dev.null:8080",
+		PublicKey: *pkey,
+	}
+	f := app.GetFeedsService()
+	connManager := feedsMocks.NewConnectionsManager(t)
+	connManager.On("Connect", mock.Anything).Maybe()
+	connManager.On("GetClient", mock.Anything).Maybe().Return(noopFeedsClient{}, nil)
+	connManager.On("Close").Maybe().Return()
+	connManager.On("IsConnected", mock.Anything).Maybe().Return(true)
+	f.Unsafe_SetConnectionsManager(connManager)
 
-type EthKeystoreSim struct {
-	keystore.Eth
+	_, err = f.RegisterManager(testutils.Context(t), m)
+	require.NoError(t, err)
 }
 
-// override
-func (e *EthKeystoreSim) SignTx(ctx context.Context, address common.Address, tx *gethtypes.Transaction, chainID *big.Int) (*gethtypes.Transaction, error) {
-	// always sign with chain id 1337 for the simulated backend
-	return e.Eth.SignTx(ctx, address, tx, big.NewInt(1337))
+func randomBytes32(t *testing.T) []byte {
+	t.Helper()
+	b := make([]byte, 32)
+	_, err := rand.Read(b)
+	require.NoError(t, err)
+	return b
 }
 
-type KeystoreSim struct {
-	eks keystore.Eth
-	csa keystore.CSA
+type noopFeedsClient struct{}
+
+func (n noopFeedsClient) ApprovedJob(context.Context, *pb.ApprovedJobRequest) (*pb.ApprovedJobResponse, error) {
+	return &pb.ApprovedJobResponse{}, nil
 }
 
-func (e KeystoreSim) Eth() keystore.Eth {
-	return e.eks
+func (n noopFeedsClient) Healthcheck(context.Context, *pb.HealthcheckRequest) (*pb.HealthcheckResponse, error) {
+	return &pb.HealthcheckResponse{}, nil
 }
 
-func (e KeystoreSim) CSA() keystore.CSA {
-	return e.csa
+func (n noopFeedsClient) UpdateNode(context.Context, *pb.UpdateNodeRequest) (*pb.UpdateNodeResponse, error) {
+	return &pb.UpdateNodeResponse{}, nil
+}
+
+func (n noopFeedsClient) RejectedJob(context.Context, *pb.RejectedJobRequest) (*pb.RejectedJobResponse, error) {
+	return &pb.RejectedJobResponse{}, nil
+}
+
+func (n noopFeedsClient) CancelledJob(context.Context, *pb.CancelledJobRequest) (*pb.CancelledJobResponse, error) {
+	return &pb.CancelledJobResponse{}, nil
 }

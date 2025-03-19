@@ -33,6 +33,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	evmcfg "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -118,6 +119,24 @@ func (l *DeployedLocalDevEnvironment) StartNodes(t *testing.T, crConfig deployme
 	// fund the nodes
 	zeroLogLggr := logging.GetTestLogger(t)
 	FundNodes(t, zeroLogLggr, l.testEnv, l.devEnvTestCfg, don.PluginNodes())
+}
+
+func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map[string][]string) error {
+	nodesByID := make(map[string]devenv.Node)
+	for _, n := range l.DON.Nodes {
+		nodesByID[n.NodeID] = n
+	}
+	for id, node := range nodesByID {
+		if jobsToDelete, ok := jobIDs[id]; ok {
+			for _, jobToDelete := range jobsToDelete {
+				err := node.DeleteJob(ctx, jobToDelete)
+				if err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
@@ -350,6 +369,11 @@ func CreateDockerEnv(t *testing.T) (
 		"CL nodes are started before simulated chains, so this is expected",
 		zapcore.DPanicLevel,
 		testreporters.WarnAboutAllowedMsgs_No),
+		testreporters.NewAllowedLogMessage(
+			"Lane processing is stopped because source chain is cursed or CommitStore is down",
+			"Curse test are expected to trigger this logs",
+			zapcore.DPanicLevel,
+			testreporters.WarnAboutAllowedMsgs_Yes),
 		testreporters.NewAllowedLogMessage(
 			"Error stopping job service",
 			"Possible lifecycle bug in chainlink: failed to close RMN home reader:  has already been stopped: already stopped",

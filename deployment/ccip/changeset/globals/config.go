@@ -2,6 +2,10 @@ package globals
 
 import (
 	"time"
+
+	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 )
 
 type ConfigType string
@@ -10,28 +14,73 @@ const (
 	ConfigTypeActive    ConfigType = "active"
 	ConfigTypeCandidate ConfigType = "candidate"
 	// ========= Changeset Defaults =========
-	FirstBlockAge                           = 8 * time.Hour
-	RemoteGasPriceBatchWriteFrequency       = 30 * time.Minute
-	TokenPriceBatchWriteFrequency           = 30 * time.Minute
-	BatchGasLimit                           = 6_500_000
-	RelativeBoostPerWaitHour                = 0.5
-	InflightCacheExpiry                     = 10 * time.Minute
-	RootSnoozeTime                          = 30 * time.Minute
-	BatchingStrategyID                      = 0
-	DeltaProgress                           = 30 * time.Second
-	DeltaResend                             = 10 * time.Second
-	DeltaInitial                            = 20 * time.Second
-	DeltaRound                              = 2 * time.Second
-	DeltaGrace                              = 2 * time.Second
-	DeltaCertifiedCommitRequest             = 10 * time.Second
-	DeltaStage                              = 10 * time.Second
-	Rmax                                    = 3
-	MaxDurationQuery                        = 500 * time.Millisecond
-	MaxDurationObservation                  = 5 * time.Second
-	MaxDurationShouldAcceptAttestedReport   = 10 * time.Second
-	MaxDurationShouldTransmitAcceptedReport = 10 * time.Second
-	GasPriceDeviationPPB                    = 1000
-	DAGasPriceDeviationPPB                  = 0
-	OptimisticConfirmations                 = 1
+	PermissionLessExecutionThreshold  = 8 * time.Hour
+	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
+	TokenPriceBatchWriteFrequency     = 30 * time.Minute
+	// Building batches with 6.5m and transmit with 8m to account for overhead.
+	BatchGasLimit               = 6_500_000
+	InflightCacheExpiry         = 1 * time.Minute
+	RootSnoozeTime              = 5 * time.Minute
+	BatchingStrategyID          = 0
+	GasPriceDeviationPPB        = 1000
+	DAGasPriceDeviationPPB      = 0
+	OptimisticConfirmations     = 1
+	TransmissionDelayMultiplier = 15 * time.Second
 	// ======================================
+
+	// ========= Onchain consts =========
+	// CCIPLockOrBurnV1RetBytes Pool.CCIP_LOCK_OR_BURN_V1_RET_BYTES
+	// Reference: https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.8/ccip/libraries/Pool.sol#L17
+	CCIPLockOrBurnV1RetBytes = 32
+	// ======================================
+)
+
+var (
+	// DefaultCommitOffChainCfg represents the default offchain configuration for the Commit plugin
+	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
+	// Notable overrides are for Ethereum, which has a slower block time.
+	DefaultCommitOffChainCfg = pluginconfig.CommitOffchainConfig{
+		RemoteGasPriceBatchWriteFrequency:  *config.MustNewDuration(RemoteGasPriceBatchWriteFrequency),
+		TokenPriceBatchWriteFrequency:      *config.MustNewDuration(TokenPriceBatchWriteFrequency),
+		NewMsgScanBatchSize:                merklemulti.MaxNumberTreeLeaves,
+		MaxReportTransmissionCheckAttempts: 10,
+		RMNSignaturesTimeout:               6900 * time.Millisecond,
+		RMNEnabled:                         true,
+		MaxMerkleTreeSize:                  merklemulti.MaxNumberTreeLeaves,
+		SignObservationPrefix:              "chainlink ccip 1.6 rmn observation",
+		// TransmissionDelayMultiplier for non-ETH (i.e, typically fast) chains should be pretty aggressive.
+		// e.g assuming a 2s blocktime, 15 seconds is ~8 blocks.
+		TransmissionDelayMultiplier:        TransmissionDelayMultiplier,
+		InflightPriceCheckRetries:          10,
+		MerkleRootAsyncObserverDisabled:    false,
+		MerkleRootAsyncObserverSyncFreq:    4 * time.Second,
+		MerkleRootAsyncObserverSyncTimeout: 12 * time.Second,
+		ChainFeeAsyncObserverDisabled:      false,
+		ChainFeeAsyncObserverSyncFreq:      10 * time.Second,
+		ChainFeeAsyncObserverSyncTimeout:   12 * time.Second,
+		TokenPriceAsyncObserverDisabled:    false,
+		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
+		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+
+		// Remaining fields cannot be statically set:
+		// PriceFeedChainSelector: , // Must be configured in CLD
+		// TokenInfo: , // Must be configured in CLD
+	}
+
+	// DefaultExecuteOffChainCfg represents the default offchain configuration for the Execute plugin
+	// on _most_ chains. This should be used as a base for all chains, with overrides only where necessary.
+	// Notable overrides are for Ethereum, which has a slower block time.
+	DefaultExecuteOffChainCfg = pluginconfig.ExecuteOffchainConfig{
+		BatchGasLimit:               BatchGasLimit,
+		InflightCacheExpiry:         *config.MustNewDuration(InflightCacheExpiry),
+		RootSnoozeTime:              *config.MustNewDuration(RootSnoozeTime),
+		MessageVisibilityInterval:   *config.MustNewDuration(PermissionLessExecutionThreshold),
+		BatchingStrategyID:          BatchingStrategyID,
+		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
+		MaxReportMessages:           0,
+		MaxSingleChainReports:       0,
+
+		// Remaining fields cannot be statically set:
+		// TokenDataObservers: , // Must be configured in CLD
+	}
 )

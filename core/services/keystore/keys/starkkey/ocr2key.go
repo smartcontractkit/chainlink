@@ -89,6 +89,10 @@ func (sk *OCR2Key) Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report
 	return nil, errors.New("not implemented")
 }
 
+func (sk *OCR2Key) SignBlob(b []byte) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.ReportContext, report types.Report, signature []byte) bool {
 	// check valid signature length
 	if len(signature) != sk.MaxSignatureLength() {
@@ -125,6 +129,10 @@ func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.Repo
 }
 
 func (sk *OCR2Key) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDigest, seqNr uint64, r types.Report, signature []byte) bool {
+	return false
+}
+
+func (sk *OCR2Key) VerifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
 	return false
 }
 

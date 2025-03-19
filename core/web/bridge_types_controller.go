@@ -210,12 +210,12 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for bridge: %w", err))
 		return
 	}
 	jobsUsingBridge, err := btc.App.JobORM().FindJobIDsWithBridge(ctx, name)
 	if err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("error searching for associated v2 jobs: %w", err))
 		return
 	}
 	if len(jobsUsingBridge) > 0 {
@@ -223,7 +223,7 @@ func (btc *BridgeTypesController) Destroy(c *gin.Context) {
 		return
 	}
 	if err = orm.DeleteBridgeType(ctx, &bt); err != nil {
-		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %+v", err))
+		jsonAPIError(c, http.StatusInternalServerError, fmt.Errorf("failed to delete bridge: %w", err))
 		return
 	}
 

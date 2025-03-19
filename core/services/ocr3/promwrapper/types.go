@@ -31,6 +31,8 @@ var (
 		float64(2 * time.Second),
 		float64(5 * time.Second),
 		float64(10 * time.Second),
+		float64(20 * time.Second),
+		float64(30 * time.Second),
 	}
 
 	promOCR3ReportsGenerated = promauto.NewCounterVec(

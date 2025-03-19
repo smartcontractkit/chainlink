@@ -102,6 +102,8 @@ jobs:
           persist-credentials: false
       - name: Setup NodeJS
         uses: ./.github/actions/setup-nodejs
+      - name: Install Foundry
+        uses: ./.github/actions/install-solidity-foundry
       - name: Run Prepublish test
         working-directory: contracts
         run: pnpm prepublishOnly
@@ -148,10 +150,6 @@ jobs:
       - name: Run native compile and generate wrappers
         working-directory: ./chainlink/contracts
         run: make wrappers-all
-
-      - name: Verify local solc binaries
-        working-directory: chainlink
-        run: ./tools/ci/check_solc_hashes
 
       - name: Check if Go solidity wrappers are updated
         if: ${{ needs.changes.outputs.changes == 'true' }}

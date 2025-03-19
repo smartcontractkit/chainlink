@@ -252,6 +252,11 @@ func setupNode(
 		// [Log]
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel)) // generally speaking we want debug level for logs unless overridden
 
+		// [EVM.Transactions]
+		for _, evmCfg := range c.EVM {
+			evmCfg.Transactions.Enabled = ptr(false) // don't need txmgr
+		}
+
 		// Optional overrides
 		if f != nil {
 			f(c)
@@ -429,7 +434,7 @@ func createSingleDecimalBridge(t *testing.T, name string, i int, p decimal.Decim
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, err := io.ReadAll(req.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"data":{"data":"foo"}}`, string(b))
+		require.JSONEq(t, `{"data":{"data":"foo"}}`, string(b))
 
 		res.WriteHeader(http.StatusOK)
 		val := p.String()
@@ -464,6 +469,16 @@ func createBridge(t *testing.T, bridgeName string, resultJSON string, borm bridg
 		Name: bridges.BridgeName(bridgeName),
 		URL:  models.WebURL(*u),
 	}))
+}
+
+func addMemoStreamSpecs(t *testing.T, node Node, streams []Stream) {
+	for _, strm := range streams {
+		addStreamSpec(t, node, fmt.Sprintf("memo-%d", strm.id), &strm.id, fmt.Sprintf(`
+	value         [type=memo value="%s"];
+	multiply 	  [type=multiply times=1];
+	value -> multiply;
+	`, strm.baseBenchmarkPrice))
+	}
 }
 
 func addOCRJobsEVMPremiumLegacy(

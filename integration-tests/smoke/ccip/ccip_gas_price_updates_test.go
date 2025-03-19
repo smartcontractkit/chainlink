@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
@@ -28,8 +29,11 @@ func Test_CCIPGasPriceUpdates(t *testing.T) {
 
 	var gasPriceExpiry = 5 * time.Second
 	e, _, _ := testsetups.NewIntegrationEnvironment(t,
-		testhelpers.WithOCRConfigOverride(func(params *changeset.CCIPOCRParams) {
-			params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
+		testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			if params.CommitOffChainConfig != nil {
+				params.CommitOffChainConfig.RemoteGasPriceBatchWriteFrequency = *config.MustNewDuration(gasPriceExpiry)
+			}
+			return params
 		}),
 	)
 	state, err := changeset.LoadOnchainState(e.Env)

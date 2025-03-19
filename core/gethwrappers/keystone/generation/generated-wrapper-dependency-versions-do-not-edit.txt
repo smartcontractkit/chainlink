@@ -1,6 +1,6 @@
-GETH_VERSION: 1.14.11
-balance_reader: ../../../contracts/solc/v0.8.24/BalanceReader/BalanceReader.abi ../../../contracts/solc/v0.8.24/BalanceReader/BalanceReader.bin 8824fe0d750f400e5dc8c5fd367bd0d8b335ea24500c38323bdec987e8ac4827
-capabilities_registry: ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.abi ../../../contracts/solc/v0.8.24/CapabilitiesRegistry/CapabilitiesRegistry.bin 07e0115065e833b29352017fe808dd149952b0b7fe73d0af87020966d2ece57c
-feeds_consumer: ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.abi ../../../contracts/solc/v0.8.24/KeystoneFeedsConsumer/KeystoneFeedsConsumer.bin 6ac5b12eff3b022a35c3c40d5ed0285bf9bfec0e3669a4b12307332a216048ca
-forwarder: ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.abi ../../../contracts/solc/v0.8.24/KeystoneForwarder/KeystoneForwarder.bin cb728d316f6392ae0d07e6ad94ec93897a4706f6ced7120f79f7e61282ef8152
-ocr3_capability: ../../../contracts/solc/v0.8.24/OCR3Capability/OCR3Capability.abi ../../../contracts/solc/v0.8.24/OCR3Capability/OCR3Capability.bin a0adf579d004fe4d4116539cf4bc52d6b1cca9626e91329f552d04f89de9dc84
+GETH_VERSION: 1.15.3
+balance_reader: ../../../contracts/solc/keystone/BalanceReader/BalanceReader.sol/BalanceReader.abi.json ../../../contracts/solc/keystone/BalanceReader/BalanceReader.sol/BalanceReader.bin e7a44b3cf9611b33243a8f966ce18b98326cb9172c64578c0a30a3850573e423
+capabilities_registry: ../../../contracts/solc/keystone/CapabilitiesRegistry/CapabilitiesRegistry.sol/CapabilitiesRegistry.abi.json ../../../contracts/solc/keystone/CapabilitiesRegistry/CapabilitiesRegistry.sol/CapabilitiesRegistry.bin 2e3a56553903d0bf457e5e03d098aab90d03fdfe8fb0125ce54bb5ccdbc07803
+feeds_consumer: ../../../contracts/solc/keystone/KeystoneFeedsConsumer/KeystoneFeedsConsumer.sol/KeystoneFeedsConsumer.abi.json ../../../contracts/solc/keystone/KeystoneFeedsConsumer/KeystoneFeedsConsumer.sol/KeystoneFeedsConsumer.bin 5baf27ad3326083755408c35b7eb09fe1ea2eef45eaa59c29cfad6cc45a1d720
+forwarder: ../../../contracts/solc/keystone/KeystoneForwarder/KeystoneForwarder.sol/KeystoneForwarder.abi.json ../../../contracts/solc/keystone/KeystoneForwarder/KeystoneForwarder.sol/KeystoneForwarder.bin 5d3fff1b68f4f10f31bce9f5218206854723cdfe9d2324dd1143a25de1c41467
+ocr3_capability: ../../../contracts/solc/keystone/OCR3Capability/OCR3Capability.sol/OCR3Capability.abi.json ../../../contracts/solc/keystone/OCR3Capability/OCR3Capability.sol/OCR3Capability.bin 5a58f3168ba612238d677bf1188fb5ae7ed293a86ac74f841f3d9659a341be36

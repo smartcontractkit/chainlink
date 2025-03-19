@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/gagliardetto/solana-go"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
@@ -25,7 +26,7 @@ type MessageHasherV1 struct {
 	extraDataCodec common.ExtraDataCodec
 }
 
-func NewMessageHasherV1(lggr logger.Logger, extraDataCodec cciptypes.ExtraDataCodec) *MessageHasherV1 {
+func NewMessageHasherV1(lggr logger.Logger, extraDataCodec common.ExtraDataCodec) *MessageHasherV1 {
 	return &MessageHasherV1{
 		lggr:           lggr,
 		extraDataCodec: extraDataCodec,
@@ -44,6 +45,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		MessageId:           msg.Header.MessageID,
 		Nonce:               msg.Header.Nonce,
 	}
+	if solana.PublicKeyLength != len(msg.Receiver) {
+		return [32]byte{}, fmt.Errorf("invalid receiver length: %d", len(msg.Receiver))
+	}
 	anyToSolanaMessage.TokenReceiver = solana.PublicKeyFromBytes(msg.Receiver)
 	anyToSolanaMessage.Sender = msg.Sender
 	anyToSolanaMessage.Data = msg.Data
@@ -58,6 +62,9 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 			return [32]byte{}, err
 		}
 
+		if solana.PublicKeyLength != len(ta.DestTokenAddress) {
+			return [32]byte{}, fmt.Errorf("invalid DestTokenAddress length: %d", len(ta.DestTokenAddress))
+		}
 		anyToSolanaMessage.TokenAmounts = append(anyToSolanaMessage.TokenAmounts, ccip_offramp.Any2SVMTokenTransfer{
 			SourcePoolAddress: ta.SourcePoolAddress,
 			DestTokenAddress:  solana.PublicKeyFromBytes(ta.DestTokenAddress),
@@ -67,13 +74,13 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 		})
 	}
 
-	extraDataDecodecMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
+	extraDataDecodedMap, err := h.extraDataCodec.DecodeExtraArgs(msg.ExtraArgs, msg.Header.SourceChainSelector)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to decode extra args: %w", err)
 	}
 
 	var msgAccounts []solana.PublicKey
-	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(extraDataDecodecMap)
+	anyToSolanaMessage.ExtraArgs, msgAccounts, err = parseExtraArgsMapWithAccounts(extraDataDecodedMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("failed to decode ExtraArgs: %w", err)
 	}

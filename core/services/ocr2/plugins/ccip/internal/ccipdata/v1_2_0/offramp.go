@@ -165,7 +165,7 @@ type OffRamp struct {
 
 func (o *OffRamp) GetStaticConfig(ctx context.Context) (cciptypes.OffRampStaticConfig, error) {
 	if o.offRampV120 == nil {
-		return cciptypes.OffRampStaticConfig{}, fmt.Errorf("offramp not initialized")
+		return cciptypes.OffRampStaticConfig{}, errors.New("offramp not initialized")
 	}
 	c, err := o.offRampV120.GetStaticConfig(&bind.CallOpts{Context: ctx})
 	if err != nil {
