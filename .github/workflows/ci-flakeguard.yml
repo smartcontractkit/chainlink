@@ -31,6 +31,7 @@ jobs:
 
   trigger-flaky-test-detection-for-root-project:
       name: Flakeguard Root Project
+      if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }} 
       uses: ./.github/workflows/flakeguard.yml
       with:
         repoUrl: 'https://github.com/smartcontractkit/chainlink'
@@ -52,7 +53,7 @@ jobs:
     name: Flakeguard Deployment Project
     uses: ./.github/workflows/flakeguard.yml
     needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.deployment-changes == 'true'}}
+    if: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.detect-changes.outputs.deployment-changes == 'true') }}
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
       projectPath: 'deployment'

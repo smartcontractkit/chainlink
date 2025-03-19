@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -681,14 +682,14 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 	if c.IsSet("password") {
 		pwd, err2 := utils.PasswordFromFile(c.String("password"))
 		if err2 != nil {
-			return s.errorOut(fmt.Errorf("error reading password: %+v", err2))
+			return s.errorOut(fmt.Errorf("error reading password: %w", err2))
 		}
 		s.Config.SetPasswords(&pwd, nil)
 	}
 
 	err = s.Config.Validate()
 	if err != nil {
-		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+		return s.errorOut(fmt.Errorf("error validating configuration: %w", err))
 	}
 
 	err = keyStore.Unlock(ctx, s.Config.Password().Keystore())
@@ -700,14 +701,16 @@ func (s *Shell) RebroadcastTransactions(c *cli.Context) (err error) {
 		return s.errorOut(err)
 	}
 
+	ks := keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID())
+
 	s.Logger.Infof("Rebroadcasting transactions from %v to %v", beginningNonce, endingNonce)
 
 	orm := txmgr.NewTxStore(app.GetDB(), lggr)
-	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), keyStore.Eth(), nil)
+	txBuilder := txmgr.NewEvmTxAttemptBuilder(*ethClient.ConfiguredChainID(), chain.Config().EVM().GasEstimator(), ks, nil)
 	feeCfg := txmgr.NewEvmTxmFeeConfig(chain.Config().EVM().GasEstimator())
 	stuckTxDetector := txmgr.NewStuckTxDetector(lggr, ethClient.ConfiguredChainID(), "", assets.NewWei(assets.NewEth(100).ToInt()), chain.Config().EVM().Transactions().AutoPurge(), nil, orm, ethClient)
 	ec := txmgr.NewEvmConfirmer(orm, txmgr.NewEvmTxmClient(ethClient, chain.Config().EVM().NodePool().Errors()),
-		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), keyStore.Eth(), txBuilder, chain.Logger(), stuckTxDetector, chain.HeadTracker())
+		feeCfg, chain.Config().EVM().Transactions(), app.GetConfig().Database(), ks, txBuilder, chain.Logger(), stuckTxDetector)
 	totalNonces := endingNonce - beginningNonce + 1
 	nonces := make([]evmtypes.Nonce, totalNonces)
 	for i := int64(0); i < totalNonces; i++ {
@@ -860,11 +863,11 @@ func (s *Shell) RollbackDatabase(c *cli.Context) error {
 
 	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
+		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
 	if err := migrate.Rollback(ctx, db.DB, version); err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
+		return fmt.Errorf("migrateDB failed: %w", err)
 	}
 
 	return nil
@@ -875,12 +878,12 @@ func (s *Shell) VersionDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
 	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
+		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
 	version, err := migrate.Current(ctx, db.DB)
 	if err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
+		return fmt.Errorf("migrateDB failed: %w", err)
 	}
 
 	s.Logger.Infof("Database version: %v", version)
@@ -892,11 +895,11 @@ func (s *Shell) StatusDatabase(_ *cli.Context) error {
 	ctx := s.ctx()
 	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
+		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
 	if err = migrate.Status(ctx, db.DB); err != nil {
-		return fmt.Errorf("Status failed: %v", err)
+		return fmt.Errorf("Status failed: %w", err)
 	}
 	return nil
 }
@@ -909,7 +912,7 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 	}
 	db, err := store.NewConnection(ctx, s.Config.Database())
 	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
+		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
 	migrationType := c.String("type")
@@ -918,7 +921,7 @@ func (s *Shell) CreateMigration(c *cli.Context) error {
 	}
 
 	if err = migrate.Create(db.DB, c.Args().First(), migrationType); err != nil {
-		return fmt.Errorf("Status failed: %v", err)
+		return fmt.Errorf("Status failed: %w", err)
 	}
 	return nil
 }
@@ -983,11 +986,11 @@ func (s *Shell) CleanupChainTables(c *cli.Context) error {
 func migrateDB(ctx context.Context, config store.Config) error {
 	db, err := store.NewConnection(ctx, config)
 	if err != nil {
-		return fmt.Errorf("failed to initialize orm: %v", err)
+		return fmt.Errorf("failed to initialize orm: %w", err)
 	}
 
 	if err = migrate.Migrate(ctx, db.DB); err != nil {
-		return fmt.Errorf("migrateDB failed: %v", err)
+		return fmt.Errorf("migrateDB failed: %w", err)
 	}
 	return db.Close()
 }
@@ -1010,7 +1013,7 @@ func (s *Shell) RemoveBlocks(c *cli.Context) error {
 	cfg := s.Config
 	err := cfg.Validate()
 	if err != nil {
-		return s.errorOut(fmt.Errorf("error validating configuration: %+v", err))
+		return s.errorOut(fmt.Errorf("error validating configuration: %w", err))
 	}
 
 	lggr := logger.Sugared(s.Logger.Named("RemoveBlocks"))

@@ -3,6 +3,7 @@ package ccipexec
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -58,7 +59,7 @@ var defaultNewReportingPluginRetryConfig = ccipdata.RetryConfig{
 
 func NewExecServices(ctx context.Context, lggr logger.Logger, jb job.Job, srcProvider types.CCIPExecProvider, dstProvider types.CCIPExecProvider, srcChainID int64, dstChainID int64, new bool, argsNoPlugin libocr2.OCR2OracleArgs, logError func(string)) ([]job.ServiceCtx, error) {
 	if jb.OCR2OracleSpec == nil {
-		return nil, fmt.Errorf("spec is nil")
+		return nil, errors.New("spec is nil")
 	}
 	spec := jb.OCR2OracleSpec
 	var pluginConfig ccipconfig.ExecPluginJobSpecConfig

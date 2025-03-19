@@ -287,7 +287,7 @@ func Test_DB_PendingTransmissions(t *testing.T) {
 		// No keys for this oracleSpecID yet
 		m, err = odb2.PendingTransmissionsWithConfigDigest(testutils.Context(t), configDigest)
 		require.NoError(t, err)
-		require.Len(t, m, 0)
+		require.Empty(t, m)
 	})
 
 	t.Run("deletes pending transmission by key", func(t *testing.T) {

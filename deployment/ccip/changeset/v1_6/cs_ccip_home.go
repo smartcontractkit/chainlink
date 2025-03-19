@@ -332,6 +332,7 @@ func PromoteCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		for _, donID := range donIDs {
 			promoteCandidateOps, err := promoteCandidateForChainOps(
+				e.Logger,
 				txOpts,
 				homeChain,
 				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
@@ -959,6 +960,7 @@ func promoteCandidateOp(
 
 // promoteCandidateForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
 func promoteCandidateForChainOps(
+	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
 	homeChain deployment.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -979,7 +981,7 @@ func promoteCandidateForChainOps(
 	if digest == [32]byte{} && !allowEmpty {
 		return mcmstypes.Transaction{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
 	}
-	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
+	lggr.Infow("Promoting candidate for plugin "+pluginType.String(), "digest", digest)
 	updatePluginOp, err := promoteCandidateOp(
 		txOpts,
 		homeChain,
@@ -1295,7 +1297,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
+		e.Logger.Infow("Updated chain config", "chain", cfg.HomeChainSelector, "removes", cfg.RemoteChainRemoves, "adds", cfg.RemoteChainAdds)
 		return deployment.ChangesetOutput{}, nil
 	}
 

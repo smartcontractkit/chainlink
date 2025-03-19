@@ -27,10 +27,10 @@ func Test_Client(t *testing.T) {
 
 	t.Run("Transmit errors if not started", func(t *testing.T) {
 		c := NewClient(ClientOpts{
-			Logger:        logger.TestLogger(t),
-			ClientPrivKey: clientPrivKey,
-			ServerPubKey:  serverPrivKey.Public().(ed25519.PublicKey),
-			ServerURL:     "example.com",
+			Logger:       logger.TestLogger(t),
+			ClientSigner: clientPrivKey,
+			ServerPubKey: serverPrivKey.Public().(ed25519.PublicKey),
+			ServerURL:    "example.com",
 		})
 
 		resp, err := c.Transmit(tests.Context(t), &rpc.TransmitRequest{})
@@ -43,10 +43,10 @@ func Test_Client(t *testing.T) {
 		serverURL := srv.start(t, []ed25519.PublicKey{clientPrivKey.Public().(ed25519.PublicKey)})
 
 		c := NewClient(ClientOpts{
-			Logger:        logger.TestLogger(t),
-			ClientPrivKey: clientPrivKey,
-			ServerPubKey:  serverPrivKey.Public().(ed25519.PublicKey),
-			ServerURL:     serverURL,
+			Logger:       logger.TestLogger(t),
+			ClientSigner: clientPrivKey,
+			ServerPubKey: serverPrivKey.Public().(ed25519.PublicKey),
+			ServerURL:    serverURL,
 		})
 
 		servicetest.Run(t, c)

@@ -6,15 +6,17 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
 func TestRelayerOpts_Validate(t *testing.T) {
 	type fields struct {
 		DS                   sqlutil.DataSource
-		CSAETHKeystore       evm.CSAETHKeystore
-		CapabilitiesRegistry coretypes.CapabilitiesRegistry
+		CSAKeystore          core.Keystore
+		EVMKeystore          keys.ChainStore
+		CapabilitiesRegistry core.CapabilitiesRegistry
 	}
 	tests := []struct {
 		name            string
@@ -25,11 +27,13 @@ func TestRelayerOpts_Validate(t *testing.T) {
 			name: "all invalid",
 			fields: fields{
 				DS:                   nil,
-				CSAETHKeystore:       nil,
+				EVMKeystore:          nil,
+				CSAKeystore:          nil,
 				CapabilitiesRegistry: nil,
 			},
 			wantErrContains: `nil DataSource
-nil Keystore`,
+nil CSAKeystore
+nil EVMKeystore`,
 		},
 		{
 			name: "missing ds, keystore",
@@ -37,7 +41,8 @@ nil Keystore`,
 				DS: nil,
 			},
 			wantErrContains: `nil DataSource
-nil Keystore`,
+nil CSAKeystore
+nil EVMKeystore`,
 		},
 		{
 			name: "missing ds, keystore, capabilitiesRegistry",
@@ -45,7 +50,8 @@ nil Keystore`,
 				DS: nil,
 			},
 			wantErrContains: `nil DataSource
-nil Keystore
+nil CSAKeystore
+nil EVMKeystore
 nil CapabilitiesRegistry`,
 		},
 	}
@@ -53,7 +59,8 @@ nil CapabilitiesRegistry`,
 		t.Run(tt.name, func(t *testing.T) {
 			c := evm.RelayerOpts{
 				DS:                   tt.fields.DS,
-				CSAETHKeystore:       tt.fields.CSAETHKeystore,
+				EVMKeystore:          tt.fields.EVMKeystore,
+				CSAKeystore:          tt.fields.CSAKeystore,
 				CapabilitiesRegistry: tt.fields.CapabilitiesRegistry,
 			}
 			err := c.Validate()

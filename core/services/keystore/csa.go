@@ -2,17 +2,19 @@ package keystore
 
 import (
 	"context"
+	"crypto"
+	"crypto/rand"
 	"fmt"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 )
 
 // ErrCSAKeyExists describes the error when the CSA key already exists
 var ErrCSAKeyExists = errors.New("can only have 1 CSA key")
 
-// type CSAKeystoreInterface interface {
 type CSA interface {
 	Get(id string) (csakey.KeyV2, error)
 	GetAll() ([]csakey.KeyV2, error)
@@ -22,6 +24,35 @@ type CSA interface {
 	Import(ctx context.Context, keyJSON []byte, password string) (csakey.KeyV2, error)
 	Export(id string, password string) ([]byte, error)
 	EnsureKey(ctx context.Context) error
+}
+
+var _ loop.Keystore = &CSASigner{}
+
+type CSASigner struct {
+	CSA
+}
+
+func (c CSASigner) Accounts(ctx context.Context) (accounts []string, err error) {
+	keys, err := c.CSA.GetAll()
+	if err != nil {
+		return nil, err
+	}
+	for _, key := range keys {
+		accounts = append(accounts, key.ID())
+	}
+	return
+}
+
+func (c CSASigner) Sign(ctx context.Context, account string, data []byte) (signed []byte, err error) {
+	k, err := c.CSA.Get(account)
+	if err != nil {
+		return nil, err
+	}
+	// loopp spec requires passing nil hash to check existence of id
+	if data == nil {
+		return nil, nil
+	}
+	return k.PrivateKey().Sign(rand.Reader, data, crypto.Hash(0))
 }
 
 type csa struct {

@@ -54,7 +54,7 @@ func TestGetEVMEffectiveTransmitterID(t *testing.T) {
 		KeyStore:       keyStore.Eth(),
 		TxManager:      txManager,
 	})
-	require.True(t, legacyChains.Len() > 0)
+	require.Positive(t, legacyChains.Len())
 
 	type testCase struct {
 		name                  string

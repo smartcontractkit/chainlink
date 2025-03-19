@@ -2,7 +2,6 @@ package blockhashstore
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -87,7 +86,7 @@ func (f *Feeder) StartHeartbeats(ctx context.Context, timer Timer) {
 		f.lggr.Infow("Not starting heartbeat blockhash using storeEarliest")
 		return
 	}
-	f.lggr.Infow(fmt.Sprintf("Starting heartbeat blockhash using storeEarliest every %s", f.heartbeatPeriod.String()))
+	f.lggr.Infow("Starting heartbeat blockhash using storeEarliest every " + f.heartbeatPeriod.String())
 	for {
 		after := timer.After(f.heartbeatPeriod)
 		select {

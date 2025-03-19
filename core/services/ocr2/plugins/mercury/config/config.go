@@ -45,7 +45,7 @@ func validateURL(rawServerURL string) error {
 	if schemeRegexp.MatchString(rawServerURL) {
 		normalizedURI = rawServerURL
 	} else {
-		normalizedURI = fmt.Sprintf("wss://%s", rawServerURL)
+		normalizedURI = "wss://" + rawServerURL
 	}
 	uri, err := url.ParseRequestURI(normalizedURI)
 	if err != nil {

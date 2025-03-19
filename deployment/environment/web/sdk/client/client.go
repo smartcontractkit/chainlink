@@ -344,7 +344,7 @@ func (c *client) login() error {
 
 	cookieHeader := res.Header.Get("Set-Cookie")
 	if cookieHeader == "" {
-		return errors.New("no cookie found in header")
+		return errors.New("CL node is down or No cookie found in header")
 	}
 
 	c.cookie = strings.Split(cookieHeader, ";")[0]

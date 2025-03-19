@@ -13,11 +13,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	functionsRelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	evmRelayTypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -79,7 +78,7 @@ func (p *functionsProvider) Codec() commontypes.Codec {
 	return nil
 }
 
-func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keystore.Eth, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
+func NewFunctionsProvider(ctx context.Context, chain legacyevm.Chain, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs, lggr logger.Logger, ethKeystore keys.Store, pluginType functionsRelay.FunctionsPluginType) (evmRelayTypes.FunctionsProvider, error) {
 	relayOpts := evmRelayTypes.NewRelayOpts(rargs)
 	relayConfig, err := relayOpts.RelayConfig()
 	if err != nil {
@@ -139,7 +138,7 @@ func newFunctionsConfigProvider(ctx context.Context, pluginType functionsRelay.F
 	return newConfigWatcher(lggr, routerContractAddress, offchainConfigDigester, cp, chain, fromBlock, args.New), nil
 }
 
-func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keystore.Eth, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
+func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32, rargs commontypes.RelayArgs, transmitterID string, configWatcher *configWatcher, ethKeystore keys.Store, logPollerWrapper evmRelayTypes.LogPollerWrapper, lggr logger.Logger) (ContractTransmitter, error) {
 	var relayConfig evmRelayTypes.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -162,7 +161,7 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, errors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
+		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s)); err != nil {
 			return nil, errors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
@@ -193,7 +192,6 @@ func newFunctionsContractTransmitter(ctx context.Context, contractVersion uint32
 		effectiveTransmitterAddress,
 		strategy,
 		checker,
-		configWatcher.chain.ID(),
 		ethKeystore,
 	)
 	if err != nil {

@@ -35,18 +35,18 @@ func TestConfirmedLogExtraction(t *testing.T) {
 	// None are confirmed
 	lsn.LatestHead = 0
 	logs := lsn.extractConfirmedLogs()
-	assert.Equal(t, 0, len(logs))     // None ready
-	assert.Equal(t, 3, len(lsn.Reqs)) // All pending
+	assert.Empty(t, logs)      // None ready
+	assert.Len(t, lsn.Reqs, 3) // All pending
 	lsn.LatestHead = 2
 	logs = lsn.extractConfirmedLogs()
-	assert.Equal(t, 2, len(logs))     // 1 and 2 should be confirmed
-	assert.Equal(t, 1, len(lsn.Reqs)) // 3 is still pending
+	assert.Len(t, logs, 2)     // 1 and 2 should be confirmed
+	assert.Len(t, lsn.Reqs, 1) // 3 is still pending
 	assert.Equal(t, uint64(3), lsn.Reqs[0].confirmedAtBlock)
 	// Another block way in the future should clear it
 	lsn.LatestHead = 10
 	logs = lsn.extractConfirmedLogs()
-	assert.Equal(t, 1, len(logs))     // remaining log
-	assert.Equal(t, 0, len(lsn.Reqs)) // all processed
+	assert.Len(t, logs, 1)    // remaining log
+	assert.Empty(t, lsn.Reqs) // all processed
 }
 
 func TestResponsePruning(t *testing.T) {
@@ -66,11 +66,11 @@ func TestResponsePruning(t *testing.T) {
 		reqID:       utils.PadByteToHash(0x01),
 	})
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 2, len(lsn.ResponseCount))
+	assert.Len(t, lsn.ResponseCount, 2)
 	lsn.LatestHead = 10001
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 1, len(lsn.ResponseCount))
+	assert.Len(t, lsn.ResponseCount, 1)
 	lsn.LatestHead = 10002
 	lsn.pruneConfirmedRequestCounts()
-	assert.Equal(t, 0, len(lsn.ResponseCount))
+	assert.Empty(t, lsn.ResponseCount)
 }

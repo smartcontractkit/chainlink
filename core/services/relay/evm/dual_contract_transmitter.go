@@ -19,8 +19,8 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 // TODO: Remove when new dual transmitter contracts are merged
@@ -37,7 +37,7 @@ type dualContractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
-	ks                  keystore.Eth
+	ks                  keys.Locker
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -58,7 +58,7 @@ func NewOCRDualContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	ethKeystore keystore.Eth,
+	ethKeystore keys.Locker,
 	opts ...OCRTransmitterOption,
 ) (*dualContractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -195,11 +195,8 @@ func (oc *dualContractTransmitter) unlockTransmitters(ctx context.Context) error
 
 func (oc *dualContractTransmitter) unlockPrimary(ctx context.Context) error {
 	primaryAddress := oc.transmitter.FromAddress(ctx)
-	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
-	if err != nil {
-		return err
-	}
-	err = rmPrimary.Unlock(keystore.TXMv1)
+	rmPrimary := oc.ks.GetMutex(primaryAddress)
+	err := rmPrimary.Unlock(keys.TXMv1)
 	if err != nil {
 		return err
 	}
@@ -212,11 +209,8 @@ func (oc *dualContractTransmitter) unlockSecondary(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
-	if err != nil {
-		return err
-	}
-	err = rmSecondary.Unlock(keystore.TXMv2)
+	rmSecondary := oc.ks.GetMutex(secondaryAddress)
+	err = rmSecondary.Unlock(keys.TXMv2)
 	if err != nil {
 		return err
 	}
@@ -226,11 +220,8 @@ func (oc *dualContractTransmitter) unlockSecondary(ctx context.Context) error {
 
 func (oc *dualContractTransmitter) lockPrimary(ctx context.Context) error {
 	primaryAddress := oc.transmitter.FromAddress(ctx)
-	rmPrimary, err := oc.ks.GetResourceMutex(ctx, primaryAddress)
-	if err != nil {
-		return err
-	}
-	err = rmPrimary.TryLock(keystore.TXMv1)
+	rmPrimary := oc.ks.GetMutex(primaryAddress)
+	err := rmPrimary.TryLock(keys.TXMv1)
 	if err != nil {
 		return err
 	}
@@ -243,11 +234,8 @@ func (oc *dualContractTransmitter) lockSecondary(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	rmSecondary, err := oc.ks.GetResourceMutex(ctx, secondaryAddress)
-	if err != nil {
-		return err
-	}
-	err = rmSecondary.TryLock(keystore.TXMv2)
+	rmSecondary := oc.ks.GetMutex(secondaryAddress)
+	err = rmSecondary.TryLock(keys.TXMv2)
 	if err != nil {
 		return err
 	}

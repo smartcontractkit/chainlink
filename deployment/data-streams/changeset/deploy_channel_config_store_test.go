@@ -10,7 +10,10 @@ import (
 )
 
 func TestDeployChannelConfigStore(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	t.Parallel()
+
+	e := testutil.NewMemoryEnv(t, false, 0)
+
 	cc := DeployChannelConfigStoreConfig{
 		ChainsToDeploy: []uint64{testutil.TestChain.Selector},
 	}
