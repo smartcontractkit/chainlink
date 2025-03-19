@@ -1,7 +1,7 @@
 package capabilities
 
 import (
-	"bufio"
+	"context"
 	"crypto/tls"
 	"fmt"
 	"math/big"
@@ -74,7 +74,7 @@ type TestConfig struct {
 	KeystoneContracts             *keystonetypes.KeystoneContractsInput  `toml:"keystone_contracts"`
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput   `toml:"workflow_registry_configuration"`
 	FeedConsumer                  *keystonetypes.DeployFeedConsumerInput `toml:"feed_consumer"`
-	Infra                         *libtypes.InfraInput                            `toml:"infra" validate:"required"`
+	Infra                         *libtypes.InfraInput                   `toml:"infra" validate:"required"`
 	WorkflowLoad                  *WorkflowLoad                          `toml:"workflow_load"`
 }
 type WorkflowLoad struct {
@@ -260,7 +260,7 @@ type registerPoRWorkflowInput struct {
 	sethClient                  *seth.Client
 	deployerPrivateKey          string
 	blockchain                  *blockchain.Output
-	binaryDownloadOutput        binaryDownloadOutput
+	binaryDownloadOutput        *binaryDownloadOutput
 }
 
 func registerPoRWorkflow(input registerPoRWorkflowInput) error {
@@ -467,7 +467,7 @@ type setupOutput struct {
 	creds                credentials.TransportCredentials
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]string) *setupOutput {
 	// Universal setup -- START
 
 	// NixShell is only required, when using CRIB, but we want to run commands in the same "nix develop" context
@@ -740,9 +740,8 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ExtraAllowedPorts:      extraAllowedPorts,
 			ExtraAllowedIPs:        extraAllowedIPs,
 			CronCapBinName:         cronCapabilityAssetFile,
-			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
-		},
-	)
+			GatewayConnectorOutput: topology.GatewayConnectorOutput,
+		}, loadFeedAddresses)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
 	createJobsInput := keystonetypes.CreateJobsInput{
@@ -806,7 +805,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	}
 
 	if binaryDownloadOutput != nil {
-		registerInput.binaryDownloadOutput = *binaryDownloadOutput
+		registerInput.binaryDownloadOutput = binaryDownloadOutput
 		err = registerPoRWorkflow(registerInput)
 		require.NoError(t, err, "failed to register PoR workflow")
 	}

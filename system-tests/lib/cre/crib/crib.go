@@ -10,6 +10,7 @@ import (
 
 	"github.com/pelletier/go-toml/v2"
 	"github.com/pkg/errors"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -63,6 +64,11 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.NixShell, error) {
 		return nil, errors.Wrap(err, "failed to run devspace purge")
 	}
 
+	_, err = nixShell.RunCommand("crib init")
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to run crib init")
+	}
+
 	return nixShell, nil
 }
 
@@ -78,9 +84,9 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 	gethChainEnvVars := map[string]string{
 		"CHAIN_ID": input.BlockchainInput.ChainID,
 	}
-	_, err := input.NixShell.RunCommandWithEnvVars("devspace run deploy-geth-chain", gethChainEnvVars)
+	_, err := input.NixShell.RunCommandWithEnvVars("devspace run deploy-custom-geth-chain", gethChainEnvVars)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to run devspace run deploy-geth-chain")
+		return nil, errors.Wrap(err, "failed to run devspace run deploy-custom-geth-chain")
 	}
 
 	// TODO read family from blockchain input
