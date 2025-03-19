@@ -650,11 +650,11 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	for _, chainIdx := range allChains {
 		updates := make(map[uint64]v1_6.OffRampSourceUpdate)
 
-		for _, subChainId := range allChains {
-			if subChainId == chainIdx {
+		for _, subChainID := range allChains {
+			if subChainID == chainIdx {
 				continue
 			}
-			updates[subChainId] = v1_6.OffRampSourceUpdate{
+			updates[subChainID] = v1_6.OffRampSourceUpdate{
 				IsRMNVerificationDisabled: false,
 				IsEnabled:                 true,
 			}
