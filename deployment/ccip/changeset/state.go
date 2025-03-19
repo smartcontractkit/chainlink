@@ -264,7 +264,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	for tokenSymbol, versionToPool := range c.BurnMintTokenPools {
 		for _, tokenPool := range versionToPool {
 			tpUpdateGrp.Go(func() error {
-				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 				}
@@ -278,7 +278,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	for tokenSymbol, versionToPool := range c.BurnWithFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
 			tpUpdateGrp.Go(func() error {
-				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 				}
@@ -292,7 +292,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	for tokenSymbol, versionToPool := range c.BurnFromMintTokenPools {
 		for _, tokenPool := range versionToPool {
 			tpUpdateGrp.Go(func() error {
-				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool)
+				tokenPoolView, err := viewv1_5_1.GenerateTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate burn mint token pool view for %s", tokenPool.Address().String())
 				}
@@ -306,7 +306,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	for tokenSymbol, versionToPool := range c.LockReleaseTokenPools {
 		for _, tokenPool := range versionToPool {
 			tpUpdateGrp.Go(func() error {
-				tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool)
+				tokenPoolView, err := viewv1_5_1.GenerateLockReleaseTokenPoolView(tokenPool, c.usdFeedOrDefault(tokenSymbol))
 				if err != nil {
 					return errors.Wrapf(err, "failed to generate lock release token pool view for %s", tokenPool.Address().String())
 				}
@@ -353,7 +353,15 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
-		fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, c.TokenAdminRegistry)
+		tokenDetails, err := c.TokenDetailsBySymbol()
+		if err != nil {
+			return chainView, err
+		}
+		tokens := make([]common.Address, 0, len(tokenDetails))
+		for _, tokenDetail := range tokenDetails {
+			tokens = append(tokens, tokenDetail.Address())
+		}
+		fqView, err := viewv1_6.GenerateFeeQuoterView(c.FeeQuoter, c.Router, tokens)
 		if err != nil {
 			return chainView, errors.Wrapf(err, "failed to generate fee quoter view for fee quoter %s", c.FeeQuoter.Address().String())
 		}
@@ -473,6 +481,13 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	return chainView, nil
+}
+
+func (c CCIPChainState) usdFeedOrDefault(symbol TokenSymbol) common.Address {
+	if feed, ok := c.USDFeeds[symbol]; ok {
+		return feed.Address()
+	}
+	return common.Address{}
 }
 
 // CCIPOnChainState state always derivable from an address book.
