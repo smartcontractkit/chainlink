@@ -198,6 +198,7 @@ func (c CCIPChainState) TokenAddressBySymbol() (map[TokenSymbol]common.Address, 
 	return tokenAddresses, nil
 }
 
+// TokenDetailsBySymbol get token mapping from the state. It contains only tokens that we have in address book
 func (c CCIPChainState) TokenDetailsBySymbol() (map[TokenSymbol]TokenDetails, error) {
 	tokenDetails := make(map[TokenSymbol]TokenDetails)
 	for symbol, token := range c.ERC20Tokens {
@@ -353,6 +354,7 @@ func (c CCIPChainState) GenerateView() (view.ChainView, error) {
 	}
 
 	if c.FeeQuoter != nil && c.Router != nil && c.TokenAdminRegistry != nil {
+		// FeeQuoter knows only about tokens that managed by CCIP (i.e. imported from address book)
 		tokenDetails, err := c.TokenDetailsBySymbol()
 		if err != nil {
 			return chainView, err
