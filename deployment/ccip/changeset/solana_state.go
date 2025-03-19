@@ -370,18 +370,18 @@ func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	return receiverTargetAccount
 }
 
-func (c SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
 	chainView := view.NewSolChain()
 	var remoteChains []uint64
-	for selector := range c.DestChainStatePDAs {
+	for selector := range s.DestChainStatePDAs {
 		remoteChains = append(remoteChains, selector)
 	}
-	if !c.FeeQuoter.IsZero() {
-		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, c.FeeQuoter, remoteChains)
+	if !s.FeeQuoter.IsZero() {
+		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view: %w", err)
 		}
-		chainView.FeeQuoter[c.FeeQuoter.String()] = fqView
+		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
 	}
 	return chainView, nil
 }
