@@ -3,6 +3,7 @@ package legacyevm
 import (
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
@@ -13,7 +14,6 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 func newEvmTxm(
@@ -32,7 +32,7 @@ func newEvmTxm(
 ) {
 	chainID := cfg.ChainID()
 
-	lggr = lggr.Named("Txm")
+	lggr = logger.Named(lggr, "Txm")
 	lggr.Infow("Initializing EVM transaction manager",
 		"bumpTxDepth", cfg.GasEstimator().BumpTxDepth(),
 		"maxInFlightTransactions", cfg.Transactions().MaxInFlight(),
@@ -88,7 +88,7 @@ func newGasEstimator(
 	opts ChainRelayOpts,
 	clientsByChainID map[string]rollups.DAClient,
 ) (estimator gas.EvmFeeEstimator, err error) {
-	lggr = lggr.Named("Txm")
+	lggr = logger.Named(lggr, "Txm")
 	chainID := cfg.ChainID()
 	// build estimator from factory
 	if opts.GenGasEstimator == nil {

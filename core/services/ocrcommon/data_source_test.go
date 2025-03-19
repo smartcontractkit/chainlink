@@ -2,8 +2,8 @@ package ocrcommon_test
 
 import (
 	"encoding/json"
-	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -87,16 +87,16 @@ func Test_CachedInMemoryDataSourceErrHandling(t *testing.T) {
 		mockVal := int64(1)
 		// Test if Observe notices that cache updater failed and can refresh the cache on its own
 		// 1. Set initial value
-		changeResultValue(runner, fmt.Sprint(mockVal), false, true)
+		changeResultValue(runner, strconv.FormatInt(mockVal, 10), false, true)
 		time.Sleep(time.Millisecond * 100)
 		val, err := dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, mockVal, val.Int64())
 		// 2. Set values again, but make it error in updater
-		changeResultValue(runner, fmt.Sprint(mockVal+1), true, true)
+		changeResultValue(runner, strconv.FormatInt(mockVal+1, 10), true, true)
 		time.Sleep(time.Second*2 + time.Millisecond*100)
 		// 3. Set value in between updates and call Observe (shouldn't flake because of huge wait time)
-		changeResultValue(runner, fmt.Sprint(mockVal+2), false, false)
+		changeResultValue(runner, strconv.FormatInt(mockVal+2, 10), false, false)
 		val, err = dsCache.Observe(testutils.Context(t), types.ReportTimestamp{})
 		require.NoError(t, err)
 		assert.Equal(t, mockVal+2, val.Int64())
@@ -187,7 +187,7 @@ func Test_InMemoryDataSourceWithProm(t *testing.T) {
 	val, err := ds.Observe(testutils.Context(t), types.ReportTimestamp{})
 	require.NoError(t, err)
 
-	assert.Equal(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
+	assert.JSONEq(t, jsonParseTaskValue, val.String()) // returns expected value after pipeline run
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromOcrMedianValues))
 	assert.Equal(t, cast.ToFloat64(jsonParseTaskValue), promtestutil.ToFloat64(ocrcommon.PromBridgeJsonParseValues))
 }

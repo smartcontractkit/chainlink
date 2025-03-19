@@ -61,7 +61,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
 		results, err := orm.GetSubscriptions(ctx, 0, 1)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, storedSubscriptions[1], results[0])
 	})
 
@@ -72,7 +72,7 @@ func TestORM_GetSubscriptions(t *testing.T) {
 		storedSubscriptions := seedSubscriptions(t, orm, 2)
 		results, err := orm.GetSubscriptions(ctx, 1, 5)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, storedSubscriptions[0], results[0])
 	})
 }
@@ -100,7 +100,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err := orm.GetSubscriptions(ctx, 0, 1)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, expected, results[0])
 	})
 
@@ -144,7 +144,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err := orm.GetSubscriptions(ctx, 0, 5)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, expectedNotUpdated, results[1])
 		require.Equal(t, expectedUpdated, results[0])
 	})
@@ -183,7 +183,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err := orm.GetSubscriptions(ctx, 0, 5)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, subscription, results[0])
 	})
 
@@ -221,7 +221,7 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err := orm1.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 
 		// should create a new subscription because it comes from a different router contract
 		err = orm2.UpsertSubscription(ctx, subscription)
@@ -229,11 +229,11 @@ func TestORM_UpsertSubscription(t *testing.T) {
 
 		results, err = orm1.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 
 		results, err = orm2.GetSubscriptions(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 	})
 }
 func Test_NewORM(t *testing.T) {

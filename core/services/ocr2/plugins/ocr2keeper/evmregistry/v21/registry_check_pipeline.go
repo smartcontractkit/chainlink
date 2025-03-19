@@ -2,6 +2,7 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -37,7 +38,7 @@ func (r *EvmRegistry) CheckUpkeeps(ctx context.Context, keys ...ocr2keepers.Upke
 		if keys[i].Trigger.BlockNumber == 0 { // check block was not populated, use latest
 			latest := r.bs.latestBlock.Load()
 			if latest == nil {
-				return nil, fmt.Errorf("no latest block available")
+				return nil, errors.New("no latest block available")
 			}
 			copy(keys[i].Trigger.BlockHash[:], latest.Hash[:])
 			keys[i].Trigger.BlockNumber = latest.Number

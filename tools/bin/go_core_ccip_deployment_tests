@@ -8,7 +8,7 @@ EXTRA_FLAGS=""
 
 if [[ -n "$USE_FLAKEGUARD" ]]; then
   # Install flakeguard
-  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@df5b0374ca878f1f3f4982b9a00f16844549e176
+  go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@63eefaae8f1aab2716f462c7b286f98866018977
   # Install gotestsum to parse JSON test outputs from flakeguard to console outputs
   go install gotest.tools/gotestsum@latest
 

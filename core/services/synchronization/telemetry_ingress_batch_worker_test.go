@@ -43,13 +43,13 @@ func TestTelemetryIngressWorker_BuildTelemBatchReq(t *testing.T) {
 	assert.Equal(t, string(synchronization.OCR), batchReq1.TelemetryType)
 	assert.Len(t, batchReq1.Telemetry, maxTelemBatchSize)
 	assert.Len(t, chTelemetry, 2)
-	assert.Greater(t, batchReq1.SentAt, int64(0))
+	assert.Positive(t, batchReq1.SentAt)
 
 	// Remainder of telemetry should be batched on next call
 	batchReq2 := worker.BuildTelemBatchReq()
 	assert.Equal(t, "0xa", batchReq2.ContractId)
 	assert.Equal(t, string(synchronization.OCR), batchReq2.TelemetryType)
 	assert.Len(t, batchReq2.Telemetry, 2)
-	assert.Len(t, chTelemetry, 0)
-	assert.Greater(t, batchReq2.SentAt, int64(0))
+	assert.Empty(t, chTelemetry)
+	assert.Positive(t, batchReq2.SentAt)
 }

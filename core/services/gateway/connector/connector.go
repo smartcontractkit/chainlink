@@ -212,7 +212,7 @@ func (c *gatewayConnector) SignAndSendToGateway(ctx context.Context, gatewayID s
 
 	err = c.SendToGateway(ctx, gatewayID, msg)
 	if err != nil {
-		return fmt.Errorf("failed to send message to gateway %s: %v", gatewayID, err)
+		return fmt.Errorf("failed to send message to gateway %s: %w", gatewayID, err)
 	}
 	return nil
 }

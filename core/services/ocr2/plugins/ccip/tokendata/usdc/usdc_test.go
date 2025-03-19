@@ -255,7 +255,7 @@ func TestGetUSDCMessageBody(t *testing.T) {
 		},
 	}, 0)
 	require.NoError(t, err)
-	require.Equal(t, body, expectedBody)
+	require.Equal(t, expectedBody, body)
 
 	usdcReader.AssertNumberOfCalls(t, "GetUSDCMessagePriorToLogIndexInTx", 1)
 }

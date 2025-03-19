@@ -195,7 +195,7 @@ func TestStorage_PutAndGet(t *testing.T) {
 
 	rec, metadata, err := storage.Get(testutils.Context(t), key)
 	assert.NoError(t, err)
-	assert.Equal(t, false, metadata.Confirmed)
+	assert.False(t, metadata.Confirmed)
 	assert.Equal(t, signature, metadata.Signature)
 	assert.Equal(t, record.Expiration, rec.Expiration)
 	assert.Equal(t, record.Payload, rec.Payload)

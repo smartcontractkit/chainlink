@@ -364,7 +364,7 @@ func (w *launcher) addToRegistryAndSetDispatcher(ctx context.Context, capability
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capabilityID,
 		capability.CapabilityType,
-		fmt.Sprintf("Remote Capability for %s", capabilityID),
+		"Remote Capability for "+capabilityID,
 		&don.DON,
 	)
 	if err != nil {
@@ -529,7 +529,7 @@ func (w *launcher) addReceiver(ctx context.Context, capability registrysyncer.Ca
 	info, err := capabilities.NewRemoteCapabilityInfo(
 		capID,
 		capability.CapabilityType,
-		fmt.Sprintf("Remote Capability for %s", capability.ID),
+		"Remote Capability for "+capability.ID,
 		&don.DON,
 	)
 	if err != nil {

@@ -30,7 +30,8 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -42,7 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/multi_ocr3_helper"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -375,14 +375,15 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	db := pgtest.NewSqlxDB(t)
 	owner := evmtestutils.MustNewSimTransactor(t)
 
+	keyStore := keystest.NewMemoryChainStore()
 	// create many transmitters but only need to fund one, rest are to get
 	// setOCR3Config to pass.
-	keyStore := cltest.NewKeyStore(t, db)
+	chainStore := keys.NewChainStore(keyStore, big.NewInt(1337))
 	var transmitters []common.Address
 	for i := 0; i < 4; i++ {
-		key, err := keyStore.Eth().Create(testutils.Context(t), big.NewInt(1337))
+		addr, err := keyStore.Create()
 		require.NoError(t, err, "failed to create key")
-		transmitters = append(transmitters, key.Address)
+		transmitters = append(transmitters, addr)
 	}
 
 	backend := simulated.NewBackend(types.GenesisAlloc{
@@ -465,7 +466,7 @@ func newTestUniverse(t *testing.T, ks *keyringsAndSigners[[]byte]) *testUniverse
 	simClient := client.NewSimulatedBackendClient(t, backend, testutils.SimulatedChainID)
 
 	// create the chain writer service
-	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, keyStore.Eth())
+	txm, gasEstimator := makeTestEvmTxm(t, db, simClient, chainStore)
 	require.NoError(t, txm.Start(testutils.Context(t)), "failed to start tx manager")
 	t.Cleanup(func() { require.NoError(t, txm.Close()) })
 
@@ -576,11 +577,7 @@ func chainWriterConfigRaw(fromAddress common.Address, maxGasPrice *assets.Wei) e
 	}
 }
 
-func makeTestEvmTxm(
-	t *testing.T,
-	db *sqlx.DB,
-	ethClient client.Client,
-	keyStore keystore.Eth) (txmgr.TxManager, gas.EvmFeeEstimator) {
+func makeTestEvmTxm(t *testing.T, db *sqlx.DB, ethClient client.Client, keyStore keys.ChainStore) (txmgr.TxManager, gas.EvmFeeEstimator) {
 	config, dbConfig, evmConfig := MakeTestConfigs(t)
 
 	estimator, err := gas.NewEstimator(logger.TestLogger(t), ethClient, config.ChainType(), ethClient.ConfiguredChainID(), evmConfig.GasEstimator(), nil)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -135,7 +136,7 @@ func (d *delegate) Start(ctx context.Context) error {
 
 		psrrc := NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
 		for i, configTracker := range d.cfg.ContractConfigTrackers {
-			lggr := logger.Named(d.cfg.Logger, fmt.Sprintf("%d", i))
+			lggr := logger.Named(d.cfg.Logger, strconv.Itoa(i))
 			switch i {
 			case 0:
 				lggr = logger.With(lggr, "instanceType", "Blue")
