@@ -1,4 +1,4 @@
-package llo
+package observation
 
 import (
 	"context"
@@ -40,10 +40,6 @@ var (
 		[]string{"streamID"},
 	)
 )
-
-type Registry interface {
-	Get(streamID streams.StreamID) (p streams.Pipeline, exists bool)
-}
 
 type ErrObservationFailed struct {
 	inner    error

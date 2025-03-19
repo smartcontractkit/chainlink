@@ -1,4 +1,4 @@
-package llo
+package observation
 
 import (
 	"context"
@@ -131,7 +131,7 @@ func (m *mockTelemeter) CaptureObservationTelemetry() bool                      
 func Test_DataSource(t *testing.T) {
 	lggr := logger.TestLogger(t)
 	reg := &mockRegistry{make(map[streams.StreamID]*mockPipeline)}
-	ds := newDataSource(lggr, reg, NullTelemeter)
+	ds := newDataSource(lggr, reg, telem.NullTelemeter)
 	ctx := testutils.Context(t)
 	opts := &mockOpts{}
 
@@ -325,7 +325,7 @@ result3 -> result3_parse -> multiply3;
 		require.NoError(b, err)
 	}
 
-	ds := newDataSource(lggr, r, NullTelemeter)
+	ds := newDataSource(lggr, r, telem.NullTelemeter)
 	vals := make(map[llotypes.StreamID]llo.StreamValue)
 	for i := uint32(0); i < 4*n; i++ {
 		vals[i] = nil

@@ -1,4 +1,4 @@
-package llo
+package retirement
 
 import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"

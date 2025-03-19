@@ -1,4 +1,4 @@
-package llo
+package telem
 
 import (
 	"context"
@@ -13,8 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
@@ -234,7 +233,7 @@ func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) 
 	case *pipeline.BridgeTelemetry:
 		telemType = synchronization.PipelineBridge
 		cd := opts.ConfigDigest()
-		msg = &telem.LLOBridgeTelemetry{
+		msg = &LLOBridgeTelemetry{
 			BridgeAdapterName:        v.Name,
 			BridgeRequestData:        v.RequestData,
 			BridgeResponseData:       v.ResponseData,
@@ -251,7 +250,7 @@ func (t *telemeter) collectObservationTelemetry(p interface{}, opts llo.DSOpts) 
 			ConfigDigest:             cd[:],
 			ObservationTimestamp:     opts.ObservationTimestamp().UnixNano(),
 		}
-	case *telem.LLOObservationTelemetry:
+	case *LLOObservationTelemetry:
 		telemType = synchronization.LLOObservation
 		v.DonId = t.donID
 		msg = v
@@ -402,23 +401,4 @@ func (t *nullTelemeter) Name() string {
 }
 func (t *nullTelemeter) Ready() error {
 	return nil
-}
-
-type contextKey string
-
-const ctxObservationTelemetryKey contextKey = "observation-telemetry"
-
-func WithObservationTelemetryCh(ctx context.Context, ch chan<- interface{}) context.Context {
-	if ch == nil {
-		return ctx
-	}
-	return context.WithValue(ctx, ctxObservationTelemetryKey, ch)
-}
-
-func GetObservationTelemetryCh(ctx context.Context) chan<- interface{} {
-	ch, ok := ctx.Value(ctxObservationTelemetryKey).(chan<- interface{})
-	if !ok {
-		return nil
-	}
-	return ch
 }

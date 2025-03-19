@@ -1,4 +1,4 @@
-package llo
+package channeldefinitions
 
 import (
 	"bytes"
@@ -29,6 +29,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )
@@ -62,7 +63,7 @@ func init() {
 }
 
 type ChannelDefinitionCacheORM interface {
-	LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error)
+	LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error)
 	StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error)
 	CleanupChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) error
 }
@@ -121,12 +122,8 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func filterName(addr common.Address, donID uint32) string {
-	return logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), strconv.FormatUint(uint64(donID), 10))
-}
-
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
-	filterName := logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), donID)
+	filterName := types.ChannelDefinitionCacheFilterName(addr, donID)
 	donIDTopic := common.BigToHash(big.NewInt(int64(donID)))
 
 	exprs := []query.Expression{

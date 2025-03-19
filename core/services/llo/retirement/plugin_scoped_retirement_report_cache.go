@@ -1,4 +1,4 @@
-package llo
+package retirement
 
 import (
 	"fmt"
@@ -10,7 +10,8 @@ import (
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 
-	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	llo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	retirement "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/retirement"
 )
 
 type RetirementReportVerifier interface {
@@ -22,15 +23,15 @@ type RetirementReportVerifier interface {
 //
 // This is necessary because while config digest keys are globally unique,
 // different plugins may implement different signing/verification strategies
-var _ datastreamsllo.PredecessorRetirementReportCache = &pluginScopedRetirementReportCache{}
+var _ llo.PredecessorRetirementReportCache = &pluginScopedRetirementReportCache{}
 
 type pluginScopedRetirementReportCache struct {
 	rrc      RetirementReportCacheReader
 	verifier RetirementReportVerifier
-	codec    datastreamsllo.RetirementReportCodec
+	codec    llo.RetirementReportCodec
 }
 
-func NewPluginScopedRetirementReportCache(rrc RetirementReportCacheReader, verifier RetirementReportVerifier, codec datastreamsllo.RetirementReportCodec) datastreamsllo.PredecessorRetirementReportCache {
+func NewPluginScopedRetirementReportCache(rrc RetirementReportCacheReader, verifier RetirementReportVerifier, codec llo.RetirementReportCodec) llo.PredecessorRetirementReportCache {
 	return &pluginScopedRetirementReportCache{
 		rrc:      rrc,
 		verifier: verifier,
@@ -38,22 +39,22 @@ func NewPluginScopedRetirementReportCache(rrc RetirementReportCacheReader, verif
 	}
 }
 
-func (pr *pluginScopedRetirementReportCache) CheckAttestedRetirementReport(predecessorConfigDigest ocr2types.ConfigDigest, serializedAttestedRetirementReport []byte) (datastreamsllo.RetirementReport, error) {
+func (pr *pluginScopedRetirementReportCache) CheckAttestedRetirementReport(predecessorConfigDigest ocr2types.ConfigDigest, serializedAttestedRetirementReport []byte) (llo.RetirementReport, error) {
 	config, exists := pr.rrc.Config(predecessorConfigDigest)
 	if !exists {
-		return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; predecessor config not found for config digest %x", predecessorConfigDigest[:])
+		return llo.RetirementReport{}, fmt.Errorf("Verify failed; predecessor config not found for config digest %x", predecessorConfigDigest[:])
 	}
 
-	var arr AttestedRetirementReport
+	var arr retirement.AttestedRetirementReport
 	if err := proto.Unmarshal(serializedAttestedRetirementReport, &arr); err != nil {
-		return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; failed to unmarshal protobuf: %w", err)
+		return llo.RetirementReport{}, fmt.Errorf("Verify failed; failed to unmarshal protobuf: %w", err)
 	}
 
 	validSigs := 0
 	for _, sig := range arr.Sigs {
 		// #nosec G115
 		if sig.Signer >= uint32(len(config.Signers)) {
-			return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; attested report signer index out of bounds (got: %d, max: %d)", sig.Signer, len(config.Signers)-1)
+			return llo.RetirementReport{}, fmt.Errorf("Verify failed; attested report signer index out of bounds (got: %d, max: %d)", sig.Signer, len(config.Signers)-1)
 		}
 		signer := config.Signers[sig.Signer]
 		valid := pr.verifier.Verify(types.OnchainPublicKey(signer), predecessorConfigDigest, arr.SeqNr, ocr3types.ReportWithInfo[llotypes.ReportInfo]{
@@ -66,11 +67,11 @@ func (pr *pluginScopedRetirementReportCache) CheckAttestedRetirementReport(prede
 		validSigs++
 	}
 	if validSigs <= int(config.F) {
-		return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; not enough valid signatures (got: %d, need: %d)", validSigs, config.F+1)
+		return llo.RetirementReport{}, fmt.Errorf("Verify failed; not enough valid signatures (got: %d, need: %d)", validSigs, config.F+1)
 	}
 	decoded, err := pr.codec.Decode(arr.RetirementReport)
 	if err != nil {
-		return datastreamsllo.RetirementReport{}, fmt.Errorf("Verify failed; failed to decode retirement report: %w", err)
+		return llo.RetirementReport{}, fmt.Errorf("Verify failed; failed to decode retirement report: %w", err)
 	}
 	return decoded, nil
 }

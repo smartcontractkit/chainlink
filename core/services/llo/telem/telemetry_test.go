@@ -1,4 +1,4 @@
-package llo
+package telem
 
 import (
 	"encoding/hex"
@@ -13,11 +13,13 @@ import (
 	"google.golang.org/protobuf/proto"
 	"gopkg.in/guregu/null.v4"
 
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline/eautils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
@@ -40,6 +42,22 @@ type mockMonitoringEndpoint struct {
 
 func (m *mockMonitoringEndpoint) SendTypedLog(telemType synchronization.TelemetryType, log []byte) {
 	m.chTypedLogs <- typedLog{log, telemType}
+}
+
+type mockOpts struct {
+	verboseLogging bool
+}
+
+func (m *mockOpts) VerboseLogging() bool { return m.verboseLogging }
+func (m *mockOpts) SeqNr() uint64        { return 1042 }
+func (m *mockOpts) OutCtx() ocr3types.OutcomeContext {
+	return ocr3types.OutcomeContext{SeqNr: 1042, PreviousOutcome: ocr3types.Outcome([]byte("foo"))}
+}
+func (m *mockOpts) ConfigDigest() ocr2types.ConfigDigest {
+	return ocr2types.ConfigDigest{6, 5, 4}
+}
+func (m *mockOpts) ObservationTimestamp() time.Time {
+	return time.Unix(1737936858, 0)
 }
 
 const bridgeResponse = `{
@@ -288,7 +306,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 
 		tLog := <-m.chTypedLogs
 		assert.Equal(t, synchronization.PipelineBridge, tLog.telemType)
-		decoded := &telem.LLOBridgeTelemetry{}
+		decoded := &LLOBridgeTelemetry{}
 		require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 		assert.Equal(t, "test-bridge-1", decoded.BridgeAdapterName)
 		assert.Equal(t, []byte(`foo`), decoded.BridgeRequestData)
@@ -310,7 +328,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 		assert.Equal(t, opts.ConfigDigest().Hex(), hex.EncodeToString(decoded.ConfigDigest))
 		assert.Equal(t, opts.ObservationTimestamp().UnixNano(), decoded.ObservationTimestamp)
 	})
-	t.Run("transmits *telem.LLOObservationTelemetry", func(t *testing.T) {
+	t.Run("transmits *LLOObservationTelemetry", func(t *testing.T) {
 		t.Parallel()
 		m := &mockMonitoringEndpoint{chTypedLogs: make(chan typedLog, 100)}
 		tm := newTelemeter(TelemeterParams{
@@ -323,7 +341,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 		ch := tm.MakeObservationScopedTelemetryCh(opts, 100)
 		require.NotNil(t, ch)
 
-		ch <- &telem.LLOObservationTelemetry{
+		ch <- &LLOObservationTelemetry{
 			StreamId:              135,
 			StreamValueType:       1,
 			StreamValueBinary:     []byte{0x01, 0x02, 0x03},
@@ -337,7 +355,7 @@ func Test_Telemeter_observationScopedTelemetry(t *testing.T) {
 
 		tLog := <-m.chTypedLogs
 		assert.Equal(t, synchronization.LLOObservation, tLog.telemType)
-		decoded := &telem.LLOObservationTelemetry{}
+		decoded := &LLOObservationTelemetry{}
 		require.NoError(t, proto.Unmarshal(tLog.log, decoded))
 		assert.Equal(t, uint32(135), decoded.StreamId)
 		assert.Equal(t, int32(1), decoded.StreamValueType)

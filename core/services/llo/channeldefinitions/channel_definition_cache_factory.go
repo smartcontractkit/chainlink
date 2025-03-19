@@ -1,4 +1,4 @@
-package llo
+package channeldefinitions
 
 import (
 	"net/http"

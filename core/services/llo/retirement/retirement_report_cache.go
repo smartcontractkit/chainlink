@@ -1,4 +1,4 @@
-package llo
+package retirement
 
 import (
 	"context"
@@ -9,6 +9,8 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"google.golang.org/protobuf/proto"
+
+	retirement "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/retirement"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -88,14 +90,14 @@ func (r *retirementReportCache) StoreAttestedRetirementReport(ctx context.Contex
 	}
 	r.mu.RUnlock()
 
-	var pbSigs []*AttributedOnchainSignature
-	for _, s := range sigs {
-		pbSigs = append(pbSigs, &AttributedOnchainSignature{
+	pbSigs := make([]*retirement.AttributedOnchainSignature, len(sigs))
+	for i, s := range sigs {
+		pbSigs[i] = &retirement.AttributedOnchainSignature{
 			Signer:    uint32(s.Signer),
 			Signature: s.Signature,
-		})
+		}
 	}
-	attestedRetirementReport := AttestedRetirementReport{
+	attestedRetirementReport := retirement.AttestedRetirementReport{
 		RetirementReport: retirementReport,
 		SeqNr:            seqNr,
 		Sigs:             pbSigs,

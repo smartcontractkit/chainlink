@@ -1,4 +1,4 @@
-package llo
+package retirement
 
 import (
 	"errors"
@@ -12,6 +12,7 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	retirement "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/retirement"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 )
@@ -77,10 +78,10 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 
 	exampleUnattestedSerializedRetirementReport := []byte("foo example unattested retirement report")
 
-	validArr := AttestedRetirementReport{
+	validArr := retirement.AttestedRetirementReport{
 		RetirementReport: exampleUnattestedSerializedRetirementReport,
 		SeqNr:            42,
-		Sigs: []*AttributedOnchainSignature{
+		Sigs: []*retirement.AttributedOnchainSignature{
 			{
 				Signer:    0,
 				Signature: []byte("bar0"),
@@ -106,7 +107,7 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 		t.Run("invalid", func(t *testing.T) {
 			// config missing
 			_, err := psrrc.CheckAttestedRetirementReport(exampleDigest, []byte("not valid"))
-			assert.EqualError(t, err, "Verify failed; predecessor config not found for config digest 0100000000000000000000000000000000000000000000000000000000000000")
+			require.EqualError(t, err, "Verify failed; predecessor config not found for config digest 0100000000000000000000000000000000000000000000000000000000000000")
 
 			rrc.cfg = Config{Digest: exampleDigest}
 			rrc.exists = true
@@ -118,7 +119,7 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 
 			// config is invalid (no signers)
 			_, err = psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
-			assert.EqualError(t, err, "Verify failed; attested report signer index out of bounds (got: 0, max: -1)")
+			require.EqualError(t, err, "Verify failed; attested report signer index out of bounds (got: 0, max: -1)")
 
 			rrc.cfg = Config{Digest: exampleDigest, Signers: [][]byte{[]byte{0}, []byte{1}, []byte{2}, []byte{3}}, F: 1}
 
@@ -127,14 +128,14 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 				return false
 			}
 			_, err = psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
-			assert.EqualError(t, err, "Verify failed; not enough valid signatures (got: 0, need: 2)")
+			require.EqualError(t, err, "Verify failed; not enough valid signatures (got: 0, need: 2)")
 
 			// not enough valid sigs
 			v.verify = func(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo], signature []byte) bool {
 				return string(signature) == "bar0"
 			}
 			_, err = psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
-			assert.EqualError(t, err, "Verify failed; not enough valid signatures (got: 1, need: 2)")
+			require.EqualError(t, err, "Verify failed; not enough valid signatures (got: 1, need: 2)")
 
 			// enough valid sigs, but codec decode fails
 			v.verify = func(key types.OnchainPublicKey, digest types.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[llotypes.ReportInfo], signature []byte) bool {
@@ -147,7 +148,7 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 				return datastreamsllo.RetirementReport{}, errors.New("codec decode failed")
 			}
 			_, err = psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
-			assert.EqualError(t, err, "Verify failed; failed to decode retirement report: codec decode failed")
+			require.EqualError(t, err, "Verify failed; failed to decode retirement report: codec decode failed")
 
 			exampleRetirementReport := datastreamsllo.RetirementReport{
 				ValidAfterNanoseconds: map[llotypes.ChannelID]uint64{
@@ -161,7 +162,7 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 				return exampleRetirementReport, nil
 			}
 			decoded, err := psrrc.CheckAttestedRetirementReport(exampleDigest, serializedValidArr)
-			assert.NoError(t, err)
+			require.NoError(t, err)
 			assert.Equal(t, exampleRetirementReport, decoded)
 		})
 	})
@@ -171,14 +172,14 @@ func Test_PluginScopedRetirementReportCache(t *testing.T) {
 
 		// exists
 		arr, err := psrrc.AttestedRetirementReport(exampleDigest)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, rrc.arr, arr)
 
 		rrc.exists = false
 
 		// doesn't exist
 		arr, err = psrrc.AttestedRetirementReport(exampleDigest2)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Nil(t, arr)
 	})
 }

@@ -1,4 +1,4 @@
-package llo
+package observation
 
 import (
 	"context"

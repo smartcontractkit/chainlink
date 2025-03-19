@@ -1,4 +1,4 @@
-package llo
+package channeldefinitions
 
 import (
 	"bytes"
@@ -23,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type mockLogPoller struct {
@@ -71,7 +72,7 @@ type mockCDCORM struct {
 	lastPersistedBlockNum int64
 }
 
-func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
+func (m *mockCDCORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error) {
 	panic("not implemented")
 }
 func (m *mockCDCORM) StoreChannelDefinitions(ctx context.Context, addr common.Address, donID, version uint32, dfns llotypes.ChannelDefinitions, blockNum int64) (err error) {
@@ -460,6 +461,6 @@ func Test_ChannelDefinitionCache(t *testing.T) {
 }
 
 func Test_filterName(t *testing.T) {
-	s := filterName(common.Address{1, 2, 3}, 654)
+	s := types.ChannelDefinitionCacheFilterName(common.Address{1, 2, 3}, 654)
 	assert.Equal(t, "OCR3 LLO ChannelDefinitionCachePoller - 0x0102030000000000000000000000000000000000:654", s)
 }
