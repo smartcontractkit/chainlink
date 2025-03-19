@@ -163,6 +163,7 @@ func (t *ETHTxTask) Run(ctx context.Context, lggr logger.Logger, vars Vars, inpu
 		txRequest.MinConfirmations = clnull.Uint32From(uint32(minOutgoingConfirmations))
 	}
 
+	fmt.Printf("GEERT ETHTxTask creating transaction %v\n", txRequest)
 	_, err = txManager.CreateTransaction(ctx, txRequest)
 	if err != nil {
 		return Result{Error: errors.Wrapf(ErrTaskRunFailed, "while creating transaction: %v", err)}, retryableRunInfo()

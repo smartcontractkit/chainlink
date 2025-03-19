@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"slices"
 
@@ -151,6 +152,7 @@ func (t *transmitter) CreateEthTransaction(ctx context.Context, toAddress common
 		return errors.Wrap(err, "skipped OCR transmission, error getting round-robin address")
 	}
 
+	fmt.Printf("GEERT transmitter creating transaction from %v to %v with forwarder address %v\n", roundRobinFromAddress, toAddress, t.forwarderAddress())
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
@@ -195,6 +197,7 @@ func (t *ocr2FeedsTransmitter) CreateEthTransaction(ctx context.Context, toAddre
 		return err
 	}
 
+	fmt.Printf("GEERT transmitter creating transaction from %v to %v with forwarder address %v\n", roundRobinFromAddress, toAddress, forwarderAddress)
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,

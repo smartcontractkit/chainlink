@@ -171,6 +171,7 @@ func (t *Txm) HealthReport() map[string]error {
 }
 
 func (t *Txm) CreateTransaction(ctx context.Context, txRequest *types.TxRequest) (tx *types.Transaction, err error) {
+	t.lggr.Infof("GEERT txm CreateTransaction: %v", txRequest)
 	tx, err = t.txStore.CreateTransaction(ctx, txRequest)
 	if err == nil {
 		t.lggr.Infow("Created transaction", "tx", tx)
@@ -324,6 +325,7 @@ func (t *Txm) broadcastTransaction(ctx context.Context, address common.Address) 
 }
 
 func (t *Txm) createAndSendAttempt(ctx context.Context, tx *types.Transaction, address common.Address) error {
+	t.lggr.Infof("Creating attempt for txID: %d", tx.ID)
 	attempt, err := t.attemptBuilder.NewAttempt(ctx, t.lggr, tx, t.config.EIP1559)
 	if err != nil {
 		return err

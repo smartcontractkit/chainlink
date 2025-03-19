@@ -2,6 +2,7 @@ package ocrcommon
 
 import (
 	"context"
+	"fmt"
 	"math/big"
 	"net/url"
 	"slices"
@@ -62,6 +63,7 @@ func (t *ocr2FeedsDualTransmission) CreateEthTransaction(ctx context.Context, to
 		return err
 	}
 
+	fmt.Printf("GEERT ocr2FeedsDualTransmission creating primary transaction from %v to %v with forwarder address %v\n", roundRobinFromAddress, toAddress, forwarderAddress)
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      roundRobinFromAddress,
 		ToAddress:        toAddress,
@@ -92,6 +94,7 @@ func (t *ocr2FeedsDualTransmission) CreateSecondaryEthTransaction(ctx context.Co
 	txMeta.DualBroadcast = &dualBroadcast
 	txMeta.DualBroadcastParams = &dualBroadcastParams
 
+	fmt.Printf("GEERT ocr2FeedsDualTransmission creating secondary transaction from %v to %v with forwarder address %v\n", t.secondaryFromAddress, t.secondaryContractAddress, forwarderAddress)
 	_, err = t.txm.CreateTransaction(ctx, txmgr.TxRequest{
 		FromAddress:      t.secondaryFromAddress,
 		ToAddress:        t.secondaryContractAddress,

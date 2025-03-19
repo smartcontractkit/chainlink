@@ -3,16 +3,19 @@ package integrationtest
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/hashicorp/consul/sdk/freeport"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -20,6 +23,7 @@ import (
 	"go.uber.org/zap/zaptest/observer"
 
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 
 	"github.com/smartcontractkit/wsrpc/credentials"
 
@@ -42,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
+	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
 //nolint:containedctx // it's just to pass the context back for testing
@@ -85,13 +90,35 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 	require.NoError(t, err)
 }
 
+func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
+	ports := freeport.GetN(t, nNodes)
+	for i := 0; i < nNodes; i++ {
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_svr_%d", i), backend, clientCSAKeys[i])
+
+		nodes = append(nodes, Node{
+			app, transmitter, kb, observedLogs,
+		})
+		offchainPublicKey, err := hex.DecodeString(strings.TrimPrefix(kb.OnChainPublicKey(), "0x"))
+		require.NoError(t, err)
+		oracles = append(oracles, confighelper.OracleIdentityExtra{
+			OracleIdentity: confighelper.OracleIdentity{
+				OnchainPublicKey:  offchainPublicKey,
+				TransmitAccount:   ocr2types.Account(fmt.Sprintf("%x", transmitter[:])),
+				OffchainPublicKey: kb.OffchainPublicKey(),
+				PeerID:            peerID,
+			},
+			ConfigEncryptionPublicKey: kb.ConfigEncryptionPublicKey(),
+		})
+	}
+	return
+}
+
 func setupNode(
 	t *testing.T,
 	port int,
 	nodeName string,
 	backend evmtypes.Backend,
 	csaKey csakey.KeyV2,
-	f func(*chainlink.Config),
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
@@ -156,11 +183,6 @@ func setupNode(
 
 		// [Log]
 		c.Log.Level = ptr(toml.LogLevel(zapcore.DebugLevel))
-
-		// Optional overrides
-		if f != nil {
-			f(c)
-		}
 	})
 
 	lggr, observedLogs := logger.TestLoggerObserved(t, config.Log().Level())

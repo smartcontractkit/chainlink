@@ -172,6 +172,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) OnNewLongestChain(ctx context.Context, 
 }
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, request txmgrtypes.TxRequest[common.Address, common.Hash]) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
+	o.lggr.Infof("GEERT orchestrator CreateTransaction: %v", request)
 	var wrappedTx *txmtypes.Transaction
 	if request.IdempotencyKey != nil {
 		wrappedTx, err = o.txStore.FindTxWithIdempotencyKey(ctx, *request.IdempotencyKey)

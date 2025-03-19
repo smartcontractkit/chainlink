@@ -1632,6 +1632,7 @@ func (o *evmTxStore) CheckTxQueueCapacity(ctx context.Context, fromAddress commo
 }
 
 func (o *evmTxStore) CreateTransaction(ctx context.Context, txRequest TxRequest, chainID *big.Int) (tx Tx, err error) {
+	o.logger.Infof("GEERT evmTxStore Creating transaction with request %v", txRequest)
 	var cancel context.CancelFunc
 	ctx, cancel = o.stopCh.Ctx(ctx)
 	defer cancel()

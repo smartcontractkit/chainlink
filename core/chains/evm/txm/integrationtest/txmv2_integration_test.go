@@ -3,6 +3,7 @@ package integrationtest
 import (
 	"bytes"
 	"context"
+	"crypto/ed25519"
 	"encoding/hex"
 	"fmt"
 	"math/big"
@@ -27,6 +28,7 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
@@ -53,6 +55,7 @@ import (
 
 var (
 	fNodes = uint8(1)
+	nNodes = 4
 )
 
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
@@ -60,16 +63,30 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// multiplier := decimal.New(1, 18)
 	// expirationWindow := time.Hour / time.Second
 
-	const salt = 100
+	const salt = 99
 
-	k := big.NewInt(int64(salt))
-	key := csakey.MustNewV2XXXTestingOnly(k)
-	clientCSAKey := key
+	clientCSAKeys := make([]csakey.KeyV2, nNodes)
+	clientPubKeys := make([]ed25519.PublicKey, nNodes)
+	for i := 0; i < nNodes; i++ {
+		k := big.NewInt(int64(salt + i))
+		key := csakey.MustNewV2XXXTestingOnly(k)
+		clientCSAKeys[i] = key
+		clientPubKeys[i] = key.PublicKey
+	}
 
 	contractOwner, backend := setupBlockchain(t)
 	fromBlock := 1
 
-	// Deploy link adcdress? // TODO(gg): probably not needed
+	// Setup bootstrap node
+	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
+	bootstrapNodePort := freeport.GetOne(t)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_svr", backend, bootstrapCSAKey)
+	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
+
+	// Setup oracle nodes
+	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys)
+
+	// Deploy link adcdress? // TODO(gg): maybe not needed
 
 	operatorFactoryAddr, _, operatorFactory, err := operator_factory.DeployOperatorFactory(contractOwner, backend.Client(), contractOwner.From) // actually: linkAddress)
 	require.NoError(t, err)
@@ -508,7 +525,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 			AllowNoBootstrappers: true,
 			P2PV2Bootstrappers:   []string{}, // bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 			RelayConfig: map[string]any{
-				"chainID":                "1337",
+				"chainID":                testutils.SimulatedChainID.String(),
 				"fromBlock":              fromBlock,
 				"enableDualTransmission": true,
 				"dualTransmission": map[string]any{
