@@ -188,7 +188,7 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		received, chanErr := requireChanMsg(t, channel)
-		require.Equal(t, received.Event.TriggerType, TriggerType)
+		require.Equal(t, TriggerType, received.Event.TriggerType)
 		require.NoError(t, chanErr)
 
 		requireNoChanMsg(t, channel2)
@@ -196,7 +196,7 @@ func TestTriggerExecute(t *testing.T) {
 		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
-		require.Equal(t, payload.Topics, []string{"daily_price_update"})
+		require.Equal(t, []string{"daily_price_update"}, payload.Topics)
 	})
 
 	t.Run("happy case single different topic 2 workflows.", func(t *testing.T) {
@@ -210,20 +210,20 @@ func TestTriggerExecute(t *testing.T) {
 		th.trigger.HandleGatewayMessage(ctx, "gateway1", gatewayRequest)
 
 		sent := <-channel
-		require.Equal(t, sent.Event.TriggerType, TriggerType)
+		require.Equal(t, TriggerType, sent.Event.TriggerType)
 		data := sent.Event.Outputs
 		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
-		require.Equal(t, payload.Topics, []string{"ad_hoc_price_update"})
+		require.Equal(t, []string{"ad_hoc_price_update"}, payload.Topics)
 
 		sent2 := <-channel2
-		require.Equal(t, sent2.Event.TriggerType, TriggerType)
+		require.Equal(t, TriggerType, sent2.Event.TriggerType)
 		data2 := sent2.Event.Outputs
 		var payload2 webapicap.TriggerRequestPayload
 		err2 := data2.UnwrapTo(&payload2)
 		require.NoError(t, err2)
-		require.Equal(t, payload2.Topics, []string{"ad_hoc_price_update"})
+		require.Equal(t, []string{"ad_hoc_price_update"}, payload2.Topics)
 	})
 
 	t.Run("sad case empty topic 2 workflows", func(t *testing.T) {
@@ -345,13 +345,13 @@ func TestTriggerExecute2WorkflowsSameTopicDifferentAllowLists(t *testing.T) {
 
 		requireNoChanMsg(t, channel)
 		received, chanErr := requireChanMsg(t, channel2)
-		require.Equal(t, received.Event.TriggerType, TriggerType)
+		require.Equal(t, TriggerType, received.Event.TriggerType)
 		require.NoError(t, chanErr)
 		data := received.Event.Outputs
 		var payload webapicap.TriggerRequestPayload
 		unwrapErr := data.UnwrapTo(&payload)
 		require.NoError(t, unwrapErr)
-		require.Equal(t, payload.Topics, []string{"daily_price_update"})
+		require.Equal(t, []string{"daily_price_update"}, payload.Topics)
 	})
 	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
@@ -382,5 +382,5 @@ func TestRegisterUnregister(t *testing.T) {
 	err = th.trigger.UnregisterTrigger(ctx, triggerReq)
 	require.NoError(t, err)
 	_, open := <-channel
-	require.Equal(t, open, false)
+	require.False(t, open)
 }

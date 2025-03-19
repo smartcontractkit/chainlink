@@ -21,7 +21,7 @@ func TestOCR_OffchainPublicKey_MarshalJSON(t *testing.T) {
 
 	result, err := json.Marshal(pubKey)
 	assert.NoError(t, err)
-	assert.Equal(t, pubKeyJSON, string(result))
+	assert.JSONEq(t, pubKeyJSON, string(result))
 }
 
 func TestOCR_OffchainPublicKey_UnmarshalJSON_Happy(t *testing.T) {

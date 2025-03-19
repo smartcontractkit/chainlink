@@ -22,6 +22,9 @@ const (
 
 type LoadConfig struct {
 	LoadDuration         *string
+	ChaosMode            int
+	RPCLatency           *string
+	RPCJitter            *string
 	MessageDetails       *[]MsgDetails
 	RequestFrequency     *string
 	CribEnvDirectory     *string
@@ -29,7 +32,14 @@ type LoadConfig struct {
 	TimeoutDuration      *string
 	TestLabel            *string
 	GasLimit             *uint64
+	OOOExecution         *bool
 }
+
+const (
+	ChaosModeNone = iota
+	ChaosModeTypeRPCLatency
+	ChaosModeTypeFull
+)
 
 func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 	_, err := time.ParseDuration(*l.LoadDuration)
@@ -47,11 +57,20 @@ func (l *LoadConfig) Validate(t *testing.T, e *deployment.Environment) {
 
 	require.GreaterOrEqual(t, *l.NumDestinationChains, 1, "NumDestinationChains must be greater than or equal to 1")
 	require.GreaterOrEqual(t, len(e.Chains), *l.NumDestinationChains, "NumDestinationChains must be less than or equal to the number of chains in the environment")
-
 }
 
 func (l *LoadConfig) GetLoadDuration() time.Duration {
 	ld, _ := time.ParseDuration(*l.LoadDuration)
+	return ld
+}
+
+func (l *LoadConfig) GetRPCLatency() time.Duration {
+	ld, _ := time.ParseDuration(*l.RPCLatency)
+	return ld
+}
+
+func (l *LoadConfig) GetRPCJitter() time.Duration {
+	ld, _ := time.ParseDuration(*l.RPCJitter)
 	return ld
 }
 
@@ -95,16 +114,6 @@ func (m *MsgDetails) Validate() error {
 		msgType != ProgrammableTokenTransfer {
 		return fmt.Errorf("msg type should be one of %s/%s/%s. Got %s",
 			MessagingTransfer, TokenTransfer, ProgrammableTokenTransfer, msgType)
-	}
-
-	// We need to check for dest gas limit only if the message type is not token only transfer
-	if msgType != TokenTransfer {
-		if m.DestGasLimit == nil {
-			return errors.New("dest gas limit should be set")
-		}
-		if *m.DestGasLimit < 0 {
-			return errors.New("dest gas limit should be greater than 0")
-		}
 	}
 
 	if m.Ratio == nil {

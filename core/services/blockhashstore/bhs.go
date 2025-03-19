@@ -15,11 +15,11 @@ import (
 	"github.com/pkg/errors"
 
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/blockhash_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/trusted_blockhash_store"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 var _ BHS = &BulletproofBHS{}
@@ -44,8 +44,7 @@ type BulletproofBHS struct {
 	trustedAbi    *abi.ABI
 	bhs           blockhash_store.BlockhashStoreInterface
 	trustedBHS    *trusted_blockhash_store.TrustedBlockhashStore
-	chainID       *big.Int
-	gethks        keystore.Eth
+	gethks        evmkeystore.RoundRobin
 }
 
 // NewBulletproofBHS creates a new instance with the given transaction manager and blockhash store.
@@ -56,8 +55,7 @@ func NewBulletproofBHS(
 	txm txmgr.TxManager,
 	bhs blockhash_store.BlockhashStoreInterface,
 	trustedBHS *trusted_blockhash_store.TrustedBlockhashStore,
-	chainID *big.Int,
-	gethks keystore.Eth,
+	gethks evmkeystore.RoundRobin,
 ) (*BulletproofBHS, error) {
 	bhsABI, err := blockhash_store.BlockhashStoreMetaData.GetAbi()
 	if err != nil {
@@ -79,7 +77,6 @@ func NewBulletproofBHS(
 		trustedAbi:    trustedBHSAbi,
 		bhs:           bhs,
 		trustedBHS:    trustedBHS,
-		chainID:       chainID,
 		gethks:        gethks,
 	}, nil
 }
@@ -91,7 +88,7 @@ func (c *BulletproofBHS) Store(ctx context.Context, blockNum uint64) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetNextAddress(ctx, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -132,7 +129,7 @@ func (c *BulletproofBHS) StoreTrusted(
 	}
 
 	// Create a transaction from the given batch and send it to the TXM.
-	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, SendingKeys(c.fromAddresses)...)
+	fromAddress, err := c.gethks.GetNextAddress(ctx, SendingKeys(c.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}
@@ -186,7 +183,7 @@ func (c *BulletproofBHS) StoreEarliest(ctx context.Context) error {
 		return errors.Wrap(err, "packing args")
 	}
 
-	fromAddress, err := c.gethks.GetRoundRobinAddress(ctx, c.chainID, c.sendingKeys()...)
+	fromAddress, err := c.gethks.GetNextAddress(ctx, c.sendingKeys()...)
 	if err != nil {
 		return errors.Wrap(err, "getting next from address")
 	}

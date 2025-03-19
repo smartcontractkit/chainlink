@@ -14,7 +14,7 @@ import (
 )
 
 func TestCallSetProductionConfig(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	e := testutil.NewMemoryEnv(t, true, 0)
 
 	chainSelector := e.AllChainSelectors()[0]
 

@@ -1,29 +1,24 @@
 package txm
 
 import (
-	"math/big"
 	"testing"
 
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore/mocks"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
 func TestAttemptBuilder_newLegacyAttempt(t *testing.T) {
-	ks := mocks.NewEth(t)
-	ab := NewAttemptBuilder(testutils.FixtureChainID, nil, nil, ks)
+	ab := NewAttemptBuilder(nil, nil, keystest.TxSigner(nil))
 	address := testutils.NewAddress()
-	toAddress := testutils.NewAddress()
 	lggr := logger.Test(t)
 	var gasLimit uint64 = 100
 
@@ -44,8 +39,6 @@ func TestAttemptBuilder_newLegacyAttempt(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var nonce uint64 = 77
 		tx := &types.Transaction{ID: 10, FromAddress: address, Nonce: &nonce}
-		legacyTx := evmtypes.NewTx(&evmtypes.LegacyTx{Nonce: nonce, To: &toAddress, Gas: gasLimit, GasPrice: big.NewInt(25)})
-		ks.On("SignTx", mock.Anything, mock.Anything, mock.Anything, testutils.FixtureChainID).Return(legacyTx, nil).Once()
 		a, err := ab.newCustomAttempt(tests.Context(t), tx, gas.EvmFee{GasPrice: assets.NewWeiI(25)}, gasLimit, evmtypes.LegacyTxType, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, tx.ID, a.TxID)
@@ -59,10 +52,9 @@ func TestAttemptBuilder_newLegacyAttempt(t *testing.T) {
 }
 
 func TestAttemptBuilder_newDynamicFeeAttempt(t *testing.T) {
-	ks := mocks.NewEth(t)
-	ab := NewAttemptBuilder(testutils.FixtureChainID, nil, nil, ks)
+	ab := NewAttemptBuilder(nil, nil, keystest.TxSigner(nil))
 	address := testutils.NewAddress()
-	toAddress := testutils.NewAddress()
+
 	lggr := logger.Test(t)
 	var gasLimit uint64 = 100
 
@@ -83,8 +75,7 @@ func TestAttemptBuilder_newDynamicFeeAttempt(t *testing.T) {
 	t.Run("creates attempt with fields", func(t *testing.T) {
 		var nonce uint64 = 77
 		tx := &types.Transaction{ID: 10, FromAddress: address, Nonce: &nonce}
-		legacyTx := evmtypes.NewTx(&evmtypes.LegacyTx{Nonce: nonce, To: &toAddress, Gas: gasLimit, GasPrice: big.NewInt(25)})
-		ks.On("SignTx", mock.Anything, mock.Anything, mock.Anything, testutils.FixtureChainID).Return(legacyTx, nil).Once()
+
 		a, err := ab.newCustomAttempt(tests.Context(t), tx, gas.EvmFee{DynamicFee: gas.DynamicFee{GasTipCap: assets.NewWeiI(1), GasFeeCap: assets.NewWeiI(2)}}, gasLimit, evmtypes.DynamicFeeTxType, lggr)
 		require.NoError(t, err)
 		assert.Equal(t, tx.ID, a.TxID)

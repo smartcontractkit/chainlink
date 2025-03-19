@@ -360,7 +360,7 @@ func TestJobController_Create_HappyPath(t *testing.T) {
 				assert.NotNil(t, jb.PipelineSpec.DotDagSource)
 				assert.Equal(t, types.EIP55Address("0x3cCad4715152693fE3BC4460591e3D3Fbd071b42"), jb.FluxMonitorSpec.ContractAddress)
 				assert.Equal(t, time.Second, jb.FluxMonitorSpec.IdleTimerPeriod)
-				assert.Equal(t, false, jb.FluxMonitorSpec.IdleTimerDisabled)
+				assert.False(t, jb.FluxMonitorSpec.IdleTimerDisabled)
 				assert.Equal(t, tomlutils.Float32(0.5), jb.FluxMonitorSpec.Threshold)
 				assert.Equal(t, tomlutils.Float32(0), jb.FluxMonitorSpec.AbsoluteThreshold)
 			},
@@ -570,7 +570,7 @@ func TestJobsController_Index_HappyPath(t *testing.T) {
 func TestJobsController_Show_HappyPath(t *testing.T) {
 	_, client, ocrJobSpecFromFile, jobID, ereJobSpecFromFile, jobID2 := setupJobSpecsControllerTestsWithJobs(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID))
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -590,7 +590,7 @@ func TestJobsController_Show_HappyPath(t *testing.T) {
 
 	runOCRJobSpecAssertions(t, ocrJobSpecFromFile, ocrJob)
 
-	response, cleanup = client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID2))
+	response, cleanup = client.Get("/v2/jobs/" + strconv.Itoa(int(jobID2)))
 	t.Cleanup(cleanup)
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -682,7 +682,7 @@ func TestJobsController_Update_HappyPath(t *testing.T) {
 	body, _ := json.Marshal(web.UpdateJobRequest{
 		TOML: updatedSpec.Toml(),
 	})
-	response, cleanup := client.Put("/v2/jobs/"+fmt.Sprintf("%v", jb.ID), bytes.NewReader(body))
+	response, cleanup := client.Put("/v2/jobs/"+strconv.Itoa(int(jb.ID)), bytes.NewReader(body))
 	t.Cleanup(cleanup)
 
 	dbJb, err = app.JobORM().FindJob(ctx, jb.ID)

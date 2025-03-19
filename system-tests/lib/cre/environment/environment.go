@@ -53,7 +53,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
-		// if it has no capabilities, don't create chain configs (e.g. for gateway nodes)
+		// if DON has no capabilities we don't need to create chain configs (e.g. for gateway nodes)
 		// we indicate to `devenv.NewEnvironment` that it should skip chain creation by passing an empty chain config
 		if len(nodeOutput.Capabilities) == 0 {
 			chains = []devenv.ChainConfig{}

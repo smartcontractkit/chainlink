@@ -62,7 +62,7 @@ func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 	v.Add("force", strconv.FormatBool(c.Bool("force")))
 
 	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", fmt.Sprintf("%d", c.Int64("evm-chain-id")))
+		v.Add("evmChainID", strconv.FormatInt(c.Int64("evm-chain-id"), 10))
 	}
 
 	buf := bytes.NewBufferString("{}")
@@ -113,14 +113,11 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 	v := url.Values{}
 
 	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", fmt.Sprintf("%d", c.Int64("evm-chain-id")))
+		v.Add("evmChainID", strconv.FormatInt(c.Int64("evm-chain-id"), 10))
 	}
 
 	resp, err := s.HTTP.Get(s.ctx(),
-		fmt.Sprintf(
-			"/v2/find_lca?%s",
-			v.Encode(),
-		))
+		"/v2/find_lca?"+v.Encode())
 	if err != nil {
 		return s.errorOut(err)
 	}

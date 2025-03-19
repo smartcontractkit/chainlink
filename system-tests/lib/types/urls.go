@@ -1,9 +1,10 @@
 package types
 
-// all structs are copie of identical structs in ${CRIB_REPO}/dependencies/donut/scripts/urls/main.go
+// all structs are copies of identical structs in ${CRIB_REPO}/dependencies/donut/scripts/urls/main.go
+// in the future we should move these types to a dedicated module that would be imported both by CRIB and this module
 type JdURLs struct {
 	GRPCHostURL     string `json:"grpc_host_url"`
-	GRCPInternalUrl string `json:"grpc_internal_url"`
+	GRCPInternalURL string `json:"grpc_internal_url"`
 	WSHostURL       string `json:"ws_host_url"`
 	WSInternalURL   string `json:"ws_internal_url"`
 }

@@ -49,7 +49,7 @@ func TestParser(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"])
 }
 
 func TestParser_SkipsNonJSON(t *testing.T) {
@@ -65,7 +65,7 @@ func TestParser_SkipsNonJSON(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestLink"])
 }
 
 func TestParser_PanicDueToLogging(t *testing.T) {
@@ -80,7 +80,7 @@ func TestParser_PanicDueToLogging(t *testing.T) {
 	ts := pr.tests
 	assert.Len(t, ts, 1)
 	assert.Len(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"], 1)
-	assert.Equal(t, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestAssets_LinkScanValue"], 1)
+	assert.Equal(t, 1, ts["github.com/smartcontractkit/chainlink-integrations/evm/assets"]["TestAssets_LinkScanValue"])
 }
 
 func TestParser_SuccessfulOutput(t *testing.T) {
@@ -102,7 +102,7 @@ func TestParser_SuccessfulOutput(t *testing.T) {
 	r := strings.NewReader(output)
 	ts, err := parseOutput(r)
 	require.NoError(t, err)
-	assert.Len(t, ts.tests, 0)
+	assert.Empty(t, ts.tests)
 }
 
 type testAdapter func(string, []string, io.Writer) error
@@ -197,7 +197,7 @@ func TestRunner_AllFailures(t *testing.T) {
 
 	err := r.Run(tests.Context(t))
 	require.NoError(t, err)
-	assert.Len(t, m.report.tests, 0)
+	assert.Empty(t, m.report.tests)
 }
 
 func TestRunner_RerunSuccessful(t *testing.T) {

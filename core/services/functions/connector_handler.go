@@ -3,14 +3,12 @@ package functions
 import (
 	"bytes"
 	"context"
-	"crypto/ecdsa"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
 	"time"
-
-	"go.uber.org/multierr"
 
 	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
@@ -19,7 +17,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/assets"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
@@ -36,7 +34,8 @@ type functionsConnectorHandler struct {
 	services.StateMachine
 
 	connector                  connector.GatewayConnector
-	signerKey                  *ecdsa.PrivateKey
+	signAddr                   ethCommon.Address
+	keystore                   keys.MessageSigner
 	nodeAddress                string
 	storage                    s4.Storage
 	allowlist                  fallow.OnchainAllowlist
@@ -74,9 +73,20 @@ func InternalId(sender []byte, requestId []byte) RequestID {
 	return RequestID(crypto.Keccak256Hash(append(sender, requestId...)).Bytes())
 }
 
-func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *ecdsa.PrivateKey, storage s4.Storage, allowlist fallow.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions fsub.OnchainSubscriptions, listener FunctionsListener, offchainTransmitter OffchainTransmitter, lggr logger.Logger) (*functionsConnectorHandler, error) {
-	if signerKey == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
-		return nil, fmt.Errorf("all dependencies must be non-nil")
+func NewFunctionsConnectorHandler(
+	pluginConfig *config.PluginConfig,
+	signAddr ethCommon.Address,
+	keystore keys.MessageSigner,
+	storage s4.Storage,
+	allowlist fallow.OnchainAllowlist,
+	rateLimiter *hc.RateLimiter,
+	subscriptions fsub.OnchainSubscriptions,
+	listener FunctionsListener,
+	offchainTransmitter OffchainTransmitter,
+	lggr logger.Logger,
+) (*functionsConnectorHandler, error) {
+	if signAddr == (ethCommon.Address{}) || keystore == nil || storage == nil || allowlist == nil || rateLimiter == nil || subscriptions == nil || listener == nil || offchainTransmitter == nil {
+		return nil, errors.New("all dependencies must be non-nil")
 	}
 	allowedHeartbeatInitiators := make(map[string]struct{})
 	for _, initiator := range pluginConfig.AllowedHeartbeatInitiators {
@@ -84,7 +94,8 @@ func NewFunctionsConnectorHandler(pluginConfig *config.PluginConfig, signerKey *
 	}
 	return &functionsConnectorHandler{
 		nodeAddress:                pluginConfig.GatewayConnectorConfig.NodeAddress,
-		signerKey:                  signerKey,
+		signAddr:                   signAddr,
+		keystore:                   keystore,
 		storage:                    storage,
 		allowlist:                  allowlist,
 		rateLimiter:                rateLimiter,
@@ -105,7 +116,9 @@ func (h *functionsConnectorHandler) SetConnector(connector connector.GatewayConn
 }
 
 func (h *functionsConnectorHandler) Sign(data ...[]byte) ([]byte, error) {
-	return common.SignData(h.signerKey, data...)
+	ctx, cancel := h.chStop.NewCtx()
+	defer cancel()
+	return h.keystore.SignMessage(ctx, h.signAddr, common.Flatten(data...))
 }
 
 func (h *functionsConnectorHandler) HandleGatewayMessage(ctx context.Context, gatewayId string, msg *api.Message) {
@@ -159,8 +172,8 @@ func (h *functionsConnectorHandler) Start(ctx context.Context) error {
 func (h *functionsConnectorHandler) Close() error {
 	return h.StopOnce("FunctionsConnectorHandler", func() (err error) {
 		close(h.chStop)
-		err = multierr.Combine(err, h.allowlist.Close())
-		err = multierr.Combine(err, h.subscriptions.Close())
+		err = errors.Join(err, h.allowlist.Close())
+		err = errors.Join(err, h.subscriptions.Close())
 		h.shutdownWaitGroup.Wait()
 		return
 	})
@@ -351,7 +364,7 @@ func (h *functionsConnectorHandler) sendResponse(ctx context.Context, gatewayId 
 			Payload:   payloadJson,
 		},
 	}
-	if err = msg.Sign(h.signerKey); err != nil {
+	if err = msg.SignKS(ctx, h.keystore, h.signAddr); err != nil {
 		return err
 	}
 	return h.connector.SendToGateway(ctx, gatewayId, msg)

@@ -166,7 +166,7 @@ func NewUSDCTokenDataReaderWithHttpClient(
 // configured.
 func (s *TokenDataReader) ReadTokenData(ctx context.Context, msg cciptypes.EVM2EVMOnRampCCIPSendRequestedWithMeta, tokenIndex int) ([]byte, error) {
 	if tokenIndex < 0 || tokenIndex >= len(msg.TokenAmounts) {
-		return nil, fmt.Errorf("token index out of bounds")
+		return nil, errors.New("token index out of bounds")
 	}
 
 	if s.inCoolDownPeriod() {

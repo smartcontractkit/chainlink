@@ -436,12 +436,27 @@ func (s *Secrets) TOMLString() (string, error) {
 	return string(b), nil
 }
 
-var ErrInvalidSecrets = errors.New("invalid secrets")
+type InvalidSecretsError struct {
+	err error
+}
+
+func (e InvalidSecretsError) Error() string {
+	return fmt.Sprintf("invalid secrets: %v", e.err)
+}
+
+func (e InvalidSecretsError) Unwrap() error {
+	return e.err
+}
+
+func (e InvalidSecretsError) Is(err error) bool {
+	_, ok := err.(InvalidSecretsError) //nolint:errcheck // implementing errors.Is
+	return ok
+}
 
 // Validate validates every consitutent secret and return an accumulated error
 func (s *Secrets) Validate() error {
 	if err := commonconfig.Validate(s); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }
@@ -463,7 +478,7 @@ func (s *Secrets) ValidateDB() error {
 	s.setDefaults()
 	v := &dbValidationType{s.Database}
 	if err := commonconfig.Validate(v); err != nil {
-		return fmt.Errorf("%w: %s", ErrInvalidSecrets, err)
+		return InvalidSecretsError{err: err}
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 
@@ -66,9 +67,16 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 					wg.Add(1)
 					go func(jobReq *jobv1.ProposeJobRequest) {
 						defer wg.Done()
-						_, err := offChainClient.ProposeJob(context.Background(), jobReq)
-						if err != nil && !strings.Contains(err.Error(), "cannot approve an approved spec") {
-							errCh <- errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
+						timeout := time.Second * 60
+						ctx, cancel := context.WithTimeout(context.Background(), timeout)
+						defer cancel()
+						_, err := offChainClient.ProposeJob(ctx, jobReq)
+						if err != nil {
+							errCh <- errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
+						}
+						err = ctx.Err()
+						if err != nil && !strings.Contains(err.Error(), "cannot approve an approved spec"){
+							errCh <- errors.Wrapf(err, "timed out after %s proposing job %s for node %s", timeout.String(), jobDesc.Flag, jobReq.NodeId)
 						}
 					}(jobReq)
 				}

@@ -16,5 +16,5 @@ func Test_InitMonitoringResources(t *testing.T) {
 func Test_SyncerMetricsLabeler(t *testing.T) {
 	testSyncerMetricLabeler := syncerMetricLabeler{metrics.NewLabeler(), nil, nil}
 	testSyncerMetricLabeler2 := testSyncerMetricLabeler.with("foo", "baz")
-	require.EqualValues(t, testSyncerMetricLabeler2.Labels["foo"], "baz")
+	require.EqualValues(t, "baz", testSyncerMetricLabeler2.Labels["foo"])
 }

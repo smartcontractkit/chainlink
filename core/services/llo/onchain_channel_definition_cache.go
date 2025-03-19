@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -121,7 +122,7 @@ type HTTPClient interface {
 }
 
 func filterName(addr common.Address, donID uint32) string {
-	return logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), fmt.Sprintf("%d", donID))
+	return logpoller.FilterName("OCR3 LLO ChannelDefinitionCachePoller", addr.String(), strconv.FormatUint(uint64(donID), 10))
 }
 
 func NewChannelDefinitionCache(lggr logger.Logger, orm ChannelDefinitionCacheORM, client HTTPClient, lp logpoller.LogPoller, addr common.Address, donID uint32, fromBlock int64, options ...Option) llotypes.ChannelDefinitionCache {
@@ -393,7 +394,7 @@ func (c *channelDefinitionCache) fetchChannelDefinitions(ctx context.Context, ur
 		Client:  c.client,
 		Request: request,
 		Config:  clhttp.HTTPRequestConfig{SizeLimit: c.httpLimit},
-		Logger:  c.lggr.Named("HTTPRequest").With("url", url, "expectedSHA", fmt.Sprintf("%x", expectedSha)),
+		Logger:  c.lggr.Named("HTTPRequest").With("url", url, "expectedSHA", hex.EncodeToString(expectedSha[:])),
 	}
 
 	reader, statusCode, _, err := httpRequest.SendRequestReader()
@@ -491,7 +492,7 @@ func (c *channelDefinitionCache) failedPersistLoop() {
 			}
 		case <-c.chStop:
 			// Try one final persist with a short-ish timeout, then return
-			ctx, cancel = context.WithTimeout(context.Background(), 1*time.Second)
+			ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
 			defer cancel()
 			if memoryVersion, persistedVersion, err := c.persist(ctx); err != nil {
 				c.lggr.Errorw("Failed to persist channel definitions on shutdown", "err", err, "memoryVersion", memoryVersion, "persistedVersion", persistedVersion)

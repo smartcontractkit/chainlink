@@ -11,7 +11,7 @@ import (
 )
 
 func TestDeployConfigurator(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	e := testutil.NewMemoryEnv(t, true, 0)
 
 	out, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(

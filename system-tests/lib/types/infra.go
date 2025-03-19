@@ -3,8 +3,15 @@ package types
 type InfraType = string
 
 const (
-	InfraType_CRIB   InfraType = "crib"
-	InfraType_Docker InfraType = "docker"
+	CRIB   InfraType = "crib"
+	Docker InfraType = "docker"
+)
+
+type CribProvider = string
+
+const (
+	AWS  CribProvider = "aws"
+	Kind CribProvider = "kind"
 )
 
 type InfraInput struct {

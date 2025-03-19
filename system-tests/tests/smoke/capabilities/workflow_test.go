@@ -369,7 +369,7 @@ func extraAllowedPortsAndIps(testLogger zerolog.Logger, fakePort int, containerN
 type BlockchainsInput struct {
 	blockchainInput *blockchain.Input
 	infraInput      *libtypes.InfraInput
-	nixShell        *libnix.NixShell
+	nixShell        *libnix.Shell
 }
 
 type BlockchainOutput struct {
@@ -388,7 +388,11 @@ func CreateBlockchains(
 		return nil, errors.New("blockchain input is nil")
 	}
 
-	if input.infraInput.InfraType == libtypes.InfraType_CRIB {
+	if input.infraInput.InfraType == libtypes.CRIB {
+		if input.nixShell == nil {
+			return nil, errors.New("nix shell is nil")
+		}
+
 		deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
 			BlockchainInput: input.blockchainInput,
 			NixShell:        input.nixShell,
@@ -470,10 +474,14 @@ type setupOutput struct {
 func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput *binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]string) *setupOutput {
 	// Universal setup -- START
 
-	// NixShell is only required, when using CRIB, but we want to run commands in the same "nix develop" context
-	// and we need to have this reference in the outer scope
-	var nixShell *libnix.NixShell
-	if in.Infra.InfraType == libtypes.InfraType_CRIB {
+	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
+	topologyErr := libdon.ValidateTopology(nodeSetInput, *in.Infra)
+	require.NoError(t, topologyErr, "failed to validate would-be topology")
+
+	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
+	// We need to have this reference in the outer scope, because subsequent functions will need it
+	var nixShell *libnix.Shell
+	if in.Infra.InfraType == libtypes.CRIB {
 		startNixShellInput := &keystonetypes.StartNixShellInput{
 			InfraInput:     in.Infra,
 			CribConfigsDir: cribConfigsDir,
@@ -487,9 +495,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			_ = nixShell.Close()
 		})
 	}
-
-	//TODO where to move this?
-	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
 
 	blockchainsInput := BlockchainsInput{
 		blockchainInput: in.BlockchainA,
@@ -576,8 +581,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	var extraAllowedIPs []string
 	var extraAllowedPorts []int
 
-	// TODO we'd need to have a way to deploy fake price provider to CRIB, now we don't as there's no Docker container and no defined deployment
-	if _, ok := priceProvider.(*FakePriceProvider); ok && in.Infra.InfraType == "docker" {
+	if _, ok := priceProvider.(*FakePriceProvider); ok {
+		// In the future we might need to have a way to deploy fake price provider to CRIB, now we don't as it is not Dockerised and there are no Helm charts for it
+		require.Equal(t, libtypes.Docker, in.Infra.InfraType, "fake data provider is only supported in Docker infra")
+
 		// it doesn't really matter which container we will use to resolve the host.docker.internal IP, it will be the same for all of them
 		// here we will blokchain container, because by that time it will be running
 		extraAllowedIPs, extraAllowedPorts, err = extraAllowedPortsAndIps(testLogger, in.Fake.Port, blockchainsOutput.blockchainOutput.ContainerName)
@@ -641,7 +648,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
-	if in.Infra.InfraType == libtypes.InfraType_CRIB {
+	if in.Infra.InfraType == libtypes.CRIB {
 		testLogger.Info().Msg("Saving node configs and secret overrides")
 
 		deployCribDonsInput := &keystonetypes.DeployCribDonsInput{
@@ -654,20 +661,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		var devspaceErr error
 		nodeSetInput, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		require.NoError(t, devspaceErr, "failed to deploy Dons with devspace")
-
-		// imgTagIndex := strings.LastIndex(in.JD.Image, ":")
-		// require.Greater(t, imgTagIndex, -1, "docker image must have an explicit tag, but it was: %s", in.JD.Image)
-
-		// jdEnvVars := map[string]string{
-		// 	"JOB_DISTRIBUTOR_IMAGE_TAG": in.JD.Image[imgTagIndex+1:], // +1 to exclude the colon
-		// }
-		// _, err = nixShell.RunCommandWithEnvVars("devspace run deploy-jd", jdEnvVars)
-		// require.NoError(t, err, "failed to run devspace run deploy-jd")
-
-		// jdOut, err := infra.ReadJdUrl(filepath.Join(".", cribConfigsDir))
-		// require.NoError(t, err, "failed to read JD URLs from file")
-
-		// in.JD.Out = jdOut
 
 		deployCribJdInput := &keystonetypes.DeployCribJdInput{
 			JDInput:        in.JD,
@@ -708,7 +701,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 	// We need to use TLS for CRIB, because it exposes HTTPS endpoints
 	var creds credentials.TransportCredentials
-	if in.Infra.InfraType == libtypes.InfraType_CRIB {
+	if in.Infra.InfraType == libtypes.CRIB {
 		creds = credentials.NewTLS(&tls.Config{
 			MinVersion: tls.VersionTLS12,
 		})
@@ -750,7 +743,8 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		DonToJobSpecs: donToJobSpecs,
 	}
 
-	//TODO should we remove jobs first, if it's running in CRIB? or at least jobs of certain types?
+	// TODO in the future, maybe should we remove all jobs first, if it's running in CRIB? or at least jobs of certain types?
+	// that would allow us to run the same test multiple times without the need to restart the whole environment
 	err = libdon.CreateJobs(testLogger, createJobsInput)
 	require.NoError(t, err, "failed to configure nodes and create jobs")
 
@@ -829,6 +823,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	}
 }
 
+// config file to use: environment-one-don.toml
 func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
@@ -848,8 +843,8 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 				Input:              input[0],
 				Capabilities:       keystonetypes.SingleDonFlags,
 				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
-				BootstrapNodeIndex: 0,
-				GatewayNodeIndex:   0,
+				BootstrapNodeIndex: 0, // not required, but set to make the configuration explicit
+				GatewayNodeIndex:   0, // not required, but set to make the configuration explicit
 			},
 		}
 	}
@@ -864,102 +859,10 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 		if t.Failed() {
 			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+			// log scanning is not supported for CRIB
+			if in.Infra.InfraType == libtypes.CRIB {
 				return
 			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
-			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
-		}
-	})
-
-	testLogger.Info().Msg("Waiting for feed to update...")
-	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
-
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
-	require.NoError(t, err, "failed to create feeds consumer instance")
-
-	startTime := time.Now()
-	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
-
-	assert.Eventually(t, func() bool {
-		elapsed := time.Since(startTime).Round(time.Second)
-		price, _, err := feedsConsumerInstance.GetPrice(
-			setupOutput.sethClient.NewCallOpts(),
-			feedBytes,
-		)
-		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
-
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
-	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
-
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
-}
-
-func TestKeystoneWithOCR3Workflow_SingleDon_LivePrice(t *testing.T) {
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
-
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
-
-	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       keystonetypes.SingleDonFlags,
-				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
-				BootstrapNodeIndex: 0,
-				GatewayNodeIndex:   0,
-			},
-		}
-	}
-
-	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
@@ -1025,213 +928,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_LivePrice(t *testing.T) {
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 
-func TestKeystoneWithOCR3Workflow_TwoDons_LivePrice(t *testing.T) {
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 2, "expected 1 node set in the test config")
-
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
-
-	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       []string{keystonetypes.OCR3Capability, keystonetypes.CustomComputeCapability, keystonetypes.CronCapability},
-				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
-				BootstrapNodeIndex: 0,
-				GatewayNodeIndex:   0, // set explicitly for visibility
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{keystonetypes.WriteEVMCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON},
-				BootstrapNodeIndex: 0,
-			},
-		}
-	}
-
-	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
-			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
-		}
-	})
-
-	testLogger.Info().Msg("Waiting for feed to update...")
-	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
-
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
-	require.NoError(t, err, "failed to create feeds consumer instance")
-
-	startTime := time.Now()
-	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
-
-	assert.Eventually(t, func() bool {
-		elapsed := time.Since(startTime).Round(time.Second)
-		price, _, err := feedsConsumerInstance.GetPrice(
-			setupOutput.sethClient.NewCallOpts(),
-			feedBytes,
-		)
-		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
-
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
-	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
-
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
-}
-
-func TestKeystoneWithOCR3Workflow_GatewayDon_LivePrice(t *testing.T) {
-	testLogger := framework.L
-
-	// Load and validate test configuration
-	in, err := framework.Load[TestConfig](t)
-	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, in)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
-
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
-
-	// Assign all capabilities to the single node set
-	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
-		return []*keystonetypes.CapabilitiesAwareNodeSet{
-			{
-				Input:              input[0],
-				Capabilities:       keystonetypes.SingleDonFlags,
-				DONTypes:           []string{keystonetypes.WorkflowDON},
-				BootstrapNodeIndex: 0,
-				GatewayNodeIndex:   -1,
-			},
-			{
-				Input:              input[1],
-				Capabilities:       []string{},
-				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
-				GatewayNodeIndex:   0,
-				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
-			},
-		}
-	}
-
-	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, binaryDownloadOutput, mustSetCapabilitiesFn, nil)
-
-	// Log extra information that might help debugging
-	t.Cleanup(func() {
-		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
-
-			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
-
-			removeErr := os.RemoveAll(logDir)
-			if removeErr != nil {
-				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
-				return
-			}
-
-			_, saveErr := framework.SaveContainerLogs(logDir)
-			if saveErr != nil {
-				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
-				return
-			}
-
-			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
-			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
-				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
-				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
-					containerNames = append(containerNames, output.Node.ContainerName)
-				}
-				debugDons = append(debugDons, &keystonetypes.DebugDon{
-					NodesMetadata:  donWithMetadata.NodesMetadata,
-					Flags:          donWithMetadata.Flags,
-					ContainerNames: containerNames,
-				})
-			}
-
-			debugInput := keystonetypes.DebugInput{
-				DebugDons:        debugDons,
-				BlockchainOutput: setupOutput.blockchainOutput,
-			}
-			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
-		}
-	})
-
-	testLogger.Info().Msg("Waiting for feed to update...")
-	timeout := 5 * time.Minute // It can take a while before the first report is produced, particularly on CI.
-
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(setupOutput.feedsConsumerAddress, setupOutput.sethClient.Client)
-	require.NoError(t, err, "failed to create feeds consumer instance")
-
-	startTime := time.Now()
-	feedBytes := common.HexToHash(in.WorkflowConfig.FeedID)
-
-	assert.Eventually(t, func() bool {
-		elapsed := time.Since(startTime).Round(time.Second)
-		price, _, err := feedsConsumerInstance.GetPrice(
-			setupOutput.sethClient.NewCallOpts(),
-			feedBytes,
-		)
-		require.NoError(t, err, "failed to get price from Keystone Consumer contract")
-
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
-	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
-
-	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "pricesup do not match")
-	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
-}
-
+// config file to use: environment-gateway-don.toml
 func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
@@ -1273,6 +970,11 @@ func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 		if t.Failed() {
 			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
+			// log scanning is not supported for CRIB
+			if in.Infra.InfraType == libtypes.CRIB {
+				return
+			}
+
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
 			removeErr := os.RemoveAll(logDir)
@@ -1337,7 +1039,8 @@ func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	testLogger.Info().Msgf("All %d prices were found in the feed", len(priceProvider.ExpectedPrices()))
 }
 
-func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
+// config file to use: environment-capabilities-don.toml
+func TestKeystoneWithOCR3Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -1380,6 +1083,11 @@ func TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice(t *testing.T) {
 	t.Cleanup(func() {
 		if t.Failed() {
 			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			// log scanning is not supported for CRIB
+			if in.Infra.InfraType == libtypes.CRIB {
+				return
+			}
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 

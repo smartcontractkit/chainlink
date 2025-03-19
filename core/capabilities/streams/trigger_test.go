@@ -212,7 +212,7 @@ func newTriggerEvent(t *testing.T, reportList []datastreams.FeedReport, triggerE
 func validateLatestReports(t *testing.T, wrapped values.Value, expectedFeedsLen int, expectedPrice int, expectedTimestamp int) {
 	triggerEvent := datastreams.StreamsTriggerEvent{}
 	require.NoError(t, wrapped.UnwrapTo(&triggerEvent))
-	require.Equal(t, expectedFeedsLen, len(triggerEvent.Payload))
+	require.Len(t, triggerEvent.Payload, expectedFeedsLen)
 	priceBig := big.NewInt(int64(expectedPrice))
 	for _, report := range triggerEvent.Payload {
 		require.Equal(t, priceBig.Bytes(), report.BenchmarkPrice)

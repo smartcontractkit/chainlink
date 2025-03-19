@@ -20,7 +20,7 @@ import (
 )
 
 func TestCallPromoteStagingConfig(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+	e := testutil.NewMemoryEnv(t, true, 0)
 	ctx := testcontext.Get(t)
 
 	e, err := commonChangesets.Apply(t, e, nil,

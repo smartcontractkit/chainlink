@@ -2,6 +2,7 @@ package presenters
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -32,7 +33,7 @@ func TestEVMForwarderResource(t *testing.T) {
 	}
 
 	r := NewEVMForwarderResource(fwd)
-	assert.Equal(t, fmt.Sprint(ID), r.ID)
+	assert.Equal(t, strconv.FormatInt(ID, 10), r.ID)
 	assert.Equal(t, address, r.Address)
 	assert.Equal(t, chainID, r.EVMChainID)
 	assert.Equal(t, createdAt, r.CreatedAt)

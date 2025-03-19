@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"reflect"
@@ -24,7 +25,7 @@ var (
 		{Name: "performData", Type: "bytes"},
 	}
 	PerformDataArr, _   = abi.NewType("tuple(uint32,bytes32,bytes)[]", "", PerformDataMarshalingArgs)
-	ErrUnexpectedResult = fmt.Errorf("unexpected result struct")
+	ErrUnexpectedResult = errors.New("unexpected result struct")
 	packFn              = reportArgs.Pack
 	unpackIntoMapFn     = reportArgs.UnpackIntoMap
 	mKeys               = []string{"fastGasWei", "linkNative", "upkeepIds", "wrappedPerformDatas"}
@@ -70,7 +71,7 @@ func (enc EVMAutomationEncoder20) EncodeReport(toReport []ocr2keepers.UpkeepResu
 	for i, result := range toReport {
 		res, ok := result.(EVMAutomationUpkeepResult20)
 		if !ok {
-			return nil, fmt.Errorf("unexpected upkeep result struct")
+			return nil, errors.New("unexpected upkeep result struct")
 		}
 
 		// only take these values from the first result
@@ -118,7 +119,7 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	)
 
 	if upkeepIds, ok = m[mKeys[2]].([]*big.Int); !ok {
-		return res, fmt.Errorf("upkeep ids of incorrect type in report")
+		return res, errors.New("upkeep ids of incorrect type in report")
 	}
 
 	// TODO: a type assertion on `wrappedPerform` did not work, even with the
@@ -134,19 +135,19 @@ func (enc EVMAutomationEncoder20) DecodeReport(report []byte) ([]ocr2keepers.Upk
 	})
 
 	if !ok {
-		return res, fmt.Errorf("performs of incorrect structure in report")
+		return res, errors.New("performs of incorrect structure in report")
 	}
 
 	if len(upkeepIds) != len(performs) {
-		return res, fmt.Errorf("upkeep ids and performs should have matching length")
+		return res, errors.New("upkeep ids and performs should have matching length")
 	}
 
 	if wei, ok = m[mKeys[0]].(*big.Int); !ok {
-		return res, fmt.Errorf("fast gas as wrong type")
+		return res, errors.New("fast gas as wrong type")
 	}
 
 	if link, ok = m[mKeys[1]].(*big.Int); !ok {
-		return res, fmt.Errorf("link native as wrong type")
+		return res, errors.New("link native as wrong type")
 	}
 
 	res = make([]ocr2keepers.UpkeepResult, len(upkeepIds))
@@ -173,7 +174,7 @@ func (enc EVMAutomationEncoder20) Eligible(result ocr2keepers.UpkeepResult) (boo
 	res, ok := result.(EVMAutomationUpkeepResult20)
 	if !ok {
 		tp := reflect.TypeOf(result)
-		return false, fmt.Errorf("%s: name: %s, kind: %s", ErrUnexpectedResult, tp.Name(), tp.Kind())
+		return false, fmt.Errorf("%w: name: %s, kind: %s", ErrUnexpectedResult, tp.Name(), tp.Kind())
 	}
 
 	return res.Eligible, nil
@@ -200,7 +201,7 @@ func (enc EVMAutomationEncoder20) KeysFromReport(b []byte) ([]ocr2keepers.Upkeep
 	for _, result := range results {
 		res, ok := result.(EVMAutomationUpkeepResult20)
 		if !ok {
-			return nil, fmt.Errorf("unexpected result struct")
+			return nil, errors.New("unexpected result struct")
 		}
 
 		str := fmt.Sprintf("%d%s%s", res.Block, separator, res.ID)

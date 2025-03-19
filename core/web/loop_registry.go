@@ -97,7 +97,7 @@ func (l *LoopRegistryServer) pluginMetricHandler(gc *gin.Context) {
 	pluginURL := fmt.Sprintf("http://%s:%d/metrics", l.loopHostName, p.EnvCfg.PrometheusPort)
 	res, err := l.client.Get(pluginURL) //nolint
 	if err != nil {
-		msg := fmt.Sprintf("plugin metric handler failed to get plugin url %s", html.EscapeString(pluginURL))
+		msg := "plugin metric handler failed to get plugin url " + html.EscapeString(pluginURL)
 		l.logger.Errorw(msg, "err", err)
 		gc.Data(http.StatusInternalServerError, "text/plain", []byte(fmt.Sprintf("%s: %s", msg, err)))
 		return

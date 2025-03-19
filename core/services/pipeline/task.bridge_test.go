@@ -766,7 +766,7 @@ func TestBridgeTask_Meta(t *testing.T) {
 
 	mp := map[string]interface{}{"meta": metaDataForBridge}
 	res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(map[string]interface{}{"jobRun": mp}), nil)
-	assert.Nil(t, res.Error)
+	assert.NoError(t, res.Error)
 
 	assert.True(t, httpCalled.Load())
 }
@@ -1029,7 +1029,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, append(standardHeaders, "X-Header-1", "foo", "X-Header-2", "bar"), allHeaders(headers))
 	})
@@ -1050,7 +1050,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
-		assert.NotNil(t, result.Error)
+		assert.Error(t, result.Error)
 		assert.Equal(t, `headers must have an even number of elements`, result.Error.Error())
 		assert.Nil(t, result.Value)
 	})
@@ -1072,7 +1072,7 @@ func TestBridgeTask_Headers(t *testing.T) {
 		result, runInfo := task.Run(testutils.Context(t), logger.TestLogger(t), pipeline.NewVarsFrom(nil), nil)
 		assert.False(t, runInfo.IsPending)
 		assert.Equal(t, `{"fooresponse": 1}`, result.Value)
-		assert.Nil(t, result.Error)
+		assert.NoError(t, result.Error)
 
 		assert.Equal(t, []string{"Content-Length", "38", "Content-Type", "footype", "User-Agent", "Go-http-client/1.1", "X-Header-1", "foo", "X-Header-2", "bar"}, allHeaders(headers))
 	})
@@ -1271,7 +1271,7 @@ ds [type=bridge name="adapter-error-bridge" timeout="50ms" requestData="{\"data\
 	bridge := httptest.NewServer(http.HandlerFunc(func(res http.ResponseWriter, req *http.Request) {
 		b, herr := io.ReadAll(req.Body)
 		require.NoError(t, herr)
-		require.Equal(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
+		require.JSONEq(t, `{"data":{"from":"ETH","to":"USD"}}`, string(b))
 
 		res.WriteHeader(http.StatusInternalServerError)
 		resp := `{"error": {"name":"AdapterLWBAError", "message": "bid ask violation detected"}}`

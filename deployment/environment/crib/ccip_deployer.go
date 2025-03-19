@@ -213,7 +213,7 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 
 // ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
 func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
@@ -223,6 +223,10 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	*e, err = mustOCR(e, homeChainSel, feedChainSel, false)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -533,11 +537,8 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
-	// chainType := v1_6.Default
+	chainType := v1_6.Default
 
-	// TODO Passing SimulationTest to reduce number of changes in the CRIB (load test setup)
-	// @Austin please flip it back to Default once we reach a stable state
-	chainType := v1_6.SimulationTest
 	for selector := range e.Chains {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
