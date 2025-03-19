@@ -69,6 +69,7 @@ RUN chmod 755 /usr/lib/libwasmvm.*.so
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
   fi
+
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location

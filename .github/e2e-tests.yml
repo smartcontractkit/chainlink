@@ -214,11 +214,11 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: "{{ env.GITHUB_API_TOKEN }}" # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
-      CTF_CONFIGS: "environment-two-dons-ci.toml"
+      CTF_CONFIGS: "environment-gateway-don-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_ThreeDons
+  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_CapabilitiesDons
     path: system-tests/tests/smoke/capabilities/workflow_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
@@ -232,7 +232,7 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: "{{ env.GITHUB_API_TOKEN }}" # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
-      CTF_CONFIGS: "environment-three-dons-ci.toml"
+      CTF_CONFIGS: "environment-capabilities-don-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 

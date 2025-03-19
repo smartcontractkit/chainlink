@@ -4,14 +4,22 @@
   docker_cmd_params = ["-b", "5"]
 
 [jd]
-  image = "injected-at-runtime"
+  # change to your version
+  image = "job-distributor:latest"
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
 
 [workflow_config]
   workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = false
+  should_compile_new_workflow = true
+  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
+  # config below assumes that you have it cloned next to chainlink repository
+  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.2-alpha"
@@ -19,7 +27,7 @@
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/3635532a08bccd0adae54794e449f810/raw/b3cf08909153fe469b063f9870ac40ad2a70d768/three-dons-config.json_2025_02_26"
+    config_url = "https://gist.githubusercontent.com/Tofel/9af85e8e704f8b8e3946ad265075e18a/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json702797677"
 
 [[nodesets]]
   nodes = 5
@@ -30,12 +38,12 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-    volume_name = "workflow_volume"
 
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -52,7 +60,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -70,7 +79,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -88,7 +98,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -106,7 +117,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -130,12 +142,12 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13100
-    volume_name = "capabilities_volume"
 
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -152,7 +164,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -169,7 +182,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -196,7 +210,8 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

@@ -342,11 +342,15 @@ func (c *client) login() error {
 	}
 	defer res.Body.Close()
 
-	cookieHeader := res.Header.Get("Set-Cookie")
-	if cookieHeader == "" {
-		return errors.New("CL node is down or No cookie found in header")
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("login failed with status code: %d", res.StatusCode)
 	}
 
-	c.cookie = strings.Split(cookieHeader, ";")[0]
-	return nil
+	cookieHeader := res.Header.Get("Set-Cookie")
+	if cookieHeader != "" {
+		c.cookie = strings.Split(cookieHeader, ";")[0]
+		return nil
+	}
+
+	return fmt.Errorf("no set-cookie found in header. Check credentials and scheme. Response code was: %d", res.StatusCode)
 }

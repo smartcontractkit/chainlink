@@ -5,10 +5,10 @@
 2. [Adding a New Capability](#adding-a-new-capability)
    - [Copying the Binary to the Container](#copying-the-binary-to-the-container)
    - [Adding support for the new capability in the testing code](#adding-support-for-the-new-capability-in-the-testing-code)
-     - [Defining new bitmask flag representing the capability](#defining-new-bitmask-flag-representing-the-capability)
-     - [Defining additional node configuration](#defining-additional-node-configuration)
-     - [Defining job spec for the new capability](#defining-job-spec-for-the-new-capability)
-     - [Registering the capability in the Capabilities Registry contract](#registering-the-capability-in-the-capabilities-registry-contract)
+     - [Defining a CapabilityFlag for the Capability](#defining-a-capabilityflag-for-the-capability)
+     - [Defining Additional Node Configuration](#defining-additional-node-configuration)
+     - [Defining a Job Spec for the New Capability](#defining-a-job-spec-for-the-new-capability)
+     - [Registering the Capability in the Capabilities Registry Contract](#registering-the-capability-in-the-capabilities-registry-contract)
 3. [Using a New Workflow](#using-a-new-workflow)
    - [Test Uploads the Binary](#test-uploads-the-binary)
    - [Workflow Configuration](#workflow-configuration)
@@ -16,10 +16,11 @@
    - [Manual Upload of the Binary](#manual-upload-of-the-binary)
 4. [Deployer Address or Deployment Sequence Changes](#deployer-address-or-deployment-sequence-changes)
 5. [Multiple DONs](#multiple-dons)
-   - [DON type](#don-type)
+   - [DON Type](#don-type)
    - [Capabilities](#capabilities)
-   - [HTTP port range start](#http-port-range-start)
-   - [DB port](#db-port)
+   - [HTTP Port Range Start](#http-port-range-start)
+   - [Database (DB) Port](#database-db-port)
+   - [Number of Nodes](#number-of-nodes)
 6. [Price Data Source](#price-data-source)
    - [Live Source](#live-source)
    - [Mocked Data Source](#mocked-data-source)
@@ -27,6 +28,13 @@
 8. [Troubleshooting](#troubleshooting)
    - [Chainlink Node migrations fail](#chainlink-node-migrations-fail)
    - [Chainlink image not found in local Docker registry](#chainlink-image-not-found-in-local-docker-registry)
+9. [Docker vs Kubernetes (k8s)](#docker-vs-kubernetes-k8s)
+10. [CRIB Requirements](#crib-requirements)
+11. [Setting Docker Images for CRIB Execution](#setting-docker-images-for-crib-execution)
+12. [Running Tests in Local Kubernetes (`kind`)](#running-tests-in-local-kubernetes-kind)
+13. [CRIB Deployment Flow](#crib-deployment-flow)
+14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
+15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
 
 ---
 
@@ -57,15 +65,249 @@ The test requires several environment variables. Below is a launch configuration
 - **`GITHUB_READ_TOKEN`**: Required for downloading the `cron` capability binary and CRE CLI (if enabled). Requires `content:read` permission for `smartcontractkit/capabilities` and `smartcontractkit/dev-platform` repositories. Use a fine-grained personal access token (PAT) tied to the **organization’s GitHub account**.
 - **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
 
-Test also expects you to have the Job Distributor image available locally. By default, `environment.toml` expects image tagged as `job-distributor:latest`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
+Test also expects you to have the Job Distributor image available locally. By default, `environment-*.toml`'s expect image tagged as `job-distributor:0.9.0`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
 ```bash
-docker build -t job-distributor:latest -f e2e/Dockerfile.e2e .
+docker build -t job-distributor:0.9.0 -f e2e/Dockerfile.e2e .
 ```
 
-Alternatively, if you have access to the Docker image repository where it's stored you can modify `environment.toml` with the name of the image stored there.
+Alternatively, if you have access to the Docker image repository where it's stored you can modify `environment-*.toml`'s with the name of the image stored there.
 
 In the CI test code modifies the config during runtime to production JD image hardcoded in the [.github/e2e-tests.yml](.github/e2e-tests.yml) file as `E2E_JD_VERSION` env var.
 
+## Docker vs Kubernetes (k8s)
+
+The following TOML configuration determines whether a test is executed in Docker or Kubernetes:
+
+```toml
+[infra]
+  # Choose either "docker" or "crib"
+  type = "crib"
+```
+
+The only way to execute tests in Kubernetes (k8s) is through CRIB, which supports both a local cluster (`kind`) and AWS. When executing in CRIB, you must provide the following configuration:
+
+```toml
+[infra.crib]
+  namespace = "crib-local"
+  folder_location = "$(pwd of crib repository)/deployments/cre"
+  # Choose either "aws" or "kind"
+  provider = "kind"
+```
+
+---
+
+## CRIB Requirements
+
+Before running tests in CRIB, follow these steps:
+
+1. **Read the CRIB Instructions** – Follow the [CRIB deployment guide](https://smartcontract-it.atlassian.net/wiki/spaces/INFRA/pages/660145339/General+CRIB+-+Deploy+Access+Instructions).
+2. **Obtain AWS Role** – If you plan to run tests on AWS, acquire the necessary AWS role for CRIB. Running on a local `kind` cluster does not require any roles.
+3. **Manually Download Docker Registry Image** – If using the `kind` provider, download the required Docker registry image:
+   ```bash
+   docker pull registry:2
+   ```
+4. **Clone the CRIB Repository** – Clone the [CRIB repository](https://github.com/smartcontractkit/crib) and determine its absolute path using `pwd`.
+5. **Update the TOML Configuration** – Set the `folder_location` parameter to the absolute path of the `deployments/cre` folder within the CRIB repository.
+   ```toml
+   [infra.crib]
+   folder_location = "/Users/me/repositories/crib/deployments/cre"
+   ```
+6. **Adjust Namespace and Provider** – If using AWS, you **must** provide cost attribution details:
+   ```toml
+   [infra.crib.team_input]
+   team = "your team"
+   product = "name of the product you are working on"
+   cost_center = "crib"
+   component = "crib"
+   ```
+7. **Start VPN** - If using AWS.
+---
+
+## Setting Docker Images for CRIB Execution
+
+CRIB does **not** support dynamically built Docker images from local `Dockerfile`s during test execution. Using the following TOML configuration will result in an error:
+
+```toml
+[nodesets.node_specs.node]
+  docker_ctx = "../../../.."
+  docker_file = "plugins/chainlink.Dockerfile"
+```
+
+Instead, you **must** use the `image` key:
+
+```toml
+[nodesets.node_specs.node]
+  image = "localhost:5001/chainlink:112b9323-plugins-cron"
+```
+
+### Image Restrictions
+- Each nodeset **must** use the same Docker image.
+- The image tag **must** be explicit (omitting tag, so that implicitly `latest` is used is **not** supported).
+
+#### Job Distribution (JD) Image
+Currently, CRIB reads only the **image tag** from the TOML configuration. The following setting:
+
+```toml
+[jd]
+  image = "jd-test-1:my-awesome-tag"
+```
+
+Will result in CRIB using an image from the main AWS ECR repository with the tag `my-awesome-tag`.
+
+If an image tag is omitted, an error will occur:
+
+```toml
+[jd]
+  image = "jd-test-1"  # This will fail
+```
+
+---
+
+## Running Tests in Local Kubernetes (`kind`)
+
+### Docker Registry Setup
+Ensure you have pulled the `registry:2` Docker image:
+```bash
+docker pull registry:2
+```
+
+### Hostname Routing
+All routing to the `kind` cluster is done via `/etc/hosts`. CRIB automatically adds new host entries for detected ingresses, but since `/etc/hosts` is protected, root privileges are required. However, running tests does **not** allow interactive password input, leading to failures when new hostnames must be added.
+
+#### Workarounds
+1. **Manually add `/etc/hosts` entries** (tedious but straightforward).
+2. **Run `devspace` manually** for each chain/DON before starting tests. This allows CRIB to add entries while you enter the root password interactively.
+
+### Manually Adding `/etc/hosts` Entries
+For each component, manually add the following entries:
+
+#### Geth Chain
+```bash
+127.0.0.1 <NAMESPACE>-geth-<CHAIN_ID>-http.main.stage.cldev.sh
+127.0.0.1 <NAMESPACE>-geth-<CHAIN_ID>-ws.main.stage.cldev.sh
+```
+Example:
+```bash
+127.0.0.1 crib-local-geth-1337-http.main.stage.cldev.sh
+127.0.0.1 crib-local-geth-1337-ws.main.stage.cldev.sh
+```
+
+#### Job Distributor
+```bash
+127.0.0.1 <NAMESPACE>-job-distributor-grpc.main.stage.cldev.sh
+```
+Example:
+```bash
+127.0.0.1 crib-local-job-distributor-grpc.main.stage.cldev.sh
+```
+
+#### Chainlink Nodes
+For bootstrap nodes:
+```bash
+127.0.0.1 <NAMESPACE>-<DON_TYPE>-bt-<INDEX>.main.stage.cldev.sh
+```
+For worker nodes:
+```bash
+127.0.0.1 <NAMESPACE>-<DON_TYPE>-<INDEX>.main.stage.cldev.sh
+```
+
+Example (1 bootstrap + 3 worker nodes in `workflow` DON):
+```bash
+127.0.0.1 crib-local-workflow-bt-0.main.stage.cldev.sh
+127.0.0.1 crib-local-workflow-0.main.stage.cldev.sh
+127.0.0.1 crib-local-workflow-1.main.stage.cldev.sh
+127.0.0.1 crib-local-workflow-2.main.stage.cldev.sh
+```
+
+### Automating Hostname Setup with `devspace`
+Run the following commands **inside the `cre/deployment` subfolder** and a shell where `nix develop` was executed:
+
+#### Geth Chain
+```bash
+CHAIN_ID=<CHAIN_ID> devspace run deploy-custom-geth-chain
+```
+#### Job Distributor
+```bash
+devspace run deploy-jd
+```
+#### Chainlink Nodes
+```bash
+DON_TYPE=<type of don> DON_NODE_COUNT=<number of worker nodes> DON_BOOT_NODE_COUNT=<number of bootstrap nodes> devspace run deploy-don
+```
+
+Ensure `DON_TYPE` matches the `name` field in your TOML config:
+
+```toml
+[[nodesets]]
+  nodes = 5
+  name = "workflow"
+```
+
+---
+
+## CRIB Deployment Flow
+
+1. **Initialize a `nix develop` shell** and set environment variables.
+    - Set environment variables: `PROVIDER`, `DEVSPACE_NAMESPACE`, `CONFIG_OVERRIDES_DIR`
+2. **Start Blockchains**:
+   - Set `CHAIN_ID` from TOML.
+   - Deploy with `devspace run deploy-custom-geth-chain`.
+   - Read endpoints from `chain-<CHAIN_ID>-urls.json`.
+3. **Deploy Keystone Contracts**.
+4. **Generate CL Node Configs & Secrets** (stored in `./crib-configs`).
+5. **Start Each DON**:
+   - Set environment variables: `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT` and `DON_TYPE`.
+   - Deploy with `devspace run deploy-don`.
+   - Read DON URLs from `don-<DON_TYPE>-urls.json`.
+6. **Start Job Distributor**:
+   - Set environment variable: `JOB_DISTRIBUTOR_IMAGE_TAG`.
+   - Deploy with `devspace run deploy-jd`.
+   - Read JD URLs from `jd-url.json`.
+7. **Create Jobs & Configure CRE Contracts** (same as Docker).
+
+---
+
+## Switching from kind to AWS provider
+Since `kind` provider uses `/ets/hosts` for routing you **must remove** all entries added previously if you are using the same namespace you used in `kind`. Otherwise traffic will be incorrectly redirected to localhost instead of AWS.
+
+It is thus advised to change namespace names, when switching providers.
+
+---
+
+## CRIB Limitations & Considerations
+
+### Gateway DON
+- Must always be on a **dedicated node**.
+- Identified using `DON_TYPE=gateway`.
+- No bootstrap node required, but multiple worker nodes are allowed.
+
+### Capabilities Binaries
+- Unlike Docker, k8s does not support copying capability binaries into a running container.
+- Use a pre-built Docker image containing the necessary capabilities.
+
+### Mocked Price Provider
+- CRIB does **not** support the mocked data source used in PoR smoke tests, as it runs outside a container.
+- Only tests using **live endpoints** can be executed in CRIB.
+
+### Environment variables
+- Some are set by the Go code, others are taken from `./deployments/cre/.env` and applied when `nix develop` is run. Make sure that variables set from Go code are not present in `.env` file as it might lead to inconsistent behaviour.
+
+### DNS propagation
+- When running in AWS DNS propagation of Ingress domains might be painfully slow. Be patient and try again if failures occur.
+- Ingress check on `kind` cluster is also sometimes faulty and fails, even though all systems are operational. Currently, the only remedy is re-running.
+
+### Connection Issues
+If you encounter connection problems:
+Check pod health:
+```bash
+kubectl get pods
+```
+
+Ensure all pods show "Running" status.
+View pod logs:
+```bash
+kubectl logs <POD_NAME>
+```
 ---
 
 ## Adding a New Capability
@@ -87,7 +329,7 @@ Let's assume we want to add a capability that represents writing to Aptos chain.
 
 ### Copying the Binary to the Container
 
-The test configuration is defined in a TOML file (e.g. `environment.toml`), which specifies properties for Chainlink nodes. The `capabilities` property of the `node_specs.node` determines which binaries are copied to the container:
+The test configuration is defined in a TOML file (e.g. `environment-*.toml`), which specifies properties for Chainlink nodes. The `capabilities` property of the `node_specs.node` determines which binaries are copied to the container:
 
 ```toml
   [[nodeset.node_specs]]
@@ -341,14 +583,16 @@ When configuring multiple DONs, keep the following in mind:
 - **Capabilities List**
 - **HTTP Port Range Start**
 - **Database (DB) Port**
+- **Number of nodes**
 
 ### DON Type
 
-Two types of DONs are supported:
+Three types of DONs are supported:
 - `workflow`
 - `capabilities`
+- `gateway`
 
-There should only be **one** `workflow` DON, but multiple `capabilities` DONs can be defined.
+There should only be **one** `workflow` and `gateway` DON, but multiple `capabilities` DONs can be defined.
 
 ### Capabilities
 
@@ -375,7 +619,54 @@ Each node exposes a port to the host. To prevent port conflicts, assign a distin
 
 Similar to HTTP ports, ensure each nodeset has a unique database port.
 
-For a working example of a multi-DON setup, refer to the [`environment-multi-don.toml`](environment-multi-don.toml) file.
+For a working example of a multi-DON setup, refer to the [`environment-capabilities-don.toml`](environment-capabilities-don.toml) file.
+
+### Number of nodes
+When defining number of nodes you need not only to modify the `nodes` key, but also too add **nodespecs** for each node. In other words, the number of `nodespecs` needs to be equal to `nodes` count.
+
+This is not enough:
+```toml
+[[nodesets]]
+  nodes = 5
+  override_mode = "each"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+```
+
+If there are `5` nodes you need to repeat this nodespec `5` times:
+```toml
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+```
+
+Also, `override_mode = "all"` is currently not supported.
 
 ---
 
