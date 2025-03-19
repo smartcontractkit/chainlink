@@ -244,13 +244,14 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
 		mcmsConfig = c.MCMSConfig
 	}
-	_, err = SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
+	out, err := SetRMNRemoteOnRMNProxyChangeset(e, SetRMNRemoteOnRMNProxyConfig{
 		ChainSelectors: []uint64{c.NewChain.Selector},
 		MCMSConfig:     mcmsConfig,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteOnRMNProxyChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
+	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
 	// Update the fee quoter destinations on the new chain
 	destChainConfigs := make(map[uint64]fee_quoter.FeeQuoterDestChainConfig, len(c.RemoteChains))
@@ -296,7 +297,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 
 	// Add new chain config to the home chain
-	out, err := UpdateChainConfigChangeset(e, c.updateChainConfig())
+	out, err = UpdateChainConfigChangeset(e, c.updateChainConfig())
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateChainConfigChangeset on home chain: %w", err)
 	}
