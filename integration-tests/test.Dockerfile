@@ -14,6 +14,9 @@ RUN cd integration-tests/load && go mod download
 
 COPY . .
 
+# Get the SHA of the current commit and save it to sha.txt
+RUN git rev-parse HEAD > /go/testdir/sha.txt
+
 ARG SUITES=chaos soak benchmark load ccip-load
 
 RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
