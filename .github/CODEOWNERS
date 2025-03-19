@@ -148,6 +148,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
 /deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
+deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
 /deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
 # TODO: As more products add their deployment logic here, add the team as an owner

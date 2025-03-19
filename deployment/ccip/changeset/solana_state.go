@@ -21,6 +21,8 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	viewSolana "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -366,4 +368,20 @@ func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.Publi
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func (c SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+	chainView := view.NewSolChain()
+	var remoteChains []uint64
+	for selector := range c.DestChainStatePDAs {
+		remoteChains = append(remoteChains, selector)
+	}
+	if !c.FeeQuoter.IsZero() {
+		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, c.FeeQuoter, remoteChains)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate fee quoter view: %w", err)
+		}
+		chainView.FeeQuoter[c.FeeQuoter.String()] = fqView
+	}
+	return chainView, nil
 }

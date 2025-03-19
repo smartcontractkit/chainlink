@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"sync"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_5"
@@ -77,6 +78,19 @@ func NewChain() ChainView {
 	}
 }
 
+type SolChainView struct {
+	ChainSelector uint64 `json:"chainSelector,omitempty"`
+	ChainID       string `json:"chainID,omitempty"`
+	// v1.6
+	FeeQuoter map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
+}
+
+func NewSolChain() SolChainView {
+	return SolChainView{
+		FeeQuoter: make(map[string]solana.FeeQuoterView),
+	}
+}
+
 func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string, poolView v1_5_1.PoolView) {
 	v.tpUpdateMu.Lock()
 	defer v.tpUpdateMu.Unlock()
@@ -84,8 +98,9 @@ func (v *ChainView) UpdateTokenPool(tokenSymbol string, tokenPoolAddress string,
 }
 
 type CCIPView struct {
-	Chains map[string]ChainView    `json:"chains,omitempty"`
-	Nops   map[string]view.NopView `json:"nops,omitempty"`
+	Chains    map[string]ChainView    `json:"chains,omitempty"`
+	SolChains map[string]SolChainView `json:"solChains,omitempty"`
+	Nops      map[string]view.NopView `json:"nops,omitempty"`
 }
 
 func (v CCIPView) MarshalJSON() ([]byte, error) {

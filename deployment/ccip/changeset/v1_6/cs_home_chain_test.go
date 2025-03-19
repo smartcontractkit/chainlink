@@ -53,7 +53,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	snap, err := state.View([]uint64{homeChainSel})
+	snap, _, err := state.View(&e, []uint64{homeChainSel})
 	require.NoError(t, err)
 	chainName := e.Chains[homeChainSel].Name()
 	_, ok := snap[chainName]

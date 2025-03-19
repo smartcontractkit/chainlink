@@ -584,24 +584,20 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := make(map[string]view.ChainView)
+	sm := make(map[string]view.SolChainView)
 	mu := sync.Mutex{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
-		var chainView view.ChainView
 		chainSelector := chainSelector
 		grp.Go(func() error {
-			chainInfo, err := deployment.ChainInfo(chainSelector)
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			if err != nil {
 				return err
 			}
-			if _, ok := s.Chains[chainSelector]; !ok {
-				return fmt.Errorf("chain not supported %d", chainSelector)
-			}
-			chainState := s.Chains[chainSelector]
-			chainView, err = chainState.GenerateView()
+			chainInfo, err := deployment.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -609,19 +605,46 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 			if chainInfo.ChainName == "" {
 				name = strconv.FormatUint(chainSelector, 10)
 			}
-			chainView.ChainSelector = chainSelector
 			id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
 			if err != nil {
 				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 			}
-			chainView.ChainID = id
-			mu.Lock()
-			m[name] = chainView
-			mu.Unlock()
+			switch family {
+			case chain_selectors.FamilyEVM:
+				if _, ok := s.Chains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.Chains[chainSelector]
+				chainView, err := chainState.GenerateView()
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				mu.Lock()
+				m[name] = chainView
+				mu.Unlock()
+			case chain_selectors.FamilySolana:
+				if _, ok := s.SolChains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.SolChains[chainSelector]
+				chainView, err := chainState.GenerateView(e.SolChains[chainSelector])
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				mu.Lock()
+				sm[name] = chainView
+				mu.Unlock()
+			default:
+				return fmt.Errorf("unsupported chain family %s", family)
+			}
 			return nil
 		})
 	}
-	return m, grp.Wait()
+	return m, sm, grp.Wait()
 }
 
 func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
