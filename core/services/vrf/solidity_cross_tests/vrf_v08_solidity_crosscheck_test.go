@@ -27,11 +27,11 @@ import (
 // Note these tests are identical to the ones in vrf_solidity_crosscheck_test.go,
 // (with the exception of TestVRFV08_InvalidPointCoordinates which is a new check in v0.8)
 // except we are testing against the v0.8 implementation of VRF.sol.
-func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFV08TestHelper {
+func deployVRFV08TestHelper(t *testing.T) *solidity_vrf_v08_verifier_wrapper.VRFTestHelper {
 	auth := testutils.MustNewSimTransactor(t)
 	genesisData := gethtypes.GenesisAlloc{auth.From: {Balance: assets.Ether(100).ToInt()}}
 	backend := cltest.NewSimulatedBackend(t, genesisData, ethconfig.Defaults.Miner.GasCeil)
-	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFV08TestHelper(auth, backend.Client())
+	_, _, verifier, err := solidity_vrf_v08_verifier_wrapper.DeployVRFTestHelper(auth, backend.Client())
 	require.NoError(t, err, "failed to deploy VRF contract to simulated blockchain")
 	backend.Commit()
 	return verifier
@@ -43,11 +43,11 @@ func TestVRFV08_InvalidPointCoordinates(t *testing.T) {
 	_, err := verifier.IsOnCurve(nil,
 		[2]*big.Int{big.NewInt(10), secp256k1.FieldSize})
 	require.Error(t, err)
-	assert.Equal(t, err.Error(), "execution reverted: invalid y-ordinate")
+	assert.Equal(t, "execution reverted: invalid y-ordinate", err.Error())
 	_, err = verifier.IsOnCurve(nil,
 		[2]*big.Int{secp256k1.FieldSize, big.NewInt(10)})
 	require.Error(t, err)
-	assert.Equal(t, err.Error(), "execution reverted: invalid x-ordinate")
+	assert.Equal(t, "execution reverted: invalid x-ordinate", err.Error())
 	// Values inside should succeed
 	_, err = verifier.IsOnCurve(nil,
 		[2]*big.Int{big.NewInt(10), big.NewInt(0).Sub(secp256k1.FieldSize, big.NewInt(1))})
@@ -321,7 +321,7 @@ func TestVRFV08_MarshalProof(t *testing.T) {
 			ZInv:          solProof.ZInv,
 		}, randomSeed)
 		require.NoError(t, err, "failed on-chain to verify VRF proof / get its output")
-		require.True(t, response.Cmp(proof.Output) == 0,
+		require.Equal(t, response.Cmp(proof.Output), 0,
 			"on-chain VRF output differs from off-chain!")
 	}
 }

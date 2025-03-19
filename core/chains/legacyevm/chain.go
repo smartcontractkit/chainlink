@@ -11,18 +11,19 @@ import (
 	"go.uber.org/multierr"
 
 	common "github.com/smartcontractkit/chainlink-common/pkg/chains"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas/rollups"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/monitor"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -30,7 +31,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 type Chain interface {
@@ -112,7 +112,6 @@ type chain struct {
 	logBroadcaster  log.Broadcaster
 	logPoller       logpoller.LogPoller
 	balanceMonitor  monitor.BalanceMonitor
-	keyStore        keystore.Eth
 	gasEstimator    gas.EvmFeeEstimator
 }
 
@@ -130,7 +129,7 @@ type FeatureConfig interface {
 
 type ChainRelayOpts struct {
 	Logger   logger.Logger
-	KeyStore keystore.Eth
+	KeyStore keys.ChainStore
 	ChainOpts
 }
 
@@ -147,6 +146,7 @@ type ChainOpts struct {
 
 	// TODO BCF-2513 remove test code from the API
 	// Gen-functions are useful for dependency injection by tests
+	GenChainStore     func(ks core.Keystore, i *big.Int) keys.ChainStore
 	GenEthClient      func(*big.Int) client.Client
 	GenLogBroadcaster func(*big.Int) log.Broadcaster
 	GenLogPoller      func(*big.Int) logpoller.LogPoller
@@ -169,7 +169,6 @@ func (o ChainOpts) Validate() error {
 	if o.ListenerConfig == nil {
 		err = errors.Join(err, errors.New("nil ListenerConfig"))
 	}
-
 	if o.MailMon == nil {
 		err = errors.Join(err, errors.New("nil MailMon"))
 	}
@@ -182,7 +181,7 @@ func (o ChainOpts) Validate() error {
 	return err
 }
 
-func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (Chain, error) {
+func NewTOMLChain(chain *toml.EVMConfig, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (Chain, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, err
@@ -193,10 +192,10 @@ func NewTOMLChain(ctx context.Context, chain *toml.EVMConfig, opts ChainRelayOpt
 	}
 	cfg := config.NewTOMLChainScopedConfig(chain)
 	// note: per-chain validation is not necessary at this point since everything is checked earlier on boot.
-	return newChain(ctx, cfg, chain.Nodes, opts, clientsByChainID)
+	return newChain(cfg, chain.Nodes, opts, clientsByChainID)
 }
 
-func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
+func newChain(cfg *config.ChainScoped, nodes []*toml.Node, opts ChainRelayOpts, clientsByChainID map[string]rollups.DAClient) (*chain, error) {
 	chainID := cfg.EVM().ChainID()
 	l := opts.Logger
 	var cl client.Client
@@ -272,12 +271,6 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 
 	headBroadcaster.Subscribe(txm)
 
-	// Highest seen head height is used as part of the start of LogBroadcaster backfill range
-	highestSeenHead, err := headSaver.LatestHeadFromDB(ctx)
-	if err != nil {
-		return nil, err
-	}
-
 	var balanceMonitor monitor.BalanceMonitor
 	if opts.ChainConfigs.RPCEnabled() && cfg.EVM().BalanceMonitor().Enabled() {
 		balanceMonitor = monitor.NewBalanceMonitor(cl, opts.KeyStore, l)
@@ -291,7 +284,7 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 		logBroadcaster = &log.NullBroadcaster{ErrMsg: fmt.Sprintf("LogBroadcaster disabled for chain %d", chainID)}
 	} else if opts.GenLogBroadcaster == nil {
 		logORM := log.NewORM(opts.DS, *chainID)
-		logBroadcaster = log.NewBroadcaster(logORM, cl, cfg.EVM(), l, highestSeenHead, opts.MailMon)
+		logBroadcaster = log.NewBroadcaster(logORM, cl, cfg.EVM(), l, headSaver.LatestHeadFromDB, opts.MailMon)
 	} else {
 		logBroadcaster = opts.GenLogBroadcaster(chainID)
 	}
@@ -314,7 +307,6 @@ func newChain(ctx context.Context, cfg *config.ChainScoped, nodes []*toml.Node, 
 		logBroadcaster:  logBroadcaster,
 		logPoller:       logPoller,
 		balanceMonitor:  balanceMonitor,
-		keyStore:        opts.KeyStore,
 		gasEstimator:    gasEstimator,
 	}, nil
 }

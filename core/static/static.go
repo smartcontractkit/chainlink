@@ -44,7 +44,7 @@ func buildPrettyVersion() string {
 func SetConsumerName(uri *url.URL, name string, id *uuid.UUID) {
 	applicationName := fmt.Sprintf("Chainlink%s|%s", buildPrettyVersion(), name)
 	if id != nil {
-		applicationName += fmt.Sprintf("|%s", id.String())
+		applicationName += "|" + id.String()
 	}
 	pg.SetApplicationName(uri, applicationName)
 }

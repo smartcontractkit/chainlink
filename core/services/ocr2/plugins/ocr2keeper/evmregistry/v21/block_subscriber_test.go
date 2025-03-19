@@ -1,7 +1,7 @@
 package evm
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -34,14 +34,14 @@ func TestBlockSubscriber_Subscribe(t *testing.T) {
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 3)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, subId)
 }
 
 func TestBlockSubscriber_Unsubscribe(t *testing.T) {
@@ -53,13 +53,13 @@ func TestBlockSubscriber_Unsubscribe(t *testing.T) {
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	subId, _, err := bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 1)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, subId)
 	subId, _, err = bs.Subscribe()
-	assert.Nil(t, err)
-	assert.Equal(t, subId, 2)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, subId)
 	err = bs.Unsubscribe(1)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 }
 
 func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
@@ -71,7 +71,7 @@ func TestBlockSubscriber_Unsubscribe_Failure(t *testing.T) {
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	err := bs.Unsubscribe(2)
-	assert.Equal(t, err.Error(), "subscriber 2 does not exist")
+	assert.Equal(t, "subscriber 2 does not exist", err.Error())
 }
 
 func TestBlockSubscriber_GetBlockRange(t *testing.T) {
@@ -86,7 +86,7 @@ func TestBlockSubscriber_GetBlockRange(t *testing.T) {
 	}{
 		{
 			Name:           "failed to get latest block",
-			LatestBlockErr: fmt.Errorf("failed to get latest block"),
+			LatestBlockErr: errors.New("failed to get latest block"),
 		},
 		{
 			Name:           "get block range",
@@ -126,7 +126,7 @@ func TestBlockSubscriber_InitializeBlocks(t *testing.T) {
 	}{
 		{
 			Name:  "failed to get latest block",
-			Error: fmt.Errorf("failed to get log poller blocks"),
+			Error: errors.New("failed to get log poller blocks"),
 		},
 		{
 			Name:   "get block range",
@@ -306,7 +306,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 	bs.blockHistorySize = historySize
 	bs.blockSize = blockSize
 	err := bs.Start(testutils.Context(t))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	h97 := evmtypes.Head{
 		Number: 97,
@@ -347,7 +347,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	// add 1 subscriber
 	subId1, c1, err := bs.Subscribe()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 1, subId1)
 
 	h101 := &evmtypes.Head{
@@ -380,7 +380,7 @@ func TestBlockSubscriber_Start(t *testing.T) {
 
 	// add 2nd subscriber
 	subId2, c2, err := bs.Subscribe()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.Equal(t, 2, subId2)
 
 	// re-org happens

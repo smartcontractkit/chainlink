@@ -111,7 +111,7 @@ func TestBridgeCache_Type(t *testing.T) {
 			btp.Confirmations = req.Confirmations
 		})
 		require.NoError(t, cache.UpdateBridgeType(ctx, expected, btr))
-		assert.Equal(t, btr.Confirmations, expected.Confirmations)
+		assert.Equal(t, expected.Confirmations, btr.Confirmations)
 
 		result, err = cache.FindBridge(ctx, bridge)
 
@@ -124,7 +124,7 @@ func TestBridgeCache_Type(t *testing.T) {
 		// bridge type is removed from cache so call to find fallsback to the data store
 		mORM.On("FindBridge", mock.Anything, bridge).Return(bridges.BridgeType{}, errors.New("not found"))
 		_, err = cache.FindBridge(ctx, bridge)
-		require.NotNil(t, err)
+		require.Error(t, err)
 	})
 }
 

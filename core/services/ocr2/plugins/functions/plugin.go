@@ -3,8 +3,6 @@ package functions
 import (
 	"context"
 	"encoding/json"
-	"math/big"
-	"slices"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -16,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -27,8 +26,6 @@ import (
 	gwAllowlist "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/allowlist"
 	gwSubscriptions "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/functions/subscriptions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/functions/config"
 	s4_plugin "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/s4"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/threshold"
@@ -46,7 +43,7 @@ type FunctionsServicesConfig struct {
 	Logger            logger.Logger
 	MailMon           *mailbox.Monitor
 	URLsMonEndpoint   commontypes.MonitoringEndpoint
-	EthKeystore       keystore.Eth
+	EthKeystore       keys.Store
 	ThresholdKeyShare []byte
 	LogPollerWrapper  evmrelayTypes.LogPollerWrapper
 }
@@ -175,7 +172,7 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 			return nil, errors.Wrap(err, "failed to create a OnchainSubscriptions")
 		}
 		connectorLogger := conf.Logger.Named("GatewayConnector").With("jobName", conf.Job.PipelineSpec.JobName)
-		connector, handler, err2 := NewConnector(ctx, &pluginConfig, conf.EthKeystore, conf.Chain.ID(), s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, connectorLogger)
+		connector, handler, err2 := NewConnector(ctx, &pluginConfig, conf.EthKeystore, s4Storage, allowlist, rateLimiter, subscriptions, functionsListener, offchainTransmitter, connectorLogger)
 		if err2 != nil {
 			return nil, errors.Wrap(err, "failed to create a GatewayConnector")
 		}
@@ -203,22 +200,19 @@ func NewFunctionsServices(ctx context.Context, functionsOracleArgs, thresholdOra
 	return allServices, nil
 }
 
-func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKeystore keystore.Eth, chainID *big.Int, s4Storage s4.Storage, allowlist gwAllowlist.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwSubscriptions.OnchainSubscriptions, listener functions.FunctionsListener, offchainTransmitter functions.OffchainTransmitter, lggr logger.Logger) (connector.GatewayConnector, connector.GatewayConnectorHandler, error) {
-	enabledKeys, err := ethKeystore.EnabledKeysForChain(ctx, chainID)
+type Keystore interface {
+	keys.AddressChecker
+	keys.MessageSigner
+}
+
+func NewConnector(ctx context.Context, pluginConfig *config.PluginConfig, ethKeystore Keystore, s4Storage s4.Storage, allowlist gwAllowlist.OnchainAllowlist, rateLimiter *hc.RateLimiter, subscriptions gwSubscriptions.OnchainSubscriptions, listener functions.FunctionsListener, offchainTransmitter functions.OffchainTransmitter, lggr logger.Logger) (connector.GatewayConnector, connector.GatewayConnectorHandler, error) {
+	configuredNodeAddress := common.HexToAddress(pluginConfig.GatewayConnectorConfig.NodeAddress)
+	err := ethKeystore.CheckEnabled(ctx, configuredNodeAddress)
 	if err != nil {
 		return nil, nil, err
 	}
-	configuredNodeAddress := common.HexToAddress(pluginConfig.GatewayConnectorConfig.NodeAddress)
-	idx := slices.IndexFunc(enabledKeys, func(key ethkey.KeyV2) bool { return key.Address == configuredNodeAddress })
-	if idx == -1 {
-		return nil, nil, errors.New("key for configured node address not found")
-	}
-	signerKey := enabledKeys[idx].ToEcdsaPrivKey()
-	if enabledKeys[idx].ID() != pluginConfig.GatewayConnectorConfig.NodeAddress {
-		return nil, nil, errors.New("node address mismatch")
-	}
 
-	handler, err := functions.NewFunctionsConnectorHandler(pluginConfig, signerKey, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, lggr)
+	handler, err := functions.NewFunctionsConnectorHandler(pluginConfig, configuredNodeAddress, ethKeystore, s4Storage, allowlist, rateLimiter, subscriptions, listener, offchainTransmitter, lggr)
 	if err != nil {
 		return nil, nil, err
 	}

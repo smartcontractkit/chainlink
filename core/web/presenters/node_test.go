@@ -17,8 +17,8 @@ func TestNodeResource(t *testing.T) {
 	cfg := "cfg"
 	testCases := []string{"solana", "cosmos", "starknet", "tron"}
 	for _, tc := range testCases {
-		chainID := fmt.Sprintf("%s chain ID", tc)
-		nodeName := fmt.Sprintf("%s_node", tc)
+		chainID := tc + " chain ID"
+		nodeName := tc + "_node"
 
 		nodeResource = NewNodeResource(types.NodeStatus{
 			ChainID: chainID,

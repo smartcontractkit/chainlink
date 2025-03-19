@@ -69,7 +69,7 @@ func (cs *capabilitiesStore[T, Resp]) InsertIfNotExists(capabilityID string, fn 
 	}
 	value, respCh, err := fn()
 	if err != nil {
-		return nil, fmt.Errorf("error registering capability: %v", err)
+		return nil, fmt.Errorf("error registering capability: %w", err)
 	}
 	cs.capabilities[capabilityID] = value
 	return respCh, nil

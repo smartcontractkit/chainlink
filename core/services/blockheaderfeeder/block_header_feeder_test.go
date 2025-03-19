@@ -6,14 +6,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	keystoremocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
 )
 
 type testCase struct {
@@ -201,8 +200,7 @@ func (test testCase) testFeeder(t *testing.T) {
 	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
 	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
 	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
-	ks := keystoremocks.NewEth(t)
-	ks.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
+	ks := keystest.Addresses{common.HexToAddress(fromAddress)}
 
 	feeder := NewBlockHeaderFeeder(
 		lggr,
@@ -219,7 +217,6 @@ func (test testCase) testFeeder(t *testing.T) {
 		test.getBatchSize,
 		test.storeBatchSize,
 		fromAddresses,
-		testutils.FixtureChainID,
 	)
 
 	err := feeder.Run(testutils.Context(t))
@@ -245,8 +242,7 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 	blockHeaderProvider := &blockhashstore.TestBlockHeaderProvider{}
 	fromAddress := "0x469aA2CD13e037DC5236320783dCfd0e641c0559"
 	fromAddresses := []types.EIP55Address{types.EIP55Address(fromAddress)}
-	ks := keystoremocks.NewEth(t)
-	ks.On("GetRoundRobinAddress", mock.Anything, testutils.FixtureChainID, mock.Anything).Maybe().Return(common.HexToAddress(fromAddress), nil)
+	ks := keystest.Addresses{common.HexToAddress(fromAddress)}
 
 	feeder := NewBlockHeaderFeeder(
 		logger.TestLogger(t),
@@ -263,7 +259,6 @@ func TestFeeder_CachesStoredBlocks(t *testing.T) {
 		1,
 		1,
 		fromAddresses,
-		testutils.FixtureChainID,
 	)
 
 	// Should store block 74. block 75 was already stored from above

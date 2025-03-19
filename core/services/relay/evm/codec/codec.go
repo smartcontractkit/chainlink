@@ -95,7 +95,7 @@ func (c *evmCodec) CreateType(itemType string, forEncoding bool) (any, error) {
 
 	// we don't need double pointers, and they can also mess up reflection variable creation and mapstruct decode
 	if def.CheckedType().Kind() == reflect.Pointer {
-		return reflect.New(def.CheckedType()).Elem().Interface(), nil
+		return reflect.New(def.CheckedType().Elem()).Interface(), nil
 	}
 
 	return reflect.New(def.CheckedType()).Interface(), nil
@@ -131,6 +131,13 @@ func sizeVerifyBigIntHook(from, to reflect.Type, data any) (any, error) {
 	bi, ok := data.(*big.Int)
 	if !ok {
 		return data, nil
+	}
+
+	// mapstructure strips the pointer from the destination type resulting in something like
+	// from: *big.Int and to: types.int256
+	// reflect cannot convert from *big.Int unless the dest is a pointer type as well
+	if to.Kind() != reflect.Pointer {
+		to = reflect.PointerTo(to)
 	}
 
 	converted := reflect.ValueOf(bi).Convert(to).Interface().(types.SizedBigInt)

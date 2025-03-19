@@ -326,9 +326,9 @@ func TestShell_ListFindJobs(t *testing.T) {
 	createOutput, ok := r.Renders[0].(*cmd.JobPresenter)
 	require.True(t, ok, "Expected Renders[0] to be *cmd.JobPresenter, got %T", r.Renders[0])
 
-	require.Nil(t, client.ListJobs(cltest.EmptyCLIContext()))
+	require.NoError(t, client.ListJobs(cltest.EmptyCLIContext()))
 	jobs := *r.Renders[1].(*cmd.JobPresenters)
-	require.Equal(t, 1, len(jobs))
+	require.Len(t, jobs, 1)
 	assert.Equal(t, createOutput.ID, jobs[0].ID)
 }
 

@@ -68,38 +68,22 @@ echo " ┌───────────────────────�
 echo " │       Compiling Newproject contracts...      │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.24"
-OPTIMIZE_RUNS=1000000
-# Optional optimizer run overrides. Please remove if not used
-OPTIMIZE_RUNS_SINGLE_CONTRACT=5000
+PROJECT="newproject"
 
-
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
-
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"
 
 compileContract () {
   local contract
-  contract=$(basename "$1" ".sol")
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
 
-  local optimize_runs=$OPTIMIZE_RUNS
-
-  case $1 in
-    "newproject/SingleContract.sol")
-      optimize_runs=$OPTIMIZE_RUNS_SINGLE_CONTRACT
-      ;;
-  esac
-
-  solc --overwrite --optimize --optimize-runs $optimize_runs --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8 \
-      --bin-runtime --hashes --metadata --metadata-literal --combined-json abi,hashes,metadata,srcmap,srcmap-runtime \
-      --evm-version paris \
-      "$ROOT"/contracts/src/v0.8/"$1"
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+       --root $CONTRACTS_DIR \
+       --extra-output-files bin abi \
+       -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+  $command
 }
 
 compileContract newproject/SingleContract.sol

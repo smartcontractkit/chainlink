@@ -13,7 +13,6 @@ type (
 	Contract interface {
 		// Caller:
 		Owner(opts *bind.CallOpts) (common.Address, error)
-		SupportsInterface(opts *bind.CallOpts, interfaceID [4]byte) (bool, error)
 		TypeAndVersion(opts *bind.CallOpts) (string, error)
 
 		// Transactor:
@@ -34,10 +33,10 @@ type (
 
 var _ deployment.ChangeSetV2[DeployChannelConfigStoreConfig] = DeployChannelConfigStore{}
 
-// deployContract deploys a contract and saves the address to the address book.
+// DeployContract deploys a contract and saves the address to the address book.
 //
 // Note that this function modifies the given address book variable, so it should be passed by reference.
-func deployContract[C Contract](
+func DeployContract[C Contract](
 	e deployment.Environment,
 	ab deployment.AddressBook,
 	chain deployment.Chain,
@@ -45,7 +44,7 @@ func deployContract[C Contract](
 ) (*ContractDeployment[C], error) {
 	contractDeployment := deployFn(chain)
 	if contractDeployment.Err != nil {
-		e.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err)
+		e.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err, "chain", chain.Selector)
 		return nil, contractDeployment.Err
 	}
 	_, err := chain.Confirm(contractDeployment.Tx)
@@ -53,6 +52,7 @@ func deployContract[C Contract](
 		e.Logger.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err
 	}
+	e.Logger.Infow("Deployed contract", "Contract", contractDeployment.Tv.String(), "addr", contractDeployment.Address.String(), "chain", chain.String())
 	err = ab.Save(chain.Selector, contractDeployment.Address.String(), contractDeployment.Tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save contract address", "err", err)

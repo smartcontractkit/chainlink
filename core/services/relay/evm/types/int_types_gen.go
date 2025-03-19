@@ -1,3 +1,4 @@
+// this file is auto-generated. DO NOT EDIT
 package types
 
 import (
@@ -50,17 +51,17 @@ func (i *int24) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int24) Verify() error {
-	bi := (*big.Int)(i)
+func (i int24) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(24, bi) {
+	if !codec.FitsInNBitsSigned(24, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int24) private() {}
+func (i int24) private() {}
 
 func init() {
 	typeMap["int24"] = &ABIEncodingType{
@@ -98,8 +99,8 @@ func (i *uint24) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint24) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint24) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 24 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -108,7 +109,7 @@ func (i *uint24) Verify() error {
 	return nil
 }
 
-func (i *uint24) private() {}
+func (i uint24) private() {}
 
 func init() {
 	typeMap["uint24"] = &ABIEncodingType{
@@ -146,17 +147,17 @@ func (i *int40) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int40) Verify() error {
-	bi := (*big.Int)(i)
+func (i int40) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(40, bi) {
+	if !codec.FitsInNBitsSigned(40, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int40) private() {}
+func (i int40) private() {}
 
 func init() {
 	typeMap["int40"] = &ABIEncodingType{
@@ -194,8 +195,8 @@ func (i *uint40) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint40) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint40) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 40 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -204,7 +205,7 @@ func (i *uint40) Verify() error {
 	return nil
 }
 
-func (i *uint40) private() {}
+func (i uint40) private() {}
 
 func init() {
 	typeMap["uint40"] = &ABIEncodingType{
@@ -242,17 +243,17 @@ func (i *int48) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int48) Verify() error {
-	bi := (*big.Int)(i)
+func (i int48) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(48, bi) {
+	if !codec.FitsInNBitsSigned(48, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int48) private() {}
+func (i int48) private() {}
 
 func init() {
 	typeMap["int48"] = &ABIEncodingType{
@@ -290,8 +291,8 @@ func (i *uint48) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint48) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint48) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 48 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -300,7 +301,7 @@ func (i *uint48) Verify() error {
 	return nil
 }
 
-func (i *uint48) private() {}
+func (i uint48) private() {}
 
 func init() {
 	typeMap["uint48"] = &ABIEncodingType{
@@ -338,17 +339,17 @@ func (i *int56) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int56) Verify() error {
-	bi := (*big.Int)(i)
+func (i int56) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(56, bi) {
+	if !codec.FitsInNBitsSigned(56, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int56) private() {}
+func (i int56) private() {}
 
 func init() {
 	typeMap["int56"] = &ABIEncodingType{
@@ -386,8 +387,8 @@ func (i *uint56) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint56) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint56) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 56 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -396,7 +397,7 @@ func (i *uint56) Verify() error {
 	return nil
 }
 
-func (i *uint56) private() {}
+func (i uint56) private() {}
 
 func init() {
 	typeMap["uint56"] = &ABIEncodingType{
@@ -434,17 +435,17 @@ func (i *int72) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int72) Verify() error {
-	bi := (*big.Int)(i)
+func (i int72) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(72, bi) {
+	if !codec.FitsInNBitsSigned(72, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int72) private() {}
+func (i int72) private() {}
 
 func init() {
 	typeMap["int72"] = &ABIEncodingType{
@@ -482,8 +483,8 @@ func (i *uint72) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint72) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint72) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 72 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -492,7 +493,7 @@ func (i *uint72) Verify() error {
 	return nil
 }
 
-func (i *uint72) private() {}
+func (i uint72) private() {}
 
 func init() {
 	typeMap["uint72"] = &ABIEncodingType{
@@ -530,17 +531,17 @@ func (i *int80) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int80) Verify() error {
-	bi := (*big.Int)(i)
+func (i int80) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(80, bi) {
+	if !codec.FitsInNBitsSigned(80, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int80) private() {}
+func (i int80) private() {}
 
 func init() {
 	typeMap["int80"] = &ABIEncodingType{
@@ -578,8 +579,8 @@ func (i *uint80) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint80) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint80) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 80 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -588,7 +589,7 @@ func (i *uint80) Verify() error {
 	return nil
 }
 
-func (i *uint80) private() {}
+func (i uint80) private() {}
 
 func init() {
 	typeMap["uint80"] = &ABIEncodingType{
@@ -626,17 +627,17 @@ func (i *int88) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int88) Verify() error {
-	bi := (*big.Int)(i)
+func (i int88) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(88, bi) {
+	if !codec.FitsInNBitsSigned(88, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int88) private() {}
+func (i int88) private() {}
 
 func init() {
 	typeMap["int88"] = &ABIEncodingType{
@@ -674,8 +675,8 @@ func (i *uint88) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint88) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint88) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 88 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -684,7 +685,7 @@ func (i *uint88) Verify() error {
 	return nil
 }
 
-func (i *uint88) private() {}
+func (i uint88) private() {}
 
 func init() {
 	typeMap["uint88"] = &ABIEncodingType{
@@ -722,17 +723,17 @@ func (i *int96) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int96) Verify() error {
-	bi := (*big.Int)(i)
+func (i int96) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(96, bi) {
+	if !codec.FitsInNBitsSigned(96, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int96) private() {}
+func (i int96) private() {}
 
 func init() {
 	typeMap["int96"] = &ABIEncodingType{
@@ -770,8 +771,8 @@ func (i *uint96) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint96) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint96) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 96 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -780,7 +781,7 @@ func (i *uint96) Verify() error {
 	return nil
 }
 
-func (i *uint96) private() {}
+func (i uint96) private() {}
 
 func init() {
 	typeMap["uint96"] = &ABIEncodingType{
@@ -818,17 +819,17 @@ func (i *int104) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int104) Verify() error {
-	bi := (*big.Int)(i)
+func (i int104) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(104, bi) {
+	if !codec.FitsInNBitsSigned(104, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int104) private() {}
+func (i int104) private() {}
 
 func init() {
 	typeMap["int104"] = &ABIEncodingType{
@@ -866,8 +867,8 @@ func (i *uint104) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint104) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint104) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 104 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -876,7 +877,7 @@ func (i *uint104) Verify() error {
 	return nil
 }
 
-func (i *uint104) private() {}
+func (i uint104) private() {}
 
 func init() {
 	typeMap["uint104"] = &ABIEncodingType{
@@ -914,17 +915,17 @@ func (i *int112) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int112) Verify() error {
-	bi := (*big.Int)(i)
+func (i int112) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(112, bi) {
+	if !codec.FitsInNBitsSigned(112, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int112) private() {}
+func (i int112) private() {}
 
 func init() {
 	typeMap["int112"] = &ABIEncodingType{
@@ -962,8 +963,8 @@ func (i *uint112) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint112) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint112) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 112 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -972,7 +973,7 @@ func (i *uint112) Verify() error {
 	return nil
 }
 
-func (i *uint112) private() {}
+func (i uint112) private() {}
 
 func init() {
 	typeMap["uint112"] = &ABIEncodingType{
@@ -1010,17 +1011,17 @@ func (i *int120) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int120) Verify() error {
-	bi := (*big.Int)(i)
+func (i int120) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(120, bi) {
+	if !codec.FitsInNBitsSigned(120, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int120) private() {}
+func (i int120) private() {}
 
 func init() {
 	typeMap["int120"] = &ABIEncodingType{
@@ -1058,8 +1059,8 @@ func (i *uint120) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint120) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint120) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 120 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1068,7 +1069,7 @@ func (i *uint120) Verify() error {
 	return nil
 }
 
-func (i *uint120) private() {}
+func (i uint120) private() {}
 
 func init() {
 	typeMap["uint120"] = &ABIEncodingType{
@@ -1106,17 +1107,17 @@ func (i *int128) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int128) Verify() error {
-	bi := (*big.Int)(i)
+func (i int128) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(128, bi) {
+	if !codec.FitsInNBitsSigned(128, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int128) private() {}
+func (i int128) private() {}
 
 func init() {
 	typeMap["int128"] = &ABIEncodingType{
@@ -1154,8 +1155,8 @@ func (i *uint128) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint128) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint128) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 128 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1164,7 +1165,7 @@ func (i *uint128) Verify() error {
 	return nil
 }
 
-func (i *uint128) private() {}
+func (i uint128) private() {}
 
 func init() {
 	typeMap["uint128"] = &ABIEncodingType{
@@ -1202,17 +1203,17 @@ func (i *int136) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int136) Verify() error {
-	bi := (*big.Int)(i)
+func (i int136) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(136, bi) {
+	if !codec.FitsInNBitsSigned(136, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int136) private() {}
+func (i int136) private() {}
 
 func init() {
 	typeMap["int136"] = &ABIEncodingType{
@@ -1250,8 +1251,8 @@ func (i *uint136) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint136) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint136) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 136 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1260,7 +1261,7 @@ func (i *uint136) Verify() error {
 	return nil
 }
 
-func (i *uint136) private() {}
+func (i uint136) private() {}
 
 func init() {
 	typeMap["uint136"] = &ABIEncodingType{
@@ -1298,17 +1299,17 @@ func (i *int144) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int144) Verify() error {
-	bi := (*big.Int)(i)
+func (i int144) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(144, bi) {
+	if !codec.FitsInNBitsSigned(144, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int144) private() {}
+func (i int144) private() {}
 
 func init() {
 	typeMap["int144"] = &ABIEncodingType{
@@ -1346,8 +1347,8 @@ func (i *uint144) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint144) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint144) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 144 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1356,7 +1357,7 @@ func (i *uint144) Verify() error {
 	return nil
 }
 
-func (i *uint144) private() {}
+func (i uint144) private() {}
 
 func init() {
 	typeMap["uint144"] = &ABIEncodingType{
@@ -1394,17 +1395,17 @@ func (i *int152) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int152) Verify() error {
-	bi := (*big.Int)(i)
+func (i int152) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(152, bi) {
+	if !codec.FitsInNBitsSigned(152, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int152) private() {}
+func (i int152) private() {}
 
 func init() {
 	typeMap["int152"] = &ABIEncodingType{
@@ -1442,8 +1443,8 @@ func (i *uint152) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint152) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint152) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 152 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1452,7 +1453,7 @@ func (i *uint152) Verify() error {
 	return nil
 }
 
-func (i *uint152) private() {}
+func (i uint152) private() {}
 
 func init() {
 	typeMap["uint152"] = &ABIEncodingType{
@@ -1490,17 +1491,17 @@ func (i *int160) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int160) Verify() error {
-	bi := (*big.Int)(i)
+func (i int160) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(160, bi) {
+	if !codec.FitsInNBitsSigned(160, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int160) private() {}
+func (i int160) private() {}
 
 func init() {
 	typeMap["int160"] = &ABIEncodingType{
@@ -1538,8 +1539,8 @@ func (i *uint160) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint160) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint160) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 160 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1548,7 +1549,7 @@ func (i *uint160) Verify() error {
 	return nil
 }
 
-func (i *uint160) private() {}
+func (i uint160) private() {}
 
 func init() {
 	typeMap["uint160"] = &ABIEncodingType{
@@ -1586,17 +1587,17 @@ func (i *int168) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int168) Verify() error {
-	bi := (*big.Int)(i)
+func (i int168) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(168, bi) {
+	if !codec.FitsInNBitsSigned(168, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int168) private() {}
+func (i int168) private() {}
 
 func init() {
 	typeMap["int168"] = &ABIEncodingType{
@@ -1634,8 +1635,8 @@ func (i *uint168) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint168) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint168) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 168 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1644,7 +1645,7 @@ func (i *uint168) Verify() error {
 	return nil
 }
 
-func (i *uint168) private() {}
+func (i uint168) private() {}
 
 func init() {
 	typeMap["uint168"] = &ABIEncodingType{
@@ -1682,17 +1683,17 @@ func (i *int176) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int176) Verify() error {
-	bi := (*big.Int)(i)
+func (i int176) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(176, bi) {
+	if !codec.FitsInNBitsSigned(176, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int176) private() {}
+func (i int176) private() {}
 
 func init() {
 	typeMap["int176"] = &ABIEncodingType{
@@ -1730,8 +1731,8 @@ func (i *uint176) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint176) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint176) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 176 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1740,7 +1741,7 @@ func (i *uint176) Verify() error {
 	return nil
 }
 
-func (i *uint176) private() {}
+func (i uint176) private() {}
 
 func init() {
 	typeMap["uint176"] = &ABIEncodingType{
@@ -1778,17 +1779,17 @@ func (i *int184) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int184) Verify() error {
-	bi := (*big.Int)(i)
+func (i int184) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(184, bi) {
+	if !codec.FitsInNBitsSigned(184, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int184) private() {}
+func (i int184) private() {}
 
 func init() {
 	typeMap["int184"] = &ABIEncodingType{
@@ -1826,8 +1827,8 @@ func (i *uint184) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint184) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint184) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 184 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1836,7 +1837,7 @@ func (i *uint184) Verify() error {
 	return nil
 }
 
-func (i *uint184) private() {}
+func (i uint184) private() {}
 
 func init() {
 	typeMap["uint184"] = &ABIEncodingType{
@@ -1874,17 +1875,17 @@ func (i *int192) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int192) Verify() error {
-	bi := (*big.Int)(i)
+func (i int192) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(192, bi) {
+	if !codec.FitsInNBitsSigned(192, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int192) private() {}
+func (i int192) private() {}
 
 func init() {
 	typeMap["int192"] = &ABIEncodingType{
@@ -1922,8 +1923,8 @@ func (i *uint192) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint192) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint192) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 192 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -1932,7 +1933,7 @@ func (i *uint192) Verify() error {
 	return nil
 }
 
-func (i *uint192) private() {}
+func (i uint192) private() {}
 
 func init() {
 	typeMap["uint192"] = &ABIEncodingType{
@@ -1970,17 +1971,17 @@ func (i *int200) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int200) Verify() error {
-	bi := (*big.Int)(i)
+func (i int200) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(200, bi) {
+	if !codec.FitsInNBitsSigned(200, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int200) private() {}
+func (i int200) private() {}
 
 func init() {
 	typeMap["int200"] = &ABIEncodingType{
@@ -2018,8 +2019,8 @@ func (i *uint200) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint200) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint200) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 200 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2028,7 +2029,7 @@ func (i *uint200) Verify() error {
 	return nil
 }
 
-func (i *uint200) private() {}
+func (i uint200) private() {}
 
 func init() {
 	typeMap["uint200"] = &ABIEncodingType{
@@ -2066,17 +2067,17 @@ func (i *int208) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int208) Verify() error {
-	bi := (*big.Int)(i)
+func (i int208) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(208, bi) {
+	if !codec.FitsInNBitsSigned(208, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int208) private() {}
+func (i int208) private() {}
 
 func init() {
 	typeMap["int208"] = &ABIEncodingType{
@@ -2114,8 +2115,8 @@ func (i *uint208) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint208) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint208) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 208 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2124,7 +2125,7 @@ func (i *uint208) Verify() error {
 	return nil
 }
 
-func (i *uint208) private() {}
+func (i uint208) private() {}
 
 func init() {
 	typeMap["uint208"] = &ABIEncodingType{
@@ -2162,17 +2163,17 @@ func (i *int216) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int216) Verify() error {
-	bi := (*big.Int)(i)
+func (i int216) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(216, bi) {
+	if !codec.FitsInNBitsSigned(216, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int216) private() {}
+func (i int216) private() {}
 
 func init() {
 	typeMap["int216"] = &ABIEncodingType{
@@ -2210,8 +2211,8 @@ func (i *uint216) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint216) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint216) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 216 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2220,7 +2221,7 @@ func (i *uint216) Verify() error {
 	return nil
 }
 
-func (i *uint216) private() {}
+func (i uint216) private() {}
 
 func init() {
 	typeMap["uint216"] = &ABIEncodingType{
@@ -2258,17 +2259,17 @@ func (i *int224) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int224) Verify() error {
-	bi := (*big.Int)(i)
+func (i int224) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(224, bi) {
+	if !codec.FitsInNBitsSigned(224, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int224) private() {}
+func (i int224) private() {}
 
 func init() {
 	typeMap["int224"] = &ABIEncodingType{
@@ -2306,8 +2307,8 @@ func (i *uint224) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint224) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint224) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 224 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2316,7 +2317,7 @@ func (i *uint224) Verify() error {
 	return nil
 }
 
-func (i *uint224) private() {}
+func (i uint224) private() {}
 
 func init() {
 	typeMap["uint224"] = &ABIEncodingType{
@@ -2354,17 +2355,17 @@ func (i *int232) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int232) Verify() error {
-	bi := (*big.Int)(i)
+func (i int232) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(232, bi) {
+	if !codec.FitsInNBitsSigned(232, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int232) private() {}
+func (i int232) private() {}
 
 func init() {
 	typeMap["int232"] = &ABIEncodingType{
@@ -2402,8 +2403,8 @@ func (i *uint232) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint232) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint232) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 232 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2412,7 +2413,7 @@ func (i *uint232) Verify() error {
 	return nil
 }
 
-func (i *uint232) private() {}
+func (i uint232) private() {}
 
 func init() {
 	typeMap["uint232"] = &ABIEncodingType{
@@ -2450,17 +2451,17 @@ func (i *int240) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int240) Verify() error {
-	bi := (*big.Int)(i)
+func (i int240) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(240, bi) {
+	if !codec.FitsInNBitsSigned(240, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int240) private() {}
+func (i int240) private() {}
 
 func init() {
 	typeMap["int240"] = &ABIEncodingType{
@@ -2498,8 +2499,8 @@ func (i *uint240) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint240) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint240) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 240 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2508,7 +2509,7 @@ func (i *uint240) Verify() error {
 	return nil
 }
 
-func (i *uint240) private() {}
+func (i uint240) private() {}
 
 func init() {
 	typeMap["uint240"] = &ABIEncodingType{
@@ -2546,17 +2547,17 @@ func (i *int248) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int248) Verify() error {
-	bi := (*big.Int)(i)
+func (i int248) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(248, bi) {
+	if !codec.FitsInNBitsSigned(248, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int248) private() {}
+func (i int248) private() {}
 
 func init() {
 	typeMap["int248"] = &ABIEncodingType{
@@ -2594,8 +2595,8 @@ func (i *uint248) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint248) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint248) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 248 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2604,7 +2605,7 @@ func (i *uint248) Verify() error {
 	return nil
 }
 
-func (i *uint248) private() {}
+func (i uint248) private() {}
 
 func init() {
 	typeMap["uint248"] = &ABIEncodingType{
@@ -2642,17 +2643,17 @@ func (i *int256) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *int256) Verify() error {
-	bi := (*big.Int)(i)
+func (i int256) Verify() error {
+	bi := (big.Int)(i)
 
-	if !codec.FitsInNBitsSigned(256, bi) {
+	if !codec.FitsInNBitsSigned(256, &bi) {
 		return types.ErrInvalidType
 	}
 
 	return nil
 }
 
-func (i *int256) private() {}
+func (i int256) private() {}
 
 func init() {
 	typeMap["int256"] = &ABIEncodingType{
@@ -2690,8 +2691,8 @@ func (i *uint256) MarshalText() ([]byte, error) {
 	return []byte(bi.String()), nil
 }
 
-func (i *uint256) Verify() error {
-	bi := (*big.Int)(i)
+func (i uint256) Verify() error {
+	bi := (big.Int)(i)
 
 	if bi.BitLen() > 256 || bi.Sign() < 0 {
 		return types.ErrInvalidType
@@ -2700,7 +2701,7 @@ func (i *uint256) Verify() error {
 	return nil
 }
 
-func (i *uint256) private() {}
+func (i uint256) private() {}
 
 func init() {
 	typeMap["uint256"] = &ABIEncodingType{

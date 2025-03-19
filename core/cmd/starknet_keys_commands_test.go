@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 
@@ -75,10 +74,10 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		key, err := app.GetKeyStore().StarkNet().Create(ctx)
 		require.NoError(t, err)
 		requireStarkNetKeyCount(t, app, 1)
-		assert.Nil(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
-		require.Equal(t, 1, len(r.Renders))
+		assert.NoError(t, cmd.NewStarkNetKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.StarkNetKeyPresenters)
-		assert.True(t, key.StarkKeyStr() == keys[0].StarkKey)
+		assert.Equal(t, key.StarkKeyStr(), keys[0].StarkKey)
 	})
 
 	t.Run("CreateStarkNetKey", func(tt *testing.T) {
@@ -141,7 +140,7 @@ func TestShell_StarkNetKeys(t *testing.T) {
 		set = flag.NewFlagSet("test StarkNet export", 0)
 		flagSetApplyFromAction(cmd.NewStarkNetKeysClient(client).ExportKey, set, "starknet")
 
-		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Parse([]string{key.ID()}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 

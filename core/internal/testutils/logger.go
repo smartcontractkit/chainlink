@@ -20,7 +20,7 @@ func LoggerAssertMaxLevel(t *testing.T, lvl zapcore.Level) logger.Logger {
 	}
 	lggr, o := logger.TestLoggerObserved(t, lvl+1)
 	t.Cleanup(func() {
-		assert.Empty(t, o.Len(), fmt.Sprintf("logger contains entries with levels above %q:\n%s", lvl, loggedEntries(o.All())))
+		assert.Empty(t, o.Len(), "logger contains entries with levels above %q:\n%s", lvl, loggedEntries(o.All()))
 	})
 	return lggr
 }

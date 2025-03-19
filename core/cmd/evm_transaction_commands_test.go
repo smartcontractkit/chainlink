@@ -47,7 +47,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs := *r.Renders[0].(*cmd.EthTxPresenters)
-	assert.Equal(t, 1, len(renderedTxs))
+	assert.Len(t, renderedTxs, 1)
 	assert.Equal(t, attempt.Hash.String(), renderedTxs[0].Hash.Hex())
 
 	// page 2 which doesn't exist
@@ -61,7 +61,7 @@ func TestShell_IndexTransactions(t *testing.T) {
 	assert.NoError(t, client.IndexTransactions(c))
 
 	renderedTxs = *r.Renders[1].(*cmd.EthTxPresenters)
-	assert.Equal(t, 0, len(renderedTxs))
+	assert.Empty(t, renderedTxs)
 }
 
 func TestShell_ShowTransaction(t *testing.T) {
@@ -125,7 +125,7 @@ func TestShell_IndexTxAttempts(t *testing.T) {
 	assert.NoError(t, client.IndexTxAttempts(c))
 
 	renderedAttempts = *r.Renders[1].(*cmd.EthTxPresenters)
-	assert.Equal(t, 0, len(renderedAttempts))
+	assert.Empty(t, renderedAttempts)
 }
 
 func TestShell_SendEther_From_Txm(t *testing.T) {

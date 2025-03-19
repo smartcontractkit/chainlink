@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -34,14 +35,14 @@ func (p *abiPacker) UnpackCheckResult(payload ocr2keepers.UpkeepPayload, raw str
 	if err != nil {
 		// decode failed, not retryable
 		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
-			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
+			fmt.Errorf("upkeepId %s failed to decode checkUpkeep result %s: %w", payload.UpkeepID.String(), raw, err)
 	}
 
 	out, err := p.autoV2CommonABI.Methods["checkUpkeep"].Outputs.UnpackValues(b)
 	if err != nil {
 		// unpack failed, not retryable
 		return GetIneligibleCheckResultWithoutPerformData(payload, UpkeepFailureReasonNone, PackUnpackDecodeFailed, false),
-			fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %s", payload.UpkeepID.String(), raw, err)
+			fmt.Errorf("upkeepId %s failed to unpack checkUpkeep result %s: %w", payload.UpkeepID.String(), raw, err)
 	}
 
 	result := ocr2keepers.CheckResult{
@@ -91,7 +92,7 @@ func (p *abiPacker) UnpackLogTriggerConfig(raw []byte) (ac.IAutomationV21PlusCom
 
 	converted, ok := abi.ConvertType(out[0], new(ac.IAutomationV21PlusCommonLogTriggerConfig)).(*ac.IAutomationV21PlusCommonLogTriggerConfig)
 	if !ok {
-		return cfg, fmt.Errorf("failed to convert type during UnpackLogTriggerConfig")
+		return cfg, errors.New("failed to convert type during UnpackLogTriggerConfig")
 	}
 	return *converted, nil
 }
@@ -113,7 +114,7 @@ func (p *abiPacker) UnpackReport(raw []byte) (ac.IAutomationV21PlusCommonReport,
 	}
 	converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV21PlusCommonReport)).(*ac.IAutomationV21PlusCommonReport)
 	if !ok {
-		return ac.IAutomationV21PlusCommonReport{}, fmt.Errorf("failed to convert type")
+		return ac.IAutomationV21PlusCommonReport{}, errors.New("failed to convert type")
 	}
 	report := ac.IAutomationV21PlusCommonReport{
 		FastGasWei:   converted.FastGasWei,
