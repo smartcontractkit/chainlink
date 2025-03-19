@@ -379,12 +379,22 @@ func DoSendRequest(
 		return nil, err
 	}
 
+	sourceChainID, err := chainsel.ChainIdFromSelector(cfg.SourceChain)
+	require.NoError(t, err)
+
+	destChainID, err := chainsel.ChainIdFromSelector(cfg.DestChain)
+	require.NoError(t, err)
+
 	require.True(t, it.Next())
-	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
+	t.Logf("CCIP message (id %x) sent from chain selector %d (chain id %d) to chain selector %d (chain id %d) tx %s blockNumber %d blockHash %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		it.Event.Message.Header.MessageId[:],
 		cfg.SourceChain,
+		sourceChainID,
 		cfg.DestChain,
+		destChainID,
 		tx.Hash().String(),
+		it.Event.Raw.BlockNumber,
+		it.Event.Raw.BlockHash.String(),
 		it.Event.SequenceNumber,
 		it.Event.Message.Header.Nonce,
 		it.Event.Message.Sender.String(),

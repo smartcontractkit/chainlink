@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	commonutils "github.com/smartcontractkit/chainlink-common/pkg/utils"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
@@ -300,6 +301,12 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	expectedSeqNumRange ccipocr3.SeqNumRange,
 	enforceSingleCommit bool,
 ) (*offramp.OffRampCommitReportAccepted, error) {
+	destChainID, err := chainsel.ChainIdFromSelector(dest.Selector)
+	require.NoError(t, err)
+
+	srcChainID, err := chainsel.ChainIdFromSelector(srcSelector)
+	require.NoError(t, err)
+
 	sink := make(chan *offramp.OffRampCommitReportAccepted)
 	subscription, err := offRamp.WatchCommitReportAccepted(&bind.WatchOpts{
 		Context: context.Background(),
@@ -360,8 +367,8 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	for {
 		select {
 		case <-ticker.C:
-			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
-				dest.Selector, srcSelector, expectedSeqNumRange.String())
+			t.Logf("Waiting for commit report on chain selector %d (chain id %d) from source selector %d (chain id %d) expected seq nr range %s",
+				dest.Selector, destChainID, srcSelector, srcChainID, expectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{

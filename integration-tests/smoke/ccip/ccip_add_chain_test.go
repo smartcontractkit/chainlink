@@ -1,9 +1,12 @@
 package ccip
 
 import (
+	"context"
 	"math/big"
 	"slices"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -12,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
 	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -24,6 +26,33 @@ import (
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 )
+
+// periodicallyReplay replays logs every 30 seconds on the nodes that are running in the test.
+// sometimes due to the test setup or other issues nodes miss logs and this causes the test to
+// fail due to not enough values to reach consensus. This function is a workaround to replay logs
+// periodically to ensure that the nodes have all the logs they need to reach consensus.
+func periodicallyReplay(
+	ctx context.Context,
+	t *testing.T,
+	deployedEnv testhelpers.DeployedEnv,
+	chains []uint64,
+) {
+	ticker := time.NewTicker(30 * time.Second)
+	defer ticker.Stop()
+	replayBlocks := make(map[uint64]uint64)
+	for _, chain := range chains {
+		replayBlocks[chain] = 1
+	}
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			t.Log("Replaying logs on tick")
+			testhelpers.ReplayLogs(t, deployedEnv.Env.Offchain, replayBlocks)
+		}
+	}
+}
 
 func Test_AddChain(t *testing.T) {
 	const (
@@ -54,7 +83,7 @@ func Test_AddChain(t *testing.T) {
 	/////////////////////////////////////
 	e = setupChain(t, e, tEnv, toDeploy, false)
 
-	state, err := state2.LoadOnchainState(e.Env)
+	state, err := ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 	// check RMNRemote is up and RMNProxy is correctly wired.
@@ -145,6 +174,10 @@ func Test_AddChain(t *testing.T) {
 		return gasPricePreUpdate, startBlocks
 	}
 
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go periodicallyReplay(tests.Context(t), t, e, allChains)
+
 	sendMsgs(toDeploy, toDeploy, false)
 
 	/////////////////////////////////////
@@ -174,7 +207,7 @@ func Test_AddChain(t *testing.T) {
 	// transferred to MCMS.
 	e = setupChain(t, e, tEnv, []uint64{remainingChain}, true)
 
-	state, err = state2.LoadOnchainState(e.Env)
+	state, err = ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
 
@@ -198,7 +231,7 @@ func Test_AddChain(t *testing.T) {
 		true, // mcmsEnabled
 	)
 
-	state, err = state2.LoadOnchainState(e.Env)
+	state, err = ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -316,7 +349,7 @@ func Test_AddChain(t *testing.T) {
 		true,  // mcmsEnabled
 	)
 
-	state, err = state2.LoadOnchainState(e.Env)
+	state, err = ccipcs.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 
 	assertChainWiringOutbound(
@@ -412,6 +445,8 @@ func Test_AddChain(t *testing.T) {
 
 	// Send messages from toDeploy to the newly added chain thru the real router.
 	sendMsgs(toDeploy, []uint64{remainingChain}, false)
+
+	wg.Wait()
 }
 
 // setupInboundWiring sets up the newChain to be able to receive ccip messages from the provided sources.
@@ -535,7 +570,7 @@ func setupChain(t *testing.T, e testhelpers.DeployedEnv, tEnv testhelpers.TestEn
 // It doesn't check that the existingChains have the newChain enabled as a dest.
 func assertChainWiringInbound(
 	t *testing.T,
-	state state2.CCIPOnChainState,
+	state ccipcs.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -581,7 +616,7 @@ func assertChainWiringInbound(
 // It doesn't check that the newChain can process the requests.
 func assertChainWiringOutbound(
 	t *testing.T,
-	state state2.CCIPOnChainState,
+	state ccipcs.CCIPOnChainState,
 	newChain uint64,
 	existingChains []uint64,
 	testRouterEnabled bool,
@@ -731,7 +766,7 @@ func offRampSourceUpdates(t *testing.T, dests []uint64, sources []uint64, testRo
 	return
 }
 
-func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state state2.CCIPOnChainState) {
+func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state ccipcs.CCIPOnChainState) {
 	for _, chain := range chains {
 		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
 		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
@@ -755,7 +790,7 @@ func transferToMCMSAndRenounceTimelockDeployer(
 	t *testing.T,
 	e testhelpers.DeployedEnv,
 	chains []uint64,
-	state state2.CCIPOnChainState,
+	state ccipcs.CCIPOnChainState,
 	onlyChainContracts bool,
 ) {
 	apps := make([]commonchangeset.ConfiguredChangeSet, 0, len(chains)+1)
