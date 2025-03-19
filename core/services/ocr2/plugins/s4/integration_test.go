@@ -291,7 +291,7 @@ func TestS4Integration_Expired(t *testing.T) {
 	for i := 0; i < don.size; i++ {
 		snapshot, err := don.orms[i].GetSnapshot(ctx, s4_svc.NewFullAddressRange())
 		require.NoError(t, err)
-		require.Len(t, snapshot, 0)
+		require.Empty(t, snapshot)
 	}
 }
 

@@ -3,7 +3,7 @@ package testutil
 import (
 	"testing"
 
-	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -17,15 +17,22 @@ import (
 )
 
 // TestChain is the chain used by the in-memory environment.
-var TestChain = chain_selectors.Chain{
+var TestChain = chainselectors.Chain{
 	EvmChainID: 90000001,
 	Selector:   909606746561742123,
 	Name:       "Test Chain",
 	VarName:    "",
 }
 
-func NewMemoryEnv(t *testing.T, deployMCMS bool, numNodes int) deployment.Environment {
+func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deployment.Environment {
 	lggr := logger.TestLogger(t)
+
+	// Default to 0 if no extra argument is provided
+	numNodes := 0
+	if len(optionalNumNodes) > 0 {
+		numNodes = optionalNumNodes[0]
+	}
+
 	memEnvConf := memory.MemoryEnvironmentConfig{
 		Chains: 1,
 		Nodes:  numNodes,

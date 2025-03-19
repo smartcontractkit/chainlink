@@ -1,6 +1,7 @@
 package framework
 
 import (
+	"errors"
 	"fmt"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
@@ -27,7 +28,7 @@ type NewDonConfigurationParams struct {
 
 func NewDonConfiguration(don NewDonConfigurationParams) (DonConfiguration, error) {
 	if !(don.NumNodes >= int(3*don.F+1)) {
-		return DonConfiguration{}, fmt.Errorf("invalid configuration, number of nodes must be at least 3*F+1")
+		return DonConfiguration{}, errors.New("invalid configuration, number of nodes must be at least 3*F+1")
 	}
 
 	keyBundles, peerIDs, err := getKeyBundlesAndPeerIDs(don.Name, don.NumNodes)

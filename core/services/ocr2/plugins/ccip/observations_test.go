@@ -28,7 +28,7 @@ func TestObservationFilter(t *testing.T) {
 	b1, err := obs1.Marshal()
 	require.NoError(t, err)
 	nonEmpty := GetParsableObservations[CommitObservation](lggr, []types.AttributedObservation{{Observation: b1}, {Observation: []byte{}}})
-	require.Equal(t, 1, len(nonEmpty))
+	require.Len(t, nonEmpty, 1)
 	assert.Equal(t, nonEmpty[0].Interval, obs1.Interval)
 }
 
@@ -63,7 +63,7 @@ func TestObservationCompat_MultiChainGas(t *testing.T) {
 
 	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: bL}, {Observation: bN}})
 
-	assert.Equal(t, 2, len(observations))
+	assert.Len(t, observations, 2)
 	assert.Equal(t, observations[0], observations[1])
 }
 
@@ -91,7 +91,7 @@ func TestCommitObservationJsonDeserialization(t *testing.T) {
 	}`
 
 	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
-	assert.Equal(t, 1, len(observations))
+	assert.Len(t, observations, 1)
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
@@ -109,7 +109,7 @@ func TestCommitObservationMarshal(t *testing.T) {
 
 	b, err := obs.Marshal()
 	require.NoError(t, err)
-	assert.Equal(t, `{"interval":{"Min":1,"Max":12},"tokensPerFeeCoin":{"0xaaaaaa":1},"sourceGasPrice":3,"sourceGasPriceUSDPerChain":{"123":3}}`, string(b))
+	assert.JSONEq(t, `{"interval":{"Min":1,"Max":12},"tokensPerFeeCoin":{"0xaaaaaa":1},"sourceGasPrice":3,"sourceGasPriceUSDPerChain":{"123":3}}`, string(b))
 
 	// Make sure that the call to Marshal did not alter the original observation object.
 	assert.Len(t, obs.TokenPricesUSD, 1)
@@ -141,8 +141,8 @@ func TestExecutionObservationJsonDeserialization(t *testing.T) {
 	}`
 
 	observations := GetParsableObservations[ExecutionObservation](logger.TestLogger(t), []types.AttributedObservation{{Observation: []byte(json)}})
-	assert.Equal(t, 1, len(observations))
-	assert.Equal(t, 2, len(observations[0].Messages))
+	assert.Len(t, observations, 1)
+	assert.Len(t, observations[0].Messages, 2)
 	assert.Equal(t, expectedObservation, observations[0])
 }
 
@@ -265,7 +265,7 @@ func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 	observations := GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{
 		{Observation: []byte(jsonEncoded)},
 	})
-	assert.Equal(t, 1, len(observations))
+	assert.Len(t, observations, 1)
 	assert.Equal(t, expectedObservation, observations[0])
 
 	backToJson, err := expectedObservation.Marshal()
@@ -279,7 +279,7 @@ func TestCommitObservationJsonSerializationDeserialization(t *testing.T) {
 	observations = GetParsableObservations[CommitObservation](logger.TestLogger(t), []types.AttributedObservation{
 		{Observation: []byte(jsonEncoded)},
 	})
-	assert.Equal(t, 1, len(observations))
+	assert.Len(t, observations, 1)
 	assert.Equal(t, expectedObservation, observations[0])
 }
 

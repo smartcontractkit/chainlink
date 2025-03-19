@@ -110,7 +110,7 @@ func MarshalMultichainPublicKey(ost map[string]ocrtypes.OnchainPublicKey) (ocrty
 		}
 		length := len(pubKey)
 		if length < 0 || length > math.MaxUint16 {
-			return nil, fmt.Errorf("pubKey doesn't fit into uint16")
+			return nil, errors.New("pubKey doesn't fit into uint16")
 		}
 		if err = binary.Write(buf, binary.LittleEndian, uint16(length)); err != nil {
 			return nil, err
@@ -189,7 +189,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) 
 	unmarshalledInfo := new(structpb.Struct)
 	err := proto.Unmarshal(info, unmarshalledInfo)
 	if err != nil {
-		return "", nil, fmt.Errorf("failed to unmarshal report info: %v", err)
+		return "", nil, fmt.Errorf("failed to unmarshal report info: %w", err)
 	}
 	infoMap := unmarshalledInfo.AsMap()
 	keyBundleName, ok := infoMap["keyBundleName"]
@@ -210,7 +210,7 @@ func (a *OCR3OnchainKeyringMultiChainAdapter) getKeyBundleFromInfo(info []byte) 
 func (a *OCR3OnchainKeyringMultiChainAdapter) Sign(digest ocrtypes.ConfigDigest, seqNr uint64, r ocr3types.ReportWithInfo[[]byte]) (signature []byte, err error) {
 	_, kb, err := a.getKeyBundleFromInfo(r.Info)
 	if err != nil {
-		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %v", err)
+		return nil, fmt.Errorf("sign: failed to get key bundle from report info: %w", err)
 	}
 	return kb.Sign(ocrtypes.ReportContext{
 		ReportTimestamp: ocrtypes.ReportTimestamp{

@@ -11,12 +11,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keystore"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
@@ -41,7 +41,7 @@ func NewTxm(
 	client client.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
-	keyStore keystore.Eth,
+	keyStore keys.ChainStore,
 	estimator gas.EvmFeeEstimator,
 	headTracker latestAndFinalizedBlockHeadTracker,
 	txmv2wrapper TxManager,
@@ -66,7 +66,7 @@ func NewTxm(
 	evmBroadcaster := NewEvmBroadcaster(txStore, txmClient, txmCfg, feeCfg, txConfig, listenerConfig, keyStore, txAttemptBuilder, lggr, checker, chainConfig.NonceAutoSync(), chainConfig.ChainType())
 	evmTracker := NewEvmTracker(txStore, keyStore, chainID, lggr)
 	stuckTxDetector := NewStuckTxDetector(lggr, client.ConfiguredChainID(), chainConfig.ChainType(), fCfg.PriceMax(), txConfig.AutoPurge(), estimator, txStore, client)
-	evmConfirmer := NewEvmConfirmer(txStore, txmClient, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector, headTracker)
+	evmConfirmer := NewEvmConfirmer(txStore, txmClient, feeCfg, txConfig, dbConfig, keyStore, txAttemptBuilder, lggr, stuckTxDetector)
 	evmFinalizer := NewEvmFinalizer(lggr, client.ConfiguredChainID(), chainConfig.RPCDefaultBatchSize(), txConfig.ForwardersEnabled(), txStore, txmClient, headTracker)
 	var evmResender *Resender
 	if txConfig.ResendAfterThreshold() > 0 {
@@ -106,7 +106,7 @@ func NewTxmV2(
 	client client.Client,
 	lggr logger.Logger,
 	logPoller logpoller.LogPoller,
-	keyStore keystore.Eth,
+	keyStore keys.ChainStore,
 	estimator gas.EvmFeeEstimator,
 ) (TxManager, error) {
 	var fwdMgr *forwarders.FwdMgr
@@ -128,7 +128,7 @@ func NewTxmV2(
 		stuckTxDetector = txm.NewStuckTxDetector(lggr, chainConfig.ChainType(), stuckTxDetectorConfig)
 	}
 
-	attemptBuilder := txm.NewAttemptBuilder(chainID, fCfg.PriceMaxKey, estimator, keyStore)
+	attemptBuilder := txm.NewAttemptBuilder(fCfg.PriceMaxKey, estimator, keyStore)
 	inMemoryStoreManager := storage.NewInMemoryStoreManager(lggr, chainID)
 	config := txm.Config{
 		EIP1559:   fCfg.EIP1559DynamicFees(),
@@ -177,7 +177,6 @@ func NewEvmConfirmer(
 	txAttemptBuilder TxAttemptBuilder,
 	lggr logger.Logger,
 	stuckTxDetector StuckTxDetector,
-	headTracker latestAndFinalizedBlockHeadTracker,
 ) *Confirmer {
 	return txmgr.NewConfirmer(txStore, client, feeConfig, txConfig, dbConfig, keystore, txAttemptBuilder, lggr, func(r *types.Receipt) bool { return r == nil }, stuckTxDetector)
 }

@@ -2,7 +2,6 @@ package mercurytransmitter
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -18,14 +17,14 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 )
 
 const (
@@ -131,7 +130,7 @@ type Opts struct {
 	VerboseLogging       bool
 	Cfg                  Config
 	Clients              map[string]grpc.Client
-	FromAccount          ed25519.PublicKey
+	FromAccount          string
 	DonID                uint32
 	ORM                  ORM
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
@@ -156,7 +155,7 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.ORM,
 		servers,
 		opts.DonID,
-		fmt.Sprintf("%x", opts.FromAccount),
+		opts.FromAccount,
 		make(services.StopChan),
 		&sync.WaitGroup{},
 	}

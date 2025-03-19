@@ -1,18 +1,25 @@
 
 [blockchain_a]
   type = "anvil"
+  chain_id = "1337"
   docker_cmd_params = ["-b", "5"]
 
 [jd]
   # change to your version
-  image = "jd-test-1:latest"
+  image = "jd-test-1:0.9.0"
 
-# fake data provider used as a mocked price source
-[fake]
-  port = 8171
+[infra]
+  # either "docker" or "crib"
+  type = "crib"
+
+  [infra.crib]
+  namespace = "crib-local"
+  folder_location = "/Users/bartektofel/Desktop/repos/crib/deployments/cre"
+  # either "aws" or "kind"
+  provider = "kind"
 
 [workflow_config]
-	workflow_name = "abcdefgasd"
+  workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
@@ -27,7 +34,7 @@
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/a261990c5b177fe58f304a52d0998e51/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json2891974493"
+    config_url = "https://gist.githubusercontent.com/Tofel/9af85e8e704f8b8e3946ad265075e18a/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json702797677"
 
 [[nodesets]]
   nodes = 5
@@ -38,13 +45,11 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-    volume_name = "workflow_volume"
 
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -61,9 +66,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -80,9 +83,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -99,9 +100,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -118,9 +117,68 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      capabilities = ["./amd64_cron"]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+  nodes = 3
+  override_mode = "each"
+  http_port_range_start = 10200
+  name = "capability"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13100
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -147,8 +205,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

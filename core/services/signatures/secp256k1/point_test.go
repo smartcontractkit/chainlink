@@ -20,8 +20,7 @@ var numPointSamples = 10
 var randomStreamPoint = cryptotest.NewStream(&testing.T{}, 0)
 
 func TestPoint_String(t *testing.T) {
-	require.Equal(t, newPoint().String(),
-		"Secp256k1{X: fieldElt{0}, Y: fieldElt{0}}")
+	require.Equal(t, "Secp256k1{X: fieldElt{0}, Y: fieldElt{0}}", newPoint().String())
 }
 
 func TestPoint_CloneAndEqual(t *testing.T) {
@@ -62,7 +61,7 @@ func TestPoint_Embed(t *testing.T) {
 	for i := 0; i < numPointSamples; i++ {
 		data := make([]byte, p.EmbedLen())
 		_, err := rand.Read(data)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		p.Embed(data, randomStreamPoint)
 		require.True(t, s256.IsOnCurve(p.X.int(), p.Y.int()),
 			"should embed to a secp256k1 point")
@@ -153,10 +152,10 @@ func TestPoint_Marshal(t *testing.T) {
 	for i := 0; i < numPointSamples; i++ {
 		p.Pick(randomStreamPoint)
 		serialized, err := p.MarshalBinary()
-		require.Nil(t, err)
+		require.NoError(t, err)
 		q := newPoint()
 		err = q.UnmarshalBinary(serialized)
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.True(t, p.Equal(q), "%v marshalled to %x, which "+
 			"unmarshalled to %v", p, serialized, q)
 	}
@@ -169,7 +168,7 @@ func TestPoint_Marshal(t *testing.T) {
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "not a point on the curve")
 	id := p.MarshalID()
-	require.Equal(t, string(id[:]), "sp256.po")
+	require.Equal(t, "sp256.po", string(id[:]))
 	data := make([]byte, 34)
 	err = p.UnmarshalBinary(data)
 	require.Error(t, err)
@@ -202,8 +201,7 @@ func TestPoint_EthereumAddress(t *testing.T) {
 	private := newScalar(pInt)
 	public := newPoint().Mul(private, nil)
 	address := EthereumAddress(public)
-	assert.Equal(t, fmt.Sprintf("%x", address),
-		"c2d7cf95645d33006175b78989035c7c9061d3f9")
+	assert.Equal(t, "c2d7cf95645d33006175b78989035c7c9061d3f9", fmt.Sprintf("%x", address))
 }
 
 func TestIsSecp256k1Point(t *testing.T) {

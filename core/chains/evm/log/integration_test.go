@@ -1682,24 +1682,23 @@ func newBroadcasterHelperWithEthClient(t *testing.T, ethClient evmclient.Client,
 	lb := log.NewTestBroadcaster(orm, ethClient, config, lggr, highestSeenHead, mailMon)
 	kst := cltest.NewKeyStore(t, db)
 
-	chainsAndConfig := evmtest.NewLegacyChainsAndConfig(t, evmtest.TestChainOpts{
+	legacyChains := evmtest.NewLegacyChains(t, evmtest.TestChainOpts{
 		Client:         ethClient,
 		ChainConfigs:   globalConfig.EVMConfigs(),
 		DatabaseConfig: globalConfig.Database(),
 		FeatureConfig:  globalConfig.Feature(),
 		ListenerConfig: globalConfig.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		LogBroadcaster: &log.NullBroadcaster{},
 		MailMon:        mailMon,
 	})
 
 	m := make(map[string]legacyevm.Chain)
-	for _, r := range chainsAndConfig.Slice() {
+	for _, r := range legacyChains.Slice() {
 		m[r.ID().String()] = r
 	}
 
-	legacyChains := chainsAndConfig.NewLegacyChains()
 	pipelineHelper := cltest.NewJobPipelineV2(t, globalConfig.WebServer(), globalConfig.JobPipeline(), legacyChains, db, kst, nil, nil)
 
 	return &broadcasterHelper{

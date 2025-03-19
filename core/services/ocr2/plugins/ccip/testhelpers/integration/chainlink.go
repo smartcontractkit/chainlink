@@ -33,9 +33,7 @@ import (
 	types4 "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
@@ -45,8 +43,6 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	evmUtils "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
-	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	configv2 "github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
@@ -75,7 +71,6 @@ import (
 	clutils "github.com/smartcontractkit/chainlink/v2/core/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
-	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
 const (
@@ -435,21 +430,16 @@ func setupNodeCCIP(
 
 	key, err := csakey.NewV2()
 	require.NoError(t, err)
+	csaKeyStore.On("EnsureKey", mock.Anything).Return(nil)
 	csaKeyStore.On("GetAll").Return([]csakey.KeyV2{key}, nil)
 	keyStore := NewKsa(db, lggr, csaKeyStore)
 
-	simEthKeyStore := testhelpers.EthKeyStoreSim{
-		ETHKS: keyStore.Eth(),
-		CSAKS: keyStore.CSA(),
-	}
-	mailMon := mailbox.NewMonitor("CCIP", lggr.Named("Mailbox"))
-	evmOpts := chainlink.EVMFactoryConfig{
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   config.EVMConfigs(),
-			DatabaseConfig: config.Database(),
-			ListenerConfig: config.Database().Listener(),
-			FeatureConfig:  config.Feature(),
-			GenEthClient: func(chainID *big.Int) client.Client {
+	app, err := chainlink.NewApplication(ctx, chainlink.ApplicationOpts{
+		Config:   config,
+		DS:       db,
+		KeyStore: keyStore,
+		EVMFactoryConfigFn: func(fc *chainlink.EVMFactoryConfig) {
+			fc.GenEthClient = func(chainID *big.Int) client.Client {
 				if chainID.String() == sourceChainID.String() {
 					return sourceClient
 				} else if chainID.String() == destChainID.String() {
@@ -457,46 +447,14 @@ func setupNodeCCIP(
 				}
 				t.Fatalf("invalid chain ID %v", chainID.String())
 				return nil
-			},
-			MailMon: mailMon,
-			DS:      db,
+			}
 		},
-		CSAETHKeystore: simEthKeyStore,
-	}
-	beholderAuthHeaders, csaPubKeyHex, err := keystore.BuildBeholderAuth(keyStore)
-	require.NoError(t, err)
-
-	loopRegistry := plugins.NewLoopRegistry(lggr.Named("LoopRegistry"), config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex)
-	relayerFactory := chainlink.RelayerFactory{
-		Logger:               lggr,
-		LoopRegistry:         loopRegistry,
-		GRPCOpts:             loop.GRPCOpts{},
-		CapabilitiesRegistry: evmcapabilities.NewRegistry(logger.TestLogger(t)),
-	}
-	testCtx := testutils.Context(t)
-	// evm alway enabled for backward compatibility
-	initOps := []chainlink.CoreRelayerChainInitFunc{
-		chainlink.InitEVM(testCtx, relayerFactory, evmOpts),
-	}
-
-	relayChainInterops, err := chainlink.NewCoreRelayerChainInteroperators(initOps...)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	app, err := chainlink.NewApplication(chainlink.ApplicationOpts{
-		Config:                     config,
-		DS:                         db,
-		KeyStore:                   keyStore,
-		RelayerChainInteroperators: relayChainInterops,
-		Logger:                     lggr,
-		ExternalInitiatorManager:   nil,
-		CloseLogger:                lggr.Sync,
-		UnrestrictedHTTPClient:     &http.Client{},
-		RestrictedHTTPClient:       &http.Client{},
-		AuditLogger:                audit.NoopLogger,
-		MailMon:                    mailMon,
-		LoopRegistry:               plugins.NewLoopRegistry(lggr, config.Database(), config.Tracing(), config.Telemetry(), beholderAuthHeaders, csaPubKeyHex),
+		Logger:                   lggr,
+		ExternalInitiatorManager: nil,
+		CloseLogger:              lggr.Sync,
+		UnrestrictedHTTPClient:   &http.Client{},
+		RestrictedHTTPClient:     &http.Client{},
+		AuditLogger:              audit.NoopLogger,
 	})
 	require.NoError(t, err)
 	require.NoError(t, app.GetKeyStore().Unlock(ctx, "password"))
@@ -508,6 +466,7 @@ func setupNodeCCIP(
 	require.Len(t, p2pIDs, 1)
 	peerID := p2pIDs[0].PeerID()
 
+	testCtx := testutils.Context(t)
 	_, err = app.GetKeyStore().Eth().Create(testCtx, destChainID)
 	require.NoError(t, err)
 	sendingKeys, err := app.GetKeyStore().Eth().EnabledKeysForChain(testCtx, destChainID)

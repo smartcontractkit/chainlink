@@ -17,15 +17,15 @@ import (
 func TestRun_Status(t *testing.T) {
 	t.Parallel()
 
-	assert.Equal(t, pipeline.RunStatusUnknown.Finished(), false)
-	assert.Equal(t, pipeline.RunStatusRunning.Finished(), false)
-	assert.Equal(t, pipeline.RunStatusCompleted.Finished(), true)
-	assert.Equal(t, pipeline.RunStatusErrored.Finished(), true)
+	assert.False(t, pipeline.RunStatusUnknown.Finished())
+	assert.False(t, pipeline.RunStatusRunning.Finished())
+	assert.True(t, pipeline.RunStatusCompleted.Finished())
+	assert.True(t, pipeline.RunStatusErrored.Finished())
 
-	assert.Equal(t, pipeline.RunStatusUnknown.Errored(), false)
-	assert.Equal(t, pipeline.RunStatusRunning.Errored(), false)
-	assert.Equal(t, pipeline.RunStatusCompleted.Errored(), false)
-	assert.Equal(t, pipeline.RunStatusErrored.Errored(), true)
+	assert.False(t, pipeline.RunStatusUnknown.Errored())
+	assert.False(t, pipeline.RunStatusRunning.Errored())
+	assert.False(t, pipeline.RunStatusCompleted.Errored())
+	assert.True(t, pipeline.RunStatusErrored.Errored())
 
 	now := null.TimeFrom(time.Now())
 

@@ -2,7 +2,6 @@ package capabilities_test
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -86,7 +85,7 @@ func TestRegistry_NoDuplicateIDs(t *testing.T) {
 	c2 := &mockCapability{CapabilityInfo: ci}
 
 	err = r.Add(ctx, c2)
-	assert.True(t, errors.Is(err, coreCapabilities.ErrCapabilityAlreadyExists))
+	assert.ErrorIs(t, err, coreCapabilities.ErrCapabilityAlreadyExists)
 }
 
 func TestRegistry_ChecksExecutionAPIByType(t *testing.T) {

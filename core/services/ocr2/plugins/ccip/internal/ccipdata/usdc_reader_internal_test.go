@@ -1,7 +1,6 @@
 package ccipdata
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
@@ -121,7 +120,7 @@ func TestLogPollerClient_GetUSDCMessagePriorToLogIndexInTx(t *testing.T) {
 		).Return([]logpoller.Log{}, nil)
 
 		usdcMessageData, err := u.GetUSDCMessagePriorToLogIndexInTx(ctx, ccipLogIndex, 0, txHash.String())
-		assert.Errorf(t, err, fmt.Sprintf("no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex()))
+		assert.Errorf(t, err, "no USDC message found prior to log index %d in tx %s", ccipLogIndex, txHash.Hex())
 		assert.Nil(t, usdcMessageData)
 
 		lp.AssertExpectations(t)

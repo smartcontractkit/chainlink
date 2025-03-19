@@ -3,8 +3,8 @@ package evm
 import (
 	"context"
 	"errors"
-	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -103,7 +103,7 @@ func TestPollLogs(t *testing.T) {
 				OutputErr   error
 			}{
 				OutputBlock: 0,
-				OutputErr:   fmt.Errorf("test error output"),
+				OutputErr:   errors.New("test error output"),
 			},
 		},
 		{
@@ -154,7 +154,7 @@ func TestPollLogs(t *testing.T) {
 				InputStart: 250,
 				InputEnd:   500,
 				OutputLogs: []logpoller.Log{},
-				OutputErr:  fmt.Errorf("test output error"),
+				OutputErr:  errors.New("test output error"),
 			},
 		},
 		{
@@ -215,7 +215,7 @@ func TestPollLogs(t *testing.T) {
 			if test.ExpectedErr != nil {
 				assert.ErrorIs(t, err, test.ExpectedErr)
 			} else {
-				assert.Nil(t, err)
+				assert.NoError(t, err)
 			}
 
 			var outputLogCount int
@@ -264,7 +264,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -289,7 +289,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -314,7 +314,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 			},
@@ -343,7 +343,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only one is a valid log trigger upkeep
-					assert.Equal(t, 1, len(ids))
+					assert.Len(t, ids, 1)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -397,7 +397,7 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					// of the ids specified in the test, only two are a valid log trigger upkeep
-					assert.Equal(t, 2, len(ids))
+					assert.Len(t, ids, 2)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -443,13 +443,13 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize*3; i++ {
-					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
-					assert.Equal(t, logTriggerRefreshBatchSize, len(ids))
+					assert.Len(t, ids, logTriggerRefreshBatchSize)
 					return ids, nil
 				},
 				RegisterFilterFn: func(ctx context.Context, opts logprovider.FilterOptions) error {
@@ -495,14 +495,14 @@ func TestRegistry_refreshLogTriggerUpkeeps(t *testing.T) {
 			ids: func() []*big.Int {
 				res := []*big.Int{}
 				for i := 0; i < logTriggerRefreshBatchSize+3; i++ {
-					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, fmt.Sprintf("%d", i)).BigInt())
+					res = append(res, core.GenUpkeepID(autotypes.LogTrigger, strconv.Itoa(i)).BigInt())
 				}
 				return res
 			}(),
 			logEventProvider: &mockLogEventProvider{
 				RefreshActiveUpkeepsFn: func(ctx context.Context, ids ...*big.Int) ([]*big.Int, error) {
 					if len(ids) != logTriggerRefreshBatchSize {
-						assert.Equal(t, 3, len(ids))
+						assert.Len(t, ids, 3)
 					}
 					return ids, nil
 				},

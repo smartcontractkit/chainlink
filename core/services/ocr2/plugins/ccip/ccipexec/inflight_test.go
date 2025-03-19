@@ -23,7 +23,7 @@ func TestInflightReportsContainer_add(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Equal(t, "report is already in flight", err.Error())
-	require.Equal(t, 1, len(container.getAll()))
+	require.Len(t, container.getAll(), 1)
 }
 
 func TestInflightReportsContainer_expire(t *testing.T) {
@@ -35,8 +35,8 @@ func TestInflightReportsContainer_expire(t *testing.T) {
 	})
 	require.NoError(t, err)
 	container.reports[0].createdAt = time.Now().Add(-time.Second * 5)
-	require.Equal(t, 1, len(container.getAll()))
+	require.Len(t, container.getAll(), 1)
 
 	container.expire(lggr)
-	require.Equal(t, 0, len(container.getAll()))
+	require.Empty(t, container.getAll())
 }

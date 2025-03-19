@@ -27,7 +27,7 @@ func Test_LookupTask(t *testing.T) {
 		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
 
 		assert.Equal(t, 42, res.Value)
-		assert.Nil(t, res.Error)
+		assert.NoError(t, res.Error)
 	})
 	t.Run("returns nil if key is missing", func(t *testing.T) {
 		task.Key = "qux"
@@ -35,7 +35,7 @@ func Test_LookupTask(t *testing.T) {
 
 		res, _ := task.Run(testutils.Context(t), logger.TestLogger(t), vars, inputs)
 
-		assert.Nil(t, res.Error)
+		assert.NoError(t, res.Error)
 		assert.Nil(t, res.Value)
 	})
 	t.Run("errors when input is not a map", func(t *testing.T) {

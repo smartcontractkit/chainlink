@@ -18,11 +18,11 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
 	"github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
 	txmtypes "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
@@ -32,11 +32,6 @@ type OrchestratorTxStore interface {
 	Add(addresses ...common.Address) error
 	FetchUnconfirmedTransactionAtNonceWithCount(context.Context, uint64, common.Address) (*txmtypes.Transaction, int, error)
 	FindTxWithIdempotencyKey(context.Context, string) (*txmtypes.Transaction, error)
-}
-
-type OrchestratorKeystore interface {
-	CheckEnabled(ctx context.Context, address common.Address, chainID *big.Int) error
-	EnabledAddressesForChain(ctx context.Context, chainID *big.Int) (addresses []common.Address, err error)
 }
 
 type OrchestratorAttemptBuilder[
@@ -58,7 +53,7 @@ type Orchestrator[
 	txm            *Txm
 	txStore        OrchestratorTxStore
 	fwdMgr         *forwarders.FwdMgr
-	keystore       OrchestratorKeystore
+	keystore       keys.Addresses
 	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD]
 	resumeCallback txmgr.ResumeCallback
 }
@@ -69,7 +64,7 @@ func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]
 	txm *Txm,
 	txStore OrchestratorTxStore,
 	fwdMgr *forwarders.FwdMgr,
-	keystore OrchestratorKeystore,
+	keystore keys.Addresses,
 	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD],
 ) *Orchestrator[BLOCK_HASH, HEAD] {
 	return &Orchestrator[BLOCK_HASH, HEAD]{
@@ -92,7 +87,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 				return fmt.Errorf("Orchestrator: AttemptBuilder failed to start: %w", err)
 			}
 		}
-		addresses, err := o.keystore.EnabledAddressesForChain(ctx, o.chainID)
+		addresses, err := o.keystore.EnabledAddresses(ctx)
 		if err != nil {
 			return err
 		}
@@ -171,6 +166,8 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) OnNewLongestChain(ctx context.Context, 
 	}
 }
 
+type NotEnabledError = txmgr.NotEnabledError[common.Address]
+
 func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, request txmgrtypes.TxRequest[common.Address, common.Hash]) (tx txmgrtypes.Tx[*big.Int, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee], err error) {
 	var wrappedTx *txmtypes.Transaction
 	if request.IdempotencyKey != nil {
@@ -183,8 +180,8 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, 
 	if wrappedTx != nil {
 		o.lggr.Infof("Found Tx with IdempotencyKey: %v. Returning existing Tx without creating a new one.", *wrappedTx.IdempotencyKey)
 	} else {
-		if kErr := o.keystore.CheckEnabled(ctx, request.FromAddress, o.chainID); kErr != nil {
-			return tx, fmt.Errorf("cannot send transaction from %s on chain ID %s: %w", request.FromAddress, o.chainID.String(), kErr)
+		if kErr := o.keystore.CheckEnabled(ctx, request.FromAddress); kErr != nil {
+			return tx, NotEnabledError{FromAddress: request.FromAddress, Err: err}
 		}
 
 		var pipelineTaskRunID uuid.NullUUID
@@ -271,7 +268,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, 
 
 // CountTransactionsByState was required for backwards compatibility and it's used only for unconfirmed transactions.
 func (o *Orchestrator[BLOCK_HASH, HEAD]) CountTransactionsByState(ctx context.Context, state txmgrtypes.TxState) (uint32, error) {
-	addresses, err := o.keystore.EnabledAddressesForChain(ctx, o.chainID)
+	addresses, err := o.keystore.EnabledAddresses(ctx)
 	if err != nil {
 		return 0, err
 	}

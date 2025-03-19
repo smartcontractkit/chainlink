@@ -1,6 +1,7 @@
 package encoding
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -13,7 +14,7 @@ import (
 )
 
 var (
-	ErrEmptyResults = fmt.Errorf("empty results; cannot encode")
+	ErrEmptyResults = errors.New("empty results; cannot encode")
 )
 
 type reportEncoder struct {

@@ -1,7 +1,7 @@
 package feeds
 
 import (
-	"crypto/ed25519"
+	"crypto"
 	"sync"
 
 	"github.com/pkg/errors"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/recovery"
 )
@@ -54,8 +55,7 @@ type ConnectOpts struct {
 	// URI is the URI of the feeds manager
 	URI string
 
-	// Privkey defines the local CSA private key
-	Privkey []byte
+	CSASigner crypto.Signer
 
 	// Pubkey defines the Feeds Manager Service's public key
 	Pubkey []byte
@@ -95,7 +95,7 @@ func (mgr *connectionsManager) Connect(opts ConnectOpts) {
 		mgr.lggr.Infow("Connecting to Feeds Manager...", "feedsManagerID", opts.FeedsManagerID)
 
 		clientConn, err := wsrpc.DialWithContext(ctx, opts.URI,
-			wsrpc.WithTransportCreds(opts.Privkey, ed25519.PublicKey(opts.Pubkey)),
+			wsrpc.WithTransportSigner(opts.CSASigner, opts.Pubkey),
 			wsrpc.WithBlock(),
 			wsrpc.WithLogger(mgr.lggr),
 		)

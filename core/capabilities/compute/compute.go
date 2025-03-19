@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,7 +113,7 @@ func (c *Compute) UnregisterFromWorkflow(ctx context.Context, request capabiliti
 
 func generateID(binary []byte) string {
 	id := sha256.Sum256(binary)
-	return fmt.Sprintf("%x", id)
+	return hex.EncodeToString(id[:])
 }
 
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {

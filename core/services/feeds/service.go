@@ -21,7 +21,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
-
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -41,7 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
+	cryptoutils "github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 	"github.com/smartcontractkit/chainlink/v2/plugins"
 )
 
@@ -134,6 +134,7 @@ type service struct {
 	jobORM              job.ORM
 	ds                  sqlutil.DataSource
 	csaKeyStore         keystore.CSA
+	csaSigner           *core.Ed25519Signer
 	p2pKeyStore         keystore.P2P
 	ocr1KeyStore        keystore.OCR
 	ocr2KeyStore        keystore.OCR2
@@ -213,7 +214,7 @@ func NewService(
 type RegisterManagerParams struct {
 	Name         string
 	URI          string
-	PublicKey    crypto.PublicKey
+	PublicKey    cryptoutils.PublicKey
 	ChainConfigs []ChainConfig
 }
 
@@ -264,14 +265,9 @@ func (s *service) RegisterManager(ctx context.Context, params RegisterManagerPar
 		return 0, err
 	}
 
-	privkey, err := s.getCSAPrivateKey()
-	if err != nil {
-		return 0, err
-	}
-
 	// Establish a connection
 	mgr.ID = id
-	s.connectFeedManager(ctx, mgr, privkey)
+	s.connectFeedManager(mgr)
 
 	return id, nil
 }
@@ -336,7 +332,7 @@ func (s *service) SyncNodeInfo(ctx context.Context, id int64) error {
 		cfgMsgs = append(cfgMsgs, cfgMsg)
 	}
 
-	workflowKey := s.getWorkflowPublicKey()
+	workflowKey := s.getWorkflowPublicKey(ctx)
 
 	resp, err := fmsClient.UpdateNode(ctx, &pb.UpdateNodeRequest{
 		Version:      s.version,
@@ -366,7 +362,7 @@ func (s *service) UpdateManager(ctx context.Context, mgr FeedsManager) error {
 		return errors.Wrap(err, "could not update manager")
 	}
 
-	if err := s.restartConnection(ctx, mgr); err != nil {
+	if err := s.restartConnection(mgr); err != nil {
 		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
@@ -379,7 +375,7 @@ func (s *service) EnableManager(ctx context.Context, id int64) (*FeedsManager, e
 		return nil, errors.Wrap(err, "could not enable manager")
 	}
 
-	if err := s.restartConnection(ctx, *mgr); err != nil {
+	if err := s.restartConnection(*mgr); err != nil {
 		s.lggr.Errorf("could not restart FMS connection: %v", err)
 	}
 
@@ -1172,8 +1168,15 @@ func (s *service) UpdateSpecDefinition(ctx context.Context, id int64, defn strin
 // Start starts the service.
 func (s *service) Start(ctx context.Context) error {
 	return s.StartOnce("FeedsService", func() error {
-		privkey, err := s.getCSAPrivateKey()
+		key, err := keystore.GetDefault(ctx, s.csaKeyStore)
 		if err != nil {
+			return err
+		}
+		s.csaSigner, err = core.NewEd25519Signer(key.ID(), keystore.CSASigner{CSA: s.csaKeyStore}.Sign)
+		if err != nil {
+			return err
+		}
+		if err = s.csaSigner.Start(ctx); err != nil {
 			return err
 		}
 
@@ -1191,12 +1194,12 @@ func (s *service) Start(ctx context.Context) error {
 			s.lggr.Infof("starting connection to %d feeds managers", len(mgrs))
 			for _, mgr := range mgrs {
 				if mgr.DisabledAt == nil {
-					s.connectFeedManager(ctx, mgr, privkey)
+					s.connectFeedManager(mgr)
 				}
 			}
 		} else {
 			if mgrs[0].DisabledAt == nil {
-				s.connectFeedManager(ctx, mgrs[0], privkey)
+				s.connectFeedManager(mgrs[0])
 			}
 		}
 
@@ -1215,17 +1218,16 @@ func (s *service) Close() error {
 
 		// This blocks until it finishes
 		s.connMgr.Close()
-
-		return nil
+		return s.csaSigner.Close()
 	})
 }
 
 // connectFeedManager connects to a feeds manager
-func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, privkey []byte) {
+func (s *service) connectFeedManager(mgr FeedsManager) {
 	s.connMgr.Connect(ConnectOpts{
 		FeedsManagerID: mgr.ID,
 		URI:            mgr.URI,
-		Privkey:        privkey,
+		CSASigner:      s.csaSigner,
 		Pubkey:         mgr.PublicKey,
 		Handlers: &RPCHandlers{
 			feedsManagerID: mgr.ID,
@@ -1238,31 +1240,15 @@ func (s *service) connectFeedManager(ctx context.Context, mgr FeedsManager, priv
 	})
 }
 
-// getCSAPrivateKey gets the server's CSA private key
-func (s *service) getCSAPrivateKey() (privkey []byte, err error) {
-	// Fetch the server's public key
-	keys, err := s.csaKeyStore.GetAll()
-	if err != nil {
-		return privkey, err
-	}
-	if len(keys) < 1 {
-		return privkey, errors.New("CSA key does not exist")
-	}
-	return keys[0].Raw(), nil
-}
-
 // getWorkflowPublicKey retrieves the server's Workflow public key.
 // Since there will be at most one key, it returns the first key found.
 // If an error occurs or no keys are found, it returns blank.
-func (s *service) getWorkflowPublicKey() string {
-	keys, err := s.workflowKeyStore.GetAll()
+func (s *service) getWorkflowPublicKey(ctx context.Context) string {
+	key, err := keystore.GetDefault(ctx, s.workflowKeyStore)
 	if err != nil {
 		return ""
 	}
-	if len(keys) < 1 {
-		return ""
-	}
-	return keys[0].PublicKeyString()
+	return key.PublicKeyString()
 }
 
 // observeJobProposalCounts is a helper method that queries the repository for the count of
@@ -1550,20 +1536,14 @@ func (s *service) validateProposeJobArgs(ctx context.Context, args ProposeJobArg
 	return nil
 }
 
-func (s *service) restartConnection(ctx context.Context, mgr FeedsManager) error {
+func (s *service) restartConnection(mgr FeedsManager) error {
 	s.lggr.Infof("Restarting connection")
 
 	if err := s.connMgr.Disconnect(mgr.ID); err != nil {
 		s.lggr.Info("Feeds Manager not connected, attempting to connect")
 	}
 
-	// Establish a new connection
-	privkey, err := s.getCSAPrivateKey()
-	if err != nil {
-		return err
-	}
-
-	s.connectFeedManager(ctx, mgr, privkey)
+	s.connectFeedManager(mgr)
 
 	return nil
 }

@@ -35,7 +35,7 @@ func (h *Hash) SetBytes(b []byte) {
 }
 
 // Hex converts a hash to a hex string.
-func (h Hash) Hex() string { return fmt.Sprintf("0x%s", hex.EncodeToString(h[:])) }
+func (h Hash) Hex() string { return "0x" + hex.EncodeToString(h[:]) }
 
 // String implements the stringer interface and is used also by the logger when
 // doing full logging into a file.

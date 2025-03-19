@@ -103,5 +103,5 @@ func TestNewReportingPluginRetriesUntilSuccess(t *testing.T) {
 
 	// Assert that NewReportingPlugin succeeds despite many transient internal failures (mocked out above)
 	_, _, err := factory.NewReportingPlugin(ctx, reportingConfig)
-	assert.Equal(t, nil, err)
+	assert.NoError(t, err)
 }
