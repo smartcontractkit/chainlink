@@ -1029,8 +1029,8 @@ github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-1
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6/go.mod h1:FRwzI3hGj4CJclNS733gfcffmqQ62ONCkbGi49s658w=
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0 h1:79Z9N9dMbMVRGaLoDPAQ+vOwbM+Hnx8tIN2xCPG8H4o=
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250318192604-37972610e3eb h1:pBymkpmsVY/rNwj3bb1fmiT3Sn/ChkEHRRtiTengK3c=
-github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250318192604-37972610e3eb/go.mod h1:XY+I+uwxZ5KuuxOLHlZtHSmWGKB15CPkgn/zP5/VhHs=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250319160959-3d984cad7f91 h1:xJxXZQkoRru6Zs1ZGThVWw7R0gZQt+UVLh9+44r3cHI=
+github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250319160959-3d984cad7f91/go.mod h1:XY+I+uwxZ5KuuxOLHlZtHSmWGKB15CPkgn/zP5/VhHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7/go.mod h1:FX7/bVdoep147QQhsOPkYsPEXhGZjeYx6lBSaSXtZOA=
 github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 h1:PKiqnVOTChlH4a4ljJKL3OKGRgYfIpJS4YD1daAIKks=
