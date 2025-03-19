@@ -1,7 +1,6 @@
 package v1_6_test
 
 import (
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -21,10 +20,11 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/stretchr/testify/require"
+
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
-	"github.com/stretchr/testify/require"
 )
 
 func checkConnectivity(
@@ -63,7 +63,7 @@ func TestConnectNewChain(t *testing.T) {
 	mustHaveOwner := func(t *testing.T, ownable commonchangeset.Ownable, expectedOwner string) {
 		owner, err := ownable.Owner(nil)
 		require.NoError(t, err, "must get owner")
-		require.Equal(t, expectedOwner, owner.Hex(), fmt.Sprintf("owner must be %s", expectedOwner))
+		require.Equal(t, expectedOwner, owner.Hex(), "owner must be "+expectedOwner)
 	}
 
 	type test struct {
@@ -406,7 +406,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 				},
 				ConfigOnHome: v1_6.ChainConfig{
 					Readers: nodeInfo.NonBootstraps().PeerIDs(),
-					FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+					FChain:  uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3), // #nosec G115 - Overflow is not a concern in this test scenario
 					EncodableChainConfig: chainconfig.ChainConfig{
 						GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
 						DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},

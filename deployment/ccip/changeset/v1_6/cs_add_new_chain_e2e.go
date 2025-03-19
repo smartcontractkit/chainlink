@@ -15,11 +15,12 @@ import (
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
 
 /*
@@ -482,7 +483,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 
 	// Update the fee quoter prices and destinations on the remote chains
 	for _, remoteChain := range c.RemoteChains {
-		out, err := UpdateFeeQuoterDestsChangeset(e, c.updateFeeQuoterDestsConfig(remoteChain))
+		out, err = UpdateFeeQuoterDestsChangeset(e, c.updateFeeQuoterDestsConfig(remoteChain))
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", remoteChain.Selector, err)
 		}
@@ -638,7 +639,7 @@ func (c ConnectNewChainConfig) validateChain(ctx context.Context, state changese
 
 func connectNewChainPrecondition(env deployment.Environment, c ConnectNewChainConfig) error {
 	if c.TestRouter == nil {
-		return fmt.Errorf("must define whether to use the test router")
+		return errors.New("must define whether to use the test router")
 	}
 
 	state, err := changeset.LoadOnchainState(env)
@@ -701,7 +702,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
-		ownershipTransferProposals = out.Proposals
+		ownershipTransferProposals = out.Proposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
 
 		// Also, renounce the admin role on the Timelock (if not already done).
 		adminRole, err := state.Chains[c.NewChainSelector].Timelock.ADMINROLE(readOpts)
@@ -844,16 +845,16 @@ func connectRampsAndRouters(
 // END ConnectNewChainChangeset
 ///////////////////////////////////
 
-func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), new deployment.AddressBook, existing deployment.AddressBook) error {
+func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), newAddresses deployment.AddressBook, existingAddresses deployment.AddressBook) error {
 	output, err := fn()
 	if err != nil {
 		return fmt.Errorf("failed to run changeset: %w", err)
 	}
-	err = new.Merge(output.AddressBook)
+	err = newAddresses.Merge(output.AddressBook)
 	if err != nil {
 		return fmt.Errorf("failed to update new address book: %w", err)
 	}
-	err = existing.Merge(output.AddressBook)
+	err = existingAddresses.Merge(output.AddressBook)
 	if err != nil {
 		return fmt.Errorf("failed to update existing address book: %w", err)
 	}
