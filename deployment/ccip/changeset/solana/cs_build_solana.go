@@ -3,7 +3,6 @@ package solana
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -11,14 +10,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 
 	"github.com/google/go-github/v58/github"
 	"github.com/smartcontractkit/chainlink/deployment"
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/oauth2"
 )
 
@@ -43,6 +42,23 @@ var programToFileMap = map[deployment.ContractType]string{
 	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
 	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
+}
+
+type LocalBuildConfig struct {
+	BuildLocally         bool
+	CleanDestinationDir  bool
+	CreateDestinationDir bool
+	// Forces re-clone of git directory. Useful for forcing regeneration of keys
+	CleanGitDir bool
+}
+
+type BuildSolanaConfig struct {
+	GitCommitSha string
+	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
+	DestinationDir string
+	ReplaceKeys    bool
+	UpgradeKeys    map[deployment.ContractType]string
+	LocalBuild     LocalBuildConfig
 }
 
 // Run a command in a specific directory
@@ -158,195 +174,135 @@ func buildProject(e deployment.Environment) error {
 	return nil
 }
 
-type BuildSolanaConfig struct {
-	GitCommitSha string
-	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
-	DestinationDir       string
-	CleanDestinationDir  bool
-	CreateDestinationDir bool
-	// Forces re-clone of git directory. Useful for forcing regeneration of keys
-	CleanGitDir   bool
-	ReplaceKeys   bool
-	UpgradeKeys   map[deployment.ContractType]string
-	VerifiedBuild bool
-}
+func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+	// Clone the repository
+	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
+		return fmt.Errorf("error cloning repo: %w", err)
+	}
 
-// https://solana.com/developers/guides/advanced/verified-builds
-type VerifyBuildConfig struct {
-	GitCommitSha               string
-	ChainSelector              uint64
-	VerifyFeeQuoter            bool
-	VerifyRouter               bool
-	VerifyOffRamp              bool
-	VerifyRMNRemote            bool
-	VerifyBurnMintTokenPool    bool
-	VerifyLockReleaseTokenPool bool
-	VerifyAccessController     bool
-	VerifyMCM                  bool
-	VerifyTimelock             bool
-	RemoteVerification         bool
-	MCMSSolana                 *MCMSConfigSolana
-}
-
-func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
-	// to use verified builds and actually have them work you need to:
-	// 1. have the gh cli installed (brew install gh). This is already installed on GH runners so this will work in CI.
-	// 2. have the private keypair files sourced from somewhere and already located in the DestinationDir. This is orthoganal to the verified build process
-	if config.VerifiedBuild {
-		if config.CreateDestinationDir || config.CleanDestinationDir {
-			return errors.New("create or clean destination dir cannot be true when using verified builds. This could delete the private keypair files")
+	if config.ReplaceKeys {
+		// Replace keys in Rust files using anchor keys sync
+		if err := replaceKeys(e); err != nil {
+			return fmt.Errorf("error replacing keys: %w", err)
 		}
-		downloadRelease(e, config.DestinationDir)
+
+		// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
+		// We need to do this so the keys will match the existing deployed program
+		if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
+			return fmt.Errorf("error replacing keys for upgrade: %w", err)
+		}
+	}
+
+	// Build the project with Anchor
+	if err := buildProject(e); err != nil {
+		return fmt.Errorf("error building project: %w", err)
+	}
+
+	if config.LocalBuild.CleanDestinationDir {
+		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
+		if err := os.RemoveAll(config.DestinationDir); err != nil {
+			return fmt.Errorf("error cleaning build folder: %w", err)
+		}
+		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create build directory: %w", err)
+		}
+	} else if config.LocalBuild.CreateDestinationDir {
+		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
+		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
+		if err != nil {
+			return fmt.Errorf("failed to create build directory: %w", err)
+		}
+	}
+
+	deployFilePath := filepath.Join(cloneDir, deployDir)
+	e.Logger.Debugw("Reading deploy directory", "deployFilePath", deployFilePath)
+	files, err := os.ReadDir(deployFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to read deploy directory: %w", err)
+	}
+
+	for _, file := range files {
+		filePath := filepath.Join(deployFilePath, file.Name())
+		e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
+		err := copyFile(filePath, config.DestinationDir)
+		if err != nil {
+			return fmt.Errorf("failed to copy file: %w", err)
+		}
+	}
+
+	return nil
+}
+
+func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
+	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
+
+	gomod, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return "", err
+	}
+
+	modFile, err := modfile.ParseLax("go.mod", gomod, nil)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dep := range modFile.Require {
+		if dep.Mod.Path == dependency {
+			return dep.Mod.Version, nil
+		}
+	}
+
+	return "", fmt.Errorf("dependency %s not found", dependency)
+}
+
+func getVersion() (version string, err error) {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Get the root directory by walking up from current file until we find go.mod
+	rootDir := filepath.Dir(currentFile)
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(rootDir)
+		if parent == rootDir {
+			return "", fmt.Errorf("could not find project root directory containing go.mod")
+		}
+		rootDir = parent
+	}
+
+	go_mod_version, err := getSolanaCcipDependencyVersion(filepath.Join(rootDir, "go.mod"))
+	if err != nil {
+		return "", err
+	}
+	tokens := strings.Split(go_mod_version, "-")
+	if len(tokens) == 3 {
+		version := tokens[len(tokens)-1]
+		return version, nil
 	} else {
-		// Clone the repository
-		if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
-			return fmt.Errorf("error cloning repo: %w", err)
-		}
-
-		if config.ReplaceKeys {
-			// Replace keys in Rust files using anchor keys sync
-			if err := replaceKeys(e); err != nil {
-				return fmt.Errorf("error replacing keys: %w", err)
-			}
-
-			// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
-			// We need to do this so the keys will match the existing deployed program
-			if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
-				return fmt.Errorf("error replacing keys for upgrade: %w", err)
-			}
-		}
-
-		// Build the project with Anchor
-		if err := buildProject(e); err != nil {
-			return fmt.Errorf("error building project: %w", err)
-		}
-
-		if config.CleanDestinationDir {
-			e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
-			if err := os.RemoveAll(config.DestinationDir); err != nil {
-				return fmt.Errorf("error cleaning build folder: %w", err)
-			}
-			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("failed to create build directory: %w", err)
-			}
-		} else if config.CreateDestinationDir {
-			e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
-			err := os.MkdirAll(config.DestinationDir, os.ModePerm)
-			if err != nil {
-				return fmt.Errorf("failed to create build directory: %w", err)
-			}
-		}
-
-		deployFilePath := filepath.Join(cloneDir, deployDir)
-		e.Logger.Debugw("Reading deploy directory", "deployFilePath", deployFilePath)
-		files, err := os.ReadDir(deployFilePath)
-		if err != nil {
-			return fmt.Errorf("failed to read deploy directory: %w", err)
-		}
-
-		for _, file := range files {
-			filePath := filepath.Join(deployFilePath, file.Name())
-			e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
-			err := copyFile(filePath, config.DestinationDir)
-			if err != nil {
-				return fmt.Errorf("failed to copy file: %w", err)
-			}
-		}
+		return "", fmt.Errorf("invalid go.mod version: %s", go_mod_version)
 	}
-
-	return nil
 }
 
-func runSolanaVerify(networkURL, programID, libraryName, commitHash, mountPath string, remote bool) error {
-	cmdArgs := []string{
-		"verify-from-repo",
-		"-u", networkURL,
-		"--program-id", programID,
-		"--library-name", libraryName,
-		strings.TrimSuffix(repoURL, ".git"),
-		"--commit-hash", commitHash,
-		"--mount-path", mountPath,
-	}
-
-	// Add --remote flag if remote verification is enabled
-	if remote {
-		cmdArgs = append(cmdArgs, "--remote")
-	}
-
-	output, err := runCommand("solana-verify", cmdArgs, ".")
-	fmt.Println(output)
-	if err != nil {
-		return fmt.Errorf("solana program verification failed: %s %w", output, err)
-	}
-	return nil
-}
-
-func VerifyBuild(e deployment.Environment, cfg VerifyBuildConfig) (deployment.ChangesetOutput, error) {
-	chain := e.SolChains[cfg.ChainSelector]
-	state, _ := ccipChangeset.LoadOnchainState(e)
-	chainState := state.SolChains[cfg.ChainSelector]
-
-	addresses, err := e.ExistingAddresses.AddressesForChain(cfg.ChainSelector)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
-	}
-	mcmState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
-	}
-
-	verifications := []struct {
-		name       string
-		programID  string
-		programLib string
-		enabled    bool
-	}{
-		{"Fee Quoter", chainState.FeeQuoter.String(), deployment.FeeQuoterProgramName, cfg.VerifyFeeQuoter},
-		{"Router", chainState.Router.String(), deployment.RouterProgramName, cfg.VerifyRouter},
-		{"OffRamp", chainState.OffRamp.String(), deployment.OffRampProgramName, cfg.VerifyOffRamp},
-		{"RMN Remote", chainState.RMNRemote.String(), deployment.RMNRemoteProgramName, cfg.VerifyRMNRemote},
-		{"Burn Mint Token Pool", chainState.BurnMintTokenPool.String(), deployment.BurnMintTokenPoolProgramName, cfg.VerifyBurnMintTokenPool},
-		{"Lock Release Token Pool", chainState.LockReleaseTokenPool.String(), deployment.LockReleaseTokenPoolProgramName, cfg.VerifyLockReleaseTokenPool},
-		{"Access Controller", mcmState.AccessControllerProgram.String(), deployment.AccessControllerProgramName, cfg.VerifyAccessController},
-		{"MCM", mcmState.McmProgram.String(), deployment.McmProgramName, cfg.VerifyMCM},
-		{"Timelock", mcmState.TimelockProgram.String(), deployment.TimelockProgramName, cfg.VerifyTimelock},
-	}
-
-	for _, v := range verifications {
-		if !v.enabled {
-			continue
-		}
-
-		e.Logger.Debugw("Verifying program", "name", v.name, "programID", v.programID, "programLib", v.programLib)
-		err := runSolanaVerify(
-			chain.URL,
-			v.programID,
-			v.programLib,
-			cfg.GitCommitSha,
-			anchorDir,
-			cfg.RemoteVerification,
-		)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("error verifying %s: %w", v.name, err)
-		}
-	}
-
-	return deployment.ChangesetOutput{}, nil
-}
-
-func downloadRelease(e deployment.Environment, destination string) {
+func DownloadRelease(cfg BuildSolanaConfig) error {
 	owner := "smartcontractkit"
 	repo := "chainlink-ccip"
-	tag := "solana-artifacts-localtest-b0785c190f700710bcf5bbb0ce6b9b03e86e67ec"
-	// destination := "../../../domains/ccip/testnet/inputs/"
+	if cfg.GitCommitSha == "" {
+		version, err := getVersion()
+		if err != nil {
+			return fmt.Errorf("error getting version: %w", err)
+		}
+		cfg.GitCommitSha = version
+	}
+
+	tag := fmt.Sprintf("solana-artifacts-localtest-%s", cfg.GitCommitSha)
 
 	// ✅ Try getting GITHUB_TOKEN (only if needed)
 	githubToken := os.Getenv("GITHUB_TOKEN")
 
 	// ✅ Create a context
-	ctx := e.GetContext()
+	ctx := context.Background()
 
 	var client *github.Client
 
@@ -365,22 +321,22 @@ func downloadRelease(e deployment.Environment, destination string) {
 	release, _, err := client.Repositories.GetReleaseByTag(ctx, owner, repo, tag)
 
 	if err != nil {
-		fmt.Printf("failed to find release %s: %v", tag, err)
-		// return fmt.Errorf("failed to find release %s: %w", tag, err)
+		return fmt.Errorf("failed to find release %s: %w", tag, err)
 	}
 
 	fmt.Printf("Found release: %s (ID: %d)\n", *release.TagName, *release.ID)
 
 	for _, asset := range release.Assets {
 		fmt.Printf("Downloading asset: %s (ID: %d)\n", *asset.Name, *asset.ID)
-		err := downloadFile(ctx, client, owner, repo, *asset.ID, destination, *asset.Name)
+		err := downloadFile(ctx, client, owner, repo, *asset.ID, cfg.DestinationDir, *asset.Name)
 		if err != nil {
 			fmt.Printf("failed to download asset %s: %v", *asset.Name, err)
+			return err
 		} else {
 			fmt.Printf("Downloaded %s successfully\n", *asset.Name)
 		}
 	}
-	return
+	return nil
 }
 
 func downloadFile(ctx context.Context, client *github.Client, owner, repo string, assetID int64, destDir, filename string) error {
@@ -424,5 +380,15 @@ func downloadFile(ctx context.Context, client *github.Client, owner, repo string
 	}
 
 	fmt.Printf("✅ Asset saved to %s\n", filePath)
+	return nil
+}
+
+func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+	if config.LocalBuild.BuildLocally {
+		DownloadRelease(config)
+	} else {
+		buildLocally(e, config)
+	}
+
 	return nil
 }
