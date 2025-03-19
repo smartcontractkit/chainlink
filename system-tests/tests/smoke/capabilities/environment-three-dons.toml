@@ -8,6 +8,7 @@
   image = "job-distributor:latest"
 
 [infra]
+  # either "docker" or "crib"
   type = "docker"
 
 [workflow_config]

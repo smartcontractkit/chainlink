@@ -53,7 +53,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 		allNodesInfo = append(allNodesInfo, nodeInfo...)
 
-		// if it has no capabilities, don't create chain configs (indicated by empty chains array)
+		// if it has no capabilities, don't create chain configs (e.g. for gateway nodes)
+		// we indicate to `devenv.NewEnvironment` that it should skip chain creation by passing an empty chain config
 		if len(nodeOutput.Capabilities) == 0 {
 			chains = []devenv.ChainConfig{}
 		}
@@ -108,8 +109,9 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	var err error
 
 	if len(input.NodeSetOutput) > 0 {
-		// Create a JD client that can interact with all the nodes, otherwise if it has node IDs of nodes that belong only to one Don,
-		// it will still propose jobs to unknown nodes, but won't accept them automatically
+		// We create a new instance of JD client using `allNodesInfo` instead of `nodeInfo` to ensure that it can interact with all nodes.
+		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
+		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
 		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
 			GRPC:     input.JdOutput.HostGRPCUrl,
 			WSRPC:    input.JdOutput.DockerWSRPCUrl,

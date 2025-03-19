@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -492,4 +493,84 @@ func (f *FullCLDEnvironmentInput) Validate() error {
 type FullCLDEnvironmentOutput struct {
 	Environment *deployment.Environment
 	DonTopology *DonTopology
+}
+
+type DeployCribDonsInput struct {
+	Topology       *Topology
+	NodeSetInputs  []*CapabilitiesAwareNodeSet
+	NixShell       *nix.NixShell
+	CribConfigsDir string
+}
+
+func (d *DeployCribDonsInput) Validate() error {
+	if d.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(d.Topology.DonsMetadata) == 0 {
+		return errors.New("metadata not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if len(d.NodeSetInputs) == 0 {
+		return errors.New("node set inputs not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type DeployCribJdInput struct {
+	JDInput        *jd.Input
+	NixShell       *nix.NixShell
+	CribConfigsDir string
+}
+
+func (d *DeployCribJdInput) Validate() error {
+	if d.JDInput == nil {
+		return errors.New("jd input not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type DeployCribBlockchainInput struct {
+	BlockchainInput *blockchain.Input
+	NixShell        *nix.NixShell
+	CribConfigsDir  string
+}
+
+func (d *DeployCribBlockchainInput) Validate() error {
+	if d.BlockchainInput == nil {
+		return errors.New("blockchain input not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type StartNixShellInput struct {
+	InfraInput     *types.InfraInput
+	CribConfigsDir string
+	ExtraEnvVars   map[string]string
+}
+
+func (s *StartNixShellInput) Validate() error {
+	if s.InfraInput == nil {
+		return errors.New("infra input not set")
+	}
+	if s.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
 }

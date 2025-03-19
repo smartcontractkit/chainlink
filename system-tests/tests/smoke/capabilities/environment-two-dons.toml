@@ -12,6 +12,7 @@
   port = 8171
 
 [infra]
+  # either "docker" or "crib"
   type = "docker"
 
 [workflow_config]

@@ -7,7 +7,7 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
-func Host(nodeIndex int, nodeType cretypes.CapabilityFlag, donName string, infraDetails types.InfraDetails) string {
+func Host(nodeIndex int, nodeType cretypes.CapabilityFlag, donName string, infraDetails types.InfraInput) string {
 	if infraDetails.InfraType == types.InfraType_CRIB {
 		if nodeType == cretypes.BootstrapNode {
 			return fmt.Sprintf("%s-bt-%d", donName, nodeIndex)

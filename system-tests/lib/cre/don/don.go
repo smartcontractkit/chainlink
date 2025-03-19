@@ -39,7 +39,7 @@ func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error
 	return nil
 }
 
-func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraDetails types.InfraDetails) (*cretypes.Topology, error) {
+func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput types.InfraInput) (*cretypes.Topology, error) {
 	topology := &cretypes.Topology{}
 	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
 
@@ -84,9 +84,9 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraDetai
 				Value: nodeType,
 			})
 
-			// TODO think whether it would make sense for infraDetails to also hold functions that resolve hostnames for various infra and node types
+			// TODO think whether it would make sense for infraInput to also hold functions that resolve hostnames for various infra and node types
 			// and use it with some default, so that we can easily modify it with little effort
-			host := infra.Host(j, nodeType, donMetadata.Name, infraDetails)
+			host := infra.Host(j, nodeType, donMetadata.Name, infraInput)
 
 			if slices.Contains(nodeSetInput[i].DONTypes, cretypes.GatewayDON) && nodeSetInput[i].GatewayNodeIndex != -1 && j == nodeSetInput[i].GatewayNodeIndex {
 				nodeWithLabels.Labels = append(nodeWithLabels.Labels, &cretypes.Label{
@@ -95,7 +95,7 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraDetai
 				})
 
 				gatewayHost := host
-				if infraDetails.InfraType == types.InfraType_CRIB {
+				if infraInput.InfraType == types.InfraType_CRIB {
 					gatewayHost += "-gtwnode"
 				}
 

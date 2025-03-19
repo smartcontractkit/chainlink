@@ -73,9 +73,6 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					// TODO remove?
-					// HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					// IndexKey:     strconv.Itoa(i - 1),
 					NodeTypeKey: types.BootstrapNode,
 				},
 			})
@@ -91,9 +88,6 @@ func GetNodeInfo(nodeOut *ns.Output, prefix string, bootstrapNodeCount int) ([]d
 					InternalIP: nodeOut.CLNodes[i-1].Node.InternalIP,
 				},
 				Labels: map[string]string{
-					// TODO remove?
-					// HostLabelKey: nodeOut.CLNodes[i-1].Node.ContainerName,
-					// IndexKey:     strconv.Itoa(i - 1),
 					NodeTypeKey: types.WorkerNode,
 				},
 			})

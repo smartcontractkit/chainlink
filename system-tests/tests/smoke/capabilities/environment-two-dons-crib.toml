@@ -9,12 +9,14 @@
   image = "jd-test-1:0.9.0"
 
 [infra]
+  # either "docker" or "crib"
   type = "crib"
 
   [infra.crib]
   namespace = "crib-local"
+  # remove default folder location
   folder_location = "/Users/bartektofel/Desktop/repos/crib/deployments/cre"
-  # make this work!
+  # either "aws" or "kind"
   provider = "kind"
 
 [workflow_config]
