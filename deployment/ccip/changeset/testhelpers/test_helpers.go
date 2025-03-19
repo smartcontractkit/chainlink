@@ -1,24 +1,17 @@
 package testhelpers
 
 import (
-	"archive/tar"
-	"compress/gzip"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"math/big"
 	"net/http"
 	"net/http/httptest"
-	"os"
-	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"testing"
 	"time"
 
-	"golang.org/x/mod/modfile"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -1859,148 +1852,4 @@ func DeployLinkTokenTest(t *testing.T, solChains int) {
 		require.NoError(t, err)
 		require.NotEmpty(t, addrs)
 	}
-}
-
-func withGetRequest[T any](ctx context.Context, url string, cb func(res *http.Response) (T, error)) (T, error) {
-	var empty T
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return empty, err
-	}
-
-	res, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return empty, err
-	}
-	defer res.Body.Close()
-
-	return cb(res)
-}
-
-func DownloadTarGzReleaseAssetFromGithub(
-	ctx context.Context,
-	owner string,
-	repo string,
-	name string,
-	tag string,
-	cb func(r *tar.Reader, h *tar.Header) error,
-) error {
-	url := fmt.Sprintf(
-		"https://github.com/%s/%s/releases/download/%s/%s",
-		owner,
-		repo,
-		tag,
-		name,
-	)
-
-	_, err := withGetRequest(ctx, url, func(res *http.Response) (any, error) {
-		if res.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("request failed with status %d - could not download tar.gz release artifact from Github (url = '%s')", res.StatusCode, url)
-		}
-
-		gzipReader, err := gzip.NewReader(res.Body)
-		if err != nil {
-			return nil, err
-		}
-		defer gzipReader.Close()
-
-		tarReader := tar.NewReader(gzipReader)
-		for {
-			header, err := tarReader.Next()
-			if err == io.EOF {
-				break
-			}
-			if err != nil {
-				return nil, err
-			}
-			if err := cb(tarReader, header); err != nil {
-				return nil, err
-			}
-		}
-
-		return nil, nil
-	})
-
-	return err
-}
-
-func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
-	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
-
-	gomod, err := os.ReadFile(gomodPath)
-	if err != nil {
-		return "", err
-	}
-
-	modFile, err := modfile.ParseLax("go.mod", gomod, nil)
-	if err != nil {
-		return "", err
-	}
-
-	for _, dep := range modFile.Require {
-		if dep.Mod.Path == dependency {
-			return dep.Mod.Version, nil
-		}
-	}
-
-	return "", fmt.Errorf("dependency %s not found", dependency)
-}
-
-func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger) error {
-	const ownr = "smartcontractkit"
-	const repo = "chainlink-ccip"
-	const name = "artifacts.tar.gz"
-
-	tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
-	if !ok {
-		_, currentFile, _, _ := runtime.Caller(0)
-		deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(filepath.Dir(currentFile))))
-		if lggr != nil {
-			lggr.Infof("Inferring release tag from the go.mod in: %s", deploymentDir)
-		}
-
-		version, err := GetSolanaCcipDependencyVersion(filepath.Join(deploymentDir, "go.mod"))
-		if err != nil {
-			return err
-		}
-
-		tokens := strings.Split(version, "-")
-		if len(tokens) == 3 {
-			version = tokens[len(tokens)-1]
-		}
-
-		tag = "solana-artifacts-localtest-" + version
-	}
-
-	if lggr != nil {
-		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
-	}
-
-	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
-		if h.Typeflag != tar.TypeReg {
-			return nil
-		}
-
-		outPath := filepath.Join(dir, filepath.Base(h.Name))
-		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
-			return err
-		}
-
-		outFile, err := os.Create(outPath)
-		if err != nil {
-			return err
-		}
-		defer outFile.Close()
-
-		if _, err := io.Copy(outFile, r); err != nil {
-			return err
-		}
-
-		if lggr != nil {
-			lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
-		}
-
-		return nil
-	})
 }
