@@ -47,7 +47,7 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
     uint64 indexed destChainSelector, uint64 sequenceNumber, IRouter router, bool allowlistEnabled
   );
   event FeeTokenWithdrawn(address indexed feeAggregator, address indexed feeToken, uint256 amount);
-  
+
   /// RMN depends on this event, if changing, please notify the RMN maintainers.
   event CCIPMessageSent(
     uint64 indexed destChainSelector, uint64 indexed sequenceNumber, Internal.EVM2AnyRampMessage message
