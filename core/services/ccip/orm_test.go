@@ -122,7 +122,7 @@ func TestORM_EmptyGasPrices(t *testing.T) {
 	orm, _ := setupORM(t)
 
 	prices, err := orm.GetGasPricesByDestChain(ctx, 1)
-	assert.Equal(t, 0, len(prices))
+	assert.Empty(t, prices)
 	assert.NoError(t, err)
 }
 
@@ -133,7 +133,7 @@ func TestORM_EmptyTokenPrices(t *testing.T) {
 	orm, _ := setupORM(t)
 
 	prices, err := orm.GetTokenPricesByDestChain(ctx, 1)
-	assert.Equal(t, 0, len(prices))
+	assert.Empty(t, prices)
 	assert.NoError(t, err)
 }
 
@@ -177,7 +177,7 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 	prices, err := orm.GetGasPricesByDestChain(ctx, destSelector)
 	assert.NoError(t, err)
 	// should return 1 price per source chain selector
-	assert.Equal(t, numSourceChainSelectors, len(prices))
+	assert.Len(t, prices, numSourceChainSelectors)
 
 	// verify getGasPrices returns prices of latest timestamp
 	for _, price := range prices {
@@ -198,7 +198,7 @@ func TestORM_InsertAndGetGasPrices(t *testing.T) {
 
 	prices, err = orm.GetGasPricesByDestChain(ctx, destSelector)
 	assert.NoError(t, err)
-	assert.Equal(t, numSourceChainSelectors, len(prices))
+	assert.Len(t, prices, numSourceChainSelectors)
 
 	for _, price := range prices {
 		selector := price.SourceChainSelector
@@ -280,7 +280,7 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 	prices, err := orm.GetTokenPricesByDestChain(ctx, destSelector)
 	assert.NoError(t, err)
 	// should return 1 price per source chain selector
-	assert.Equal(t, numAddresses, len(prices))
+	assert.Len(t, prices, numAddresses)
 
 	// verify getTokenPrices returns prices of latest timestamp
 	for _, price := range prices {
@@ -301,7 +301,7 @@ func TestORM_InsertAndGetTokenPrices(t *testing.T) {
 
 	prices, err = orm.GetTokenPricesByDestChain(ctx, destSelector)
 	assert.NoError(t, err)
-	assert.Equal(t, numAddresses, len(prices))
+	assert.Len(t, prices, numAddresses)
 
 	for _, price := range prices {
 		addr := price.TokenAddr

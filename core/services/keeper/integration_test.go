@@ -315,7 +315,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// This happens in case we start a pipeline run before previous perform tx is committed to chain
 			require.GreaterOrEqual(t, len(runs), 3)
 			prr := webpresenters.NewPipelineRunResource(runs[0], logger.TestLogger(t))
-			require.Equal(t, 1, len(prr.Outputs))
+			require.Len(t, prr.Outputs, 1)
 			require.Nil(t, prr.Outputs[0])
 		})
 	}
@@ -463,7 +463,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			require.NoError(t, err2)
 			return upkeepCfg.LastKeeper
 		}
-		require.Equal(t, lastKeeper(), common.Address{})
+		require.Equal(t, common.Address{}, lastKeeper())
 
 		err = app.JobSpawner().StartService(ctx, jb)
 		require.NoError(t, err)

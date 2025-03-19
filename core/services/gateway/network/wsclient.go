@@ -71,13 +71,13 @@ func (c *webSocketClient) Connect(ctx context.Context, url *url.URL) (*websocket
 
 	response, err := c.initiator.ChallengeResponse(url, challenge)
 	if err != nil {
-		c.lggr.Error("WebSocketClient: couldn't generate challenge response; error: ", err)
+		c.lggr.Errorw("WebSocketClient: couldn't generate challenge response", "err", err)
 		c.tryCloseConn(conn)
 		return nil, err
 	}
 
 	if err = conn.WriteMessage(websocket.BinaryMessage, response); err != nil {
-		c.lggr.Error("WebSocketClient: couldn't send challenge response; error: ", err)
+		c.lggr.Errorw("WebSocketClient: couldn't send challenge response", "err", err)
 		c.tryCloseConn(conn)
 		return nil, err
 	}

@@ -118,11 +118,11 @@ ds5 [type=http method="GET" url="%s" index=2]
 	require.Len(t, finalResults.AllErrors, 12)
 	require.Len(t, finalResults.FatalErrors, 3)
 	assert.Equal(t, "9650000000000000000000", finalResults.Values[0].(decimal.Decimal).String())
-	assert.Nil(t, finalResults.FatalErrors[0])
+	assert.NoError(t, finalResults.FatalErrors[0])
 	assert.Equal(t, "foo-index-1", finalResults.Values[1].(string))
-	assert.Nil(t, finalResults.FatalErrors[1])
+	assert.NoError(t, finalResults.FatalErrors[1])
 	assert.Equal(t, "bar-index-2", finalResults.Values[2].(string))
-	assert.Nil(t, finalResults.FatalErrors[2])
+	assert.NoError(t, finalResults.FatalErrors[2])
 
 	var errorResults []pipeline.TaskRunResult
 	for _, trr := range trrs {
@@ -421,7 +421,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, make(map[string]interface{}), finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
-		assert.Nil(t, finalResults.FatalErrors[0])
+		assert.NoError(t, finalResults.FatalErrors[0])
 	})
 
 	t.Run("standard mode, string value", func(t *testing.T) {
@@ -448,7 +448,7 @@ func Test_PipelineRunner_CBORParse(t *testing.T) {
 		require.Len(t, finalResults.Values, 1)
 		assert.Equal(t, "foo", finalResults.Values[0])
 		require.Len(t, finalResults.FatalErrors, 1)
-		assert.Nil(t, finalResults.FatalErrors[0])
+		assert.NoError(t, finalResults.FatalErrors[0])
 	})
 }
 
@@ -610,8 +610,8 @@ a->b1->c;
 a->b2->c;`,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 4, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 4)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	// a = 4
 	// (b1 = 8) + (b2 = 12)
@@ -636,9 +636,9 @@ a->b1;
 a->b2;`,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 3, len(trrs))
+	require.Len(t, trrs, 3)
 	result := trrs.FinalResult()
-	assert.Equal(t, false, result.HasFatalErrors())
+	assert.False(t, result.HasFatalErrors())
 
 	assert.Equal(t, mustDecimal(t, "8").String(), result.Values[0].(decimal.Decimal).String())
 	assert.Equal(t, mustDecimal(t, "12").String(), result.Values[1].(decimal.Decimal).String())
@@ -729,7 +729,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 9) // 3 tasks are suspended: ds1_parse, ds1_multiply, median. ds1 is present, but contains ErrPending
-	require.Equal(t, true, incomplete)      // still incomplete
+	require.True(t, incomplete)             // still incomplete
 
 	// TODO: test a pending run that's not marked async=true, that is not allowed
 
@@ -737,7 +737,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
-	require.Equal(t, true, incomplete) // still incomplete
+	require.True(t, incomplete) // still incomplete
 
 	// Now simulate a new result coming in
 	task := run.ByDotID("ds1")
@@ -750,9 +750,9 @@ ds5 [type=http method="GET" url="%s" index=2]
 	orm.On("StoreRun", mock.Anything, mock.AnythingOfType("*pipeline.Run")).Return(false, nil).Once()
 	incomplete, err = r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
-	require.Equal(t, false, incomplete) // done
+	require.False(t, incomplete) // done
 	require.Len(t, run.PipelineTaskRuns, 12)
-	require.Equal(t, false, incomplete) // run is complete
+	require.False(t, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
 	require.Len(t, run.FatalErrors, 3)
@@ -871,7 +871,7 @@ ds5 [type=http method="GET" url="%s" index=2]
 	incomplete, err := r.Run(testutils.Context(t), run, false, nil)
 	require.NoError(t, err)
 	require.Len(t, run.PipelineTaskRuns, 12)
-	require.Equal(t, false, incomplete) // run is complete
+	require.False(t, incomplete) // run is complete
 
 	require.Len(t, run.Outputs.Val, 3)
 	require.Len(t, run.FatalErrors, 3)
@@ -908,8 +908,8 @@ a [type=lowercase input="$(first)"]
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 1)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
@@ -930,8 +930,8 @@ a [type=uppercase input="$(first)"]
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 1)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
@@ -952,8 +952,8 @@ a [type=hexdecode input="$(astring)"]
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 1)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
@@ -977,8 +977,8 @@ en->de
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 2, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 2)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
@@ -999,8 +999,8 @@ a [type=base64decode input="$(astring)"]
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 1)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)
@@ -1024,8 +1024,8 @@ en->de
 `,
 	}, pipeline.NewVarsFrom(input))
 	require.NoError(t, err)
-	require.Equal(t, 2, len(trrs))
-	assert.Equal(t, false, trrs.FinalResult().HasFatalErrors())
+	require.Len(t, trrs, 2)
+	assert.False(t, trrs.FinalResult().HasFatalErrors())
 
 	result, err := trrs.FinalResult().SingularResult()
 	require.NoError(t, err)

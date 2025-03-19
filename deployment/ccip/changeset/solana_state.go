@@ -63,8 +63,7 @@ type SolCCIPChainState struct {
 	FeeAggregator solana.PublicKey
 
 	// test programs
-	TestRouter solana.PublicKey
-	Receiver   solana.PublicKey // for tests only
+	Receiver solana.PublicKey
 
 	// PDAs to avoid redundant lookups
 	RouterConfigPDA      solana.PublicKey
@@ -136,9 +135,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.RouterConfigPDA = routerConfigPDA
-		case TestRouter:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.TestRouter = pub
 		case Receiver:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.Receiver = pub
@@ -228,7 +224,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 			}
 			state.RMNRemoteCursesPDA = rmnRemoteCursesPDA
 		default:
-			log.Warn().Str("address", address).Str("type", string(tvStr.Type)).Msg("Unknown address type")
 			continue
 		}
 		existingVersion, ok := versions[tvStr.Type]
@@ -329,7 +324,7 @@ func ValidateOwnershipSolana(
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
-			return fmt.Errorf("failed to validate ownership for example_burnmint_token_pool: %w", err)
+			return fmt.Errorf("failed to validate ownership for burnmint_token_pool: %w", err)
 		}
 	case LockReleaseTokenPool:
 		programData := solTestTokenPool.State{}
@@ -340,7 +335,7 @@ func ValidateOwnershipSolana(
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
-			return fmt.Errorf("failed to validate ownership for example_lockrelease_token_pool: %w", err)
+			return fmt.Errorf("failed to validate ownership for lockrelease_token_pool: %w", err)
 		}
 	case RMNRemote:
 		programData := rmn_remote.Config{}
@@ -366,4 +361,9 @@ func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.Publi
 		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to find config PDA: %w", err)
 	}
 	return s.Router, routerConfigPDA, nil
+}
+
+func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
+	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
+	return receiverTargetAccount
 }

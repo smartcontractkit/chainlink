@@ -13,7 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
-
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
@@ -81,7 +81,7 @@ type Txm struct {
 	errorHandler    ErrorHandler
 	stuckTxDetector StuckTxDetector
 	txStore         TxStore
-	keystore        Keystore
+	keystore        keys.AddressLister
 	config          Config
 	metrics         *txmMetrics
 
@@ -93,7 +93,7 @@ type Txm struct {
 	wg        sync.WaitGroup
 }
 
-func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, txStore TxStore, stuckTxDetector StuckTxDetector, config Config, keystore Keystore) *Txm {
+func NewTxm(lggr logger.Logger, chainID *big.Int, client Client, attemptBuilder AttemptBuilder, txStore TxStore, stuckTxDetector StuckTxDetector, config Config, keystore keys.AddressLister) *Txm {
 	return &Txm{
 		lggr:            logger.Sugared(logger.Named(lggr, "Txm")),
 		keystore:        keystore,
@@ -117,7 +117,7 @@ func (t *Txm) Start(ctx context.Context) error {
 		t.metrics = tm
 		t.stopCh = make(chan struct{})
 
-		addresses, err := t.keystore.EnabledAddressesForChain(ctx, t.chainID)
+		addresses, err := t.keystore.EnabledAddresses(ctx)
 		if err != nil {
 			return err
 		}

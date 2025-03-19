@@ -33,9 +33,9 @@ func TestNewAutomationCustomTelemetryService(t *testing.T) {
 		t.Errorf("Expected no error, but got: %v", err)
 	}
 	service.monitoringEndpoint.SendLog([]byte("test"))
-	assert.Equal(t, me.LogCount(), 1)
+	assert.Equal(t, 1, me.LogCount())
 	service.monitoringEndpoint.SendLog([]byte("test2"))
-	assert.Equal(t, me.LogCount(), 2)
+	assert.Equal(t, 2, me.LogCount())
 	service.Close()
 }
 

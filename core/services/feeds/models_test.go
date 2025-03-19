@@ -60,27 +60,27 @@ func Test_ToPluginType(t *testing.T) {
 
 	pt, err := ToPluginType("commit")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeCommit)
+	assert.Equal(t, PluginTypeCommit, pt)
 
 	pt, err = ToPluginType("execute")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeExecute)
+	assert.Equal(t, PluginTypeExecute, pt)
 
 	pt, err = ToPluginType("median")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeMedian)
+	assert.Equal(t, PluginTypeMedian, pt)
 
 	pt, err = ToPluginType("mercury")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeMercury)
+	assert.Equal(t, PluginTypeMercury, pt)
 
 	pt, err = ToPluginType("rebalancer")
 	require.NoError(t, err)
-	assert.Equal(t, pt, PluginTypeRebalancer)
+	assert.Equal(t, PluginTypeRebalancer, pt)
 
 	pt, err = ToPluginType("xxx")
 	require.Error(t, err)
-	assert.Equal(t, pt, PluginTypeUnknown)
+	assert.Equal(t, PluginTypeUnknown, pt)
 	assert.EqualError(t, err, "unknown plugin type")
 }
 
@@ -411,12 +411,12 @@ func Test_toMetrics(t *testing.T) {
 
 	metrics := jpCounts.toMetrics()
 
-	assert.Equal(t, metrics, map[JobProposalStatus]float64{
+	assert.Equal(t, map[JobProposalStatus]float64{
 		JobProposalStatusCancelled: 0,
 		JobProposalStatusPending:   1,
 		JobProposalStatusApproved:  2,
 		JobProposalStatusRejected:  3,
 		JobProposalStatusDeleted:   4,
 		JobProposalStatusRevoked:   5,
-	})
+	}, metrics)
 }

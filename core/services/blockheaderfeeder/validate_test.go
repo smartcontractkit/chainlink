@@ -132,7 +132,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`)
+				require.Equal(t, `at least one of "coordinatorV1Address", "coordinatorV2Address" and "coordinatorV2PlusAddress" must be set`, err.Error())
 			},
 		},
 		{
@@ -152,7 +152,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"blockhashStoreAddress" must be set`)
+				require.Equal(t, `"blockhashStoreAddress" must be set`, err.Error())
 			},
 		},
 		{
@@ -172,7 +172,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"batchBlockhashStoreAddress" must be set`)
+				require.Equal(t, `"batchBlockhashStoreAddress" must be set`, err.Error())
 			},
 		},
 		{
@@ -192,7 +192,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"evmChainID" must be set`)
+				require.Equal(t, `"evmChainID" must be set`, err.Error())
 			},
 		},
 		{
@@ -213,7 +213,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"waitBlocks" must be greater than or equal to 256`)
+				require.Equal(t, `"waitBlocks" must be greater than or equal to 256`, err.Error())
 			},
 		},
 		{
@@ -234,7 +234,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"lookbackBlocks" must be greater than 256`)
+				require.Equal(t, `"lookbackBlocks" must be greater than 256`, err.Error())
 			},
 		},
 		{
@@ -255,7 +255,7 @@ getBlockhashesBatchSize = 20
 storeBlockhashesBatchSize = 10
 `,
 			assertion: func(t *testing.T, os job.Job, err error) {
-				require.Equal(t, err.Error(), `"lookbackBlocks" must be greater than "waitBlocks"`)
+				require.Equal(t, `"lookbackBlocks" must be greater than "waitBlocks"`, err.Error())
 			},
 		},
 	}

@@ -167,10 +167,10 @@ func TestGetChainID(t *testing.T) {
 func TestParseEATelemetry(t *testing.T) {
 	ea, err := parseEATelemetry([]byte(bridgeResponse))
 	assert.NoError(t, err)
-	assert.Equal(t, ea.DataSource, "data-source-name")
-	assert.Equal(t, ea.ProviderRequestedTimestamp, int64(92233720368547760))
+	assert.Equal(t, "data-source-name", ea.DataSource)
+	assert.Equal(t, int64(92233720368547760), ea.ProviderRequestedTimestamp)
 	assert.Equal(t, ea.ProviderReceivedTimestamp, int64(-92233720368547760))
-	assert.Equal(t, ea.ProviderDataStreamEstablished, int64(1))
+	assert.Equal(t, int64(1), ea.ProviderDataStreamEstablished)
 	assert.Equal(t, ea.ProviderIndicatedTime, int64(-123456789))
 
 	_, err = parseEATelemetry(nil)
@@ -384,7 +384,7 @@ func TestGetObservation(t *testing.T) {
 	}
 
 	obs := e.getObservation(&pipeline.FinalResult{})
-	assert.Equal(t, obs, int64(0))
+	assert.Equal(t, int64(0), obs)
 	assert.Equal(t, 0, logs.Len())
 
 	finalResult := &pipeline.FinalResult{
@@ -393,7 +393,7 @@ func TestGetObservation(t *testing.T) {
 		FatalErrors: []error{nil},
 	}
 	obs = e.getObservation(finalResult)
-	assert.Equal(t, obs, int64(123456))
+	assert.Equal(t, int64(123456), obs)
 }
 
 func TestCollectAndSend(t *testing.T) {
@@ -719,31 +719,31 @@ func TestShouldCollectEnhancedTelemetryMercury(t *testing.T) {
 		},
 	}
 
-	require.Equal(t, ShouldCollectEnhancedTelemetryMercury(j), true)
+	require.True(t, ShouldCollectEnhancedTelemetryMercury(j))
 	j.OCR2OracleSpec.CaptureEATelemetry = false
-	require.Equal(t, ShouldCollectEnhancedTelemetryMercury(j), false)
+	require.False(t, ShouldCollectEnhancedTelemetryMercury(j))
 	j.OCR2OracleSpec.CaptureEATelemetry = true
 	j.Type = job.Type(pipeline.CronJobType)
-	require.Equal(t, ShouldCollectEnhancedTelemetryMercury(j), false)
+	require.False(t, ShouldCollectEnhancedTelemetryMercury(j))
 }
 
 func TestParseBridgeRequestData(t *testing.T) {
-	require.Equal(t, parseBridgeRequestData("", 2), bridgeRequestData{})
+	require.Equal(t, bridgeRequestData{}, parseBridgeRequestData("", 2))
 
 	reqData := `{"data":{"to":"LINK","from":"USD"}}`
-	require.Equal(t, parseBridgeRequestData(reqData, 2), bridgeRequestData{AssetSymbol: "USD/LINK"})
+	require.Equal(t, bridgeRequestData{AssetSymbol: "USD/LINK"}, parseBridgeRequestData(reqData, 2))
 
 	reqData = `{"data":{"to":"LINK","from":"USD","market":"forex"}}`
-	require.Equal(t, parseBridgeRequestData(reqData, 2), bridgeRequestData{AssetSymbol: "USD/LINK"})
+	require.Equal(t, bridgeRequestData{AssetSymbol: "USD/LINK"}, parseBridgeRequestData(reqData, 2))
 
 	reqData = `{"data":{"endpoint":"market-status","market":"forex"}}`
-	require.Equal(t, parseBridgeRequestData(reqData, 4), bridgeRequestData{AssetSymbol: "forex", IsMarketStatus: true})
+	require.Equal(t, bridgeRequestData{AssetSymbol: "forex", IsMarketStatus: true}, parseBridgeRequestData(reqData, 4))
 
 	reqData = `{"data":{"market":"metals"}}`
-	require.Equal(t, parseBridgeRequestData(reqData, 4), bridgeRequestData{AssetSymbol: "metals", IsMarketStatus: true})
+	require.Equal(t, bridgeRequestData{AssetSymbol: "metals", IsMarketStatus: true}, parseBridgeRequestData(reqData, 4))
 
 	viewFunctionReqData := `{"data":{"address":"0x12345678", "signature": "function stEthPerToken() view returns (int256)"}}`
-	require.Equal(t, parseBridgeRequestData(viewFunctionReqData, 3), bridgeRequestData{AssetSymbol: "0x12345678"})
+	require.Equal(t, bridgeRequestData{AssetSymbol: "0x12345678"}, parseBridgeRequestData(viewFunctionReqData, 3))
 }
 
 func getViewFunctionTaskRunResults() pipeline.TaskRunResults {
@@ -1211,5 +1211,5 @@ func TestCollectMercuryEnhancedTelemetryV4(t *testing.T) {
 	chDone <- struct{}{}
 
 	// Verify that no other telemetry is sent.
-	require.Len(t, sentMessageCh, 0)
+	require.Empty(t, sentMessageCh)
 }

@@ -16,8 +16,7 @@ func TestValueScanIdentityPointSet(t *testing.T) {
 		var pk, nPk, nnPk PublicKey
 		marshaledKey, err := p.MarshalBinary()
 		require.NoError(t, err, "failed to marshal public key")
-		require.Equal(t, copy(pk[:], marshaledKey),
-			CompressedPublicKeyLength, "failed to copy marshaled key to pk")
+		require.Equal(t, CompressedPublicKeyLength, copy(pk[:], marshaledKey), "failed to copy marshaled key to pk")
 		assert.NotEqual(t, pk, nPk, "equality test succeeds on different keys!")
 		np, err := pk.Point()
 		require.NoError(t, err, "failed to marshal public key")

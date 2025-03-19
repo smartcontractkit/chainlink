@@ -47,11 +47,11 @@ func TestORM_FindBridges(t *testing.T) {
 	assert.NoError(t, orm.CreateBridgeType(ctx, &bt2))
 	bts, err := orm.FindBridges(ctx, []bridges.BridgeName{"bridge2", "bridge1"})
 	require.NoError(t, err)
-	require.Equal(t, 2, len(bts))
+	require.Len(t, bts, 2)
 
 	bts, err = orm.FindBridges(ctx, []bridges.BridgeName{"bridge1"})
 	require.NoError(t, err)
-	require.Equal(t, 1, len(bts))
+	require.Len(t, bts, 1)
 	require.Equal(t, "bridge1", bts[0].Name.String())
 
 	// One invalid bridge errors
@@ -134,7 +134,7 @@ func TestORM_UpdateBridgeType(t *testing.T) {
 	bs, count, err = orm.BridgeTypes(ctx, 0, 10)
 	require.NoError(t, err)
 	require.Equal(t, 0, count)
-	require.Len(t, bs, 0)
+	require.Empty(t, bs)
 }
 
 func TestORM_TestCachedResponse(t *testing.T) {

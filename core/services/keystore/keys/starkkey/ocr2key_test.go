@@ -179,7 +179,7 @@ func TestStarknetKeyring_Marshal(t *testing.T) {
 	kr2 := OCR2Key{}
 	err = kr2.Unmarshal(m)
 	require.NoError(t, err)
-	assert.True(t, kr1.priv.Cmp(kr2.priv) == 0)
+	assert.Equal(t, kr1.priv.Cmp(kr2.priv), 0)
 
 	// Invalid seed size should error
 	require.Error(t, kr2.Unmarshal([]byte{0x01}))

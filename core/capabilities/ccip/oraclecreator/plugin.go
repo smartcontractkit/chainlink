@@ -3,6 +3,7 @@ package oraclecreator
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -39,7 +40,6 @@ import (
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/chainwriter"
 	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
@@ -50,6 +50,8 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
+
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
@@ -67,9 +69,10 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipevm.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipevm.NewEVMTokenDataEncoder(),
-		GasEstimateProvider: ccipevm.NewGasEstimateProvider(extraDataCodec),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		TokenDataEncoder:           ccipevm.NewEVMTokenDataEncoder(),
+		GasEstimateProvider:        ccipevm.NewGasEstimateProvider(extraDataCodec),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return ccipevm.NewEVMRMNCrypto(lggr) },
+		ContractTransmitterFactory: &ocrimpls.EVMContractTransmitterFactory{},
 	},
 	chainsel.FamilySolana: {
 		CommitPluginCodec:  ccipsolana.NewCommitPluginCodecV1(),
@@ -77,10 +80,11 @@ var plugins = map[string]plugin{
 		MessageHasher: func(lggr logger.Logger) cciptypes.MessageHasher {
 			return ccipsolana.NewMessageHasherV1(lggr, extraDataCodec)
 		},
-		TokenDataEncoder:    ccipsolana.NewSolanaTokenDataEncoder(),
-		GasEstimateProvider: ccipsolana.NewGasEstimateProvider(),
-		RMNCrypto:           func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
-		PriceOnlyCommitFn:   consts.MethodCommitPriceOnly,
+		TokenDataEncoder:           ccipsolana.NewSolanaTokenDataEncoder(),
+		GasEstimateProvider:        ccipsolana.NewGasEstimateProvider(),
+		RMNCrypto:                  func(lggr logger.Logger) cciptypes.RMNCrypto { return nil },
+		PriceOnlyCommitFn:          consts.MethodCommitPriceOnly,
+		ContractTransmitterFactory: &ocrimpls.SVMContractTransmitterFactory{},
 	},
 }
 
@@ -90,12 +94,13 @@ const (
 )
 
 type plugin struct {
-	CommitPluginCodec   cciptypes.CommitPluginCodec
-	ExecutePluginCodec  cciptypes.ExecutePluginCodec
-	MessageHasher       func(lggr logger.Logger) cciptypes.MessageHasher
-	TokenDataEncoder    cciptypes.TokenDataEncoder
-	GasEstimateProvider cciptypes.EstimateProvider
-	RMNCrypto           func(lggr logger.Logger) cciptypes.RMNCrypto
+	CommitPluginCodec          cciptypes.CommitPluginCodec
+	ExecutePluginCodec         cciptypes.ExecutePluginCodec
+	MessageHasher              func(lggr logger.Logger) cciptypes.MessageHasher
+	TokenDataEncoder           cciptypes.TokenDataEncoder
+	GasEstimateProvider        cciptypes.EstimateProvider
+	RMNCrypto                  func(lggr logger.Logger) cciptypes.RMNCrypto
+	ContractTransmitterFactory ContractTransmitterFactory
 	// PriceOnlyCommitFn optional method override for price only commit reports.
 	PriceOnlyCommitFn string
 }
@@ -322,7 +327,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 
 	if config.Config.PluginType == uint8(cctypes.PluginTypeCCIPCommit) {
 		if !i.peerWrapper.IsStarted() {
-			return nil, nil, fmt.Errorf("peer wrapper is not started")
+			return nil, nil, errors.New("peer wrapper is not started")
 		}
 
 		i.lggr.Infow("creating rmn peer client",
@@ -355,7 +360,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				RmnPeerClient:     rmnPeerClient,
 				RmnCrypto:         rmnCrypto})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
-		transmitter = ocrimpls.NewCommitContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 			consts.MethodCommit,
@@ -380,7 +385,7 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractWriters:  chainWriters,
 			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPExec")
-		transmitter = ocrimpls.NewExecContractTransmitter(destChainWriter,
+		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewExecTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
 			offrampAddrStr,
 		)
@@ -508,7 +513,7 @@ func decodeAndValidateOffchainConfig(
 		ofc.commitOffchainConfig = &commitOffchainCfg
 	}
 	if !ofc.isValid() {
-		return offChainConfig{}, fmt.Errorf("invalid offchain config: both commit and exec configs are either set or unset")
+		return offChainConfig{}, errors.New("invalid offchain config: both commit and exec configs are either set or unset")
 	}
 	return ofc, nil
 }

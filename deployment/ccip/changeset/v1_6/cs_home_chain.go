@@ -10,11 +10,12 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
+
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
-	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -25,7 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -418,7 +419,7 @@ func addNodes(
 	for nopID, p2pIDs := range p2pIDsByNodeOpId {
 		for _, p2pID := range p2pIDs {
 			// if any p2pIDs are empty throw error
-			if bytes.Equal(p2pID[:], make([]byte, 32)) {
+			if p2pID == ([32]byte{}) {
 				return errors.Wrapf(errors.New("empty p2pID"), "p2pID: %x selector: %d", p2pID, chain.Selector)
 			}
 			nodeParam := capabilities_registry.CapabilitiesRegistryNodeParams{

@@ -2,31 +2,31 @@ package gatewayconnector
 
 import (
 	"context"
-	"crypto/ecdsa"
-	"errors"
-	"math/big"
-	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/jonboulle/clockwork"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	gwcommon "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/network"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 )
+
+type Keystore interface {
+	keys.AddressChecker
+	keys.MessageSigner
+}
 
 type ServiceWrapper struct {
 	services.StateMachine
+	stopCh services.StopChan
 
 	config    config.GatewayConnector
-	keystore  keystore.Eth
+	keystore  Keystore
 	connector connector.GatewayConnector
-	signerKey *ecdsa.PrivateKey
 	lggr      logger.Logger
 	clock     clockwork.Clock
 }
@@ -50,8 +50,9 @@ func translateConfigs(f config.GatewayConnector) connector.ConnectorConfig {
 }
 
 // NOTE: this wrapper is needed to make sure that our services are started after Keystore.
-func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore keystore.Eth, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
+func NewGatewayConnectorServiceWrapper(config config.GatewayConnector, keystore Keystore, clock clockwork.Clock, lggr logger.Logger) *ServiceWrapper {
 	return &ServiceWrapper{
+		stopCh:   make(services.StopChan),
 		config:   config,
 		keystore: keystore,
 		clock:    clock,
@@ -63,23 +64,10 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 	return e.StartOnce("GatewayConnectorServiceWrapper", func() error {
 		conf := e.config
 		nodeAddress := conf.NodeAddress()
-		chainID, _ := new(big.Int).SetString(conf.ChainIDForNodeKey(), 0)
-		enabledKeys, err := e.keystore.EnabledKeysForChain(ctx, chainID)
+		configuredNodeAddress := common.HexToAddress(nodeAddress)
+		err := e.keystore.CheckEnabled(ctx, configuredNodeAddress)
 		if err != nil {
 			return err
-		}
-		if len(enabledKeys) == 0 {
-			return errors.New("no available keys found")
-		}
-		configuredNodeAddress := common.HexToAddress(nodeAddress)
-		idx := slices.IndexFunc(enabledKeys, func(key ethkey.KeyV2) bool { return key.Address == configuredNodeAddress })
-
-		if idx == -1 {
-			return errors.New("key for configured node address not found")
-		}
-		e.signerKey = enabledKeys[idx].ToEcdsaPrivKey()
-		if enabledKeys[idx].ID() != nodeAddress {
-			return errors.New("node address mismatch")
 		}
 
 		translated := translateConfigs(conf)
@@ -92,11 +80,15 @@ func (e *ServiceWrapper) Start(ctx context.Context) error {
 }
 
 func (e *ServiceWrapper) Sign(data ...[]byte) ([]byte, error) {
-	return gwcommon.SignData(e.signerKey, data...)
+	ctx, cancel := e.stopCh.NewCtx()
+	defer cancel()
+	account := common.HexToAddress(e.config.NodeAddress())
+	return e.keystore.SignMessage(ctx, account, gwcommon.Flatten(data...))
 }
 
 func (e *ServiceWrapper) Close() error {
 	return e.StopOnce("GatewayConnectorServiceWrapper", func() (err error) {
+		close(e.stopCh)
 		return e.connector.Close()
 	})
 }

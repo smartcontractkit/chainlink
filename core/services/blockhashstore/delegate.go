@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -70,24 +71,27 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
-	chain, err := d.legacyChains.Get(jb.BlockhashStoreSpec.EVMChainID.String())
+	cid := jb.BlockhashStoreSpec.EVMChainID.ToInt()
+	chain, err := d.legacyChains.Get(cid.String())
 	if err != nil {
 		return nil, fmt.Errorf(
-			"getting chain ID %d: %w", jb.BlockhashStoreSpec.EVMChainID.ToInt(), err)
+			"getting chain ID %s: %w", cid, err)
 	}
 
 	if !d.cfg.Feature().LogPoller() {
 		return nil, errors.New("log poller must be enabled to run blockhashstore")
 	}
 
-	keys, err := d.ks.EnabledKeysForChain(ctx, chain.ID())
+	ks := keys.NewChainStore(keystore.NewEthSigner(d.ks, cid), cid)
+
+	enabled, err := ks.EnabledAddresses(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
-	if len(keys) == 0 {
+	if len(enabled) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	fromAddresses := []types.EIP55Address{keys[0].EIP55Address}
+	fromAddresses := []types.EIP55Address{types.EIP55AddressFromAddress(enabled[0])}
 	if jb.BlockhashStoreSpec.FromAddresses != nil {
 		fromAddresses = jb.BlockhashStoreSpec.FromAddresses
 	}
@@ -161,8 +165,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		chain.TxManager(),
 		bhs,
 		trustedBHS,
-		chain.ID(),
-		d.ks,
+		ks,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")

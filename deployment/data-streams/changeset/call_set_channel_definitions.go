@@ -16,7 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 )
 
@@ -153,7 +153,8 @@ func transferOrBuildTx(
 	definition ChannelDefinition,
 	opts *bind.TransactOpts,
 	chain deployment.Chain,
-	mcmsConfig *MCMSConfig) (*ethTypes.Transaction, error) {
+	mcmsConfig *MCMSConfig,
+) (*ethTypes.Transaction, error) {
 	if ccs == nil {
 		return nil, errors.New("provided ChannelConfigStore is nil")
 	}

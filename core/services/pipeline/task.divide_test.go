@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/pkg/errors"
@@ -184,7 +185,7 @@ func TestDivideTask_Overflow(t *testing.T) {
 		BaseTask:  pipeline.NewBaseTask(0, "task", nil, nil, 0),
 		Input:     "$(a)",
 		Divisor:   "$(b)",
-		Precision: fmt.Sprintf("%d", math.MaxInt32),
+		Precision: strconv.Itoa(math.MaxInt32),
 	}
 
 	vars := pipeline.NewVarsFrom(map[string]interface{}{

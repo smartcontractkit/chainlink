@@ -11,8 +11,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	common "github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 )
 
@@ -127,7 +128,7 @@ func (m *Manager) newEndpoint(e config.TelemetryIngressEndpoint, lggr logger.Log
 	if m.useBatchSend {
 		tClient = synchronization.NewTelemetryIngressBatchClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize(), cfg.MaxBatchSize(), cfg.SendInterval(), cfg.SendTimeout(), cfg.UniConn())
 	} else {
-		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, cfg.Logging(), lggr, cfg.BufferSize())
+		tClient = synchronization.NewTelemetryIngressClient(e.URL(), e.ServerPubKey(), m.ks, lggr, cfg.BufferSize())
 	}
 
 	te := telemetryEndpoint{

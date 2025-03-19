@@ -127,7 +127,7 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 
 			require.NoError(t, err)
 			// Ensure all expected prices are present.
-			assert.True(t, len(prices) == len(expectedTokens))
+			assert.Equal(t, len(prices), len(expectedTokens))
 			// Check prices are matching expected result.
 			for tk, expectedPrice := range expectedTokens {
 				if prices[cciptypes.Address(tk.String())] == nil {

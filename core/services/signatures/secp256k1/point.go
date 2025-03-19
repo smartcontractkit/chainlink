@@ -16,6 +16,7 @@ package secp256k1
 
 import (
 	"crypto/cipher"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -142,7 +143,7 @@ func (P *secp256k1Point) Data() ([]byte, error) {
 	b := P.X.Bytes()
 	dataLength := int(b[0])
 	if dataLength > P.EmbedLen() {
-		return nil, fmt.Errorf("point specifies too much data")
+		return nil, errors.New("point specifies too much data")
 	}
 	return b[1 : dataLength+1], nil
 }
@@ -180,7 +181,7 @@ func (P *secp256k1Point) Neg(a kyber.Point) kyber.Point {
 func (P *secp256k1Point) Mul(s kyber.Scalar, a kyber.Point) kyber.Point {
 	sBytes, err := s.(*secp256k1Scalar).MarshalBinary()
 	if err != nil {
-		panic(fmt.Errorf("failure while marshaling multiplier: %s",
+		panic(fmt.Errorf("failure while marshaling multiplier: %w",
 			err))
 	}
 	var X, Y *big.Int
@@ -201,19 +202,18 @@ func (P *secp256k1Point) Mul(s kyber.Scalar, a kyber.Point) kyber.Point {
 func (P *secp256k1Point) MarshalBinary() ([]byte, error) {
 	maybeSqrt := maybeSqrtInField(rightHandSide(P.X))
 	if maybeSqrt == (*fieldElt)(nil) {
-		return nil, fmt.Errorf("x³+7 not a square")
+		return nil, errors.New("x³+7 not a square")
 	}
 	minusMaybeSqrt := newFieldZero().Neg(maybeSqrt)
 	if !P.Y.Equal(maybeSqrt) && !P.Y.Equal(minusMaybeSqrt) {
-		return nil, fmt.Errorf(
-			"y ≠ ±maybeSqrt(x³+7), so not a point on the curve")
+		return nil, errors.New("y ≠ ±maybeSqrt(x³+7), so not a point on the curve")
 	}
 	rv := make([]byte, P.MarshalSize())
 	signByte := P.MarshalSize() - 1 // Last byte contains sign of Y.
 	xordinate := P.X.Bytes()
 	copyLen := copy(rv[:signByte], xordinate[:])
 	if copyLen != P.MarshalSize()-1 {
-		return []byte{}, fmt.Errorf("marshal of x ordinate too short")
+		return []byte{}, errors.New("marshal of x ordinate too short")
 	}
 	if P.Y.isEven() {
 		rv[signByte] = 0
@@ -236,10 +236,10 @@ func (P *secp256k1Point) MarshalID() [8]byte {
 func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	var err error
 	if len(buf) != P.MarshalSize() {
-		err = fmt.Errorf("wrong length for marshaled point")
+		err = errors.New("wrong length for marshaled point")
 	}
 	if err == nil && !(buf[32] == 0 || buf[32] == 1) {
-		err = fmt.Errorf("bad sign byte (the last one)")
+		err = errors.New("bad sign byte (the last one)")
 	}
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 	secp256k1RHS := rightHandSide(P.X)
 	maybeY := maybeSqrtInField(secp256k1RHS)
 	if maybeY == (*fieldElt)(nil) {
-		return fmt.Errorf("x ordinate does not correspond to a curve point")
+		return errors.New("x ordinate does not correspond to a curve point")
 	}
 	isEven := maybeY.isEven()
 	P.Y.Set(maybeY)
@@ -258,7 +258,7 @@ func (P *secp256k1Point) UnmarshalBinary(buf []byte) error {
 		P.Y.Neg(P.Y)
 	} else {
 		if buf[32] != 0 && buf[32] != 1 {
-			return fmt.Errorf("parity byte must be 0 or 1")
+			return errors.New("parity byte must be 0 or 1")
 		}
 	}
 	return nil

@@ -230,7 +230,7 @@ func (rs *RegistrySynchronizer) handleUpkeepPaused(ctx context.Context, broadcas
 	if err != nil {
 		return errors.Wrap(err, "unable to batch delete upkeeps")
 	}
-	rs.logger.Debugw(fmt.Sprintf("paused upkeep %s", pausedUpkeepId.String()), "txHash", broadcast.RawLog().TxHash.Hex())
+	rs.logger.Debugw("paused upkeep "+pausedUpkeepId.String(), "txHash", broadcast.RawLog().TxHash.Hex())
 	return nil
 }
 
@@ -251,7 +251,7 @@ func (rs *RegistrySynchronizer) handleUpkeepUnpaused(ctx context.Context, broadc
 	if err != nil {
 		return errors.Wrapf(err, "failed to sync upkeep, log: %s", broadcast.String())
 	}
-	rs.logger.Debugw(fmt.Sprintf("unpaused upkeep %s", unpausedUpkeepId.String()), "txHash", broadcast.RawLog().TxHash.Hex())
+	rs.logger.Debugw("unpaused upkeep "+unpausedUpkeepId.String(), "txHash", broadcast.RawLog().TxHash.Hex())
 	return nil
 }
 
@@ -273,6 +273,6 @@ func (rs *RegistrySynchronizer) handleUpkeepCheckDataUpdated(ctx context.Context
 		return errors.Wrapf(err, "unable to update check data for upkeep %s", updateLog.UpkeepID.String())
 	}
 
-	rs.logger.Debugw(fmt.Sprintf("updated check data for upkeep %s", updateLog.UpkeepID.String()), "txHash", broadcast.RawLog().TxHash.Hex())
+	rs.logger.Debugw("updated check data for upkeep "+updateLog.UpkeepID.String(), "txHash", broadcast.RawLog().TxHash.Hex())
 	return nil
 }
