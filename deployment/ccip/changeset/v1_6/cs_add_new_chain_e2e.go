@@ -22,6 +22,13 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
+/*
+Future improvements:
+- Enable connecting directly to the prod router through PromoteNewChainForTestingChangeset
+- Align configuration structs with whatever is simplest for BIX team to use
+- Add more validation coverage to the precondition functions
+*/
+
 var (
 	// AddCandidatesForNewChainChangeset deploys a new chain and adds its exec and commit plugins as candidates on the home chain.
 	AddCandidatesForNewChainChangeset = deployment.CreateChangeSet(addCandidatesForNewChainLogic, addCandidatesForNewChainPrecondition)
@@ -56,7 +63,7 @@ type NewChainDefinition struct {
 	ChainDefinition
 	ChainContractParams
 	// ExistingContracts defines any contracts that are already deployed on this chain.
-	ExistingContracts []commoncs.Contract
+	ExistingContracts commoncs.ExistingContractsConfig
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
 	ConfigOnHome ChainConfig
 	// CommitOCRParams defines the OCR parameters for this chain's commit plugin.
@@ -83,18 +90,53 @@ type AddCandidatesForNewChainConfig struct {
 	MCMSConfig *changeset.MCMSConfig
 }
 
+func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
+	return changeset.DeployPrerequisiteConfig{
+		Configs: []changeset.DeployPrerequisiteConfigPerChain{
+			changeset.DeployPrerequisiteConfigPerChain{
+				ChainSelector: c.NewChain.Selector,
+			},
+		},
+	}
+}
+
+func (c AddCandidatesForNewChainConfig) deploymentConfigForNewChain() DeployChainContractsConfig {
+	return DeployChainContractsConfig{
+		HomeChainSelector: c.HomeChainSelector,
+		ContractParamsPerChain: map[uint64]ChainContractParams{
+			c.NewChain.Selector: c.NewChain.ChainContractParams,
+		},
+	}
+}
+
+func (c AddCandidatesForNewChainConfig) rmnRemoteConfigForNewChain() SetRMNRemoteConfig {
+	if c.NewChain.RMNRemoteConfig == nil {
+		return SetRMNRemoteConfig{}
+	}
+	return SetRMNRemoteConfig{
+		HomeChainSelector: c.HomeChainSelector,
+		RMNRemoteConfigs: map[uint64]RMNRemoteConfig{
+			c.NewChain.Selector: *c.NewChain.RMNRemoteConfig,
+		},
+	}
+}
+
+func (c AddCandidatesForNewChainConfig) updateChainConfig() UpdateChainConfigConfig {
+	return UpdateChainConfigConfig{
+		HomeChainSelector: c.HomeChainSelector,
+		RemoteChainAdds: map[uint64]ChainConfig{
+			c.NewChain.Selector: c.NewChain.ConfigOnHome,
+		},
+		MCMS: c.MCMSConfig,
+	}
+}
+
 func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandidatesForNewChainConfig) error {
 	state, err := changeset.LoadOnchainState(e)
 	if err != nil {
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 
-	// We rely on underlying changesets to validate most of their own preconditions.
-	// Here, we just check that chain selectors are valid and that the home chain has the expected contracts.
-	err = deployment.IsValidChainSelector(c.HomeChainSelector)
-	if err != nil {
-		return fmt.Errorf("home chain selector is invalid: %w", err)
-	}
 	homeChainState, ok := state.Chains[c.HomeChainSelector]
 	if !ok {
 		return fmt.Errorf("home chain with selector %d does not exist", c.HomeChainSelector)
@@ -106,29 +148,25 @@ func addCandidatesForNewChainPrecondition(e deployment.Environment, c AddCandida
 		return fmt.Errorf("home chain with selector %d does not have a CapabilitiesRegistry", c.HomeChainSelector)
 	}
 
-	err = deployment.IsValidChainSelector(c.FeedChainSelector)
-	if err != nil {
-		return fmt.Errorf("feed chain selector is invalid: %w", err)
+	// We pre-validate any changesets that do not rely on contracts being deployed.
+	// The following can't be easily pre-validated:
+	// SetRMNRemoteOnRMNProxyChangeset, UpdateFeeQuoterDestsChangeset, UpdateFeeQuoterPricesChangeset
+	if err := c.NewChain.ExistingContracts.Validate(); err != nil {
+		return fmt.Errorf("failed to validate existing contracts on new chain: %w", err)
 	}
-	if _, ok := state.Chains[c.FeedChainSelector]; !ok {
-		return fmt.Errorf("feed chain with selector %d does not exist", c.FeedChainSelector)
+	if err := c.prerequisiteConfigForNewChain().Validate(); err != nil {
+		return fmt.Errorf("failed to validate prerequisite config for new chain: %w", err)
 	}
-
-	for _, remoteChain := range c.RemoteChains {
-		err = deployment.IsValidChainSelector(remoteChain.Selector)
-		if err != nil {
-			return fmt.Errorf("remote chain selector is invalid: %w", err)
+	if err := c.deploymentConfigForNewChain().Validate(); err != nil {
+		return fmt.Errorf("failed to validate deployment config for new chain: %w", err)
+	}
+	if c.NewChain.RMNRemoteConfig != nil {
+		if err := c.rmnRemoteConfigForNewChain().Validate(); err != nil {
+			return fmt.Errorf("failed to validate RMN remote config for new chain: %w", err)
 		}
-		if _, ok := state.Chains[remoteChain.Selector]; !ok {
-			return fmt.Errorf("remote chain with selector %d does not exist", remoteChain.Selector)
-		}
 	}
-
-	// Lastly, we just check if the new chain has a valid chain selector.
-	// We wouldn't expect this chain to exist in state yet, as it's being deployed here.
-	err = deployment.IsValidChainSelector(c.NewChain.Selector)
-	if err != nil {
-		return fmt.Errorf("new chain selector is invalid: %w", err)
+	if err := c.updateChainConfig().Validate(e); err != nil {
+		return fmt.Errorf("failed to validate update chain config: %w", err)
 	}
 
 	return nil
@@ -140,9 +178,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Save existing contracts
 	err := runAndSaveAddresses(func() (deployment.ChangesetOutput, error) {
-		return commoncs.SaveExistingContractsChangeset(e, commoncs.ExistingContractsConfig{
-			ExistingContracts: c.NewChain.ExistingContracts,
-		})
+		return commoncs.SaveExistingContractsChangeset(e, c.NewChain.ExistingContracts)
 	}, newAddresses, e.ExistingAddresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SaveExistingContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
@@ -150,13 +186,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Deploy the prerequisite contracts to the new chain
 	err = runAndSaveAddresses(func() (deployment.ChangesetOutput, error) {
-		return changeset.DeployPrerequisitesChangeset(e, changeset.DeployPrerequisiteConfig{
-			Configs: []changeset.DeployPrerequisiteConfigPerChain{
-				changeset.DeployPrerequisiteConfigPerChain{
-					ChainSelector: c.NewChain.Selector,
-				},
-			},
-		})
+		return changeset.DeployPrerequisitesChangeset(e, c.prerequisiteConfigForNewChain())
 	}, newAddresses, e.ExistingAddresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run DeployPrerequisitesChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
@@ -176,12 +206,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Deploy chain contracts to the new chain
 	err = runAndSaveAddresses(func() (deployment.ChangesetOutput, error) {
-		return DeployChainContractsChangeset(e, DeployChainContractsConfig{
-			HomeChainSelector: c.HomeChainSelector,
-			ContractParamsPerChain: map[uint64]ChainContractParams{
-				c.NewChain.Selector: c.NewChain.ChainContractParams,
-			},
-		})
+		return DeployChainContractsChangeset(e, c.deploymentConfigForNewChain())
 	}, newAddresses, e.ExistingAddresses)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run DeployChainContractsChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
@@ -189,12 +214,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 	// Set RMN remote config & set RMN on proxy on the new chain (if config provided)
 	if c.NewChain.RMNRemoteConfig != nil {
-		_, err = SetRMNRemoteConfigChangeset(e, SetRMNRemoteConfig{
-			HomeChainSelector: c.HomeChainSelector,
-			RMNRemoteConfigs: map[uint64]RMNRemoteConfig{
-				c.NewChain.Selector: *c.NewChain.RMNRemoteConfig,
-			},
-		})
+		_, err = SetRMNRemoteConfigChangeset(e, c.rmnRemoteConfigForNewChain())
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetRMNRemoteConfigChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 		}
@@ -251,13 +271,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	}
 
 	// Add new chain config to the home chain
-	out, err := UpdateChainConfigChangeset(e, UpdateChainConfigConfig{
-		HomeChainSelector: c.HomeChainSelector,
-		RemoteChainAdds: map[uint64]ChainConfig{
-			c.NewChain.Selector: c.NewChain.ConfigOnHome,
-		},
-		MCMS: c.MCMSConfig,
-	})
+	out, err := UpdateChainConfigChangeset(e, c.updateChainConfig())
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateChainConfigChangeset on home chain: %w", err)
 	}
@@ -299,9 +313,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 				SkipChainConfigValidation: true,
 			},
 		},
-		DonIDOverrides: map[uint64]uint32{
-			c.NewChain.Selector: donID,
-		},
+		DonIDOverrides: map[uint64]uint32{c.NewChain.Selector: donID},
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetCandidateChangeset on home chain: %w", err)
@@ -350,8 +362,100 @@ type PromoteNewChainForTestingConfig struct {
 	MCMSConfig        *changeset.MCMSConfig
 }
 
+func (c PromoteNewChainForTestingConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
+	return PromoteCandidateChangesetConfig{
+		HomeChainSelector: c.HomeChainSelector,
+		MCMS:              c.MCMSConfig,
+		PluginInfo: []PromoteCandidatePluginInfo{
+			{
+				PluginType:           types.PluginTypeCCIPCommit,
+				RemoteChainSelectors: []uint64{c.NewChain.Selector},
+			},
+			{
+				PluginType:           types.PluginTypeCCIPExec,
+				RemoteChainSelectors: []uint64{c.NewChain.Selector},
+			},
+		},
+	}
+}
+
+func (c PromoteNewChainForTestingConfig) setOCR3OffRampConfig() SetOCR3OffRampConfig {
+	candidate := globals.ConfigTypeActive
+	if c.MCMSConfig != nil {
+		candidate = globals.ConfigTypeCandidate // If going through MCMS, the config will be candidate during changeset validation
+	}
+	return SetOCR3OffRampConfig{
+		HomeChainSel:       c.HomeChainSelector,
+		RemoteChainSels:    []uint64{c.NewChain.Selector},
+		CCIPHomeConfigType: candidate,
+	}
+}
+
+func (c PromoteNewChainForTestingConfig) updateFeeQuoterDestsConfig(remoteChain ChainDefinition) UpdateFeeQuoterDestsConfig {
+	return UpdateFeeQuoterDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+				c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
+			},
+		},
+		MCMS: c.MCMSConfig,
+	}
+}
+
+func (c PromoteNewChainForTestingConfig) updateFeeQuoterPricesConfig(remoteChain ChainDefinition) UpdateFeeQuoterPricesConfig {
+	return UpdateFeeQuoterPricesConfig{
+		PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
+			remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
+				TokenPrices: remoteChain.TokenPrices,
+				GasPrices:   map[uint64]*big.Int{c.NewChain.Selector: c.NewChain.GasPrice},
+			},
+		},
+		MCMS: c.MCMSConfig,
+	}
+}
+
+func (c PromoteNewChainForTestingConfig) connectNewChainConfig() ConnectNewChainConfig {
+	testRouter := true
+	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
+	for _, remoteChain := range c.RemoteChains {
+		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
+	}
+	return ConnectNewChainConfig{
+		RemoteChains:             connections,
+		NewChainSelector:         c.NewChain.Selector,
+		NewChainConnectionConfig: c.NewChain.ConnectionConfig,
+		TestRouter:               &testRouter,
+		MCMSConfig:               c.MCMSConfig,
+	}
+}
+
 func promoteNewChainForTestingPrecondition(e deployment.Environment, c PromoteNewChainForTestingConfig) error {
-	// TODO
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	if _, err := c.promoteCandidateConfig().Validate(e); err != nil {
+		return fmt.Errorf("failed to validate promote candidate config: %w", err)
+	}
+
+	if err := c.setOCR3OffRampConfig().Validate(e, state); err != nil {
+		return fmt.Errorf("failed to validate set OCR3 off ramp config: %w", err)
+	}
+
+	for _, remoteChain := range c.RemoteChains {
+		if err := c.updateFeeQuoterDestsConfig(remoteChain).Validate(e); err != nil {
+			return fmt.Errorf("failed to validate update fee quoter dests config for remote chain with selector %d: %w", remoteChain.Selector, err)
+		}
+		if err := c.updateFeeQuoterPricesConfig(remoteChain).Validate(e); err != nil {
+			return fmt.Errorf("failed to validate update fee quoter prices config for remote chain with selector %d: %w", remoteChain.Selector, err)
+		}
+	}
+
+	err = ConnectNewChainChangeset.VerifyPreconditions(e, c.connectNewChainConfig())
+	if err != nil {
+		return fmt.Errorf("failed to validate ConnectNewChainChangeset: %w", err)
+	}
 
 	return nil
 }
@@ -364,62 +468,27 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 	}
 
 	// Promote the candidates for the commit and exec plugins
-	out, err := PromoteCandidateChangeset(e, PromoteCandidateChangesetConfig{
-		HomeChainSelector: c.HomeChainSelector,
-		MCMS:              c.MCMSConfig,
-		PluginInfo: []PromoteCandidatePluginInfo{
-			{
-				PluginType:           types.PluginTypeCCIPCommit,
-				RemoteChainSelectors: []uint64{c.NewChain.Selector},
-			},
-			{
-				PluginType:           types.PluginTypeCCIPExec,
-				RemoteChainSelectors: []uint64{c.NewChain.Selector}},
-		},
-	})
+	out, err := PromoteCandidateChangeset(e, c.promoteCandidateConfig())
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run PromoteCandidateChangeset on home chain: %w", err)
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	candidate := globals.ConfigTypeActive
-	if c.MCMSConfig != nil {
-		candidate = globals.ConfigTypeCandidate // If going through MCMS, the config will be candidate during changeset validation
-	}
 	// Set the OCR3 config on the off ramp on the new chain
-	out, err = SetOCR3OffRampChangeset(e, SetOCR3OffRampConfig{
-		HomeChainSel:       c.HomeChainSelector,
-		RemoteChainSels:    []uint64{c.NewChain.Selector},
-		CCIPHomeConfigType: candidate,
-	})
+	out, err = SetOCR3OffRampChangeset(e, c.setOCR3OffRampConfig())
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run SetOCR3OffRampChangeset on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
 
 	// Update the fee quoter prices and destinations on the remote chains
 	for _, remoteChain := range c.RemoteChains {
-		out, err := UpdateFeeQuoterDestsChangeset(e, UpdateFeeQuoterDestsConfig{
-			UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-				remoteChain.Selector: map[uint64]fee_quoter.FeeQuoterDestChainConfig{
-					c.NewChain.Selector: c.NewChain.FeeQuoterDestChainConfig,
-				},
-			},
-			MCMS: c.MCMSConfig,
-		})
+		out, err := UpdateFeeQuoterDestsChangeset(e, c.updateFeeQuoterDestsConfig(remoteChain))
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset on chain with selector %d: %w", remoteChain.Selector, err)
 		}
 		allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-		out, err = UpdateFeeQuoterPricesChangeset(e, UpdateFeeQuoterPricesConfig{
-			PricesByChain: map[uint64]FeeQuoterPriceUpdatePerSource{
-				remoteChain.Selector: FeeQuoterPriceUpdatePerSource{
-					TokenPrices: remoteChain.TokenPrices,
-					GasPrices:   map[uint64]*big.Int{c.NewChain.Selector: c.NewChain.GasPrice},
-				},
-			},
-			MCMS: c.MCMSConfig,
-		})
+		out, err = UpdateFeeQuoterPricesChangeset(e, c.updateFeeQuoterPricesConfig(remoteChain))
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset on chain with selector %d: %w", remoteChain.Selector, err)
 		}
@@ -427,23 +496,7 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 	}
 
 	// Connect the new chain to the existing chains (use the test router)
-	testRouter := true
-	connections := make(map[uint64]ConnectionConfig, len(c.RemoteChains))
-	for _, remoteChain := range c.RemoteChains {
-		connections[remoteChain.Selector] = remoteChain.ConnectionConfig
-	}
-	cfg := ConnectNewChainConfig{
-		RemoteChains:             connections,
-		NewChainSelector:         c.NewChain.Selector,
-		NewChainConnectionConfig: c.NewChain.ConnectionConfig,
-		TestRouter:               &testRouter,
-		MCMSConfig:               c.MCMSConfig,
-	}
-	err = ConnectNewChainChangeset.VerifyPreconditions(e, cfg)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run ConnectNewChainChangeset precondition: %w", err)
-	}
-	out, err = ConnectNewChainChangeset.Apply(e, cfg)
+	out, err = ConnectNewChainChangeset.Apply(e, c.connectNewChainConfig())
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run ConnectNewChainChangeset: %w", err)
 	}

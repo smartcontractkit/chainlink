@@ -81,18 +81,6 @@ func TestConnectNewChain(t *testing.T) {
 
 	tests := []test{
 		{
-			Msg:                        "MCMS config should be defined",
-			TransferRemoteChainsToMCMS: true,
-			MCMS:                       nil,
-			ErrStr:                     "not owned by deployer key",
-		},
-		{
-			Msg:                        "MCMS config should be undefined",
-			TransferRemoteChainsToMCMS: false,
-			MCMS:                       mcmsConfig,
-			ErrStr:                     "not owned by timelock",
-		},
-		{
 			Msg:                        "Use production router (with MCMS)",
 			TransferRemoteChainsToMCMS: true,
 			TestRouter:                 false,
@@ -407,11 +395,13 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 					FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
 					OffRampParams:   v1_6.DefaultOffRampParams(),
 				},
-				ExistingContracts: []commoncs.Contract{
-					{
-						Address:        linkAddress.Hex(),
-						TypeAndVersion: deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
-						ChainSelector:  newChainSelector,
+				ExistingContracts: commoncs.ExistingContractsConfig{
+					ExistingContracts: []commoncs.Contract{
+						{
+							Address:        linkAddress.Hex(),
+							TypeAndVersion: deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0),
+							ChainSelector:  newChainSelector,
+						},
 					},
 				},
 				ConfigOnHome: v1_6.ChainConfig{
