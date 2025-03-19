@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/pelletier/go-toml"
+	"github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,120 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
+
+type ctxKey string
+
+func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
+	gateways := []string{"gateway1", "gateway2"}
+
+	type testCase struct {
+		name string
+
+		gatewayConnectorSetup func(*gcmocks.GatewayConnector)
+		ctxSetup              func() context.Context
+		expectedGateway       string
+		expectedError         string
+	}
+
+	testCases := []testCase{
+		{
+			name: "successful connection on first try",
+			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(nil).Once()
+			},
+			ctxSetup:        context.Background,
+			expectedGateway: "gateway1",
+		},
+		{
+			name: "connection timeout then success",
+			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(errors.New("timeout")).Once()
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway2").Return(nil).Once()
+			},
+			ctxSetup:        context.Background,
+			expectedGateway: "gateway2",
+		},
+		{
+			name: "connection timeout then success after backoff",
+			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(errors.New("gateway connection failed: timeout")).Once()
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway2").Return(errors.New("gateway connection failed: timeout")).Once()
+
+				// second call to gateway1 succeeds
+				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(nil).Once()
+			},
+			ctxSetup:        context.Background,
+			expectedGateway: "gateway1",
+		},
+		{
+			name: "all gateways fail and context canceled",
+			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
+				callCount := 0
+				mockConnector.On("AwaitConnection", mock.Anything, mock.Anything).Return(errors.New("gateway connection failed: timeout")).Run(func(args mock.Arguments) {
+					callCount++
+					if callCount == len(gateways) {
+						// Cancel the context after the second call (gateway2)
+						ctx, ok := args.Get(0).(context.Context)
+						if ok {
+							cancelFunc := ctx.Value(ctxKey("cancelFunc")).(context.CancelFunc)
+							cancelFunc()
+						}
+					}
+				})
+			},
+			ctxSetup: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				ctx = context.WithValue(ctx, ctxKey("cancelFunc"), cancel)
+				return ctx
+			},
+			expectedGateway: "",
+			expectedError:   "context canceled",
+		},
+		{
+			name: "context canceled",
+			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
+				// No AwaitConnection call expected because context is canceled
+			},
+			ctxSetup: func() context.Context {
+				ctx, cancel := context.WithCancel(context.Background())
+				cancel() // Cancel the context immediately
+				return ctx
+			},
+			expectedGateway: "",
+			expectedError:   "context canceled",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockConnector := gcmocks.NewGatewayConnector(t)
+			lggr := logger.TestLogger(t)
+
+			if tc.gatewayConnectorSetup != nil {
+				tc.gatewayConnectorSetup(mockConnector)
+			}
+
+			rr := NewRoundRobinSelector(gateways)
+			c := &OutgoingConnectorHandler{
+				gatewaySelector: rr,
+				gc:              mockConnector,
+				lggr:            lggr,
+			}
+
+			ctx := tc.ctxSetup()
+			gateway, err := c.AwaitConnection(ctx)
+
+			assert.Equal(t, tc.expectedGateway, gateway)
+			if tc.expectedError != "" {
+				require.ErrorContains(t, err, tc.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+
+			mockConnector.AssertExpectations(t)
+		})
+	}
+}
 
 func TestHandleSingleNodeRequest(t *testing.T) {
 	t.Run("uses default timeout if no timeout is provided", func(t *testing.T) {

@@ -25,6 +25,7 @@ const (
 	DefaultWorkflowRPS    = 5.0
 	DefaultWorkflowBurst  = 50
 	defaultFetchTimeoutMs = 20_000
+	defaultAwaitTimeoutMs = 3_000
 
 	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
 	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
@@ -116,17 +117,9 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		Payload:   payload,
 	}
 
-	selectedGateway, err := c.gatewaySelector.NextGateway()
+	selectedGateway, err := c.AwaitConnection(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to select gateway: %w", err)
-	}
-
-	lggr = logger.With(lggr, "gatewayID", selectedGateway)
-
-	lggr.Infow("selected gateway, awaiting connection")
-
-	if err := c.gc.AwaitConnection(ctx, selectedGateway); err != nil {
-		return nil, errors.Wrap(err, "await connection canceled")
+		return nil, err
 	}
 
 	if err := c.gc.SignAndSendToGateway(ctx, selectedGateway, body); err != nil {
@@ -151,6 +144,69 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// AwaitConnection attempts to establish a connection to an available gateway.  It iterates through available gateways
+// using the gatewaySelector, attempting to connect to each.  The method respects the provided context, allowing for
+// cancellation or timeout.
+func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
+	return c.awaitConnectionUntilCanceled(ctx)
+}
+
+func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Context) (string, error) {
+	attempts := make(map[string]int)
+	wait := 10 * time.Millisecond
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+			gateway, err := c.gatewaySelector.NextGateway()
+			if err != nil {
+				return "", fmt.Errorf("failed to select gateway: %w", err)
+			}
+
+			// if called before, we have tried them all, so backoff
+			if attempts[gateway] > 0 {
+				c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", wait)
+				attempts = make(map[string]int)
+				<-time.After(wait)
+				wait *= 2
+			}
+
+			attempts[gateway]++
+
+			c.lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
+
+			if err := c.attemptGatewayConnection(ctx, gateway); err != nil {
+				c.lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway)
+				continue
+			}
+			return gateway, nil
+		}
+	}
+}
+
+// attemptGatewayConnection uses at most defaultAwaitTimeoutMs to connect to a gateway.
+func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
+	parentDeadline, parentHasDeadline := ctx.Deadline()
+	defaultDeadline := time.Now().Add(defaultAwaitTimeoutMs)
+
+	var connectionDeadline time.Time
+
+	if parentHasDeadline && parentDeadline.Before(defaultDeadline) {
+		connectionDeadline = parentDeadline // Use parent deadline if it's sooner
+	} else {
+		connectionDeadline = defaultDeadline // Otherwise, use the default
+	}
+
+	ctxWithDeadline, cancel := context.WithDeadline(ctx, connectionDeadline)
+	defer cancel()
+
+	if err := c.gc.AwaitConnection(ctxWithDeadline, gateway); err != nil {
+		return fmt.Errorf("gateway connection failed: %w", err)
+	}
+	return nil
 }
 
 // HandleGatewayMessage processes incoming messages from the Gateway,

@@ -7,7 +7,9 @@ import (
 	"math"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -24,6 +26,12 @@ import (
 
 type wrapper struct {
 	c connector.GatewayConnector
+}
+
+func newConnectorWrapper(c connector.GatewayConnector) *wrapper {
+	return &wrapper{
+		c: c,
+	}
 }
 
 func (w *wrapper) GetGatewayConnector() connector.GatewayConnector {
@@ -58,7 +66,56 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().DonID().Return(donID)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 
-		payload, err := fetcher.Fetch(ctx, url, 0)
+		payload, err := fetcher.Fetch(ctx, url, uint32(0))
+		require.NoError(t, err)
+
+		expectedPayload := []byte("response body")
+		require.Equal(t, expectedPayload, payload)
+	})
+
+	// Connector handler never makes a connection to a gateway and the context expires.
+	t.Run("NOK-request_context_deadline_exceeded", func(t *testing.T) {
+		connector := gcmocks.NewGatewayConnector(t)
+		wrapper := newConnectorWrapper(connector)
+		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+		fetcher := NewFetcherService(lggr, wrapper)
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(assert.AnError).Maybe()
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway2").Return(assert.AnError).Maybe()
+
+		ctxwd, cancel := context.WithTimeout(t.Context(), 3*time.Second)
+		defer cancel()
+		_, err := fetcher.Fetch(ctxwd, url, uint32(0))
+		require.Error(t, err)
+		require.ErrorContains(t, err, "context deadline exceeded")
+	})
+
+	// Connector handler cycles to next available gateway after first connection fails.
+	t.Run("OK-connector_handler_awaits_working_gateway", func(t *testing.T) {
+		connector := gcmocks.NewGatewayConnector(t)
+		wrapper := newConnectorWrapper(connector)
+		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
+		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+
+		fetcher := NewFetcherService(lggr, wrapper)
+		require.NoError(t, fetcher.Start(ctx))
+		defer fetcher.Close()
+
+		connector.EXPECT().DonID().Return(donID)
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(assert.AnError).Once()
+		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway2").Return(nil).Once()
+
+		gatewayResp := signGatewayResponse(t, gatewayResponse(t, msgID, donID))
+		connector.EXPECT().SignAndSendToGateway(matches.AnyContext, "gateway2", mock.Anything).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			fetcher.och.HandleGatewayMessage(ctx, "gateway2", gatewayResp)
+		}).Return(nil).Times(1)
+
+		payload, err := fetcher.Fetch(ctx, url, uint32(0))
 		require.NoError(t, err)
 
 		expectedPayload := []byte("response body")
@@ -80,7 +137,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url, 0)
+		_, err := fetcher.Fetch(ctx, url, uint32(0))
 		require.Error(t, err)
 	})
 
@@ -99,7 +156,7 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url, 0)
+		_, err := fetcher.Fetch(ctx, url, uint32(0))
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid response from gateway")
 	})
