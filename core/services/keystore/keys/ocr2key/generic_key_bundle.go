@@ -97,12 +97,19 @@ func (kb *keyBundle[K]) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrt
 	return kb.keyring.Sign3(digest, seqNr, r)
 }
 
+func (kb *keyBundle[K]) SignBlob(b []byte) (sig []byte, err error) {
+	return kb.keyring.SignBlob(b)
+}
+
 func (kb *keyBundle[K]) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify(publicKey, reportCtx, report, signature)
 }
 
 func (kb *keyBundle[K]) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	return kb.keyring.Verify3(publicKey, cd, seqNr, r, signature)
+}
+func (kb *keyBundle[K]) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+	return kb.keyring.VerifyBlob(pubkey, b, sig)
 }
 
 // OnChainPublicKey returns public component of the keypair used on chain

@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"crypto/ed25519"
+	"encoding/binary"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -27,6 +28,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/crypto/sha3"
 	"google.golang.org/grpc/peer"
+	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
@@ -647,7 +649,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	})
 }
 
-func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
+func TestIntegration_LLO_multi_formats(t *testing.T) {
 	t.Parallel()
 	offchainConfigs := []datastreamsllo.OffchainConfig{
 		{
@@ -663,12 +665,12 @@ func TestIntegration_LLO_evm_abi_encode_unpacked(t *testing.T) {
 		t.Run(fmt.Sprintf("offchainConfig=%+v", offchainConfig), func(t *testing.T) {
 			t.Parallel()
 
-			testIntegrationLLOEVMABIEncodeUnpacked(t, offchainConfig)
+			testIntegrationLLOMultiFormats(t, offchainConfig)
 		})
 	}
 }
 
-func testIntegrationLLOEVMABIEncodeUnpacked(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
+func testIntegrationLLOMultiFormats(t *testing.T, offchainConfig datastreamsllo.OffchainConfig) {
 	testStartTimeStamp := time.Now()
 	expirationWindow := uint32(3600)
 
@@ -692,7 +694,7 @@ func testIntegrationLLOEVMABIEncodeUnpacked(t *testing.T, offchainConfig datastr
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_llo", backend, bootstrapCSAKey, nil)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
 
-	t.Run("generates reports using go ReportFormatEVMABIEncodeUnpacked format", func(t *testing.T) {
+	t.Run("generates reports using multiple formats", func(t *testing.T) {
 		packetCh := make(chan *packet, 100000)
 		serverKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 2))
 		serverPubKey := serverKey.PublicKey
@@ -734,7 +736,7 @@ lloConfigMode = "bluegreen"
 		deribitFundingTimeStreamID := uint32(10)
 		deribitFundingIntervalHoursStreamID := uint32(11)
 
-		mustEncodeOpts := func(opts *lloevm.ReportFormatEVMABIEncodeOpts) []byte {
+		mustEncodeOpts := func(opts any) []byte {
 			encoded, err := json.Marshal(opts)
 			require.NoError(t, err)
 			return encoded
@@ -742,10 +744,16 @@ lloConfigMode = "bluegreen"
 
 		standardMultiplier := ubig.NewI(1e18)
 
+		const simpleStreamlinedChannelID = 5
+		const complexStreamlinedChannelID = 6
+
 		dexBasedAssetFeedID := utils.NewHash()
 		rwaFeedID := utils.NewHash()
 		benchmarkPriceFeedID := utils.NewHash()
 		fundingRateFeedID := utils.NewHash()
+		simpleStreamlinedFeedID := pad32bytes(simpleStreamlinedChannelID)
+		complexStreamlinedFeedID := pad32bytes(complexStreamlinedChannelID)
+
 		// Channel definitions
 		channelDefinitions := llotypes.ChannelDefinitions{
 			// Sample DEX-based asset schema
@@ -922,6 +930,62 @@ lloConfigMode = "bluegreen"
 					},
 				}),
 			},
+			// Simple sample streamlined schema
+			simpleStreamlinedChannelID: {
+				ReportFormat: llotypes.ReportFormatEVMStreamlined,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMStreamlinedOpts{
+					ABI: []lloevm.ABIEncoder{
+						{
+							StreamID:   ethStreamID,
+							Type:       "int160",
+							Multiplier: standardMultiplier,
+						},
+					},
+				}),
+			},
+			// Complex sample streamlined schema
+			complexStreamlinedChannelID: {
+				ReportFormat: llotypes.ReportFormatEVMStreamlined,
+				Streams: []llotypes.Stream{
+					{
+						StreamID:   ethStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   linkStreamID,
+						Aggregator: llotypes.AggregatorMedian,
+					},
+					{
+						StreamID:   dexBasedAssetPriceStreamID,
+						Aggregator: llotypes.AggregatorMode,
+					},
+				},
+				Opts: mustEncodeOpts(&lloevm.ReportFormatEVMStreamlinedOpts{
+					ABI: []lloevm.ABIEncoder{
+						{
+							StreamID:   ethStreamID,
+							Type:       "int192",
+							Multiplier: standardMultiplier,
+						},
+						{
+							StreamID:   linkStreamID,
+							Type:       "int8",
+							Multiplier: ubig.NewI(10),
+						},
+						{
+							StreamID:   dexBasedAssetPriceStreamID,
+							Type:       "uint64",
+							Multiplier: ubig.NewI(100),
+						},
+					},
+				}),
+			},
 		}
 		url, sha := newChannelDefinitionsServer(t, channelDefinitions)
 
@@ -1055,106 +1119,153 @@ dp -> deribit_funding_interval_hours_parse -> deribit_funding_interval_hours_dec
 
 		// NOTE: Wait for one of each type of report
 		feedIDs := map[[32]byte]struct{}{
-			dexBasedAssetFeedID:  {},
-			rwaFeedID:            {},
-			benchmarkPriceFeedID: {},
-			fundingRateFeedID:    {},
+			dexBasedAssetFeedID:      {},
+			rwaFeedID:                {},
+			benchmarkPriceFeedID:     {},
+			fundingRateFeedID:        {},
+			simpleStreamlinedFeedID:  {},
+			complexStreamlinedFeedID: {},
 		}
 
 		for pckt := range packetCh {
 			req := pckt.req
-			assert.Equal(t, uint32(llotypes.ReportFormatEVMABIEncodeUnpacked), req.ReportFormat)
-			v := make(map[string]interface{})
-			err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
-			require.NoError(t, err)
-			report, exists := v["report"]
-			if !exists {
-				t.Fatalf("expected payload %#v to contain 'report'", v)
-			}
-			reportCtx, exists := v["reportContext"]
-			if !exists {
-				t.Fatalf("expected payload %#v to contain 'reportContext'", v)
-			}
-
-			// Check the report context
-			assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
-			assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
-
-			reportElems := make(map[string]interface{})
-			err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
-			require.NoError(t, err)
-
-			feedID := reportElems["feedId"].([32]uint8)
-			delete(feedIDs, feedID)
-
-			// Check headers
-			assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
-			assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
-			// Zero fees since both eth/link stream specs are missing, don't
-			// care about billing for purposes of this test
-			assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
-			assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
-			assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
-
-			// Check payload values
-			payload := report.([]byte)[192:]
-			switch hex.EncodeToString(feedID[:]) {
-			case hex.EncodeToString(dexBasedAssetFeedID[:]):
-				require.Len(t, payload, 96)
-				args := abi.Arguments([]abi.Argument{
-					{Name: "benchmarkPrice", Type: mustNewType("int192")},
-					{Name: "baseMarketDepth", Type: mustNewType("int192")},
-					{Name: "quoteMarketDepth", Type: mustNewType("int192")},
-				})
+			switch req.ReportFormat {
+			case uint32(llotypes.ReportFormatEVMABIEncodeUnpacked):
 				v := make(map[string]interface{})
-				err := args.UnpackIntoMap(v, payload)
+				err := mercury.PayloadTypes.UnpackIntoMap(v, req.Payload)
+				require.NoError(t, err)
+				report, exists := v["report"]
+				if !exists {
+					t.Fatalf("expected payload %#v to contain 'report'", v)
+				}
+				reportCtx, exists := v["reportContext"]
+				if !exists {
+					t.Fatalf("expected payload %#v to contain 'reportContext'", v)
+				}
+
+				// Check the report context
+				assert.Equal(t, [32]byte(digest), reportCtx.([3][32]uint8)[0])                                                                      // config digest
+				assert.Equal(t, "000000000000000000000000000000000000000000000000000d8e0d00000001", fmt.Sprintf("%x", reportCtx.([3][32]uint8)[2])) // extra hash
+
+				reportElems := make(map[string]interface{})
+				err = lloevm.BaseSchema.UnpackIntoMap(reportElems, report.([]byte))
 				require.NoError(t, err)
 
-				assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
-				assert.Equal(t, "1000", v["baseMarketDepth"].(*big.Int).String())
-				assert.Equal(t, "998", v["quoteMarketDepth"].(*big.Int).String())
-			case hex.EncodeToString(rwaFeedID[:]):
-				require.Len(t, payload, 32)
-				args := abi.Arguments([]abi.Argument{
-					{Name: "marketStatus", Type: mustNewType("uint32")},
-				})
-				v := make(map[string]interface{})
-				err := args.UnpackIntoMap(v, payload)
-				require.NoError(t, err)
+				feedID := reportElems["feedId"].([32]uint8)
+				delete(feedIDs, feedID)
 
-				assert.Equal(t, uint32(1), v["marketStatus"].(uint32))
-			case hex.EncodeToString(benchmarkPriceFeedID[:]):
-				require.Len(t, payload, 32)
-				args := abi.Arguments([]abi.Argument{
-					{Name: "benchmarkPrice", Type: mustNewType("int192")},
-				})
-				v := make(map[string]interface{})
-				err := args.UnpackIntoMap(v, payload)
-				require.NoError(t, err)
+				// Check headers
+				assert.GreaterOrEqual(t, reportElems["validFromTimestamp"].(uint32), uint32(testStartTimeStamp.Unix())) //nolint:gosec // G115
+				assert.GreaterOrEqual(t, int(reportElems["observationsTimestamp"].(uint32)), int(testStartTimeStamp.Unix()))
+				// Zero fees since both eth/link stream specs are missing, don't
+				// care about billing for purposes of this test
+				assert.Equal(t, "25148438659186", reportElems["nativeFee"].(*big.Int).String())
+				assert.Equal(t, "4264392324093817", reportElems["linkFee"].(*big.Int).String())
+				assert.Equal(t, reportElems["observationsTimestamp"].(uint32)+expirationWindow, reportElems["expiresAt"].(uint32))
 
-				assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
-			case hex.EncodeToString(fundingRateFeedID[:]):
-				require.Len(t, payload, 192)
-				args := abi.Arguments([]abi.Argument{
-					{Name: "binanceFundingRate", Type: mustNewType("int192")},
-					{Name: "binanceFundingTime", Type: mustNewType("int192")},
-					{Name: "binanceFundingIntervalHours", Type: mustNewType("int192")},
-					{Name: "deribitFundingRate", Type: mustNewType("int192")},
-					{Name: "deribitFundingTime", Type: mustNewType("int192")},
-					{Name: "deribitFundingIntervalHours", Type: mustNewType("int192")},
-				})
-				v := make(map[string]interface{})
-				err := args.UnpackIntoMap(v, payload)
-				require.NoError(t, err)
+				// Check payload values
+				payload := report.([]byte)[192:]
+				switch hex.EncodeToString(feedID[:]) {
+				case hex.EncodeToString(dexBasedAssetFeedID[:]):
+					require.Len(t, payload, 96)
+					args := abi.Arguments([]abi.Argument{
+						{Name: "benchmarkPrice", Type: mustNewType("int192")},
+						{Name: "baseMarketDepth", Type: mustNewType("int192")},
+						{Name: "quoteMarketDepth", Type: mustNewType("int192")},
+					})
+					v := make(map[string]interface{})
+					err := args.UnpackIntoMap(v, payload)
+					require.NoError(t, err)
 
-				assert.Equal(t, "1234", v["binanceFundingRate"].(*big.Int).String())
-				assert.Equal(t, "1630000000", v["binanceFundingTime"].(*big.Int).String())
-				assert.Equal(t, "8", v["binanceFundingIntervalHours"].(*big.Int).String())
-				assert.Equal(t, "5432", v["deribitFundingRate"].(*big.Int).String())
-				assert.Equal(t, "1630000000", v["deribitFundingTime"].(*big.Int).String())
-				assert.Equal(t, "8", v["deribitFundingIntervalHours"].(*big.Int).String())
+					assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
+					assert.Equal(t, "1000", v["baseMarketDepth"].(*big.Int).String())
+					assert.Equal(t, "998", v["quoteMarketDepth"].(*big.Int).String())
+				case hex.EncodeToString(rwaFeedID[:]):
+					require.Len(t, payload, 32)
+					args := abi.Arguments([]abi.Argument{
+						{Name: "marketStatus", Type: mustNewType("uint32")},
+					})
+					v := make(map[string]interface{})
+					err := args.UnpackIntoMap(v, payload)
+					require.NoError(t, err)
+
+					assert.Equal(t, uint32(1), v["marketStatus"].(uint32))
+				case hex.EncodeToString(benchmarkPriceFeedID[:]):
+					require.Len(t, payload, 32)
+					args := abi.Arguments([]abi.Argument{
+						{Name: "benchmarkPrice", Type: mustNewType("int192")},
+					})
+					v := make(map[string]interface{})
+					err := args.UnpackIntoMap(v, payload)
+					require.NoError(t, err)
+
+					assert.Equal(t, "2976390000000000000000", v["benchmarkPrice"].(*big.Int).String())
+				case hex.EncodeToString(fundingRateFeedID[:]):
+					require.Len(t, payload, 192)
+					args := abi.Arguments([]abi.Argument{
+						{Name: "binanceFundingRate", Type: mustNewType("int192")},
+						{Name: "binanceFundingTime", Type: mustNewType("int192")},
+						{Name: "binanceFundingIntervalHours", Type: mustNewType("int192")},
+						{Name: "deribitFundingRate", Type: mustNewType("int192")},
+						{Name: "deribitFundingTime", Type: mustNewType("int192")},
+						{Name: "deribitFundingIntervalHours", Type: mustNewType("int192")},
+					})
+					v := make(map[string]interface{})
+					err := args.UnpackIntoMap(v, payload)
+					require.NoError(t, err)
+
+					assert.Equal(t, "1234", v["binanceFundingRate"].(*big.Int).String())
+					assert.Equal(t, "1630000000", v["binanceFundingTime"].(*big.Int).String())
+					assert.Equal(t, "8", v["binanceFundingIntervalHours"].(*big.Int).String())
+					assert.Equal(t, "5432", v["deribitFundingRate"].(*big.Int).String())
+					assert.Equal(t, "1630000000", v["deribitFundingTime"].(*big.Int).String())
+					assert.Equal(t, "8", v["deribitFundingIntervalHours"].(*big.Int).String())
+				default:
+					t.Fatalf("unexpected feedID: %x", feedID)
+				}
+			case uint32(llotypes.ReportFormatEVMStreamlined):
+				p := &lloevm.LLOEVMStreamlinedReportWithContext{}
+				require.NoError(t, proto.Unmarshal(req.Payload, p))
+				// proto auxiliary fields
+				assert.Equal(t, digest[:], p.ConfigDigest)
+				assert.Greater(t, p.SeqNr, uint64(1))
+
+				// payload check
+				payload := p.PackedPayload
+				assert.Equal(t, digest[:], payload[:32])
+				lenReport := int(binary.BigEndian.Uint16(payload[32:34]))
+				report := make([]byte, lenReport)
+				copy(report, payload[34:])
+				numSigs := payload[34+lenReport]
+				assert.Equal(t, int(fNodes+1), int(numSigs))
+				assert.Len(t, payload, 32+2+lenReport+1+int(numSigs)*65)
+
+				// report contents check
+				cidBytes := report[:4]
+				cid := binary.BigEndian.Uint32(cidBytes)
+				switch cid {
+				case simpleStreamlinedChannelID:
+					assert.Len(t, report, 32)
+					tsbytes := report[4:12]
+					ts := binary.BigEndian.Uint64(tsbytes)
+					assert.GreaterOrEqual(t, ts, uint64(testStartTimeStamp.Unix())) //nolint:gosec // g115
+					// int160
+					assert.Equal(t, "0000000000000000000000d78f7f252ecf870000", hex.EncodeToString(report[12:]))
+				case complexStreamlinedChannelID:
+					assert.Len(t, report, 45)
+					tsbytes := report[4:12]
+					ts := binary.BigEndian.Uint64(tsbytes)
+					assert.GreaterOrEqual(t, ts, uint64(testStartTimeStamp.Unix())) //nolint:gosec // g115
+					// int192, int8, uint64
+					assert.Equal(t, "000000000000000000000000000000d78f7f252ecf870000", hex.EncodeToString(report[12:36]))
+					assert.Equal(t, "ea", hex.EncodeToString(report[36:37]))
+					assert.Equal(t, "0000000000048aa7", hex.EncodeToString(report[37:]))
+				default:
+					t.Fatalf("unexpected channel: %d", cid)
+				}
+				delete(feedIDs, pad32bytes(cid))
 			default:
-				t.Fatalf("unexpected feedID: %x", feedID)
+				t.Fatalf("unexpected report format: %d", req.ReportFormat)
 			}
 
 			if len(feedIDs) == 0 {
@@ -1994,4 +2105,10 @@ func mustMarshalJSON(v interface{}) string {
 		panic(err)
 	}
 	return string(b)
+}
+
+func pad32bytes(d uint32) [32]byte {
+	var result [32]byte
+	binary.BigEndian.PutUint32(result[28:], d)
+	return result
 }

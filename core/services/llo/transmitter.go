@@ -145,7 +145,6 @@ func (t *transmitter) Transmit(
 	}
 	g := new(errgroup.Group)
 	for _, st := range t.subTransmitters {
-		st := st
 		g.Go(func() error {
 			return st.Transmit(ctx, digest, seqNr, report, sigs)
 		})
