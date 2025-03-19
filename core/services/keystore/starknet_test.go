@@ -2,7 +2,7 @@ package keystore_test
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -35,7 +35,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -82,12 +82,12 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 		_, err = ks.Get(newKey.ID())
 		require.Error(t, err)
 	})
@@ -103,7 +103,7 @@ func Test_StarkNetKeyStore_E2E(t *testing.T) {
 
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 	})
 }
 
@@ -125,7 +125,7 @@ func TestStarknetSigner(t *testing.T) {
 		require.NoError(t, err)
 	})
 	t.Run("key doesn't exists", func(t *testing.T) {
-		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, fmt.Errorf("key doesn't exist"))
+		baseKs.On("Get", mock.Anything).Return(starkkey.Key{}, errors.New("key doesn't exist"))
 		signed, err := lk.Sign(testutils.Context(t), "not an address", nil)
 		require.Nil(t, signed)
 		require.Error(t, err)

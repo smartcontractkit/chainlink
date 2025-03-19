@@ -108,7 +108,7 @@ func (s *TriggerService) RegisterTrigger(ctx context.Context,
 		})
 	})
 	if !ok {
-		return nil, fmt.Errorf("cannot create new trigger since LogEventTriggerCapabilityService has been stopped")
+		return nil, errors.New("cannot create new trigger since LogEventTriggerCapabilityService has been stopped")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("create new trigger failed %w", err)

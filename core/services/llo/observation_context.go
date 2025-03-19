@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -134,6 +135,8 @@ func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
 		return llo.ToDecimal(v), nil
 	case float64:
 		return llo.ToDecimal(decimal.NewFromFloat(v)), nil
+	case int64:
+		return llo.ToDecimal(decimal.NewFromInt(v)), nil
 	case pipeline.ObjectParam:
 		switch v.Type {
 		case pipeline.DecimalType:

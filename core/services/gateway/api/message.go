@@ -1,14 +1,17 @@
 package api
 
 import (
+	"context"
 	"crypto/ecdsa"
 	"encoding/json"
 	"errors"
 	"strings"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	gw_common "github.com/smartcontractkit/chainlink/v2/core/services/gateway/common"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -101,6 +104,20 @@ func (m *Message) Sign(privateKey *ecdsa.PrivateKey) error {
 	}
 	m.Signature = utils.StringToHex(string(signature))
 	m.Body.Sender = strings.ToLower(crypto.PubkeyToAddress(privateKey.PublicKey).Hex())
+	return nil
+}
+
+func (m *Message) SignKS(ctx context.Context, ks keys.MessageSigner, signer common.Address) error {
+	if m == nil {
+		return errors.New("nil message")
+	}
+	rawData := GetRawMessageBody(&m.Body)
+	signature, err := ks.SignMessage(ctx, signer, gw_common.Flatten(rawData...))
+	if err != nil {
+		return err
+	}
+	m.Signature = utils.StringToHex(string(signature))
+	m.Body.Sender = strings.ToLower(signer.Hex())
 	return nil
 }
 

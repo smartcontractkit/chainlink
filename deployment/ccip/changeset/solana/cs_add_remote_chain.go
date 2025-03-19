@@ -617,7 +617,7 @@ func getSourceChainConfig(s ccipChangeset.CCIPOnChainState, remoteChainSel uint6
 	}
 	onRampAddress.Len = uint32(addressBytesLen)
 	validSourceChainConfig := solOffRamp.SourceChainConfig{
-		OnRamp:    [2]solOffRamp.OnRampAddress{onRampAddress, {}},
+		OnRamp:    onRampAddress,
 		IsEnabled: enabledAsSource,
 	}
 	return validSourceChainConfig, nil

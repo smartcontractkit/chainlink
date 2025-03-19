@@ -69,7 +69,7 @@ func TestSessionsController_Create(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Contains(t, string(b), `"attributes":{"authenticated":true}`)
 			} else {
-				require.True(t, resp.StatusCode >= 400, "Should not be able to create session")
+				require.GreaterOrEqual(t, resp.StatusCode, 400, "Should not be able to create session")
 				// Ignore fixture session
 				sessions, err := app.AuthenticationProvider().Sessions(ctx, 1, 2)
 				assert.NoError(t, err)
@@ -162,7 +162,7 @@ func TestSessionsController_Destroy(t *testing.T) {
 			if test.success {
 				assert.Equal(t, http.StatusOK, resp.StatusCode)
 			} else {
-				assert.True(t, resp.StatusCode >= 400, "Should get an erroneous status code for deleting a nonexistent session id")
+				assert.GreaterOrEqual(t, resp.StatusCode, 400, "Should get an erroneous status code for deleting a nonexistent session id")
 			}
 		})
 	}

@@ -3,7 +3,6 @@ package evm
 import (
 	"bytes"
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/json"
 	"errors"
@@ -37,36 +36,26 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
-
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
+
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/estimatorconfig"
 	cciptransmitter "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/transmitter"
-	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	mercuryconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/mercury/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/functions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/interceptors/mantle"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
-	mercuryutils "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/utils"
-	reportcodecv1 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v1/reportcodec"
-	reportcodecv2 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v2/reportcodec"
-	reportcodecv3 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
-	reportcodecv4 "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v4/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -150,25 +139,21 @@ type Relayer struct {
 	ds                   sqlutil.DataSource
 	chain                legacyevm.Chain
 	lggr                 logger.SugaredLogger
-	registerer           prometheus.Registerer
-	ks                   CSAETHKeystore
-	mercuryPool          wsrpc.Pool
+	csaKeystore          coretypes.Keystore
+	evmKeystore          keys.Store
 	codec                commontypes.Codec
 	capabilitiesRegistry coretypes.CapabilitiesRegistry
 
 	// Mercury
-	mercuryORM        mercury.ORM
 	mercuryCfg        MercuryConfig
+	mercuryORM        mercury.ORM
+	mercuryPool       wsrpc.Pool
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
 	cdcFactory            func() (llo.ChannelDefinitionCacheFactory, error)
 	retirementReportCache llo.RetirementReportCache
-}
-
-type CSAETHKeystore interface {
-	CSA() keystore.CSA
-	Eth() keystore.Eth
+	registerer            prometheus.Registerer
 }
 
 type MercuryConfig interface {
@@ -177,9 +162,10 @@ type MercuryConfig interface {
 }
 
 type RelayerOpts struct {
-	DS         sqlutil.DataSource
-	Registerer prometheus.Registerer
-	CSAETHKeystore
+	DS                    sqlutil.DataSource
+	Registerer            prometheus.Registerer
+	CSAKeystore           coretypes.Keystore
+	EVMKeystore           keys.ChainStore
 	MercuryPool           wsrpc.Pool
 	RetirementReportCache llo.RetirementReportCache
 	MercuryConfig
@@ -192,8 +178,11 @@ func (c RelayerOpts) Validate() error {
 	if c.DS == nil {
 		err = errors.Join(err, errors.New("nil DataSource"))
 	}
-	if c.CSAETHKeystore == nil {
-		err = errors.Join(err, errors.New("nil Keystore"))
+	if c.CSAKeystore == nil {
+		err = errors.Join(err, errors.New("nil CSAKeystore"))
+	}
+	if c.EVMKeystore == nil {
+		err = errors.Join(err, errors.New("nil EVMKeystore"))
 	}
 	if c.CapabilitiesRegistry == nil {
 		err = errors.Join(err, errors.New("nil CapabilitiesRegistry"))
@@ -204,7 +193,7 @@ func (c RelayerOpts) Validate() error {
 	return err
 }
 
-func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*Relayer, error) {
+func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*Relayer, error) {
 	err := opts.Validate()
 	if err != nil {
 		return nil, fmt.Errorf("cannot create evm relayer: %w", err)
@@ -219,38 +208,20 @@ func NewRelayer(ctx context.Context, lggr logger.Logger, chain legacyevm.Chain, 
 		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
 		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
 	})
-	relayer := &Relayer{
+	return &Relayer{
 		ds:                    opts.DS,
 		chain:                 chain,
 		lggr:                  logger.Sugared(sugared),
 		registerer:            opts.Registerer,
-		ks:                    opts.CSAETHKeystore,
+		csaKeystore:           opts.CSAKeystore,
+		evmKeystore:           opts.EVMKeystore,
 		mercuryPool:           opts.MercuryPool,
 		cdcFactory:            cdcFactory,
 		retirementReportCache: opts.RetirementReportCache,
 		mercuryORM:            mercuryORM,
 		mercuryCfg:            opts.MercuryConfig,
 		capabilitiesRegistry:  opts.CapabilitiesRegistry,
-	}
-
-	wCfg := chain.Config().EVM().Workflow()
-	// Initialize write target capability if configuration is defined
-	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
-		if wCfg.GasLimitDefault() == nil {
-			return nil, fmt.Errorf("unable to instantiate write target as default gas limit is not set")
-		}
-
-		capability, err := NewWriteTarget(ctx, relayer, chain, *wCfg.GasLimitDefault(), lggr)
-		if err != nil {
-			return nil, fmt.Errorf("failed to initialize write target: %w", err)
-		}
-		if err := relayer.capabilitiesRegistry.Add(ctx, capability); err != nil {
-			return nil, err
-		}
-		lggr.Infow("Registered write target", "chain_id", chain.ID())
-	}
-
-	return relayer, nil
+	}, nil
 }
 
 func (r *Relayer) Name() string {
@@ -258,6 +229,21 @@ func (r *Relayer) Name() string {
 }
 
 func (r *Relayer) Start(ctx context.Context) error {
+	wCfg := r.chain.Config().EVM().Workflow()
+	// Initialize write target capability if configuration is defined
+	if wCfg.ForwarderAddress() != nil && wCfg.FromAddress() != nil {
+		if wCfg.GasLimitDefault() == nil {
+			return fmt.Errorf("unable to instantiate write target as default gas limit is not set")
+		}
+		capability, err := NewWriteTarget(ctx, r, r.chain, *wCfg.GasLimitDefault(), r.lggr)
+		if err != nil {
+			return fmt.Errorf("failed to initialize write target: %w", err)
+		}
+		if err = r.capabilitiesRegistry.Add(ctx, capability); err != nil {
+			return fmt.Errorf("failed to register capability: %w", err)
+		}
+		r.lggr.Infow("Registered write target", "chain_id", r.chain.ID())
+	}
 	return r.chain.Start(ctx)
 }
 
@@ -340,7 +326,7 @@ func (r *Relayer) NewOCR3CapabilityProvider(ctx context.Context, rargs commontyp
 		return nil, err
 	}
 
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -385,8 +371,7 @@ func (r *Relayer) NewPluginProvider(ctx context.Context, rargs commontypes.Relay
 	if err != nil {
 		return nil, err
 	}
-
-	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
+	transmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI)
 	if err != nil {
 		return nil, err
 	}
@@ -437,18 +422,6 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 	if !relayConfig.EffectiveTransmitterID.Valid {
 		return nil, pkgerrors.New("EffectiveTransmitterID must be specified")
 	}
-	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
-	}
-
-	clients := make(map[string]wsrpc.Client)
-	for _, server := range mercuryConfig.GetServers() {
-		clients[server.URL], err = r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	// initialize trigger capability service lazily
 	if relayConfig.EnableTriggerCapability && r.triggerCapability == nil {
@@ -470,44 +443,7 @@ func (r *Relayer) NewMercuryProvider(ctx context.Context, rargs commontypes.Rela
 		}
 	}
 
-	reportCodecV1 := reportcodecv1.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV1"))
-	reportCodecV2 := reportcodecv2.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV2"))
-	reportCodecV3 := reportcodecv3.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV3"))
-	reportCodecV4 := reportcodecv4.NewReportCodec(*relayConfig.FeedID, lggr.Named("ReportCodecV4"))
-
-	getCodecForFeed := func(feedID mercuryutils.FeedID) (mercury.TransmitterReportDecoder, error) {
-		var transmitterCodec mercury.TransmitterReportDecoder
-		switch feedID.Version() {
-		case 1:
-			transmitterCodec = reportCodecV1
-		case 2:
-			transmitterCodec = reportCodecV2
-		case 3:
-			transmitterCodec = reportCodecV3
-		case 4:
-			transmitterCodec = reportCodecV4
-		default:
-			return nil, fmt.Errorf("invalid feed version %d", feedID.Version())
-		}
-		return transmitterCodec, nil
-	}
-
-	benchmarkPriceDecoder := func(ctx context.Context, feedID mercuryutils.FeedID, report ocrtypes.Report) (*big.Int, error) {
-		benchmarkPriceCodec, benchmarkPriceErr := getCodecForFeed(feedID)
-		if benchmarkPriceErr != nil {
-			return nil, benchmarkPriceErr
-		}
-		return benchmarkPriceCodec.BenchmarkPriceFromReport(ctx, report)
-	}
-
-	transmitterCodec, err := getCodecForFeed(mercuryutils.FeedID(*relayConfig.FeedID))
-	if err != nil {
-		return nil, err
-	}
-
-	transmitter := mercury.NewTransmitter(lggr, r.mercuryCfg.Transmitter(), clients, privKey.PublicKey, rargs.JobID, *relayConfig.FeedID, r.mercuryORM, transmitterCodec, benchmarkPriceDecoder, r.triggerCapability)
-
-	return NewMercuryProvider(cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), transmitter, reportCodecV1, reportCodecV2, reportCodecV3, reportCodecV4, lggr), nil
+	return NewMercuryProvider(ctx, rargs.JobID, relayConfig, mercuryConfig, r.mercuryCfg.Transmitter(), cp, r.codec, NewMercuryChainReader(r.chain.HeadTracker()), lggr, r.csaKeystore, r.mercuryPool, r.mercuryORM, r.triggerCapability)
 }
 
 func chainToUUID(chainID *big.Int) uuid.UUID {
@@ -582,7 +518,7 @@ func (r *Relayer) NewCCIPCommitProvider(ctx context.Context, rargs commontypes.R
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0))
 	if err != nil {
@@ -666,7 +602,7 @@ func (r *Relayer) NewCCIPExecProvider(ctx context.Context, rargs commontypes.Rel
 		return nil, err
 	}
 	subjectID := chainToUUID(configWatcher.chain.ID())
-	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{
+	contractTransmitter, err := newOnChainContractTransmitter(ctx, r.lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{
 		subjectID: &subjectID,
 	}, OCR2AggregatorTransmissionContractABI, WithReportToEthMetadata(fn), WithRetention(0), WithExcludeSignatures())
 	if err != nil {
@@ -716,88 +652,19 @@ func (r *Relayer) NewLLOProvider(ctx context.Context, rargs commontypes.RelayArg
 		return nil, fmt.Errorf("LLOConfigMode must be specified in relayConfig for LLO jobs (only %q or %q is currently supported)", types.LLOConfigModeMercury, types.LLOConfigModeBlueGreen)
 	}
 
-	var lloCfg lloconfig.PluginConfig
-	if err = json.Unmarshal(pargs.PluginConfig, &lloCfg); err != nil {
-		return nil, pkgerrors.WithStack(err)
-	}
-	if err = lloCfg.Validate(); err != nil {
-		return nil, err
-	}
-	privKey, err := r.ks.CSA().Get(relayConfig.EffectiveTransmitterID.String)
-	if err != nil {
-		return nil, pkgerrors.Wrap(err, "failed to get CSA key for mercury connection")
-	}
-
-	var transmitter LLOTransmitter
-	if lloCfg.BenchmarkMode {
-		lggr.Info("Benchmark mode enabled, using dummy transmitter. NOTE: THIS WILL NOT TRANSMIT ANYTHING")
-		transmitter = bm.NewTransmitter(lggr, fmt.Sprintf("%x", privKey.PublicKey))
-	} else {
-		clients := make(map[string]grpc.Client)
-		for _, server := range lloCfg.GetServers() {
-			var client grpc.Client
-			switch r.mercuryCfg.Transmitter().Protocol() {
-			case config.MercuryTransmitterProtocolGRPC:
-				client = grpc.NewClient(grpc.ClientOpts{
-					Logger:        lggr.Named(fmt.Sprintf("%q", server.URL)).With("serverURL", server.URL),
-					ClientPrivKey: privKey.PrivateKey(),
-					ServerPubKey:  ed25519.PublicKey(server.PubKey),
-					ServerURL:     server.URL,
-				})
-			case config.MercuryTransmitterProtocolWSRPC:
-				wsrpcClient, checkoutErr := r.mercuryPool.Checkout(ctx, privKey, server.PubKey, server.URL)
-				if checkoutErr != nil {
-					return nil, checkoutErr
-				}
-				client = wsrpc.GRPCCompatibilityWrapper{Client: wsrpcClient}
-			default:
-				return nil, fmt.Errorf("unsupported protocol %q", r.mercuryCfg.Transmitter().Protocol())
-			}
-			clients[server.URL] = client
-		}
-		// FIXME: The transmitter instantiation really ought to be moved out of
-		// the evm relay into llo package
-		// https://smartcontract-it.atlassian.net/browse/MERC-6847
-		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:           lggr,
-			DonID:          lloCfg.DonID,
-			FromAccount:    fmt.Sprintf("%x", privKey.PublicKey), // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
-			VerboseLogging: r.mercuryCfg.VerboseLogging(),
-			MercuryTransmitterOpts: mercurytransmitter.Opts{
-				Lggr:                 lggr,
-				VerboseLogging:       r.mercuryCfg.VerboseLogging(),
-				Cfg:                  r.mercuryCfg.Transmitter(),
-				Clients:              clients,
-				FromAccount:          privKey.PublicKey,
-				DonID:                lloCfg.DonID,
-				ORM:                  mercurytransmitter.NewORM(r.ds, relayConfig.LLODONID),
-				CapabilitiesRegistry: r.capabilitiesRegistry,
-			},
-			Subtransmitters:       lloCfg.Transmitters,
-			RetirementReportCache: r.retirementReportCache,
-		})
-		if err != nil {
-			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)
-		}
-	}
-
 	cdcFactory, err := r.cdcFactory()
-	if err != nil {
-		return nil, err
-	}
-	cdc, err := cdcFactory.NewCache(lloCfg)
 	if err != nil {
 		return nil, err
 	}
 
 	configuratorAddress := common.HexToAddress(relayOpts.ContractID)
-	return NewLLOProvider(ctx, transmitter, lggr, r.retirementReportCache, r.chain, configuratorAddress, cdc, relayConfig, relayOpts)
+	return NewLLOProvider(ctx, lggr, pargs, r.retirementReportCache, r.chain, configuratorAddress, cdcFactory, relayConfig, relayOpts, r.csaKeystore, r.mercuryCfg, r.retirementReportCache, r.ds, r.mercuryPool, r.capabilitiesRegistry)
 }
 
 func (r *Relayer) NewFunctionsProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.FunctionsProvider, error) {
 	lggr := r.lggr.Named("FunctionsProvider").Named(rargs.ExternalJobID.String())
 	// TODO(FUN-668): Not ready yet (doesn't implement FunctionsEvents() properly)
-	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.ks.Eth(), functions.FunctionsPlugin)
+	return NewFunctionsProvider(ctx, r.chain, rargs, pargs, lggr, r.evmKeystore, functions.FunctionsPlugin)
 }
 
 // NewConfigProvider is called by bootstrap jobs
@@ -939,7 +806,7 @@ type configTransmitterOpts struct {
 }
 
 // newOnChainContractTransmitter creates a new contract transmitter.
-func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
+func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*contractTransmitter, error) {
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
 	if err != nil {
 		return nil, err
@@ -959,7 +826,7 @@ func newOnChainContractTransmitter(ctx context.Context, lggr logger.Logger, rarg
 }
 
 // newOnChainDualContractTransmitter creates a new dual contract transmitter.
-func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*dualContractTransmitter, error) {
+func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, ocrTransmitterOpts ...OCRTransmitterOption) (*dualContractTransmitter, error) {
 	transmitter, err := generateTransmitterFrom(ctx, rargs, ethKeystore, configWatcher, opts)
 	if err != nil {
 		return nil, err
@@ -978,7 +845,7 @@ func newOnChainDualContractTransmitter(ctx context.Context, lggr logger.Logger, 
 	)
 }
 
-func NewContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, dualTransmission bool, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
+func NewContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commontypes.RelayArgs, ethKeystore keys.Store, configWatcher *configWatcher, opts configTransmitterOpts, transmissionContractABI abi.ABI, dualTransmission bool, ocrTransmitterOpts ...OCRTransmitterOption) (ContractTransmitter, error) {
 	if dualTransmission {
 		return newOnChainDualContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
 	}
@@ -986,7 +853,13 @@ func NewContractTransmitter(ctx context.Context, lggr logger.Logger, rargs commo
 	return newOnChainContractTransmitter(ctx, lggr, rargs, ethKeystore, configWatcher, opts, transmissionContractABI, ocrTransmitterOpts...)
 }
 
-func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore keystore.Eth, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
+type Keystore interface {
+	keys.AddressChecker
+	keys.RoundRobin
+	keys.Locker
+}
+
+func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, ethKeystore Keystore, configWatcher *configWatcher, opts configTransmitterOpts) (Transmitter, error) {
 	var relayConfig types.RelayConfig
 	if err := json.Unmarshal(rargs.RelayConfig, &relayConfig); err != nil {
 		return nil, err
@@ -1009,7 +882,7 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 		if sendingKeysLength > 1 && s == effectiveTransmitterAddress.String() {
 			return nil, pkgerrors.New("the transmitter is a local sending key with transaction forwarding enabled")
 		}
-		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s), configWatcher.chain.Config().EVM().ChainID()); err != nil {
+		if err := ethKeystore.CheckEnabled(ctx, common.HexToAddress(s)); err != nil {
 			return nil, pkgerrors.Wrap(err, "one of the sending keys given is not enabled")
 		}
 		fromAddresses = append(fromAddresses, common.HexToAddress(s))
@@ -1041,7 +914,6 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 	switch commontypes.OCR2PluginType(rargs.ProviderType) {
 	case commontypes.Median:
 		transmitter, err = ocrcommon.NewOCR2FeedsTransmitter(
-			ctx,
 			configWatcher.chain.TxManager(),
 			fromAddresses,
 			common.HexToAddress(rargs.ContractID),
@@ -1049,7 +921,6 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			effectiveTransmitterAddress,
 			strategy,
 			checker,
-			configWatcher.chain.ID(),
 			ethKeystore,
 			relayConfig.DualTransmissionConfig,
 		)
@@ -1072,7 +943,6 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			effectiveTransmitterAddress,
 			strategy,
 			checker,
-			configWatcher.chain.ID(),
 			ethKeystore,
 		)
 	}
@@ -1124,7 +994,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 	reportCodec := evmreportcodec.ReportCodec{}
 
-	ct, err := NewContractTransmitter(ctx, lggr, rargs, r.ks.Eth(), configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
+	ct, err := NewContractTransmitter(ctx, lggr, rargs, r.evmKeystore, configWatcher, configTransmitterOpts{}, OCR2AggregatorTransmissionContractABI, relayConfig.EnableDualTransmission)
 	if err != nil {
 		return nil, err
 	}
@@ -1172,7 +1042,7 @@ func (r *Relayer) NewMedianProvider(ctx context.Context, rargs commontypes.Relay
 
 func (r *Relayer) NewAutomationProvider(ctx context.Context, rargs commontypes.RelayArgs, pargs commontypes.PluginArgs) (commontypes.AutomationProvider, error) {
 	lggr := logger.Sugared(r.lggr).Named("AutomationProvider").Named(rargs.ExternalJobID.String())
-	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.ks.Eth())
+	ocr2keeperRelayer := NewOCR2KeeperRelayer(r.ds, r.chain, lggr.Named("OCR2KeeperRelayer"), r.evmKeystore)
 
 	return ocr2keeperRelayer.NewOCR2KeeperProvider(ctx, rargs, pargs)
 }

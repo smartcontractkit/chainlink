@@ -17,22 +17,22 @@ import (
 
 func TestUnpackTransmitTxInput(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	packer := &evmRegistryPackerV2_0{abi: registryABI}
 	decodedReport, err := packer.UnpackTransmitTxInput(hexutil.MustDecode("0x00011a04d404e571ead64b2f08cfae623a0d96b9beb326c20e322001cbbd344700000000000000000000000000000000000000000000000000000000000d580e35681c68a0426c30f4686e837c0cd7864200f48dbfe48c80c51f92aa5ac607b300000000000000000000000000000000000000000000000000000000000000e000000000000000000000000000000000000000000000000000000000000002e00000000000000000000000000000000000000000000000000000000000000360000100000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000001e000000000000000000000000000000000000000000000000000000000773594000000000000000000000000000000000000000000000000000010fb9cd2f34a00000000000000000000000000000000000000000000000000000000000000008000000000000000000000000000000000000000000000000000000000000000c00000000000000000000000000000000000000000000000000000000000000001de1256139081c6b165a3aee0432f605d3dee0e6087ea53b46ca9478c253ea9c8000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000827075c4bacd41884f60c2ca7af3630400bedd92ad7ad0ba4e1f000e70297de0573e180000000000000000000000000000000000000000000000000000000000000060000000000000000000000000000000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000600000000000000000000000000000000000000000000000000000000000000a8c0000000000000000000000000000000000000000000000000000000000086470000000000000000000000000000000000000000000000000000000000000000326e2b521089d44f1457ae51b3f8d76e8577e08c4af9374bdc62aebbfad081a78a13941ab209ad44a905ee0fd704a46b2ebc022dcb60659bed87342fd94dadb70827af523f59c7c9bb8dcc77e959b0476869612e8cf84e63a2e9a5617290633f70000000000000000000000000000000000000000000000000000000000000003723d77998618c5959396115fc61380215e0395f68c18a6cf0647c3e759ee013040c2967fdd369aac59b464f931dacd7b8863498757eda53a9f6a4b6150f2dbe640771f3c242c297265c36c5e78f4c660ae74dcd1f5bda8687b6afed3d3f27e0d"))
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// We expect one upkeep ID in the report at block number
 	var expectedBlock uint32 = 8548469
 	expectedID, _ := new(big.Int).SetString("100445849710294316610676143149039812931260394722330855891004881602834541226440", 10)
 
-	assert.Equal(t, len(decodedReport), 1)
+	assert.Len(t, decodedReport, 1)
 
 	rpt, ok := decodedReport[0].(EVMAutomationUpkeepResult20)
 	assert.True(t, ok)
 
-	assert.Equal(t, rpt.Block, expectedBlock)
+	assert.Equal(t, expectedBlock, rpt.Block)
 	assert.Equal(t, rpt.ID.String(), expectedID.String())
 }
 
@@ -53,11 +53,11 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.Name, func(t *testing.T) {
 			abi, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			packer := &evmRegistryPackerV2_0{abi: abi}
 			_, err = packer.UnpackTransmitTxInput(hexutil.MustDecode(test.RawData))
-			assert.NotNil(t, err)
+			assert.Error(t, err)
 		})
 	}
 }
@@ -65,7 +65,7 @@ func TestUnpackTransmitTxInputErrors(t *testing.T) {
 func TestUnpackCheckResults(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	upkeepId, _ := new(big.Int).SetString("1843548457736589226156809205796175506139185429616502850435279853710366065936", 10)
@@ -117,7 +117,7 @@ func TestUnpackCheckResults(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			packer := &evmRegistryPackerV2_0{abi: registryABI}
 			rs, err := packer.UnpackCheckResult(test.UpkeepKey, test.RawData)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Equal(t, test.ExpectedResult, rs)
 		})
 	}
@@ -126,7 +126,7 @@ func TestUnpackCheckResults(t *testing.T) {
 func TestUnpackPerformResult(t *testing.T) {
 	registryABI, err := abi.JSON(strings.NewReader(keeper_registry_wrapper2_0.KeeperRegistryABI))
 	if err != nil {
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 	}
 
 	tests := []struct {
@@ -142,7 +142,7 @@ func TestUnpackPerformResult(t *testing.T) {
 		t.Run(test.Name, func(t *testing.T) {
 			packer := &evmRegistryPackerV2_0{abi: registryABI}
 			rs, err := packer.UnpackPerformResult(test.RawData)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.True(t, rs)
 		})
 	}

@@ -678,7 +678,7 @@ func (r *Resolver) DeleteBridge(ctx context.Context, args struct {
 		return nil, err
 	}
 	if len(jobsUsingBridge) > 0 {
-		return NewDeleteBridgePayload(nil, fmt.Errorf("bridge has jobs associated with it")), nil
+		return NewDeleteBridgePayload(nil, errors.New("bridge has jobs associated with it")), nil
 	}
 
 	if err = orm.DeleteBridgeType(ctx, &bt); err != nil {

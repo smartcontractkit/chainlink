@@ -1,7 +1,7 @@
 package observability
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -49,7 +49,7 @@ func TestMetricsSendFromContractDirectly(t *testing.T) {
 	chainId := int64(420)
 
 	mockedOfframp := ccipdatamocks.NewOffRampReader(t)
-	mockedOfframp.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{}, fmt.Errorf("execution error"))
+	mockedOfframp.On("GetTokens", ctx).Return(cciptypes.OffRampTokens{}, errors.New("execution error"))
 
 	observedOfframp := NewObservedOffRampReader(mockedOfframp, chainId, "plugin")
 
@@ -83,5 +83,5 @@ func successfulContract() (string, error) {
 }
 
 func failedContract() (string, error) {
-	return "", fmt.Errorf("just error")
+	return "", errors.New("just error")
 }

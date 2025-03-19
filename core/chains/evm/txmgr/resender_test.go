@@ -16,6 +16,8 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
@@ -30,14 +32,16 @@ func Test_EthResender_resendUnconfirmed(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	lggr := logger.Test(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
 	ethClient.On("IsL2").Return(false).Maybe()
 	ccfg := testutils.NewTestChainScopedConfig(t, nil)
 
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress3 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	memKS := keystest.NewMemoryChainStore()
+	fromAddress := memKS.MustCreate(t)
+	fromAddress2 := memKS.MustCreate(t)
+	fromAddress3 := memKS.MustCreate(t)
+	ethKeyStore := keys.NewChainStore(memKS, big.NewInt(0))
 
 	txStore := cltest.NewTestTxStore(t, db)
 
@@ -100,8 +104,12 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 
 	db := testutils.NewSqlxDB(t)
 	lggr, o := logger.TestObserved(t, zapcore.DebugLevel)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
+
 	ethClient := clienttest.NewClientWithDefaultChainID(t)
+	memKS := keystest.NewMemoryChainStore()
+	fromAddress := memKS.MustCreate(t)
+	ethKeyStore := keys.NewChainStore(memKS, big.NewInt(0))
+
 	ethClient.On("IsL2").Return(false).Maybe()
 	// Set this to the smallest non-zero value possible for the attempt to be eligible for resend
 	delay := commonconfig.MustNewDuration(1 * time.Nanosecond)
@@ -110,8 +118,6 @@ func Test_EthResender_alertUnconfirmed(t *testing.T) {
 			Transactions: toml.Transactions{ResendAfterThreshold: delay},
 		})
 	})
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
 
 	txStore := cltest.NewTestTxStore(t, db)
 
@@ -145,8 +151,9 @@ func Test_EthResender_Start(t *testing.T) {
 	})
 
 	txStore := cltest.NewTestTxStore(t, db)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	memKS := keystest.NewMemoryChainStore()
+	fromAddress := memKS.MustCreate(t)
+	ethKeyStore := keys.NewChainStore(memKS, big.NewInt(0))
 	lggr := logger.Test(t)
 
 	t.Run("resends transactions that have been languishing unconfirmed for too long", func(t *testing.T) {

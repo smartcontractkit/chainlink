@@ -3,7 +3,6 @@ package migrations
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"log"
 	"math/big"
 	"os"
@@ -61,7 +60,7 @@ func Up56(ctx context.Context, tx *sql.Tx) error {
 			}
 			chainID, ok := new(big.Int).SetString(chainIDStr, 10)
 			if !ok {
-				panic(fmt.Sprintf("ETH_CHAIN_ID was invalid, expected a number, got: %s", chainIDStr))
+				panic("ETH_CHAIN_ID was invalid, expected a number, got: " + chainIDStr)
 			}
 			_, err := tx.ExecContext(ctx, "INSERT INTO evm_chains (id, created_at, updated_at) VALUES ($1, NOW(), NOW());", chainID.String())
 			return err

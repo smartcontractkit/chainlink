@@ -2,7 +2,7 @@ package s4_test
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"testing"
 	"time"
 
@@ -190,7 +190,7 @@ func TestGet(t *testing.T) {
 	t.Run("NOK-Get_underlaying_ORM_returns_an_error", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("Get", mock.Anything, address, slotID).Return(nil, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("Get", mock.Anything, address, slotID).Return(nil, errors.New("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		row, err := orm.Get(ctx, address, slotID)
@@ -220,7 +220,7 @@ func TestDeletedExpired(t *testing.T) {
 		ctx := testutils.Context(t)
 		var expectedDeleted int64
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("DeleteExpired", mock.Anything, limit, now).Return(expectedDeleted, errors.New("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		actualDeleted, err := orm.DeleteExpired(ctx, limit, now)
@@ -254,7 +254,7 @@ func TestGetUnconfirmedRows(t *testing.T) {
 	t.Run("NOK-GetUnconfirmedRows_underlaying_ORM_returns_an_error", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		underlayingORM := mocks.NewORM(t)
-		underlayingORM.On("GetUnconfirmedRows", mock.Anything, limit).Return(nil, fmt.Errorf("some_error")).Once()
+		underlayingORM.On("GetUnconfirmedRows", mock.Anything, limit).Return(nil, errors.New("some_error")).Once()
 		orm := s4.NewCachedORMWrapper(underlayingORM, lggr)
 
 		actualRow, err := orm.GetUnconfirmedRows(ctx, limit)

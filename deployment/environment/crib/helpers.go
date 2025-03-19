@@ -18,7 +18,7 @@ import (
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
 	transmittersStr := make([]common.Address, 0)
-	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100_000), deployment.UBigInt(1e18)) // 100K ETH
+	fundingAmount := new(big.Int).Mul(deployment.UBigInt(100), deployment.UBigInt(1e18)) // 100 ETH
 
 	g := new(errgroup.Group)
 	for sel, chain := range env.Chains {

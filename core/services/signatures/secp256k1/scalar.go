@@ -15,6 +15,7 @@ package secp256k1
 
 import (
 	"crypto/cipher"
+	"errors"
 	"fmt"
 	"io"
 	"math/big"
@@ -153,7 +154,7 @@ func (s *secp256k1Scalar) MarshalBinary() ([]byte, error) {
 	// leftpad with zeros
 	rv := append(make([]byte, s.MarshalSize()-len(b)), b...)
 	if len(rv) != s.MarshalSize() {
-		return nil, fmt.Errorf("marshalled scalar to wrong length")
+		return nil, errors.New("marshalled scalar to wrong length")
 	}
 	return rv, nil
 }
@@ -170,7 +171,7 @@ func (s *secp256k1Scalar) MarshalID() [8]byte {
 // returning error on failure.
 func (s *secp256k1Scalar) UnmarshalBinary(buf []byte) error {
 	if len(buf) != s.MarshalSize() {
-		return fmt.Errorf("cannot unmarshal to scalar: wrong length")
+		return errors.New("cannot unmarshal to scalar: wrong length")
 	}
 	s.int().Mod(s.int().SetBytes(buf), GroupOrder)
 	return nil
@@ -181,7 +182,7 @@ func (s *secp256k1Scalar) UnmarshalBinary(buf []byte) error {
 func (s *secp256k1Scalar) MarshalTo(w io.Writer) (int, error) {
 	buf, err := s.MarshalBinary()
 	if err != nil {
-		return 0, fmt.Errorf("cannot marshal binary: %s", err)
+		return 0, fmt.Errorf("cannot marshal binary: %w", err)
 	}
 	return w.Write(buf)
 }

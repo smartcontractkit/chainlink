@@ -24,11 +24,11 @@ func TestLogEventBufferV1(t *testing.T) {
 		logpoller.Log{BlockNumber: 2, TxHash: common.HexToHash("0x1"), LogIndex: 2},
 	)
 	results, remaining := buf.Dequeue(int64(1), 2, true)
-	require.Equal(t, 2, len(results))
+	require.Len(t, results, 2)
 	require.Equal(t, 2, remaining)
-	require.True(t, results[0].ID.Cmp(results[1].ID) != 0)
+	require.NotEqual(t, results[0].ID.Cmp(results[1].ID), 0)
 	results, remaining = buf.Dequeue(int64(1), 2, true)
-	require.Equal(t, 0, len(results))
+	require.Empty(t, results)
 	require.Equal(t, 0, remaining)
 }
 
@@ -355,7 +355,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 		require.Equal(t, 1, added)
 		require.Equal(t, 1, q.sizeOfRange(1, 20))
 		logs, remaining := q.dequeue(19, 21, 10)
-		require.Equal(t, 1, len(logs))
+		require.Len(t, logs, 1)
 		require.Equal(t, 0, remaining)
 	})
 
@@ -381,7 +381,7 @@ func TestLogEventBufferV1_UpkeepQueue(t *testing.T) {
 		require.Equal(t, 3, added)
 
 		logs, remaining := q.dequeue(19, 21, 2)
-		require.Equal(t, 2, len(logs))
+		require.Len(t, logs, 2)
 		require.Equal(t, 1, remaining)
 	})
 }
@@ -437,7 +437,7 @@ func TestLogEventBufferV1_UpkeepQueue_clean(t *testing.T) {
 		require.Equal(t, 2, q.sizeOfRange(1, 18))
 		q.lock.Lock()
 		defer q.lock.Unlock()
-		require.Equal(t, 2, len(q.states))
+		require.Len(t, q.states, 2)
 	})
 }
 
