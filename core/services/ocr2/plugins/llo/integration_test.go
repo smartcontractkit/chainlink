@@ -941,7 +941,7 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, donID, confi
 	"benchmarkPrice": "2976.39",
 	"baseMarketDepth": "1000.1212",
 	"quoteMarketDepth": "998.5431",
-	"marketStatus": "1",
+	"marketStatus": 1,
 	"binanceFundingRate": "1234.5678",
 	"binanceFundingTime": "1630000000",
 	"binanceFundingIntervalHours": "8",
@@ -978,13 +978,13 @@ dp -> base_market_depth_parse -> base_market_depth_decimal;
 dp -> quote_market_depth_parse -> quote_market_depth_decimal;
 `, bridgeName, dexBasedAssetPriceStreamID, baseMarketDepthStreamID, quoteMarketDepthStreamID)
 
+		// Don't use a multiply task so that the task result has int64 type.
 		rwaPipeline := fmt.Sprintf(`
 dp          [type=bridge name="%s" requestData="{\\"data\\":{\\"data\\":\\"foo\\"}}"];
 
-market_status_parse   [type=jsonparse path="result,marketStatus"];
-market_status_decimal [type=multiply times=1 streamID=%d];
+market_status_parse   [type=jsonparse path="result,marketStatus" streamID=%d];
 
-dp -> market_status_parse -> market_status_decimal;
+dp -> market_status_parse;
 `, bridgeName, marketStatusStreamID)
 
 		benchmarkPricePipeline := fmt.Sprintf(`
