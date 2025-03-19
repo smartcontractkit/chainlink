@@ -62,4 +62,5 @@ func TestDeployFeeManager(t *testing.T) {
 	}
 	require.NotEqual(t, "", fmAddress)
 	require.NotEqual(t, common.HexToAddress("0x0000000000000000000000000000000000000000").String(), fmAddress)
+
 }

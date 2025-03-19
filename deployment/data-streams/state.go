@@ -45,6 +45,12 @@ func LoadChainConfig(chain deployment.Chain, addresses map[string]deployment.Typ
 	}
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
+		case deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0).String():
+			proxy, err := verifier_proxy_v0_5_0.NewVerifierProxy(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return cc, err
+			}
+			cc.VerifierProxys[chain.Selector] = append(cc.VerifierProxys[chain.Selector], proxy)
 		case deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
 			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
