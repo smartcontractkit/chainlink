@@ -1947,7 +1947,7 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger) error {
+func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
@@ -1978,27 +1978,27 @@ func DownloadSolanaCcipProgramArtifacts(ctx context.Context, dir string, lggr lo
 	}
 
 	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
-		if h.Typeflag == tar.TypeReg && filepath.Ext(h.Name) == ".so" {
-			outPath := filepath.Join(dir, filepath.Base(h.Name))
-			if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
-				return err
-			}
-
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return err
-			}
-			defer outFile.Close()
-
-			if _, err := io.Copy(outFile, r); err != nil {
-				return err
-			}
-
-			if lggr != nil {
-				lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
-			}
-
+		if h.Typeflag != tar.TypeReg {
 			return nil
+		}
+
+		outPath := filepath.Join(dir, filepath.Base(h.Name))
+		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.Create(outPath)
+		if err != nil {
+			return err
+		}
+		defer outFile.Close()
+
+		if _, err := io.Copy(outFile, r); err != nil {
+			return err
+		}
+
+		if lggr != nil {
+			lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
 		}
 
 		return nil

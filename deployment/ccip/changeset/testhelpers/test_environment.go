@@ -494,18 +494,20 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	lggr := logger.Test(t)
-
-	downloadSolCcipProgramArtifactsOnce.Do(func() {
-		err := DownloadSolanaCcipProgramArtifacts(t.Context(), memory.ProgramsPath, lggr)
-		require.NoError(t, err)
-	})
-
 	tc := tEnv.TestConfigs()
 	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()
 	require.NotEmpty(t, dEnv.FeedChainSel)
 	require.NotEmpty(t, dEnv.HomeChainSel)
 	require.NotEmpty(t, dEnv.Env.Chains)
+
+	if len(dEnv.Env.SolChains) > 0 {
+		downloadSolCcipProgramArtifactsOnce.Do(func() {
+			err := DownloadSolanaCCIPProgramArtifacts(t.Context(), memory.ProgramsPath, lggr)
+			require.NoError(t, err)
+		})
+	}
+
 	ab := deployment.NewMemoryAddressBook()
 	crConfig := DeployTestContracts(t, lggr, ab, dEnv.HomeChainSel, dEnv.FeedChainSel, dEnv.Env.Chains, tc.LinkPrice, tc.WethPrice)
 	tEnv.StartNodes(t, crConfig)
