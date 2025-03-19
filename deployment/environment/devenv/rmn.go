@@ -200,7 +200,7 @@ func GeneratePeerID(lggr zerolog.Logger, image string, version string, imagePlat
 
 	fileString := string(fileContents)
 
-	peerID, err := extractPeerID(fileContents)
+	peerID, err = extractPeerID(fileContents)
 	if err != nil {
 		return p2ptypes.PeerID{}, "", "", err
 	}
