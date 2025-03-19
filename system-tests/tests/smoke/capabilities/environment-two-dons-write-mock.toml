@@ -231,12 +231,5 @@ user_config_overrides = """
 			[P2P.V2]
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
-
-            [Telemetry]
-            Enabled = true
-            Endpoint = '<otel_collector_hostname>:4317'
-            InsecureConnection = true
-            TraceSampleRatio = 0.1
-            EmitterExportTimeout = '30s'
       """
 

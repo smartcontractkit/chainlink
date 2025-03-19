@@ -109,6 +109,10 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 				input.ForwarderAddress,
 			)
 		}
+		//TODO @george-dorin: Add beholder - generate beholder address
+		configOverrides[nodeIndex] += config.Beholder(
+			"beholder-agent",
+		)
 
 		// if it's workflow DON configure workflow registry
 		//if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {

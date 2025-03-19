@@ -633,9 +633,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		// this is needed to ensure that the namespace comes online before deploying the geth chain
 		_, err = nixShell.RunCommand("crib init")
 		require.NoError(t, err, "failed to run crib init")
-
-		_, err = nixShell.RunCommand("devspace run deploy-geth-chain")
+	
+		_, err = nixShell.RunCommand("devspace run deploy-custom-geth-chain")
 		require.NoError(t, err, "failed to run devspace run deploy-geth-chain")
+
+		_, err = nixShell.RunCommand("devspace run beholder")
+		require.NoError(t, err, "failed to run devspace run beholder")
 	}
 
 	singeFileLogger := cldlogger.NewSingleFileLogger(t)

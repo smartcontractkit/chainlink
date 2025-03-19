@@ -131,6 +131,17 @@ func WorkerWriteEMV(nodeAddress, forwarderAddress common.Address) string {
 		forwarderAddress.Hex(),
 	)
 }
+func Beholder(beholderAddress string) string {
+	return fmt.Sprintf(`
+	[Telemetry]
+	Enabled = true
+	Endpoint = '%s:4317'
+	InsecureConnection = true
+	TraceSampleRatio = 0.1
+	EmitterExportTimeout = '30s'
+`,
+		beholderAddress)
+}
 
 func WorkerWorkflowRegistry(workflowRegistryAddr common.Address, chainID uint64) string {
 	return fmt.Sprintf(`

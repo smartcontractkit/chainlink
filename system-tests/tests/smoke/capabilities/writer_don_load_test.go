@@ -41,15 +41,15 @@ func TestKeystoneWithOCR3Workflow_TwoDons_WriteDON_Mock(t *testing.T) {
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
-				Input:              input[1],
-				Capabilities:       []string{keystonetypes.WriteEVMCapability},
-				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
-			},
-			{
 				Input:              input[0],
 				Capabilities:       []string{keystonetypes.MockCapability, keystonetypes.OCR3Capability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON, keystonetypes.WorkflowDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              input[1],
+				Capabilities:       []string{keystonetypes.WriteEVMCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: 0,
 			},
 		}

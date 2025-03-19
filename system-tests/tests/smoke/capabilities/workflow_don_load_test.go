@@ -184,7 +184,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			CallTimeout: time.Minute * 10,
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 10*time.Minute),
+				wasp.Plain(4, 120*time.Minute),
 			),
 			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel),
 			Labels:                labels,
@@ -235,7 +235,7 @@ func TestReconnectMock(t *testing.T) {
 			CallTimeout: time.Minute * 5,
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 10*time.Minute),
+				wasp.Plain(4, 120*time.Minute),
 			),
 			Gun:                   NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel),
 			Labels:                labels,
