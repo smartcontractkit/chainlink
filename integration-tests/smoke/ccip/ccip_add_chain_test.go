@@ -174,6 +174,9 @@ func Test_AddChain(t *testing.T) {
 		return gasPricePreUpdate, startBlocks
 	}
 
+	// Wait for all the oracles to come up.
+	time.Sleep(60 * time.Second)
+
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go periodicallyReplay(tests.Context(t), t, e, allChains)
