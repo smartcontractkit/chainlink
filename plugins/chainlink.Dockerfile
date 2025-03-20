@@ -68,7 +68,6 @@ RUN chmod 755 /usr/lib/libwasmvm.*.so
 
 # For testing in CRIB
 RUN mkdir /home/capabilities
-COPY ./plugins/amd64_cron /home/capabilities
 COPY ./plugins/amd64_mock /home/capabilities
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
@@ -76,8 +75,6 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
   fi
 
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities
-RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_cron
-RUN chmod +x /home/capabilities/amd64_cron
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_mock
 RUN chmod +x /home/capabilities/amd64_mock
 
