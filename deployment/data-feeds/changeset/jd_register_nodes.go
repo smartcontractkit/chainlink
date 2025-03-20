@@ -79,8 +79,8 @@ func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (dep
 			// extra labels
 			labels = append(labels, node.Labels...)
 
-			// if node doesn't exist, attempt to register it
 			if err != nil {
+				env.Logger.Infow("Node not found, attempting to register", "name", node.Name)
 				newNode, err := env.Offchain.RegisterNode(env.GetContext(), &nodev1.RegisterNodeRequest{
 					Name:      node.Name,
 					PublicKey: node.CSAKey,
