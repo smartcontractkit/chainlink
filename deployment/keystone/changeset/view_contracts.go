@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/smartcontractkit/chainlink/deployment"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -24,6 +23,7 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
@@ -174,7 +174,7 @@ func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, 
 		lblPrefix := internal.DeploymentBlockLabel + ": "
 		tvStr, err := f.TypeAndVersion(nil)
 		if err != nil {
-			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %v", err)
+			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %w", err)
 		}
 		tv, err := deployment.TypeAndVersionFromString(tvStr)
 		if err != nil {
