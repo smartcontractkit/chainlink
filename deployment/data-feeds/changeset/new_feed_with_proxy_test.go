@@ -7,7 +7,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -79,7 +78,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid := "0x01bb0467f50003040000000000000000"
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
@@ -93,7 +92,7 @@ func TestNewFeedWithProxy(t *testing.T) {
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 				McmsConfig: &types.MCMSConfig{

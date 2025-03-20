@@ -66,7 +66,7 @@ type ProposeConfirmAggregatorConfig struct {
 type SetFeedDecimalConfig struct {
 	ChainSelector    uint64
 	CacheAddress     common.Address
-	DataIDs          [][16]byte // without the 0x prefix
+	DataIDs          []string
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
@@ -76,14 +76,14 @@ type RemoveFeedConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
-	DataIDs        [][16]byte // without the 0x prefix
+	DataIDs        []string
 	McmsConfig     *MCMSConfig
 }
 
 type RemoveFeedConfigCSConfig struct {
 	ChainSelector uint64
 	CacheAddress  common.Address
-	DataIDs       [][16]byte // without the 0x prefix
+	DataIDs       []string
 	McmsConfig    *MCMSConfig
 }
 
@@ -91,7 +91,7 @@ type UpdateDataIDProxyConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
-	DataIDs        [][16]byte
+	DataIDs        []string
 	McmsConfig     *MCMSConfig
 }
 
@@ -126,7 +126,7 @@ type NewFeedWithProxyConfig struct {
 	ChainSelector    uint64
 	AccessController common.Address
 	Labels           []string // labels for AggregatorProxy
-	DataID           [16]byte // without the 0x prefix
+	DataID           string
 	Description      string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
