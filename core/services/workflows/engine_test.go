@@ -1663,7 +1663,7 @@ func basicTestTrigger(t *testing.T) *mockTriggerCapability {
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"basic-test-trigger@1.0.0",
 			capabilities.CapabilityTypeTrigger,
-			"basic TEST_TRIGGER",
+			"basic test trigger",
 		),
 		ch:                         make(chan capabilities.TriggerResponse, 10),
 		registerTriggerCallCounter: make(map[string]int),
