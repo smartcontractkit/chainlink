@@ -130,11 +130,11 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 	return medians
 }
 
-func (r *MeteringReport) SetStep(ref MeteringReportStepRef, step []MeteringReportStep) error {
+func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringReportStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	r.steps[ref] = step
+	r.steps[ref] = steps
 
 	return nil
 }
