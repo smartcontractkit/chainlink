@@ -11,6 +11,7 @@ import (
 
 	timelockBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/timelock"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -68,12 +69,19 @@ func initTimelock(
 	timelockBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
+	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	var timelockConfig timelockBindings.Config
+	err := chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
+	if err == nil {
+		e.Logger.Infow("Timelock already initialized, skipping initialization", "chain", chain.String())
+		return nil
+	}
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	seed := randomSeed()
 	log.Infow("generated Timelock seed", "seed", string(seed[:]))
 
-	err := initializeTimelock(e, chain, programID, seed, chainState, minDelay)
+	err = initializeTimelock(e, chain, programID, seed, chainState, minDelay)
 	if err != nil {
 		return fmt.Errorf("failed to initialize timelock: %w", err)
 	}

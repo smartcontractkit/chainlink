@@ -60,16 +60,15 @@ func deployAccessControllerProgram(
 }
 
 func findAccessControllerAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
-	switch typeAndVersion {
-	case deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0):
+	if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0)) {
 		return chainState.ProposerAccessControllerAccount, nil
-	case deployment.NewTypeAndVersion(commontypes.ExecutorAccessControllerAccount, deployment.Version1_0_0):
+	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ExecutorAccessControllerAccount, deployment.Version1_0_0)) {
 		return chainState.ExecutorAccessControllerAccount, nil
-	case deployment.NewTypeAndVersion(commontypes.CancellerAccessControllerAccount, deployment.Version1_0_0):
+	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.CancellerAccessControllerAccount, deployment.Version1_0_0)) {
 		return chainState.CancellerAccessControllerAccount, nil
-	case deployment.NewTypeAndVersion(commontypes.BypasserAccessControllerAccount, deployment.Version1_0_0):
+	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.BypasserAccessControllerAccount, deployment.Version1_0_0)) {
 		return chainState.BypasserAccessControllerAccount, nil
-	default:
+	} else {
 		return solana.PublicKey{}, errors.New("unknown access controller account type")
 	}
 }

@@ -8,11 +8,13 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -59,6 +61,18 @@ func deployMCMProgram(
 	return nil
 }
 
+func findMcmAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
+	if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)) {
+		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed), nil
+	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0)) {
+		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed), nil
+	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0)) {
+		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed), nil
+	} else {
+		return solana.PublicKey{}, errors.New("unknown access controller account type")
+	}
+}
+
 func initMCM(
 	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
 	chain deployment.SolChain, addressBook deployment.AddressBook, mcmConfig *mcmsTypes.Config,
@@ -70,12 +84,21 @@ func initMCM(
 	mcmBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	mcmPubKey, err := findMcmAccount(chainState, typeAndVersion)
+	if err == nil && !mcmPubKey.IsZero() {
+		var data mcmBindings.MultisigConfig
+		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmPubKey, rpc.CommitmentConfirmed, &data)
+		if err == nil {
+			env.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
+			return nil
+		}
+	}
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	seed := randomSeed()
 	log.Infow("generated MCM seed", "seed", string(seed[:]))
 
-	err := initializeMCM(env, chain, programID, seed)
+	err = initializeMCM(env, chain, programID, seed)
 	if err != nil {
 		return fmt.Errorf("failed to initialize mcm: %w", err)
 	}
