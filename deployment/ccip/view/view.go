@@ -83,11 +83,22 @@ type SolChainView struct {
 	ChainID       string `json:"chainID,omitempty"`
 	// v1.6
 	FeeQuoter map[string]solana.FeeQuoterView `json:"feeQuoter,omitempty"`
+	Router    map[string]solana.RouterView    `json:"router,omitempty"`
+	OffRamp   map[string]solana.OffRampView   `json:"offRamp,omitempty"`
+	RMNRemote map[string]solana.RMNRemoteView `json:"rmnRemote,omitempty"`
+	TokenPool map[string]solana.TokenPoolView `json:"tokenPool,omitempty"`
+	LinkToken solana.TokenView                `json:"linkToken,omitempty"`
+	Tokens    map[string]solana.TokenView     `json:"tokens,omitempty"`
 }
 
 func NewSolChain() SolChainView {
 	return SolChainView{
 		FeeQuoter: make(map[string]solana.FeeQuoterView),
+		Router:    make(map[string]solana.RouterView),
+		OffRamp:   make(map[string]solana.OffRampView),
+		RMNRemote: make(map[string]solana.RMNRemoteView),
+		TokenPool: make(map[string]solana.TokenPoolView),
+		Tokens:    make(map[string]solana.TokenView),
 	}
 }
 

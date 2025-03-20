@@ -381,12 +381,64 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 	allTokens = append(allTokens, s.WSOL)
 	allTokens = append(allTokens, s.SPL2022Tokens...)
 	allTokens = append(allTokens, s.SPLTokens...)
+	for _, token := range allTokens {
+		if !token.IsZero() {
+			program, err := s.TokenToTokenProgram(token)
+			if err != nil {
+				return chainView, fmt.Errorf("failed to find token program for token: %w", err)
+			}
+			tokenView, err := viewSolana.GenerateTokenView(solChain, token, program.String())
+			if err != nil {
+				return chainView, fmt.Errorf("failed to generate token view: %w", err)
+			}
+			if token.Equals(s.LinkToken) {
+				chainView.LinkToken = tokenView
+			} else {
+				chainView.Tokens[token.String()] = tokenView
+			}
+		}
+	}
 	if !s.FeeQuoter.IsZero() {
 		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view: %w", err)
 		}
 		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
+	}
+	if !s.Router.IsZero() {
+		routerView, err := viewSolana.GenerateRouterView(solChain, s.Router, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate router view: %w", err)
+		}
+		chainView.Router[s.Router.String()] = routerView
+	}
+	if !s.OffRamp.IsZero() {
+		offRampView, err := viewSolana.GenerateOffRampView(solChain, s.OffRamp, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate offramp view: %w", err)
+		}
+		chainView.OffRamp[s.OffRamp.String()] = offRampView
+	}
+	if !s.RMNRemote.IsZero() {
+		rmnRemoteView, err := viewSolana.GenerateRMNRemoteView(solChain, s.RMNRemote, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate rmn remote view: %w", err)
+		}
+		chainView.RMNRemote[s.RMNRemote.String()] = rmnRemoteView
+	}
+	if !s.BurnMintTokenPool.IsZero() {
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.BurnMintTokenPool, remoteChains, allTokens, "BurnMintTokenPool")
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate burn mint token pool view: %w", err)
+		}
+		chainView.TokenPool[s.BurnMintTokenPool.String()] = tokenPoolView
+	}
+	if !s.LockReleaseTokenPool.IsZero() {
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.LockReleaseTokenPool, remoteChains, allTokens, "LockReleaseTokenPool")
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate lock release token pool view: %w", err)
+		}
+		chainView.TokenPool[s.LockReleaseTokenPool.String()] = tokenPoolView
 	}
 	return chainView, nil
 }
