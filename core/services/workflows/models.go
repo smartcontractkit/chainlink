@@ -4,6 +4,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"sync/atomic"
 
 	"github.com/dominikbraun/graph"
@@ -33,8 +34,19 @@ type defaultName struct {
 	name string
 }
 
-func (d defaultName) Hex() string {
-	return hex.EncodeToString([]byte(d.name))
+func (d defaultName) Hex() (string, error) {
+	encoded := hex.EncodeToString([]byte(d.name))
+	if len(encoded) > 20 {
+		return "", fmt.Errorf("name is too long")
+	}
+
+	// Right-pad the name to make it 10 bytes long (i.e. 20 characters long)
+	if len(encoded) < 20 {
+		pad := 20 - len(encoded)
+		encoded = encoded + strings.Repeat("0", pad)
+	}
+
+	return encoded, nil
 }
 
 func (d defaultName) String() string {
