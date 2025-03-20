@@ -73,7 +73,7 @@ func initTimelock(
 	var timelockConfig timelockBindings.Config
 	err := chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
 	if err == nil {
-		e.Logger.Infow("Timelock already initialized, skipping initialization", "chain", chain.String())
+		e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
 		return nil
 	}
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())

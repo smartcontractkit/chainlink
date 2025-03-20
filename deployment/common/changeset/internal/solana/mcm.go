@@ -89,7 +89,7 @@ func initMCM(
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmPubKey, rpc.CommitmentConfirmed, &data)
 		if err == nil {
-			env.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
+			env.Logger.Infow("mcm config already initialized, skipping initialization", "chain", chain.String())
 			return nil
 		}
 	}
