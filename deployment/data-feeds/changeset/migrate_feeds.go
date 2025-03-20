@@ -32,11 +32,11 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 
 	proxies, _ := LoadJSON[[]*MigrationSchema](c.InputFileName, c.InputFS)
 
-	var feedIds []string
+	var feedIDs []string
 	addresses := make([]common.Address, len(proxies))
 	descriptions := make([]string, len(proxies))
 	for i, proxy := range proxies {
-		feedIds = append(feedIds, proxy.FeedID)
+		feedIDs = append(feedIDs, proxy.FeedID)
 		addresses[i] = common.HexToAddress(proxy.Address)
 		descriptions[i] = proxy.Description
 
@@ -51,7 +51,7 @@ func migrateFeedsLogic(env deployment.Environment, c types.MigrationConfig) (dep
 		}
 	}
 
-	dataIDs, _ := FeedIdsToBytes16(feedIds)
+	dataIDs, _ := FeedIDsToBytes16(feedIDs)
 
 	// Set the feed config
 	tx, err := contract.SetDecimalFeedConfigs(chain.DeployerKey, dataIDs, descriptions, c.WorkflowMetadata)
@@ -78,11 +78,11 @@ func migrateFeedsPrecondition(env deployment.Environment, c types.MigrationConfi
 	if err != nil {
 		return fmt.Errorf("failed to load addresses input file: %w", err)
 	}
-	var feedIds []string
+	var feedIDs []string
 	for _, proxy := range proxies {
-		feedIds = append(feedIds, proxy.FeedID)
+		feedIDs = append(feedIDs, proxy.FeedID)
 	}
-	_, err = FeedIdsToBytes16(feedIds)
+	_, err = FeedIDsToBytes16(feedIDs)
 	if err != nil {
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}

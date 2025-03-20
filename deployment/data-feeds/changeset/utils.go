@@ -8,14 +8,14 @@ import (
 	"io/fs"
 )
 
-func FeedIdsToBytes16(feedIds []string) ([][16]byte, error) {
-	dataIds := make([][16]byte, len(feedIds))
-	for i, feedId := range feedIds {
-		err := ValidateFeedID(feedId)
+func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
+	dataIds := make([][16]byte, len(feedIDs))
+	for i, feedID := range feedIDs {
+		err := ValidateFeedID(feedID)
 		if err != nil {
 			return nil, err
 		}
-		dataIds[i], err = ConvertHexToBytes16(feedId)
+		dataIds[i], err = ConvertHexToBytes16(feedID)
 		if err != nil {
 			return nil, err
 		}

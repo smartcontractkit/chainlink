@@ -95,16 +95,16 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
 	}
 
-	dataIds, _ := FeedIdsToBytes16([]string{c.DataID})
+	dataIDs, _ := FeedIDsToBytes16([]string{c.DataID})
 
 	// set feed config proposal
-	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(deployment.SimTransactOpts(), dataIds, []string{c.Description}, c.WorkflowMetadata)
+	setFeedConfigTx, err := dataFeedsCache.SetDecimalFeedConfigs(deployment.SimTransactOpts(), dataIDs, []string{c.Description}, c.WorkflowMetadata)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set feed config %w", err)
 	}
 
 	// set feed proxy mapping proposal
-	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(deployment.SimTransactOpts(), []common.Address{common.HexToAddress(proxyAddress)}, dataIds)
+	setProxyMappingTx, err := dataFeedsCache.UpdateDataIdMappingsForProxies(deployment.SimTransactOpts(), []common.Address{common.HexToAddress(proxyAddress)}, dataIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to set proxy-dataId mapping %w", err)
 	}
@@ -138,7 +138,7 @@ func newFeedWithProxyPrecondition(env deployment.Environment, c types.NewFeedWit
 	if c.McmsConfig == nil {
 		return errors.New("mcms config is required")
 	}
-	_, err := FeedIdsToBytes16([]string{c.DataID})
+	_, err := FeedIDsToBytes16([]string{c.DataID})
 	if err != nil {
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}

@@ -25,7 +25,7 @@ func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigC
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	dataIds, _ := FeedIdsToBytes16(c.DataIDs)
+	dataIds, _ := FeedIDsToBytes16(c.DataIDs)
 	tx, err := contract.RemoveFeedConfigs(txOpt, dataIds)
 
 	if c.McmsConfig != nil {
@@ -56,7 +56,7 @@ func removeFeedConfigPrecondition(env deployment.Environment, c types.RemoveFeed
 	if len(c.DataIDs) == 0 {
 		return errors.New("dataIDs must not be empty")
 	}
-	_, err := FeedIdsToBytes16(c.DataIDs)
+	_, err := FeedIDsToBytes16(c.DataIDs)
 	if err != nil {
 		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
