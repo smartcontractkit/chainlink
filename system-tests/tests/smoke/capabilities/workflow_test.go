@@ -1,6 +1,8 @@
 package capabilities
 
 import (
+	"context"
+	"crypto/tls"
 	"fmt"
 	"math/big"
 	"net"
@@ -22,8 +24,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
-
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
