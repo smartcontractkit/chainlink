@@ -167,7 +167,7 @@ func Keccak256Fixed(in []byte) [32]byte {
 }
 
 func getMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainID uint64, onRampID common.Address, destChainID uint64) H {
-	paddedOnRamp := onRampID.Hash()
+	paddedOnRamp := onRampID.Bytes()
 	return ctx.Hash(ConcatBytes(prefix[:],
 		math.U256Bytes(big.NewInt(0).SetUint64(sourceChainID)),
 		math.U256Bytes(big.NewInt(0).SetUint64(destChainID)), paddedOnRamp[:]))

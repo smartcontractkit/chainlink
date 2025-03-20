@@ -44,7 +44,7 @@ func DeployContract[C Contract](
 ) (*ContractDeployment[C], error) {
 	contractDeployment := deployFn(chain)
 	if contractDeployment.Err != nil {
-		e.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err)
+		e.Logger.Errorw("Failed to deploy contract", "err", contractDeployment.Err, "chain", chain.Selector)
 		return nil, contractDeployment.Err
 	}
 	_, err := chain.Confirm(contractDeployment.Tx)
@@ -52,6 +52,7 @@ func DeployContract[C Contract](
 		e.Logger.Errorw("Failed to confirm deployment", "err", err)
 		return nil, err
 	}
+	e.Logger.Infow("Deployed contract", "Contract", contractDeployment.Tv.String(), "addr", contractDeployment.Address.String(), "chain", chain.String())
 	err = ab.Save(chain.Selector, contractDeployment.Address.String(), contractDeployment.Tv)
 	if err != nil {
 		e.Logger.Errorw("Failed to save contract address", "err", err)

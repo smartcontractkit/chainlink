@@ -1,9 +1,10 @@
 package crib
 
 const (
-	AddressBookFileName   = "ccip-v2-scripts-address-book.json"
-	NodesDetailsFileName  = "ccip-v2-scripts-nodes-details.json"
-	ChainsConfigsFileName = "ccip-v2-scripts-chains-details.json"
+	AddressBookFileName       = "address-book.json"
+	NodesDetailsFileName      = "nodes-details.json"
+	ChainsConfigsFileName     = "chains-details.json"
+	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
 )
 
 type CRIBEnv struct {
@@ -48,6 +49,13 @@ type ChainConfig struct {
 	HTTPRPCs  []RPC  // http rpcs to connect to the chain
 }
 
+type BootstrapNode struct {
+	P2PID        string
+	InternalHost string
+	Port         string
+}
+
 type NodesDetails struct {
-	NodeIDs []string
+	NodeIDs       []string
+	BootstrapNode BootstrapNode
 }

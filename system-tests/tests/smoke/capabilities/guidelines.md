@@ -5,10 +5,10 @@
 2. [Adding a New Capability](#adding-a-new-capability)
    - [Copying the Binary to the Container](#copying-the-binary-to-the-container)
    - [Adding support for the new capability in the testing code](#adding-support-for-the-new-capability-in-the-testing-code)
-     - [Defining new bitmask flag representing the capability](#defining-new-bitmask-flag-representing-the-capability)
-     - [Defining additional node configuration](#defining-additional-node-configuration)
-     - [Defining job spec for the new capability](#defining-job-spec-for-the-new-capability)
-     - [Registering the capability in the Capabilities Registry contract](#registering-the-capability-in-the-capabilities-registry-contract)
+     - [Defining a CapabilityFlag for the Capability](#defining-a-capabilityflag-for-the-capability)
+     - [Defining Additional Node Configuration](#defining-additional-node-configuration)
+     - [Defining a Job Spec for the New Capability](#defining-a-job-spec-for-the-new-capability)
+     - [Registering the Capability in the Capabilities Registry Contract](#registering-the-capability-in-the-capabilities-registry-contract)
 3. [Using a New Workflow](#using-a-new-workflow)
    - [Test Uploads the Binary](#test-uploads-the-binary)
    - [Workflow Configuration](#workflow-configuration)
@@ -16,10 +16,11 @@
    - [Manual Upload of the Binary](#manual-upload-of-the-binary)
 4. [Deployer Address or Deployment Sequence Changes](#deployer-address-or-deployment-sequence-changes)
 5. [Multiple DONs](#multiple-dons)
-   - [DON type](#don-type)
+   - [DON Type](#don-type)
    - [Capabilities](#capabilities)
-   - [HTTP port range start](#http-port-range-start)
-   - [DB port](#db-port)
+   - [HTTP Port Range Start](#http-port-range-start)
+   - [Database (DB) Port](#database-db-port)
+   - [Number of Nodes](#number-of-nodes)
 6. [Price Data Source](#price-data-source)
    - [Live Source](#live-source)
    - [Mocked Data Source](#mocked-data-source)
@@ -27,6 +28,13 @@
 8. [Troubleshooting](#troubleshooting)
    - [Chainlink Node migrations fail](#chainlink-node-migrations-fail)
    - [Chainlink image not found in local Docker registry](#chainlink-image-not-found-in-local-docker-registry)
+9. [Docker vs Kubernetes (k8s)](#docker-vs-kubernetes-k8s)
+10. [CRIB Requirements](#crib-requirements)
+11. [Setting Docker Images for CRIB Execution](#setting-docker-images-for-crib-execution)
+12. [Running Tests in Local Kubernetes (`kind`)](#running-tests-in-local-kubernetes-kind)
+13. [CRIB Deployment Flow](#crib-deployment-flow)
+14. [Switching from kind to AWS provider](#switching-from-kind-to-aws-provider)
+15. [CRIB Limitations & Considerations](#crib-limitations--considerations)
 
 ---
 
@@ -575,6 +583,7 @@ When configuring multiple DONs, keep the following in mind:
 - **Capabilities List**
 - **HTTP Port Range Start**
 - **Database (DB) Port**
+- **Number of nodes**
 
 ### DON Type
 
@@ -611,6 +620,53 @@ Each node exposes a port to the host. To prevent port conflicts, assign a distin
 Similar to HTTP ports, ensure each nodeset has a unique database port.
 
 For a working example of a multi-DON setup, refer to the [`environment-capabilities-don.toml`](environment-capabilities-don.toml) file.
+
+### Number of nodes
+When defining number of nodes you need not only to modify the `nodes` key, but also too add **nodespecs** for each node. In other words, the number of `nodespecs` needs to be equal to `nodes` count.
+
+This is not enough:
+```toml
+[[nodesets]]
+  nodes = 5
+  override_mode = "each"
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+```
+
+If there are `5` nodes you need to repeat this nodespec `5` times:
+```toml
+    [nodesets.node_specs.node]
+      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+```
+
+Also, `override_mode = "all"` is currently not supported.
 
 ---
 

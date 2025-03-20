@@ -1,8 +1,6 @@
 package capabilities
 
 import (
-	"context"
-	"crypto/tls"
 	"fmt"
 	"math/big"
 	"net"
@@ -24,6 +22,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -797,13 +797,13 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
 	}
-
 	if binaryDownloadOutput != nil {
 		registerInput.binaryDownloadOutput = binaryDownloadOutput
 		err = registerPoRWorkflow(registerInput)
 		require.NoError(t, err, "failed to register PoR workflow")
 	}
-
+	err = registerPoRWorkflow(registerInput)
+	require.NoError(t, err, "failed to register PoR workflow")
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved

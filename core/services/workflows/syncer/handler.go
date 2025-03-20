@@ -3,6 +3,7 @@ package syncer
 import (
 	"bytes"
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
@@ -10,6 +11,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -23,6 +26,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -461,6 +465,17 @@ func (w workflowName) Hex() string {
 	return hexName
 }
 
+func messageID(url string, parts ...string) string {
+	h := sha256.New()
+	h.Write([]byte(url))
+	for _, p := range parts {
+		h.Write([]byte(p))
+	}
+	hash := hex.EncodeToString(h.Sum(nil))
+	p := []string{ghcapabilities.MethodWorkflowSyncer, hash}
+	return strings.Join(p, "/")
+}
+
 // workflowRegisteredEvent handles the WorkflowRegisteredEvent event type.
 func (h *eventHandler) workflowRegisteredEvent(
 	ctx context.Context,
@@ -475,7 +490,14 @@ func (h *eventHandler) workflowRegisteredEvent(
 	// Always fetch secrets from the SecretsURL
 	var secrets []byte
 	if payload.SecretsURL != "" {
-		fetchedSecrets, fetchErr := h.fetchFn(ctx, payload.SecretsURL, safeUint32(h.limits.MaxSecretsSize))
+		wid := hex.EncodeToString(payload.WorkflowID[:])
+		req := ghcapabilities.Request{
+			URL:              payload.SecretsURL,
+			Method:           http.MethodGet,
+			MaxResponseBytes: safeUint32(h.limits.MaxSecretsSize),
+			WorkflowID:       wid,
+		}
+		fetchedSecrets, fetchErr := h.fetchFn(ctx, messageID(payload.SecretsURL, wid), req)
 		if fetchErr != nil {
 			return fmt.Errorf("failed to fetch secrets from %s : %w", payload.SecretsURL, fetchErr)
 		}
@@ -588,7 +610,16 @@ func (h *eventHandler) getWorkflowArtifacts(
 		binary, decodedBinary, config []byte
 		err                           error
 	)
-	if binary, err = h.fetchFn(ctx, payload.BinaryURL, safeUint32(h.limits.MaxBinarySize)); err != nil {
+
+	wid := hex.EncodeToString(payload.WorkflowID[:])
+	req := ghcapabilities.Request{
+		URL:              payload.BinaryURL,
+		Method:           http.MethodGet,
+		MaxResponseBytes: safeUint32(h.limits.MaxBinarySize),
+		WorkflowID:       wid,
+	}
+	binary, err = h.fetchFn(ctx, messageID(payload.BinaryURL, wid), req)
+	if err != nil {
 		return nil, nil, fmt.Errorf("failed to fetch binary from %s : %w", payload.BinaryURL, err)
 	}
 
@@ -597,7 +628,14 @@ func (h *eventHandler) getWorkflowArtifacts(
 	}
 
 	if payload.ConfigURL != "" {
-		if config, err = h.fetchFn(ctx, payload.ConfigURL, safeUint32(h.limits.MaxConfigSize)); err != nil {
+		req := ghcapabilities.Request{
+			URL:              payload.ConfigURL,
+			Method:           http.MethodGet,
+			MaxResponseBytes: safeUint32(h.limits.MaxConfigSize),
+			WorkflowID:       wid,
+		}
+		config, err = h.fetchFn(ctx, messageID(payload.ConfigURL, wid), req)
+		if err != nil {
 			return nil, nil, fmt.Errorf("failed to fetch config from %s : %w", payload.ConfigURL, err)
 		}
 	}
@@ -750,8 +788,16 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 		return "", fmt.Errorf("failed to get URL by hash %s : %w", hash, err)
 	}
 
+	ownerHex := hex.EncodeToString(payload.Owner)
+	req := ghcapabilities.Request{
+		URL:              url,
+		Method:           http.MethodGet,
+		MaxResponseBytes: safeUint32(h.limits.MaxSecretsSize),
+		// TODO -- fix, but this is used for rate limiting purposes
+		WorkflowID: hex.EncodeToString(payload.Owner),
+	}
 	// Fetch the contents of the secrets file from the url via the fetcher
-	secrets, err := h.fetchFn(ctx, url, safeUint32(h.limits.MaxSecretsSize))
+	secrets, err := h.fetchFn(ctx, messageID(url, ownerHex), req)
 	if err != nil {
 		return "", err
 	}
