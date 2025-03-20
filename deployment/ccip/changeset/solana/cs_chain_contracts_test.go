@@ -73,7 +73,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	var err error
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, false,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
@@ -290,7 +290,7 @@ func TestSetOcr3(t *testing.T) {
 	evmSelectors := tenv.Env.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := tenv.Env.AllChainSelectorsSolana()
-	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], true,
+	_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChainSelectors[0], false,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
 			FeeQuoter: true,
@@ -346,7 +346,7 @@ func TestBilling(t *testing.T) {
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			testPriceUpdater := e.SolChains[solChain].DeployerKey.PublicKey()
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						Router:    true,
 						FeeQuoter: true,
@@ -629,7 +629,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+				_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						Router:    true,
 						FeeQuoter: true,
@@ -777,7 +777,7 @@ func TestPoolLookupTable(t *testing.T) {
 			var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 			newAdmin := tenv.Env.SolChains[solChain].DeployerKey.PublicKey()
 			if test.Mcms {
-				_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, true,
+				_, _ = testhelpers.TransferOwnershipSolana(t, &tenv.Env, solChain, false,
 					ccipChangesetSolana.CCIPContractsToTransfer{
 						Router:    true,
 						FeeQuoter: true,

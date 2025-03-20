@@ -170,6 +170,13 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
 	}
+	if c.BuildConfig.LocalBuild.BuildLocally {
+		e.Logger.Infow("Building solana artifacts locally", "chain", chain.String())
+		err = BuildSolana(e, c.BuildConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+		}
+	}
 
 	// prepare mcms
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
@@ -692,38 +699,40 @@ func deployChainContractsSolana(
 		lockReleaseTokenPool = chainState.LockReleaseTokenPool
 	}
 
-	if config.UpgradeConfig.NewAccessControllerVersion != nil ||
-		config.UpgradeConfig.NewTimelockVersion != nil ||
-		config.UpgradeConfig.NewMCMVersion != nil {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	// MCMS
+	// this should selectively deploy anything if required
+	_, err = solanaMCMs.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+	if err != nil {
+		return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	if config.UpgradeConfig.NewAccessControllerVersion != nil {
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
 		if err != nil {
-			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		txns = append(txns, newTxns...)
+	}
+	if config.UpgradeConfig.NewTimelockVersion != nil {
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
 		if err != nil {
-			return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		if config.UpgradeConfig.NewAccessControllerVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
+		txns = append(txns, newTxns...)
+	}
+	if config.UpgradeConfig.NewMCMVersion != nil {
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		if config.UpgradeConfig.NewTimelockVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
-		}
-		if config.UpgradeConfig.NewMCMVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
-		}
+		txns = append(txns, newTxns...)
 	}
 
 	// BILLING
@@ -781,11 +790,6 @@ func deployChainContractsSolana(
 		if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
-	}
-
-	_, err = solanaMCMs.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
-	if err != nil {
-		return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
 	}
 
 	return txns, nil

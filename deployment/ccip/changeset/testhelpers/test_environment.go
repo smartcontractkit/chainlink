@@ -7,7 +7,6 @@ import (
 	"math/big"
 	"os"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
@@ -48,8 +47,6 @@ const (
 	Docker      EnvType = "docker"
 	ENVTESTTYPE         = "CCIP_V16_TEST_ENV"
 )
-
-var downloadSolCcipProgramArtifactsOnce sync.Once
 
 type TestConfigs struct {
 	Type      EnvType // set by env var CCIP_V16_TEST_ENV, defaults to Memory
@@ -494,12 +491,6 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 
 func NewEnvironment(t *testing.T, tEnv TestEnvironment) DeployedEnv {
 	lggr := logger.Test(t)
-	downloadSolCcipProgramArtifactsOnce.Do(func() {
-		err := ccipChangeSetSolana.DownloadRelease(ccipChangeSetSolana.BuildSolanaConfig{
-			DestinationDir: memory.ProgramsPath,
-		})
-		require.NoError(t, err)
-	})
 	tc := tEnv.TestConfigs()
 	tEnv.StartChains(t)
 	dEnv := tEnv.DeployedEnvironment()
