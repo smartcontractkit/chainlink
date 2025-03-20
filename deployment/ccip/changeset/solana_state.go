@@ -376,8 +376,13 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 	for selector := range s.DestChainStatePDAs {
 		remoteChains = append(remoteChains, selector)
 	}
+	var allTokens []solana.PublicKey
+	allTokens = append(allTokens, s.LinkToken)
+	allTokens = append(allTokens, s.WSOL)
+	allTokens = append(allTokens, s.SPL2022Tokens...)
+	allTokens = append(allTokens, s.SPLTokens...)
 	if !s.FeeQuoter.IsZero() {
-		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains)
+		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains, allTokens)
 		if err != nil {
 			return chainView, fmt.Errorf("failed to generate fee quoter view: %w", err)
 		}
