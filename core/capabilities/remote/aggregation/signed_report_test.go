@@ -2,7 +2,6 @@ package aggregation_test
 
 import (
 	"errors"
-	"strings"
 	"testing"
 	"time"
 
@@ -20,7 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
-	//"github.com/smartcontractkit/chainlink/common/pkg/logger"
+	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
@@ -49,7 +48,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		configDigest[i] = byte(i)
 	}
 	seqNr := uint64(123)
-	currentTime := time.Now().UnixNano()
+	currentTime := uint64(time.Now().UnixNano()) //nolint:gosec // disable G115
 
 	// Create a valid outputs map
 	outputsMap, err := values.NewMap(map[string]values.Value{
@@ -57,12 +56,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		"data":   values.NewInt64(42),
 	})
 	require.NoError(t, err)
-	outputsProto := values.ProtoMap(outputsMap) //outputsMap.ProtoMap()
+	outputsProto := values.ProtoMap(outputsMap) // outputsMap.ProtoMap()
 
 	// Create a valid OCR report
 	validReport := &capabilitiespb.OCRTriggerReport{
 		EventID:   eventID,
-		Timestamp: uint64(currentTime),
+		Timestamp: currentTime,
 		Outputs:   outputsProto,
 	}
 
@@ -155,7 +154,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with invalid bytes
 		clearLogger(t, observedLogs)
 		_, err := aggregator.Aggregate(eventID, [][]byte{invalidBytes})
-		assert.ErrorIs(t, err, aggregation.ErrMissingResponse)
+		require.ErrorIs(t, err, aggregation.ErrMissingResponse)
 		gotLog := observedLogs.FilterMessage("could not unmarshal one of capability responses (faulty sender?)")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -177,7 +176,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with response without OCR event
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("trigger response does not contain an OCR report")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -209,7 +208,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with invalid report bytes
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("failed to parse OCR report")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -218,7 +217,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Create a valid report but with wrong event ID
 		wrongIDReport := &capabilitiespb.OCRTriggerReport{
 			EventID:   "wrong-event-id",
-			Timestamp: uint64(currentTime),
+			Timestamp: currentTime,
 			Outputs:   outputsProto,
 		}
 
@@ -250,18 +249,18 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with mismatched event ID
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("unexpected event ID")
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
 	t.Run("error - report too old", func(t *testing.T) {
 		// Create an old report (beyond maxAgeSec)
-		oldTime := currentTime - int64((maxAgeSec+5)*1000000000) // 15 seconds ago, max is 10
+		oldTime := currentTime - uint64((maxAgeSec+5)*1000000000) //nolint:gosec // disable G115
 
 		oldReport := &capabilitiespb.OCRTriggerReport{
 			EventID:   eventID,
-			Timestamp: uint64(oldTime),
+			Timestamp: oldTime,
 			Outputs:   outputsProto,
 		}
 
@@ -293,7 +292,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with old report
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("aggregation report too old")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -325,7 +324,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with not enough valid signatures
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("invalid signatures")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -357,7 +356,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with unauthorized signer
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("invalid signer")
 		assert.Equal(t, 1, gotLog.Len())
 	})
@@ -389,7 +388,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with malformed config digest
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("invalid signatures")
 		assert.Equal(t, 1, gotLog.Len())
 		gotLogLine := gotLog.All()[0]
@@ -424,13 +423,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		// Call Aggregate with malformed signature
 		clearLogger(t, observedLogs)
 		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
-		assert.Error(t, err)
+		require.Error(t, err)
 		gotLog := observedLogs.FilterMessage("invalid signatures")
 		assert.Equal(t, 1, gotLog.Len())
 		gotLogLine := gotLog.All()[0]
 		assert.True(t, logContainErr(t, gotLogLine, aggregation.ErrMalformedSigner), "expected error to be contained in log")
 	})
-
 }
 
 // TODO this seems useful in our common logging package
@@ -469,16 +467,6 @@ func extractErr(t testing.TB, log observer.LoggedEntry) error {
 		return nil
 	}
 	return gotErr
-}
-
-func logContainErrStr(t testing.TB, log observer.LoggedEntry, errMsg string) bool {
-	t.Helper()
-	gotErr := extractErr(t, log)
-	if gotErr == nil {
-		t.Logf("expected error, got nil")
-		return false
-	}
-	return strings.Contains(gotErr.Error(), errMsg)
 }
 
 func clearLogger(t testing.TB, lggr *observer.ObservedLogs) {

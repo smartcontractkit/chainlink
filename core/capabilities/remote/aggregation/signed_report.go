@@ -74,17 +74,18 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 
-		timeDiff := int64(rep.Timestamp) - time.Now().UnixNano()
+		// use Abs to handle edge case of clock skew
+		timeDiff := time.Since(time.Unix(0, int64(rep.Timestamp))).Abs() //nolint:gosec // disable G115 this won't be running in 2262
 		if timeDiff < 0 {
 			timeDiff = -timeDiff
 		}
-		if timeDiff > int64(a.maxAgeSec)*1000000000 { // nanoseconds
+		if timeDiff.Nanoseconds() > int64(a.maxAgeSec)*1000000000 {
 			a.lggr.Warnw("aggregation report too old", "age", timeDiff, "maxAge", a.maxAgeSec, "reportTimestamp", rep.Timestamp)
 			continue
 		}
 
-		if err := a.validateSignatures(triggerResp.Event.OCREvent); err != nil {
-			a.lggr.Errorw("invalid signatures", "err", err)
+		if err2 := a.validateSignatures(triggerResp.Event.OCREvent); err2 != nil {
+			a.lggr.Errorw("invalid signatures", "err", err2)
 			continue
 		}
 		// Replace "Outputs" field with the one extracted from the OCR report and drop the binary report
