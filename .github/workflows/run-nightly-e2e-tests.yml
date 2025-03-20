@@ -45,13 +45,13 @@ jobs:
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/e2e-tests.yml
-      test_trigger: TEST_TRIGGER
-      # slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
-      # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
-      # slack_notification_after_tests_name: Nightly E2E Tests
+      test_trigger: Nightly E2E Tests
+      slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
+      slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
+      slack_notification_after_tests_name: Nightly E2E Tests
       require_chainlink_image_versions_in_qa_ecr: ${{ inputs.require_chainlink_image_versions_in_qa_ecr || '' }}
       require_chainlink_plugin_versions_in_qa_ecr: ${{ inputs.require_chainlink_plugin_versions_in_qa_ecr || '' }}
-      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"1"}' }}
+      extraArgs: ${{ inputs.extraArgs || '{"flakeguard_enable":"true","flakeguard_run_count":"5"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       QA_AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}

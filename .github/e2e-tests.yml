@@ -921,7 +921,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - TEST_TRIGGER
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
@@ -981,7 +980,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - TEST_TRIGGER
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
