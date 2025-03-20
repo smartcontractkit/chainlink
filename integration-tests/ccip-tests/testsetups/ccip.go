@@ -1463,7 +1463,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 		})
 	}
 
-	fmt.Printf("DEBUG: EnvInput: %+v", testConfig.EnvInput)
+	fmt.Printf("DEBUG: EnvInput: %+v\n", testConfig.EnvInput)
 	fmt.Println("DEBUG: Mockserver URL: ", testConfig.EnvInput.Mockserver)
 	fmt.Println("DEBUG: Mockserver Instance: ", ccipEnv.MockServer)
 
