@@ -113,6 +113,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 			EnforceOutOfOrder:                 destChainStateAccount.Config.EnforceOutOfOrder,
 			ChainFamilySelector:               fmt.Sprintf("%x", destChainStateAccount.Config.ChainFamilySelector),
 		}
+		// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
 		for _, token := range tokens {
 			remoteBillingPDA, _, err := solState.FindFqPerChainPerTokenConfigPDA(remote, token, program)
 			if err != nil {
@@ -131,6 +132,7 @@ func GenerateFeeQuoterView(chain deployment.SolChain, program solana.PublicKey, 
 			}
 		}
 	}
+	// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
 	for _, token := range tokens {
 		billingConfigPDA, _, err := solState.FindFqBillingTokenConfigPDA(token, program)
 		if err != nil {
