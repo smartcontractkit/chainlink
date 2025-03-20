@@ -12,12 +12,12 @@ import (
 )
 
 type FeeQuoterView struct {
-	Version                uint8  `json:"version,omitempty"`
-	Owner                  string `json:"owner,omitempty"`
-	ProposedOwner          string `json:"proposedOwner,omitempty"`
-	MaxFeeJuelsPerMsg      string `json:"maxFeeJuelsPerMsg,omitempty"`
-	LinkTokenMint          string `json:"linkTokenMint,omitempty"`
-	LinkTokenLocalDecimals uint8
+	Version                uint8                                              `json:"version,omitempty"`
+	Owner                  string                                             `json:"owner,omitempty"`
+	ProposedOwner          string                                             `json:"proposedOwner,omitempty"`
+	MaxFeeJuelsPerMsg      string                                             `json:"maxFeeJuelsPerMsg,omitempty"`
+	LinkTokenMint          string                                             `json:"linkTokenMint,omitempty"`
+	LinkTokenLocalDecimals uint8                                              `json:"linkTokenLocalDecimals,omitempty"`
 	Onramp                 string                                             `json:"onRamp,omitempty"`
 	DefaultCodeVersion     string                                             `json:"defaultCodeVersion,omitempty"`
 	DestinationChainConfig map[uint64]FeeQuoterDestChainConfig                `json:"destinationChainConfig,omitempty"`
