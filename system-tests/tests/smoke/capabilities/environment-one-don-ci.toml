@@ -9,6 +9,10 @@
 [fake]
   port = 8171
 
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
 [workflow_config]
 	workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
@@ -24,7 +28,7 @@
     binary_url = "https://gist.githubusercontent.com/Tofel/0a595b92554b375415925749cc126969/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
     # if fake is enabled AND we do not compile a new workflow, this config needs to use URL pointing to IP, on which Docker host is available in Linux systems
     # since that's the OS of our CI runners.
-    config_url = "https://gist.githubusercontent.com/Tofel/c95415db5613b9ecfe3f37e715d3359d/raw/173c07fd74a3c64a514ea37da2f5450514d08f19/config.json3062539291"
+    config_url = "https://gist.githubusercontent.com/Tofel/f1818a12e1ec5c459d7979a43d8d9da9/raw/979efa090c07918b92257fe230db2f123a38961a/one_don_config.json_17_03_2025"
 
 [[nodesets]]
   nodes = 5

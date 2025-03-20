@@ -11,6 +11,10 @@
 [fake]
   port = 8171
 
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
+
 [workflow_config]
 	workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"

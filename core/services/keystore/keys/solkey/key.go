@@ -9,28 +9,16 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-// Raw represents the Solana private key
-type Raw []byte
-
-// Key gets the Key
-func (raw Raw) Key() Key {
-	privKey := ed25519.NewKeyFromSeed(raw)
+func KeyFor(raw internal.Raw) Key {
+	privKey := ed25519.NewKeyFromSeed(raw.Bytes())
 	return Key{
 		privkey: privKey,
 		pubKey:  privKey.Public().(ed25519.PublicKey),
 	}
-}
-
-// String returns description
-func (raw Raw) String() string {
-	return "<Solana Raw Private Key>"
-}
-
-// GoString wraps String()
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &Key{}
@@ -82,8 +70,8 @@ func (key Key) PublicKeyStr() string {
 }
 
 // Raw from private key
-func (key Key) Raw() Raw {
-	return key.privkey.Seed()
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.privkey.Seed())
 }
 
 // String is the print-friendly format of the Key

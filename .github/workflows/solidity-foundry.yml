@@ -341,6 +341,11 @@ jobs:
       - name: Install Foundry
         uses: ./.github/actions/install-solidity-foundry
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.8"
+
       - name: Install Slither
         uses: smartcontractkit/.github/actions/setup-slither@b6e37806737eef87e8c9137ceeb23ef0bff8b1db # validate-solidity-artifacts@0.1.0
 
