@@ -25,6 +25,8 @@ type LokiMetric struct {
 	SequenceNumber uint64 `json:"sequence_number"`
 	CommitDuration uint64 `json:"commit_duration"`
 	ExecDuration   uint64 `json:"exec_duration"`
+	FailedCommit   bool   `json:"failed_commit"`
+	FailedExec     bool   `json:"failed_exec"`
 }
 
 // MetricsManager is used for maintaining state of different sequence numbers
@@ -100,6 +102,8 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					ExecDuration:   execDuration,
 					CommitDuration: commitDuration,
 					SequenceNumber: srcDstSeqNum.seqNum,
+					FailedCommit:   timestamps[committed] == 0,
+					FailedExec:     timestamps[executed] == 0,
 				})
 			}
 			return
