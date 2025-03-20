@@ -186,7 +186,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel),
+			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel, 500),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -237,7 +237,7 @@ func TestReconnectMock(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel),
+			Gun:                   NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 500),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -256,15 +256,17 @@ type StreamsGun struct {
 	waitChans   map[int64]chan interface{}
 	recieveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
+	feedLimit   int
 }
 
-func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]string, triggerID string, ch <-chan capabilities.CapabilityRequest) *StreamsGun {
+func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]string, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int) *StreamsGun {
 	sg := &StreamsGun{
 		capProxy:    capProxy,
 		keyBundles:  keyBundles,
 		feeds:       feeds,
 		triggerID:   triggerID,
 		recieveChan: ch,
+		feedLimit:   feedLimit,
 	}
 	go sg.waitHOOKloop()
 	return sg
@@ -280,6 +282,9 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 	reports := make([]datastreams.FeedReport, 0)
 	for i := range s.feeds {
 		for _, feed := range s.feeds[i] {
+			if i >= s.feedLimit {
+				break
+			}
 			r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), timesteamp, feed, s.keyBundles)
 			if err != nil {
 				return &wasp.Response{Error: err.Error()}
