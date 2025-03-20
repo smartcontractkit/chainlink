@@ -24,6 +24,10 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 )
 
+func TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD(t *testing.T) {
+	require.Fail(t, "This test is just for testing the flakeguard")
+}
+
 func TestRunLogBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)

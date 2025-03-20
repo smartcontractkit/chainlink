@@ -925,7 +925,7 @@ runner-test-matrix:
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRunLogBasic" -timeout 30m -count=1 -test.parallel=2 -json
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD" -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-runlog-evm-simulated
 
   - id: smoke/cron_test.go:*
@@ -981,7 +981,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - TEST_TRIGGER
       - PR E2E Core Tests
       - Merge Queue E2E Core Tests
       - Nightly E2E Tests
