@@ -6,38 +6,15 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	ccipsolana "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipsolanacap "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
-
-// SVMCommitCallArgs defines the calldata structure for an SVM commit transaction.
-// IMPORTANT: The names and types of the fields are critical because the chainwriter uses mapstructure
-// to map these fields to the contract's parameter names. Changing these names or types (or omitting the
-// mapstructure tags) may result in transactions being constructed with incorrect arguments.
-type SVMCommitCallArgs struct {
-	ReportContext [2][32]byte               `mapstructure:"ReportContext"`
-	Report        []byte                    `mapstructure:"Report"`
-	Rs            [][32]byte                `mapstructure:"Rs"`
-	Ss            [][32]byte                `mapstructure:"Ss"`
-	RawVs         [32]byte                  `mapstructure:"RawVs"`
-	Info          ccipocr3.CommitReportInfo `mapstructure:"Info"`
-}
-
-// SVMExecCallArgs defines the calldata structure for an SVM execute transaction.
-// IMPORTANT: The names and types of the fields are critical because the chainwriter uses mapstructure
-// to map these fields to the contract's parameter names. Changing these names or types (or omitting the
-// mapstructure tags) may result in transactions being constructed with incorrect arguments.
-type SVMExecCallArgs struct {
-	ReportContext [2][32]byte                 `mapstructure:"ReportContext"`
-	Report        []byte                      `mapstructure:"Report"`
-	Info          ccipocr3.ExecuteReportInfo  `mapstructure:"Info"`
-	ExtraData     ccipcommon.ExtraDataDecoded `mapstructure:"ExtraData"`
-}
 
 // SVMContractTransmitterFactory implements the transmitter factory for SVM chains.
 type SVMContractTransmitterFactory struct{}
@@ -58,7 +35,7 @@ var SVMExecCalldataFunc = func(
 		}
 	}
 
-	var extraDataDecoded ccipcommon.ExtraDataDecoded
+	var extraDataDecoded ccipsolana.ExtraDataDecoded
 	if extraDataCodec != nil {
 		extraDataDecoded, err = decodeExecData(info, extraDataCodec)
 		if err != nil {
@@ -68,7 +45,7 @@ var SVMExecCalldataFunc = func(
 
 	return consts.ContractNameOffRamp,
 		consts.MethodExecute,
-		SVMExecCallArgs{
+		ccipsolana.SVMExecCallArgs{
 			ReportContext: rawReportCtx,
 			Report:        report.Report,
 			Info:          info,
@@ -104,7 +81,7 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 
 		return consts.ContractNameOffRamp,
 			method,
-			SVMCommitCallArgs{
+			ccipsolana.SVMCommitCallArgs{
 				ReportContext: rawReportCtx,
 				Report:        report.Report,
 				Rs:            rs,
@@ -117,28 +94,28 @@ func NewSVMCommitCalldataFunc(defaultMethod, priceOnlyMethod string) ToCalldataF
 }
 
 // decodeExecData decodes the extra data from an execute report.
-func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipcommon.ExtraDataDecoded, error) {
+func decodeExecData(report ccipocr3.ExecuteReportInfo, codec ccipcommon.ExtraDataCodec) (ccipsolana.ExtraDataDecoded, error) {
 	// only one report one message, since this is a stop-gap solution for solana
 	if len(report.AbstractReports) != 1 {
-		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))
+		return ccipsolana.ExtraDataDecoded{}, fmt.Errorf("unexpected report length, expected 1, got %d", len(report.AbstractReports))
 	}
 	if len(report.AbstractReports[0].Messages) != 1 {
-		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("unexpected message length, expected 1, got %d", len(report.AbstractReports[0].Messages))
+		return ccipsolana.ExtraDataDecoded{}, fmt.Errorf("unexpected message length, expected 1, got %d", len(report.AbstractReports[0].Messages))
 	}
 	message := report.AbstractReports[0].Messages[0]
-	extraDataDecoded := ccipcommon.ExtraDataDecoded{}
+	extraDataDecoded := ccipsolana.ExtraDataDecoded{}
 
 	var err error
 	extraDataDecoded.ExtraArgsDecoded, err = codec.DecodeExtraArgs(message.ExtraArgs, report.AbstractReports[0].SourceChainSelector)
 	if err != nil {
-		return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("failed to decode extra args: %w", err)
+		return ccipsolana.ExtraDataDecoded{}, fmt.Errorf("failed to decode extra args: %w", err)
 	}
 	// stopgap solution for missing extra args for Solana. To be replaced in the future.
 	destExecDataDecoded := make([]map[string]any, len(message.TokenAmounts))
 	for i, tokenAmount := range message.TokenAmounts {
 		destExecDataDecoded[i], err = codec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, report.AbstractReports[0].SourceChainSelector)
 		if err != nil {
-			return ccipcommon.ExtraDataDecoded{}, fmt.Errorf("failed to decode token amount dest exec data: %w", err)
+			return ccipsolana.ExtraDataDecoded{}, fmt.Errorf("failed to decode token amount dest exec data: %w", err)
 		}
 	}
 	extraDataDecoded.DestExecDataDecoded = destExecDataDecoded
@@ -174,7 +151,7 @@ func (f *SVMContractTransmitterFactory) NewExecTransmitter(
 		offrampAddress: offrampAddress,
 		toCalldataFn:   SVMExecCalldataFunc,
 		extraDataCodec: ccipcommon.NewExtraDataCodec(
-			ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}),
+			ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolanacap.ExtraDataDecoder{}),
 		),
 	}
 }
