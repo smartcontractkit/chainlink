@@ -45,7 +45,7 @@ jobs:
     with:
       chainlink_version: ${{ inputs.chainlink_version || 'develop' }}
       test_path: .github/e2e-tests.yml
-      test_trigger: TEST TRIGGER
+      test_trigger: TEST_TRIGGER
       # slack_notification_after_tests: ${{ inputs.slack_notification_after_tests || 'always' }}
       # slack_notification_after_tests_channel_id: "#team-test-tooling-internal"
       # slack_notification_after_tests_name: Nightly E2E Tests
