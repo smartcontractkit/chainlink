@@ -59,7 +59,7 @@ func deployAccessControllerProgram(
 	return nil
 }
 
-func accessControllerAccountExists(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
+func findAccessControllerAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
 	switch typeAndVersion {
 	case deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0):
 		return chainState.ProposerAccessControllerAccount, nil
@@ -82,7 +82,7 @@ func initAccessController(
 		return errors.New("access controller program is not deployed")
 	}
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
-	pubKeyRole, err := accessControllerAccountExists(chainState, typeAndVersion)
+	pubKeyRole, err := findAccessControllerAccount(chainState, typeAndVersion)
 	if err == nil && !pubKeyRole.IsZero() {
 		var data accessControllerBindings.AccessController
 		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, pubKeyRole, rpc.CommitmentConfirmed, &data)
