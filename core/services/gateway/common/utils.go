@@ -33,6 +33,9 @@ func AlignedBytesToString(data []byte) string {
 	return string(data[:idx])
 }
 
+func Flatten(data ...[]byte) []byte {
+	return flatten(data...)
+}
 func flatten(data ...[]byte) []byte {
 	var result []byte
 	for _, d := range data {

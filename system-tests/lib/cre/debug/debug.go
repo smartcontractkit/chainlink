@@ -18,6 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
 func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
@@ -25,7 +26,11 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 
 	if err := input.Validate(); err != nil {
 		l.Error().Err(err).Msg("Input validation failed. No debug information will be printed")
+		return
+	}
 
+	if input.InfraInput.InfraType == libtypes.CRIB {
+		l.Error().Msg("❌ Debug information is not supported for CRIB")
 		return
 	}
 

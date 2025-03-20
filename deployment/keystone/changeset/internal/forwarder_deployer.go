@@ -30,7 +30,7 @@ func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
 	}
 	return &KeystoneForwarderDeployer{lggr: lggr}, nil
 }
-func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
+func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -57,7 +57,7 @@ func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, 
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
 	txHash := tx.Hash()
-	txReceipt, err := req.Chain.Client.TransactionReceipt(context.Background(), tx.Hash())
+	txReceipt, err := req.Chain.Client.TransactionReceipt(ctx, tx.Hash())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
 	}

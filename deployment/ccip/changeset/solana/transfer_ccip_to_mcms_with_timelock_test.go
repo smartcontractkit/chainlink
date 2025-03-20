@@ -10,8 +10,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
-	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/gagliardetto/solana-go"
@@ -206,7 +207,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	require.NoError(t, err)
 	// Fund account for fees
 	testutils.FundAccounts(e.GetContext(), []solana.PrivateKey{*solChain.DeployerKey}, solChain.Client, t)
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]v1_6.ChainContractParams)
 	for _, chain := range solChainSelectors {
 		contractParams[chain] = v1_6.ChainContractParams{
@@ -239,7 +240,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			selectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			cfg,
 		),
 		commonchangeset.Configure(
@@ -338,12 +339,14 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		&e,
 		solChain1,
 		false,
-		true,
-		true,
-		true,
-		[]solana.PublicKey{burnMintPoolConfigPDA},
-		[]solana.PublicKey{lockReleasePoolConfigPDA},
-	)
+		solanachangesets.CCIPContractsToTransfer{
+			Router:                true,
+			FeeQuoter:             true,
+			OffRamp:               true,
+			RMNRemote:             true,
+			BurnMintTokenPools:    map[solana.PublicKey]solana.PublicKey{burnMintPoolConfigPDA: tokenAddressBurnMint},
+			LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{lockReleasePoolConfigPDA: tokenAddressLockRelease},
+		})
 
 	// 5. Now verify on-chain that each contract’s “config account” authority is the Timelock PDA.
 	//    Typically, each contract has its own config account: RouterConfigPDA, FeeQuoterConfigPDA,
@@ -397,4 +400,14 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 		require.NoError(t, err)
 		return timelockSignerPDA.String() == programData.Config.Owner.String()
 	}, 30*time.Second, 5*time.Second, "LockReleaseTokenPool owner was not changed to timelock signer PDA")
+
+	// (F) Check RMNRemote ownership
+	require.Eventually(t, func() bool {
+		rmnRemoteConfigPDA := state.SolChains[solChain1].RMNRemoteConfigPDA
+		t.Logf("Checking RMNRemote PDA ownership data configPDA: %s", rmnRemoteConfigPDA.String())
+		programData := rmn_remote.Config{}
+		err := solChain.GetAccountDataBorshInto(ctx, rmnRemoteConfigPDA, &programData)
+		require.NoError(t, err)
+		return timelockSignerPDA.String() == programData.Owner.String()
+	}, 30*time.Second, 5*time.Second, "RMNRemote config PDA owner was not changed to timelock signer PDA")
 }

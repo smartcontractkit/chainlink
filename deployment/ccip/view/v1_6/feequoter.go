@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
 
@@ -53,7 +52,7 @@ type FeeQuoterTokenPriceFeedConfig struct {
 	TokenDecimals   uint8  `json:"tokenDecimals,omitempty"`
 }
 
-func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.Router, ta *token_admin_registry.TokenAdminRegistry) (FeeQuoterView, error) {
+func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.Router, tokens []common.Address) (FeeQuoterView, error) {
 	fq := FeeQuoterView{}
 	authorizedCallers, err := fqContract.GetAllAuthorizedCallers(nil)
 	if err != nil {
@@ -117,10 +116,6 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 		}
 	}
 	fq.TokenPriceFeedConfig = make(map[string]FeeQuoterTokenPriceFeedConfig)
-	tokens, err := GetSupportedTokens(ta)
-	if err != nil {
-		return FeeQuoterView{}, fmt.Errorf("view error for FeeQuoter: %w", err)
-	}
 	for _, token := range tokens {
 		t, err := fqContract.GetTokenPriceFeedConfig(nil, token)
 		if err != nil {
@@ -132,13 +127,4 @@ func GenerateFeeQuoterView(fqContract *fee_quoter.FeeQuoter, router *router1_2.R
 		}
 	}
 	return fq, nil
-}
-
-func GetSupportedTokens(taContract *token_admin_registry.TokenAdminRegistry) ([]common.Address, error) {
-	// TODO : include pagination CCIP-3416
-	tokens, err := taContract.GetAllConfiguredTokens(nil, 0, 10)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get tokens from token_admin_registry: %w", err)
-	}
-	return tokens, nil
 }

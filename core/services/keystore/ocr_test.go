@@ -31,7 +31,7 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		defer reset()
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 0, len(keys))
+		require.Empty(t, keys)
 	})
 
 	t.Run("errors when getting non-existent ID", func(t *testing.T) {
@@ -86,14 +86,14 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		assert.Error(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		assert.Equal(t, 1, len(keys))
+		assert.Len(t, keys, 1)
 		_, err = ks.Delete(ctx, newKey.ID())
 		require.NoError(t, err)
 		_, err = ks.Delete(ctx, newKey.ID())
 		assert.Error(t, err)
 		keys, err = ks.GetAll()
 		require.NoError(t, err)
-		assert.Equal(t, 0, len(keys))
+		assert.Empty(t, keys)
 		_, err = ks.Get(newKey.ID())
 		assert.Error(t, err)
 	})
@@ -107,7 +107,7 @@ func Test_OCRKeyStore_E2E(t *testing.T) {
 		require.NoError(t, err)
 		keys, err := ks.GetAll()
 		require.NoError(t, err)
-		require.Equal(t, 1, len(keys))
+		require.Len(t, keys, 1)
 	})
 
 	t.Run("imports a key exported from a v1 keystore", func(t *testing.T) {

@@ -35,6 +35,7 @@ type MetricManager struct {
 	InputChan chan messageData
 	state     map[srcDstSeqNum]metricState
 	testLabel string
+	ErrorChan chan error
 }
 
 type metricState struct {
@@ -68,6 +69,7 @@ func NewMetricsManager(t *testing.T, l logger.Logger, overrides *ccip.LoadConfig
 		InputChan: make(chan messageData),
 		state:     make(map[srcDstSeqNum]metricState),
 		testLabel: testLabel,
+		ErrorChan: make(chan error),
 	}
 }
 

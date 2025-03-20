@@ -11,6 +11,8 @@ import (
 	"github.com/NethermindEth/starknet.go/curve"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var _ types.OnchainKeyring = &OCR2Key{}
@@ -89,6 +91,10 @@ func (sk *OCR2Key) Sign3(digest types.ConfigDigest, seqNr uint64, r types.Report
 	return nil, errors.New("not implemented")
 }
 
+func (sk *OCR2Key) SignBlob(b []byte) ([]byte, error) {
+	return nil, errors.New("not implemented")
+}
+
 func (sk *OCR2Key) Verify(publicKey types.OnchainPublicKey, reportCtx types.ReportContext, report types.Report, signature []byte) bool {
 	// check valid signature length
 	if len(signature) != sk.MaxSignatureLength() {
@@ -128,6 +134,10 @@ func (sk *OCR2Key) Verify3(publicKey types.OnchainPublicKey, cd types.ConfigDige
 	return false
 }
 
+func (sk *OCR2Key) VerifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
+	return false
+}
+
 func (sk *OCR2Key) MaxSignatureLength() int {
 	return 32 + 32 + 32 // publickey + r + s
 }
@@ -147,7 +157,7 @@ func (sk *OCR2Key) Unmarshal(in []byte) error {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), sk.privateKeyLen())
 	}
 
-	sk.Key = Raw(in).Key()
+	sk.Key = KeyFor(internal.NewRaw(in))
 	return nil
 }
 

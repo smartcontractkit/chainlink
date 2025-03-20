@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	evmclient "github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
@@ -33,7 +34,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	evmrelay "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 )
 
@@ -68,37 +68,26 @@ type TestChainOpts struct {
 	GasEstimator   gas.EvmFeeEstimator
 }
 
-// NewLegacyChainsAndConfig returns a simple chain collection with one chain and
+// NewLegacyChains returns a simple chain collection with one chain and
 // allows to mock client/config on that chain
-func NewLegacyChainsAndConfig(t testing.TB, testopts TestChainOpts) *evmrelay.LegacyChainsAndConfig {
-	opts := NewChainOpts(t, testopts)
-	cc, err := evmrelay.NewLegacyChainsAndConfig(testutils.Context(t), opts)
-	require.NoError(t, err)
-	return cc
-}
-
 func NewLegacyChains(t testing.TB, testopts TestChainOpts) *legacyevm.LegacyChains {
-	opts := NewChainOpts(t, testopts)
-	cc, err := evmrelay.NewLegacyChainsAndConfig(testutils.Context(t), opts)
+	lggr, ks, opts := NewChainOpts(t, testopts)
+	cc, err := evmrelay.NewLegacyChainsAndConfig(lggr, ks, opts)
 	require.NoError(t, err)
 	return cc.NewLegacyChains()
 }
 
-func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts {
+func NewChainOpts(t testing.TB, testopts TestChainOpts) (logger.Logger, keystore.Eth, legacyevm.ChainOpts) {
 	require.NotNil(t, testopts.KeyStore)
 	lggr := logger.TestLogger(t)
-	opts := legacyevm.ChainRelayOpts{
-		Logger:   lggr,
-		KeyStore: testopts.KeyStore,
-		ChainOpts: legacyevm.ChainOpts{
-			ChainConfigs:   testopts.ChainConfigs,
-			DatabaseConfig: testopts.DatabaseConfig,
-			ListenerConfig: testopts.ListenerConfig,
-			FeatureConfig:  testopts.FeatureConfig,
-			MailMon:        testopts.MailMon,
-			GasEstimator:   testopts.GasEstimator,
-			DS:             testopts.DB,
-		},
+	opts := legacyevm.ChainOpts{
+		ChainConfigs:   testopts.ChainConfigs,
+		DatabaseConfig: testopts.DatabaseConfig,
+		ListenerConfig: testopts.ListenerConfig,
+		FeatureConfig:  testopts.FeatureConfig,
+		MailMon:        testopts.MailMon,
+		GasEstimator:   testopts.GasEstimator,
+		DS:             testopts.DB,
 	}
 	opts.GenEthClient = func(*big.Int) evmclient.Client {
 		if testopts.Client != nil {
@@ -135,7 +124,7 @@ func NewChainOpts(t testing.TB, testopts TestChainOpts) legacyevm.ChainRelayOpts
 		}
 	}
 
-	return opts
+	return lggr, testopts.KeyStore, opts
 }
 
 // Deprecated, this is a replacement function for tests for now removed default evmChainID logic

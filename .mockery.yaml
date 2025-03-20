@@ -2,6 +2,7 @@ dir: "{{ .InterfaceDir }}/mocks"
 mockname: "{{ .InterfaceName }}"
 outpkg: mocks
 filename: "{{ .InterfaceName | snakecase }}.go"
+fail-on-missing: true
 packages:
   github.com/smartcontractkit/chainlink-framework/chains/txmgr:
     config:
@@ -12,9 +13,6 @@ packages:
     config:
       dir: common/txmgr/types/mocks
     interfaces:
-      ReaperChainConfig:
-        config:
-          mockname: ReaperConfig
       ForwarderManager:
       KeyStore:
       TxStrategy:
@@ -244,11 +242,6 @@ packages:
       MonitoringEndpoint:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm:
     interfaces:
-      BatchCaller:
-        config:
-          dir: "{{ .InterfaceDir }}/rpclibmocks"
-          outpkg: rpclibmocks
-      LoopRelayAdapter:
       RequestRoundDB:
   github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury:
     interfaces:
@@ -284,7 +277,6 @@ packages:
       mockname: "Mock{{ .InterfaceName | camelcase }}"
     interfaces:
       MonitoringEndpointGenerator:
-      IngressAgent:
   github.com/smartcontractkit/chainlink/v2/core/services/webhook:
     interfaces:
       ExternalInitiatorManager:
@@ -416,10 +408,6 @@ packages:
     config:
       outpkg: rpclibmocks
     interfaces:
-      BatchCaller:
-        config:
-          filename: batch_caller.go
-          dir: core/services/relay/evm/rpclibmocks
       EvmBatchCaller:
         config:
           filename: evm_mock.go
@@ -456,12 +444,6 @@ packages:
   github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer:
     interfaces:
       ORM:
-      Handler:
-        config:
-          mockname: "Mock{{ .InterfaceName }}"
-          filename: handler_mock.go
-          inpackage: true
-          dir: "{{ .InterfaceDir }}"
   github.com/smartcontractkit/chainlink/v2/core/capabilities/targets:
     interfaces:
       ContractValueGetter:

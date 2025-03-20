@@ -55,7 +55,7 @@ func TestDSSNew(t *testing.T) {
 		long: longterms[0], random: randoms[0], msg: msg, T: 4}
 	dss, err := NewDSS(dssArgs)
 	assert.NotNil(t, dss)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	dssArgs.secret = suite.Scalar().Zero()
 	dss, err = NewDSS(dssArgs)
 	assert.Nil(t, dss)
@@ -66,12 +66,12 @@ func TestDSSPartialSigs(t *testing.T) {
 	dss0 := getDSS(0)
 	dss1 := getDSS(1)
 	ps0, err := dss0.PartialSig()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, ps0)
 	assert.Len(t, dss0.partials, 1)
 	// second time should not affect list
 	ps0, err = dss0.PartialSig()
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NotNil(t, ps0)
 	assert.Len(t, dss0.partials, 1)
 
@@ -104,7 +104,7 @@ func TestDSSPartialSigs(t *testing.T) {
 	goodV := ps0.Partial.V
 	ps0.Partial.V = suite.Scalar().Zero()
 	ps0.Signature, err = ethschnorr.Sign(dss0.secret, ps0.Hash())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	err = dss1.ProcessPartialSig(ps0)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "not valid")
@@ -113,7 +113,7 @@ func TestDSSPartialSigs(t *testing.T) {
 
 	// fine
 	err = dss1.ProcessPartialSig(ps0)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	// already received
 	assert.Error(t, dss1.ProcessPartialSig(ps0))
@@ -128,8 +128,8 @@ func TestDSSPartialSigs(t *testing.T) {
 	for i := 2; i < nbParticipants; i++ {
 		dss := getDSS(i)
 		ps, e := dss.PartialSig()
-		require.Nil(t, e)
-		require.Nil(t, dss1.ProcessPartialSig(ps))
+		require.NoError(t, e)
+		require.NoError(t, dss1.ProcessPartialSig(ps))
 	}
 	assert.True(t, dss1.EnoughPartialSig())
 	sig, err = dss1.Signature()
@@ -153,7 +153,7 @@ func TestDSSSignature(t *testing.T) {
 	for i := 0; i < nbParticipants; i++ {
 		dsss[i] = getDSS(i)
 		ps, err := dsss[i].PartialSig()
-		require.Nil(t, err)
+		require.NoError(t, err)
 		require.NotNil(t, ps)
 		pss[i] = ps
 	}
@@ -162,14 +162,14 @@ func TestDSSSignature(t *testing.T) {
 			if i == j {
 				continue
 			}
-			require.Nil(t, dss.ProcessPartialSig(ps))
+			require.NoError(t, dss.ProcessPartialSig(ps))
 		}
 	}
 	// issue and verify signature
 	dss0 := dsss[0]
 	sig, err := dss0.Signature()
 	assert.NotNil(t, sig)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.NoError(t, ethschnorr.Verify(longterms[0].Public(), dss0.msg, sig))
 	// Original contains this second check. Unclear why.
 	assert.NoError(t, ethschnorr.Verify(longterms[0].Public(), dss0.msg, sig))

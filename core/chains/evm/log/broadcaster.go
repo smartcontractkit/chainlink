@@ -11,6 +11,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/jpillora/backoff"
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -112,7 +113,7 @@ type (
 		wgDone                sync.WaitGroup
 		trackedAddressesCount atomic.Uint32
 		replayChannel         chan replayRequest
-		highestSavedHead      *evmtypes.Head
+		highestSavedHeadFn    func(context.Context) (*evmtypes.Head, error)
 		lastSeenHeadNumber    atomic.Int64
 		logger                logger.Logger
 
@@ -163,7 +164,7 @@ const (
 var _ Broadcaster = (*broadcaster)(nil)
 
 // NewBroadcaster creates a new instance of the broadcaster
-func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead *evmtypes.Head, mailMon *mailbox.Monitor) *broadcaster {
+func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr logger.Logger, highestSavedHead func(context.Context) (*evmtypes.Head, error), mailMon *mailbox.Monitor) *broadcaster {
 	chStop := make(chan struct{})
 	lggr = logger.Named(lggr, "LogBroadcaster")
 	chainId := ethClient.ConfiguredChainID()
@@ -180,7 +181,7 @@ func NewBroadcaster(orm ORM, ethClient evmclient.Client, config Config, lggr log
 		newHeads:               mailbox.NewSingle[*evmtypes.Head](),
 		DependentAwaiter:       utils.NewDependentAwaiter(),
 		chStop:                 chStop,
-		highestSavedHead:       highestSavedHead,
+		highestSavedHeadFn:     highestSavedHead,
 		replayChannel:          make(chan replayRequest, 1),
 	}
 }
@@ -295,6 +296,31 @@ func (b *broadcaster) IsConnected() bool {
 	return b.connected.Load()
 }
 
+func (b *broadcaster) highestSavedHead() (*evmtypes.Head, bool) {
+	if b.highestSavedHeadFn == nil {
+		return nil, true
+	}
+	ctx, cancel := b.chStop.NewCtx()
+	defer cancel()
+	bo := backoff.Backoff{Min: time.Second, Max: time.Minute}
+	var highestSavedHead *evmtypes.Head
+	for {
+		var err error
+		highestSavedHead, err = b.highestSavedHeadFn(ctx)
+		if err == nil {
+			break
+		}
+		b.logger.Errorw("Failed to lookup highest saved head from DB", "attempt", bo.Attempt(), "err", err)
+
+		select {
+		case <-ctx.Done():
+			return nil, false
+		case <-time.After(bo.Duration()):
+		}
+	}
+	return highestSavedHead, true
+}
+
 // The subscription is closed in two cases:
 //   - intentionally, when the set of contracts we're listening to changes
 //   - on a connection error
@@ -308,16 +334,21 @@ func (b *broadcaster) startResubscribeLoop() {
 	var subscription managedSubscription = newNoopSubscription()
 	defer func() { subscription.Unsubscribe() }()
 
-	if b.config.BlockBackfillSkip() && b.highestSavedHead != nil {
+	highestSavedHead, ok := b.highestSavedHead()
+	if !ok {
+		return
+	}
+
+	if b.config.BlockBackfillSkip() && highestSavedHead != nil {
 		b.logger.Warn("BlockBackfillSkip is set to true, preventing a deep backfill - some earlier chain events might be missed.")
-	} else if b.highestSavedHead != nil {
+	} else if highestSavedHead != nil {
 		// The backfill needs to start at an earlier block than the one last saved in DB, to account for:
 		// - keeping logs in the in-memory buffers in registration.go
 		//   (which will be lost on node restart) for MAX(NumConfirmations of subscribers)
 		// - HeadTracker saving the heads to DB asynchronously versus LogBroadcaster, where a head
 		//   (or more heads on fast chains) may be saved but not yet processed by LB
 		//   using BlockBackfillDepth makes sure the backfill will be dependent on the per-chain configuration
-		from := b.highestSavedHead.Number -
+		from := highestSavedHead.Number -
 			int64(b.registrations.highestNumConfirmations) -
 			int64(b.config.BlockBackfillDepth())
 		if from < 0 {

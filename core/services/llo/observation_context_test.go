@@ -23,6 +23,7 @@ import (
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	clhttptest "github.com/smartcontractkit/chainlink/v2/core/internal/testutils/httptest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
@@ -71,6 +72,8 @@ func TestObservationContext_Observe(t *testing.T) {
 	streamID4 := streams.StreamID(4)
 	streamID5 := streams.StreamID(5)
 	streamID6 := streams.StreamID(6)
+	streamID7 := streams.StreamID(7)
+	streamID8 := streams.StreamID(8)
 
 	multiPipelineDecimal := makePipelineWithMultipleStreamResults([]streams.StreamID{streamID4, streamID5, streamID6}, []interface{}{decimal.NewFromFloat(12.34), decimal.NewFromFloat(56.78), decimal.NewFromFloat(90.12)})
 
@@ -81,6 +84,8 @@ func TestObservationContext_Observe(t *testing.T) {
 		streamID4: multiPipelineDecimal,
 		streamID5: multiPipelineDecimal,
 		streamID6: multiPipelineDecimal,
+		streamID7: makePipelineWithSingleResult[float64](rand.Int64(), 1.23, nil),
+		streamID8: makePipelineWithSingleResult[int64](rand.Int64(), 5, nil),
 	}
 
 	t.Run("returns error in case of missing pipeline", func(t *testing.T) {
@@ -122,6 +127,18 @@ func TestObservationContext_Observe(t *testing.T) {
 		assert.Equal(t, "90.12", val.(*llo.Decimal).String())
 
 		assert.Equal(t, 1, multiPipelineDecimal.runCount)
+	})
+	t.Run("returns value from float64 value", func(t *testing.T) {
+		val, err := oc.Observe(ctx, streamID7, opts)
+		require.NoError(t, err)
+
+		assert.Equal(t, "1.23", val.(*llo.Decimal).String())
+	})
+	t.Run("returns value from int64 value", func(t *testing.T) {
+		val, err := oc.Observe(ctx, streamID8, opts)
+		require.NoError(t, err)
+
+		assert.Equal(t, "5", val.(*llo.Decimal).String())
 	})
 }
 

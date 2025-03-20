@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"sync"
 	"syscall"
 
@@ -224,7 +225,7 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 		upkeepId := activeUpkeepIds[i]
 		tx, err := canceller.CancelUpkeep(k.buildTxOpts(ctx), upkeepId)
 		if err != nil {
-			return fmt.Errorf("failed to cancel upkeep %s: %s", upkeepId.String(), err)
+			return fmt.Errorf("failed to cancel upkeep %s: %w", upkeepId.String(), err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
@@ -233,7 +234,7 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 
 		tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), upkeepId, k.fromAddr)
 		if err != nil {
-			return fmt.Errorf("failed to withdraw upkeep %s: %s", upkeepId.String(), err)
+			return fmt.Errorf("failed to withdraw upkeep %s: %w", upkeepId.String(), err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
@@ -245,7 +246,7 @@ func (k *Keeper) cancelAndWithdrawActiveUpkeeps(ctx context.Context, activeUpkee
 
 	tx, err := canceller.RecoverFunds(k.buildTxOpts(ctx))
 	if err != nil {
-		return fmt.Errorf("failed to recover funds: %s", err)
+		return fmt.Errorf("failed to recover funds: %w", err)
 	}
 
 	if err = k.waitTx(ctx, tx); err != nil {
@@ -261,7 +262,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 	for i := int64(0); i < upkeepCount.Int64(); i++ {
 		var tx *ethtypes.Transaction
 		if tx, err = canceller.CancelUpkeep(k.buildTxOpts(ctx), big.NewInt(i)); err != nil {
-			return fmt.Errorf("failed to cancel upkeep %d: %s", i, err)
+			return fmt.Errorf("failed to cancel upkeep %d: %w", i, err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
@@ -269,7 +270,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 		}
 
 		if tx, err = canceller.WithdrawFunds(k.buildTxOpts(ctx), big.NewInt(i), k.fromAddr); err != nil {
-			return fmt.Errorf("failed to withdraw upkeep %d: %s", i, err)
+			return fmt.Errorf("failed to withdraw upkeep %d: %w", i, err)
 		}
 
 		if err = k.waitTx(ctx, tx); err != nil {
@@ -281,7 +282,7 @@ func (k *Keeper) cancelAndWithdrawUpkeeps(ctx context.Context, upkeepCount *big.
 
 	var tx *ethtypes.Transaction
 	if tx, err = canceller.RecoverFunds(k.buildTxOpts(ctx)); err != nil {
-		return fmt.Errorf("failed to recover funds: %s", err)
+		return fmt.Errorf("failed to recover funds: %w", err)
 	}
 
 	if err = k.waitTx(ctx, tx); err != nil {
@@ -312,26 +313,26 @@ func (k *Keeper) createKeeperJob(ctx context.Context, client cmd.HTTPClient, reg
 func (k *Keeper) createLegacyKeeperJob(ctx context.Context, client cmd.HTTPClient, registryAddr, nodeAddr string) error {
 	request, err := json.Marshal(web.CreateJobRequest{
 		TOML: testspecs.GenerateKeeperSpec(testspecs.KeeperSpecParams{
-			Name:            fmt.Sprintf("keeper job - registry %s", registryAddr),
+			Name:            "keeper job - registry " + registryAddr,
 			ContractAddress: registryAddr,
 			FromAddress:     nodeAddr,
 			EvmChainID:      int(k.cfg.ChainID),
 		}).Toml(),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %s", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
-		return fmt.Errorf("failed to create keeper job: %s", err)
+		return fmt.Errorf("failed to create keeper job: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("failed to read error response body: %s", err)
+			return fmt.Errorf("failed to read error response body: %w", err)
 		}
 
 		return fmt.Errorf("unable to create keeper job: '%v' [%d]", string(body), resp.StatusCode)
@@ -367,7 +368,7 @@ mercuryCredentialName = "%s"`
 func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient, contractAddr, nodeAddr string) error {
 	ocr2KeyConfig, err := getNodeOCR2Config(ctx, client)
 	if err != nil {
-		return fmt.Errorf("failed to get node OCR2 key bundle ID: %s", err)
+		return fmt.Errorf("failed to get node OCR2 key bundle ID: %w", err)
 	}
 
 	// Correctly assign contract version in OCR job spec.
@@ -388,19 +389,19 @@ func (k *Keeper) createOCR2KeeperJob(ctx context.Context, client cmd.HTTPClient,
 		),
 	})
 	if err != nil {
-		return fmt.Errorf("failed to marshal request: %s", err)
+		return fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	resp, err := client.Post(ctx, "/v2/jobs", bytes.NewReader(request))
 	if err != nil {
-		return fmt.Errorf("failed to create ocr2keeper job: %s", err)
+		return fmt.Errorf("failed to create ocr2keeper job: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 400 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("failed to read error response body: %s", err)
+			return fmt.Errorf("failed to read error response body: %w", err)
 		}
 
 		return fmt.Errorf("unable to create ocr2keeper job: '%v' [%d]", string(body), resp.StatusCode)
@@ -427,7 +428,7 @@ func (k *Keeper) addKeyToKeeper(ctx context.Context, client cmd.HTTPClient, priv
 	query := importUrl.Query()
 
 	query.Set("oldpassword", defaultChainlinkNodePassword)
-	query.Set("evmChainID", fmt.Sprint(k.cfg.ChainID))
+	query.Set("evmChainID", strconv.FormatInt(k.cfg.ChainID, 10))
 
 	importUrl.RawQuery = query.Encode()
 	resp, err := client.Post(ctx, importUrl.String(), bytes.NewReader(keyJSON))
@@ -440,7 +441,7 @@ func (k *Keeper) addKeyToKeeper(ctx context.Context, client cmd.HTTPClient, priv
 	if resp.StatusCode >= 400 {
 		body, err := io.ReadAll(resp.Body)
 		if err != nil {
-			return "", fmt.Errorf("failed to read error response body: %s", err)
+			return "", fmt.Errorf("failed to read error response body: %w", err)
 		}
 
 		return "", fmt.Errorf("unable to create ocr2keeper job: '%v' [%d]", string(body), resp.StatusCode)

@@ -239,9 +239,9 @@ func TestStreams_CheckErrorHandler(t *testing.T) {
 			defer s.Close()
 
 			userPayload, err := s.packer.PackUserCheckErrorHandler(tt.errCode, tt.lookup.ExtraData)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			payload, err := s.abi.Pack("executeCallback", tt.lookup.UpkeepId, userPayload)
-			require.Nil(t, err)
+			require.NoError(t, err)
 
 			args := map[string]interface{}{
 				"from": zeroAddress,
@@ -397,7 +397,7 @@ func TestStreams_CheckCallback(t *testing.T) {
 			s := setupStreams(t)
 			defer s.Close()
 			payload, err := s.abi.Pack("checkCallback", tt.lookup.UpkeepId, values, tt.lookup.ExtraData)
-			require.Nil(t, err)
+			require.NoError(t, err)
 			args := map[string]interface{}{
 				"from": zeroAddress,
 				"to":   s.registry.Address().Hex(),
@@ -486,7 +486,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		},
 		{
 			name:   "failure - cannot unmarshal privilege config",
-			err:    fmt.Errorf("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
+			err:    errors.New("failed to unmarshal privilege config: invalid character '\\x00' looking for beginning of value"),
 			state:  encoding.PrivilegeConfigUnmarshalError,
 			config: []byte{0, 1},
 			registry: &mockRegistry{
@@ -501,9 +501,9 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		{
 			name:       "failure - flaky RPC",
 			retryable:  true,
-			err:        fmt.Errorf("failed to get upkeep privilege config: flaky RPC"),
+			err:        errors.New("failed to get upkeep privilege config: flaky RPC"),
 			state:      encoding.RpcFlakyFailure,
-			ethCallErr: fmt.Errorf("flaky RPC"),
+			ethCallErr: errors.New("flaky RPC"),
 			registry: &mockRegistry{
 				GetUpkeepPrivilegeConfigFn: func(opts *bind.CallOpts, upkeepId *big.Int) ([]byte, error) {
 					return nil, errors.New("flaky RPC")
@@ -515,7 +515,7 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 		},
 		{
 			name:   "failure - empty upkeep privilege config",
-			err:    fmt.Errorf("upkeep privilege config is empty"),
+			err:    errors.New("upkeep privilege config is empty"),
 			reason: encoding.UpkeepFailureReasonMercuryAccessNotAllowed,
 			config: []byte{},
 			registry: &mockRegistry{
@@ -546,10 +546,10 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			if !tt.cached {
 				if tt.err != nil {
 					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{tt.config})
-					require.Nil(t, err)
+					require.NoError(t, err)
 
 					payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
-					require.Nil(t, err)
+					require.NoError(t, err)
 
 					args := map[string]interface{}{
 						"to":   s.registry.Address().Hex(),
@@ -565,13 +565,13 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 				} else {
 					cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.allowed}
 					bCfg, err := json.Marshal(cfg)
-					require.Nil(t, err)
+					require.NoError(t, err)
 
 					bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
-					require.Nil(t, err)
+					require.NoError(t, err)
 
 					payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
-					require.Nil(t, err)
+					require.NoError(t, err)
 
 					args := map[string]interface{}{
 						"to":   s.registry.Address().Hex(),
@@ -591,7 +591,11 @@ func TestStreams_AllowedToUseMercury(t *testing.T) {
 			}
 
 			state, reason, retryable, allowed, err := s.AllowedToUseMercury(opts, upkeepId)
-			assert.Equal(t, tt.err, err)
+			if tt.err == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.ErrorContains(t, err, tt.err.Error())
+			}
 			assert.Equal(t, tt.allowed, allowed)
 			assert.Equal(t, tt.state, state)
 			assert.Equal(t, tt.reason, reason)
@@ -882,13 +886,13 @@ func TestStreams_StreamsLookup(t *testing.T) {
 			if !tt.cachedAdminCfg && !tt.hasError {
 				cfg := UpkeepPrivilegeConfig{MercuryEnabled: tt.hasPermission}
 				bCfg, err := json.Marshal(cfg)
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				bContractCfg, err := s.abi.Methods["getUpkeepPrivilegeConfig"].Outputs.PackValues([]interface{}{bCfg})
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				payload, err := s.abi.Pack("getUpkeepPrivilegeConfig", upkeepId)
-				require.Nil(t, err)
+				require.NoError(t, err)
 
 				args := map[string]interface{}{
 					"to":   s.registry.Address().Hex(),
@@ -911,7 +915,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 					mr1 := v03.MercuryV03Response{
 						Reports: []v03.MercuryV03Report{{FullReport: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}, {FullReport: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}}}
 					b1, err := json.Marshal(mr1)
-					assert.Nil(t, err)
+					assert.NoError(t, err)
 					resp1 := &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
@@ -924,14 +928,14 @@ func TestStreams_StreamsLookup(t *testing.T) {
 
 					mr1 := v02.MercuryV02Response{ChainlinkBlob: tt.blobs["0x4554482d5553442d415242495452554d2d544553544e45540000000000000000"]}
 					b1, err := json.Marshal(mr1)
-					assert.Nil(t, err)
+					assert.NoError(t, err)
 					resp1 := &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
 					}
 					mr2 := v02.MercuryV02Response{ChainlinkBlob: tt.blobs["0x4254432d5553442d415242495452554d2d544553544e45540000000000000000"]}
 					b2, err := json.Marshal(mr2)
-					assert.Nil(t, err)
+					assert.NoError(t, err)
 					resp2 := &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       io.NopCloser(bytes.NewReader(b2)),
@@ -949,7 +953,7 @@ func TestStreams_StreamsLookup(t *testing.T) {
 
 			if tt.callbackNeeded {
 				payload, err := s.abi.Pack("checkCallback", upkeepId, tt.values, tt.extraData)
-				require.Nil(t, err)
+				require.NoError(t, err)
 				args := map[string]interface{}{
 					"from": zeroAddress,
 					"to":   s.registry.Address().Hex(),

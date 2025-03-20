@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -17,10 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/configtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/evmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func TestStoreRotatesFromAddresses(t *testing.T) {
@@ -35,20 +34,17 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		DatabaseConfig: cfg.Database(),
 		FeatureConfig:  cfg.Feature(),
 		ListenerConfig: cfg.Database().Listener(),
-		DB:             db,
 		KeyStore:       kst.Eth(),
+		DB:             db,
 		Client:         ethClient,
 	})
 	chain, err := legacyChains.Get(cltest.FixtureChainID.String())
 	require.NoError(t, err)
-	lggr := logger.TestLogger(t)
-	ks := keystore.New(db, utils.FastScryptParams, lggr)
-	require.NoError(t, ks.Unlock(ctx, "blah"))
-	k1, err := ks.Eth().Create(ctx, &cltest.FixtureChainID)
-	require.NoError(t, err)
-	k2, err := ks.Eth().Create(ctx, &cltest.FixtureChainID)
-	require.NoError(t, err)
-	fromAddresses := []types.EIP55Address{k1.EIP55Address, k2.EIP55Address}
+	coreKS := keystest.NewMemoryChainStore()
+	ks := keys.NewStore(coreKS)
+	addr1 := coreKS.MustCreate(t)
+	addr2 := coreKS.MustCreate(t)
+	fromAddresses := []types.EIP55Address{types.EIP55AddressFromAddress(addr1), types.EIP55AddressFromAddress(addr2)}
 	txm := new(txmmocks.MockEvmTxManager)
 	bhsAddress := common.HexToAddress("0x31Ca8bf590360B3198749f852D5c516c642846F6")
 
@@ -61,17 +57,16 @@ func TestStoreRotatesFromAddresses(t *testing.T) {
 		txm,
 		store,
 		nil,
-		&cltest.FixtureChainID,
-		ks.Eth(),
+		ks,
 	)
 	require.NoError(t, err)
 
 	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
-		return tx.FromAddress.String() == k1.Address.String()
+		return tx.FromAddress.String() == addr1.String()
 	})).Once().Return(txmgr.Tx{}, nil)
 
 	txm.On("CreateTransaction", mock.Anything, mock.MatchedBy(func(tx txmgr.TxRequest) bool {
-		return tx.FromAddress.String() == k2.Address.String()
+		return tx.FromAddress.String() == addr2.String()
 	})).Once().Return(txmgr.Tx{}, nil)
 
 	// store 2 blocks

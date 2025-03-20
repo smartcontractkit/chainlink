@@ -191,7 +191,7 @@ decode_log->vrf->encode_tx->submit_tx
 `,
 			assertion: func(t *testing.T, s job.Job, err error) {
 				require.NoError(t, err)
-				assert.Equal(t, s.ExternalJobID.String(), "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46")
+				assert.Equal(t, "0eec7e1d-d0d2-476c-a1a8-72dfb6633f46", s.ExternalJobID.String())
 			},
 		},
 		{

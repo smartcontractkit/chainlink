@@ -7,15 +7,18 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
 func TestCallSetChannelDefinitions(t *testing.T) {
-	e := newMemoryEnv(t)
+	t.Parallel()
+
+	e := testutil.NewMemoryEnv(t, false, 0)
 
 	// Deploy a contract
 	deployConf := DeployChannelConfigStoreConfig{
-		ChainsToDeploy: []uint64{TestChain.Selector},
+		ChainsToDeploy: []uint64{testutil.TestChain.Selector},
 	}
 	out, err := DeployChannelConfigStore{}.Apply(e, deployConf)
 	require.NoError(t, err)
@@ -25,7 +28,7 @@ func TestCallSetChannelDefinitions(t *testing.T) {
 	require.Len(t, ab, 1)
 
 	var channelConfigStoreAddr common.Address
-	for addr, tv := range ab[TestChain.Selector] {
+	for addr, tv := range ab[testutil.TestChain.Selector] {
 		require.Equal(t, types.ChannelConfigStore, tv.Type)
 		require.Equal(t, deployment.Version1_0_0, tv.Version)
 
@@ -39,7 +42,7 @@ func TestCallSetChannelDefinitions(t *testing.T) {
 	// Call the contract.
 	callConf := SetChannelDefinitionsConfig{
 		DefinitionsByChain: map[uint64]map[string]ChannelDefinition{
-			TestChain.Selector: {
+			testutil.TestChain.Selector: {
 				channelConfigStoreAddr.String(): {
 					ChannelConfigStore: channelConfigStoreAddr,
 					DonID:              1,

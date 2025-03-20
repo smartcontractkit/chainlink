@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -111,29 +112,29 @@ func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OffChainPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.OffChainPublicKey, err))
 			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				panic(fmt.Errorf("wrong num elements copied"))
+				panic(errors.New("wrong num elements copied"))
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.ConfigPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.ConfigPublicKey, err))
 			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				panic(fmt.Errorf("wrong num elements copied"))
+				panic(errors.New("wrong num elements copied"))
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OnchainPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.OnchainPublicKey, err))
 			}
 
 			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
@@ -185,7 +186,7 @@ func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 	var signers []common.Address
 	for _, signer := range signerOnchainPublicKeys {
 		if len(signer) != 20 {
-			return nil, fmt.Errorf("OnChainPublicKey has wrong length for address")
+			return nil, errors.New("OnChainPublicKey has wrong length for address")
 		}
 		signers = append(signers, common.BytesToAddress(signer))
 	}
@@ -193,7 +194,7 @@ func (d *v20KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 	var transmitters []common.Address
 	for _, transmitter := range transmitterAccounts {
 		if !common.IsHexAddress(string(transmitter)) {
-			return nil, fmt.Errorf("TransmitAccount is not a valid Ethereum address")
+			return nil, errors.New("TransmitAccount is not a valid Ethereum address")
 		}
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}
@@ -252,29 +253,29 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 
 			offchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OffChainPublicKey, "ocr2off_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OffChainPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.OffChainPublicKey, err))
 			}
 
 			offchainPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n := copy(offchainPkBytesFixed[:], offchainPkBytes)
 			if n != ed25519.PublicKeySize {
-				panic(fmt.Errorf("wrong num elements copied"))
+				panic(errors.New("wrong num elements copied"))
 			}
 
 			configPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.ConfigPublicKey, "ocr2cfg_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.ConfigPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.ConfigPublicKey, err))
 			}
 
 			configPkBytesFixed := [ed25519.PublicKeySize]byte{}
 			n = copy(configPkBytesFixed[:], configPkBytes)
 			if n != ed25519.PublicKeySize {
-				panic(fmt.Errorf("wrong num elements copied"))
+				panic(errors.New("wrong num elements copied"))
 			}
 
 			onchainPkBytes, err := hex.DecodeString(strings.TrimPrefix(ocr2Config.OnchainPublicKey, "ocr2on_evm_"))
 			if err != nil {
-				panic(fmt.Errorf("failed to decode %s: %v", ocr2Config.OnchainPublicKey, err))
+				panic(fmt.Errorf("failed to decode %s: %w", ocr2Config.OnchainPublicKey, err))
 			}
 
 			sharedSecretEncryptionPublicKeys[i] = configPkBytesFixed
@@ -328,7 +329,7 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 	var signers []common.Address
 	for _, signer := range signerOnchainPublicKeys {
 		if len(signer) != 20 {
-			return nil, fmt.Errorf("OnChainPublicKey has wrong length for address")
+			return nil, errors.New("OnChainPublicKey has wrong length for address")
 		}
 		signers = append(signers, common.BytesToAddress(signer))
 	}
@@ -336,7 +337,7 @@ func (d *v21KeeperDeployer) SetKeepers(ctx context.Context, opts *bind.TransactO
 	var transmitters []common.Address
 	for _, transmitter := range transmitterAccounts {
 		if !common.IsHexAddress(string(transmitter)) {
-			return nil, fmt.Errorf("TransmitAccount is not a valid Ethereum address")
+			return nil, errors.New("TransmitAccount is not a valid Ethereum address")
 		}
 		transmitters = append(transmitters, common.HexToAddress(string(transmitter)))
 	}

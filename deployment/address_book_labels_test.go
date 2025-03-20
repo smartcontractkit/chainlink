@@ -62,9 +62,9 @@ func TestLabelSet_List(t *testing.T) {
 		labels := ms.List()
 
 		assert.Len(t, labels, 3, "expected 3 labels in the list")
-		assert.Contains(t, labels, "foo")
-		assert.Contains(t, labels, "bar")
-		assert.Contains(t, labels, "baz")
+		assert.Equal(t, "bar", labels[0])
+		assert.Equal(t, "baz", labels[1])
+		assert.Equal(t, "foo", labels[2])
 	})
 
 	t.Run("empty list", func(t *testing.T) {

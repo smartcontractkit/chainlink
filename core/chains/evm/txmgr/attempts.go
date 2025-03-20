@@ -11,26 +11,20 @@ import (
 	pkgerrors "github.com/pkg/errors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
-	commontypes "github.com/smartcontractkit/chainlink-framework/chains"
 	"github.com/smartcontractkit/chainlink-framework/chains/fees"
 	txmgrtypes "github.com/smartcontractkit/chainlink-framework/chains/txmgr/types"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 )
-
-type TxAttemptSigner[ADDR commontypes.Hashable] interface {
-	SignTx(ctx context.Context, fromAddress ADDR, tx *types.Transaction, chainID *big.Int) (*types.Transaction, error)
-}
 
 var _ TxAttemptBuilder = (*evmTxAttemptBuilder)(nil)
 
 type evmTxAttemptBuilder struct {
 	chainID   big.Int
 	feeConfig evmTxAttemptBuilderFeeConfig
-	keystore  TxAttemptSigner[common.Address]
+	keystore  keys.TxSigner
 	gas.EvmFeeEstimator
 }
 
@@ -40,7 +34,7 @@ type evmTxAttemptBuilderFeeConfig interface {
 	LimitDefault() uint64
 }
 
-func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore TxAttemptSigner[common.Address], estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
+func NewEvmTxAttemptBuilder(chainID big.Int, feeConfig evmTxAttemptBuilderFeeConfig, keystore keys.TxSigner, estimator gas.EvmFeeEstimator) *evmTxAttemptBuilder {
 	return &evmTxAttemptBuilder{chainID, feeConfig, keystore, estimator}
 }
 
@@ -322,7 +316,7 @@ func newLegacyTransaction(nonce uint64, to common.Address, value *big.Int, gasLi
 }
 
 func (c *evmTxAttemptBuilder) SignTx(ctx context.Context, address common.Address, tx *types.Transaction) (common.Hash, []byte, error) {
-	signedTx, err := c.keystore.SignTx(ctx, address, tx, &c.chainID)
+	signedTx, err := c.keystore.SignTx(ctx, address, tx)
 	if err != nil {
 		return common.Hash{}, nil, fmt.Errorf("failed to sign tx: %w", err)
 	}

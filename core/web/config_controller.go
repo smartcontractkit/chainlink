@@ -27,7 +27,7 @@ func (cc *ConfigController) Show(c *gin.Context) {
 		var err error
 		userOnly, err = strconv.ParseBool(s)
 		if err != nil {
-			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %v", err))
+			jsonAPIError(c, http.StatusBadRequest, fmt.Errorf("invalid bool for userOnly: %w", err))
 			return
 		}
 	}

@@ -11,10 +11,11 @@ import (
 	"github.com/stretchr/testify/mock"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	ksmocks "github.com/smartcontractkit/chainlink/v2/core/services/keystore/mocks"
+
+	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
+	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization/mocks"
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
@@ -25,6 +26,7 @@ func TestTelemetryIngressBatchClient_HappyPath(t *testing.T) {
 
 	// Create mocks
 	telemClient := mocks.NewTelemClient(t)
+
 	csaKeystore := new(ksmocks.CSA)
 
 	// Set mock handlers for keystore

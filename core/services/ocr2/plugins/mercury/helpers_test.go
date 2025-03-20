@@ -2,6 +2,7 @@ package mercury_test
 
 import (
 	"context"
+	"crypto"
 	"crypto/ed25519"
 	"encoding/binary"
 	"errors"
@@ -53,14 +54,14 @@ type request struct {
 }
 
 type mercuryServer struct {
-	privKey     ed25519.PrivateKey
+	csaSigner   crypto.Signer
 	reqsCh      chan request
 	t           *testing.T
 	buildReport func() []byte
 }
 
-func NewMercuryServer(t *testing.T, privKey ed25519.PrivateKey, reqsCh chan request, buildReport func() []byte) *mercuryServer {
-	return &mercuryServer{privKey, reqsCh, t, buildReport}
+func NewMercuryServer(t *testing.T, csaSigner crypto.Signer, reqsCh chan request, buildReport func() []byte) *mercuryServer {
+	return &mercuryServer{csaSigner, reqsCh, t, buildReport}
 }
 
 func (s *mercuryServer) Transmit(ctx context.Context, req *pb.TransmitRequest) (*pb.TransmitResponse, error) {
@@ -104,7 +105,7 @@ func startMercuryServer(t *testing.T, srv *mercuryServer, pubKeys []ed25519.Publ
 		t.Fatalf("[MAIN] failed to listen: %v", err)
 	}
 	serverURL = lis.Addr().String()
-	s := wsrpc.NewServer(wsrpc.WithCreds(srv.privKey, pubKeys))
+	s := wsrpc.NewServer(wsrpc.WithSigner(srv.csaSigner, pubKeys))
 
 	// Register mercury implementation with the wsrpc server
 	pb.RegisterMercuryServer(s, srv)

@@ -7,8 +7,8 @@ import (
 )
 
 var (
-	ErrNoChainFromSpec       = fmt.Errorf("could not get chain from spec")
-	ErrNoSendingKeysFromSpec = fmt.Errorf("could not get sending keys from spec")
+	ErrNoChainFromSpec       = errors.New("could not get chain from spec")
+	ErrNoSendingKeysFromSpec = errors.New("could not get sending keys from spec")
 )
 
 // SendingKeysForJob parses the job spec and retrieves the sending keys found.

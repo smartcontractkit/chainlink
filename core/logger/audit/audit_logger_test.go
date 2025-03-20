@@ -134,10 +134,10 @@ func TestCheckLoginAuditLog(t *testing.T) {
 		deserialized := &LoginLogItem{}
 		assert.NoError(t, json.Unmarshal([]byte(event.body), deserialized))
 
-		assert.Equal(t, deserialized.Data.Email, cltest.APIEmailAdmin)
-		assert.Equal(t, deserialized.Env, "test")
+		assert.Equal(t, cltest.APIEmailAdmin, deserialized.Data.Email)
+		assert.Equal(t, "test", deserialized.Env)
 
-		assert.Equal(t, deserialized.EventID, "AUTH_LOGIN_SUCCESS_NO_2FA")
+		assert.Equal(t, "AUTH_LOGIN_SUCCESS_NO_2FA", deserialized.EventID)
 		return
 	case <-time.After(5 * time.Second):
 	}
