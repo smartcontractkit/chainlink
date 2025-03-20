@@ -71,6 +71,7 @@ func initAccessController(
 	if err != nil {
 		return fmt.Errorf("failed to get account controller state: %w", err)
 	}
+
 	accessControllerAccount := solana.PublicKeyFromBytes(accessControllerAccountSeed[:])
 	if !accessControllerAccount.IsZero() {
 		var data accessControllerBindings.AccessController
@@ -79,7 +80,11 @@ func initAccessController(
 			e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
 			return nil
 		}
+
+		e.Logger.Warnw("unable to read access controller account; discarding it", "account",
+			accessControllerAccount, "chain", chain.String())
 	}
+
 	e.Logger.Infow("access controller not initialized, initializing", "chain", chain.String())
 
 	programID := chainState.AccessControllerProgram

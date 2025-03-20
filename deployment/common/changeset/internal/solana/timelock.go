@@ -73,15 +73,23 @@ func initTimelock(
 	if err != nil {
 		return fmt.Errorf("failed to get timelock state: %w", err)
 	}
-	timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
-	var timelockConfig timelockBindings.Config
-	err = chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
-	if err == nil && timelockSeed != state.PDASeed([]byte{}) {
-		e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
-		return nil
+
+	if (timelockSeed != state.PDASeed{}) {
+		timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
+		var timelockConfig timelockBindings.Config
+		err = chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
+		if err == nil {
+			e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
+			return nil
+		}
+
+		e.Logger.Warnw("unable to read timelock ConfigPDA; discarding seed", "seed",
+			string(timelockSeed[:]), "chain", chain.String())
 	}
+
 	e.Logger.Infow("timelock config not initialized, initializing", "chain", chain.String())
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
+
 	seed := randomSeed()
 	log.Infow("generated Timelock seed", "seed", string(seed[:]))
 

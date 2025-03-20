@@ -8,13 +8,13 @@ import (
 	binary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	mcmsSolanaSdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -72,19 +72,24 @@ func initMCM(
 	mcmBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
-	mcmProgram, seedMcm, err := chainState.GetStateFromType(contractType)
+	mcmProgram, mcmSeed, err := chainState.GetStateFromType(contractType)
 	if err != nil {
 		return fmt.Errorf("failed to get mcm state: %w", err)
 	}
-	mcmPubKey := state.GetMCMConfigPDA(mcmProgram, seedMcm)
-	if !mcmPubKey.IsZero() && seedMcm != state.PDASeed([]byte{}) {
+
+	if mcmSeed != (state.PDASeed{}) {
+		mcmConfigPDA := state.GetMCMConfigPDA(mcmProgram, mcmSeed)
 		var data mcmBindings.MultisigConfig
-		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmPubKey, rpc.CommitmentConfirmed, &data)
+		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
 		if err == nil {
 			env.Logger.Infow("mcm config already initialized, skipping initialization", "chain", chain.String())
 			return nil
 		}
+
+		env.Logger.Warnw("unable to read mcm ConfigPDA; discarding seed", "seed",
+			string(mcmSeed[:]), "chain", chain.String())
 	}
+
 	env.Logger.Infow("mcm config not initialized, initializing", "chain", chain.String())
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
