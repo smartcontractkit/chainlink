@@ -1329,6 +1329,8 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 
 	envConfig := createEnvironmentConfig(t, envName, testConfig, reportPath)
 
+	fmt.Printf("DEBUG: EnvInput: %+v", testConfig.EnvInput)
+
 	configureCLNode := !testConfig.useExistingDeployment() || pointer.GetString(testConfig.EnvInput.EnvToConnect) != ""
 	namespace := ""
 	if testConfig.TestGroupInput.LoadProfile != nil {
