@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -141,64 +140,35 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 }
 
-/*
-Runs: 4
-
-Failures:
-MultiSource_Standard
-MultiSource_MultiRootReport		3
-MultiSource_MultiPriceReport	3
-SingleSource_Standard
-SingleSource_MultiRootReport
-SingleSource_MultiPriceReport
-
-
-// With extra 5-second sleep at start of test.
-Runs: 2
-
-Failures:
-MultiSource_Standard
-MultiSource_MultiRootReport		2
-MultiSource_MultiPriceReport	2
-SingleSource_Standard
-SingleSource_MultiRootReport
-SingleSource_MultiPriceReport
-
-// Without hte price report refactoring.
-*/
-
 var multiRootReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
 	params.CommitOffChainConfig.MultipleReportsEnabled = true
 	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
 	return params
 })
 
+var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	params.CommitOffChainConfig.MultipleReportsEnabled = true
+	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+	params.CommitOffChainConfig.MaxPricesPerReport = 1
+	return params
+})
+
 /*
-	var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-		params.CommitOffChainConfig.MultipleReportsEnabled = true
-		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
-		params.CommitOffChainConfig.MaxPricesPerReport = 1
-		return params
-	})
-*/
-
 // Test_CCIPBatching_MultiSource_SingleSource test batching behavior of the CCIP plugin with various configurations.
-func Test_CCIPBatching_MultiSource_SingleSource(t *testing.T) {
-
+func Test_CCIPBatching_Sources(t *testing.T) {
 	testFuncs := map[string]func(t *testing.T, opts ...testhelpers.TestOps){
 		"MultiSource":  ccipBatchingMultiSource,
 		"SingleSource": ccipBatchingSingleSource,
 	}
 	testOpts := map[string]testhelpers.TestOps{
 		"Standard":        nil,
-		"MultiRootReport": multiRootReportOverride,
-		//"MultiPriceReport": multiPriceReportOverride,
+		"MultiRootReport":  multiRootReportOverride,
+		"MultiPriceReport": multiPriceReportOverride,
 	}
 
 	for testName, testFunc := range testFuncs {
 		for configName, config := range testOpts {
 			t.Run(fmt.Sprintf("%s_%s", testName, configName), func(t *testing.T) {
-				time.Sleep(5 * time.Second)
 				if config != nil {
 					testFunc(t, config)
 				} else {
@@ -208,6 +178,7 @@ func Test_CCIPBatching_MultiSource_SingleSource(t *testing.T) {
 		}
 	}
 }
+*/
 
 func Test_CCIPBatching_MultiSource(t *testing.T) {
 	ccipBatchingMultiSource(t)
@@ -217,12 +188,20 @@ func Test_CCIPBatching_MultiSource_MultiRoot(t *testing.T) {
 	ccipBatchingMultiSource(t, multiRootReportOverride)
 }
 
+func Test_CCIPBatching_MultiSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
+}
+
 func Test_CCIPBatching_SingleSource(t *testing.T) {
 	ccipBatchingSingleSource(t)
 }
 
 func Test_CCIPBatching_SingleSource_MultiRoot(t *testing.T) {
 	ccipBatchingMultiSource(t, multiRootReportOverride)
+}
+
+func Test_CCIPBatching_SingleSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
 }
 
 func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
