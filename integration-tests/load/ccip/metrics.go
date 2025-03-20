@@ -135,10 +135,21 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			if err != nil {
 				mm.lggr.Error("error setting loki labels", "error", err)
 			}
+
+			// only add commit and exec durations if we have correct timestamps to calculate them
+			commitDuration := uint64(0)
+			if state.timestamps[committed] != 0 && state.timestamps[transmitted] != 0 {
+				commitDuration = state.timestamps[committed] - state.timestamps[transmitted]
+			}
+			execDuration := uint64(0)
+			if state.timestamps[executed] != 0 && state.timestamps[committed] != 0 {
+				execDuration = state.timestamps[executed] - state.timestamps[committed]
+			}
+
 			SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
 				TransmitTime:   state.timestamps[transmitted],
-				ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
-				CommitDuration: state.timestamps[committed] - state.timestamps[transmitted],
+				ExecDuration:   execDuration,
+				CommitDuration: commitDuration,
 				SequenceNumber: data.seqNum,
 			})
 
