@@ -411,7 +411,7 @@ func getModFilePath() (string, error) {
 		}
 		parent := filepath.Dir(rootDir)
 		if parent == rootDir {
-			return "", fmt.Errorf("could not find project root directory containing go.mod")
+			return "", errors.New("could not find project root directory containing go.mod")
 		}
 		rootDir = parent
 	}
@@ -441,26 +441,6 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
 
-	// tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
-	// if !ok {
-	// 	_, currentFile, _, _ := runtime.Caller(0)
-	// 	deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
-	// 	if lggr != nil {
-	// 		lggr.Infof("Inferring release tag from the go.mod in: %s", deploymentDir)
-	// 	}
-
-	// 	version, err := getSolanaCcipDependencyVersion(filepath.Join(deploymentDir, "go.mod"))
-	// 	if err != nil {
-	// 		return err
-	// 	}
-
-	// 	tokens := strings.Split(version, "-")
-	// 	if len(tokens) == 3 {
-	// 		version = tokens[len(tokens)-1]
-	// 	}
-
-	// 	tag = "solana-artifacts-localtest-" + version
-	// }
 	if sha == "" {
 		version, err := getSha()
 		if err != nil {
@@ -468,7 +448,7 @@ func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr lo
 		}
 		sha = version
 	}
-	tag := fmt.Sprintf("solana-artifacts-localtest-%s", sha)
+	tag := "solana-artifacts-localtest-" + sha
 
 	if lggr != nil {
 		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)

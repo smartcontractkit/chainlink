@@ -1,14 +1,11 @@
 package solana_test
 
 import (
-	"context"
-	"fmt"
 	"math/big"
 	"testing"
 	"time"
 
 	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/stretchr/testify/require"
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
@@ -30,7 +27,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 func deployToken(t *testing.T, tenv deployment.Environment, solChain uint64) (deployment.Environment, solana.PublicKey, error) {
@@ -860,45 +856,4 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
 	}
-}
-
-func TestRouterPDA(t *testing.T) {
-	solanaClient := solRpc.New(solRpc.DevNet.RPC)
-	routerId := solana.MustPublicKeyFromBase58("EC297X1xBYFShE1xd4ffoA6Q5DA9AU6C3DYzM4mt2ueE")
-	routerConfigPDA, _, _ := solState.FindConfigPDA(routerId)
-	var routerConfig solRouter.Config
-	err := solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, routerConfigPDA, solRpc.CommitmentConfirmed, &routerConfig)
-	require.NoError(t, err)
-	fmt.Println("routerConfig.Owner", routerConfig.Owner)
-	timelockSeed := commonstate.PDASeed([]byte("KFUcObzdr53U3Jalfr6N9mZwKet3BTUj"))
-	timelockAddress := solana.MustPublicKeyFromBase58("EEL43qb1jyNWAQTU8iVnHAbouax6yGQoob6y3dXLntY9")
-	timelockSignerPDA := commonstate.GetTimelockSignerPDA(timelockAddress, timelockSeed)
-	fmt.Println("timelockSignerPDA", timelockSignerPDA.String())
-
-	// remoteDestPDA, _ := solState.FindDestChainStatePDA(uint64(16015286601757825753), routerId)
-	// var remoteDest solRouter.DestChain
-	// err = solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, remoteDestPDA, solRpc.CommitmentConfirmed, &remoteDest)
-	// require.NoError(t, err)
-	// fmt.Println(remoteDest.Config.AllowListEnabled)
-}
-
-func TestFeeQuoterPDA(t *testing.T) {
-	solanaClient := solRpc.New(solRpc.DevNet.RPC)
-	quoterId := solana.MustPublicKeyFromBase58("GkVHZ1b6KnHb2hA56zn5GnYmou44kpQ2fLEqXJvmapvZ")
-	quoterConfigPDA, _, _ := solState.FindFqConfigPDA(quoterId)
-	fmt.Println("quoterConfigPDA", quoterConfigPDA.String())
-	var quoterConfig solFeeQuoter.Config
-	err := solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, quoterConfigPDA, solRpc.CommitmentConfirmed, &quoterConfig)
-	require.NoError(t, err)
-	fmt.Println("quoterConfig.Owner", quoterConfig.Owner)
-	// timelockSeed := commonstate.PDASeed([]byte("KFUcObzdr53U3Jalfr6N9mZwKet3BTUj"))
-	// timelockAddress := solana.MustPublicKeyFromBase58("EEL43qb1jyNWAQTU8iVnHAbouax6yGQoob6y3dXLntY9")
-	// timelockSignerPDA := commonstate.GetTimelockSignerPDA(timelockAddress, timelockSeed)
-	// fmt.Println("timelockSignerPDA", timelockSignerPDA.String())
-
-	// remoteDestPDA, _ := solState.FindDestChainStatePDA(uint64(16015286601757825753), routerId)
-	// var remoteDest solRouter.DestChain
-	// err = solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, remoteDestPDA, solRpc.CommitmentConfirmed, &remoteDest)
-	// require.NoError(t, err)
-	// fmt.Println(remoteDest.Config.AllowListEnabled)
 }

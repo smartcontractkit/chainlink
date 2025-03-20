@@ -169,8 +169,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
-	}
-	if c.BuildConfig.LocalBuild.BuildLocally {
+	} else if c.BuildConfig.LocalBuild.BuildLocally {
 		e.Logger.Infow("Building solana artifacts locally", "chain", chain.String())
 		err = BuildSolana(e, c.BuildConfig)
 		if err != nil {

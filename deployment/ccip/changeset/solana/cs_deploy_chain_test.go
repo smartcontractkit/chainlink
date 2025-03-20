@@ -2,6 +2,7 @@ package solana_test
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -387,11 +388,14 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 	// change programspath here
 	// and make buildlocally false
 	// simple deploy flow
+	tempDir := e.SolChains[solChainSelectors[0]].ProgramsPath
+	chain := e.SolChains[solChainSelectors[0]]
+	chain.ProgramsPath = tempDir + "/built"
+	e.SolChains[solChainSelectors[0]] = chain
+	buildConfig.LocalBuild.BuildLocally = false
 	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, buildConfig))
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
-
-	return
 
 	// test upgrade flow
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], false,
@@ -408,6 +412,10 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 	require.NoError(t, err)
 	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
 	require.NoError(t, err)
+
+	chain = e.SolChains[solChainSelectors[0]]
+	chain.ProgramsPath = filepath.Join(tempDir, "builtForUpgrade")
+	e.SolChains[solChainSelectors[0]] = chain
 
 	// deploy the contracts
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -443,9 +451,9 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 					GitCommitSha:   NewSha,
 					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
 					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-						BuildLocally:        true,
-						CleanGitDir:         true,
-						CleanDestinationDir: true,
+						BuildLocally:         false,
+						CleanGitDir:          true,
+						CreateDestinationDir: true,
 						UpgradeKeys: map[deployment.ContractType]string{
 							ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
 							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),

@@ -29,8 +29,8 @@ var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
 	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
-	cs.BurnMintTokenPool:           "programs/example-burnmint-token-pool/src/lib.rs",
-	cs.LockReleaseTokenPool:        "programs/example-lockrelease-token-pool/src/lib.rs",
+	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
+	cs.LockReleaseTokenPool:        "programs/lockrelease-token-pool/src/lib.rs",
 	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
 	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
 	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
@@ -158,8 +158,10 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 func buildProject(e deployment.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
-	args := []string{"docker-build-contracts"}
-	output, err := runCommand("make", args, solanaDir)
+	// args := []string{"docker-build-contracts"}
+	// output, err := runCommand("make", []string{"docker-build-contracts", "ANCHOR_BUILD_ARGS=-p ccip_router"}, solanaDir)
+	output, err := runCommand("make", []string{"docker-build-contracts"}, solanaDir)
+
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
 	}
@@ -227,9 +229,15 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
-		memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		if err != nil {
+			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
+		}
 	} else {
-		buildLocally(e, config)
+		err := buildLocally(e, config)
+		if err != nil {
+			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
+		}
 	}
 
 	return nil
