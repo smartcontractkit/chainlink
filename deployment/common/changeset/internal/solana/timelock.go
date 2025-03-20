@@ -76,7 +76,7 @@ func initTimelock(
 	timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
 	var timelockConfig timelockBindings.Config
 	err = chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
-	if err == nil {
+	if err == nil && timelockSeed != state.PDASeed([]byte{}) {
 		e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
 		return nil
 	}

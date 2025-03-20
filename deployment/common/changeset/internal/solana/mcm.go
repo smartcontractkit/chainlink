@@ -77,7 +77,7 @@ func initMCM(
 		return fmt.Errorf("failed to get mcm state: %w", err)
 	}
 	mcmPubKey := state.GetMCMConfigPDA(mcmProgram, seedMcm)
-	if !mcmPubKey.IsZero() {
+	if !mcmPubKey.IsZero() && seedMcm != state.PDASeed([]byte{}) {
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmPubKey, rpc.CommitmentConfirmed, &data)
 		if err == nil {
