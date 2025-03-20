@@ -88,11 +88,10 @@ func initAccessController(
 			return fmt.Errorf("failed to convert access controller account to public key: %w", err)
 		}
 		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, accessControllerPubKey, rpc.CommitmentConfirmed, &data)
-		if err != nil {
-			return fmt.Errorf("failed to read access controller roleAccount: %w", err)
+		if err == nil {
+			e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
+			return nil
 		}
-		e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
-		return nil
 	}
 
 	programID := chainState.AccessControllerProgram
