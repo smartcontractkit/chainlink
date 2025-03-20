@@ -2,6 +2,7 @@ package mcmsnew
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"math/big"
@@ -245,7 +246,6 @@ func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]
 	adminAddresses := make([]string, 0, numAddresses.Uint64())
 	for i := range numAddresses.Uint64() {
 		if i > math.MaxUint32 {
-
 			return nil, fmt.Errorf("value %d exceeds uint32 range", i)
 		}
 		idx, err := cast.ToInt64E(i)
@@ -293,7 +293,7 @@ func GrantRolesForTimelock(
 		return nil, nil
 	}
 	if !isDeployerKeyAdmin && !isTimelockAdmin {
-		return nil, fmt.Errorf("neither deployer key nor timelock is admin, cannot grant roles")
+		return nil, errors.New("neither deployer key nor timelock is admin, cannot grant roles")
 	}
 
 	var mcmsTxs []mcmsTypes.Transaction
@@ -388,7 +388,7 @@ func grantRoleTx(
 	timelock *bindings.RBACTimelock,
 	chain deployment.Chain,
 	isDeployerKeyAdmin bool,
-	roleId [32]byte,
+	roleID [32]byte,
 	address common.Address,
 ) (mcmsTypes.Transaction, error) {
 	txOpts := deployment.SimTransactOpts()
@@ -396,7 +396,7 @@ func grantRoleTx(
 		txOpts = chain.DeployerKey
 	}
 	grantRoleTx, err := timelock.GrantRole(
-		txOpts, roleId, address,
+		txOpts, roleID, address,
 	)
 	if isDeployerKeyAdmin {
 		if _, err2 := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {

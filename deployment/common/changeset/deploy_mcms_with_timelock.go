@@ -25,8 +25,14 @@ import (
 )
 
 var (
-	_                   deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
-	GrantRoleInTimeLock                                                                 = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
+	_ deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+
+	// GrantRoleInTimeLock grants proposer, canceller, bypasser, executor, admin roles to the timelock contract with corresponding addresses if the
+	// roles are not already set with the same addresses.
+	// It creates a proposal if deployer key is not admin of the timelock contract.
+	// otherwise it executes the transactions directly.
+	// If neither timelock, nor the deployer key is the admin of the timelock contract, it returns an error.
+	GrantRoleInTimeLock = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
