@@ -44,6 +44,7 @@ func CreateOCRv2JobsLocal(
 	enableChainReaderAndCodec bool,
 ) error {
 	// Collect P2P ID
+	valPath := strings.TrimPrefix(valueRoute.Path, "/")
 	bootstrapP2PIds, err := bootstrapNode.MustReadP2PKeys()
 	if err != nil {
 		return err
@@ -57,7 +58,7 @@ func CreateOCRv2JobsLocal(
 	// Set the juelsPerFeeCoinSource config value
 	juelsRoute := &parrot.Route{
 		Method:             parrot.MethodAny,
-		Path:               filepath.Join(valueRoute.Path, "juelsPerFeeCoinSource"),
+		Path:               filepath.Join(valPath, "juelsPerFeeCoinSource"),
 		ResponseBody:       valueRoute.ResponseBody,
 		ResponseStatusCode: http.StatusOK,
 	}
@@ -76,7 +77,7 @@ func CreateOCRv2JobsLocal(
 				RelayConfig: map[string]interface{}{
 					"chainID": chainId,
 				},
-				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valueRoute.Path)),
+				MonitoringEndpoint:                null.StringFrom(fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath)),
 				ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 			},
 		}
@@ -94,15 +95,15 @@ func CreateOCRv2JobsLocal(
 			if err != nil {
 				return fmt.Errorf("getting OCR keys from OCR node have failed: %w", err)
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			bta := &nodeclient.BridgeTypeAttributes{
-				Name: fmt.Sprintf("%s-%s", valueRoute.Path, uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valueRoute.Path),
+				Name: fmt.Sprintf("%s-%s", valPath, uuid.NewString()),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, valPath),
 			}
 			juelsBridge := &nodeclient.BridgeTypeAttributes{
 				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
-				URL:  fmt.Sprintf("%s/%s/juelsPerFeeCoinSource", mockAdapter.InternalEndpoint, valueRoute.Path),
+				URL:  mockAdapter.InternalEndpoint + filepath.Join(valPath, "juelsPerFeeCoinSource"),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
@@ -130,7 +131,7 @@ func CreateOCRv2JobsLocal(
 					},
 					ContractConfigTrackerPollInterval: *models.NewInterval(15 * time.Second),
 					ContractID:                        ocrInstance.Address(),                   // registryAddr
-					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyId),           // get node ocr2config.ID
+					OCRKeyBundleID:                    null.StringFrom(nodeOCRKeyID),           // get node ocr2config.ID
 					TransmitterID:                     null.StringFrom(nodeTransmitterAddress), // node addr
 					P2PV2Bootstrappers:                pq.StringArray{p2pV2Bootstrapper},       // bootstrap node key and address <p2p-key>@bootstrap:6690
 				},
