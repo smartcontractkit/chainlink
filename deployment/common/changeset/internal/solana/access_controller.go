@@ -81,8 +81,7 @@ func initAccessController(
 			return nil
 		}
 
-		e.Logger.Warnw("unable to read access controller account; discarding it", "account",
-			accessControllerAccount, "chain", chain.String())
+		return fmt.Errorf("unable to read access controller account config %s", accessControllerAccount.String())
 	}
 
 	e.Logger.Infow("access controller not initialized, initializing", "chain", chain.String())

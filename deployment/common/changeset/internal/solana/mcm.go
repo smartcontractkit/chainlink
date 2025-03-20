@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -85,9 +86,7 @@ func initMCM(
 			env.Logger.Infow("mcm config already initialized, skipping initialization", "chain", chain.String())
 			return nil
 		}
-
-		env.Logger.Warnw("unable to read mcm ConfigPDA; discarding seed", "seed",
-			string(mcmSeed[:]), "chain", chain.String())
+		return fmt.Errorf("unable to read mcm ConfigPDA account config %s", mcmConfigPDA.String())
 	}
 
 	env.Logger.Infow("mcm config not initialized, initializing", "chain", chain.String())

@@ -82,9 +82,7 @@ func initTimelock(
 			e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
 			return nil
 		}
-
-		e.Logger.Warnw("unable to read timelock ConfigPDA; discarding seed", "seed",
-			string(timelockSeed[:]), "chain", chain.String())
+		return fmt.Errorf("unable to read timelock ConfigPDA account config %s", timelockConfigPDA.String())
 	}
 
 	e.Logger.Infow("timelock config not initialized, initializing", "chain", chain.String())
