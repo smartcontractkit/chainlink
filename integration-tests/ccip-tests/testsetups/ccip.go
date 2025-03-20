@@ -1000,7 +1000,7 @@ func (o *CCIPTestSetUpOutputs) CheckGasUpdateTransaction(lggr *zerolog.Logger) e
 			Int("Tx hashes received", len(transactionsBySource)).
 			Int("Leader lanes count", len(o.Cfg.LeaderLanes)).
 			Msg("Checked Gas Update transactions count doesn't match")
-		return fmt.Errorf("checked Gas Update transactions count doesn't match")
+		return errors.New("checked Gas Update transactions count doesn't match")
 	}
 	lggr.Debug().
 		Int("Tx hashes by source", len(transactionsBySource)).
@@ -1329,8 +1329,6 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 
 	envConfig := createEnvironmentConfig(t, envName, testConfig, reportPath)
 
-	fmt.Printf("DEBUG: EnvInput: %+v", testConfig.EnvInput)
-
 	configureCLNode := !testConfig.useExistingDeployment() || pointer.GetString(testConfig.EnvInput.EnvToConnect) != ""
 	namespace := ""
 	if testConfig.TestGroupInput.LoadProfile != nil {
@@ -1446,17 +1444,17 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			ccipEnv.NumOfExecNodes = ccipEnv.NumOfCommitNodes
 			if !pointer.GetBool(testConfig.TestGroupInput.CommitAndExecuteOnSameDON) {
 				if len(ccipEnv.CLNodesWithKeys) < 11 {
-					return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+					return errors.New("not enough CL nodes for separate commit and execution nodes")
 				}
 				if testConfig.TestGroupInput.NoOfCommitNodes >= totalNodes {
-					return fmt.Errorf("number of commit nodes can not be greater than total number of nodes in DON")
+					return errors.New("number of commit nodes can not be greater than total number of nodes in DON")
 				}
 				// first two nodes are reserved for bootstrap commit and bootstrap exec
 				ccipEnv.CommitNodeStartIndex = 2
 				ccipEnv.ExecNodeStartIndex = 2 + testConfig.TestGroupInput.NoOfCommitNodes
 				ccipEnv.NumOfExecNodes = totalNodes - (2 + testConfig.TestGroupInput.NoOfCommitNodes)
 				if ccipEnv.NumOfExecNodes < 4 {
-					return fmt.Errorf("insufficient number of exec nodes")
+					return errors.New("insufficient number of exec nodes")
 				}
 			}
 			ccipEnv.NumOfAllowedFaultyExec = (ccipEnv.NumOfExecNodes - 1) / 3
@@ -1465,6 +1463,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 		})
 	}
 
+	fmt.Printf("DEBUG: EnvInput: %+v", testConfig.EnvInput)
 	fmt.Println("DEBUG: Mockserver URL: ", testConfig.EnvInput.Mockserver)
 	fmt.Println("DEBUG: Mockserver Instance: ", ccipEnv.MockServer)
 
@@ -1484,7 +1483,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			err = integrationactions.TeardownSuite(t, nil, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter, zapcore.DPanicLevel, o.Cfg.EnvInput)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
-			//just send the report
+			// just send the report
 			require.NoError(t, o.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
 		}
 	})
