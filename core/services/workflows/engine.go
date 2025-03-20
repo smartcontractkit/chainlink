@@ -654,7 +654,10 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
 		}
+
 		logCustMsg(ctx, cma, "execution status: "+status, l)
+		logCustMsg(ctx, cma.With("metering", "report"), fmt.Sprintf("%s; %s", e.meterReport.Message(l), e.meterReport.Description()), l)
+
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 

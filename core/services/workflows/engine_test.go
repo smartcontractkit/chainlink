@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -237,7 +238,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) string {
+func getExecutionID(t *testing.T, _ *Engine, hooks *testHooks) string {
 	var eid string
 	select {
 	case <-hooks.initFailed:
@@ -308,6 +309,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	beholderTester := tests.Beholder(t)
 
 	trigger, cr := mockTrigger(t)
 
@@ -350,6 +352,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
+	assert.Equal(t, 1, beholderTester.Len(t, "metering", "report"))
 }
 
 const (
@@ -423,6 +426,8 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
+	t.Helper()
+
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
