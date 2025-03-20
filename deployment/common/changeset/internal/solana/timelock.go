@@ -69,9 +69,13 @@ func initTimelock(
 	timelockBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0)
-	timelockConfigPDA := state.GetTimelockConfigPDA(chainState.TimelockProgram, chainState.TimelockSeed)
+	timelockProgram, timelockSeed, err := chainState.GetStateFromType(commontypes.RBACTimelock)
+	if err != nil {
+		return fmt.Errorf("failed to get timelock state: %w", err)
+	}
+	timelockConfigPDA := state.GetTimelockConfigPDA(timelockProgram, timelockSeed)
 	var timelockConfig timelockBindings.Config
-	err := chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
+	err = chain.GetAccountDataBorshInto(e.GetContext(), timelockConfigPDA, &timelockConfig)
 	if err == nil {
 		e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
 		return nil

@@ -59,20 +59,6 @@ func deployAccessControllerProgram(
 	return nil
 }
 
-func findAccessControllerAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
-	if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0)) {
-		return chainState.ProposerAccessControllerAccount, nil
-	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ExecutorAccessControllerAccount, deployment.Version1_0_0)) {
-		return chainState.ExecutorAccessControllerAccount, nil
-	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.CancellerAccessControllerAccount, deployment.Version1_0_0)) {
-		return chainState.CancellerAccessControllerAccount, nil
-	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.BypasserAccessControllerAccount, deployment.Version1_0_0)) {
-		return chainState.BypasserAccessControllerAccount, nil
-	} else {
-		return solana.PublicKey{}, errors.New("unknown access controller account type")
-	}
-}
-
 func initAccessController(
 	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
 	chain deployment.SolChain, addressBook deployment.AddressBook,
@@ -81,10 +67,14 @@ func initAccessController(
 		return errors.New("access controller program is not deployed")
 	}
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
-	pubKeyRole, err := findAccessControllerAccount(chainState, typeAndVersion)
-	if err == nil && !pubKeyRole.IsZero() {
+	_, accessControllerAccountSeed, err := chainState.GetStateFromType(contractType)
+	if err != nil {
+		return fmt.Errorf("failed to get account controller state: %w", err)
+	}
+	accessControllerAccount := solana.PublicKeyFromBytes(accessControllerAccountSeed[:])
+	if !accessControllerAccount.IsZero() {
 		var data accessControllerBindings.AccessController
-		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, pubKeyRole, rpc.CommitmentConfirmed, &data)
+		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, accessControllerAccount, rpc.CommitmentConfirmed, &data)
 		if err == nil {
 			e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
 			return nil

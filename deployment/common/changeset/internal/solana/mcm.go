@@ -61,18 +61,6 @@ func deployMCMProgram(
 	return nil
 }
 
-func findMcmAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
-	if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)) {
-		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.ProposerMcmSeed), nil
-	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0)) {
-		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.CancellerMcmSeed), nil
-	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0)) {
-		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed), nil
-	} else {
-		return solana.PublicKey{}, errors.New("unknown mcm config account type")
-	}
-}
-
 func initMCM(
 	env deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
 	chain deployment.SolChain, addressBook deployment.AddressBook, mcmConfig *mcmsTypes.Config,
@@ -84,8 +72,12 @@ func initMCM(
 	mcmBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
-	mcmPubKey, err := findMcmAccount(chainState, typeAndVersion)
-	if err == nil && !mcmPubKey.IsZero() {
+	mcmProgram, seedMcm, err := chainState.GetStateFromType(contractType)
+	if err != nil {
+		return fmt.Errorf("failed to get mcm state: %w", err)
+	}
+	mcmPubKey := state.GetMCMConfigPDA(mcmProgram, seedMcm)
+	if !mcmPubKey.IsZero() {
 		var data mcmBindings.MultisigConfig
 		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmPubKey, rpc.CommitmentConfirmed, &data)
 		if err == nil {
