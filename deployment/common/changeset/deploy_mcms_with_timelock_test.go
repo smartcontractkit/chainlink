@@ -24,10 +24,75 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	mcmschangesetstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
+
+func TestGrantRoleInTimeLock(t *testing.T) {
+	ctx := testutils.Context(t)
+	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
+		Chains:             2,
+		NumOfUsersPerChain: 2,
+	})
+	evmSelectors := env.AllChainSelectors()
+	changesetConfig := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
+	for _, chain := range evmSelectors {
+		changesetConfig[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
+	}
+	// deploy the MCMS with timelock contracts
+	configuredChangeset := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		changesetConfig,
+	)
+	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	require.NoError(t, err)
+	mcmsState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	require.NoError(t, err)
+
+	// change the environment to remove proposer from the timelock, so that we can deploy new proposer
+	// and then grant the role to the new proposer
+	existingProposer := mcmsState[evmSelectors[0]].ProposerMcm
+	ab := deployment.NewMemoryAddressBook()
+	require.NoError(t, ab.Save(evmSelectors[0], existingProposer.Address().String(),
+		deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0)))
+	require.NoError(t, updatedEnv.ExistingAddresses.Remove(ab))
+
+	// change the deployer key, so that we can deploy proposer with a new key
+	// the new deployer key will not be admin of the timelock
+	// we can test granting roles through proposal
+	chain := updatedEnv.Chains[evmSelectors[0]]
+	chain.DeployerKey = updatedEnv.Chains[evmSelectors[0]].Users[0]
+	updatedEnv.Chains[evmSelectors[0]] = chain
+
+	// now deploy MCMS again so that only the proposer is new
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	require.NoError(t, err)
+	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	require.NoError(t, err)
+
+	require.NotEqual(t, existingProposer.Address(), mcmsState[evmSelectors[0]].ProposerMcm.Address())
+	updatedEnv, err = commonchangeset.Apply(t, updatedEnv, nil, commonchangeset.Configure(
+		commonchangeset.GrantRoleInTimeLock,
+		commonchangeset.GrantRoleInput{
+			ExistingProposerByChain: map[uint64]common.Address{
+				evmSelectors[0]: existingProposer.Address(),
+			},
+			MCMS: &commonchangeset.TimelockConfig{MinDelay: 0},
+		},
+	))
+	require.NoError(t, err)
+	mcmsState, err = mcmschangesetstate.MaybeLoadMCMSWithTimelockState(updatedEnv, evmSelectors)
+	require.NoError(t, err)
+
+	evmTimelockInspector := mcmsevmsdk.NewTimelockInspector(updatedEnv.Chains[evmSelectors[0]].Client)
+
+	proposers, err := evmTimelockInspector.GetProposers(ctx, mcmsState[evmSelectors[0]].Timelock.Address().Hex())
+	require.NoError(t, err)
+	require.Contains(t, proposers, mcmsState[evmSelectors[0]].ProposerMcm.Address().Hex())
+	require.Contains(t, proposers, existingProposer.Address().Hex())
+}
 
 func TestDeployMCMSWithTimelockV2WithFewExistingContracts(t *testing.T) {
 	ctx := testutils.Context(t)

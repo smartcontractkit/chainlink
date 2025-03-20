@@ -1,7 +1,15 @@
 package mcmsnew
 
 import (
+	"context"
+	"fmt"
+	"math"
+	"math/big"
+	"slices"
+
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/spf13/cast"
 
 	bindings "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	evmMcms "github.com/smartcontractkit/mcms/sdk/evm"
@@ -35,7 +43,7 @@ type MCMSWithTimelockEVMDeploy struct {
 	CallProxy *deployment.ContractDeploy[*bindings.CallProxy]
 }
 
-func deployMCMSWithConfigEVM(
+func DeployMCMSWithConfigEVM(
 	contractType deployment.ContractType,
 	lggr logger.Logger,
 	chain deployment.Chain,
@@ -89,6 +97,7 @@ func deployMCMSWithConfigEVM(
 // as well as the timelock. It's not necessarily the only way to use
 // the timelock and MCMS, but its reasonable pattern.
 func DeployMCMSWithTimelockContractsEVM(
+	ctx context.Context,
 	lggr logger.Logger,
 	chain deployment.Chain,
 	ab deployment.AddressBook,
@@ -110,7 +119,7 @@ func DeployMCMSWithTimelockContractsEVM(
 		callProxy = state.CallProxy
 	}
 	if bypasser == nil {
-		bypasserC, err := deployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
+		bypasserC, err := DeployMCMSWithConfigEVM(commontypes.BypasserManyChainMultisig, lggr, chain, ab, config.Bypasser, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -121,7 +130,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if canceller == nil {
-		cancellerC, err := deployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
+		cancellerC, err := DeployMCMSWithConfigEVM(commontypes.CancellerManyChainMultisig, lggr, chain, ab, config.Canceller, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -132,7 +141,7 @@ func DeployMCMSWithTimelockContractsEVM(
 	}
 
 	if proposer == nil {
-		proposerC, err := deployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
+		proposerC, err := DeployMCMSWithConfigEVM(commontypes.ProposerManyChainMultisig, lggr, chain, ab, config.Proposer, opts...)
 		if err != nil {
 			return nil, err
 		}
@@ -178,51 +187,6 @@ func DeployMCMSWithTimelockContractsEVM(
 		lggr.Infow("Timelock deployed", "chain", chain.String(), "address", timelock.Address)
 	} else {
 		lggr.Infow("Timelock already deployed", "chain", chain.String(), "address", timelock.Address)
-		// if the timelock is already deployed, we need to re-grant the roles
-		// to the MCMS contracts in case any of the contracts are newly deployed.
-		// duplicate addition of roles is not an issue.
-		grantRoleTx, err := timelock.GrantRole(
-			chain.DeployerKey,
-			v1_0.PROPOSER_ROLE.ID,
-			proposer.Address(),
-		)
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
-			lggr.Errorw("Failed to grant timelock proposer role",
-				"chain", chain.String(),
-				"timelock", timelock.Address().Hex(),
-				"proposer", proposer.Address().Hex(),
-				"err", err)
-			return nil, err
-		}
-		for _, addr := range []common.Address{proposer.Address(), canceller.Address(), bypasser.Address()} {
-			grantRoleTx, err = timelock.GrantRole(
-				chain.DeployerKey,
-				v1_0.CANCELLER_ROLE.ID,
-				addr,
-			)
-			if _, err := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
-				lggr.Errorw("Failed to grant timelock canceller role",
-					"chain", chain.String(),
-					"timelock", timelock.Address().Hex(),
-					"canceller", addr.Hex(),
-					"err", err)
-				return nil, err
-			}
-		}
-
-		grantRoleTx, err = timelock.GrantRole(
-			chain.DeployerKey,
-			v1_0.BYPASSER_ROLE.ID,
-			bypasser.Address(),
-		)
-		if _, err := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
-			lggr.Errorw("Failed to grant timelock bypasser role",
-				"chain", chain.String(),
-				"timelock", timelock.Address().Hex(),
-				"bypasser", bypasser.Address().Hex(),
-				"err", err)
-			return nil, err
-		}
 	}
 
 	if callProxy == nil {
@@ -252,35 +216,216 @@ func DeployMCMSWithTimelockContractsEVM(
 	} else {
 		lggr.Infow("CallProxy already deployed", "chain", chain.String(), "address", callProxy.Address)
 	}
-
-	grantRoleTx, err := timelock.GrantRole(
-		chain.DeployerKey,
-		v1_0.EXECUTOR_ROLE.ID,
-		callProxy.Address(),
-	)
-	if err != nil {
-		lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
-		return nil, err
-	}
-
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
-		lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
-		return nil, err
-	}
-	// We grant the timelock the admin role on the MCMS contracts.
-	tx, err := timelock.GrantRole(chain.DeployerKey,
-		v1_0.ADMIN_ROLE.ID, timelock.Address())
-	if _, err := deployment.ConfirmIfNoErrorWithABI(chain, tx, bindings.RBACTimelockABI, err); err != nil {
-		lggr.Errorw("Failed to grant timelock admin role", "chain", chain.String(), "err", err)
-		return nil, err
-	}
-	// After the proposer cycle is validated,
-	// we can remove the deployer as an admin.
-	return &proposalutils.MCMSWithTimelockContracts{
+	timelockContracts := &proposalutils.MCMSWithTimelockContracts{
 		BypasserMcm:  bypasser,
 		ProposerMcm:  proposer,
 		CancellerMcm: canceller,
 		Timelock:     timelock,
 		CallProxy:    callProxy,
-	}, nil
+	}
+	// grant roles for timelock
+	// this is called only if deployer key is an admin in timelock
+	_, err := GrantRolesForTimelock(ctx, lggr, chain, timelockContracts, true)
+	if err != nil {
+		return nil, err
+	}
+	// After the proposer cycle is validated,
+	// we can remove the deployer as an admin.
+	return timelockContracts, nil
+}
+
+// TODO: delete this function after it is available in timelock Inspector
+func getAdminAddresses(ctx context.Context, timelock *bindings.RBACTimelock) ([]string, error) {
+	numAddresses, err := timelock.GetRoleMemberCount(&bind.CallOpts{
+		Context: ctx,
+	}, v1_0.ADMIN_ROLE.ID)
+	if err != nil {
+		return nil, err
+	}
+	adminAddresses := make([]string, 0, numAddresses.Uint64())
+	for i := range numAddresses.Uint64() {
+		if i > math.MaxUint32 {
+
+			return nil, fmt.Errorf("value %d exceeds uint32 range", i)
+		}
+		idx, err := cast.ToInt64E(i)
+		if err != nil {
+			return nil, err
+		}
+		address, err := timelock.GetRoleMember(&bind.CallOpts{
+			Context: ctx,
+		}, v1_0.ADMIN_ROLE.ID, big.NewInt(idx))
+		if err != nil {
+			return nil, err
+		}
+		adminAddresses = append(adminAddresses, address.String())
+	}
+	return adminAddresses, nil
+}
+
+func GrantRolesForTimelock(
+	ctx context.Context,
+	lggr logger.Logger,
+	chain deployment.Chain,
+	timelockContracts *proposalutils.MCMSWithTimelockContracts,
+	skipIfDeployerKeyNotAdmin bool, // If true, skip role grants if the deployer key is not an admin.
+) ([]mcmsTypes.Transaction, error) {
+	if timelockContracts == nil {
+		lggr.Errorw("Timelock contracts not found", "chain", chain.String())
+		return nil, fmt.Errorf("timelock contracts not found for chain %s", chain.String())
+	}
+
+	timelock := timelockContracts.Timelock
+	proposer := timelockContracts.ProposerMcm
+	canceller := timelockContracts.CancellerMcm
+	bypasser := timelockContracts.BypasserMcm
+	callProxy := timelockContracts.CallProxy
+
+	// get admin addresses
+	adminAddresses, err := getAdminAddresses(ctx, timelock)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get admin addresses: %w", err)
+	}
+	isDeployerKeyAdmin := slices.Contains(adminAddresses, chain.DeployerKey.From.String())
+	isTimelockAdmin := slices.Contains(adminAddresses, timelock.Address().String())
+	if !isDeployerKeyAdmin && skipIfDeployerKeyNotAdmin {
+		lggr.Infow("Deployer key is not admin, skipping role grants", "chain", chain.String())
+		return nil, nil
+	}
+	if !isDeployerKeyAdmin && !isTimelockAdmin {
+		return nil, fmt.Errorf("neither deployer key nor timelock is admin, cannot grant roles")
+	}
+
+	var mcmsTxs []mcmsTypes.Transaction
+
+	timelockInspector := evmMcms.NewTimelockInspector(chain.Client)
+	proposerAddresses, err := timelockInspector.GetProposers(ctx, timelock.Address().String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proposers for chain %s: %w", chain.String(), err)
+	}
+	if !slices.Contains(proposerAddresses, proposer.Address().String()) {
+		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.PROPOSER_ROLE.ID, proposer.Address())
+		if err != nil {
+			lggr.Errorw("Failed to grant timelock proposer role", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if !isDeployerKeyAdmin {
+			mcmsTxs = append(mcmsTxs, tx)
+		} else {
+			lggr.Infow("Proposer role granted", "chain", chain.String(), "address", proposer.Address())
+		}
+	}
+	cancellerAddresses, err := timelockInspector.GetCancellers(ctx, timelock.Address().String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get proposers for chain %s: %w", chain.String(), err)
+	}
+	for _, addr := range []common.Address{proposer.Address(), canceller.Address(), bypasser.Address()} {
+		if !slices.Contains(cancellerAddresses, addr.String()) {
+			tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.CANCELLER_ROLE.ID, addr)
+			if err != nil {
+				lggr.Errorw("Failed to grant timelock canceller role", "chain", chain.String(), "err", err)
+				return nil, err
+			}
+			if !isDeployerKeyAdmin {
+				mcmsTxs = append(mcmsTxs, tx)
+			} else {
+				lggr.Infow("Canceller role granted", "chain", chain.String(), "address", addr)
+			}
+		}
+	}
+
+	bypasserAddresses, err := timelockInspector.GetBypassers(ctx, timelock.Address().String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get bypassers for chain %s: %w", chain.String(), err)
+	}
+	if !slices.Contains(bypasserAddresses, bypasser.Address().String()) {
+		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.BYPASSER_ROLE.ID, bypasser.Address())
+		if err != nil {
+			lggr.Errorw("Failed to grant timelock bypasser role", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if !isDeployerKeyAdmin {
+			mcmsTxs = append(mcmsTxs, tx)
+		} else {
+			lggr.Infow("Bypasser role granted", "chain", chain.String(), "address", bypasser.Address())
+		}
+	}
+	executorAddresses, err := timelockInspector.GetExecutors(ctx, timelock.Address().String())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get executors for chain %s: %w", chain.String(), err)
+	}
+	if !slices.Contains(executorAddresses, callProxy.Address().String()) {
+		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.EXECUTOR_ROLE.ID, callProxy.Address())
+		if err != nil {
+			lggr.Errorw("Failed to grant timelock executor role", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if !isDeployerKeyAdmin {
+			mcmsTxs = append(mcmsTxs, tx)
+		} else {
+			lggr.Infow("Executor role granted", "chain", chain.String(), "address", callProxy.Address())
+		}
+	}
+
+	if !isTimelockAdmin {
+		// We grant the timelock the admin role on the MCMS contracts.
+		tx, err := grantRoleTx(lggr, timelock, chain, isDeployerKeyAdmin, v1_0.ADMIN_ROLE.ID, timelock.Address())
+		if err != nil {
+			lggr.Errorw("Failed to grant timelock admin role", "chain", chain.String(), "err", err)
+			return nil, err
+		}
+		if !isDeployerKeyAdmin {
+			mcmsTxs = append(mcmsTxs, tx)
+		} else {
+			lggr.Infow("Admin role granted", "chain", chain.String(), "address", timelock.Address())
+		}
+	}
+	return mcmsTxs, nil
+}
+
+func grantRoleTx(
+	lggr logger.Logger,
+	timelock *bindings.RBACTimelock,
+	chain deployment.Chain,
+	isDeployerKeyAdmin bool,
+	roleId [32]byte,
+	address common.Address,
+) (mcmsTypes.Transaction, error) {
+	txOpts := deployment.SimTransactOpts()
+	if isDeployerKeyAdmin {
+		txOpts = chain.DeployerKey
+	}
+	grantRoleTx, err := timelock.GrantRole(
+		txOpts, roleId, address,
+	)
+	if isDeployerKeyAdmin {
+		if _, err2 := deployment.ConfirmIfNoErrorWithABI(chain, grantRoleTx, bindings.RBACTimelockABI, err); err != nil {
+			lggr.Errorw("Failed to grant timelock role",
+				"chain", chain.String(),
+				"timelock", timelock.Address().Hex(),
+				"Address to grant role", address.Hex(),
+				"err", err2)
+			return mcmsTypes.Transaction{}, err2
+		}
+		return mcmsTypes.Transaction{}, err
+	}
+	if err != nil {
+		lggr.Errorw("Failed to grant timelock role",
+			"chain", chain.String(),
+			"timelock", timelock.Address().Hex(),
+			"Address to grant role", address.Hex(),
+			"err", err)
+		return mcmsTypes.Transaction{}, err
+	}
+	tx, err := proposalutils.TransactionForChain(chain.Selector, timelock.Address().Hex(), grantRoleTx.Data(),
+		big.NewInt(0), commontypes.RBACTimelock.String(), []string{})
+	if err != nil {
+		lggr.Errorw("Failed to create transaction for chain",
+			"chain", chain.String(),
+			"timelock", timelock.Address().Hex(),
+			"Address to grant role", address.Hex(),
+			"err", err)
+		return mcmsTypes.Transaction{}, err
+	}
+	return tx, nil
 }

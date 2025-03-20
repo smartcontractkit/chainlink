@@ -2,6 +2,7 @@ package changeset
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -9,32 +10,24 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmssdk "github.com/smartcontractkit/mcms/sdk"
+	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
+	"golang.org/x/exp/maps"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset/internal"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
 	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 var (
-	_ deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfig]   = DeployMCMSWithTimelock
-	_ deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+	_                   deployment.ChangeSet[map[uint64]types.MCMSWithTimelockConfigV2] = DeployMCMSWithTimelockV2
+	GrantRoleInTimeLock                                                                 = deployment.CreateChangeSet(grantRoleLogic, grantRolePreconditions)
 )
-
-// DeployMCMSWithTimelock deploys and initializes the MCM and Timelock contracts
-// Deprecated: use DeployMCMSWithTimelockV2 instead
-func DeployMCMSWithTimelock(e deployment.Environment, cfgByChain map[uint64]types.MCMSWithTimelockConfig) (deployment.ChangesetOutput, error) {
-	newAddresses := deployment.NewMemoryAddressBook()
-	err := internal.DeployMCMSWithTimelockContractsBatch(
-		e.Logger, e, e.Chains, newAddresses, cfgByChain,
-	)
-	if err != nil {
-		return deployment.ChangesetOutput{AddressBook: newAddresses}, err
-	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
-}
 
 // DeployMCMSWithTimelockV2 deploys and initializes the MCM and Timelock contracts
 func DeployMCMSWithTimelockV2(
@@ -64,7 +57,7 @@ func DeployMCMSWithTimelockV2(
 			if s != nil {
 				chainstate = s[chainSel]
 			}
-			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
+			_, err = evminternal.DeployMCMSWithTimelockContractsEVM(env.GetContext(), env.Logger, env.Chains[chainSel], newAddresses, cfg, chainstate)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}
@@ -82,6 +75,103 @@ func DeployMCMSWithTimelockV2(
 	}
 
 	return deployment.ChangesetOutput{AddressBook: newAddresses}, nil
+}
+
+type GrantRoleInput struct {
+	ExistingProposerByChain map[uint64]common.Address // if needed in the future, need to add bypasser and canceller here
+	MCMS                    *TimelockConfig
+}
+
+func grantRolePreconditions(e deployment.Environment, cfg GrantRoleInput) error {
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	if err != nil {
+		return err
+	}
+	for selector, proposer := range cfg.ExistingProposerByChain {
+		if proposer == (common.Address{}) {
+			return fmt.Errorf("proposer address not found for chain %d", selector)
+		}
+		chain, ok := e.Chains[selector]
+		if !ok {
+			return fmt.Errorf("chain not found for chain %d", selector)
+		}
+		timelockContracts, ok := mcmsState[selector]
+		if !ok {
+			return fmt.Errorf("timelock state not found for chain %d", selector)
+		}
+		if timelockContracts.Timelock == nil {
+			return fmt.Errorf("timelock contract not found for chain %s", chain.String())
+		}
+		if timelockContracts.ProposerMcm == nil {
+			return fmt.Errorf("proposerMcm contract not found for chain %s", chain.String())
+		}
+		if timelockContracts.CancellerMcm == nil {
+			return fmt.Errorf("cancellerMcm contract not found for chain %s", chain.String())
+		}
+		if timelockContracts.BypasserMcm == nil {
+			return fmt.Errorf("bypasserMcm contract not found for chain %s", chain.String())
+		}
+		if timelockContracts.CallProxy == nil {
+			return fmt.Errorf("callProxy contract not found for chain %s", chain.String())
+		}
+	}
+	return nil
+}
+
+func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.ChangesetOutput, error) {
+	mcmsState, err := state.MaybeLoadMCMSWithTimelockState(e, maps.Keys(cfg.ExistingProposerByChain))
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+	timelocks := make(map[uint64]string)
+	proposers := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+	batches := make([]mcmstypes.BatchOperation, 0)
+	for chain, existingProposer := range cfg.ExistingProposerByChain {
+		stateForChain := mcmsState[chain]
+		mcmsTxs, err := evminternal.GrantRolesForTimelock(
+			e.GetContext(),
+			e.Logger, e.Chains[chain], &proposalutils.MCMSWithTimelockContracts{
+				CancellerMcm: stateForChain.CancellerMcm,
+				BypasserMcm:  stateForChain.BypasserMcm,
+				ProposerMcm:  stateForChain.ProposerMcm,
+				Timelock:     stateForChain.Timelock,
+				CallProxy:    stateForChain.CallProxy,
+			}, false)
+		if err != nil {
+			return deployment.ChangesetOutput{}, err
+		}
+		if len(mcmsTxs) == 0 {
+			continue
+		}
+		timelocks[chain] = mcmsState[chain].Timelock.Address().Hex()
+		proposers[chain] = existingProposer.Hex()
+		inspectors[chain] = mcmsevmsdk.NewInspector(e.Chains[chain].Client)
+		batches = append(batches, mcmstypes.BatchOperation{
+			ChainSelector: mcmstypes.ChainSelector(chain),
+			Transactions:  mcmsTxs,
+		})
+	}
+	// If there are no batches, it means that deployerkey is the admin of timelock, and it has already performed the role grant
+	// as part of the deployment. In this case, we don't need to create a proposal.
+	if len(batches) == 0 {
+		return deployment.ChangesetOutput{}, nil
+	}
+	if cfg.MCMS == nil {
+		return deployment.ChangesetOutput{}, errors.New("MCMS config is nil, but the deployer key is not the admin of the timelock")
+	}
+	prop, err := proposalutils.BuildProposalFromBatchesV2(
+		e,
+		timelocks,
+		proposers,
+		inspectors,
+		batches,
+		"Grant roles to timelock contracts",
+		cfg.MCMS.MinDelay,
+	)
+	return deployment.ChangesetOutput{
+		MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop},
+	}, err
 }
 
 func ValidateOwnership(ctx context.Context, mcms bool, deployerKey, timelock common.Address, contract Ownable) error {
