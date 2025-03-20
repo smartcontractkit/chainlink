@@ -294,13 +294,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        # Only required for the deployment project
-        if: ${{ inputs.projectPath == 'deployment' }}
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GH_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 

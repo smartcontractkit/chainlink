@@ -1,0 +1,11 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/v2/core/services/llo/evm";
+
+package evm;
+
+message LLOEVMStreamlinedReportWithContext {
+    bytes config_digest = 1;
+    uint64 seq_nr = 2;
+    bytes packed_payload = 3;
+}

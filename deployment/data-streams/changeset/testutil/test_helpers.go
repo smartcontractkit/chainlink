@@ -24,8 +24,15 @@ var TestChain = chainselectors.Chain{
 	VarName:    "",
 }
 
-func NewMemoryEnv(t *testing.T, deployMCMS bool, numNodes int) deployment.Environment {
+func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deployment.Environment {
 	lggr := logger.TestLogger(t)
+
+	// Default to 0 if no extra argument is provided
+	numNodes := 0
+	if len(optionalNumNodes) > 0 {
+		numNodes = optionalNumNodes[0]
+	}
+
 	memEnvConf := memory.MemoryEnvironmentConfig{
 		Chains: 1,
 		Nodes:  numNodes,

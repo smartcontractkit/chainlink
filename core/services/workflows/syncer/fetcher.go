@@ -2,12 +2,9 @@ package syncer
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"net/http"
-	"strings"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
@@ -82,22 +79,15 @@ func (s *FetcherService) Name() string {
 	return s.lggr.Name()
 }
 
-func hash(url string) string {
-	h := sha256.New()
-	h.Write([]byte(url))
-	return hex.EncodeToString(h.Sum(nil))
-}
-
 // Fetch fetches the given URL and returns the response body.  n is the maximum number of bytes to
 // read from the response body.  Set n to zero to use the default size limit specified by the
 // configured gateway's http client, if any.
-func (s *FetcherService) Fetch(ctx context.Context, url string, n uint32) ([]byte, error) {
-	messageID := strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
-	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-		URL:              url,
-		Method:           http.MethodGet,
-		MaxResponseBytes: n,
-	})
+func (s *FetcherService) Fetch(ctx context.Context, messageID string, req ghcapabilities.Request) ([]byte, error) {
+	if req.WorkflowID == "" {
+		return nil, errors.New("invalid call to fetch, must provide workflow ID")
+	}
+
+	resp, err := s.och.HandleSingleNodeRequest(ctx, messageID, req)
 	if err != nil {
 		return nil, err
 	}

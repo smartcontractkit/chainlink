@@ -201,7 +201,13 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.sendResponse(clientResponse{Result: msg.Payload})
 		}
 	} else {
+		c.lggr.Debug("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
 		c.errorCount[msg.ErrorMsg]++
+
+		if len(c.errorCount) > 1 {
+			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
+		}
+
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
 			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
 		}
