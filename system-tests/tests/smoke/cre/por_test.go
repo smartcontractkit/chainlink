@@ -799,7 +799,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 }
 
 // config file to use: environment-one-don.toml
-func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
+func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -904,7 +904,7 @@ func TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice(t *testing.T) {
 }
 
 // config file to use: environment-gateway-don.toml
-func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
+func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
@@ -1015,7 +1015,7 @@ func TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice(t *testing.T) {
 }
 
 // config file to use: environment-capabilities-don.toml
-func TestKeystoneWithOCR3Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
+func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration

@@ -158,6 +158,8 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
 
+	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
 
