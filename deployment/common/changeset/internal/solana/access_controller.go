@@ -58,6 +58,7 @@ func deployAccessControllerProgram(
 
 	return nil
 }
+
 func accessControllerAccountExists(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
 	switch typeAndVersion {
 	case deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0):
