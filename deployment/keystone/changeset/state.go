@@ -83,18 +83,32 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 	var wg sync.WaitGroup
 	errCh := make(chan error, 4) // We are generating 4 views concurrently
 
+	// Check if context is already done before starting work
+	select {
+	case <-ctx.Done():
+		return out, ctx.Err()
+	default:
+		// Continue processing
+	}
+
 	if cs.CapabilitiesRegistry != nil {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-			if err != nil {
-				lggr.Warn("failed to generate capability registry view: %w", err)
-				errCh <- err
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+				if err != nil {
+					lggr.Warn("failed to generate capability registry view: %w", err)
+					errCh <- err
+				}
+				outMu.Lock()
+				out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+				outMu.Unlock()
 			}
-			outMu.Lock()
-			out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
-			outMu.Unlock()
 		}()
 	}
 
@@ -105,6 +119,7 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 			for addr, ocr3Cap := range cs.OCR3 {
 				select {
 				case <-ctx.Done():
+					errCh <- ctx.Err()
 					return
 				default:
 					oc := *ocr3Cap
@@ -133,14 +148,20 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-			for _, err := range wrErrs {
-				lggr.Errorf("WorkflowRegistry error: %v", err)
-				errCh <- err
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+				for _, err := range wrErrs {
+					lggr.Errorf("WorkflowRegistry error: %v", err)
+					errCh <- err
+				}
+				outMu.Lock()
+				out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+				outMu.Unlock()
 			}
-			outMu.Lock()
-			out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
-			outMu.Unlock()
 		}()
 	}
 
