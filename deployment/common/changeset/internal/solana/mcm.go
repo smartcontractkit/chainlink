@@ -85,6 +85,7 @@ func initMCM(
 			return nil
 		}
 	}
+	env.Logger.Infow("mcm config not initialized, initializing", "chain", chain.String())
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	seed := randomSeed()

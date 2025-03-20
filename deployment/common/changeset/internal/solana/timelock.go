@@ -80,8 +80,8 @@ func initTimelock(
 		e.Logger.Infow("timelock config already initialized, skipping initialization", "chain", chain.String())
 		return nil
 	}
+	e.Logger.Infow("timelock config not initialized, initializing", "chain", chain.String())
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
-
 	seed := randomSeed()
 	log.Infow("generated Timelock seed", "seed", string(seed[:]))
 

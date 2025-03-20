@@ -80,6 +80,7 @@ func initAccessController(
 			return nil
 		}
 	}
+	e.Logger.Infow("access controller not initialized, initializing", "chain", chain.String())
 
 	programID := chainState.AccessControllerProgram
 	accessControllerBindings.SetProgramID(programID)
