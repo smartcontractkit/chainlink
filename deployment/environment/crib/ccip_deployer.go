@@ -15,6 +15,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
@@ -149,6 +150,17 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	*e, err = setupLanes(e, state)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+	}
+
+	solChainSelectors := e.AllChainSelectorsSolana()
+
+	// Create lanes for all chains with sol
+	for _, chain := range e.Chains {
+		fromFamily, _ := chainsel.GetSelectorFamily(chain.Selector)
+		*e, err = SetupSolLanes(*e, solChainSelectors[0], chain.Selector, fromFamily)
+		if err != nil {
+			return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+		}
 	}
 	// ------ Part 1 -----
 
@@ -603,7 +615,95 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	return *e, err
 }
 
-func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
+func SetupSolLanes(e deployment.Environment, solChainSelector, remoteChainSelector uint64, remoteFamily string) (deployment.Environment, error) {
+
+	chainFamilySelector := [4]uint8{}
+	if remoteFamily == chainsel.FamilyEVM {
+		// bytes4(keccak256("CCIP ChainFamilySelector EVM"))
+		chainFamilySelector = [4]uint8{40, 18, 213, 44}
+	} else if remoteFamily == chainsel.FamilySolana {
+		// bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+		chainFamilySelector = [4]uint8{30, 16, 189, 196}
+	}
+	solanaChangesets := []commonchangeset.ConfiguredChangeSet{
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToRouter),
+			ccipChangesetSolana.AddRemoteChainToRouterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.RouterConfig{
+					remoteChainSelector: {
+						RouterDestinationConfig: solRouter.DestChainConfig{
+							AllowListEnabled: true,
+						},
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToFeeQuoter),
+			ccipChangesetSolana.AddRemoteChainToFeeQuoterConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.FeeQuoterConfig{
+					remoteChainSelector: {
+						FeeQuoterDestinationConfig: solFeeQuoter.DestChainConfig{
+							IsEnabled:                   true,
+							DefaultTxGasLimit:           200000,
+							MaxPerMsgGasLimit:           3000000,
+							MaxDataBytes:                30000,
+							MaxNumberOfTokensPerMsg:     5,
+							DefaultTokenDestGasOverhead: 5000,
+							ChainFamilySelector:         chainFamilySelector,
+						},
+					},
+				},
+			},
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.AddRemoteChainToOffRamp),
+			ccipChangesetSolana.AddRemoteChainToOffRampConfig{
+				ChainSelector: solChainSelector,
+				UpdatesByChain: map[uint64]ccipChangesetSolana.OffRampConfig{
+					remoteChainSelector: {
+						EnabledAsSource: true,
+					},
+				},
+			},
+		),
+	}
+	currentEnv := e
+
+	for _, csa := range solanaChangesets {
+		out, err := csa.Apply(currentEnv)
+		if err != nil {
+			return deployment.Environment{}, err
+		}
+		var addresses deployment.AddressBook
+		if out.AddressBook != nil {
+			addresses = out.AddressBook
+			err := addresses.Merge(e.ExistingAddresses)
+			if err != nil {
+				return e, fmt.Errorf("failed to merge address book: %w", err)
+			}
+		} else {
+			addresses = currentEnv.ExistingAddresses
+		}
+
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			SolChains:         e.SolChains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
+		}
+	}
+	return currentEnv, nil
+}
+
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
