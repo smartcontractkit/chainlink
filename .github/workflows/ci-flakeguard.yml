@@ -48,6 +48,7 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
         FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   trigger-flaky-test-detection-for-deployment-project:
     name: Flakeguard Deployment Project
@@ -69,3 +70,4 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
