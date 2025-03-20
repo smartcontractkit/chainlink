@@ -35,7 +35,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/integration-tests/utils/pgtest"
 
@@ -1179,65 +1178,6 @@ func Test_LinkPriceUSD(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, linkPriceUSD.Int)
 	require.Equal(t, testhelpers.DefaultLinkPrice, linkPriceUSD.Int)
-}
-
-func Test_GetMedianDataAvailabilityGasConfig(t *testing.T) {
-	t.Parallel()
-	ctx := tests.Context(t)
-	env, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(4))
-	state, err := changeset.LoadOnchainState(env.Env)
-	require.NoError(t, err)
-
-	selectors := env.Env.AllChainSelectors()
-	destChain, chain1, chain2, chain3 := selectors[0], selectors[1], selectors[2], selectors[3]
-
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain1, destChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain2, destChain, false)
-	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &env, state, chain3, destChain, false)
-
-	boundContracts := map[cciptypes.ChainSelector][]types.BoundContract{}
-	for i, selector := range env.Env.AllChainSelectorsExcluding([]uint64{destChain}) {
-		feeQuoter := state.Chains[selector].FeeQuoter
-		destChainCfg := v1_6.DefaultFeeQuoterDestChainConfig(true)
-		//nolint:gosec // disable G115
-		destChainCfg.DestDataAvailabilityOverheadGas = uint32(100 + i)
-		//nolint:gosec // disable G115
-		destChainCfg.DestGasPerDataAvailabilityByte = uint16(200 + i)
-		//nolint:gosec // disable G115
-		destChainCfg.DestDataAvailabilityMultiplierBps = uint16(1 + i)
-		_, err2 := feeQuoter.ApplyDestChainConfigUpdates(env.Env.Chains[selector].DeployerKey, []fee_quoter.FeeQuoterDestChainConfigArgs{
-			{
-				DestChainSelector: destChain,
-				DestChainConfig:   destChainCfg,
-			},
-		})
-		require.NoError(t, err2)
-		be := env.Env.Chains[selector].Client.(*memory.Backend)
-		be.Commit()
-		boundContracts[cs(selector)] = []types.BoundContract{
-			{
-				Address: feeQuoter.Address().String(),
-				Name:    consts.ContractNameFeeQuoter,
-			},
-		}
-	}
-
-	reader := testSetupRealContracts(
-		ctx,
-		t,
-		destChain,
-		boundContracts,
-		nil,
-		env,
-	)
-
-	daConfig, err := reader.GetMedianDataAvailabilityGasConfig(ctx)
-	require.NoError(t, err)
-
-	// Verify the results
-	require.Equal(t, uint32(101), daConfig.DestDataAvailabilityOverheadGas)
-	require.Equal(t, uint16(201), daConfig.DestGasPerDataAvailabilityByte)
-	require.Equal(t, uint16(2), daConfig.DestDataAvailabilityMultiplierBps)
 }
 
 func Test_GetWrappedNativeTokenPriceUSD(t *testing.T) {

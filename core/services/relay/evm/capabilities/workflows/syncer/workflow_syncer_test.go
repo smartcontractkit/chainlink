@@ -31,6 +31,7 @@ import (
 	coretestutils "github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/capabilities/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -336,7 +337,7 @@ func Test_SecretsWorker(t *testing.T) {
 	afterSecretsPayload := encryptSecrets(t, workflowOwner, map[string][]string{
 		"SECRET_A": {afterContents},
 	}, encryptionKey)
-	fetcherFn := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+	fetcherFn := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 		return afterSecretsPayload, nil
 	}
 
@@ -516,7 +517,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)
@@ -619,7 +620,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 			BinaryURL: giveBinaryURL,
 		}
 		wantContents = "updated contents"
-		fetcherFn    = func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcherFn    = func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte(base64.StdEncoding.EncodeToString([]byte(wantContents))), nil
 		}
 	)

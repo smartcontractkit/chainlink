@@ -78,7 +78,7 @@ func Test_Client_Transmit(t *testing.T) {
 		}
 		opts := ClientOpts{
 			logger.Sugared(lggr),
-			csakey.MustNewV2XXXTestingOnly(new(big.Int).SetInt64(rand.Int64())).PrivateKey(),
+			csakey.MustNewV2XXXTestingOnly(new(big.Int).SetInt64(rand.Int64())).Signer(),
 			nil,
 			"",
 			noopCacheSet,
@@ -169,7 +169,7 @@ func Test_Client_LatestReport(t *testing.T) {
 			conn := &mocks.MockConn{
 				Ready: true,
 			}
-			c := newClient(ClientOpts{logger.Sugared(lggr), csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int64())).PrivateKey(), nil, "", cacheSet, nil})
+			c := newClient(ClientOpts{logger.Sugared(lggr), csakey.MustNewV2XXXTestingOnly(big.NewInt(rand.Int64())).Signer(), nil, "", cacheSet, nil})
 			c.conn = conn
 			c.rawClient = wsrpcClient
 

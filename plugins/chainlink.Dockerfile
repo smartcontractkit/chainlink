@@ -11,6 +11,8 @@ RUN go mod download
 
 # Env vars needed for chainlink build
 ARG COMMIT_SHA
+ARG COSMOS_SHA
+ARG STARKNET_SHA
 
 # Flags for Go Delve debugger
 ARG GO_GCFLAGS
@@ -32,7 +34,7 @@ RUN make install-medianpoc
 RUN make install-ocr3-capability
 
 # Install LOOP Plugins
-RUN make install-plugins
+RUN make install-plugins COSMOS_SHA=${COSMOS_SHA} STARKNET_SHA=${STARKNET_SHA}
 
 # Final image: ubuntu with chainlink binary
 FROM ubuntu:24.04

@@ -12,6 +12,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 )
 
@@ -159,12 +160,12 @@ func (kb *keyBundle[K]) Unmarshal(b []byte) (err error) {
 	return nil
 }
 
-func (kb *keyBundle[K]) Raw() Raw {
+func (kb *keyBundle[K]) Raw() internal.Raw {
 	b, err := kb.Marshal()
 	if err != nil {
 		panic(err)
 	}
-	return b
+	return internal.NewRaw(b)
 }
 
 // migration code

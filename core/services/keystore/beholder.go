@@ -12,8 +12,11 @@ func BuildBeholderAuth(ctx context.Context, keyStore CSA) (authHeaders map[strin
 	if err != nil {
 		return nil, "", err
 	}
-	csaPrivKey := csaKey.Raw().Bytes()
-	authHeaders = beholder.BuildAuthHeaders(csaPrivKey)
+
+	authHeaders, err = beholder.NewAuthHeaders(csaKey.Signer())
+	if err != nil {
+		return
+	}
 	pubKeyHex = hex.EncodeToString(csaKey.PublicKey)
 	return
 }
