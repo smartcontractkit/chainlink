@@ -1091,7 +1091,7 @@ func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
 	return validateRouterConfig(chain, chainState)
 }
 
-func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
+func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}

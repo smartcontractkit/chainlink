@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 
@@ -49,6 +50,7 @@ type LocalBuildConfig struct {
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
+	UpgradeKeys map[deployment.ContractType]string
 }
 
 type BuildSolanaConfig struct {
@@ -122,6 +124,43 @@ func copyFile(srcFile string, destDir string) error {
 	return nil
 }
 
+// Replace keys in Rust files
+func replaceKeys(e deployment.Environment) error {
+	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
+	e.Logger.Debugw("Replacing keys", "solanaDir", solanaDir)
+	output, err := runCommand("make", []string{"docker-update-contracts"}, solanaDir)
+	if err != nil {
+		return fmt.Errorf("anchor key replacement failed: %s %w", output, err)
+	}
+	return nil
+}
+
+func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.ContractType]string) error {
+	e.Logger.Debug("Replacing keys in Rust files...")
+	for program, key := range keys {
+		programStr := string(program)
+		filePath, exists := programToFileMap[program]
+		if !exists {
+			return fmt.Errorf("no file path found for program %s", programStr)
+		}
+
+		fullPath := filepath.Join(cloneDir, anchorDir, filePath)
+		content, err := os.ReadFile(fullPath)
+		if err != nil {
+			return fmt.Errorf("failed to read file %s: %w", fullPath, err)
+		}
+
+		// Replace declare_id!("..."); with the new key
+		updatedContent := regexp.MustCompile(`declare_id!\(".*?"\);`).ReplaceAllString(string(content), fmt.Sprintf(`declare_id!("%s");`, key))
+		err = os.WriteFile(fullPath, []byte(updatedContent), 0600)
+		if err != nil {
+			return fmt.Errorf("failed to write updated keys to file %s: %w", fullPath, err)
+		}
+		e.Logger.Debugf("Updated key for program %s in file %s\n", programStr, filePath)
+	}
+	return nil
+}
+
 // Build the project with Anchor
 func buildProject(e deployment.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
@@ -138,6 +177,17 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)
+	}
+
+	// Replace keys in Rust files using anchor keys sync
+	if err := replaceKeys(e); err != nil {
+		return fmt.Errorf("error replacing keys: %w", err)
+	}
+
+	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
+	// We need to do this so the keys will match the existing deployed program
+	if err := replaceKeysForUpgrade(e, config.LocalBuild.UpgradeKeys); err != nil {
+		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
 	// Build the project with Anchor
