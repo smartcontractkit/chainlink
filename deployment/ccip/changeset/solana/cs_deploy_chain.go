@@ -34,6 +34,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solanaMCMs "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
@@ -59,6 +60,8 @@ type DeployChainContractsConfig struct {
 	ContractParamsPerChain ChainContractParams
 	UpgradeConfig          UpgradeConfig
 	BuildConfig            BuildSolanaConfig
+	// TODO: add validation for this
+	MCMSWithTimelockConfig types.MCMSWithTimelockConfigV2
 }
 
 type ChainContractParams struct {
@@ -778,6 +781,11 @@ func deployChainContractsSolana(
 		if err := extendLookupTable(e, chain, offRampAddress, lookupTableKeys); err != nil {
 			return txns, fmt.Errorf("failed to extend lookup table: %w", err)
 		}
+	}
+
+	_, err = solanaMCMs.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+	if err != nil {
+		return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
 	}
 
 	return txns, nil

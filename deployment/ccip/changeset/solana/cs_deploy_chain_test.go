@@ -1,10 +1,12 @@
 package solana_test
 
 import (
+	"math/big"
 	"os"
 	"testing"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -12,6 +14,7 @@ import (
 	solBinary "github.com/gagliardetto/binary"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -346,6 +349,7 @@ func verifyProgramSizes(t *testing.T, e deployment.Environment) {
 	}
 }
 
+// use this for a quick deploy test
 func TestDeployChainContractsChangesetLocal(t *testing.T) {
 	ci := os.Getenv("CI") == "true"
 	if ci {
@@ -402,6 +406,50 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 					OffRampParams: ccipChangesetSolana.OffRampParams{
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
+				},
+				MCMSWithTimelockConfig: types.MCMSWithTimelockConfigV2{
+					Proposer: mcmstypes.Config{
+						Quorum: 1,
+						Signers: []common.Address{
+							common.HexToAddress("0x0000000000000000000000000000000000000021"),
+							common.HexToAddress("0x0000000000000000000000000000000000000022"),
+						},
+						GroupSigners: []mcmstypes.Config{
+							{
+								Quorum: 2,
+								Signers: []common.Address{
+									common.HexToAddress("0x0000000000000000000000000000000000000023"),
+									common.HexToAddress("0x0000000000000000000000000000000000000024"),
+									common.HexToAddress("0x0000000000000000000000000000000000000025"),
+								},
+								GroupSigners: []mcmstypes.Config{
+									{
+										Quorum: 1,
+										Signers: []common.Address{
+											common.HexToAddress("0x0000000000000000000000000000000000000026"),
+										},
+										GroupSigners: []mcmstypes.Config{},
+									},
+								},
+							},
+						},
+					},
+					Canceller: mcmstypes.Config{
+						Quorum: 1,
+						Signers: []common.Address{
+							common.HexToAddress("0x0000000000000000000000000000000000000027"),
+						},
+						GroupSigners: []mcmstypes.Config{},
+					},
+					Bypasser: mcmstypes.Config{
+						Quorum: 1,
+						Signers: []common.Address{
+							common.HexToAddress("0x0000000000000000000000000000000000000028"),
+							common.HexToAddress("0x0000000000000000000000000000000000000029"),
+						},
+						GroupSigners: []mcmstypes.Config{},
+					},
+					TimelockMinDelay: big.NewInt(2),
 				},
 			},
 		),
