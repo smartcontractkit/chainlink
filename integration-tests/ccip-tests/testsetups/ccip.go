@@ -1331,6 +1331,8 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 
 	envConfig := createEnvironmentConfig(t, envName, testConfig, reportPath)
 
+	fmt.Printf("DEBUG: EnvInput: %+v\n", testConfig.EnvInput)
+
 	configureCLNode := !testConfig.useExistingDeployment() || pointer.GetString(testConfig.EnvInput.EnvToConnect) != ""
 	namespace := ""
 	if testConfig.TestGroupInput.LoadProfile != nil {
@@ -1467,6 +1469,10 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			return nil
 		})
 	}
+
+	fmt.Printf("DEBUG: EnvInput: %+v\n", testConfig.EnvInput)
+	fmt.Println("DEBUG: Mockserver URL: ", testConfig.EnvInput.Mockserver)
+	fmt.Println("DEBUG: Mockserver Instance: ", ccipEnv.MockServer)
 
 	t.Cleanup(func() {
 		if configureCLNode {
