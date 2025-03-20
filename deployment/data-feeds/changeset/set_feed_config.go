@@ -25,8 +25,8 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	dataIds, _ := FeedIDsToBytes16(c.DataIDs)
-	tx, err := contract.SetDecimalFeedConfigs(txOpt, dataIds, c.Descriptions, c.WorkflowMetadata)
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
+	tx, err := contract.SetDecimalFeedConfigs(txOpt, dataIDs, c.Descriptions, c.WorkflowMetadata)
 
 	if c.McmsConfig != nil {
 		proposals := MultiChainProposalConfig{

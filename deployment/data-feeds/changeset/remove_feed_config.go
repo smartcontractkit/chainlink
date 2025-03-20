@@ -25,8 +25,8 @@ func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigC
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	dataIds, _ := FeedIDsToBytes16(c.DataIDs)
-	tx, err := contract.RemoveFeedConfigs(txOpt, dataIds)
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
+	tx, err := contract.RemoveFeedConfigs(txOpt, dataIDs)
 
 	if c.McmsConfig != nil {
 		proposalConfig := MultiChainProposalConfig{

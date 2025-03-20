@@ -9,19 +9,19 @@ import (
 )
 
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
-	dataIds := make([][16]byte, len(feedIDs))
+	dataIDs := make([][16]byte, len(feedIDs))
 	for i, feedID := range feedIDs {
 		err := ValidateFeedID(feedID)
 		if err != nil {
 			return nil, err
 		}
-		dataIds[i], err = ConvertHexToBytes16(feedID)
+		dataIDs[i], err = ConvertHexToBytes16(feedID)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	return dataIds, nil
+	return dataIDs, nil
 }
 
 func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
