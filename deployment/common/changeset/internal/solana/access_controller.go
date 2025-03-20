@@ -58,13 +58,19 @@ func deployAccessControllerProgram(
 
 	return nil
 }
-func findExistingAccessController(addresses map[string]deployment.TypeAndVersion, accessControllerType deployment.TypeAndVersion) (string, error) {
-	for addr, typeAndV := range addresses {
-		if typeAndV.Type == accessControllerType.Type && typeAndV.Version == accessControllerType.Version {
-			return addr, nil
-		}
+func accessControllerAccountExists(chainState *state.MCMSWithTimelockStateSolana, typeAndVersion deployment.TypeAndVersion) (solana.PublicKey, error) {
+	switch typeAndVersion {
+	case deployment.NewTypeAndVersion(commontypes.ProposerAccessControllerAccount, deployment.Version1_0_0):
+		return chainState.ProposerAccessControllerAccount, nil
+	case deployment.NewTypeAndVersion(commontypes.ExecutorAccessControllerAccount, deployment.Version1_0_0):
+		return chainState.ExecutorAccessControllerAccount, nil
+	case deployment.NewTypeAndVersion(commontypes.CancellerAccessControllerAccount, deployment.Version1_0_0):
+		return chainState.CancellerAccessControllerAccount, nil
+	case deployment.NewTypeAndVersion(commontypes.BypasserAccessControllerAccount, deployment.Version1_0_0):
+		return chainState.BypasserAccessControllerAccount, nil
+	default:
+		return solana.PublicKey{}, errors.New("unknown access controller account type")
 	}
-	return "", errors.New("access controller account address not found")
 }
 
 func initAccessController(
@@ -75,19 +81,10 @@ func initAccessController(
 		return errors.New("access controller program is not deployed")
 	}
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
-	// Check if access controller has already been initialized
-	addresses, err := addressBook.AddressesForChain(chain.Selector)
-	if err != nil {
-		return fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
-	}
-	addr, err := findExistingAccessController(addresses, typeAndVersion)
-	if err == nil && addr != "" {
+	pubKeyRole, err := accessControllerAccountExists(chainState, typeAndVersion)
+	if err == nil && !pubKeyRole.IsZero() {
 		var data accessControllerBindings.AccessController
-		accessControllerPubKey, err := solana.PublicKeyFromBase58(addr)
-		if err != nil {
-			return fmt.Errorf("failed to convert access controller account to public key: %w", err)
-		}
-		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, accessControllerPubKey, rpc.CommitmentConfirmed, &data)
+		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, pubKeyRole, rpc.CommitmentConfirmed, &data)
 		if err == nil {
 			e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
 			return nil
