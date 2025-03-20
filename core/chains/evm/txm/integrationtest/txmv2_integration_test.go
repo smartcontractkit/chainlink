@@ -77,7 +77,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	bootstrapNodePort := freeport.GetOne(t)
 	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_svr", backend, bootstrapCSAKey)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
-	t.Logf("created bootstrap node with id %s public key %#v\n", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
+	t.Logf("created bootstrap node with id %s and public key %#v\n", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys)
@@ -243,19 +243,23 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// 5. Deploy the LINK token contract // TODO(gg): needed?
 
-	// TODO(gg): maybe:
-	// t.Logf("Creating bootstrap jobs")
-	// // Create bootstrap jobs
-	// for i := range in.SvrTestCfg.NrOfFeeds {
-	// 	response, _, err2 := bootstrapNode.CreateJobRaw(fmt.Sprintf(bootstrapJobSpec, i, uuid.New().String(), dualAggContractsAddresses[i].Addresses[0].String(), chainFamily, chainID))
-	// 	require.NoError(t, err2, "Failed to create bootstrap job")
-	// 	require.Empty(t, response.Errors, "Bootstrap job creation returned errors")
-	// }
-
-	// // Create feed jobs
-	// bootstrapPeerID, err := bootstrapNode.MustReadP2PKeys()
-	// require.NoError(t, err, "Failed to retrieve bootstrap peer ID")
-	// require.Equal(t, 1, len(bootstrapPeerID.Data), "Expected one bootstrap P2P key, but got a different number")
+	t.Logf("Creating bootstrap job")
+	bootstrapJob := job.Job{
+		Type:          job.Bootstrap,
+		SchemaVersion: 1,
+		Name:          null.StringFrom("SVR bootstrap"),
+		ExternalJobID: uuid.New(),
+		BootstrapSpec: &job.BootstrapSpec{
+			ContractID: dualAggAddress.Hex(),
+			Relay:      "evm",
+			RelayConfig: map[string]any{
+				"chainID": testutils.SimulatedChainID.String(),
+			},
+		},
+	}
+	err = bootstrapNode.App.AddJobV2(context.Background(), &bootstrapJob)
+	require.NoError(t, err, "Failed to create bootstrap job")
+	t.Logf("Created bootstrap job")
 
 	t.Logf("Creating feed for %s", dualAggAddress.String())
 
@@ -284,8 +288,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				OCRKeyBundleID:       null.StringFrom(node.KeyBundle.ID()),
 				PluginType:           clcommonTypes.Median,
 				TransmitterID:        null.StringFrom(keys[0].Address.Hex()),
-				AllowNoBootstrappers: true,       // TODO(gg): maybe we can get away with this?
-				P2PV2Bootstrappers:   []string{}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
+				AllowNoBootstrappers: true,                      // TODO(gg): maybe we can get away with this?
+				P2PV2Bootstrappers:   []string{bootstrapPeerID}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 				RelayConfig: map[string]any{
 					"chainID":                testutils.SimulatedChainID.String(),
 					"fromBlock":              fromBlock,
