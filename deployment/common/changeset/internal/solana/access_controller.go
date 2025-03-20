@@ -58,6 +58,14 @@ func deployAccessControllerProgram(
 
 	return nil
 }
+func findExistingAccessController(addresses map[string]deployment.TypeAndVersion, accessControllerType deployment.TypeAndVersion) (string, error) {
+	for addr, typeAndV := range addresses {
+		if typeAndV.Type == accessControllerType.Type && typeAndV.Version == accessControllerType.Version {
+			return addr, nil
+		}
+	}
+	return "", errors.New("access controller program not found")
+}
 
 func initAccessController(
 	e deployment.Environment, chainState *state.MCMSWithTimelockStateSolana, contractType deployment.ContractType,
@@ -66,10 +74,30 @@ func initAccessController(
 	if chainState.AccessControllerProgram.IsZero() {
 		return errors.New("access controller program is not deployed")
 	}
+	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	// Check if access controller has already been initialized
+	addresses, err := addressBook.AddressesForChain(chain.Selector)
+	if err != nil {
+		return fmt.Errorf("failed to get addresses for chain %v from environment: %w", chain.Selector, err)
+	}
+	addr, err := findExistingAccessController(addresses, typeAndVersion)
+	if err == nil && addr != "" {
+		var data accessControllerBindings.AccessController
+		accessControllerPubKey, err := solana.PublicKeyFromBase58(addr)
+		if err != nil {
+			return fmt.Errorf("failed to convert access controller account to public key: %w", err)
+		}
+		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, accessControllerPubKey, rpc.CommitmentConfirmed, &data)
+		if err != nil {
+			return fmt.Errorf("failed to read access controller roleAccount: %w", err)
+		}
+		e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
+		return nil
+	}
+
 	programID := chainState.AccessControllerProgram
 	accessControllerBindings.SetProgramID(programID)
 
-	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String(), "programID", programID)
 
 	account, err := solana.NewRandomPrivateKey() // FIXME: what should we do with the account private key?
