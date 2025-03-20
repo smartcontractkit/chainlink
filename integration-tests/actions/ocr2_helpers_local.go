@@ -103,7 +103,7 @@ func CreateOCRv2JobsLocal(
 			}
 			juelsBridge := &nodeclient.BridgeTypeAttributes{
 				Name: fmt.Sprintf("juels-%s", uuid.NewString()),
-				URL:  mockAdapter.InternalEndpoint + filepath.Join(valPath, "juelsPerFeeCoinSource"),
+				URL:  fmt.Sprintf("%s/%s", mockAdapter.InternalEndpoint, juelsRoute.Path),
 			}
 			err = chainlinkNode.MustCreateBridge(bta)
 			if err != nil {
