@@ -227,10 +227,10 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 			bClient := beholder.GetClient()
 			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity}
 
-			data, err := proto.Marshal(report.Message())
-			require.NoError(t, err)
+			data, mErr := proto.Marshal(report.Message())
+			require.NoError(t, mErr)
 
-			bClient.Emitter.Emit(t.Context(), data, kvAttrs...)
+			require.NoError(t, bClient.Emitter.Emit(t.Context(), data, kvAttrs...))
 		},
 	}
 	for _, o := range opts {
