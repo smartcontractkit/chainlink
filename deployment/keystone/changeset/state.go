@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -36,15 +35,10 @@ type GetContractSetsResponse struct {
 	ContractSets map[uint64]ContractSet
 }
 
-type ForwarderContract struct {
-	Contract       *forwarder.KeystoneForwarder
-	TypeAndVersion deployment.TypeAndVersion
-}
-
 type ContractSet struct {
 	commonchangeset.MCMSWithTimelockState
 	OCR3                 map[common.Address]*ocr3_capability.OCR3Capability
-	Forwarder            *ForwarderContract
+	Forwarder            *forwarder.KeystoneForwarder
 	CapabilitiesRegistry *capabilities_registry.CapabilitiesRegistry
 	WorkflowRegistry     *workflow_registry.WorkflowRegistry
 }
@@ -54,7 +48,7 @@ func (cs ContractSet) Convert() internal.ContractSet {
 		MCMSWithTimelockState: commonchangeset.MCMSWithTimelockState{
 			MCMSWithTimelockContracts: cs.MCMSWithTimelockContracts,
 		},
-		Forwarder:            cs.Forwarder.Contract,
+		Forwarder:            cs.Forwarder,
 		WorkflowRegistry:     cs.WorkflowRegistry,
 		OCR3:                 cs.OCR3,
 		CapabilitiesRegistry: cs.CapabilitiesRegistry,
@@ -69,7 +63,7 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 		}
 	}
 	if cs.Forwarder != nil {
-		out = append(out, cs.Forwarder.Contract.Address())
+		out = append(out, cs.Forwarder.Address())
 	}
 	if cs.CapabilitiesRegistry != nil {
 		out = append(out, cs.CapabilitiesRegistry.Address())
@@ -84,14 +78,10 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 // It is best-effort, logs errors and generates the views in parallel.
 func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
+	var outMu sync.Mutex
 	var allErrs error
 	var wg sync.WaitGroup
 	errCh := make(chan error, 4) // We are generating 4 views concurrently
-
-	// Not sure if we want the timeout here... As more blocks are added, the timeout will be reached for Forwarders...
-	// TODO: If we keep the timeout, we need to make it configurable via ENV or params.
-	ctx, cancel := context.WithTimeout(ctx, 6*time.Minute)
-	defer cancel()
 
 	if cs.CapabilitiesRegistry != nil {
 		wg.Add(1)
@@ -102,7 +92,9 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 				lggr.Warn("failed to generate capability registry view: %w", err)
 				errCh <- err
 			}
+			outMu.Lock()
 			out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+			outMu.Unlock()
 		}()
 	}
 
@@ -128,7 +120,9 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 						}
 						continue
 					}
+					outMu.Lock()
 					out.OCRContracts[addrCopy.String()] = ocrView
+					outMu.Unlock()
 				}
 			}
 		}()
@@ -144,7 +138,9 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 				lggr.Errorf("WorkflowRegistry error: %v", err)
 				errCh <- err
 			}
+			outMu.Lock()
 			out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+			outMu.Unlock()
 		}()
 	}
 
@@ -152,7 +148,7 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fwrAddr := cs.Forwarder.Contract.Address().String()
+			fwrAddr := cs.Forwarder.Address().String()
 			var prevViews []ForwarderView
 			if prevView.Forwarders != nil {
 				pv, ok := prevView.Forwarders[fwrAddr]
@@ -175,16 +171,18 @@ func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr
 					// don't block view on single forwarder not being configured
 					switch {
 					case errors.Is(fwrErr, ErrForwarderNotConfigured):
-						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Contract.Address())
+						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Address())
 					case errors.Is(fwrErr, context.Canceled), errors.Is(fwrErr, context.DeadlineExceeded):
-						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Contract.Address())
+						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Address())
 						errCh <- fwrErr
 					default:
 						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
 						errCh <- fwrErr
 					}
 				} else {
+					outMu.Lock()
 					out.Forwarders[fwrAddr] = fwrView
+					outMu.Unlock()
 				}
 			}
 		}()
@@ -267,10 +265,7 @@ func loadContractSet(lggr logger.Logger, chain deployment.Chain, addresses map[s
 			if err != nil {
 				return nil, fmt.Errorf("failed to create forwarder contract from address %s: %w", addr, err)
 			}
-			out.Forwarder = &ForwarderContract{
-				Contract:       c,
-				TypeAndVersion: tv,
-			}
+			out.Forwarder = c
 		case OCR3Capability:
 			c, err := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
 			if err != nil {

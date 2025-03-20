@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/smartcontractkit/chainlink/deployment"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
@@ -155,7 +156,7 @@ func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Cap
 	}, nil
 }
 
-func GenerateForwarderView(ctx context.Context, f *ForwarderContract, prevViews []ForwarderView) ([]ForwarderView, error) {
+func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, prevViews []ForwarderView) ([]ForwarderView, error) {
 	startBlock := uint64(0)
 
 	if len(prevViews) > 0 {
@@ -171,7 +172,15 @@ func GenerateForwarderView(ctx context.Context, f *ForwarderContract, prevViews 
 		// which is stored in the forwarder's type and version labels.
 		var deploymentBlock uint64
 		lblPrefix := internal.DeploymentBlockLabel + ": "
-		for lbl := range f.TypeAndVersion.Labels {
+		tvStr, err := f.TypeAndVersion(nil)
+		if err != nil {
+			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %v", err)
+		}
+		tv, err := deployment.TypeAndVersionFromString(tvStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+		}
+		for lbl := range tv.Labels {
 			if strings.HasPrefix(lbl, lblPrefix) {
 				// Extract the block number part after the prefix
 				blockStr := strings.TrimPrefix(lbl, lblPrefix)
@@ -191,7 +200,7 @@ func GenerateForwarderView(ctx context.Context, f *ForwarderContract, prevViews 
 	// Let's fetch the `SetConfig` events since the deployment block, since we don't have specific block numbers
 	// for the `SetConfig` events.
 	// If no deployment block is available, it will start from 0.
-	configIterator, err := f.Contract.FilterConfigSet(&bind.FilterOpts{
+	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
 		Start:   startBlock,
 		End:     nil,
 		Context: ctx,
