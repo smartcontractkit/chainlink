@@ -64,7 +64,7 @@ func findExistingAccessController(addresses map[string]deployment.TypeAndVersion
 			return addr, nil
 		}
 	}
-	return "", errors.New("access controller program not found")
+	return "", errors.New("access controller account address not found")
 }
 
 func initAccessController(
