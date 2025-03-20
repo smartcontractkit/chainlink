@@ -34,5 +34,5 @@ func TestOCRKeys_New(t *testing.T) {
 func TestOCRKeys_Raw_Key(t *testing.T) {
 	t.Parallel()
 	key := ocrkey.MustNewV2XXXTestingOnly(big.NewInt(1))
-	require.Equal(t, key.ID(), key.Raw().Key().ID())
+	require.Equal(t, key.ID(), ocrkey.KeyFor(key.Raw()).ID())
 }

@@ -11,6 +11,8 @@ import (
 	"github.com/NethermindEth/starknet.go/curve"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var _ types.OnchainKeyring = &OCR2Key{}
@@ -155,7 +157,7 @@ func (sk *OCR2Key) Unmarshal(in []byte) error {
 		return errors.Errorf("unexpected seed size, got %d want %d", len(in), sk.privateKeyLen())
 	}
 
-	sk.Key = Raw(in).Key()
+	sk.Key = KeyFor(internal.NewRaw(in))
 	return nil
 }
 

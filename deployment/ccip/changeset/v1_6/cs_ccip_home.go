@@ -380,6 +380,11 @@ type SetCandidatePluginInfo struct {
 	// OCRConfigPerRemoteChainSelector is the chain selector of the chain where the DON will be added.
 	OCRConfigPerRemoteChainSelector map[uint64]CCIPOCRParams
 	PluginType                      types.PluginType
+
+	// SkipChainConfigValidation skips validation of the config for chain on CCIPHome.
+	// WARNING: Never enable this parameter if running this changeset in isolation.
+	// This is only meant to be enabled when running this changeset as part of a larger changeset that groups multiple proposals together.
+	SkipChainConfigValidation bool
 }
 
 func (p SetCandidatePluginInfo) String() string {
@@ -409,25 +414,28 @@ func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state changes
 			return errors.New("execute off-chain config must be set")
 		}
 
-		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
-		if err != nil {
-			return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
+		if !p.SkipChainConfigValidation {
+			chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
+			if err != nil {
+				return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
+			}
+			// FChain should never be zero if a chain config is set in CCIPHome
+			if chainConfig.FChain == 0 {
+				return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
+			}
+			if len(chainConfig.Readers) == 0 {
+				return errors.New("readers must be set")
+			}
+			decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
+			if err != nil {
+				return fmt.Errorf("can't decode chain config: %w", err)
+			}
+			if err := decodedChainConfig.Validate(); err != nil {
+				return fmt.Errorf("invalid chain config: %w", err)
+			}
 		}
-		// FChain should never be zero if a chain config is set in CCIPHome
-		if chainConfig.FChain == 0 {
-			return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
-		}
-		if len(chainConfig.Readers) == 0 {
-			return errors.New("readers must be set")
-		}
-		decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
-		if err != nil {
-			return fmt.Errorf("can't decode chain config: %w", err)
-		}
-		if err := decodedChainConfig.Validate(); err != nil {
-			return fmt.Errorf("invalid chain config: %w", err)
-		}
-		err = params.Validate(e, chainSelector, feedChain, state)
+
+		err := params.Validate(e, chainSelector, feedChain, state)
 		if err != nil {
 			return fmt.Errorf("invalid ccip ocr params: %w", err)
 		}
@@ -569,6 +577,7 @@ func AddDonAndSetCandidateChangeset(
 			params.OCRParameters,
 			params.CommitOffChainConfig,
 			params.ExecuteOffChainConfig,
+			cfg.PluginInfo.SkipChainConfigValidation,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
@@ -688,6 +697,9 @@ type SetCandidateChangesetConfig struct {
 	SetCandidateConfigBase
 
 	PluginInfo []SetCandidatePluginInfo
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DonIDOverrides map[uint64]uint32
 }
 
 func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
@@ -702,6 +714,10 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state ch
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
+			if donIDOverride, ok := s.DonIDOverrides[chainSelector]; ok {
+				chainToDonIDs[chainSelector] = donIDOverride
+				continue
+			}
 			donID, err := internal.DonIDForChain(
 				state.Chains[s.HomeChainSelector].CapabilityRegistry,
 				state.Chains[s.HomeChainSelector].CCIPHome,
@@ -764,6 +780,7 @@ func SetCandidateChangeset(
 				params.OCRParameters,
 				params.CommitOffChainConfig,
 				params.ExecuteOffChainConfig,
+				plugin.SkipChainConfigValidation,
 			)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err

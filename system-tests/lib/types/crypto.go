@@ -13,6 +13,5 @@ type P2PKeys struct {
 	EncryptedJSONs [][]byte
 	PeerIDs        []string
 	PublicHexKeys  []string
-	PrivateKeys    []string
 	Password       string
 }
