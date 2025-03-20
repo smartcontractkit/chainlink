@@ -19,6 +19,13 @@ import (
 	ocr2types "github.com/smartcontractkit/libocr/offchainreporting2/types"
 )
 
+var (
+	ErrMalformedSigner        = errors.New("malformed signer")
+	ErrMalformedConfig        = errors.New("malformed config digest")
+	ErrInsufficientSignatures = errors.New("insufficient signatures")
+	ErrMissingResponse        = errors.New("missing trigger response")
+)
+
 type signedReportRemoteAggregator struct {
 	allowedSigners        map[common.Address]struct{}
 	minRequiredSignatures int
@@ -37,7 +44,7 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 		minRequiredSignatures: minRequiredSignatures,
 		maxAgeSec:             maxAgeSec,
 		capID:                 capID,
-		lggr:                  lggr,
+		lggr:                  logger.Named(lggr, "SignedReportRemoteAggregator"),
 	}
 }
 
@@ -46,7 +53,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
 		if err != nil {
-			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "error", err)
+			a.lggr.Errorw("could not unmarshal one of capability responses (faulty sender?)", "err", err)
 			continue
 		}
 		if triggerResp.Event.OCREvent == nil || len(triggerResp.Event.OCREvent.Report) == 0 {
@@ -63,7 +70,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		}
 
 		if rep.EventID != triggerEventID {
-			a.lggr.Debugw("unexpected event ID", "expected", triggerEventID, "got", rep.EventID)
+			a.lggr.Warnw("unexpected event ID", "expected", triggerEventID, "got", rep.EventID)
 			continue
 		}
 
@@ -72,7 +79,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			timeDiff = -timeDiff
 		}
 		if timeDiff > int64(a.maxAgeSec)*1000000000 { // nanoseconds
-			a.lggr.Debugw("report too old", "age", timeDiff)
+			a.lggr.Warnw("aggregation report too old", "age", timeDiff, "maxAge", a.maxAgeSec, "reportTimestamp", rep.Timestamp)
 			continue
 		}
 
@@ -87,27 +94,27 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 		triggerResp.Event.Outputs = outputsMap
-		triggerResp.Event.OCREvent.Report = nil
+		triggerResp.Event.OCREvent = nil
 		return triggerResp, nil
 	}
-	return capabilities.TriggerResponse{}, errors.New("no valid response found")
+	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)
 }
 
 func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OCRTriggerEvent) error {
 	digest, err := ocr2types.BytesToConfigDigest(event.ConfigDigest)
 	if err != nil {
-		return fmt.Errorf("malformed config digest: %w", err)
+		return errors.Join(ErrMalformedConfig, err)
 	}
 	fullHash := ocr2key.ReportToSigData3(digest, event.SeqNr, event.Report)
 	validated := map[common.Address]struct{}{}
 	for _, sig := range event.Sigs {
 		signerPubkey, err2 := crypto.SigToPub(fullHash, sig.Signature)
 		if err2 != nil {
-			return fmt.Errorf("malformed signer: %w", err2)
+			return errors.Join(ErrMalformedSigner, err2)
 		}
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
 		if _, ok := a.allowedSigners[signerAddr]; !ok {
-			a.lggr.Debugw("invalid signer", "signerAddr", signerAddr)
+			a.lggr.Warnw("invalid signer", "signerAddr", signerAddr)
 			continue
 		}
 		validated[signerAddr] = struct{}{}
@@ -116,7 +123,7 @@ func (a *signedReportRemoteAggregator) validateSignatures(event *capabilities.OC
 		}
 	}
 	if len(validated) < a.minRequiredSignatures {
-		return fmt.Errorf("not enough valid signatures %d, needed %d", len(validated), a.minRequiredSignatures)
+		return fmt.Errorf("%w: got %d, needed %d", ErrInsufficientSignatures, len(validated), a.minRequiredSignatures)
 	}
 	return nil
 }
