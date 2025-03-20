@@ -69,7 +69,7 @@ func findMcmAccount(chainState *state.MCMSWithTimelockStateSolana, typeAndVersio
 	} else if typeAndVersion.Equal(deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0)) {
 		return state.GetMCMConfigPDA(chainState.McmProgram, chainState.BypasserMcmSeed), nil
 	} else {
-		return solana.PublicKey{}, errors.New("unknown access controller account type")
+		return solana.PublicKey{}, errors.New("unknown mcm config account type")
 	}
 }
 
