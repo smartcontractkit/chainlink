@@ -19,6 +19,7 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
+	ccipsolana "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
@@ -37,7 +38,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipsolanacap "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -193,7 +194,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 	extraDataCodec := ccipcommon.NewExtraDataCodec(
 		ccipcommon.NewExtraDataCodecParams(
 			ccipevm.ExtraDataDecoder{},
-			ccipsolana.ExtraDataDecoder{},
+			ccipsolanacap.ExtraDataDecoder{},
 		),
 	)
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
@@ -336,7 +337,7 @@ func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
 		_, _, args, err := ocrimpls.SVMExecCalldataFunc([2][32]byte{}, rwi, nil, nil, [32]byte{}, extraDataCodec)
 		require.NoError(t, err)
 
-		expectedArgs, ok := args.(ocrimpls.SVMExecCallArgs)
+		expectedArgs, ok := args.(ccipsolana.SVMExecCallArgs)
 		require.True(t, ok)
 
 		require.Equal(t, uint64(0x4), expectedArgs.ExtraData.ExtraArgsDecoded["accountIsWritableBitmap"])
