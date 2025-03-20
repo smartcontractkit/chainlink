@@ -4808,7 +4808,7 @@ type attestationStatusResponse struct {
 // The path is a wildcard to match any path that starts with /v1/attestations/
 func SetMockServerWithUSDCAttestation(mockServer *ctftestenv.Parrot, isFaulty bool) error {
 	if mockServer == nil {
-		return fmt.Errorf("mockserver nil")
+		return errors.New("mockserver nil")
 	}
 	rootPath := "/v1/attestations"
 	response := attestationStatusResponse{
