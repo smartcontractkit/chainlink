@@ -338,7 +338,7 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.46 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250319145818-73e7ea68d9fe // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250320090719-315440f5b0a7 // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250319145818-73e7ea68d9fe // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250319152737-3be36043bbaf // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
