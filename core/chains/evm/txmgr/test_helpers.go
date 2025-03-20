@@ -200,10 +200,3 @@ func MakeTestConfigs(tb testing.TB) (*MockConfig, *TestDatabaseConfig, *TestEvmC
 	config := &MockConfig{EvmConfig: ec}
 	return config, db, ec
 }
-
-func MakeTestConfigsEx() (*MockConfig, *TestDatabaseConfig, *TestEvmConfig) {
-	db := &TestDatabaseConfig{defaultQueryTimeout: utils.DefaultQueryTimeout}
-	ec := &TestEvmConfig{BumpThreshold: 42, MaxInFlight: uint32(42), MaxQueued: uint64(0), ReaperInterval: time.Duration(0), ReaperThreshold: time.Duration(0), RpcDefaultBatchSize: uint32(250)}
-	config := &MockConfig{EvmConfig: ec}
-	return config, db, ec
-}
