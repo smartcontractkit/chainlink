@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -221,6 +222,16 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
+		sendMeteringReport: func(report *MeteringReport) {
+			detail := report.Description()
+			bClient := beholder.GetClient()
+			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity}
+
+			data, err := proto.Marshal(report.Message())
+			require.NoError(t, err)
+
+			bClient.Emitter.Emit(t.Context(), data, kvAttrs...)
+		},
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -352,7 +363,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
-	assert.Equal(t, 1, beholderTester.Len(t, "metering", "report"))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
 }
 
 const (

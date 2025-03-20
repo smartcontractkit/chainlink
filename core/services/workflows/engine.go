@@ -144,6 +144,9 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
 	meterReport    *MeteringReport
+
+	// sendMeteringReport is a hook for now to prevent this being sent in production
+	sendMeteringReport func(*MeteringReport)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -656,7 +659,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		}
 
 		logCustMsg(ctx, cma, "execution status: "+status, l)
-		logCustMsg(ctx, cma.With("metering", "report"), fmt.Sprintf("%s; %s", e.meterReport.Message(l), e.meterReport.Description()), l)
+		e.sendMeteringReport(e.meterReport)
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
@@ -1292,6 +1295,7 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
+	sendMeteringReport  func(*MeteringReport)
 }
 
 const (
@@ -1354,6 +1358,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.clock == nil {
 		cfg.clock = clockwork.NewRealClock()
+	}
+
+	if cfg.sendMeteringReport == nil {
+		cfg.sendMeteringReport = func(*MeteringReport) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1425,7 +1433,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
-		workflowLimits:       cfg.WorkflowLimits,
+		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
 	return engine, nil

@@ -1,8 +1,6 @@
 package workflows
 
 import (
-	"encoding/hex"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -10,7 +8,6 @@ import (
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -142,7 +139,7 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, step []MeteringRepor
 	return nil
 }
 
-func (r *MeteringReport) Message(lggr logger.Logger) string {
+func (r *MeteringReport) Message() proto.Message {
 	protoReport := &pb.MeteringReport{
 		Steps: map[string]*pb.MeteringReportStep{},
 	}
@@ -162,17 +159,19 @@ func (r *MeteringReport) Message(lggr logger.Logger) string {
 		}
 	}
 
-	encoded, err := proto.Marshal(protoReport)
-	if err != nil {
-		lggr.Error("failed to marshal metering report")
-
-		return ""
-	}
-
-	// using hex encoding here to normalize the data sent over otel
-	return hex.EncodeToString(encoded)
+	return protoReport
 }
 
-func (r *MeteringReport) Description() string {
-	return fmt.Sprintf("schema: %s; domain: %s; entity: %s", MeteringReportSchema, MeteringReportDomain, MeteringReportEntity)
+type MessageDescription struct {
+	Schema string
+	Domain string
+	Entity string
+}
+
+func (r *MeteringReport) Description() MessageDescription {
+	return MessageDescription{
+		Schema: MeteringReportSchema,
+		Domain: MeteringReportDomain,
+		Entity: MeteringReportEntity,
+	}
 }
