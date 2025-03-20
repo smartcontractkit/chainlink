@@ -108,7 +108,7 @@ jobs:
               - 'core/**/migrations/*.sql'
               - 'core/**/config/**/*.toml'
               - 'integration-tests/**/*.toml'
-            keystone_changes:
+            cre_changes:
               - *core_changes
               - 'contracts/src/**/keystone/**'
               - 'core/gethwrappers/keystone/**'
@@ -126,7 +126,7 @@ jobs:
       github_ci_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.github_ci_changes }}
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
-      keystone_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.keystone_changes }}
+      cre_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.cre_changes }}
 
   build-chainlink:
     environment: integration
@@ -163,7 +163,7 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
           set-git-config: "true"
       - name: Build Chainlink Image
-        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.keystone_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
+        if: needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true' || github.event_name == 'workflow_dispatch'
         uses: ./.github/actions/build-chainlink-image
         with:
           tag_suffix: ${{ matrix.image.tag-suffix }}
@@ -173,8 +173,8 @@ jobs:
           AWS_ROLE_TO_ASSUME: ${{ secrets.QA_AWS_ROLE_TO_ASSUME }}
           dep_evm_sha: ${{ inputs.evm-ref }}
 
-  run-core-e2e-keystone-tests-for-pr:
-    name: Run Core Keystone Engine E2E Tests For PR
+  run-core-cre-e2e-tests-for-pr:
+    name: Run Core CRE E2E Tests For PR
     permissions:
       actions: read
       checks: write
@@ -182,13 +182,13 @@ jobs:
       id-token: write
       contents: read
     needs: [build-chainlink, changes]
-    if: github.event_name == 'pull_request' && ( needs.changes.outputs.keystone_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
+    if: github.event_name == 'pull_request' && ( needs.changes.outputs.cre_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
     uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@83c6d1a2ef58364ca7c5792ab56f44f7f6995a0c
     with:
-      workflow_name: Run Core Workflow Engine Tests For PR
+      workflow_name: Run Core CRE Tests For PR
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
-      test_trigger: PR Workflow Engine E2E Core Tests
+      test_trigger: PR CRE E2E Core Tests
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_
       enable_otel_traces_for_ocr2_plugins: ${{ contains(join(github.event.pull_request.labels.*.name, ' '), 'enable tracing') }}
@@ -384,7 +384,7 @@ jobs:
     if: always()
     name: ETH Smoke Tests
     runs-on: ubuntu-latest
-    needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-e2e-keystone-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
+    needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-cre-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     steps:
       - name: Check Core test results
         id: check_core_results
@@ -396,11 +396,11 @@ jobs:
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
           echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
 
-      - name: Check Core Keystone test results
-        id: check_core_keystone_results
+      - name: Check Core CRE test results
+        id: check_core_cre_results
         run: |
-          results='${{ needs.run-core-e2e-keystone-tests-for-pr.outputs.test_results }}'
-          echo "Keystone e2e test results:"
+          results='${{ needs.run-core-cre-e2e-tests-for-pr.outputs.test_results }}'
+          echo "CRE e2e test results:"
           echo "$results" | jq .
 
           node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
@@ -428,6 +428,10 @@ jobs:
 
       - name: Fail the job if core tests in PR not successful
         if: always() && needs.run-core-e2e-tests-for-pr.result == 'failure'
+        run: exit 1
+
+      - name: Fail the job if CRE tests in PR not successful
+        if: always() && needs.run-core-cre-e2e-tests-for-pr.result == 'failure'
         run: exit 1
 
       - name: Fail the job if core tests in merge queue not successful

@@ -10,15 +10,14 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/libocr/ragep2p/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var libp2pPBPrefix = []byte{0x08, 0x01, 0x12, 0x40}
 
-// Raw is an encoded protocol buffer.
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
-	privKey, err := UnmarshalPrivateKey(raw)
+func KeyFor(raw internal.Raw) KeyV2 {
+	privKey, err := unmarshalPrivateKey(raw)
 	if err != nil {
 		panic(err)
 	}
@@ -29,23 +28,15 @@ func (raw Raw) Key() KeyV2 {
 	return key
 }
 
-func UnmarshalPrivateKey(raw Raw) (ed25519.PrivateKey, error) {
-	if !bytes.HasPrefix(raw, libp2pPBPrefix) {
+func unmarshalPrivateKey(raw internal.Raw) (ed25519.PrivateKey, error) {
+	if !bytes.HasPrefix(raw.Bytes(), libp2pPBPrefix) {
 		return nil, errors.New("invalid key: missing libp2p protobuf prefix")
 	}
-	return ed25519.PrivateKey(raw[len(libp2pPBPrefix):]), nil
+	return raw.Bytes()[len(libp2pPBPrefix):], nil
 }
 
-func MarshalPrivateKey(key ed25519.PrivateKey) ([]byte, error) {
+func marshalPrivateKey(key ed25519.PrivateKey) ([]byte, error) {
 	return bytes.Join([][]byte{libp2pPBPrefix, key}, nil), nil
-}
-
-func (raw Raw) String() string {
-	return "<P2P Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -78,12 +69,12 @@ func (key KeyV2) ID() string {
 	return types.PeerID(key.peerID).String()
 }
 
-func (key KeyV2) Raw() Raw {
-	marshalledPrivK, err := MarshalPrivateKey(key.PrivKey)
+func (key KeyV2) Raw() internal.Raw {
+	marshalledPrivK, err := marshalPrivateKey(key.PrivKey)
 	if err != nil {
 		panic(err)
 	}
-	return marshalledPrivK
+	return internal.NewRaw(marshalledPrivK)
 }
 
 func (key KeyV2) PeerID() PeerID {

@@ -52,7 +52,7 @@ func (c CSASigner) Sign(ctx context.Context, account string, data []byte) (signe
 	if data == nil {
 		return nil, nil
 	}
-	return k.PrivateKey().Sign(rand.Reader, data, crypto.Hash(0))
+	return k.Signer().Sign(rand.Reader, data, crypto.Hash(0))
 }
 
 type csa struct {

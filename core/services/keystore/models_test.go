@@ -11,7 +11,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/cosmoskey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocrkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -31,11 +30,11 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 		ocrkey.MustNewV2XXXTestingOnly(big.NewInt(2)),
 	}
 	var ocr2 []ocr2key.KeyBundle
-	var ocr2_raw []ocr2key.Raw
+	ocr2Raw := make([][]byte, 0, len(chaintype.SupportedChainTypes))
 	for _, chain := range chaintype.SupportedChainTypes {
 		key := ocr2key.MustNewInsecure(rand.Reader, chain)
 		ocr2 = append(ocr2, key)
-		ocr2_raw = append(ocr2_raw, key.Raw())
+		ocr2Raw = append(ocr2Raw, key.Raw().Bytes())
 	}
 	p2p1, p2p2 := p2pkey.MustNewV2XXXTestingOnly(big.NewInt(1)), p2pkey.MustNewV2XXXTestingOnly(big.NewInt(2))
 	sol1, sol2 := solkey.MustNewInsecure(rand.Reader), solkey.MustNewInsecure(rand.Reader)
@@ -43,15 +42,15 @@ func TestKeyRing_Encrypt_Decrypt(t *testing.T) {
 	tk1, tk2 := cosmoskey.MustNewInsecure(rand.Reader), cosmoskey.MustNewInsecure(rand.Reader)
 	uk1, uk2 := tronkey.MustNewInsecure(rand.Reader), tronkey.MustNewInsecure(rand.Reader)
 	originalKeyRingRaw := rawKeyRing{
-		CSA:    []csakey.Raw{csa1.Raw(), csa2.Raw()},
-		Eth:    []ethkey.Raw{eth1.Raw(), eth2.Raw()},
-		OCR:    []ocrkey.Raw{ocr[0].Raw(), ocr[1].Raw()},
-		OCR2:   ocr2_raw,
-		P2P:    []p2pkey.Raw{p2p1.Raw(), p2p2.Raw()},
-		Solana: []solkey.Raw{sol1.Raw(), sol2.Raw()},
-		VRF:    []vrfkey.Raw{vrf1.Raw(), vrf2.Raw()},
-		Cosmos: []cosmoskey.Raw{tk1.Raw(), tk2.Raw()},
-		Tron:   []tronkey.Raw{uk1.Raw(), uk2.Raw()},
+		CSA:    [][]byte{csa1.Raw().Bytes(), csa2.Raw().Bytes()},
+		Eth:    [][]byte{eth1.Raw().Bytes(), eth2.Raw().Bytes()},
+		OCR:    [][]byte{ocr[0].Raw().Bytes(), ocr[1].Raw().Bytes()},
+		OCR2:   ocr2Raw,
+		P2P:    [][]byte{p2p1.Raw().Bytes(), p2p2.Raw().Bytes()},
+		Solana: [][]byte{sol1.Raw().Bytes(), sol2.Raw().Bytes()},
+		VRF:    [][]byte{vrf1.Raw().Bytes(), vrf2.Raw().Bytes()},
+		Cosmos: [][]byte{tk1.Raw().Bytes(), tk2.Raw().Bytes()},
+		Tron:   [][]byte{uk1.Raw().Bytes(), uk2.Raw().Bytes()},
 	}
 	originalKeyRing, kerr := originalKeyRingRaw.keys()
 	require.NoError(t, kerr)

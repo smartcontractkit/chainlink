@@ -87,7 +87,6 @@ func SmokeTestVRF(e helpers.Environment) {
 	// generate VRF key
 	key, err := vrfkey.NewV2()
 	helpers.PanicErr(err)
-	fmt.Println("vrf private key:", hexutil.Encode(key.Raw()))
 	fmt.Println("vrf public key:", key.PublicKey.String())
 	fmt.Println("vrf key hash:", key.PublicKey.MustHash())
 

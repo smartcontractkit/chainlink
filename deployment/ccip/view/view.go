@@ -14,6 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/helpers"
 )
 
+// ChainView is a json-persistable structure that represents chain state. Store all versions of CCIP contracts
+// CCIP observability relies on ChainView. When making changes that makes final json backward incompatible, warn CCIP observability team
 type ChainView struct {
 	ChainSelector uint64 `json:"chainSelector,omitempty"`
 	ChainID       string `json:"chainID,omitempty"`
