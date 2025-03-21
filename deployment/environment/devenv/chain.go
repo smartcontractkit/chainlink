@@ -17,7 +17,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/ethereum/go-ethereum/crypto"
-	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
@@ -191,6 +190,8 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 						return blockNumber, nil
 					},
 				})
+
+				return nil
 			}
 
 			if chainCfg.ChainType == SolChainType {

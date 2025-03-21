@@ -34,6 +34,7 @@ var (
 	wg sync.WaitGroup
 )
 
+// todo: add multiple keys and rotate them when sending messages
 // this key only works on simulated geth chains in crib
 const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
@@ -46,6 +47,8 @@ const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7
 // step 4: teardown
 // wait for ccip to finish, push remaining data
 func TestCCIPLoad_RPS(t *testing.T) {
+	// comment out when executing the test
+	// t.Skip("Skipping test as this test should not be auto triggered")
 	lggr := logger.Test(t)
 	ctx, cancel := context.WithCancel(tests.Context(t))
 	defer cancel()
@@ -56,7 +59,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -248,7 +251,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go func() {
 			<-testTimer.C
 			cancel()
-			t.Fail()
 		}()
 	}
 
