@@ -133,7 +133,7 @@ require (
 	github.com/dgraph-io/badger/v4 v4.3.0 // indirect
 	github.com/dgraph-io/ristretto v0.1.2-0.20240116140435-c67e07994f91 // indirect
 	github.com/distribution/reference v0.6.0 // indirect
-	github.com/docker/docker v27.3.1+incompatible // indirect
+	github.com/docker/docker v27.4.1+incompatible // indirect
 	github.com/docker/go-connections v0.5.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/dominikbraun/graph v0.23.0 // indirect
@@ -338,8 +338,8 @@ require (
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.46 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250320090719-315440f5b0a7 // indirect
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250319145818-73e7ea68d9fe // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250320162139-28994272f7ef // indirect
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250320162139-28994272f7ef // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250319152737-3be36043bbaf // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250317154237-afa0f9b81806 // indirect
@@ -348,7 +348,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250319160959-3d984cad7f91 // indirect
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250320205028-0f3866177830 // indirect
 	github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 // indirect
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298 // indirect
 	github.com/smartcontractkit/mcms v0.14.0 // indirect
@@ -390,7 +390,7 @@ require (
 	go.opencensus.io v0.24.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.1.0 // indirect
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.56.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.59.0 // indirect
 	go.opentelemetry.io/otel v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.10.0 // indirect

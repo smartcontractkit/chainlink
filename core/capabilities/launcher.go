@@ -272,7 +272,8 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 		case capabilities.CapabilityTypeTrigger:
 			newTriggerFn := func(info capabilities.CapabilityInfo) (capabilityService, error) {
 				var aggregator remotetypes.Aggregator
-				if strings.HasPrefix(info.ID, "streams-trigger") {
+				switch {
+				case strings.HasPrefix(info.ID, "streams-trigger@1"): // legacy streams trigger
 					codec := streams.NewCodec(w.lggr)
 
 					signers, err := signersFor(remoteDON, state)
@@ -287,7 +288,23 @@ func (w *launcher) addRemoteCapabilities(ctx context.Context, myDON registrysync
 						info.ID,
 						w.lggr,
 					)
-				} else {
+				case strings.HasPrefix(info.ID, "streams-trigger@2"): // LLO
+					// TODO: add a flag in capability onchain config to indicate whether it's OCR based
+					// the "SignedReport" aggregator is generic
+					signers, err := signersFor(remoteDON, state)
+					if err != nil {
+						return nil, err
+					}
+
+					const maxAgeSec = 120 // TODO move to capability onchain config
+					aggregator = aggregation.NewSignedReportRemoteAggregator(
+						signers,
+						int(remoteDON.F+1),
+						info.ID,
+						maxAgeSec,
+						w.lggr,
+					)
+				default:
 					aggregator = aggregation.NewDefaultModeAggregator(uint32(remoteDON.F) + 1)
 				}
 
