@@ -61,7 +61,6 @@ func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig)
 			if gotVersion != allowedVersion {
 				return fmt.Errorf("invalid RewardManager version: got %s, allowed %s", gotVersion, allowedVersion)
 			}
-
 		}
 	}
 
