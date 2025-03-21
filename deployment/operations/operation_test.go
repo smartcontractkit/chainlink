@@ -69,3 +69,17 @@ func Test_Operation_Execute(t *testing.T) {
 	assert.Equal(t, version.String(), entry.ContextMap()["version"])
 	assert.Equal(t, description, entry.ContextMap()["description"])
 }
+
+func Test_Operation_WithEmptyInput(t *testing.T) {
+	t.Parallel()
+
+	handler := func(b Bundle, deps OpDeps, _ EmptyInput) (int, error) {
+		return 1, nil
+	}
+	op := NewOperation("return-1", semver.MustParse("1.0.0"), "return 1", handler)
+
+	out, err := op.execute(NewBundle(context.Background, logger.Test(t), nil), OpDeps{}, EmptyInput{})
+
+	require.NoError(t, err)
+	assert.Equal(t, 1, out)
+}
