@@ -90,7 +90,12 @@ func DecodeErrorStringFromABI(errorString string) (string, error) {
 				if errorName == "ExecutionError" || errorName == "TokenRateLimitError" || errorName == "TokenHandlingError" || errorName == "ReceiverError" {
 					// Get the inner type, which is `bytes`
 					fmt.Printf("Error is \"%v\" \ninner error: ", errorName)
-					errorBytes := v.([]interface{})[0].([]byte)
+					var errorBytes []byte
+					if errorName == "TokenHandlingError" {
+						errorBytes = v.([]interface{})[1].([]byte)
+					} else {
+						errorBytes = v.([]interface{})[0].([]byte)
+					}
 					if len(errorBytes) < 4 {
 						return "[reverted without error code]", nil
 					}

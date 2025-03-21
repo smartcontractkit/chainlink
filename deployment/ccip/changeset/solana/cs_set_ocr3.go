@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -10,7 +11,6 @@ import (
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -112,8 +112,17 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			authority = e.SolChains[remote].DeployerKey.PublicKey()
 		}
 		for _, arg := range args {
+			var ocrType solOffRamp.OcrPluginType
+			switch arg.OCRPluginType {
+			case OcrCommitPlugin:
+				ocrType = solOffRamp.Commit_OcrPluginType
+			case OcrExecutePlugin:
+				ocrType = solOffRamp.Execution_OcrPluginType
+			default:
+				return deployment.ChangesetOutput{}, errors.New("invalid OCR plugin type")
+			}
 			instruction, err := solOffRamp.NewSetOcrConfigInstruction(
-				ccip_offramp.OcrPluginType(arg.OCRPluginType),
+				ocrType,
 				solOffRamp.Ocr3ConfigInfo{
 					ConfigDigest:                   arg.ConfigDigest,
 					F:                              arg.F,

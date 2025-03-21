@@ -43,7 +43,7 @@ func TestPeriodicBackup_RunBackup(t *testing.T) {
 	file, err := os.Stat(result.path)
 	require.NoError(t, err, "error not nil when checking for output file")
 
-	assert.Greater(t, file.Size(), int64(0))
+	assert.Positive(t, file.Size())
 	assert.Equal(t, file.Size(), result.size)
 	assert.Contains(t, result.path, "backup/cl_backup_0.9.9")
 	assert.NotContains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
@@ -62,7 +62,7 @@ func TestPeriodicBackup_RunBackupInLiteMode(t *testing.T) {
 	file, err := os.Stat(result.path)
 	require.NoError(t, err, "error not nil when checking for output file")
 
-	assert.Greater(t, file.Size(), int64(0))
+	assert.Positive(t, file.Size())
 	assert.Equal(t, file.Size(), result.size)
 	assert.Contains(t, result.path, "backup/cl_backup_0.9.9")
 	assert.Contains(t, result.pgDumpArguments, "--exclude-table-data=pipeline_task_runs")
@@ -81,7 +81,7 @@ func TestPeriodicBackup_RunBackupWithoutVersion(t *testing.T) {
 	file, err := os.Stat(result.path)
 	require.NoError(t, err, "error not nil when checking for output file")
 
-	assert.Greater(t, file.Size(), int64(0))
+	assert.Positive(t, file.Size())
 	assert.Equal(t, file.Size(), result.size)
 	assert.Contains(t, result.path, "backup/cl_backup_unset")
 }
@@ -116,7 +116,7 @@ func TestPeriodicBackup_AlternativeOutputDir(t *testing.T) {
 	file, err := os.Stat(result.path)
 	require.NoError(t, err, "error not nil when checking for output file")
 
-	assert.Greater(t, file.Size(), int64(0))
+	assert.Positive(t, file.Size())
 	assert.Contains(t, result.path, "/alternative/cl_backup_0.9.9.dump")
 }
 

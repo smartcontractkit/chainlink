@@ -19,6 +19,10 @@ import (
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
+<<<<<<< HEAD
+=======
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+>>>>>>> 9f63e286e59e0de9fb5ffca561d8c002a30c93b3
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
@@ -33,7 +37,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
-func Test_CCIPMessaging(t *testing.T) {
+func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
@@ -208,10 +212,13 @@ func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, er
 	return append(tagBytes, v...), err
 }
 
-func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
+func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+
+	// TODO: do this as part of setup
+	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
 
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
@@ -266,11 +273,13 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 			receiverTargetAccountPDA,
 			solana.SystemProgramID,
 		}
-		extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
-			// Accounts: accounts,
-		})
 
+		extraArgs, err := SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                accounts,
+		})
 		require.NoError(t, err)
+
 		out = mt.Run(
 			mt.TestCase{
 				TestSetup:              setup,
@@ -295,7 +304,7 @@ func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	fmt.Printf("out: %v\n", out)
 }
 
-func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
+func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
 	// Setup 2 chains (EVM and Solana) and a single lane.
 	ctx := testhelpers.Context(t)
 	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))

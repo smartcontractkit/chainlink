@@ -78,7 +78,7 @@ func (p *EthTxPresenter) RenderTable(rt RendererTable) error {
 		p.From.Hex(),
 		p.Nonce,
 		p.To.Hex(),
-		fmt.Sprint(p.State),
+		p.State,
 	})
 
 	render(fmt.Sprintf("Ethereum Transaction %v", p.Hash.Hex()), table)
@@ -97,7 +97,7 @@ func (ps EthTxPresenters) RenderTable(rt RendererTable) error {
 			p.From.Hex(),
 			p.GasPrice,
 			p.SentAt,
-			fmt.Sprint(p.State),
+			p.State,
 		})
 	}
 

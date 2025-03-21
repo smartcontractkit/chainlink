@@ -3,6 +3,7 @@ package registrysyncer
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"math/big"
@@ -140,7 +141,7 @@ func (orm orm) AddLocalRegistry(ctx context.Context, localRegistry LocalRegistry
 		_, err = tx.ExecContext(
 			ctx,
 			`INSERT INTO registry_syncer_states (data, data_hash) VALUES ($1, $2) ON CONFLICT (data_hash) DO NOTHING`,
-			localRegistryJSON, fmt.Sprintf("%x", hash[:]),
+			localRegistryJSON, hex.EncodeToString(hash[:]),
 		)
 		if err != nil {
 			return err

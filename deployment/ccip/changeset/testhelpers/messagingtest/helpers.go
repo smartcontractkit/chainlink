@@ -151,11 +151,10 @@ func Run(tc TestCase) (out TestCaseOutput) {
 
 	startBlocks := make(map[uint64]*uint64)
 
-	var msg any
-
 	family, err := chain_selectors.GetSelectorFamily(tc.SourceChain)
 	require.NoError(tc.T, err)
 
+	var msg any
 	switch family {
 	case chain_selectors.FamilyEVM:
 		msg = router.ClientEVM2AnyMessage{

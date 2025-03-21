@@ -2,7 +2,7 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 
@@ -73,7 +73,7 @@ func TestCommitConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedValidationError: fmt.Errorf("aggregator contract address is zero"),
+			expectedValidationError: errors.New("aggregator contract address is zero"),
 		},
 		{
 			name: "missing chain ID",
@@ -101,7 +101,7 @@ func TestCommitConfig(t *testing.T) {
 					},
 				},
 			},
-			expectedValidationError: fmt.Errorf("chain id is zero"),
+			expectedValidationError: errors.New("chain id is zero"),
 		},
 	}
 
@@ -193,7 +193,7 @@ func TestUSDCValidate(t *testing.T) {
 
 	for _, tc := range testcases {
 		tc := tc
-		t.Run(fmt.Sprintf("error = %s", tc.err), func(t *testing.T) {
+		t.Run("error = "+tc.err, func(t *testing.T) {
 			t.Parallel()
 			err := tc.config.ValidateUSDCConfig()
 			if tc.err != "" {

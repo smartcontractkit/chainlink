@@ -377,15 +377,15 @@ func TestORM_ListUsers_Full(t *testing.T) {
 	users, err := ldapAuthProvider.ListUsers(ctx)
 	require.NoError(t, err)
 	require.Equal(t, users[0].Email, user1.Email)
-	require.Equal(t, users[0].Role, sessions.UserRoleAdmin)
+	require.Equal(t, sessions.UserRoleAdmin, users[0].Role)
 	require.Equal(t, users[1].Email, user3.Email) // User 2 inactive
-	require.Equal(t, users[1].Role, sessions.UserRoleEdit)
+	require.Equal(t, sessions.UserRoleEdit, users[1].Role)
 	require.Equal(t, users[2].Email, user4.Email)
-	require.Equal(t, users[2].Role, sessions.UserRoleRun)
+	require.Equal(t, sessions.UserRoleRun, users[2].Role)
 	require.Equal(t, users[3].Email, user6.Email) // User 5 inactive
-	require.Equal(t, users[3].Role, sessions.UserRoleView)
-	require.Equal(t, users[4].Email, cltest.APIEmailAdmin) // Text fixture user is local admin included as well
-	require.Equal(t, users[4].Role, sessions.UserRoleAdmin)
+	require.Equal(t, sessions.UserRoleView, users[3].Role)
+	require.Equal(t, cltest.APIEmailAdmin, users[4].Email) // Text fixture user is local admin included as well
+	require.Equal(t, sessions.UserRoleAdmin, users[4].Role)
 }
 
 func TestORM_CreateSession_UpstreamBind(t *testing.T) {

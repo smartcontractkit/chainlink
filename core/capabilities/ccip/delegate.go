@@ -7,9 +7,10 @@ import (
 	"strconv"
 	"time"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	"golang.org/x/exp/maps"
 
 	"github.com/avast/retry-go/v4"
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"

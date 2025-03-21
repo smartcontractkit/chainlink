@@ -15,9 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
-	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 var (
@@ -122,12 +119,39 @@ func (r ReportCodecEVMABIEncodeUnpacked) Encode(ctx context.Context, report llo.
 		return nil, fmt.Errorf("failed to build base report; %w", err)
 	}
 
-	payload, err := r.buildPayload(ctx, opts.ABI, report.Values[2:])
+	payload, err := buildPayload(ctx, opts.ABI, report.Values[2:])
 	if err != nil {
 		return nil, fmt.Errorf("failed to build payload; %w", err)
 	}
 
 	return append(header, payload...), nil
+}
+
+func buildPayload(ctx context.Context, encoders []ABIEncoder, values []llo.StreamValue) (payload []byte, merr error) {
+	if len(encoders) != len(values) {
+		return nil, fmt.Errorf("ABI and values length mismatch; ABI: %d, Values: %d", len(encoders), len(values))
+	}
+
+	for i, encoder := range encoders {
+		b, err := encoder.EncodePadded(ctx, values[i])
+		if err != nil {
+			var vStr []byte
+			if values[i] == nil {
+				vStr = []byte("<nil>")
+			} else {
+				var marshalErr error
+				vStr, marshalErr = values[i].MarshalText()
+				if marshalErr != nil {
+					vStr = []byte(fmt.Sprintf("%v(failed to marshal: %s)", values[i], marshalErr))
+				}
+			}
+			merr = errors.Join(merr, fmt.Errorf("failed to encode stream value %s at index %d with abi %q; %w", string(vStr), i, encoder.Type, err))
+			continue
+		}
+		payload = append(payload, b...)
+	}
+
+	return payload, merr
 }
 
 func (r ReportCodecEVMABIEncodeUnpacked) Verify(_ context.Context, cd llotypes.ChannelDefinition) error {
@@ -195,91 +219,4 @@ func (r ReportCodecEVMABIEncodeUnpacked) buildHeader(ctx context.Context, rf Bas
 		return nil, fmt.Errorf("failed to pack base report blob; %w", err)
 	}
 	return b, nil
-}
-
-func (r ReportCodecEVMABIEncodeUnpacked) buildPayload(ctx context.Context, encoders []ABIEncoder, values []llo.StreamValue) (payload []byte, merr error) {
-	if len(encoders) != len(values) {
-		return nil, fmt.Errorf("ABI and values length mismatch; ABI: %d, Values: %d", len(encoders), len(values))
-	}
-
-	for i, encoder := range encoders {
-		b, err := encoder.Encode(ctx, values[i])
-		if err != nil {
-			var vStr []byte
-			if values[i] == nil {
-				vStr = []byte("<nil>")
-			} else {
-				var marshalErr error
-				vStr, marshalErr = values[i].MarshalText()
-				if marshalErr != nil {
-					vStr = []byte(fmt.Sprintf("%v(failed to marshal: %s)", values[i], marshalErr))
-				}
-			}
-			merr = errors.Join(merr, fmt.Errorf("failed to encode stream value %s at index %d with abi %q; %w", string(vStr), i, encoder.Type, err))
-			continue
-		}
-		payload = append(payload, b...)
-	}
-
-	return payload, merr
-}
-
-// An ABIEncoder encodes exactly one stream value into a byte slice
-type ABIEncoder struct {
-	// StreamID is the ID of the stream that this encoder is responsible for.
-	// MANDATORY
-	StreamID llotypes.StreamID `json:"streamID"`
-	// Type is the ABI type of the stream value. E.g. "uint192", "int256", "bool", "string" etc.
-	// MANDATORY
-	Type string `json:"type"`
-	// Multiplier, if provided, will be multiplied with the stream value before
-	// encoding.
-	// OPTIONAL
-	Multiplier *ubig.Big `json:"multiplier"`
-}
-
-// getNormalizedMultiplier returns the multiplier as a decimal.Decimal, defaulting
-// to 1 if the multiplier is nil.
-//
-// Negative multipliers are ok and will work as expected, flipping the sign of
-// the value.
-func (a ABIEncoder) getNormalizedMultiplier() (multiplier decimal.Decimal) {
-	if a.Multiplier == nil {
-		multiplier = decimal.NewFromInt(1)
-	} else {
-		multiplier = decimal.NewFromBigInt(a.Multiplier.ToInt(), 0)
-	}
-	return
-}
-
-func (a ABIEncoder) applyMultiplier(d decimal.Decimal) *big.Int {
-	return d.Mul(a.getNormalizedMultiplier()).BigInt()
-}
-
-func (a ABIEncoder) Encode(ctx context.Context, sv llo.StreamValue) ([]byte, error) {
-	var encode interface{}
-	switch sv := sv.(type) {
-	case *llo.Decimal:
-		if sv == nil {
-			return nil, fmt.Errorf("expected non-nil *Decimal; got: %v", sv)
-		}
-		encode = a.applyMultiplier(sv.Decimal())
-	default:
-		return nil, fmt.Errorf("unhandled type; supported types are: *llo.Decimal; got: %T", sv)
-	}
-	evmEncoderConfig := fmt.Sprintf(`[{"Name":"streamValue","Type":"%s"}]`, a.Type)
-
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
-		"evm": {TypeABI: evmEncoderConfig},
-	}}
-	c, err := codec.NewCodec(codecConfig)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create codec; %w", err)
-	}
-
-	result, err := c.Encode(ctx, map[string]any{"streamValue": encode}, "evm")
-	if err != nil {
-		return nil, fmt.Errorf("failed to encode stream value %v with ABI type %q; %w", sv, a.Type, err)
-	}
-	return result, nil
 }

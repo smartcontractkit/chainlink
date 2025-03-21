@@ -99,7 +99,7 @@ func TestScheduler(t *testing.T) {
 			assertion: func(t *testing.T, p Pipeline, results map[int]TaskRunResult) {
 				result := results[p.ByDotID("a").ID()]
 				// a has no errors
-				require.Equal(t, nil, result.Result.Error)
+				require.NoError(t, result.Result.Error)
 				require.Equal(t, 1, result.Result.Value)
 				require.Equal(t, uint(2), result.Attempts)
 			},

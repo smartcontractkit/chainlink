@@ -38,13 +38,45 @@ runner-test-matrix:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPMessageLimitations" -timeout 12m -test.parallel=2 -count=1 -json
 
-  - id: smoke/ccip/ccip_batching_test.go:*
+  - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MaxBatchSizeEVM
     path: integration-tests/smoke/ccip/ccip_batching_test.go
     test_env_type: in-memory
     runs_on: ubuntu-latest
     triggers:
       - PR Integration CCIP Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test ccip_batching_test.go -timeout 25m -test.parallel=2 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -test.parallel=2 -count=1 -json
+  
+  - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource
+    path: integration-tests/smoke/ccip/ccip_batching_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_MultiSource" -timeout 25m -test.parallel=2 -count=1 -json
+
+  - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiReports
+    path: integration-tests/smoke/ccip/ccip_batching_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_MultiSource_MultiReports" -timeout 25m -test.parallel=2 -count=1 -json
+
+  - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
+    path: integration-tests/smoke/ccip/ccip_batching_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_SingleSource" -timeout 25m -test.parallel=2 -count=1 -json
+  
+  - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultipleReports
+    path: integration-tests/smoke/ccip/ccip_batching_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_SingleSource_MultipleReports" -timeout 25m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_add_chain_test.go:*
     path: integration-tests/smoke/ccip/ccip_add_chain_test.go

@@ -46,39 +46,46 @@ func (skr *solanaKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, repo
 }
 
 func (skr *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
-	return skr.signBlob(skr.reportToSigData(reportCtx, report))
+	return skr.SignBlob(skr.reportToSigData(reportCtx, report))
 }
 
 func (skr *solanaKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return skr.signBlob(skr.reportToSigData3(digest, seqNr, r))
+	bytes, err := skr.reportToSigData3(digest, seqNr, r)
+	if err != nil {
+		return nil, err
+	}
+	return skr.SignBlob(bytes)
 }
 
-func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
+func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
 	rawReportContext := RawReportContext3(digest, seqNr)
 	h := sha3.NewLegacyKeccak256()
 	reportLen := uint16(len(r)) //nolint:gosec // max U16 larger than solana transaction size
-	binary.Write(h, binary.LittleEndian, reportLen)
+	err := binary.Write(h, binary.LittleEndian, reportLen)
 	h.Write(r)
 	h.Write(rawReportContext[0][:])
 	h.Write(rawReportContext[1][:])
-	return h.Sum(nil)
+	return h.Sum(nil), err
 }
 
-func (skr *solanaKeyring) signBlob(b []byte) (sig []byte, err error) {
+func (skr *solanaKeyring) SignBlob(b []byte) (sig []byte, err error) {
 	return crypto.Sign(b, &skr.privateKey)
 }
 
 func (skr *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	hash := skr.reportToSigData(reportCtx, report)
-	return skr.verifyBlob(publicKey, hash, signature)
+	return skr.VerifyBlob(publicKey, hash, signature)
 }
 
 func (skr *solanaKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	hash := skr.reportToSigData3(cd, seqNr, r)
-	return skr.verifyBlob(publicKey, hash, signature)
+	hash, err := skr.reportToSigData3(cd, seqNr, r)
+	if err != nil {
+		return false
+	}
+	return skr.VerifyBlob(publicKey, hash, signature)
 }
 
-func (skr *solanaKeyring) verifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
+func (skr *solanaKeyring) VerifyBlob(pubkey types.OnchainPublicKey, b, sig []byte) bool {
 	authorPubkey, err := crypto.SigToPub(b, sig)
 	if err != nil {
 		return false

@@ -4,12 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"slices"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"go.uber.org/multierr"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
@@ -67,10 +70,11 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	d.logger.Debugw("Creating services for job spec", "job", string(marshalledJob))
 
-	chain, err := d.legacyChains.Get(jb.BlockHeaderFeederSpec.EVMChainID.String())
+	cid := jb.BlockHeaderFeederSpec.EVMChainID.ToInt()
+	chain, err := d.legacyChains.Get(cid.String())
 	if err != nil {
 		return nil, fmt.Errorf(
-			"getting chain ID %d: %w", jb.BlockHeaderFeederSpec.EVMChainID.ToInt(), err)
+			"getting chain ID %s: %w", cid, err)
 	}
 
 	if !d.cfg.Feature().LogPoller() {
@@ -83,14 +87,15 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			chain.Config().EVM().FinalityDepth(), jb.BlockHeaderFeederSpec.LookbackBlocks)
 	}
 
-	keys, err := d.ks.EnabledKeysForChain(ctx, chain.ID())
+	ks := keys.NewChainStore(keystore.NewEthSigner(d.ks, cid), cid)
+	enabled, err := ks.EnabledAddresses(ctx)
 	if err != nil {
 		return nil, errors.Wrap(err, "getting sending keys")
 	}
-	if len(keys) == 0 {
+	if len(enabled) == 0 {
 		return nil, fmt.Errorf("missing sending keys for chain ID: %v", chain.ID())
 	}
-	if err = CheckFromAddressesExist(ctx, jb, d.ks); err != nil {
+	if err = CheckFromAddressesExist(jb, enabled); err != nil {
 		return nil, err
 	}
 	fromAddresses := jb.BlockHeaderFeederSpec.FromAddresses
@@ -149,19 +154,23 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 		coordinators = append(coordinators, coord)
 	}
 
-	bpBHS, err := blockhashstore.NewBulletproofBHS(chain.Config().EVM().GasEstimator(), d.cfg.Database(), fromAddresses, chain.TxManager(), bhs, nil, chain.ID(), d.ks)
+	bpBHS, err := blockhashstore.NewBulletproofBHS(
+		chain.Config().EVM().GasEstimator(),
+		d.cfg.Database(),
+		fromAddresses,
+		chain.TxManager(),
+		bhs,
+		nil,
+		ks,
+	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building bulletproof bhs")
 	}
 
 	batchBHS, err := blockhashstore.NewBatchBHS(
 		chain.Config().EVM().GasEstimator(),
-		fromAddresses,
 		chain.TxManager(),
 		batchBlockhashStore,
-		chain.ID(),
-		d.ks,
-		d.logger,
 	)
 	if err != nil {
 		return nil, errors.Wrap(err, "building batchBHS")
@@ -191,11 +200,10 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 			}
 			return uint64(head.Number), nil
 		},
-		d.ks,
+		ks,
 		jb.BlockHeaderFeederSpec.GetBlockhashesBatchSize,
 		jb.BlockHeaderFeederSpec.StoreBlockhashesBatchSize,
 		fromAddresses,
-		chain.ID(),
 	)
 
 	services := []job.ServiceCtx{&service{
@@ -280,10 +288,11 @@ func (s *service) runFeeder(ctx context.Context) {
 
 // CheckFromAddressesExist returns an error if and only if one of the addresses
 // in the BlockHeaderFeeder spec's fromAddresses field does not exist in the keystore.
-func CheckFromAddressesExist(ctx context.Context, jb job.Job, gethks keystore.Eth) (err error) {
+func CheckFromAddressesExist(jb job.Job, enabled []common.Address) (err error) {
 	for _, a := range jb.BlockHeaderFeederSpec.FromAddresses {
-		_, err2 := gethks.Get(ctx, a.Hex())
-		err = multierr.Append(err, err2)
+		if !slices.Contains(enabled, a.Address()) {
+			err = multierr.Append(err, fmt.Errorf("address not enabled: %s", a.Hex()))
+		}
 	}
 	return
 }

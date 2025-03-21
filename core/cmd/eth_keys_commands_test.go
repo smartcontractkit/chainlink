@@ -103,8 +103,8 @@ func TestShell_ListETHKeys(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Equal(t, "0.000000000000000042", balances[0].EthBalance.String())
@@ -128,8 +128,8 @@ func TestShell_ListETHKeys_Error(t *testing.T) {
 	)
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Nil(t, balances[0].EthBalance)
@@ -149,11 +149,11 @@ func TestShell_ListETHKeys_Disabled(t *testing.T) {
 	client, r := app.NewShellAndRenderer()
 	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(keys))
+	require.Len(t, keys, 1)
 	k := keys[0]
 
-	assert.Nil(t, client.ListETHKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListETHKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	balances := *r.Renders[0].(*cmd.EthKeyPresenters)
 	assert.Equal(t, app.Keys[0].Address.Hex(), balances[0].Address)
 	assert.Nil(t, balances[0].EthBalance)
@@ -187,7 +187,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	cltest.AssertCount(t, db, "evm.key_states", 1) // The initial funding key
 	keys, err := app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 1, len(keys))
+	require.Len(t, keys, 1)
 
 	id := big.NewInt(0)
 
@@ -203,7 +203,7 @@ func TestShell_CreateETHKey(t *testing.T) {
 	cltest.AssertCount(t, db, "evm.key_states", 2)
 	keys, err = app.KeyStore.Eth().GetAll(testutils.Context(t))
 	require.NoError(t, err)
-	require.Equal(t, 2, len(keys))
+	require.Len(t, keys, 2)
 }
 
 func TestShell_DeleteETHKey(t *testing.T) {

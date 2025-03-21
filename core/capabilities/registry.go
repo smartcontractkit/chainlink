@@ -161,22 +161,22 @@ func (r *Registry) Add(ctx context.Context, c capabilities.BaseCapability) error
 	case capabilities.CapabilityTypeTrigger:
 		_, ok := c.(capabilities.TriggerCapability)
 		if !ok {
-			return fmt.Errorf("trigger capability does not satisfy TriggerCapability interface")
+			return errors.New("trigger capability does not satisfy TriggerCapability interface")
 		}
 	case capabilities.CapabilityTypeAction:
 		_, ok := c.(capabilities.ActionCapability)
 		if !ok {
-			return fmt.Errorf("action does not satisfy ActionCapability interface")
+			return errors.New("action does not satisfy ActionCapability interface")
 		}
 	case capabilities.CapabilityTypeConsensus:
 		_, ok := c.(capabilities.ConsensusCapability)
 		if !ok {
-			return fmt.Errorf("consensus capability does not satisfy ConsensusCapability interface")
+			return errors.New("consensus capability does not satisfy ConsensusCapability interface")
 		}
 	case capabilities.CapabilityTypeTarget:
 		_, ok := c.(capabilities.TargetCapability)
 		if !ok {
-			return fmt.Errorf("target capability does not satisfy TargetCapability interface")
+			return errors.New("target capability does not satisfy TargetCapability interface")
 		}
 	default:
 		return fmt.Errorf("unknown capability type: %s", info.CapabilityType)

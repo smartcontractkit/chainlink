@@ -66,10 +66,29 @@ func initAccessController(
 	if chainState.AccessControllerProgram.IsZero() {
 		return errors.New("access controller program is not deployed")
 	}
+	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	_, accessControllerAccountSeed, err := chainState.GetStateFromType(contractType)
+	if err != nil {
+		return fmt.Errorf("failed to get account controller state: %w", err)
+	}
+
+	accessControllerAccount := solana.PublicKeyFromBytes(accessControllerAccountSeed[:])
+	if !accessControllerAccount.IsZero() {
+		var data accessControllerBindings.AccessController
+		err = solanaUtils.GetAccountDataBorshInto(e.GetContext(), chain.Client, accessControllerAccount, rpc.CommitmentConfirmed, &data)
+		if err == nil {
+			e.Logger.Infow("access controller already initialized, skipping initialization", "chain", chain.String())
+			return nil
+		}
+
+		return fmt.Errorf("unable to read access controller account config %s", accessControllerAccount.String())
+	}
+
+	e.Logger.Infow("access controller not initialized, initializing", "chain", chain.String())
+
 	programID := chainState.AccessControllerProgram
 	accessControllerBindings.SetProgramID(programID)
 
-	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 	log := logger.With(e.Logger, "chain", chain.String(), "contract", typeAndVersion.String(), "programID", programID)
 
 	account, err := solana.NewRandomPrivateKey() // FIXME: what should we do with the account private key?

@@ -2,7 +2,7 @@ package blockhashstore
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"testing"
 	"time"
@@ -271,7 +271,7 @@ func TestStartHeartbeats(t *testing.T) {
 
 	t.Run("bhs_heartbeat_sad_path_store_earliest_err", func(t *testing.T) {
 		expectedDuration := 600 * time.Second
-		expectedError := fmt.Errorf("insufficient gas")
+		expectedError := errors.New("insufficient gas")
 		mockBHS := bhsmocks.NewBHS(t)
 		mockLogger := logger.NewMockLogger(t)
 		feeder := NewFeeder(
@@ -337,8 +337,8 @@ func TestStartHeartbeats(t *testing.T) {
 		mockTimer := bhsmocks.NewTimer(t)
 		mockLogger.On("Infow", "Not starting heartbeat blockhash using storeEarliest").Once()
 		require.Len(t, mockLogger.ExpectedCalls, 1)
-		require.Len(t, mockBHS.ExpectedCalls, 0)
-		require.Len(t, mockTimer.ExpectedCalls, 0)
+		require.Empty(t, mockBHS.ExpectedCalls)
+		require.Empty(t, mockTimer.ExpectedCalls)
 		defer mockTimer.AssertExpectations(t)
 		defer mockBHS.AssertExpectations(t)
 		defer mockLogger.AssertExpectations(t)

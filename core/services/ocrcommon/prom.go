@@ -1,7 +1,7 @@
 package ocrcommon
 
 import (
-	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
@@ -38,7 +38,7 @@ func promSetBridgeParseMetrics(ds *inMemoryDataSource, trrs *pipeline.TaskRunRes
 			if nextTask != nil && nextTask.Task.Type() == pipeline.TaskTypeJSONParse {
 				fetchedValue := cast.ToFloat64(nextTask.Result.Value)
 
-				PromBridgeJsonParseValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
+				PromBridgeJsonParseValues.WithLabelValues(strconv.Itoa(int(ds.jb.ID)), ds.jb.Name.String, trr.Task.(*pipeline.BridgeTask).Name, trr.Task.DotID()).Set(fetchedValue)
 			}
 		}
 	}
@@ -60,5 +60,5 @@ func promSetFinalResultMetrics(ds *inMemoryDataSource, finalResult *pipeline.Fin
 		return
 	}
 	finalResultFloat, _ := finalResultDecimal.Float64()
-	PromOcrMedianValues.WithLabelValues(fmt.Sprintf("%d", ds.jb.ID), ds.jb.Name.String).Set(finalResultFloat)
+	PromOcrMedianValues.WithLabelValues(strconv.Itoa(int(ds.jb.ID)), ds.jb.Name.String).Set(finalResultFloat)
 }

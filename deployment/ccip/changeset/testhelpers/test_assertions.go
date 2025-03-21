@@ -448,8 +448,9 @@ func SolEventEmitter[T any](
 	eventType string,
 	startSlot uint64,
 	done chan any,
-) <-chan T {
+) (<-chan T, <-chan error) {
 	ch := make(chan T)
+	errorCh := make(chan error)
 	go func() {
 		ticker := time.NewTicker(2 * time.Second)
 		defer ticker.Stop()
@@ -469,7 +470,10 @@ func SolEventEmitter[T any](
 						Until:      until,
 					},
 				)
-				require.NoError(t, err)
+				if err != nil {
+					errorCh <- err
+					return
+				}
 
 				if len(txSigs) == 0 {
 					continue
@@ -495,15 +499,20 @@ func SolEventEmitter[T any](
 							MaxSupportedTransactionVersion: &v,
 						},
 					)
-					require.NoError(t, err)
-					require.NotNil(t, tx)
+					if err != nil {
+						errorCh <- err
+						return
+					}
 
 					var event T
 					err = solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents)
 					if err != nil && strings.Contains(err.Error(), "event not found") {
 						continue
 					}
-					require.NoError(t, err)
+					if err != nil {
+						errorCh <- err
+						return
+					}
 
 					select {
 					case ch <- event:
@@ -517,7 +526,7 @@ func SolEventEmitter[T any](
 		}
 	}()
 
-	return ch
+	return ch, errorCh
 }
 
 func ConfirmCommitWithExpectedSeqNumRangeSol(
@@ -533,7 +542,7 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventCommitReportAccepted](t, dest.Client, offrampAddress, "CommitReportAccepted", startSlot, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -562,6 +571,8 @@ func ConfirmCommitWithExpectedSeqNumRangeSol(
 				t.Logf("All sequence numbers already committed from range [%d, %d]", expectedSeqNumRange.Start(), expectedSeqNumRange.End())
 				return true, nil
 			}
+		case err := <-errCh:
+			require.NoError(t, err)
 		case <-timeout.C:
 			return false, fmt.Errorf("timed out after waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
@@ -747,7 +758,7 @@ func ConfirmExecWithSeqNrsSol(
 
 	done := make(chan any)
 	defer close(done)
-	sink := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
+	sink, errCh := SolEventEmitter[solccip.EventExecutionStateChanged](t, dest.Client, offrampAddress, "ExecutionStateChanged", startSlot, done)
 
 	timeout := time.NewTimer(tests.WaitTimeout(t))
 	defer timeout.Stop()
@@ -766,6 +777,8 @@ func ConfirmExecWithSeqNrsSol(
 					return executionStates, nil
 				}
 			}
+		case err := <-errCh:
+			require.NoError(t, err)
 		case <-timeout.C:
 			return nil, fmt.Errorf("timed out waiting for ExecutionStateChanged on chain %d (offramp %s) from chain %d with expected sequence numbers %+v",
 				dest.Selector, offrampAddress.String(), srcSelector, expectedSeqNrs)

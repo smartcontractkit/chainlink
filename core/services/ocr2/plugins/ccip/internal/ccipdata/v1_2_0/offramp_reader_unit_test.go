@@ -2,7 +2,7 @@ package v1_2_0
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math/rand"
 	"slices"
 	"testing"
@@ -48,7 +48,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 		{
 			name: "rpc error",
 			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
-				outputs[2].Err = fmt.Errorf("some error")
+				outputs[2].Err = errors.New("some error")
 				return outputs
 			},
 			expErr: true,

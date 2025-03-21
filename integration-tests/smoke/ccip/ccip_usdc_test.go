@@ -110,7 +110,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Amount: tinyOneCoin,
 				}},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{aChainUSDC.Address().Bytes(), tinyOneCoin},
+				{Token: aChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -131,7 +131,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// 2 coins because of the same Receiver
-				{aChainUSDC.Address().Bytes(), new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
+				{Token: aChainUSDC.Address().Bytes(), Amount: new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -151,8 +151,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{cChainUSDC.Address().Bytes(), tinyOneCoin},
-				{cChainToken.Address().Bytes(), new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
+				{Token: cChainToken.Address().Bytes(), Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -169,7 +169,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			},
 			Data: []byte("hello world"),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{cChainUSDC.Address().Bytes(), tinyOneCoin},
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -186,7 +186,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			},
 			Data: []byte("gimme more gas to execute that!"),
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{bChainUSDC.Address().Bytes(), new(big.Int).SetUint64(0)},
+				{Token: bChainUSDC.Address().Bytes(), Amount: new(big.Int).SetUint64(0)},
 			},
 			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
@@ -204,7 +204,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 			},
 			Data: nil,
 			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
-				{cChainUSDC.Address().Bytes(), tinyOneCoin},
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},

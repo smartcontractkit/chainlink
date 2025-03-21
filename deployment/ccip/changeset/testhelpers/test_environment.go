@@ -576,7 +576,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	for _, chain := range solChains {
 		solContractParams[chain] = ccipChangeSetSolana.ChainContractParams{
 			FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
-				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000000000000, Hi: 0, Endianness: nil},
 				BillingConfig: []solFeeQuoter.BillingTokenConfig{
 					{
 						Enabled: true,

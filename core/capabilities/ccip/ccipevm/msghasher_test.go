@@ -21,8 +21,9 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
@@ -359,7 +360,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Borsh encoded extra args
-		ea := fee_quoter.EVMExtraArgsV2{
+		ea := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}

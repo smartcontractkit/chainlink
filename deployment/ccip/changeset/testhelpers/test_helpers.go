@@ -60,6 +60,7 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -531,7 +532,7 @@ func SendRequestSol(
 	base := ccip_router.NewCcipSendInstruction(
 		destinationChainSelector,
 		message,
-		[]byte{}, // starting indices for accounts: TODO:
+		[]byte{}, // starting indices for accounts, calculated later
 		s.RouterConfigPDA,
 		destinationChainStatePDA,
 		noncePDA,
@@ -556,26 +557,73 @@ func SendRequestSol(
 
 	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
 
-	// userTokenAccount, ok := token0.User[user.PublicKey()]
-	// require.True(t, ok)
+	requiredAccounts := len(base.AccountMetaSlice)
+	tokenIndexes := []byte{}
 
-	// tokenMetas, addressTables, err := soltokens.ParseTokenLookupTable(ctx, client, token0, userTokenAccount)
-	// require.NoError(t, err)
-	// base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+	// set config.FeeQuoterProgram and CcipRouterProgram since they point to wrong addresses
+	solconfig.FeeQuoterProgram = s.FeeQuoter
+	solconfig.CcipRouterProgram = s.Router
+
+	// Append token accounts to the account metas
+	for _, tokenAmount := range message.TokenAmounts {
+		token := tokenAmount.Token
+		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
+		if err != nil {
+			return nil, err
+		}
+
+		// Set the token pool's lookup table address
+		var tokenAdminRegistry solRouter.TokenAdminRegistry
+		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
+
+		// invalid config account, maybe this billing stuff isn't right
+
+		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenPool.Chain[cfg.DestChain] = chainPDA
+
+		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenPool.Billing[cfg.DestChain] = billingPDA
+
+		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
+		if err != nil {
+			return nil, err
+		}
+
+		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
+		if err != nil {
+			return nil, err
+		}
+
+		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
+		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
+		maps.Copy(addressTables, tokenAddressTables)
+	}
+	base.SetTokenIndexes(tokenIndexes)
 
 	ix, err := base.ValidateAndBuild()
 	if err != nil {
 		return nil, err
 	}
 
-	// ixApprove, err := soltokens.TokenApproveChecked(1, 0, token0.Program, userTokenAccount, token0.Mint.PublicKey(), solconfig.ExternalTokenPoolsSignerPDA, user.PublicKey(), nil)
-	// require.NoError(t, err)
+	// for some reason onchain doesn't see extraAccounts
 
-	// ixs := []solana.Instruction{ixApprove, ix}
 	ixs := []solana.Instruction{ix}
-	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
-	if err != nil {
-		return nil, err
+	result := soltestutils.SendAndConfirmWithLookupTables(ctx, t, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
+	if result == nil {
+		return nil, fmt.Errorf("failed to send and confirm instruction")
 	}
 
 	// check CCIP event
@@ -586,8 +634,9 @@ func SendRequestSol(
 		return nil, err
 	}
 
-	// require.Equal(t, 1, len(ccipMessageSentEvent.Message.TokenAmounts))
-	// ta := ccipMessageSentEvent.Message.TokenAmounts[0]
+	if len(message.TokenAmounts) != len(ccipMessageSentEvent.Message.TokenAmounts) {
+		return nil, fmt.Errorf("token amounts mismatch")
+	}
 
 	// TODO: fee bumping?
 
@@ -1111,7 +1160,7 @@ func DeployTransferableTokenSolana(
 				ChainSelector: solChainSel,
 				TokenPubkey:   solTokenAddress.String(),
 				AmountToAddress: map[string]uint64{
-					solDeployerKey.String(): uint64(1000),
+					solDeployerKey.String(): uint64(1000e9),
 				},
 			},
 		),
@@ -1155,7 +1204,7 @@ func DeployTransferableTokenSolana(
 					TokenAddress: solTestTokenPool.RemoteAddress{
 						Address: evmToken.Address().Bytes(),
 					},
-					Decimals: 9,
+					Decimals: 18,
 				},
 				InboundRateLimit: solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
@@ -1179,7 +1228,7 @@ func DeployTransferableTokenSolana(
 					MinFeeUsdcents:    800,
 					MaxFeeUsdcents:    1600,
 					DeciBps:           0,
-					DestGasOverhead:   100,
+					DestGasOverhead:   90000,
 					DestBytesOverhead: 100,
 					IsEnabled:         true,
 				},
@@ -1568,7 +1617,7 @@ func Transfer(
 	env deployment.Environment,
 	state changeset.CCIPOnChainState,
 	sourceChain, destChain uint64,
-	tokens []router.ClientEVMTokenAmount,
+	tokens any,
 	receiver []byte,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
@@ -1577,14 +1626,32 @@ func Transfer(
 	block, err := LatestBlock(ctx, env, destChain)
 	require.NoError(t, err)
 	startBlocks[destChain] = &block
+	family, err := chainsel.GetSelectorFamily(sourceChain)
+	require.NoError(t, err)
 
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
-		Receiver:     common.LeftPadBytes(receiver, 32),
-		Data:         data,
-		TokenAmounts: tokens,
-		FeeToken:     common.HexToAddress("0x0"),
-		ExtraArgs:    extraArgs,
-	})
+	var msg any
+	switch family {
+	case chainsel.FamilyEVM:
+		msg = router.ClientEVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			Data:         data,
+			TokenAmounts: tokens.([]router.ClientEVMTokenAmount),
+			FeeToken:     common.HexToAddress("0x0"),
+			ExtraArgs:    extraArgs,
+		}
+	case chainsel.FamilySolana:
+		msg = ccip_router.SVM2AnyMessage{
+			Receiver:     common.LeftPadBytes(receiver, 32),
+			Data:         data,
+			TokenAmounts: tokens.([]ccip_router.SVMTokenAmount),
+			ExtraArgs:    extraArgs,
+		}
+
+	default:
+		t.Errorf("unsupported source chain: %v", family)
+	}
+
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, msg)
 	return msgSentEvent, startBlocks
 }
 
@@ -1595,6 +1662,7 @@ type TestTransferRequest struct {
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
+	SolTokens             []ccip_router.SVMTokenAmount
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
@@ -1633,8 +1701,21 @@ func TransferMultiple(
 				DestChainSelector:   tt.DestChain,
 			}
 
+			// TODO: inline this in Transfer
+			family, err := chainsel.GetSelectorFamily(tt.SourceChain)
+			require.NoError(t, err)
+			var tokens any
+			switch family {
+			case chainsel.FamilyEVM:
+				tokens = tt.Tokens
+			case chainsel.FamilySolana:
+				tokens = tt.SolTokens
+			default:
+				t.Errorf("unsupported source chain: %v", family)
+			}
+
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -1797,7 +1878,7 @@ func WaitForTheTokenBalanceSol(
 			"token", token,
 			"receiver", receiver,
 		)
-		return uint64(balance) == expected
+		return uint64(balance) == expected //nolint:gosec // value is always unsigned
 	}, tests.WaitTimeout(t), 100*time.Millisecond)
 }
 
@@ -1826,19 +1907,19 @@ func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainS
 	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipOfframpProgram.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111111BurnMint", tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipBasePoolBurnMint.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, "TokenPooL11111111111111111111111LockReLease", tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipBasePoolLockRelease.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.McmProgram.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["access_controller"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.AccessControllerProgram.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.TimelockProgram.String(), tv)
 	require.NoError(t, err)
 	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, solconfig.RMNRemoteProgram.String(), tv)

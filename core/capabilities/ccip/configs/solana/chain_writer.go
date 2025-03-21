@@ -238,76 +238,14 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			{
 				AccountLookup: &chainwriter.AccountLookup{
 					Name:       "UserAccounts",
-					Location:   "Info.AbstractReports.Messages.ExtraArgsDecoded.Accounts",
-					IsWritable: chainwriter.MetaBool{BitmapLocation: "Info.AbstractReports.Messages.ExtraArgsDecoded.IsWritableBitmap"},
+					Location:   "ExtraData.ExtraArgsDecoded.accounts",
+					IsWritable: chainwriter.MetaBool{BitmapLocation: "ExtraData.ExtraArgsDecoded.accountIsWritableBitmap", StartIndex: 1},
 					IsSigner:   chainwriter.MetaBool{Value: false},
 				},
 				Optional: true,
 			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name: "ReceiverAssociatedTokenAccount",
-					PublicKey: chainwriter.Lookup{
-						AccountConstant: &chainwriter.AccountConstant{
-							Address: solana.SPLAssociatedTokenAccountProgramID.String(),
-						},
-					},
-					Seeds: []chainwriter.Seed{
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: "Info.AbstractReports.Messages.Receiver"}}},
-						// Token Program stored in PoolLookupTable
-						{Dynamic: chainwriter.Lookup{
-							AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-								LookupTableName: "PoolLookupTable",
-								IncludeIndexes:  []int{6},
-							},
-						}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: true,
-				},
-				Optional: true,
-			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "PerChainTokenConfig",
-					PublicKey: getFeeQuoterProgramAccount(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("per_chain_per_token_config")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-				Optional: true,
-			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name: "PoolChainConfig",
-					PublicKey: chainwriter.Lookup{
-						AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-							LookupTableName: "PoolLookupTable",
-							IncludeIndexes:  []int{2},
-						},
-					},
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("ccip_tokenpool_chainconfig")},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: sourceChainSelectorPath}}},
-						{Dynamic: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: destTokenAddress}}},
-					},
-					IsSigner:   false,
-					IsWritable: true,
-				},
-				Optional: true,
-			},
-			{
-				AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
-					LookupTableName: "PoolLookupTable",
-					IncludeIndexes:  []int{},
-				},
-				Optional: true,
-			},
+			// user token account, token billing config, pool chain config, and pool lookup table accounts
+			// are appended to the accounts list in the CCIPExecute args transform for each token transfer
 		},
 		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
 	}

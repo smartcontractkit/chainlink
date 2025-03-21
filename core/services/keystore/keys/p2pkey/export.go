@@ -3,20 +3,20 @@ package p2pkey
 import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 const keyTypeIdentifier = "P2P"
 
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyV2, error) {
-	return keys.FromEncryptedJSON(
+	return internal.FromEncryptedJSON(
 		keyTypeIdentifier,
 		keyJSON,
 		password,
 		adulteratedPassword,
-		func(_ EncryptedP2PKeyExport, rawPrivKey []byte) (KeyV2, error) {
-			return Raw(rawPrivKey).Key(), nil
+		func(_ EncryptedP2PKeyExport, rawPrivKey internal.Raw) (KeyV2, error) {
+			return KeyFor(rawPrivKey), nil
 		},
 	)
 }
@@ -33,9 +33,8 @@ func (x EncryptedP2PKeyExport) GetCrypto() keystore.CryptoJSON {
 }
 
 func (key KeyV2) ToEncryptedJSON(password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	return keys.ToEncryptedJSON(
+	return internal.ToEncryptedJSON(
 		keyTypeIdentifier,
-		key.Raw(),
 		key,
 		password,
 		scryptParams,
