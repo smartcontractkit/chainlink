@@ -476,6 +476,7 @@ func deployChainContractsSolana(
 		}
 	} else if config.UpgradeConfig.NewFeeQuoterVersion != nil {
 		// fee quoter updated in place
+		// add upgrade log
 		feeQuoterAddress = chainState.FeeQuoter
 		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewFeeQuoterVersion, chainState.FeeQuoter, ccipChangeset.FeeQuoter)
 		if err != nil {
@@ -1044,11 +1045,6 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(ccipChangeset.FeeAggregator, deployment.Version1_0_0))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
-	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
@@ -1062,7 +1058,6 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		}
 		return deployment.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses,
 		}, nil
 	}
 
@@ -1071,9 +1066,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	}
 	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
 
-	return deployment.ChangesetOutput{
-		AddressBook: newAddresses,
-	}, nil
+	return deployment.ChangesetOutput{}, nil
 }
 
 type DeployForTestConfig struct {

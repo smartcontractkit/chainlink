@@ -320,7 +320,7 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("BurnMintTokenPool not configured with this token address: %s", tokenAddress.String())
+			// "BurnMintTokenPool not configured with this token address: %s", tokenAddress.String()
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {
@@ -331,7 +331,7 @@ func ValidateOwnershipSolana(
 		poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenAddress, programID)
 		err = chain.GetAccountDataBorshInto(e.GetContext(), poolConfigPDA, &programData)
 		if err != nil {
-			e.Logger.Warnf("LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String())
+			// "LockReleaseTokenPool not configured with this token address: %s", tokenAddress.String()
 			return nil
 		}
 		if err := commoncs.ValidateOwnershipSolanaCommon(mcms, chain.DeployerKey.PublicKey(), timelockSignerPDA, programData.Config.Owner); err != nil {

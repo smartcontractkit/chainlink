@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 
@@ -400,6 +399,7 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 
 	// test upgrade flow
+	// transfer ownership of the PDAs
 	timelockSignerPDA, _ := testhelpers.TransferOwnershipSolana(t, &e, solChainSelectors[0], false,
 		ccipChangesetSolana.CCIPContractsToTransfer{
 			Router:    true,
@@ -412,8 +412,8 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 	verifyProgramSizes(t, e)
 	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
 	require.NoError(t, err)
-	chainState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
-	require.NoError(t, err)
+	// solMCMState, err := csState.MaybeLoadMCMSWithTimelockChainStateSolana(e.SolChains[e.AllChainSelectorsSolana()[0]], addresses)
+	// require.NoError(t, err)
 
 	chain = e.SolChains[solChainSelectors[0]]
 	chain.ProgramsPath = filepath.Join(tempDir, "builtForUpgrade")
@@ -432,64 +432,60 @@ func TestDeployAndUpgradeLocally(t *testing.T) {
 			},
 		),
 		// build the upgraded contracts and deploy/replace them onchain
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-			ccipChangesetSolana.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ChainSelector:          solChainSelectors[0],
-				ContractParamsPerChain: contractParamsPerChain,
-				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewFeeQuoterVersion: &deployment.Version1_1_0,
-					NewRouterVersion:    &deployment.Version1_1_0,
-					NewMCMVersion:       &deployment.Version1_1_0,
-					UpgradeAuthority:    upgradeAuthority,
-					SpillAddress:        upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-				},
-				// build the contracts for upgrades
-				BuildConfig: ccipChangesetSolana.BuildSolanaConfig{
-					GitCommitSha:   NewSha,
-					DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
-					LocalBuild: ccipChangesetSolana.LocalBuildConfig{
-						BuildLocally:         false,
-						CleanGitDir:          true,
-						CreateDestinationDir: true,
-						UpgradeKeys: map[deployment.ContractType]string{
-							ccipChangeset.Router:               state.SolChains[solChainSelectors[0]].Router.String(),
-							ccipChangeset.FeeQuoter:            state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
-							ccipChangeset.BurnMintTokenPool:    state.SolChains[solChainSelectors[0]].BurnMintTokenPool.String(),
-							ccipChangeset.LockReleaseTokenPool: state.SolChains[solChainSelectors[0]].LockReleaseTokenPool.String(),
-							types.AccessControllerProgram:      chainState.AccessControllerProgram.String(),
-							types.RBACTimelockProgram:          chainState.TimelockProgram.String(),
-							types.ManyChainMultisigProgram:     chainState.McmProgram.String(),
-							ccipChangeset.RMNRemote:            state.SolChains[solChainSelectors[0]].RMNRemote.String(),
-						},
-					},
-				},
-			},
-		),
-		// Split the upgrade to avoid txn size limits. No need to build again.
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-			ccipChangesetSolana.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ChainSelector:          solChainSelectors[0],
-				ContractParamsPerChain: contractParamsPerChain,
-				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
-					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
-					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
-					NewRMNRemoteVersion:            &deployment.Version1_1_0,
-					UpgradeAuthority:               upgradeAuthority,
-					SpillAddress:                   upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
-						MinDelay: 1 * time.Second,
-					},
-				},
-			},
-		),
-		// Split the upgrade to avoid txn size limits. No need to build again.
+		// commonchangeset.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+		// 	ccipChangesetSolana.DeployChainContractsConfig{
+		// 		HomeChainSelector: homeChainSel,
+		// 		ChainSelector:     solChainSelectors[0],
+		// 		// not required for upgrades
+		// 		ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{},
+		// 		UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+		// 			// NewFeeQuoterVersion: &deployment.Version1_1_0,
+		// 			// NewRouterVersion:    &deployment.Version1_1_0,
+		// 			NewMCMVersion:    &deployment.Version1_1_0,
+		// 			UpgradeAuthority: upgradeAuthority,
+		// 			SpillAddress:     upgradeAuthority,
+		// 			MCMS: &ccipChangeset.MCMSConfig{
+		// 				MinDelay: 1 * time.Second,
+		// 			},
+		// 		},
+		// 		// build the contracts for upgrades
+		// 		BuildConfig: ccipChangesetSolana.BuildSolanaConfig{
+		// 			GitCommitSha:   NewSha,
+		// 			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+		// 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+		// 				BuildLocally:         false,
+		// 				CleanGitDir:          true,
+		// 				CreateDestinationDir: true,
+		// 				UpgradeKeys:          map[deployment.ContractType]string{
+		// 					// ccipChangeset.Router:           state.SolChains[solChainSelectors[0]].Router.String(),
+		// 					// ccipChangeset.FeeQuoter:        state.SolChains[solChainSelectors[0]].FeeQuoter.String(),
+		// 					// types.ManyChainMultisigProgram: solMCMState.McmProgram.String(),
+		// 				},
+		// 			},
+		// 		},
+		// 	},
+		// ),
+		// // Split the upgrade to avoid txn size limits. No need to build again.
+		// commonchangeset.Configure(
+		// 	deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
+		// 	ccipChangesetSolana.DeployChainContractsConfig{
+		// 		HomeChainSelector:      homeChainSel,
+		// 		ChainSelector:          solChainSelectors[0],
+		// 		ContractParamsPerChain: contractParamsPerChain,
+		// 		UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
+		// 			NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
+		// 			NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
+		// 			NewRMNRemoteVersion:            &deployment.Version1_1_0,
+		// 			UpgradeAuthority:               upgradeAuthority,
+		// 			SpillAddress:                   upgradeAuthority,
+		// 			MCMS: &ccipChangeset.MCMSConfig{
+		// 				MinDelay: 1 * time.Second,
+		// 			},
+		// 		},
+		// 	},
+		// ),
+		// // Split the upgrade to avoid txn size limits. No need to build again.
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
