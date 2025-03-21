@@ -72,7 +72,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	// we can't upgrade in place locally if we preload addresses so we have to change where we build
 	// we also don't want to incur two builds in CI, so only do it locally
 	if ci {
-		testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+		err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+		require.NoError(t, err)
 	} else {
 		initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:        OldSha,
@@ -347,7 +348,8 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
-	testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	err = testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	require.NoError(t, err)
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),

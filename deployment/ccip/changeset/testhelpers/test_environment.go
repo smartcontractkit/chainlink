@@ -535,7 +535,10 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 }
 
 func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
-	SavePreloadedSolAddresses(e.Env, solChainSelector)
+	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
+	if err != nil {
+		return nil, err
+	}
 	state, err := changeset.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
