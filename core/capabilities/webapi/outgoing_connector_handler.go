@@ -25,7 +25,7 @@ const (
 	DefaultWorkflowRPS    = 5.0
 	DefaultWorkflowBurst  = 50
 	defaultFetchTimeoutMs = 20_000
-	defaultAwaitTimeoutMs = 3_000
+	defaultAwaitTimeoutMs = 8_000
 
 	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
 	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
@@ -180,7 +180,7 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 			c.lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
 
 			if err := c.attemptGatewayConnection(ctx, gateway); err != nil {
-				c.lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway)
+				c.lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
 				continue
 			}
 			return gateway, nil
@@ -194,12 +194,13 @@ func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context,
 	defaultDeadline := time.Now().Add(defaultAwaitTimeoutMs)
 
 	var connectionDeadline time.Time
-
 	if parentHasDeadline && parentDeadline.Before(defaultDeadline) {
 		connectionDeadline = parentDeadline // Use parent deadline if it's sooner
 	} else {
 		connectionDeadline = defaultDeadline // Otherwise, use the default
 	}
+
+	c.lggr.Debugw("await connection with deadline", "parentHasDeadline", parentHasDeadline, "deadline", connectionDeadline)
 
 	ctxWithDeadline, cancel := context.WithDeadline(ctx, connectionDeadline)
 	defer cancel()
