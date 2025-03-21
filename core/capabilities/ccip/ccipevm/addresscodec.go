@@ -1,24 +1,24 @@
 package ccipevm
 
 import (
-	"encoding/hex"
 	"fmt"
-	"strings"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 type AddressCodec struct{}
 
 func (a AddressCodec) AddressBytesToString(addr []byte) (string, error) {
-	return gethcommon.BytesToAddress(addr).Hex(), nil
+	if len(addr) != common.AddressLength {
+ 		return "", fmt.Errorf("invalid EVM address length, expected %v, got %d", common.AddressLength, len(addr))
+	}
+ 
+	return common.BytesToAddress(addr).Hex(), nil
 }
 
 func (a AddressCodec) AddressStringToBytes(addr string) ([]byte, error) {
-	addrBytes, err := hex.DecodeString(strings.ToLower(strings.TrimPrefix(addr, "0x")))
-	if err != nil {
-		return nil, fmt.Errorf("failed to decode EVM address '%s': %w", addr, err)
+	if !common.IsHexAddress(addr) {
+		return nil, fmt.Errorf("invalid EVM address %s", addr)
 	}
-
-	return addrBytes, nil
+	return common.HexToAddress(addr).Bytes(), nil
 }
