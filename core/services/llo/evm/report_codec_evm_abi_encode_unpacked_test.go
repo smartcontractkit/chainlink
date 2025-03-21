@@ -1,9 +1,7 @@
 package evm
 
 import (
-	"encoding/hex"
 	"fmt"
-	"math"
 	"math/big"
 	"math/rand/v2"
 	"reflect"
@@ -738,95 +736,6 @@ func mustNewABIType(t string) abi.Type {
 		panic(fmt.Sprintf("Unexpected error during abi.NewType: %s", err))
 	}
 	return result
-}
-
-func Test_ABIEncoder_Encode(t *testing.T) {
-	t.Run("encodes decimals", func(t *testing.T) {
-		tcs := []struct {
-			name       string
-			sv         llo.StreamValue
-			abiType    string
-			multiplier *big.Int
-			errStr     string
-			expected   string
-		}{
-			{
-				name:    "overflow int8",
-				sv:      llo.ToDecimal(decimal.NewFromFloat32(123456789.123456789)),
-				abiType: "int8",
-				errStr:  "invalid type: cannot fit 123456790 into int8",
-			},
-			{
-				name:     "successful int8",
-				sv:       llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				abiType:  "int8",
-				expected: padLeft32Byte(fmt.Sprintf("%x", 123)),
-			},
-			{
-				name:       "negative multiplied int8",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(1.11)),
-				multiplier: big.NewInt(-100),
-				abiType:    "int8",
-				expected:   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff91",
-			},
-			{
-				name:    "negative uint32",
-				sv:      llo.ToDecimal(decimal.NewFromFloat32(-123.456)),
-				abiType: "uint32",
-				errStr:  "invalid type: cannot fit -123 into uint32",
-			},
-			{
-				name:     "successful uint32",
-				sv:       llo.ToDecimal(decimal.NewFromFloat32(123456.456)),
-				abiType:  "uint32",
-				expected: padLeft32Byte(fmt.Sprintf("%x", 123456)),
-			},
-			{
-				name:       "multiplied uint32",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				multiplier: big.NewInt(100),
-				abiType:    "uint32",
-				expected:   padLeft32Byte(fmt.Sprintf("%x", 12345)),
-			},
-			{
-				name:       "negative multiplied int32",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				multiplier: big.NewInt(-100),
-				abiType:    "int32",
-				expected:   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcfc7",
-			},
-			{
-				name:       "overflowing multiplied int32",
-				sv:         llo.ToDecimal(decimal.NewFromInt(math.MaxInt32)),
-				multiplier: big.NewInt(2),
-				abiType:    "int32",
-				errStr:     "invalid type: cannot fit 4294967294 into int32",
-			},
-			{
-				name:       "successful int192",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123456.789123)),
-				abiType:    "int192",
-				multiplier: big.NewInt(1e18),
-				expected:   "000000000000000000000000000000000000000000001a249b2292e49d8f0000",
-			},
-		}
-		for _, tc := range tcs {
-			t.Run(tc.name, func(t *testing.T) {
-				enc := ABIEncoder{
-					Type:       tc.abiType,
-					Multiplier: (*ubig.Big)(tc.multiplier),
-				}
-				encoded, err := enc.Encode(tests.Context(t), tc.sv)
-				if tc.errStr != "" {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tc.errStr)
-				} else {
-					require.NoError(t, err)
-					require.Equal(t, tc.expected, hex.EncodeToString(encoded))
-				}
-			})
-		}
-	})
 }
 
 func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {

@@ -22,18 +22,18 @@ var _ datastreams.ReportCodec = &codec{}
 func (c *codec) Unwrap(wrapped values.Value) ([]datastreams.FeedReport, error) {
 	dest, err := datastreams.UnwrapStreamsTriggerEventToFeedReportList(wrapped)
 	if err != nil {
-		return nil, fmt.Errorf("failed to unwrap: %v", err)
+		return nil, fmt.Errorf("failed to unwrap: %w", err)
 	}
 	for i, report := range dest {
 		// decoding fields
 		id, err2 := datastreams.NewFeedID(report.FeedID)
 		if err2 != nil {
-			return nil, fmt.Errorf("malformed feed ID: %v", err2)
+			return nil, fmt.Errorf("malformed feed ID: %w", err2)
 		}
 		v3Codec := reportcodec.NewReportCodec(id.Bytes(), nil)
 		decoded, err2 := v3Codec.Decode(report.FullReport)
 		if err2 != nil {
-			return nil, fmt.Errorf("failed to decode: %v", err2)
+			return nil, fmt.Errorf("failed to decode: %w", err2)
 		}
 		if decoded.FeedId != id.Bytes() {
 			return nil, fmt.Errorf("feed ID mismatch: FeedID: %s, FullReport.FeedId: %s", id, hex.EncodeToString(decoded.FeedId[:]))
@@ -62,7 +62,7 @@ func (c *codec) Validate(report datastreams.FeedReport, allowedSigners [][]byte,
 	for _, sig := range report.Signatures {
 		signerPubkey, err2 := crypto.SigToPub(fullHash, sig)
 		if err2 != nil {
-			return fmt.Errorf("malformed signer: %v", err2)
+			return fmt.Errorf("malformed signer: %w", err2)
 		}
 		signerAddr := crypto.PubkeyToAddress(*signerPubkey)
 		if _, ok := signersMap[signerAddr]; !ok {

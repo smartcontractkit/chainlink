@@ -12,27 +12,19 @@ import (
 	"github.com/ethereum/go-ethereum/crypto"
 
 	cryptotypes "github.com/cosmos/cosmos-sdk/crypto/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var secpSigningAlgo, _ = keyring.NewSigningAlgoFromString(string(hd.Secp256k1Type), []keyring.SignatureAlgo{hd.Secp256k1})
 
-type Raw []byte
-
-func (raw Raw) Key() Key {
-	d := big.NewInt(0).SetBytes(raw)
+func KeyFor(raw internal.Raw) Key {
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privKey := secpSigningAlgo.Generate()(d.Bytes())
 	return Key{
 		d: d,
 		k: privKey,
 	}
-}
-
-func (raw Raw) String() string {
-	return "<Cosmos Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &Key{}
@@ -78,8 +70,8 @@ func (key Key) PublicKeyStr() string {
 	return fmt.Sprintf("%X", key.k.PubKey().Bytes())
 }
 
-func (key Key) Raw() Raw {
-	return key.d.Bytes()
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.d.Bytes())
 }
 
 // ToPrivKey returns the key usable for signing.

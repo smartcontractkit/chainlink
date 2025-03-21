@@ -5,18 +5,18 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/pelletier/go-toml"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
-
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
 	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 )
 
 func TestHandleSingleNodeRequest(t *testing.T) {
@@ -24,7 +24,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -63,7 +63,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -113,7 +113,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -155,7 +155,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunction(
+		connector, connectorHandler := newFunctionWithDefaultConfig(
 			t,
 			func(gc *gcmocks.GatewayConnector) {
 				gc.EXPECT().DonID().Return("donID")
@@ -192,12 +192,88 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		assert.False(t, found)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
 	})
+
+	t.Run("rate limits outgoing traffic", func(t *testing.T) {
+		ctx := tests.Context(t)
+		msgID := "msgID"
+		testURL := "http://localhost:8080"
+		var config = ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      2.0,
+				GlobalBurst:    2,
+				PerSenderRPS:   1.0,
+				PerSenderBurst: 1,
+			},
+			RateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
+		}
+		connector, connectorHandler := newFunction(
+			t,
+			func(gc *gcmocks.GatewayConnector) {
+				gc.EXPECT().DonID().Return("donID")
+				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
+				gc.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+			},
+			config,
+		)
+
+		// build the expected body with the default timeout
+		req := ghcapabilities.Request{
+			URL:        testURL,
+			WorkflowID: "1",
+			TimeoutMs:  defaultFetchTimeoutMs,
+		}
+		payload, err := json.Marshal(req)
+		require.NoError(t, err)
+
+		expectedBody := &api.MessageBody{
+			MessageId: msgID,
+			DonId:     connector.DonID(),
+			Method:    ghcapabilities.MethodComputeAction,
+			Payload:   payload,
+		}
+
+		// expect the request body to contain the default timeout
+		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
+		}).Return(nil).Times(1)
+
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL:        testURL,
+			WorkflowID: "1",
+		})
+		require.NoError(t, err)
+
+		// Second request should error from workflow ratelimit
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL:        testURL,
+			WorkflowID: "1",
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, errorOutgoingRatelimitWorkflow)
+
+		// Third request should error from global ratelimit
+		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+			URL:        testURL,
+			WorkflowID: "2",
+		})
+		require.Error(t, err)
+		require.ErrorContains(t, err, errorOutgoingRatelimitGlobal)
+	})
 }
 
-func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
-	log := logger.TestLogger(t)
-	connector := gcmocks.NewGatewayConnector(t)
+func newFunctionWithDefaultConfig(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
 	var defaultConfig = ServiceConfig{
+		OutgoingRateLimiter: common.RateLimiterConfig{
+			GlobalRPS:      100.0,
+			GlobalBurst:    100,
+			PerSenderRPS:   100.0,
+			PerSenderBurst: 100,
+		},
 		RateLimiter: common.RateLimiterConfig{
 			GlobalRPS:      100.0,
 			GlobalBurst:    100,
@@ -205,10 +281,16 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector)) (*gcmocks
 			PerSenderBurst: 100,
 		},
 	}
+	return newFunction(t, mockFn, defaultConfig)
+}
+
+func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceConfig ServiceConfig) (*gcmocks.GatewayConnector, *OutgoingConnectorHandler) {
+	log := logger.TestLogger(t)
+	connector := gcmocks.NewGatewayConnector(t)
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, defaultConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 	return connector, connectorHandler
 }
@@ -230,4 +312,25 @@ func gatewayResponse(t *testing.T, msgID string) *api.Message {
 			Payload:   responsePayload,
 		},
 	}
+}
+
+func TestServiceConfigDefaults(t *testing.T) {
+	t.Run("fills default RateLimiterConfigs", func(t *testing.T) {
+		var cfg ServiceConfig
+
+		tomlErr := toml.Unmarshal([]byte{}, &cfg)
+		require.NoError(t, tomlErr)
+
+		iRLConf := incomingRateLimiterConfigDefaults(cfg.RateLimiter)
+		require.Equal(t, DefaultGlobalBurst, iRLConf.GlobalBurst)
+		require.InDelta(t, DefaultGlobalRPS, iRLConf.GlobalRPS, 0.001)
+		require.Equal(t, DefaultPerSenderBurst, iRLConf.PerSenderBurst)
+		require.InDelta(t, DefaultPerSenderRPS, iRLConf.PerSenderRPS, 0.001)
+
+		oRLConf := outgoingRateLimiterConfigDefaults(cfg.RateLimiter)
+		require.Equal(t, DefaultGlobalBurst, oRLConf.GlobalBurst)
+		require.InDelta(t, DefaultGlobalRPS, oRLConf.GlobalRPS, 0.001)
+		require.Equal(t, DefaultWorkflowBurst, oRLConf.PerSenderBurst)
+		require.InDelta(t, DefaultWorkflowRPS, oRLConf.PerSenderRPS, 0.001)
+	})
 }

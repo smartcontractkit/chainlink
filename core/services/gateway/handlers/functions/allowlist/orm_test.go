@@ -45,7 +45,7 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
 		results, err := orm.GetAllowedSenders(ctx, 0, 1)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, storedAllowedSenders[0], results[0])
 	})
 
@@ -56,7 +56,7 @@ func TestORM_GetAllowedSenders(t *testing.T) {
 		storedAllowedSenders := seedAllowedSenders(t, orm, 2)
 		results, err := orm.GetAllowedSenders(ctx, 1, 5)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, storedAllowedSenders[1], results[0])
 	})
 }
@@ -74,7 +74,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 1)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, expected, results[0])
 	})
 
@@ -91,7 +91,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 5)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, expected, results[0])
 	})
 
@@ -105,7 +105,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 2)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, expected[0], results[0])
 		require.Equal(t, expected[1], results[1])
 	})
@@ -124,7 +124,7 @@ func TestORM_CreateAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, expected[0], results[0])
 		require.Equal(t, expected[1], results[1])
 	})
@@ -154,7 +154,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(results), "incorrect results length")
+		require.Len(t, results, 3, "incorrect results length")
 		require.Equal(t, add1, results[0])
 
 		err = orm.DeleteAllowedSenders(ctx, []common.Address{add1, add3})
@@ -162,7 +162,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 
 		results, err = orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 1, len(results), "incorrect results length")
+		require.Len(t, results, 1, "incorrect results length")
 		require.Equal(t, add2, results[0])
 	})
 
@@ -177,7 +177,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, add1, results[0])
 
 		add3 := testutils.NewAddress()
@@ -186,7 +186,7 @@ func TestORM_DeleteAllowedSenders(t *testing.T) {
 
 		results, err = orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, add1, results[0])
 		require.Equal(t, add2, results[1])
 	})
@@ -207,7 +207,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 
 		results, err := orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 3, len(results), "incorrect results length")
+		require.Len(t, results, 3, "incorrect results length")
 		require.Equal(t, add1, results[0])
 
 		err = orm.PurgeAllowedSenders(ctx)
@@ -215,7 +215,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 
 		results, err = orm.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(results), "incorrect results length")
+		require.Empty(t, results, "incorrect results length")
 	})
 
 	t.Run("OK-purge_allowed_list_for_contract_address", func(t *testing.T) {
@@ -229,7 +229,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 
 		results, err := orm1.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, add1, results[0])
 
 		orm2, err := setupORM(t)
@@ -241,7 +241,7 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 
 		results, err = orm2.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, add3, results[0])
 
 		err = orm2.PurgeAllowedSenders(ctx)
@@ -249,11 +249,11 @@ func TestORM_PurgeAllowedSenders(t *testing.T) {
 
 		results, err = orm2.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 0, len(results), "incorrect results length")
+		require.Empty(t, results, "incorrect results length")
 
 		results, err = orm1.GetAllowedSenders(ctx, 0, 10)
 		require.NoError(t, err)
-		require.Equal(t, 2, len(results), "incorrect results length")
+		require.Len(t, results, 2, "incorrect results length")
 		require.Equal(t, add1, results[0])
 		require.Equal(t, add2, results[1])
 	})

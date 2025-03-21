@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -51,11 +52,11 @@ const (
 var (
 	RegistryServiceName = "AutomationRegistry"
 
-	ErrLogReadFailure              = fmt.Errorf("failure reading logs")
-	ErrHeadNotAvailable            = fmt.Errorf("head not available")
-	ErrInitializationFailure       = fmt.Errorf("failed to initialize registry")
-	ErrContextCancelled            = fmt.Errorf("context was cancelled")
-	ErrABINotParsable              = fmt.Errorf("error parsing abi")
+	ErrLogReadFailure              = errors.New("failure reading logs")
+	ErrHeadNotAvailable            = errors.New("head not available")
+	ErrInitializationFailure       = errors.New("failed to initialize registry")
+	ErrContextCancelled            = errors.New("context was cancelled")
+	ErrABINotParsable              = errors.New("error parsing abi")
 	ActiveUpkeepIDBatchSize  int64 = 1000
 	// This is the interval at which active upkeep list is fully refreshed from chain
 	refreshInterval = 15 * time.Minute
@@ -288,7 +289,7 @@ func (r *EvmRegistry) refreshActiveUpkeeps(ctx context.Context) error {
 	// get active upkeep ids from contract
 	ids, err := r.getLatestIDsFromContract(ctx)
 	if err != nil {
-		return fmt.Errorf("failed to get active upkeep ids from contract during refresh: %s", err)
+		return fmt.Errorf("failed to get active upkeep ids from contract during refresh: %w", err)
 	}
 	r.active.Reset(ids...)
 
@@ -409,7 +410,7 @@ func (r *EvmRegistry) pollUpkeepStateLogs(ctx context.Context) error {
 	var err error
 
 	if end, err = r.poller.LatestBlock(ctx); err != nil {
-		return fmt.Errorf("%w: %s", ErrHeadNotAvailable, err)
+		return fmt.Errorf("%w: %w", ErrHeadNotAvailable, err)
 	}
 
 	r.mu.Lock()
@@ -430,7 +431,7 @@ func (r *EvmRegistry) pollUpkeepStateLogs(ctx context.Context) error {
 		upkeepStateEvents,
 		r.addr,
 	); err != nil {
-		return fmt.Errorf("%w: %s", ErrLogReadFailure, err)
+		return fmt.Errorf("%w: %w", ErrLogReadFailure, err)
 	}
 
 	for _, log := range logs {
@@ -555,7 +556,7 @@ func (r *EvmRegistry) getLatestIDsFromContract(ctx context.Context) ([]*big.Int,
 	if err != nil {
 		n := "latest"
 		if opts.BlockNumber != nil {
-			n = fmt.Sprintf("%d", opts.BlockNumber.Int64())
+			n = strconv.FormatInt(opts.BlockNumber.Int64(), 10)
 		}
 
 		return nil, fmt.Errorf("%w: failed to get contract state at block number '%s'", err, n)

@@ -70,7 +70,7 @@ func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastr
 		Outputs:   values.ProtoMap(outputs),
 	}
 
-	b, err := proto.Marshal(p)
+	b, err := proto.MarshalOptions{Deterministic: true}.Marshal(p)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal capability trigger report: %w", err)
 	}

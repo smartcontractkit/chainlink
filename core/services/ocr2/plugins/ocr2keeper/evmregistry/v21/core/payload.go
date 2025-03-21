@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/hex"
-	"fmt"
+	"errors"
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrInvalidUpkeepID = fmt.Errorf("invalid upkeepID")
+	ErrInvalidUpkeepID = errors.New("invalid upkeepID")
 )
 
 func UpkeepWorkID(uid ocr2keepers.UpkeepIdentifier, trigger ocr2keepers.Trigger) string {

@@ -2,7 +2,7 @@ package ccip
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"io"
 	"math/big"
 	"time"
@@ -121,13 +121,13 @@ func (p *ProviderProxyCommitStoreReader) VerifyExecutionReport(ctx context.Conte
 // SetGasEstimator is invalid on ProviderProxyCommitStoreReader. The provider based impl's do not have SetGasEstimator
 // defined, so this serves no purpose other than satisfying an interface.
 func (p *ProviderProxyCommitStoreReader) SetGasEstimator(ctx context.Context, gpe gas.EvmFeeEstimator) error {
-	return fmt.Errorf("invalid usage of ProviderProxyCommitStoreReader")
+	return errors.New("invalid usage of ProviderProxyCommitStoreReader")
 }
 
 // SetSourceMaxGasPrice is invalid on ProviderProxyCommitStoreReader. The provider based impl's do not have SetSourceMaxGasPrice
 // defined, so this serves no purpose other than satisfying an interface.
 func (p *ProviderProxyCommitStoreReader) SetSourceMaxGasPrice(ctx context.Context, sourceMaxGasPrice *big.Int) error {
-	return fmt.Errorf("invalid usage of ProviderProxyCommitStoreReader")
+	return errors.New("invalid usage of ProviderProxyCommitStoreReader")
 }
 
 func (p *ProviderProxyCommitStoreReader) Close() error {

@@ -65,13 +65,12 @@ func Test_Pool(t *testing.T) {
 
 			client := newMockClient(lggr)
 			p.newClient = func(opts ClientOpts) Client {
-				assert.Equal(t, clientPrivKey, opts.ClientPrivKey)
 				assert.Equal(t, serverPubKey, opts.ServerPubKey)
 				assert.Equal(t, serverURL, opts.ServerURL)
 				return client
 			}
 
-			c, err := p.Checkout(ctx, clientPrivKey, serverPubKey, serverURL)
+			c, err := p.Checkout(ctx, clientPrivKey.PublicKeyString(), clientPrivKey.Signer(), serverPubKey, serverURL)
 			require.NoError(t, err)
 
 			assert.True(t, client.started)
@@ -83,7 +82,7 @@ func Test_Pool(t *testing.T) {
 
 			assert.Len(t, conn.checkouts, 1)
 			assert.Same(t, lggr, conn.lggr)
-			assert.Equal(t, clientPrivKey, conn.clientPrivKey)
+			assert.Equal(t, clientPrivKey.PublicKeyString(), conn.clientPubKeyHex)
 			assert.Equal(t, serverPubKey, conn.serverPubKey)
 			assert.Equal(t, serverURL, conn.serverURL)
 			assert.Same(t, p, conn.pool)
@@ -259,8 +258,8 @@ func Test_Pool(t *testing.T) {
 	})
 }
 
-func mustCheckout(t *testing.T, p *pool, clientPrivKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
-	c, err := p.Checkout(testutils.Context(t), clientPrivKey, serverPubKey, serverURL)
+func mustCheckout(t *testing.T, p *pool, csaKey csakey.KeyV2, serverPubKey []byte, serverURL string) Client {
+	c, err := p.Checkout(testutils.Context(t), csaKey.PublicKeyString(), csaKey.Signer(), serverPubKey, serverURL)
 	require.NoError(t, err)
 	return c
 }

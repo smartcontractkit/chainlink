@@ -454,12 +454,12 @@ func (r *Resolver) ETHKeys(ctx context.Context) (*ETHKeysPayloadResolver, error)
 
 	keys, err := ks.GetAll(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("error getting unlocked keys: %v", err)
+		return nil, fmt.Errorf("error getting unlocked keys: %w", err)
 	}
 
 	states, err := ks.GetStatesForKeys(ctx, keys)
 	if err != nil {
-		return nil, fmt.Errorf("error getting key states: %v", err)
+		return nil, fmt.Errorf("error getting key states: %w", err)
 	}
 
 	var ethKeys []ETHKey

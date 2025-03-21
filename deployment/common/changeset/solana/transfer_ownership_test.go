@@ -25,6 +25,7 @@ import (
 )
 
 func TestTransferToMCMSToTimelockSolana(t *testing.T) {
+	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
 	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}

@@ -56,14 +56,14 @@ func (ckr *cosmosKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes
 	if err != nil {
 		return nil, err
 	}
-	return ckr.signBlob(sigData)
+	return ckr.SignBlob(sigData)
 }
 
 func (ckr *cosmosKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
 	return nil, errors.New("not implemented")
 }
 
-func (ckr *cosmosKeyring) signBlob(b []byte) ([]byte, error) {
+func (ckr *cosmosKeyring) SignBlob(b []byte) ([]byte, error) {
 	signedMsg := ed25519.Sign(ckr.privKey, b)
 	// match on-chain parsing (first 32 bytes are for pubkey, remaining are for signature)
 	return utils.ConcatBytes(ckr.PublicKey(), signedMsg), nil
@@ -74,14 +74,14 @@ func (ckr *cosmosKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx 
 	if err != nil {
 		return false
 	}
-	return ckr.verifyBlob(publicKey, hash, signature)
+	return ckr.VerifyBlob(publicKey, hash, signature)
 }
 
 func (ckr *cosmosKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
 	return false
 }
 
-func (ckr *cosmosKeyring) verifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
+func (ckr *cosmosKeyring) VerifyBlob(pubkey ocrtypes.OnchainPublicKey, b, sig []byte) bool {
 	// Ed25519 signatures are always 64 bytes and the
 	// public key (always prefixed, see Sign above) is always,
 	// 32 bytes, so we always require the max signature length.

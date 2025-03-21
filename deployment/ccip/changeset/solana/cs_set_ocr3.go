@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/solana-go"
@@ -111,8 +112,17 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			authority = e.SolChains[remote].DeployerKey.PublicKey()
 		}
 		for _, arg := range args {
+			var ocrType solOffRamp.OcrPluginType
+			switch arg.OCRPluginType {
+			case OcrCommitPlugin:
+				ocrType = solOffRamp.Commit_OcrPluginType
+			case OcrExecutePlugin:
+				ocrType = solOffRamp.Execution_OcrPluginType
+			default:
+				return deployment.ChangesetOutput{}, errors.New("invalid OCR plugin type")
+			}
 			instruction, err := solOffRamp.NewSetOcrConfigInstruction(
-				arg.OCRPluginType,
+				ocrType,
 				solOffRamp.Ocr3ConfigInfo{
 					ConfigDigest:                   arg.ConfigDigest,
 					F:                              arg.F,

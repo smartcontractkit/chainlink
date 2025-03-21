@@ -22,20 +22,20 @@ type Solana interface {
 	Sign(ctx context.Context, id string, msg []byte) (signature []byte, err error)
 }
 
-// SolanaSigner adapts Solana to [loop.Keystore].
-type SolanaSigner struct {
+// SolanaLooppSigner adapts Solana to [core.Keystore].
+type SolanaLooppSigner struct {
 	Solana
 }
 
-var _ loop.Keystore = &SolanaSigner{}
+var _ loop.Keystore = &SolanaLooppSigner{}
 
-func (s *SolanaSigner) Accounts(ctx context.Context) (accounts []string, err error) {
+func (s *SolanaLooppSigner) Accounts(ctx context.Context) (accounts []string, err error) {
 	ks, err := s.GetAll()
 	if err != nil {
 		return nil, err
 	}
 	for _, k := range ks {
-		accounts = append(accounts, k.PublicKeyStr())
+		accounts = append(accounts, k.ID())
 	}
 	return
 }

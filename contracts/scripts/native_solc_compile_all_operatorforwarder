@@ -6,31 +6,27 @@ echo " ┌───────────────────────�
 echo " │   Compiling Operator Forwarder contracts...  │"
 echo " └──────────────────────────────────────────────┘"
 
-SOLC_VERSION="0.8.19"
-OPTIMIZE_RUNS=1000000
+PROJECT="operatorforwarder"
 
-SCRIPTPATH="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; pwd -P )"
-ROOT="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../../ && pwd -P )"
-python3 -m pip install --require-hashes -r "$SCRIPTPATH"/requirements.txt
-
-solc-select install $SOLC_VERSION
-solc-select use $SOLC_VERSION
-export SOLC_VERSION=$SOLC_VERSION
+CONTRACTS_DIR="$( cd "$(dirname "$0")" >/dev/null 2>&1 ; cd ../ && pwd -P )"
+export FOUNDRY_PROFILE="$PROJECT"
 
 compileContract () {
   local contract
-  contract=$(basename "$1" ".sol")
+  contract=$(basename "$1")
+  echo "Compiling" "$contract"
 
-  solc @openzeppelin/="$ROOT"/contracts/node_modules/@openzeppelin/ --overwrite --optimize --optimize-runs $OPTIMIZE_RUNS --metadata-hash none \
-      -o "$ROOT"/contracts/solc/v$SOLC_VERSION/"$contract" \
-      --abi --bin --allow-paths "$ROOT"/contracts/src/v0.8,"$ROOT"/contracts/node_modules\
-      "$ROOT"/contracts/src/v0.8/"$1"
+  local command
+  command="forge build $CONTRACTS_DIR/src/v0.8/$PROJECT/"$1.sol" \
+       --root $CONTRACTS_DIR \
+       --extra-output-files bin abi \
+       -o $CONTRACTS_DIR/solc/$PROJECT/$contract"
+  $command
 }
 
 # Contracts
-compileContract operatorforwarder/AuthorizedForwarder.sol
-compileContract operatorforwarder/AuthorizedReceiver.sol
-compileContract operatorforwarder/LinkTokenReceiver.sol
-compileContract operatorforwarder/Operator.sol
-compileContract operatorforwarder/OperatorFactory.sol
-
+compileContract AuthorizedForwarder
+compileContract AuthorizedReceiver
+compileContract LinkTokenReceiver
+compileContract Operator
+compileContract OperatorFactory

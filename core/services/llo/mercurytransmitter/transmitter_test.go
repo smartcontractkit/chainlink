@@ -3,6 +3,7 @@ package mercurytransmitter
 import (
 	"context"
 	"crypto/ed25519"
+	"encoding/hex"
 	"sync"
 	"testing"
 	"time"
@@ -72,7 +73,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 			Lggr:        lggr,
 			Cfg:         mockCfg{},
 			Clients:     clients,
-			FromAccount: ed25519.PublicKey{},
+			FromAccount: hex.EncodeToString(ed25519.PublicKey{}),
 			DonID:       donID,
 			ORM:         orm,
 		})
@@ -100,7 +101,7 @@ func Test_Transmitter_Transmit(t *testing.T) {
 				Lggr:        lggr,
 				Cfg:         mockCfg{},
 				Clients:     clients,
-				FromAccount: ed25519.PublicKey{},
+				FromAccount: hex.EncodeToString(ed25519.PublicKey{}),
 				DonID:       donID,
 				ORM:         orm,
 			})

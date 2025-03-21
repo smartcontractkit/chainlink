@@ -7,10 +7,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -53,6 +54,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 }
 
 func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
@@ -204,6 +206,7 @@ func TestTransferFromTimelockConfig_VerifyPreconditions(t *testing.T) {
 }
 
 func TestTransferFromTimelockConfig_Apply(t *testing.T) {
+	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := example.TransferData{
 		Amount: 100 * solana.LAMPORTS_PER_SOL,

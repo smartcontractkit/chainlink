@@ -1,7 +1,7 @@
 package flakeytests
 
 import (
-	"fmt"
+	"strconv"
 	"testing"
 	"time"
 
@@ -11,7 +11,7 @@ import (
 
 func TestMakeRequest_SingleTest(t *testing.T) {
 	now := time.Now()
-	ts := fmt.Sprintf("%d", now.UnixNano())
+	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
 		tests: map[string]map[string]int{
 			"core/assets": map[string]int{
@@ -23,7 +23,7 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
-	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
+	assert.Equal(t, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"}, pr.Streams[0].Stream)
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
 		{ts, `{"message_type":"flakey_test","commit_sha":"","repository":"","event_type":"","package":"core/assets","test_name":"TestLink","fq_test_name":"core/assets:TestLink"}`},
 		{ts, `{"message_type":"run_report","commit_sha":"","repository":"","event_type":"","num_package_panics":0,"num_flakes":1,"num_combined":1}`},
@@ -32,7 +32,7 @@ func TestMakeRequest_SingleTest(t *testing.T) {
 
 func TestMakeRequest_MultipleTests(t *testing.T) {
 	now := time.Now()
-	ts := fmt.Sprintf("%d", now.UnixNano())
+	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
 		tests: map[string]map[string]int{
 			"core/assets": map[string]int{
@@ -45,7 +45,7 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
-	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
+	assert.Equal(t, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"}, pr.Streams[0].Stream)
 
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
 		{ts, `{"message_type":"flakey_test","commit_sha":"","repository":"","event_type":"","package":"core/assets","test_name":"TestLink","fq_test_name":"core/assets:TestLink"}`},
@@ -56,13 +56,13 @@ func TestMakeRequest_MultipleTests(t *testing.T) {
 
 func TestMakeRequest_NoTests(t *testing.T) {
 	now := time.Now()
-	ts := fmt.Sprintf("%d", now.UnixNano())
+	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
 	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
-	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
+	assert.Equal(t, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"}, pr.Streams[0].Stream)
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
 		{ts, `{"message_type":"run_report","commit_sha":"","repository":"","event_type":"","num_package_panics":0,"num_flakes":0,"num_combined":0}`},
 	})
@@ -70,13 +70,13 @@ func TestMakeRequest_NoTests(t *testing.T) {
 
 func TestMakeRequest_WithContext(t *testing.T) {
 	now := time.Now()
-	ts := fmt.Sprintf("%d", now.UnixNano())
+	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := NewReport()
 	lr := &LokiReporter{auth: "bla", host: "bla", command: "go_core_tests", now: func() time.Time { return now }, ctx: Context{CommitSHA: "42"}}
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
-	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
+	assert.Equal(t, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"}, pr.Streams[0].Stream)
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
 		{ts, `{"message_type":"run_report","commit_sha":"42","repository":"","event_type":"","num_package_panics":0,"num_flakes":0,"num_combined":0}`},
 	})
@@ -84,7 +84,7 @@ func TestMakeRequest_WithContext(t *testing.T) {
 
 func TestMakeRequest_Panics(t *testing.T) {
 	now := time.Now()
-	ts := fmt.Sprintf("%d", now.UnixNano())
+	ts := strconv.FormatInt(now.UnixNano(), 10)
 	r := &Report{
 		tests: map[string]map[string]int{
 			"core/assets": map[string]int{
@@ -99,7 +99,7 @@ func TestMakeRequest_Panics(t *testing.T) {
 	pr, err := lr.createRequest(r)
 	require.NoError(t, err)
 	assert.Len(t, pr.Streams, 1)
-	assert.Equal(t, pr.Streams[0].Stream, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"})
+	assert.Equal(t, map[string]string{"command": "go_core_tests", "app": "flakey-test-reporter"}, pr.Streams[0].Stream)
 
 	assert.ElementsMatch(t, pr.Streams[0].Values, [][]string{
 		{ts, `{"message_type":"flakey_test","commit_sha":"","repository":"","event_type":"","package":"core/assets","test_name":"TestLink","fq_test_name":"core/assets:TestLink"}`},

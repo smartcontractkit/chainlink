@@ -17,7 +17,7 @@ import (
 
 // ApplyPriceRegistryUpdate is a helper function used in tests only.
 func ApplyPriceRegistryUpdate(t *testing.T, user *bind.TransactOpts, addr common.Address, ec client.Client, gasPrices []cciptypes.GasPrice, tokenPrices []cciptypes.TokenPrice) common.Hash {
-	require.True(t, len(gasPrices) <= 2)
+	require.LessOrEqual(t, len(gasPrices), 2)
 	pr, err := fee_quoter.NewFeeQuoter(addr, ec)
 	require.NoError(t, err)
 	o, err := pr.Owner(nil)

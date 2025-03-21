@@ -13,6 +13,9 @@ import (
 
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	solanaUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -70,12 +73,29 @@ func initMCM(
 	mcmBindings.SetProgramID(programID)
 
 	typeAndVersion := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
+	mcmProgram, mcmSeed, err := chainState.GetStateFromType(contractType)
+	if err != nil {
+		return fmt.Errorf("failed to get mcm state: %w", err)
+	}
+
+	if mcmSeed != (state.PDASeed{}) {
+		mcmConfigPDA := state.GetMCMConfigPDA(mcmProgram, mcmSeed)
+		var data mcmBindings.MultisigConfig
+		err = solanaUtils.GetAccountDataBorshInto(env.GetContext(), chain.Client, mcmConfigPDA, rpc.CommitmentConfirmed, &data)
+		if err == nil {
+			env.Logger.Infow("mcm config already initialized, skipping initialization", "chain", chain.String())
+			return nil
+		}
+		return fmt.Errorf("unable to read mcm ConfigPDA account config %s", mcmConfigPDA.String())
+	}
+
+	env.Logger.Infow("mcm config not initialized, initializing", "chain", chain.String())
 	log := logger.With(env.Logger, "chain", chain.String(), "contract", typeAndVersion.String())
 
 	seed := randomSeed()
 	log.Infow("generated MCM seed", "seed", string(seed[:]))
 
-	err := initializeMCM(env, chain, programID, seed)
+	err = initializeMCM(env, chain, programID, seed)
 	if err != nil {
 		return fmt.Errorf("failed to initialize mcm: %w", err)
 	}

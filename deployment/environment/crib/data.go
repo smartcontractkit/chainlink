@@ -5,25 +5,40 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
 
 type OutputReader struct {
-	outputDir string
+	cribEnvStateDirPath string
 }
 
-func NewOutputReader(outputDir string) *OutputReader {
-	return &OutputReader{outputDir: outputDir}
+// NewOutputReader creates new instance
+func NewOutputReader(cribEnvStateDirPath string) *OutputReader {
+	return &OutputReader{cribEnvStateDirPath: cribEnvStateDirPath}
 }
 
 func (r *OutputReader) ReadNodesDetails() NodesDetails {
-	byteValue := r.readFile(NodesDetailsFileName)
+	byteValue := r.readCRIBDataFile(NodesDetailsFileName)
 
 	var result NodesDetails
 
-	// Unmarshal the JSON into the map
+	err := json.Unmarshal(byteValue, &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		panic(err)
+	}
+
+	return result
+}
+
+func (r *OutputReader) ReadRMNNodeConfigs() []RMNNodeConfig {
+	byteValue := r.readCRIBDataFile(RMNNodeIdentitiesFileName)
+
+	var result []RMNNodeConfig
+
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
@@ -34,11 +49,10 @@ func (r *OutputReader) ReadNodesDetails() NodesDetails {
 }
 
 func (r *OutputReader) ReadChainConfigs() []devenv.ChainConfig {
-	byteValue := r.readFile(ChainsConfigsFileName)
+	byteValue := r.readCRIBDataFile(ChainsConfigsFileName)
 
 	var result []devenv.ChainConfig
 
-	// Unmarshal the JSON into the map
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
@@ -49,11 +63,10 @@ func (r *OutputReader) ReadChainConfigs() []devenv.ChainConfig {
 }
 
 func (r *OutputReader) ReadAddressBook() *deployment.AddressBookMap {
-	byteValue := r.readFile(AddressBookFileName)
+	byteValue := r.readCRIBDataFile(AddressBookFileName)
 
 	var result map[uint64]map[string]deployment.TypeAndVersion
 
-	// Unmarshal the JSON into the map
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
@@ -63,8 +76,9 @@ func (r *OutputReader) ReadAddressBook() *deployment.AddressBookMap {
 	return deployment.NewMemoryAddressBookFromMap(result)
 }
 
-func (r *OutputReader) readFile(fileName string) []byte {
-	file, err := os.Open(fmt.Sprintf("%s/%s", r.outputDir, fileName))
+func (r *OutputReader) readCRIBDataFile(fileName string) []byte {
+	dataDirPath := path.Join(r.cribEnvStateDirPath, "data")
+	file, err := os.Open(fmt.Sprintf("%s/%s", dataDirPath, fileName))
 	if err != nil {
 		fmt.Println("Error opening file:", err)
 		panic(err)

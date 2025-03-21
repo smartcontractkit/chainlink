@@ -287,7 +287,7 @@ func (c EvmCall) ContractAddress() common.Address {
 func EVMCallsToString(calls []EvmCall) string {
 	callString := ""
 	for _, call := range calls {
-		callString += fmt.Sprintf("%s\n", call.String())
+		callString += call.String() + "\n"
 	}
 	return callString
 }

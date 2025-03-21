@@ -784,7 +784,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			}
 
 			require.NoError(t, fm.Start(testutils.Context(t)))
-			require.Len(t, idleDurationOccured, 0, "no Job Runs created")
+			require.Empty(t, idleDurationOccured, "no Job Runs created")
 
 			if tc.expectedToSubmit {
 				g.Eventually(func() int { return len(idleDurationOccured) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
@@ -817,7 +817,7 @@ func TestFluxMonitor_TriggerIdleTimeThreshold(t *testing.T) {
 			fm.Close()
 
 			if !tc.expectedToSubmit {
-				require.Len(t, idleDurationOccured, 0)
+				require.Empty(t, idleDurationOccured)
 			}
 		})
 	}
@@ -1068,7 +1068,7 @@ func TestFluxMonitor_IdleTimerResetsOnNewRound(t *testing.T) {
 		}, nil).Once().Run(func(args mock.Arguments) {
 		initialPollOccurred <- struct{}{}
 	})
-	require.Len(t, idleDurationOccured, 0, "no Job Runs created")
+	require.Empty(t, idleDurationOccured, "no Job Runs created")
 	g.Eventually(func() int { return len(initialPollOccurred) }, testutils.WaitTimeout(t)).Should(gomega.Equal(1))
 
 	// idleDuration 1 triggers using the same round id as the initial poll. This resets the idle timer

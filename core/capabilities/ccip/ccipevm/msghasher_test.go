@@ -359,7 +359,7 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		require.NoError(t, err)
 
 		// Borsh encoded extra args
-		ea := fee_quoter.EVMExtraArgsV2{
+		ea := fee_quoter.GenericExtraArgsV2{
 			GasLimit:                 agbinary.Uint128{Lo: 5000, Hi: 0},
 			AllowOutOfOrderExecution: false,
 		}
@@ -497,7 +497,7 @@ func ccipMsgToAny2EVMMessage(t *testing.T, msg cciptypes.Message, sourceSelector
 
 	decodedMap, err := ExtraDataCodec.DecodeExtraArgs(msg.ExtraArgs, sourceSelector)
 	require.NoError(t, err)
-	gasLimit, err := parseExtraDataMap(decodedMap)
+	gasLimit, err := parseExtraArgsMap(decodedMap)
 	require.NoError(t, err)
 
 	return message_hasher.InternalAny2EVMRampMessage{

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -17,7 +18,7 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/operator_wrapper"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/operator"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
@@ -79,7 +80,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, jb job.Job) ([]job.Servi
 	}
 	concreteSpec := job.SetDRMinIncomingConfirmations(chain.Config().EVM().MinIncomingConfirmations(), *jb.DirectRequestSpec)
 
-	oracle, err := operator_wrapper.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
+	oracle, err := operator.NewOperator(concreteSpec.ContractAddress.Address(), chain.Client())
 	if err != nil {
 		return nil, errors.Wrapf(err, "DirectRequest: failed to create an operator wrapper for address: %v", concreteSpec.ContractAddress.Address().String())
 	}
@@ -124,7 +125,7 @@ type listener struct {
 	logger                   logger.Logger
 	config                   Config
 	logBroadcaster           log.Broadcaster
-	oracle                   operator_wrapper.OperatorInterface
+	oracle                   operator.OperatorInterface
 	pipelineRunner           pipeline.Runner
 	pipelineORM              pipeline.ORM
 	mailMon                  *mailbox.Monitor
@@ -152,8 +153,8 @@ func (l *listener) Start(context.Context) error {
 			Contract: l.oracle.Address(),
 			ParseLog: l.oracle.ParseLog,
 			LogsWithTopics: map[common.Hash][][]log.Topic{
-				operator_wrapper.OperatorOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
-				operator_wrapper.OperatorCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
+				operator.OperatorOracleRequest{}.Topic():       {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
+				operator.OperatorCancelOracleRequest{}.Topic(): {{log.Topic(l.job.ExternalIDEncodeBytesToTopic()), log.Topic(l.job.ExternalIDEncodeStringToTopic())}},
 			},
 			MinIncomingConfirmations: l.minIncomingConfirmations,
 		})
@@ -167,8 +168,8 @@ func (l *listener) Start(context.Context) error {
 			l.shutdownWaitGroup.Done()
 		}()
 
-		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", fmt.Sprint(l.job.PipelineSpec.JobID))
-		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", fmt.Sprint(l.job.PipelineSpec.JobID))
+		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", strconv.Itoa(int(l.job.PipelineSpec.JobID)))
+		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", strconv.Itoa(int(l.job.PipelineSpec.JobID)))
 
 		return nil
 	})
@@ -199,12 +200,12 @@ func (l *listener) HandleLog(ctx context.Context, lb log.Broadcast) {
 	}
 
 	switch log := log.(type) {
-	case *operator_wrapper.OperatorOracleRequest:
+	case *operator.OperatorOracleRequest:
 		wasOverCapacity := l.mbOracleRequests.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("OracleRequest log mailbox is over capacity - dropped the oldest log")
 		}
-	case *operator_wrapper.OperatorCancelOracleRequest:
+	case *operator.OperatorCancelOracleRequest:
 		wasOverCapacity := l.mbOracleCancelRequests.Deliver(lb)
 		if wasOverCapacity {
 			l.logger.Error("CancelOracleRequest log mailbox is over capacity - dropped the oldest log")
@@ -275,9 +276,9 @@ func (l *listener) handleReceivedLogs(ctx context.Context, mailbox *mailbox.Mail
 		}
 
 		switch log := log.(type) {
-		case *operator_wrapper.OperatorOracleRequest:
+		case *operator.OperatorOracleRequest:
 			l.handleOracleRequest(ctx, log, lb)
-		case *operator_wrapper.OperatorCancelOracleRequest:
+		case *operator.OperatorCancelOracleRequest:
 			l.handleCancelOracleRequest(ctx, nil, log, lb)
 		default:
 			l.logger.Warnf("Unexpected log type %T", log)
@@ -285,7 +286,7 @@ func (l *listener) handleReceivedLogs(ctx context.Context, mailbox *mailbox.Mail
 	}
 }
 
-func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[string]interface{} {
+func oracleRequestToMap(request *operator.OperatorOracleRequest) map[string]interface{} {
 	result := make(map[string]interface{})
 	result["specId"] = fmt.Sprintf("0x%x", request.SpecId)
 	result["requester"] = request.Requester.Hex()
@@ -299,7 +300,7 @@ func oracleRequestToMap(request *operator_wrapper.OperatorOracleRequest) map[str
 	return result
 }
 
-func (l *listener) handleOracleRequest(ctx context.Context, request *operator_wrapper.OperatorOracleRequest, lb log.Broadcast) {
+func (l *listener) handleOracleRequest(ctx context.Context, request *operator.OperatorOracleRequest, lb log.Broadcast) {
 	l.logger.Infow("Oracle request received",
 		"specId", fmt.Sprintf("%0x", request.SpecId),
 		"requester", request.Requester,
@@ -399,7 +400,7 @@ func (l *listener) allowRequester(requester common.Address) bool {
 }
 
 // Cancels runs that haven't been started yet, with the given request ID
-func (l *listener) handleCancelOracleRequest(ctx context.Context, ds sqlutil.DataSource, request *operator_wrapper.OperatorCancelOracleRequest, lb log.Broadcast) {
+func (l *listener) handleCancelOracleRequest(ctx context.Context, ds sqlutil.DataSource, request *operator.OperatorCancelOracleRequest, lb log.Broadcast) {
 	runCloserChannelIf, loaded := l.runs.LoadAndDelete(formatRequestId(request.RequestId))
 	if loaded {
 		close(runCloserChannelIf.(services.StopChan))

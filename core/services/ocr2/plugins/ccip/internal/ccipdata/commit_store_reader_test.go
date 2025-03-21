@@ -296,7 +296,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			reps, err := cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max+1, 0)
 			require.NoError(t, err)
-			assert.Len(t, reps, 0)
+			assert.Empty(t, reps)
 
 			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Max, 0)
 			require.NoError(t, err)
@@ -316,7 +316,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			reps, err = cr.GetCommitReportMatchingSeqNum(ctx, rep.Interval.Min-1, 0)
 			require.NoError(t, err)
-			require.Len(t, reps, 0)
+			require.Empty(t, reps)
 
 			// Sanity
 			reps, err = cr.GetAcceptedCommitReportsGteTimestamp(ctx, time.Unix(0, 0), 0)
@@ -330,7 +330,7 @@ func TestCommitStoreReaders(t *testing.T) {
 			// Until we detect the config, we'll have empty offchain config
 			c1, err := cr.OffchainConfig(ctx)
 			require.NoError(t, err)
-			assert.Equal(t, c1, cciptypes.CommitOffchainConfig{})
+			assert.Equal(t, cciptypes.CommitOffchainConfig{}, c1)
 			newPr, err := cr.ChangeConfig(ctx, configs[v][0], configs[v][1])
 			require.NoError(t, err)
 			assert.Equal(t, ccipcalc.EvmAddrToGeneric(prs[v]), newPr)
@@ -345,7 +345,7 @@ func TestCommitStoreReaders(t *testing.T) {
 
 			gp, err := gpe.GetGasPrice(ctx)
 			require.NoError(t, err)
-			assert.True(t, gp.Cmp(big.NewInt(0)) > 0)
+			assert.Positive(t, gp.Cmp(big.NewInt(0)))
 		})
 	}
 }

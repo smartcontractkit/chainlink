@@ -351,13 +351,13 @@ func TestExecutionReportingPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 
 	should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
-	assert.Equal(t, true, should)
+	assert.True(t, should)
 
 	mockedExecState.Return(uint8(cciptypes.ExecutionStateSuccess), nil).Once()
 
 	should, err = plugin.ShouldAcceptFinalizedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
-	assert.Equal(t, false, should)
+	assert.False(t, should)
 }
 
 func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
@@ -400,12 +400,12 @@ func TestExecutionReportingPlugin_ShouldTransmitAcceptedReport(t *testing.T) {
 
 	should, err := plugin.ShouldTransmitAcceptedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
-	assert.Equal(t, true, should)
+	assert.True(t, should)
 
 	mockedExecState.Return(uint8(cciptypes.ExecutionStateFailure), nil).Once()
 	should, err = plugin.ShouldTransmitAcceptedReport(testutils.Context(t), ocrtypes.ReportTimestamp{}, encodedReport)
 	require.NoError(t, err)
-	assert.Equal(t, false, should)
+	assert.False(t, should)
 }
 
 func TestExecutionReportingPlugin_buildReport(t *testing.T) {
@@ -1251,7 +1251,7 @@ func Test_selectReportsToFillBatch(t *testing.T) {
 			for _, r := range unexpiredReportsBatches {
 				flatten = append(flatten, r...)
 			}
-			assert.Equal(t, tt.expectedReports, len(flatten))
+			assert.Len(t, flatten, tt.expectedReports)
 			if tt.expectedBatches > 0 {
 				assert.Equal(t, reports, flatten)
 			} else {
@@ -1432,7 +1432,7 @@ func TestExecutionReportingPlugin_ensurePriceRegistrySynchronization(t *testing.
 	p.onRampReader = mockOnRampReader
 
 	mockOnRampReader.On("SourcePriceRegistryAddress", mock.Anything).Return(sourcePriceRegistryAddress1, nil).Once()
-	require.Equal(t, nil, p.sourcePriceRegistry)
+	require.Nil(t, p.sourcePriceRegistry)
 	err := p.ensurePriceRegistrySynchronization(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, mockPriceRegistryReader1, p.sourcePriceRegistry)

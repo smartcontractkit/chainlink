@@ -6,7 +6,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate/genwrapper"
 )
 
-const (
+var (
 	rootDir = "../../../contracts/solc/"
 )
 
@@ -18,6 +18,11 @@ func main() {
 	var outDirSuffix string
 	if len(os.Args) >= 5 {
 		outDirSuffix = os.Args[4]
+	}
+
+	// Once vrf is moved to its own subfolder we can delete this rootDir override.
+	if project == "vrf" || project == "automation" {
+		rootDir = "../../contracts/solc/"
 	}
 
 	abiPath := rootDir + project + "/" + className + "/" + className + ".sol/" + className + ".abi.json"
