@@ -446,6 +446,95 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 		timelockSignerPDA(solanaState0.TimelockProgram, solanaState0.TimelockSeed))
 }
 
+// TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
+func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
+	t.Parallel()
+	// --- arrange ---
+	log := logger.TestLogger(t)
+	envConfig := memory.MemoryEnvironmentConfig{Chains: 0, SolChains: 1}
+	env := memory.NewMemoryEnvironment(t, log, zapcore.InfoLevel, envConfig)
+	solanaSelectors := env.AllChainSelectorsSolana()
+	changesetConfig := map[uint64]commontypes.MCMSWithTimelockConfigV2{
+		solanaSelectors[0]: {
+			Proposer: mcmstypes.Config{
+				Quorum: 1,
+				Signers: []common.Address{
+					common.HexToAddress("0x0000000000000000000000000000000000000021"),
+					common.HexToAddress("0x0000000000000000000000000000000000000022"),
+				},
+				GroupSigners: []mcmstypes.Config{
+					{
+						Quorum: 2,
+						Signers: []common.Address{
+							common.HexToAddress("0x0000000000000000000000000000000000000023"),
+							common.HexToAddress("0x0000000000000000000000000000000000000024"),
+							common.HexToAddress("0x0000000000000000000000000000000000000025"),
+						},
+						GroupSigners: []mcmstypes.Config{
+							{
+								Quorum: 1,
+								Signers: []common.Address{
+									common.HexToAddress("0x0000000000000000000000000000000000000026"),
+								},
+								GroupSigners: []mcmstypes.Config{},
+							},
+						},
+					},
+				},
+			},
+			Canceller: mcmstypes.Config{
+				Quorum: 1,
+				Signers: []common.Address{
+					common.HexToAddress("0x0000000000000000000000000000000000000027"),
+				},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			Bypasser: mcmstypes.Config{
+				Quorum: 1,
+				Signers: []common.Address{
+					common.HexToAddress("0x0000000000000000000000000000000000000028"),
+					common.HexToAddress("0x0000000000000000000000000000000000000029"),
+				},
+				GroupSigners: []mcmstypes.Config{},
+			},
+			TimelockMinDelay: big.NewInt(2),
+		},
+	}
+	configuredChangeset := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
+		changesetConfig,
+	)
+	commonchangeset.SetPreloadedSolanaAddresses(t, env, solanaSelectors[0])
+	// --- act ---
+	updatedEnv, err := commonchangeset.Apply(t, env, nil, configuredChangeset)
+	require.NoError(t, err)
+
+	solanaState, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnv, solanaSelectors)
+	require.NoError(t, err)
+
+	// Call deploy again, seeds and addresses from original state should not change
+	updatedEnvReTriggered, err := commonchangeset.Apply(t, updatedEnv, nil, configuredChangeset)
+	require.NoError(t, err)
+	solanaStateNew, err := mcmschangesetstate.MaybeLoadMCMSWithTimelockStateSolana(updatedEnvReTriggered, solanaSelectors)
+	require.NoError(t, err)
+
+	// --- assert ---
+	require.Len(t, solanaState, 1)
+	stateOld := solanaState[solanaSelectors[0]]
+	stateNew := solanaStateNew[solanaSelectors[0]]
+	require.Equal(t, stateOld.TimelockSeed, stateNew.TimelockSeed)
+	require.Equal(t, stateOld.TimelockProgram, stateNew.TimelockProgram)
+	require.Equal(t, stateOld.BypasserAccessControllerAccount, stateNew.BypasserAccessControllerAccount)
+	require.Equal(t, stateOld.CancellerAccessControllerAccount, stateNew.CancellerAccessControllerAccount)
+	require.Equal(t, stateOld.ExecutorAccessControllerAccount, stateNew.ExecutorAccessControllerAccount)
+	require.Equal(t, stateOld.ProposerAccessControllerAccount, stateNew.ProposerAccessControllerAccount)
+	require.Equal(t, stateOld.McmProgram, stateNew.McmProgram)
+	require.Equal(t, stateOld.BypasserMcmSeed, stateNew.BypasserMcmSeed)
+	require.Equal(t, stateOld.CancellerMcmSeed, stateNew.CancellerMcmSeed)
+	require.Equal(t, stateOld.ProposerMcmSeed, stateNew.ProposerMcmSeed)
+	require.Equal(t, stateOld.AccessControllerProgram, stateNew.AccessControllerProgram)
+}
+
 // ----- helpers -----
 
 func mcmSignerPDA(programID solana.PublicKey, seed mcmschangesetstate.PDASeed) string {
