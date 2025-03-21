@@ -14,7 +14,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run "^TestMigrateFromV1_5ToV1_6$"
 
   - id: smoke/ccip/ccip_fees_test.go:*
@@ -24,7 +23,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_fees_test.go -timeout 20m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_messaging_test.go:*
@@ -34,7 +32,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_messaging_test.go -timeout 18m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_message_limitations_test.go:*
@@ -44,7 +41,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPMessageLimitations" -timeout 12m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MaxBatchSizeEVM
@@ -54,7 +50,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test -run "Test_CCIPBatching_MaxBatchSizeEVM" -timeout 25m -test.parallel=2 -count=1 -json
   
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource
@@ -64,7 +59,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource$" -timeout 25m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_MultiSource_MultiReports
@@ -74,7 +68,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test -run "^Test_CCIPBatching_MultiSource_MultiReports$" -timeout 25m -test.parallel=2 -count=1 -json
 
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource
@@ -84,7 +77,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test -run "^Test_CCIPBatching_SingleSource$" -timeout 25m -test.parallel=2 -count=1 -json
   
   - id: smoke/ccip/ccip_batching_test.go:Test_CCIPBatching_SingleSource_MultipleReports
@@ -103,7 +95,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_add_chain_test.go -timeout 15m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_reader_test.go:*
@@ -113,7 +104,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_reader_test.go -timeout 5m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_usdc_test.go:*
@@ -123,7 +113,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip && go test ccip_usdc_test.go -timeout 18m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_ooo_execution_test.go:*
@@ -133,7 +122,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_ooo_execution_test.go -timeout 16m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_token_transfer_test.go:*
@@ -143,7 +131,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_token_transfer_test.go -timeout 16m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_cs_update_rmn_config_test.go:*
@@ -153,7 +140,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_cs_update_rmn_config_test.go -timeout 20m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go:*
@@ -163,7 +149,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/ && go test smoke/ccip/ccip_cs_rmn_curse_uncurse_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
   - id: smoke/ccip/ccip_disable_lane_test.go:*
@@ -173,7 +158,6 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-      - Run CCIP Integration Tests For Merge Queue
     test_cmd: cd integration-tests/smoke/ccip/ && go test ccip_disable_lane_test.go -timeout 10m -test.parallel=1 -count=1 -json
 
   # END: CCIP tests
