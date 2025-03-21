@@ -105,7 +105,6 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 		}
 		return false
 	}, tests.WaitTimeout(t), gasPriceExpiry)
-
 }
 
 // price reaches some deviation threshold
@@ -195,5 +194,4 @@ func Test_CCIPGasPriceUpdatesDeviation(t *testing.T) {
 		}
 		return false
 	}, tests.WaitTimeout(t), 5*time.Second)
-
 }
