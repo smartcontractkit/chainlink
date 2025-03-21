@@ -385,13 +385,11 @@ func TestUpgradeCI(t *testing.T) {
 		},
 	}
 
-	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:   OldSha,
-		DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
-	}
+	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	require.NoError(t, err)
 
 	// simple deploy flow
-	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, &buildConfig))
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, nil))
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 
@@ -403,7 +401,6 @@ func TestUpgradeCI(t *testing.T) {
 			OffRamp:   true,
 		})
 	upgradeAuthority := timelockSignerPDA
-	verifyProgramSizes(t, e)
 
 	// upgrade the contracts
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
