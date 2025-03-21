@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"fmt"
 	"net/http"
 	"testing"
 
@@ -50,8 +49,8 @@ func TestCronBasic(t *testing.T) {
 	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
 		RequestData: "{}",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
@@ -74,7 +73,7 @@ func TestCronBasic(t *testing.T) {
 		g.Expect(len(jobRuns.Data)).Should(gomega.BeNumerically(">=", 5), "Expected number of job runs to be greater than 5, but got %d", len(jobRuns.Data))
 
 		for _, jr := range jobRuns.Data {
-			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
+			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]any{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "2m", "3s").Should(gomega.Succeed())
 }
@@ -111,8 +110,8 @@ func TestCronJobReplacement(t *testing.T) {
 	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name:        fmt.Sprintf("variable-%s", uuid.NewString()),
-		URL:         fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name:        "variable-" + uuid.NewString(),
+		URL:         env.MockAdapter.InternalEndpoint + "/variable",
 		RequestData: "{}",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(bta)
@@ -162,5 +161,4 @@ func TestCronJobReplacement(t *testing.T) {
 			g.Expect(jr.Attributes.Errors).Should(gomega.Equal([]interface{}{nil}), "Job run %s shouldn't have errors", jr.ID)
 		}
 	}, "3m", "3s").Should(gomega.Succeed())
-
 }

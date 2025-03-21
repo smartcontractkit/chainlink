@@ -1,9 +1,9 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -55,7 +55,7 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Error getting seth client")
 
 	adapterUUID := uuid.NewString()
-	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
+	adapterPath := "/variable-" + adapterUUID
 	route := &parrot.Route{
 		Method:             http.MethodPost,
 		Path:               adapterPath,
@@ -100,10 +100,10 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
-	adapterFullURL := fmt.Sprintf("%s%s", env.MockAdapter.InternalEndpoint, adapterPath)
+	adapterFullURL := env.MockAdapter.InternalEndpoint + adapterPath
 	l.Info().Str("AdapterFullURL", adapterFullURL).Send()
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name: fmt.Sprintf("variable-%s", adapterUUID),
+		Name: "variable-" + adapterUUID,
 		URL:  adapterFullURL,
 	}
 	for i, n := range env.ClCluster.Nodes {
@@ -111,9 +111,9 @@ func TestFluxBasic(t *testing.T) {
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
 		fluxSpec := &nodeclient.FluxMonitorJobSpec{
-			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
+			Name:              "flux-monitor-" + adapterUUID,
 			ContractAddress:   fluxInstance.Address(),
-			EVMChainID:        fmt.Sprint(sethClient.ChainID),
+			EVMChainID:        strconv.FormatInt(sethClient.ChainID, 10),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s

@@ -201,7 +201,7 @@ func SetupAutomationBasic(t *testing.T, nodeUpgrade bool) {
 					err = upgradeChainlinkNodeVersionsLocal(*cfg.GetChainlinkUpgradeImageConfig().Image, *cfg.GetChainlinkUpgradeImageConfig().Version, a.DockerEnv.ClCluster.Nodes[i])
 					require.NoError(t, err, "Error when upgrading node %d", i)
 					time.Sleep(time.Second * 10)
-					expect = expect + 5
+					expect += 5
 					gom.Eventually(func(g gomega.Gomega) {
 						// Check if the upkeeps are performing multiple times by analyzing their counters and checking they are increasing by 5 in each step within 5 minutes
 						for i := 0; i < len(upkeepIDs); i++ {
@@ -1191,7 +1191,6 @@ func TestSetOffchainConfigWithMaxGasPrice(t *testing.T) {
 					g.Expect(latestCounter.Int64()).Should(gomega.BeNumerically("<=", countersAfterSettingLowMaxGasPrice[i].Int64()+1),
 						"Expected consumer counter to be less than %d, but got %d",
 						countersAfterSettingLowMaxGasPrice[i].Int64()+1, latestCounter.Int64())
-
 				}
 			}, "2m", "5s").Should(gomega.Succeed())
 			l.Info().Msg("no upkeeps is performed because their max gas price is only 1 wei")
@@ -1278,7 +1277,7 @@ func setupAutomationTestDocker(
 	// Add registry version to config
 	registryConfig.RegistryVersion = registryVersion
 
-	//launch the environment
+	// launch the environment
 	var env *test_env.CLClusterTestEnv
 	var err error
 	require.NoError(t, err)
