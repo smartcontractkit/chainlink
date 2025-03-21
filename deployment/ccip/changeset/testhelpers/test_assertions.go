@@ -365,7 +365,7 @@ func ConfirmCommitWithExpectedSeqNumRange(
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: tests.Context(t),
+				Context: t.Context(),
 			})
 			require.NoError(t, err)
 			for iter.Next() {
