@@ -4083,6 +4083,13 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
+	mockAdapterURL := env.LocalCluster.MockAdapter.InternalEndpoint
+	if env.LocalCluster == nil {
+		mockAdapterURL = env.MockServer.InternalEndpoint
+	}
+
+	fmt.Printf("DEBUG: MockAdapterURL: %s\n", mockAdapterURL)
+
 	var tokenAddresses []string
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
@@ -4098,7 +4105,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	tokenPricesUSDPipeline := ""
 	tokenPricesConfigJson := ""
 	if withPipeline {
-		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, env.MockServer)
+		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, mockAdapterURL)
 		tokenPricesUSDPipeline = TokenFeeForMultipleTokenAddr(tokensUSDUrl)
 	} else {
 		tokenPricesConfigJson, err = lane.TokenPricesConfig()
@@ -4128,7 +4135,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		jobParams.USDCConfig = &config.USDCConfig{
 			SourceTokenAddress:              common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
 			SourceMessageTransmitterAddress: lane.Source.Common.TokenTransmitter.ContractAddress,
-			AttestationAPI:                  env.MockServer.InternalEndpoint,
+			AttestationAPI:                  mockAdapterURL,
 			AttestationAPITimeoutSeconds:    5,
 		}
 	}
@@ -4137,7 +4144,7 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		// Only one LBTC allowed per chain
 		jobParams.LBTCConfig = &config.LBTCConfig{
 			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
-			AttestationAPI:               env.MockServer.InternalEndpoint,
+			AttestationAPI:               mockAdapterURL,
 			AttestationAPITimeoutSeconds: 5,
 		}
 	}
@@ -4901,12 +4908,12 @@ func SetMockserverWithTokenPriceValue(mockServer *ctftestenv.Parrot) {
 }
 
 // TokenPricePipelineURLs returns the mockserver urls for the token price pipeline
-func TokenPricePipelineURLs(tokenAddresses []string, mockServer *ctftestenv.Parrot) map[string]string {
+func TokenPricePipelineURLs(tokenAddresses []string, mockServerURL string) map[string]string {
 	mapTokenURL := make(map[string]string)
 
 	for _, tokenAddr := range tokenAddresses {
 		path := fmt.Sprintf("token_contract_%s", tokenAddr[2:12])
-		mapTokenURL[tokenAddr] = fmt.Sprintf("%s/%s", mockServer.InternalEndpoint, path)
+		mapTokenURL[tokenAddr] = fmt.Sprintf("%s/%s", mockServerURL, path)
 	}
 
 	return mapTokenURL
