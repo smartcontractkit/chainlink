@@ -261,9 +261,9 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
 
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)	
-	if err != nil {	
-		return DeployCCIPOutput{}, err	
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -357,7 +357,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	}
 
 	initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:        "1ed798f100c95a547efb67c6328d6f406179f2ab",
+		GitCommitSha:        "28994272f7ef0d58d70e723ab59c186355e05e6d",
 		DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
 		CleanDestinationDir: true,
 	}
@@ -387,6 +387,12 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			initialDeployConfig,
+		),
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployForTest),
+			ccipChangesetSolana.DeployForTestConfig{
+				ChainSelector: solChainSelectors[0],
+			},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
@@ -1109,4 +1115,4 @@ func FundSolDeployer(ctx context.Context, lggr logger.Logger, e deployment.Envir
 	}
 
 	return nil
-}failed to apply changesets for setting up OCR
+}
