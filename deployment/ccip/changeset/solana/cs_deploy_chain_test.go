@@ -11,6 +11,7 @@ import (
 
 	solBinary "github.com/gagliardetto/binary"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -64,13 +65,14 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		HomeChainSelector:      homeChainSel,
 		ChainSelector:          solChainSelectors[0],
 		ContractParamsPerChain: contractParamsPerChain,
+		MCMSWithTimelockConfig: proposalutils.SingleGroupTimelockConfigV2(t),
 	}
 
 	ci := os.Getenv("CI") == "true"
 	// we can't upgrade in place locally if we preload addresses so we have to change where we build
 	// we also don't want to incur two builds in CI, so only do it locally
 	if ci {
-		testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+		testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
 	} else {
 		initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
 			GitCommitSha:        OldSha,
@@ -345,7 +347,7 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),

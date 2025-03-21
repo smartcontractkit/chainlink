@@ -221,7 +221,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	// 		ChainSelector: chain,
 	// 	})
 	// }
-	testhelpers.SavePreloadedSolAddresses(t, e, solChainSelectors[0])
+	testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
 	e, err = commonchangeset.ApplyChangesets(t, e, nil, []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),

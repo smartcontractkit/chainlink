@@ -685,9 +685,12 @@ func deployChainContractsSolana(
 
 	// MCMS
 	// this should selectively deploy anything if required
-	_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
-	if err != nil {
-		return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
+	// TODO: bad check
+	if config.MCMSWithTimelockConfig.TimelockMinDelay != nil {
+		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+		if err != nil {
+			return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
+		}
 	}
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
