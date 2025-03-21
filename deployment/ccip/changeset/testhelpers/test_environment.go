@@ -435,9 +435,9 @@ func NewEnvironmentWithPrerequisitesContracts(t *testing.T, tEnv TestEnvironment
 	solChains := e.Env.AllChainSelectorsSolana()
 	//nolint:gocritic // we need to segregate EVM and Solana chains
 	allChains := append(evmChains, solChains...)
-	if len(solChains) > 0 {
-		SavePreloadedSolAddresses(t, e.Env, solChains[0])
-	}
+	// if len(solChains) > 0 {
+	// 	SavePreloadedSolAddresses(e.Env, solChains[0])
+	// }
 	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	for _, c := range e.Env.AllChainSelectors() {
 		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
@@ -535,6 +535,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 }
 
 func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+	SavePreloadedSolAddresses(e.Env, solChainSelector)
 	state, err := changeset.LoadOnchainState(e.Env)
 	if err != nil {
 		return nil, err
@@ -542,7 +543,7 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 	value := [28]uint8{}
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	if !ok {
-		return nil, fmt.Errorf("failed to set string to big.Int")
+		return nil, errors.New("failed to set string to big.Int")
 	}
 	bigNum.FillBytes(value[:])
 	return []commonchangeset.ConfiguredChangeSet{

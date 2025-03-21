@@ -32,6 +32,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
 var _ deployment.ChangeSet[DeployChainContractsConfig] = DeployChainContractsChangeset
@@ -682,38 +683,43 @@ func deployChainContractsSolana(
 		lockReleaseTokenPool = chainState.LockReleaseTokenPool
 	}
 
-	if config.UpgradeConfig.NewAccessControllerVersion != nil ||
-		config.UpgradeConfig.NewTimelockVersion != nil ||
-		config.UpgradeConfig.NewMCMVersion != nil {
-		addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	// MCMS
+	// this should selectively deploy anything if required
+	_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+	if err != nil {
+		return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
+	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	if config.UpgradeConfig.NewAccessControllerVersion != nil {
+		e.Logger.Infow("Generating instruction for upgrading access controller", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
 		if err != nil {
-			return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+		txns = append(txns, newTxns...)
+	}
+	if config.UpgradeConfig.NewTimelockVersion != nil {
+		e.Logger.Infow("Generate instruction for upgrading timelock", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
 		if err != nil {
-			return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		if config.UpgradeConfig.NewAccessControllerVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewAccessControllerVersion, mcmState.AccessControllerProgram, types.AccessControllerProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
+		txns = append(txns, newTxns...)
+	}
+	if config.UpgradeConfig.NewMCMVersion != nil {
+		e.Logger.Infow("Generate instruction for upgrading mcms", "chain", chain.String())
+		newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
 		}
-		if config.UpgradeConfig.NewTimelockVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewTimelockVersion, mcmState.TimelockProgram, types.RBACTimelockProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
-		}
-		if config.UpgradeConfig.NewMCMVersion != nil {
-			newTxns, err := generateUpgradeTxns(e, chain, ab, config, config.UpgradeConfig.NewMCMVersion, mcmState.McmProgram, types.ManyChainMultisigProgram)
-			if err != nil {
-				return txns, fmt.Errorf("failed to generate upgrade txns: %w", err)
-			}
-			txns = append(txns, newTxns...)
-		}
+		txns = append(txns, newTxns...)
 	}
 
 	// BILLING
@@ -785,6 +791,7 @@ func generateUpgradeTxns(
 	programID solana.PublicKey,
 	contractType deployment.ContractType,
 ) ([]mcmsTypes.Transaction, error) {
+	e.Logger.Infow("Generating instruction for upgrading contract", "contractType", contractType)
 	txns := make([]mcmsTypes.Transaction, 0)
 	bufferProgram, err := DeployAndMaybeSaveToAddressBook(e, chain, ab, contractType, *newVersion, true)
 	if err != nil {

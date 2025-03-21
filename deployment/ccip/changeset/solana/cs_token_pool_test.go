@@ -82,7 +82,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 	)
 	var mcmsConfig *ccipChangesetSolana.MCMSConfigSolana
 	if mcms {
-		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, true,
+		_, _ = testhelpers.TransferOwnershipSolana(t, &e, solChain, false,
 			ccipChangesetSolana.CCIPContractsToTransfer{
 				Router:    true,
 				FeeQuoter: true,
