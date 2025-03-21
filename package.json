@@ -19,7 +19,7 @@
   "homepage": "https://github.com/smartcontractkit/chainlink#readme",
   "engines": {
     "node": ">=18",
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "devDependencies": {
     "@changesets/cli": "~2.26.2",
