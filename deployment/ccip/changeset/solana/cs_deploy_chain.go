@@ -5,6 +5,8 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"os"
+	"path/filepath"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -144,28 +146,39 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 		return deployment.ChangesetOutput{}, err
 	}
 
-	if c.BuildConfig.GitCommitSha != "" {
+	chainSel := c.ChainSelector
+	chain := e.SolChains[chainSel]
+	if existingState.SolChains[chainSel].LinkToken.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
+	}
+
+	// prepare artifacts
+	// artifacts will already exist if running locally as chain spin up fetches them
+	// on CI they wont be present and we want to fetch them here
+	routerProgramFile := filepath.Join(chain.ProgramsPath, "ccip_router.so")
+	if _, err := os.Stat(routerProgramFile); err != nil && !c.BuildConfig.LocalBuild.BuildLocally {
+		e.Logger.Infow("Building solana artifacts as router artifact not found in programs path", "chain", chain.String())
+		err = BuildSolana(e, c.BuildConfig)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
+		}
+	} else if c.BuildConfig.LocalBuild.BuildLocally {
+		e.Logger.Infow("Building solana artifacts locally", "chain", chain.String())
 		err = BuildSolana(e, c.BuildConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
 	}
 
-	timelocks := map[uint64]string{}
-	proposers := map[uint64]string{}
-	inspectors := map[uint64]sdk.Inspector{}
-	var batches []mcmsTypes.BatchOperation
-	chainSel := c.ChainSelector
-	chain := e.SolChains[chainSel]
-	if existingState.SolChains[chainSel].LinkToken.IsZero() {
-		return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
-	}
 	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
 	}
 	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
 	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
-
+	timelocks := map[uint64]string{}
+	proposers := map[uint64]string{}
+	inspectors := map[uint64]sdk.Inspector{}
+	var batches []mcmsTypes.BatchOperation
 	timelocks[chainSel] = mcmsSolana.ContractAddress(
 		mcmState.TimelockProgram,
 		mcmsSolana.PDASeed(mcmState.TimelockSeed),
@@ -1086,7 +1099,7 @@ func (cfg DeployForTestConfig) Validate(e deployment.Environment) error {
 	return validateRouterConfig(chain, chainState)
 }
 
-func DeployForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
+func DeployReceiverForTest(e deployment.Environment, cfg DeployForTestConfig) (deployment.ChangesetOutput, error) {
 	if err := cfg.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
