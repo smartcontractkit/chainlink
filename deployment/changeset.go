@@ -114,3 +114,5 @@ type ChangesetOutput struct {
 // ViewState produces a product specific JSON representation of
 // the on and offchain state of the environment.
 type ViewState func(e Environment) (json.Marshaler, error)
+
+type ViewStateV2 func(e Environment, previousView json.Marshaler) (json.Marshaler, error)
