@@ -141,5 +141,13 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
     test_cmd: cd integration-tests/smoke/ccip/ && go test ccip_disable_lane_test.go -timeout 10m -test.parallel=1 -count=1 -json
+  
+  - id: smoke/ccip/ccip_batching_test.go:TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD
+    path: integration-tests/smoke/ccip/ccip_batching_test.go
+    test_env_type: in-memory
+    runs_on: ubuntu-latest
+    triggers:
+      - PR Integration CCIP Tests
+    test_cmd: cd integration-tests/smoke/ccip && go test -run "TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD" -timeout 25m -test.parallel=2 -count=1 -json
 
   # END: CCIP tests
