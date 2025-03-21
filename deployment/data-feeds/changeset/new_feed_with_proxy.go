@@ -47,7 +47,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 
 	// For each Data ID, deploy an AggregatorProxy contract and propose DataFeedsCache as an aggregator on it.
 	// Transfer ownership to timelock and create accept ownership proposal
-	for index, _ := range c.DataIDs {
+	for index := range c.DataIDs {
 		// Deploy AggregatorProxy contract with deployer key
 		proxyConfig := types.DeployAggregatorProxyConfig{
 			ChainsToDeploy:   []uint64{c.ChainSelector},
