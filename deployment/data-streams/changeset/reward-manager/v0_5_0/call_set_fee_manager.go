@@ -8,11 +8,14 @@ import (
 
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
+
 	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
@@ -39,8 +42,30 @@ func (cfg SetFeeManagerConfig) Validate() error {
 	return nil
 }
 
-func SetFeeManagerPrecondition(_ deployment.Environment, cc SetFeeManagerConfig) error {
-	if err := cc.Validate(); err != nil {
+func SetFeeManagerPrecondition(e deployment.Environment, sf SetFeeManagerConfig) error {
+	for chainSelector, configs := range sf.ConfigsByChain {
+		for _, config := range configs {
+			confState, err := loadRewardManagerState(e, chainSelector, config.RewardManagerAddress.Hex())
+			if err != nil {
+				return err
+			}
+
+			gotVersion, err := confState.TypeAndVersion(&bind.CallOpts{Context: e.GetContext()})
+			if err != nil {
+				return fmt.Errorf("failed to get RewardManager version: %w", err)
+			}
+
+			// Why v0.5.0/RewardManager.sol typeAndVersion returns 1.1.0?
+			allowedVersion := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version1_1_0).String()
+
+			if gotVersion != allowedVersion {
+				return fmt.Errorf("invalid RewardManager version: got %s, allowed %s", gotVersion, allowedVersion)
+			}
+
+		}
+	}
+
+	if err := sf.Validate(); err != nil {
 		return fmt.Errorf("invalid SetFeeManager config: %w", err)
 	}
 	return nil
