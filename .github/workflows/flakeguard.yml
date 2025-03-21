@@ -61,6 +61,9 @@ on:
       FLAKEGUARD_SPLUNK_HEC:
         description: "The Splunk HTTP Event Collector (HEC) token."
         required: false
+      OPENAI_API_KEY:
+        description: "API Key for OpenAI"
+        required: true
 
 env:
   GIT_BASE_REF: ${{ inputs.baseRef }}
@@ -735,3 +738,24 @@ jobs:
                 }
               ]
             }
+
+  llm-analysis:
+    name: LLM Analysis
+    runs-on: ubuntu-latest
+    needs: [get-tests, report]
+    steps:
+      - name: Download all test result artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: context/results.json
+          pattern: failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
+      - name: Analyze
+        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.0.0
+        with:
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          failed_test_results: "context/results.json"
+      - name: Upload Analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: llm-analysis.jsonl
+          path: ${{ github.workspace }}/analysis.jsonl
