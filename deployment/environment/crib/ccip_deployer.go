@@ -219,7 +219,7 @@ func DeployCCIPChains(ctx context.Context, lggr logger.Logger, envConfig devenv.
 // ConnectCCIPLanes is a group of changesets used from CRIB to set up new lanes
 // It creates a fully connected mesh where all chains are connected to all chains
 func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
@@ -235,11 +235,6 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	*e, err = setupLanes(e, state)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-	}
-
-	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
-	if err != nil {
-		return DeployCCIPOutput{}, err
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -264,6 +259,11 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 	*e, err = mustOCR(e, homeChainSel, feedChainSel, false, rmnEnabled)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)	
+	if err != nil {	
+		return DeployCCIPOutput{}, err	
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -1109,4 +1109,4 @@ func FundSolDeployer(ctx context.Context, lggr logger.Logger, e deployment.Envir
 	}
 
 	return nil
-}
+}failed to apply changesets for setting up OCR
