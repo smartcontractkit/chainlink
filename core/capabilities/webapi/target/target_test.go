@@ -57,7 +57,7 @@ func setup(t *testing.T, config webapi.ServiceConfig) testHarness {
 	registry := registrymock.NewCapabilitiesRegistry(t)
 	connector := gcmocks.NewGatewayConnector(t)
 	lggr := logger.Test(t)
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
+
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config, ghcapabilities.MethodWebAPITarget, lggr)
 	require.NoError(t, err)
 
@@ -184,7 +184,7 @@ func TestCapability_Execute(t *testing.T) {
 	th := setup(t, defaultConfig)
 	ctx := testutils.Context(t)
 	th.connector.EXPECT().DonID().Return("donID")
-	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway2", "gateway1"})
+	th.connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
 	t.Run("happy case", func(t *testing.T) {
 		regReq := capabilities.RegisterToWorkflowRequest{

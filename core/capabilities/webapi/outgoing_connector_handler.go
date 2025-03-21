@@ -38,7 +38,6 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 type OutgoingConnectorHandler struct {
 	services.StateMachine
 	gc                  connector.GatewayConnector
-	gatewaySelector     *RoundRobinSelector
 	method              string
 	lggr                logger.Logger
 	incomingRateLimiter *common.RateLimiter
@@ -64,7 +63,6 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 
 	return &OutgoingConnectorHandler{
 		gc:                  gc,
-		gatewaySelector:     NewRoundRobinSelector(gc.GatewayIDs()),
 		method:              method,
 		responses:           newResponses(),
 		outgoingRateLimiter: outgoingRateLimiter,
@@ -153,7 +151,9 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 	return c.awaitConnectionUntilCanceled(ctx)
 }
 
+// awaitConnectionUntilCanceled cycles through gateways via a round robin and attempts a connection.
 func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Context) (string, error) {
+	selector := NewRoundRobinSelector(c.gc.GatewayIDs())
 	attempts := make(map[string]int)
 	wait := 10 * time.Millisecond
 	for {
@@ -161,12 +161,13 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 		case <-ctx.Done():
 			return "", ctx.Err()
 		default:
-			gateway, err := c.gatewaySelector.NextGateway()
+			gateway, err := selector.NextGateway()
 			if err != nil {
 				return "", fmt.Errorf("failed to select gateway: %w", err)
 			}
 
-			// if called before, we have tried them all, so backoff
+			// Cycling through gateways via round robin, if we have attempted this connection before, then we have
+			// seen them all, backoff before starting over.
 			if attempts[gateway] > 0 {
 				c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", wait)
 				attempts = make(map[string]int)

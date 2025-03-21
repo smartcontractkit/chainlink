@@ -38,7 +38,8 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "successful connection on first try",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(nil).Once()
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(nil).Once()
+				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 			},
 			ctxSetup:        context.Background,
 			expectedGateway: "gateway1",
@@ -46,8 +47,9 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "connection timeout then success",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(errors.New("timeout")).Once()
-				mockConnector.On("AwaitConnection", mock.Anything, "gateway2").Return(nil).Once()
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(errors.New("timeout")).Once()
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway2").Return(nil).Once()
+				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 			},
 			ctxSetup:        context.Background,
 			expectedGateway: "gateway2",
@@ -55,8 +57,9 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "connection timeout then success after backoff",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(errors.New("gateway connection failed: timeout")).Once()
-				mockConnector.On("AwaitConnection", mock.Anything, "gateway2").Return(errors.New("gateway connection failed: timeout")).Once()
+				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway1").Return(errors.New("gateway connection failed: timeout")).Once()
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, "gateway2").Return(errors.New("gateway connection failed: timeout")).Once()
 
 				// second call to gateway1 succeeds
 				mockConnector.On("AwaitConnection", mock.Anything, "gateway1").Return(nil).Once()
@@ -68,15 +71,12 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			name: "all gateways fail and context canceled",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
 				callCount := 0
-				mockConnector.On("AwaitConnection", mock.Anything, mock.Anything).Return(errors.New("gateway connection failed: timeout")).Run(func(args mock.Arguments) {
+				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
+				mockConnector.EXPECT().AwaitConnection(mock.Anything, mock.Anything).Return(errors.New("gateway connection failed: timeout")).Run(func(ctx context.Context, gatewayID string) {
 					callCount++
 					if callCount == len(gateways) {
-						// Cancel the context after the second call (gateway2)
-						ctx, ok := args.Get(0).(context.Context)
-						if ok {
-							cancelFunc := ctx.Value(ctxKey("cancelFunc")).(context.CancelFunc)
-							cancelFunc()
-						}
+						cancelFunc := ctx.Value(ctxKey("cancelFunc")).(context.CancelFunc)
+						cancelFunc()
 					}
 				})
 			},
@@ -91,7 +91,7 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 		{
 			name: "context canceled",
 			gatewayConnectorSetup: func(mockConnector *gcmocks.GatewayConnector) {
-				// No AwaitConnection call expected because context is canceled
+				mockConnector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 			},
 			ctxSetup: func() context.Context {
 				ctx, cancel := context.WithCancel(context.Background())
@@ -112,11 +112,9 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 				tc.gatewayConnectorSetup(mockConnector)
 			}
 
-			rr := NewRoundRobinSelector(gateways)
 			c := &OutgoingConnectorHandler{
-				gatewaySelector: rr,
-				gc:              mockConnector,
-				lggr:            lggr,
+				gc:   mockConnector,
+				lggr: lggr,
 			}
 
 			ctx := tc.ctxSetup()
@@ -166,56 +164,6 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		// expect the request body to contain the default timeout
 		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
 			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
-		}).Return(nil).Times(1)
-
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
-			URL: testURL,
-		})
-		require.NoError(t, err)
-	})
-
-	t.Run("subsequent request uses gateway 2", func(t *testing.T) {
-		ctx := tests.Context(t)
-		msgID := "msgID"
-		testURL := "http://localhost:8080"
-		connector, connectorHandler := newFunctionWithDefaultConfig(
-			t,
-			func(gc *gcmocks.GatewayConnector) {
-				gc.EXPECT().DonID().Return("donID")
-				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil).Once()
-				gc.EXPECT().AwaitConnection(matches.AnyContext, "gateway2").Return(nil).Once()
-				gc.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
-			},
-		)
-
-		// build the expected body with the default timeout
-		req := ghcapabilities.Request{
-			URL:       testURL,
-			TimeoutMs: defaultFetchTimeoutMs,
-		}
-		payload, err := json.Marshal(req)
-		require.NoError(t, err)
-
-		expectedBody := &api.MessageBody{
-			MessageId: msgID,
-			DonId:     connector.DonID(),
-			Method:    ghcapabilities.MethodComputeAction,
-			Payload:   payload,
-		}
-
-		// expect call to be made to gateway 1
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
-		}).Return(nil).Times(1)
-
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
-			URL: testURL,
-		})
-		require.NoError(t, err)
-
-		// expect call to be made to gateway 2
-		connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway2", expectedBody).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
-			connectorHandler.HandleGatewayMessage(ctx, "gateway2", gatewayResponse(t, msgID))
 		}).Return(nil).Times(1)
 
 		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{

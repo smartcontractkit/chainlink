@@ -1709,7 +1709,6 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	}
 
 	connector := gcmocks.NewGatewayConnector(t)
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
@@ -1785,7 +1784,6 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 		},
 	}
 	connector := gcmocks.NewGatewayConnector(t)
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
