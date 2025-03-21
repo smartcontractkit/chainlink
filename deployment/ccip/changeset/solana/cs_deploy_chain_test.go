@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	OldSha = "712ce04f688b9c32061b0f2e323fa117a10cbf96"
-	NewSha = "6706bb9f7317b12d7a3b65936760d2f0ece0cd38"
+	OldSha = "712ce04f688b"
+	NewSha = "879d53b3d4ce"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
