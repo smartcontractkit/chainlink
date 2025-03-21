@@ -131,10 +131,11 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 		Nodes:      4,
 	})
 	solChainSelectors := e.AllChainSelectorsSolana()
-	testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	require.NoError(t, err)
 	// empty build config means, if artifacts are not present, resolve the artifact from github based on go.mod version
 	// for a simple local in memory test, they will always be present, because we need them to spin up the in memory chain
-	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, ccipChangesetSolana.BuildSolanaConfig{}))
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, ccipChangesetSolana.BuildSolanaConfig{}))
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
@@ -157,7 +158,8 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
 
-	testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
+	require.NoError(t, err)
 
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
