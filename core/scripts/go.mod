@@ -343,7 +343,7 @@ require (
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chain-selectors v1.0.46 // indirect
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250320162139-28994272f7ef // indirect
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250321085850-a9ca54531b1d // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250320162139-28994272f7ef // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250317154237-afa0f9b81806 // indirect
