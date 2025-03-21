@@ -53,9 +53,12 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 
 type DeployChainContractsConfig struct {
 	HomeChainSelector      uint64
-	ContractParamsPerChain map[uint64]ChainContractParams
+	ChainSelector          uint64
+	ContractParamsPerChain ChainContractParams
 	UpgradeConfig          UpgradeConfig
 	BuildConfig            BuildSolanaConfig
+	// TODO: add validation for this
+	MCMSWithTimelockConfig types.MCMSWithTimelockConfigV2
 }
 
 type ChainContractParams struct {
@@ -105,30 +108,37 @@ func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64
 	return ValidateMCMSConfig(e, chainSelector, cfg.MCMS)
 }
 
-func (c DeployChainContractsConfig) Validate() error {
+func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	if err := deployment.IsValidChainSelector(c.HomeChainSelector); err != nil {
 		return fmt.Errorf("invalid home chain selector: %d - %w", c.HomeChainSelector, err)
 	}
-	for cs := range c.ContractParamsPerChain {
-		if err := deployment.IsValidChainSelector(cs); err != nil {
-			return fmt.Errorf("invalid chain selector: %d - %w", cs, err)
-		}
+	if err := deployment.IsValidChainSelector(c.ChainSelector); err != nil {
+		return fmt.Errorf("invalid chain selector: %d - %w", c.ChainSelector, err)
+	}
+	family, _ := chainsel.GetSelectorFamily(c.ChainSelector)
+	if family != chainsel.FamilySolana {
+		return fmt.Errorf("chain %d is not a solana chain", c.ChainSelector)
+	}
+	if err := c.UpgradeConfig.Validate(e, c.ChainSelector); err != nil {
+		return fmt.Errorf("invalid UpgradeConfig: %w", err)
+	}
+	existingState, err := ccipChangeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load existing onchain state: %w", err)
+	}
+	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
+		return fmt.Errorf("chain %d not supported", c.ChainSelector)
 	}
 	return nil
 }
 
 func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContractsConfig) (deployment.ChangesetOutput, error) {
-	if err := c.Validate(); err != nil {
+	if err := c.Validate(e); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid DeployChainContractsConfig: %w", err)
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
-	existingState, err := ccipChangeset.LoadOnchainState(e)
-	if err != nil {
-		e.Logger.Errorw("Failed to load existing onchain state", "err", err)
-		return deployment.ChangesetOutput{}, err
-	}
-
-	err = v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
+	existingState, _ := ccipChangeset.LoadOnchainState(e)
+	err := v1_6.ValidateHomeChainState(e, c.HomeChainSelector, existingState)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
 	}
@@ -144,44 +154,35 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	proposers := map[uint64]string{}
 	inspectors := map[uint64]sdk.Inspector{}
 	var batches []mcmsTypes.BatchOperation
-	for chainSel := range c.ContractParamsPerChain {
-		if _, exists := existingState.SupportedChains()[chainSel]; !exists {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d not supported", chainSel)
-		}
-		// already validated family
-		family, _ := chainsel.GetSelectorFamily(chainSel)
-		if family != chainsel.FamilySolana {
-			return deployment.ChangesetOutput{}, fmt.Errorf("chain %d is not a solana chain", chainSel)
-		}
-		chain := e.SolChains[chainSel]
-		if existingState.SolChains[chainSel].LinkToken.IsZero() {
-			return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
-		}
-		if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
-		}
-		addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
-		mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	chainSel := c.ChainSelector
+	chain := e.SolChains[chainSel]
+	if existingState.SolChains[chainSel].LinkToken.IsZero() {
+		return deployment.ChangesetOutput{}, fmt.Errorf("fee tokens not found for chain %d", chainSel)
+	}
+	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("invalid UpgradeConfig: %w", err)
+	}
+	addresses, _ := e.ExistingAddresses.AddressesForChain(chainSel)
+	mcmState, _ := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
 
-		timelocks[chainSel] = mcmsSolana.ContractAddress(
-			mcmState.TimelockProgram,
-			mcmsSolana.PDASeed(mcmState.TimelockSeed),
-		)
-		proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
-		inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
+	timelocks[chainSel] = mcmsSolana.ContractAddress(
+		mcmState.TimelockProgram,
+		mcmsSolana.PDASeed(mcmState.TimelockSeed),
+	)
+	proposers[chainSel] = mcmsSolana.ContractAddress(mcmState.McmProgram, mcmsSolana.PDASeed(mcmState.ProposerMcmSeed))
+	inspectors[chainSel] = mcmsSolana.NewInspector(chain.Client)
 
-		mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, c)
-		if err != nil {
-			e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
-			return deployment.ChangesetOutput{}, err
-		}
-		// create proposals for txns
-		if len(mcmsTxs) > 0 {
-			batches = append(batches, mcmsTypes.BatchOperation{
-				ChainSelector: mcmsTypes.ChainSelector(chainSel),
-				Transactions:  mcmsTxs,
-			})
-		}
+	mcmsTxs, err := deployChainContractsSolana(e, chain, newAddresses, c)
+	if err != nil {
+		e.Logger.Errorw("Failed to deploy CCIP contracts", "err", err, "newAddresses", newAddresses)
+		return deployment.ChangesetOutput{}, err
+	}
+	// create proposals for txns
+	if len(mcmsTxs) > 0 {
+		batches = append(batches, mcmsTypes.BatchOperation{
+			ChainSelector: mcmsTypes.ChainSelector(chainSel),
+			Transactions:  mcmsTxs,
+		})
 	}
 
 	if len(batches) > 0 {
@@ -447,7 +448,7 @@ func deployChainContractsSolana(
 		return txns, fmt.Errorf("failed to get link token address for chain %s", chain.String())
 	}
 
-	params := config.ContractParamsPerChain[chain.Selector]
+	params := config.ContractParamsPerChain
 
 	// FEE QUOTER DEPLOY
 	var feeQuoterAddress solana.PublicKey

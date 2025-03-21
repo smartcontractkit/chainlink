@@ -544,7 +544,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	// no proposals to be made, timelock can be passed as nil here
 	var apps []commonchangeset.ConfiguredChangeSet
 	evmContractParams := make(map[uint64]v1_6.ChainContractParams)
-	solContractParams := make(map[uint64]ccipChangeSetSolana.ChainContractParams)
+
 	evmChains := []uint64{}
 	for _, chain := range allChains {
 		if _, ok := e.Env.Chains[chain]; ok {
@@ -566,6 +566,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
+	var solContractParams ccipChangeSetSolana.ChainContractParams
 	value := [28]uint8{}
 	bigNum, ok := new(big.Int).SetString("19816680000000000000", 10)
 	require.True(t, ok)
@@ -573,7 +574,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
 	for _, chain := range solChains {
-		solContractParams[chain] = ccipChangeSetSolana.ChainContractParams{
+		solContractParams = ccipChangeSetSolana.ChainContractParams{
 			FeeQuoterParams: ccipChangeSetSolana.FeeQuoterParams{
 				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
 				BillingConfig: []solFeeQuoter.BillingTokenConfig{
@@ -627,6 +628,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.DeployChainContractsChangeset),
 			ccipChangeSetSolana.DeployChainContractsConfig{
 				HomeChainSelector:      e.HomeChainSel,
+				ChainSelector:          solChains[0],
 				ContractParamsPerChain: solContractParams,
 			},
 		),

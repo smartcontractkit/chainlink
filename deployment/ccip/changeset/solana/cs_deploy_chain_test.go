@@ -68,19 +68,18 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
 
-	contractParamsPerChain := map[uint64]ccipChangesetSolana.ChainContractParams{
-		solChainSelectors[0]: {
-			FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-			},
-			OffRampParams: ccipChangesetSolana.OffRampParams{
-				EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-			},
+	contractParamsPerChain := ccipChangesetSolana.ChainContractParams{
+		FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
+			DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+		},
+		OffRampParams: ccipChangesetSolana.OffRampParams{
+			EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 		},
 	}
 
 	initialDeployConfig := ccipChangesetSolana.DeployChainContractsConfig{
 		HomeChainSelector:      homeChainSel,
+		ChainSelector:          solChainSelectors[0],
 		ContractParamsPerChain: contractParamsPerChain,
 	}
 
@@ -174,7 +173,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParamsPerChain,
+				ChainSelector:          solChainSelectors[0],
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{},
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewFeeQuoterVersion: &deployment.Version1_1_0,
 					NewRouterVersion:    &deployment.Version1_1_0,
@@ -209,7 +209,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParamsPerChain,
+				ChainSelector:          solChainSelectors[0],
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{},
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewBurnMintTokenPoolVersion:    &deployment.Version1_1_0,
 					NewLockReleaseTokenPoolVersion: &deployment.Version1_1_0,
@@ -227,7 +228,8 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParamsPerChain,
+				ChainSelector:          solChainSelectors[0],
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{},
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewAccessControllerVersion: &deployment.Version1_1_0,
 					NewTimelockVersion:         &deployment.Version1_1_0,
@@ -265,17 +267,9 @@ func TestDeployChainContractsChangesetSolana(t *testing.T) {
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
-				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]ccipChangesetSolana.ChainContractParams{
-					solChainSelectors[0]: {
-						FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-							DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-						},
-						OffRampParams: ccipChangesetSolana.OffRampParams{
-							EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-						},
-					},
-				},
+				HomeChainSelector:      homeChainSel,
+				ChainSelector:          solChainSelectors[0],
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{},
 				UpgradeConfig: ccipChangesetSolana.UpgradeConfig{
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
@@ -365,21 +359,6 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 	solChainSelectors := e.AllChainSelectorsSolana()
 	nodes, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 	require.NoError(t, err)
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
-	contractParams := make(map[uint64]v1_6.ChainContractParams)
-	for _, chain := range e.AllChainSelectors() {
-		cfg[chain] = proposalutils.SingleGroupTimelockConfigV2(t)
-		contractParams[chain] = v1_6.ChainContractParams{
-			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
-			OffRampParams:   v1_6.DefaultOffRampParams(),
-		}
-	}
-	prereqCfg := make([]ccipChangeset.DeployPrerequisiteConfigPerChain, 0)
-	for _, chain := range e.AllChainSelectors() {
-		prereqCfg = append(prereqCfg, ccipChangeset.DeployPrerequisiteConfigPerChain{
-			ChainSelector: chain,
-		})
-	}
 
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
@@ -399,41 +378,19 @@ func TestDeployChainContractsChangesetLocal(t *testing.T) {
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			e.AllChainSelectors(),
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			e.AllChainSelectorsSolana(),
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
-			cfg,
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangeset.DeployPrerequisitesChangeset),
-			ccipChangeset.DeployPrerequisiteConfig{
-				Configs: prereqCfg,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(v1_6.DeployChainContractsChangeset),
-			v1_6.DeployChainContractsConfig{
-				HomeChainSelector:      homeChainSel,
-				ContractParamsPerChain: contractParams,
-			},
 		),
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
 			ccipChangesetSolana.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]ccipChangesetSolana.ChainContractParams{
-					solChainSelectors[0]: {
-						FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-							DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-						},
-						OffRampParams: ccipChangesetSolana.OffRampParams{
-							EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-						},
+				ChainSelector:     solChainSelectors[0],
+				ContractParamsPerChain: ccipChangesetSolana.ChainContractParams{
+					FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+					},
+					OffRampParams: ccipChangesetSolana.OffRampParams{
+						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
 			},

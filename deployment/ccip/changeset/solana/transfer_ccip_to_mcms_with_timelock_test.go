@@ -253,14 +253,13 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			deployment.CreateLegacyChangeSet(solanachangesets.DeployChainContractsChangeset),
 			solanachangesets.DeployChainContractsConfig{
 				HomeChainSelector: homeChainSel,
-				ContractParamsPerChain: map[uint64]solanachangesets.ChainContractParams{
-					solChain1: {
-						FeeQuoterParams: solanachangesets.FeeQuoterParams{
-							DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-						},
-						OffRampParams: solanachangesets.OffRampParams{
-							EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-						},
+				ChainSelector:     solChain1,
+				ContractParamsPerChain: solanachangesets.ChainContractParams{
+					FeeQuoterParams: solanachangesets.FeeQuoterParams{
+						DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
+					},
+					OffRampParams: solanachangesets.OffRampParams{
+						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
 			},
