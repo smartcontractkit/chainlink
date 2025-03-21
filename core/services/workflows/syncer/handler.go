@@ -456,13 +456,13 @@ func (w workflowName) String() string {
 	return w.name
 }
 
-func (w workflowName) Hex() string {
+func (w workflowName) PaddedHex() (string, error) {
 	// Internal workflow names must not exceed 10 bytes for workflow engine and on-chain use.
 	// A name is used internally that is first hashed to avoid collisions,
 	// hex encoded to ensure UTF8 encoding, then truncated to 10 bytes.
 	truncatedName := pkgworkflows.HashTruncateName(w.name)
 	hexName := hex.EncodeToString([]byte(truncatedName))
-	return hexName
+	return hexName, nil
 }
 
 func messageID(url string, parts ...string) string {

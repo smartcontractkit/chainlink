@@ -22,7 +22,7 @@ type WorkflowNamer interface {
 	// the workflow with the consumer
 	// TODO: in practice we validate that this can be max 10 bytes (rather than exactly 10),
 	// but this should be avoided due to a bug in the consensus capability.
-	Hex() string
+	PaddedHex() (string, error)
 
 	// Human-readable version of the name
 	// This has no restriction on size, and is only
@@ -34,7 +34,7 @@ type defaultName struct {
 	name string
 }
 
-func (d defaultName) Hex() (string, error) {
+func (d defaultName) PaddedHex() (string, error) {
 	encoded := hex.EncodeToString([]byte(d.name))
 	if len(encoded) > 20 {
 		return "", fmt.Errorf("name is too long")

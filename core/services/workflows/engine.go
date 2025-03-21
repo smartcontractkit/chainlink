@@ -455,11 +455,16 @@ func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, trig
 
 	t.config.Store(tc)
 
+	workflowName, err := e.workflow.name.PaddedHex()
+	if err != nil {
+		return err
+	}
+
 	triggerRegRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowOwner:            e.workflow.owner,
-			WorkflowName:             e.workflow.name.Hex(),
+			WorkflowName:             workflowName,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              t.Ref,
@@ -933,7 +938,11 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
+	workflowName, err := e.workflow.name.PaddedHex()
+	if err != nil {
+		return nil, err
+	}
+	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, workflowName, e.workflow.name.String(), e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -1016,6 +1025,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		}
 	}
 
+	workflowName, err := e.workflow.name.PaddedHex()
+	if err != nil {
+		return nil, nil, err
+	}
 	tr := capabilities.CapabilityRequest{
 		Inputs: inputsMap,
 		Config: config,
@@ -1023,7 +1036,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 			WorkflowID:               msg.state.WorkflowID,
 			WorkflowExecutionID:      msg.state.ExecutionID,
 			WorkflowOwner:            e.workflow.owner,
-			WorkflowName:             e.workflow.name.Hex(),
+			WorkflowName:             workflowName,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
 			ReferenceID:              msg.stepRef,
@@ -1045,12 +1058,16 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
+	workflowName, err := e.workflow.name.PaddedHex()
+	if err != nil {
+		return err
+	}
 	deregRequest := capabilities.TriggerRegistrationRequest{
 		Metadata: capabilities.RequestMetadata{
 			WorkflowID:               e.workflow.id,
 			WorkflowDonID:            e.localNode.WorkflowDON.ID,
 			WorkflowDonConfigVersion: e.localNode.WorkflowDON.ConfigVersion,
-			WorkflowName:             e.workflow.name.Hex(),
+			WorkflowName:             workflowName,
 			WorkflowOwner:            e.workflow.owner,
 			ReferenceID:              t.Ref,
 			DecodedWorkflowName:      e.workflow.name.String(),
