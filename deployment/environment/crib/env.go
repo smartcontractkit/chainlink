@@ -8,17 +8,17 @@ const (
 )
 
 type CRIBEnv struct {
-	envStateDir string
+	cribEnvStateDirPath string
 }
 
 func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
 	return CRIBEnv{
-		envStateDir: envStateDir,
+		cribEnvStateDirPath: envStateDir,
 	}
 }
 
 func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
-	reader := NewOutputReader(c.envStateDir)
+	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails := reader.ReadNodesDetails()
 	chainConfigs := reader.ReadChainConfigs()
 	for i, chain := range chainConfigs {
