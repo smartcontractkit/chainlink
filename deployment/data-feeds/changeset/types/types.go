@@ -117,17 +117,17 @@ type MigrationConfig struct {
 }
 
 type AcceptOwnershipConfig struct {
-	ContractAddress common.Address
-	ChainSelector   uint64
-	McmsConfig      *MCMSConfig
+	ContractAddresses []common.Address
+	ChainSelector     uint64
+	McmsConfig        *MCMSConfig
 }
 
 type NewFeedWithProxyConfig struct {
 	ChainSelector    uint64
 	AccessController common.Address
 	Labels           []string // labels for AggregatorProxy
-	DataID           string
-	Description      string
+	DataIDs          []string
+	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
 }
