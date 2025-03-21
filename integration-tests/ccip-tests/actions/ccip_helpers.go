@@ -4088,8 +4088,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		mockAdapterURL = env.MockServer.InternalEndpoint
 	}
 
-	fmt.Printf("DEBUG: MockAdapterURL: %s\n", mockAdapterURL)
-
 	var tokenAddresses []string
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())

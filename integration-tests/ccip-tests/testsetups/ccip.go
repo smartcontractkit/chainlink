@@ -1161,20 +1161,20 @@ func CCIPDefaultTestSetUp(
 		if setUpArgs.Cfg.TestGroupInput.TokenConfig.IsPipelineSpec() {
 			// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
 			// regex to match the path for all tokens across all lanes
-			actions.SetMockserverWithTokenPriceValue(setUpArgs.Env.MockServer)
+			actions.SetMockserverWithTokenPriceValue(setUpArgs.Env.LocalCluster.MockAdapter)
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithUSDCAttestation(setUpArgs.Env.MockServer, false)
+			err = actions.SetMockServerWithUSDCAttestation(setUpArgs.Env.LocalCluster.MockAdapter, false)
 			require.NoError(t, err, "failed to set up mock server for USDC attestation")
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.LBTCMockDeployment) {
 			// if it's a new LBTC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockAdapterWithLBTCAttestation(setUpArgs.Env.MockServer)
+			err = actions.SetMockAdapterWithLBTCAttestation(setUpArgs.Env.LocalCluster.MockAdapter)
 			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}
@@ -1462,10 +1462,6 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			return nil
 		})
 	}
-
-	fmt.Printf("DEBUG: EnvInput: %+v\n", testConfig.EnvInput)
-	fmt.Println("DEBUG: Mockserver URL: ", testConfig.EnvInput.Mockserver)
-	fmt.Println("DEBUG: Mockserver Instance: ", ccipEnv.MockServer)
 
 	t.Cleanup(func() {
 		if configureCLNode {
