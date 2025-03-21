@@ -1,9 +1,9 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -82,8 +82,8 @@ func TestRunLogBasic(t *testing.T) {
 	jobUUID := uuid.New()
 
 	bta := nodeclient.BridgeTypeAttributes{
-		Name: fmt.Sprintf("five-%s", jobUUID.String()),
-		URL:  fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		Name: "five-" + jobUUID.String(),
+		URL:  env.MockAdapter.InternalEndpoint + "/variable",
 	}
 	err = env.ClCluster.Nodes[0].API.MustCreateBridge(&bta)
 	require.NoError(t, err, "Creating bridge shouldn't fail")
@@ -96,10 +96,10 @@ func TestRunLogBasic(t *testing.T) {
 	require.NoError(t, err, "Building observation source spec shouldn't fail")
 
 	_, err = env.ClCluster.Nodes[0].API.MustCreateJob(&nodeclient.DirectRequestJobSpec{
-		Name:                     fmt.Sprintf("direct-request-%s", uuid.NewString()),
+		Name:                     "direct-request-" + uuid.NewString(),
 		MinIncomingConfirmations: "1",
 		ContractAddress:          oracle.Address(),
-		EVMChainID:               fmt.Sprint(sethClient.ChainID),
+		EVMChainID:               strconv.FormatInt(sethClient.ChainID, 10),
 		ExternalJobID:            jobUUID.String(),
 		ObservationSource:        ost,
 	})
@@ -112,7 +112,7 @@ func TestRunLogBasic(t *testing.T) {
 		oracle.Address(),
 		jobID,
 		big.NewInt(1e18),
-		fmt.Sprintf("%s/variable", env.MockAdapter.InternalEndpoint),
+		env.MockAdapter.InternalEndpoint+"/variable",
 		"data,result",
 		big.NewInt(100),
 	)

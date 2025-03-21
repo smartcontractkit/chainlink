@@ -737,7 +737,7 @@ func TestKeeperRemove(t *testing.T) {
 					initialCounters[upkeepID] = counter
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter"+
 						" for upkeep with ID "+strconv.Itoa(upkeepID))
-					g.Expect(counter.Cmp(big.NewInt(0)) == 1, "Expected consumer counter to be greater than 0, but got %s", counter)
+					g.Expect(counter.Cmp(big.NewInt(0))).To(gomega.Equal(1), "Expected consumer counter to be greater than 0, but got %s", counter)
 				}
 				return nil
 			}, "1m", "1s").Should(gomega.Succeed())
@@ -765,7 +765,7 @@ func TestKeeperRemove(t *testing.T) {
 				for i := 0; i < len(upkeepIDs); i++ {
 					counter, err := consumers[i].Counter(testcontext.Get(t))
 					g.Expect(err).ShouldNot(gomega.HaveOccurred(), "Failed to retrieve consumer counter for upkeep at index %d", i)
-					g.Expect(counter.Cmp(initialCounters[i]) == 1, "Expected consumer counter to be greater "+
+					g.Expect(counter.Cmp(initialCounters[i])).To(gomega.Equal(1), "Expected consumer counter to be greater "+
 						"than initial counter which was %s, but got %s", initialCounters[i], counter)
 				}
 				return nil
