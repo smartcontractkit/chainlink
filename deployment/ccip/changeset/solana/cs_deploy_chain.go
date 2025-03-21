@@ -5,8 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/gagliardetto/solana-go"
@@ -59,7 +57,7 @@ type DeployChainContractsConfig struct {
 	ChainSelector          uint64
 	ContractParamsPerChain ChainContractParams
 	UpgradeConfig          UpgradeConfig
-	BuildConfig            BuildSolanaConfig
+	BuildConfig            *BuildSolanaConfig
 	// TODO: add validation for this
 	MCMSWithTimelockConfig types.MCMSWithTimelockConfigV2
 }
@@ -155,19 +153,14 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 	// prepare artifacts
 	// artifacts will already exist if running locally as chain spin up fetches them
 	// on CI they wont be present and we want to fetch them here
-	routerProgramFile := filepath.Join(chain.ProgramsPath, "ccip_router.so")
-	if _, err := os.Stat(routerProgramFile); err != nil && !c.BuildConfig.LocalBuild.BuildLocally {
-		e.Logger.Infow("Building solana artifacts as router artifact not found in programs path", "chain", chain.String())
-		err = BuildSolana(e, c.BuildConfig)
+	if c.BuildConfig != nil {
+		e.Logger.Debugw("Building solana artifacts", "gitCommitSha", c.BuildConfig.GitCommitSha)
+		err = BuildSolana(e, *c.BuildConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
 		}
-	} else if c.BuildConfig.LocalBuild.BuildLocally {
-		e.Logger.Infow("Building solana artifacts locally", "chain", chain.String())
-		err = BuildSolana(e, c.BuildConfig)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build solana: %w", err)
-		}
+	} else {
+		e.Logger.Debugw("Skipping solana build as no build config provided")
 	}
 
 	if err := c.UpgradeConfig.Validate(e, chainSel); err != nil {
@@ -1010,7 +1003,11 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 		return fmt.Errorf("invalid fee aggregator address: %w", err)
 	}
 
-	if chainState.FeeAggregator.Equals(solana.MustPublicKeyFromBase58(cfg.FeeAggregator)) {
+	if solana.MustPublicKeyFromBase58(cfg.FeeAggregator).IsZero() {
+		return fmt.Errorf("fee aggregator address cannot be zero")
+	}
+
+	if chainState.GetFeeAggregator(chain).Equals(solana.MustPublicKeyFromBase58(cfg.FeeAggregator)) {
 		return fmt.Errorf("fee aggregator %s is already set on chain %d", cfg.FeeAggregator, cfg.ChainSelector)
 	}
 
@@ -1049,11 +1046,6 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
 	}
-	newAddresses := deployment.NewMemoryAddressBook()
-	err = newAddresses.Save(cfg.ChainSelector, cfg.FeeAggregator, deployment.NewTypeAndVersion(ccipChangeset.FeeAggregator, deployment.Version1_0_0))
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to save address: %w", err)
-	}
 
 	if routerUsingMCMS {
 		tx, err := BuildMCMSTxn(instruction, chainState.Router.String(), ccipChangeset.Router)
@@ -1067,7 +1059,6 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 		}
 		return deployment.ChangesetOutput{
 			MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
-			AddressBook:           newAddresses,
 		}, nil
 	}
 
@@ -1076,9 +1067,7 @@ func SetFeeAggregator(e deployment.Environment, cfg SetFeeAggregatorConfig) (dep
 	}
 	e.Logger.Infow("Set new fee aggregator", "chain", chain.String(), "fee_aggregator", feeAggregatorPubKey.String())
 
-	return deployment.ChangesetOutput{
-		AddressBook: newAddresses,
-	}, nil
+	return deployment.ChangesetOutput{}, nil
 }
 
 type DeployForTestConfig struct {

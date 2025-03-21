@@ -165,6 +165,7 @@ func buildProject(e deployment.Environment) error {
 }
 
 func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
 	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)
@@ -224,11 +225,13 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 
 func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 	if !config.LocalBuild.BuildLocally {
+		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
 		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
 		if err != nil {
 			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
 		}
 	} else {
+		e.Logger.Debug("Building Solana CCIP program artifacts locally...")
 		err := buildLocally(e, config)
 		if err != nil {
 			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
