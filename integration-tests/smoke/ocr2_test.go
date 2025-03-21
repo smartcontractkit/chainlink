@@ -154,7 +154,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 		workerNodes,
 		testEnv.MockAdapter,
 		route,
-		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
+		uint64(sethClient.ChainID), //nolint:gosec // Conversion from int64 to uint64 is safe
 		false,
 		false,
 	)
@@ -243,7 +243,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		workerNodes,
 		testEnv.MockAdapter,
 		ocrRoute,
-		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
+		uint64(sethClient.ChainID), //nolint:gosec // Conversion from int64 to uint64 is safe
 		false,
 		testData.chainReaderAndCodec,
 	)

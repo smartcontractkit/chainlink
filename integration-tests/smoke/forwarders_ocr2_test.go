@@ -133,7 +133,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		workerNodes,
 		env.MockAdapter,
 		ocrRoute,
-		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
+		uint64(sethClient.ChainID), //nolint:gosec // Conversion from int64 to uint64 is safe
 		true,
 		false,
 	)
@@ -156,7 +156,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 			sethClient,
 			int64(i),
 			contracts.V2OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances),
-			time.Duration(10*time.Minute),
+			10*time.Minute,
 		)
 		require.NoError(t, err, "error watching for new OCRv2 round")
 		answer, err = ocrInstances[0].GetLatestAnswer(testcontext.Get(t))
