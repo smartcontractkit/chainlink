@@ -324,7 +324,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.String()}},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.Bytes()}},
 							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
 							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
@@ -623,7 +623,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.String()}},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.Bytes()}},
 							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
 							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
