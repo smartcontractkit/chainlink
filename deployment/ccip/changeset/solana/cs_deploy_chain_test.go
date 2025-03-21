@@ -179,7 +179,7 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	}
 
 	// simple deploy flow
-	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, buildConfig))
+	e, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, buildConfig))
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 
