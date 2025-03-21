@@ -147,13 +147,14 @@ func TestOCRv2JobReplacement(t *testing.T) {
 
 	route.ResponseBody = 15
 	require.NoError(t, err, "Failed to set route in mock adapter")
+	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		aggregatorContracts,
 		bootstrapNode,
 		workerNodes,
 		testEnv.MockAdapter,
 		route,
-		uint64(sethClient.ChainID),
+		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
 		false,
 		false,
 	)
@@ -213,7 +214,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	})
 
 	// Gather transmitters
-	var transmitters []string
+	transmitters := make([]string, len(workerNodes))
 	for _, node := range workerNodes {
 		addr, err := node.PrimaryEthAddress()
 		if err != nil {
@@ -235,13 +236,14 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		ResponseBody:       firstRoundResult,
 		ResponseStatusCode: http.StatusOK,
 	}
+	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		aggregatorContracts,
 		bootstrapNode,
 		workerNodes,
 		testEnv.MockAdapter,
 		ocrRoute,
-		uint64(sethClient.ChainID),
+		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
 		false,
 		testData.chainReaderAndCodec,
 	)
@@ -368,7 +370,6 @@ func assertCorrectNodeConfiguration(t *testing.T, l zerolog.Logger, totalNodeCou
 				if pc.MatchString(jsonLogLine) {
 					return true
 				}
-
 			}
 			return false
 		}

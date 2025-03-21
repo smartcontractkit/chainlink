@@ -1,7 +1,6 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
 	"testing"
@@ -95,7 +94,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 
 	// Gather transmitters
-	var transmitters []string
+	transmitters := make([]string, len(authorizedForwarders))
 	for _, forwarderCommonAddress := range authorizedForwarders {
 		transmitters = append(transmitters, forwarderCommonAddress.Hex())
 	}
@@ -127,13 +126,14 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		ResponseBody:       5,
 		ResponseStatusCode: http.StatusOK,
 	}
+	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		ocrInstances,
 		bootstrapNode,
 		workerNodes,
 		env.MockAdapter,
 		ocrRoute,
-		uint64(sethClient.ChainID),
+		uint64(sethClient.ChainID), //nolint:gosec Conversion from int64 to uint64 is safe
 		true,
 		false,
 	)
@@ -165,7 +165,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 			t,
 			int64(ocrRoundVal),
 			answer.Int64(),
-			fmt.Sprintf("Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64()),
+			"Expected latest answer from OCRv2 contract to be %d but got %d", ocrRoundVal, answer.Int64(),
 		)
 	}
 }

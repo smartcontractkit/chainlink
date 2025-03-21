@@ -4885,7 +4885,7 @@ func SetMockserverWithTokenPriceValue(mockServer *ctftestenv.Parrot) {
 			tokenValue := big.NewInt(time.Now().UnixNano()).String()
 			route := &parrot.Route{
 				Method:             http.MethodGet,
-				Path:               fmt.Sprintf("%s/*", path),
+				Path:               path + "/*",
 				ResponseBody:       tokenValue,
 				ResponseStatusCode: http.StatusOK,
 			}

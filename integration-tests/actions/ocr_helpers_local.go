@@ -125,7 +125,7 @@ func SetAdapterResponseLocal(
 	}
 	route := &parrot.Route{
 		Method:             parrot.MethodAny,
-		Path:               fmt.Sprintf("/%s", nodeContractPairID),
+		Path:               "/" + nodeContractPairID,
 		ResponseBody:       response,
 		ResponseStatusCode: http.StatusOK,
 	}
@@ -196,7 +196,7 @@ func CreateOCRJobsWithForwarderLocal(
 			if err != nil {
 				return err
 			}
-			nodeOCRKeyId := nodeOCRKeys.Data[0].ID
+			nodeOCRKeyID := nodeOCRKeys.Data[0].ID
 
 			nodeContractPairID, err := BuildNodeContractPairID(node, ocrInstance)
 			if err != nil {
@@ -221,7 +221,7 @@ func CreateOCRJobsWithForwarderLocal(
 				EVMChainID:         evmChainID,
 				P2PPeerID:          nodeP2PId,
 				P2PBootstrapPeers:  bootstrapPeers,
-				KeyBundleID:        nodeOCRKeyId,
+				KeyBundleID:        nodeOCRKeyID,
 				TransmitterAddress: nodeTransmitterAddress,
 				ObservationSource:  nodeclient.ObservationSourceSpecBridge(bta),
 				ForwardingAllowed:  true,
