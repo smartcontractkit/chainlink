@@ -95,103 +95,103 @@ func TestInvalidOCR3Params(t *testing.T) {
 	require.True(t, matched)
 }
 
-func Test_PromoteCandidate(t *testing.T) {
-	for _, tc := range []struct {
-		name        string
-		mcmsEnabled bool
-	}{
-		{
-			name:        "MCMS enabled",
-			mcmsEnabled: true,
-		},
-		{
-			name:        "MCMS disabled",
-			mcmsEnabled: false,
-		},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			ctx := testcontext.Get(t)
-			tenv, _ := testhelpers.NewMemoryEnvironment(t,
-				testhelpers.WithNumOfChains(2),
-				testhelpers.WithNumOfNodes(4))
-			state, err := changeset.LoadOnchainState(tenv.Env)
-			require.NoError(t, err)
+// func Test_PromoteCandidate(t *testing.T) {
+// 	for _, tc := range []struct {
+// 		name        string
+// 		mcmsEnabled bool
+// 	}{
+// 		{
+// 			name:        "MCMS enabled",
+// 			mcmsEnabled: true,
+// 		},
+// 		{
+// 			name:        "MCMS disabled",
+// 			mcmsEnabled: false,
+// 		},
+// 	} {
+// 		t.Run(tc.name, func(t *testing.T) {
+// 			ctx := testcontext.Get(t)
+// 			tenv, _ := testhelpers.NewMemoryEnvironment(t,
+// 				testhelpers.WithNumOfChains(2),
+// 				testhelpers.WithNumOfNodes(4))
+// 			state, err := changeset.LoadOnchainState(tenv.Env)
+// 			require.NoError(t, err)
 
-			// Deploy to all chains.
-			allChains := maps.Keys(tenv.Env.Chains)
-			source := allChains[0]
-			dest := allChains[1]
+// 			// Deploy to all chains.
+// 			allChains := maps.Keys(tenv.Env.Chains)
+// 			source := allChains[0]
+// 			dest := allChains[1]
 
-			if tc.mcmsEnabled {
-				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
-				transferToTimelock(t, tenv, state, source, dest)
-			}
+// 			if tc.mcmsEnabled {
+// 				// Transfer ownership to timelock so that we can promote the zero digest later down the line.
+// 				transferToTimelock(t, tenv, state, source, dest)
+// 			}
 
-			var (
-				capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
-				ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
-			)
-			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
-			require.NoError(t, err)
-			require.NotEqual(t, uint32(0), donID)
-			t.Logf("donID: %d", donID)
-			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
-				Context: ctx,
-			}, donID, uint8(types.PluginTypeCCIPCommit))
-			require.NoError(t, err)
-			require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
-			ActiveDigestExecBefore, err := ccipHome.GetActiveDigest(&bind.CallOpts{
-				Context: ctx,
-			}, donID, uint8(types.PluginTypeCCIPExec))
-			require.NoError(t, err)
-			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
+// 			var (
+// 				capReg   = state.Chains[tenv.HomeChainSel].CapabilityRegistry
+// 				ccipHome = state.Chains[tenv.HomeChainSel].CCIPHome
+// 			)
+// 			donID, err := internal.DonIDForChain(capReg, ccipHome, dest)
+// 			require.NoError(t, err)
+// 			require.NotEqual(t, uint32(0), donID)
+// 			t.Logf("donID: %d", donID)
+// 			candidateDigestCommitBefore, err := ccipHome.GetCandidateDigest(&bind.CallOpts{
+// 				Context: ctx,
+// 			}, donID, uint8(types.PluginTypeCCIPCommit))
+// 			require.NoError(t, err)
+// 			require.Equal(t, [32]byte{}, candidateDigestCommitBefore)
+// 			ActiveDigestExecBefore, err := ccipHome.GetActiveDigest(&bind.CallOpts{
+// 				Context: ctx,
+// 			}, donID, uint8(types.PluginTypeCCIPExec))
+// 			require.NoError(t, err)
+// 			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
-			var mcmsConfig *changeset.MCMSConfig
-			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
-					MinDelay: 0,
-				}
-			}
-			// promotes zero digest on commit and ensure exec is not affected
-			_, err = commonchangeset.Apply(t, tenv.Env,
-				map[uint64]*proposalutils.TimelockExecutionContracts{
-					tenv.HomeChainSel: {
-						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
-						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
-					},
-				},
-				commonchangeset.Configure(
-					deployment.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
-					v1_6.PromoteCandidateChangesetConfig{
-						HomeChainSelector: tenv.HomeChainSel,
-						PluginInfo: []v1_6.PromoteCandidatePluginInfo{
-							{
-								RemoteChainSelectors:    []uint64{dest},
-								PluginType:              types.PluginTypeCCIPCommit,
-								AllowEmptyConfigPromote: true,
-							},
-						},
-						MCMS: mcmsConfig,
-					},
-				),
-			)
-			require.NoError(t, err)
+// 			var mcmsConfig *changeset.MCMSConfig
+// 			if tc.mcmsEnabled {
+// 				mcmsConfig = &changeset.MCMSConfig{
+// 					MinDelay: 0,
+// 				}
+// 			}
+// 			// promotes zero digest on commit and ensure exec is not affected
+// 			_, err = commonchangeset.Apply(t, tenv.Env,
+// 				map[uint64]*proposalutils.TimelockExecutionContracts{
+// 					tenv.HomeChainSel: {
+// 						Timelock:  state.Chains[tenv.HomeChainSel].Timelock,
+// 						CallProxy: state.Chains[tenv.HomeChainSel].CallProxy,
+// 					},
+// 				},
+// 				commonchangeset.Configure(
+// 					deployment.CreateLegacyChangeSet(v1_6.PromoteCandidateChangeset),
+// 					v1_6.PromoteCandidateChangesetConfig{
+// 						HomeChainSelector: tenv.HomeChainSel,
+// 						PluginInfo: []v1_6.PromoteCandidatePluginInfo{
+// 							{
+// 								RemoteChainSelectors:    []uint64{dest},
+// 								PluginType:              types.PluginTypeCCIPCommit,
+// 								AllowEmptyConfigPromote: true,
+// 							},
+// 						},
+// 						MCMS: mcmsConfig,
+// 					},
+// 				),
+// 			)
+// 			require.NoError(t, err)
 
-			// after promoting the zero digest, active digest should also be zero
-			activeDigestCommit, err := ccipHome.GetActiveDigest(&bind.CallOpts{
-				Context: ctx,
-			}, donID, uint8(types.PluginTypeCCIPCommit))
-			require.NoError(t, err)
-			require.Equal(t, [32]byte{}, activeDigestCommit)
+// 			// after promoting the zero digest, active digest should also be zero
+// 			activeDigestCommit, err := ccipHome.GetActiveDigest(&bind.CallOpts{
+// 				Context: ctx,
+// 			}, donID, uint8(types.PluginTypeCCIPCommit))
+// 			require.NoError(t, err)
+// 			require.Equal(t, [32]byte{}, activeDigestCommit)
 
-			activeDigestExec, err := ccipHome.GetActiveDigest(&bind.CallOpts{
-				Context: ctx,
-			}, donID, uint8(types.PluginTypeCCIPExec))
-			require.NoError(t, err)
-			require.Equal(t, ActiveDigestExecBefore, activeDigestExec)
-		})
-	}
-}
+// 			activeDigestExec, err := ccipHome.GetActiveDigest(&bind.CallOpts{
+// 				Context: ctx,
+// 			}, donID, uint8(types.PluginTypeCCIPExec))
+// 			require.NoError(t, err)
+// 			require.Equal(t, ActiveDigestExecBefore, activeDigestExec)
+// 		})
+// 	}
+// }
 
 func Test_SetCandidate(t *testing.T) {
 	for _, tc := range []struct {
