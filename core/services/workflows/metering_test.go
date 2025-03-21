@@ -31,8 +31,8 @@ func TestMeteringReport(t *testing.T) {
 			{"abc", testUnitB, testUnitB.DecimalToSpendValue(decimal.NewFromFloat(0.3))},
 		}
 
-		for idx, step := range steps {
-			require.NoError(t, report.AddStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), step))
+		for idx := range steps {
+			require.NoError(t, report.SetStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
@@ -58,8 +58,8 @@ func TestMeteringReport(t *testing.T) {
 			{"abc", testUnitA, testUnitA.IntToSpendValue(1)},
 		}
 
-		for idx, step := range steps {
-			require.NoError(t, report.AddStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), step))
+		for idx := range steps {
+			require.NoError(t, report.SetStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
@@ -84,8 +84,8 @@ func TestMeteringReport(t *testing.T) {
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 		}
 
-		for idx, step := range steps {
-			require.NoError(t, report.AddStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), step))
+		for idx := range steps {
+			require.NoError(t, report.SetStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{
@@ -111,8 +111,8 @@ func TestMeteringReport(t *testing.T) {
 			{"xyz", testUnitA, testUnitA.IntToSpendValue(2)},
 		}
 
-		for idx, step := range steps {
-			require.NoError(t, report.AddStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), step))
+		for idx := range steps {
+			require.NoError(t, report.SetStep(workflows.MeteringReportStepRef(strconv.Itoa(idx)), steps))
 		}
 
 		expected := map[workflows.MeteringSpendUnit]workflows.MeteringSpendValue{

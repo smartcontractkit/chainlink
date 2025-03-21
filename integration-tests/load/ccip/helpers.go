@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"math/big"
 	"slices"
 	"sync"
 	"time"
@@ -26,9 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
 
-	"math/big"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -162,7 +162,6 @@ func subscribeTransmitEvents(
 			}
 			return
 		}
-
 	}
 }
 
