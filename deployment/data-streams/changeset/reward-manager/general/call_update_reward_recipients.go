@@ -1,4 +1,4 @@
-package v0_5_0
+package general
 
 import (
 	"errors"

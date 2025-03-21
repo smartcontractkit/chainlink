@@ -1,4 +1,4 @@
-package v0_5_0
+package general
 
 import (
 	"errors"
@@ -16,55 +16,57 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
-var ClaimRewardsChangeset = deployment.CreateChangeSet(claimRewardsLogic, claimRewardsPrecondition)
+var PayRecipientsChangeset = deployment.CreateChangeSet(PayRecipientsLogic, PayRecipientsPrecondition)
 
-type ClaimRewardsConfig struct {
-	ConfigsByChain map[uint64][]ClaimRewards
+type PayRecipientsConfig struct {
+	ConfigsByChain map[uint64][]PayRecipients
 	MCMSConfig     *changeset.MCMSConfig
 }
 
-type ClaimRewards struct {
+type PayRecipients struct {
 	RewardManagerAddress common.Address
 
-	PoolIDs [][32]byte
+	PoolID     [32]byte
+	Recipients []common.Address
 }
 
-func (a ClaimRewards) GetContractAddress() common.Address {
+func (a PayRecipients) GetContractAddress() common.Address {
 	return a.RewardManagerAddress
 }
 
-func (cfg ClaimRewardsConfig) Validate() error {
+func (cfg PayRecipientsConfig) Validate() error {
 	if len(cfg.ConfigsByChain) == 0 {
 		return errors.New("ConfigsByChain cannot be empty")
 	}
 	return nil
 }
 
-func claimRewardsPrecondition(_ deployment.Environment, cc ClaimRewardsConfig) error {
+func PayRecipientsPrecondition(_ deployment.Environment, cc PayRecipientsConfig) error {
 	if err := cc.Validate(); err != nil {
-		return fmt.Errorf("invalid ClaimRewards config: %w", err)
+		return fmt.Errorf("invalid PayRecipients config: %w", err)
 	}
 	return nil
 }
 
-func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deployment.ChangesetOutput, error) {
+func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (deployment.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
 		types.RewardManager.String(),
 		cfg.ConfigsByChain,
 		loadRewardManagerState,
-		doClaimRewards,
+		doPayRecipients,
 	)
 	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed building ClaimRewards txs: %w", err)
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed building PayRecipients txs: %w", err)
 	}
 
-	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "ClaimRewards proposal")
+	return mcmsutil.ExecuteOrPropose(e, txs, cfg.MCMSConfig, "PayRecipients proposal")
 }
 
-func doClaimRewards(vs *rewardManager.RewardManager, cr ClaimRewards) (*goEthTypes.Transaction, error) {
-	return vs.ClaimRewards(
+func doPayRecipients(vs *rewardManager.RewardManager, pr PayRecipients) (*goEthTypes.Transaction, error) {
+	return vs.PayRecipients(
 		deployment.SimTransactOpts(),
-		cr.PoolIDs,
+		pr.PoolID,
+		pr.Recipients,
 	)
 }
