@@ -93,3 +93,39 @@ func Test_ExecuteOperation(t *testing.T) {
 		})
 	}
 }
+
+func Test_ExecuteOperation_ErrorReporter(t *testing.T) {
+	op := NewOperation("plus1", semver.MustParse("1.0.0"), "test operation",
+		func(e Bundle, deps any, input int) (output int, err error) {
+			return input + 1, nil
+		})
+
+	reportErr := errors.New("add report error")
+	errReporter := errorReporter{
+		AddReportError: reportErr,
+	}
+	e := NewBundle(context.Background, logger.Test(t), errReporter)
+
+	res, err := ExecuteOperation(e, op, nil, 1)
+	require.Error(t, err)
+	require.ErrorContains(t, err, reportErr.Error())
+	require.NoError(t, res.Err)
+}
+
+type errorReporter struct {
+	GetReportError  error
+	GetReportsError error
+	AddReportError  error
+}
+
+func (e errorReporter) GetReport(id string) (Report[any, any], error) {
+	return Report[any, any]{}, e.GetReportError
+}
+
+func (e errorReporter) GetReports() ([]Report[any, any], error) {
+	return nil, e.GetReportsError
+}
+
+func (e errorReporter) AddReport(report Report[any, any]) error {
+	return e.AddReportError
+}
