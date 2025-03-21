@@ -557,7 +557,3 @@ func genSeqNrRange(start, end ccipocr3.SeqNum) []uint64 {
 	}
 	return seqNrs
 }
-
-func TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD(t *testing.T) {
-	require.Fail(t, "DEBUG: this test is just for testing the flakeguard reruns")
-}

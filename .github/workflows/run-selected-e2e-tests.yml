@@ -40,7 +40,7 @@ run-name: ${{ inputs.workflow_run_name }}
 jobs:
   call-run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7f17fe5f6df8971dd79d80217e9f6db2118f6d40
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@52c57ff58abdf960d5c8367b019d43fe1c201a41
     with:
       chainlink_version: ${{ github.event.inputs.chainlink_version }}
       test_path: .github/e2e-tests.yml
