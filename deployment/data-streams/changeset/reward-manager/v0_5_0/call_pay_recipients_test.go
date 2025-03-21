@@ -15,8 +15,8 @@ func TestCallPayRecipients(t *testing.T) {
 
 	e, rewardManagerAddr, _ := DeployRewardManagerAndLink(t, e)
 
-	var poolId [32]byte
-	copy(poolId[:], []byte("poolId"))
+	var poolID [32]byte
+	copy(poolID[:], []byte("poolId"))
 
 	_, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -25,7 +25,7 @@ func TestCallPayRecipients(t *testing.T) {
 				ConfigsByChain: map[uint64][]PayRecipients{
 					testutil.TestChain.Selector: {PayRecipients{
 						RewardManagerAddress: rewardManagerAddr,
-						PoolId:               poolId,
+						PoolID:               poolID,
 						Recipients:           []common.Address{},
 					}},
 				},

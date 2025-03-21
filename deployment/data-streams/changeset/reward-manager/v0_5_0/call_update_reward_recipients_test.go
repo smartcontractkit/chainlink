@@ -28,8 +28,8 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 			Weight: 500000000000000000,
 		},
 	}
-	var poolId [32]byte
-	copy(poolId[:], []byte("poolId"))
+	var poolID [32]byte
+	copy(poolID[:], []byte("poolId"))
 
 	e, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -38,7 +38,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 				ConfigsByChain: map[uint64][]SetRewardRecipients{
 					testutil.TestChain.Selector: {SetRewardRecipients{
 						RewardManagerAddress:      rewardManagerAddr,
-						PoolId:                    poolId,
+						PoolID:                    poolID,
 						RewardRecipientAndWeights: recipients,
 					}},
 				},
@@ -49,7 +49,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 
 	rm, err := rewardManager.NewRewardManager(rewardManagerAddr, chain.Client)
 	require.NoError(t, err)
-	recipientsUpdatedIterator, err := rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolId})
+	recipientsUpdatedIterator, err := rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolID})
 	require.NoError(t, err)
 	defer recipientsUpdatedIterator.Close()
 	require.NoError(t, err)
@@ -57,7 +57,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 
 	for recipientsUpdatedIterator.Next() {
 		event := recipientsUpdatedIterator.Event
-		if poolId == event.PoolId && reflect.DeepEqual(recipients, event.NewRewardRecipients) {
+		if poolID == event.PoolId && reflect.DeepEqual(recipients, event.NewRewardRecipients) {
 			foundExpected = true
 			break
 		}
@@ -74,8 +74,8 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 			Weight: 700000000000000000,
 		},
 	}
-	var poolIdUpdated [32]byte
-	copy(poolId[:], []byte("poolIdUpdated"))
+	var poolIDUpdated [32]byte
+	copy(poolID[:], []byte("poolIdUpdated"))
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -84,7 +84,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 				ConfigsByChain: map[uint64][]SetRewardRecipients{
 					testutil.TestChain.Selector: {SetRewardRecipients{
 						RewardManagerAddress:      rewardManagerAddr,
-						PoolId:                    poolIdUpdated,
+						PoolID:                    poolIDUpdated,
 						RewardRecipientAndWeights: recipientsUpdated,
 					}},
 				},
@@ -93,7 +93,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	recipientsUpdatedIterator, err = rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolIdUpdated})
+	recipientsUpdatedIterator, err = rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolIDUpdated})
 	require.NoError(t, err)
 	defer recipientsUpdatedIterator.Close()
 	require.NoError(t, err)
@@ -101,7 +101,7 @@ func TestCallUpdateRewardRecipients(t *testing.T) {
 
 	for recipientsUpdatedIterator.Next() {
 		event := recipientsUpdatedIterator.Event
-		if poolIdUpdated == event.PoolId && reflect.DeepEqual(recipientsUpdated, event.NewRewardRecipients) {
+		if poolIDUpdated == event.PoolId && reflect.DeepEqual(recipientsUpdated, event.NewRewardRecipients) {
 			foundExpected = true
 			break
 		}

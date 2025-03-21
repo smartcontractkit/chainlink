@@ -26,7 +26,7 @@ type UpdateRewardRecipientsConfig struct {
 type UpdateRewardRecipients struct {
 	RewardManagerAddress common.Address
 
-	PoolId                    [32]byte
+	PoolID                    [32]byte
 	RewardRecipientAndWeights []rewardManager.CommonAddressAndWeight
 }
 
@@ -66,7 +66,7 @@ func updateRewardRecipientsLogic(e deployment.Environment, cfg UpdateRewardRecip
 func doUpdateRewardRecipients(vs *rewardManager.RewardManager, ur UpdateRewardRecipients) (*goEthTypes.Transaction, error) {
 	return vs.UpdateRewardRecipients(
 		deployment.SimTransactOpts(),
-		ur.PoolId,
+		ur.PoolID,
 		ur.RewardRecipientAndWeights,
 	)
 }

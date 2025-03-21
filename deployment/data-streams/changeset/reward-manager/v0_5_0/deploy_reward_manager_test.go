@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
@@ -27,7 +28,7 @@ func TestDeployVerifier(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := e.Chains[testutil.TestChain.Selector]
-	linkState, err := commonChangesets.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonState.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	e, err = commonChangesets.Apply(t, e, nil,

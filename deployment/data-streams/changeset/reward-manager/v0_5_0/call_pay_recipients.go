@@ -26,7 +26,7 @@ type PayRecipientsConfig struct {
 type PayRecipients struct {
 	RewardManagerAddress common.Address
 
-	PoolId     [32]byte
+	PoolID     [32]byte
 	Recipients []common.Address
 }
 
@@ -66,7 +66,7 @@ func PayRecipientsLogic(e deployment.Environment, cfg PayRecipientsConfig) (depl
 func doPayRecipients(vs *rewardManager.RewardManager, pr PayRecipients) (*goEthTypes.Transaction, error) {
 	return vs.PayRecipients(
 		deployment.SimTransactOpts(),
-		pr.PoolId,
+		pr.PoolID,
 		pr.Recipients,
 	)
 }

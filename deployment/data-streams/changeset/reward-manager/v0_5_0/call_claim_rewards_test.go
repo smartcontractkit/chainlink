@@ -24,7 +24,7 @@ func TestCallClaimRewards(t *testing.T) {
 				ConfigsByChain: map[uint64][]ClaimRewards{
 					testutil.TestChain.Selector: {ClaimRewards{
 						RewardManagerAddress: rewardManagerAddr,
-						PoolIds:              [][32]byte{poolId},
+						PoolIDs:              [][32]byte{poolId},
 					}},
 				},
 			},

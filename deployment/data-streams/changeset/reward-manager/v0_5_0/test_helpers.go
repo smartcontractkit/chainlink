@@ -11,6 +11,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
@@ -19,7 +20,7 @@ import (
 func DeployRewardManagerAndLink(
 	t *testing.T,
 	e deployment.Environment,
-) (env deployment.Environment, rewardManagerAddr common.Address, linkState *commonChangesets.LinkTokenState) {
+) (env deployment.Environment, rewardManagerAddr common.Address, linkState *commonState.LinkTokenState) {
 	t.Helper()
 
 	chainSelector := testutil.TestChain.Selector
@@ -38,7 +39,7 @@ func DeployRewardManagerAndLink(
 	require.NoError(t, err)
 
 	chain := env.Chains[testutil.TestChain.Selector]
-	linkState, err = commonChangesets.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err = commonState.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// 2) Deploy RewardManager

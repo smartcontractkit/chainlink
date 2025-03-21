@@ -26,7 +26,7 @@ type ClaimRewardsConfig struct {
 type ClaimRewards struct {
 	RewardManagerAddress common.Address
 
-	PoolIds [][32]byte
+	PoolIDs [][32]byte
 }
 
 func (a ClaimRewards) GetContractAddress() common.Address {
@@ -65,6 +65,6 @@ func claimRewardsLogic(e deployment.Environment, cfg ClaimRewardsConfig) (deploy
 func doClaimRewards(vs *rewardManager.RewardManager, cr ClaimRewards) (*goEthTypes.Transaction, error) {
 	return vs.ClaimRewards(
 		deployment.SimTransactOpts(),
-		cr.PoolIds,
+		cr.PoolIDs,
 	)
 }
