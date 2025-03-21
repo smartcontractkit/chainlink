@@ -4,30 +4,31 @@
   docker_cmd_params = ["-b", "5"]
 
 [jd]
-  # change to your version
-  image = "job-distributor:latest"
+  image = "injected-at-runtime"
 
-# fake data provider used as a mocked price source
 [fake]
   port = 8171
+
+[infra]
+  # either "docker" or "crib"
+  type = "docker"
 
 [workflow_config]
 	workflow_name = "abcdefgasd"
   feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
-  should_compile_new_workflow = true
-  # PoR test workflow is stored in smartcontractkit/proof-of-reserves-workflow-e2e-test repository
-  # config below assumes that you have it cloned next to chainlink repository
-  workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
+  should_compile_new_workflow = false
 
   [workflow_config.dependencies]
   capabilities_version = "v1.0.2-alpha"
   cre_cli_version = "v0.1.5"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/ca04d5bd02f431ad68a8c13a05da5b39/raw/a1f5b68c523f0795cf3123e266e01736e86580a1/config.json763939347"
+    binary_url = "https://gist.githubusercontent.com/Tofel/0a595b92554b375415925749cc126969/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    # if fake is enabled AND we do not compile a new workflow, this config needs to use URL pointing to IP, on which Docker host is available in Linux systems
+    # since that's the OS of our CI runners.
+    config_url = "https://gist.githubusercontent.com/Tofel/c61e9ce03e628915378ebe584e461b22/raw/2cbcb2399b38a026a29886cab12f73bffc4932a6/two_dons_config.json_17_03_2025"
 
 [[nodesets]]
   nodes = 5
@@ -43,8 +44,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -61,8 +61,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -80,8 +79,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -99,8 +97,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
@@ -118,9 +115,35 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
+      image = "injected-at-runtime"
       capabilities = ["./amd64_cron"]
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets]]
+  nodes = 1
+  override_mode = "each"
+  http_port_range_start = 10300
+  name = "gateway"
+
+  [nodesets.db]
+    image = "postgres:12.0"
+    port = 13200
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

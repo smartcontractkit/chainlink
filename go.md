@@ -30,7 +30,7 @@ flowchart LR
 	chainlink-ccip --> chainlink-common
 	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
-	chainlink-ccip/chains/solana --> chainlink-common
+	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
@@ -51,7 +51,6 @@ flowchart LR
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-solana --> chainlink-ccip
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
@@ -137,7 +136,7 @@ flowchart LR
 	chainlink-ccip --> chainlink-common
 	chainlink-ccip --> chainlink-protos/rmn/v1.6/go
 	click chainlink-ccip href "https://github.com/smartcontractkit/chainlink-ccip"
-	chainlink-ccip/chains/solana --> chainlink-common
+	chainlink-ccip/chains/solana --> chainlink-ccip
 	click chainlink-ccip/chains/solana href "https://github.com/smartcontractkit/chainlink-ccip"
 	chainlink-common --> grpc-proxy
 	chainlink-common --> libocr
@@ -160,7 +159,6 @@ flowchart LR
 	click chainlink-protos/rmn/v1.6/go href "https://github.com/smartcontractkit/chainlink-protos"
 	chainlink-protos/svr
 	click chainlink-protos/svr href "https://github.com/smartcontractkit/chainlink-protos"
-	chainlink-solana --> chainlink-ccip
 	chainlink-solana --> chainlink-ccip/chains/solana
 	chainlink-solana --> chainlink-framework/multinode
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
@@ -211,7 +209,6 @@ flowchart LR
 	click grpc-proxy href "https://github.com/smartcontractkit/grpc-proxy"
 	libocr
 	click libocr href "https://github.com/smartcontractkit/libocr"
-	mcms --> chain-selectors
 	mcms --> chainlink-ccip/chains/solana
 	mcms --> chainlink-testing-framework/framework
 	click mcms href "https://github.com/smartcontractkit/mcms"

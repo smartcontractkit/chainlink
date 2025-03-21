@@ -8,32 +8,20 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/curve"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-// Raw represents the Stark private key
-type Raw []byte
-
-// Key gets the Key
-func (raw Raw) Key() Key {
+func KeyFor(raw internal.Raw) Key {
 	k := Key{}
 	var err error
 
-	k.priv = new(big.Int).SetBytes(raw)
+	k.priv = new(big.Int).SetBytes(raw.Bytes())
 	k.pub.X, k.pub.Y, err = curve.Curve.PrivateToPoint(k.priv)
 	if err != nil {
 		panic(err) // key not generated
 	}
 	return k
-}
-
-// String returns description
-func (raw Raw) String() string {
-	return "<Starknet Raw Private Key>"
-}
-
-// GoString wraps String()
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &Key{}
@@ -79,8 +67,8 @@ func (key Key) StarkKeyStr() string {
 }
 
 // Raw from private key
-func (key Key) Raw() Raw {
-	return key.priv.Bytes()
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.priv.Bytes())
 }
 
 // String is the print-friendly format of the Key

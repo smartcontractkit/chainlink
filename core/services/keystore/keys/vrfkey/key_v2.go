@@ -10,30 +10,22 @@ import (
 	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
-	rawKeyInt := new(big.Int).SetBytes(raw)
+func KeyFor(raw internal.Raw) KeyV2 {
+	rawKeyInt := new(big.Int).SetBytes(raw.Bytes())
 	k := secp256k1.IntToScalar(rawKeyInt)
 	key, err := keyFromScalar(k)
 	if err != nil {
 		panic(err)
 	}
 	return key
-}
-
-func (raw Raw) String() string {
-	return "<VRF Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -60,8 +52,8 @@ func (key KeyV2) ID() string {
 	return hexutil.Encode(key.PublicKey[:])
 }
 
-func (key KeyV2) Raw() Raw {
-	return secp256k1.ToInt(*key.k).Bytes()
+func (key KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(secp256k1.ToInt(*key.k).Bytes())
 }
 
 // GenerateProofWithNonce allows external nonce generation for testing purposes
