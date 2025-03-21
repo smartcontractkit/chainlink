@@ -14,8 +14,8 @@ func TestCallClaimRewards(t *testing.T) {
 
 	e, rewardManagerAddr, _ := DeployRewardManagerAndLink(t, e)
 
-	var poolId [32]byte
-	copy(poolId[:], []byte("poolId"))
+	var poolID [32]byte
+	copy(poolID[:], []byte("poolId"))
 
 	_, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -24,7 +24,7 @@ func TestCallClaimRewards(t *testing.T) {
 				ConfigsByChain: map[uint64][]ClaimRewards{
 					testutil.TestChain.Selector: {ClaimRewards{
 						RewardManagerAddress: rewardManagerAddr,
-						PoolIDs:              [][32]byte{poolId},
+						PoolIDs:              [][32]byte{poolID},
 					}},
 				},
 			},
