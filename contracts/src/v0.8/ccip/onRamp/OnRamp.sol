@@ -57,7 +57,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   event AllowListSendersRemoved(uint64 indexed destChainSelector, address[] senders);
 
   /// @dev Struct that contains the static configuration.
-  /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
   // solhint-disable-next-line gas-struct-packing
   struct StaticConfig {
     uint64 chainSelector; // ────╮ Source chain selector.
@@ -315,7 +314,6 @@ contract OnRamp is IEVM2AnyOnRampClient, ITypeAndVersion, Ownable2StepMsgSender 
   // ================================================================
 
   /// @notice Returns the static onRamp config.
-  /// @dev RMN depends on this function, if modified, please notify the RMN maintainers.
   /// @return staticConfig the static configuration.
   function getStaticConfig() external view returns (StaticConfig memory) {
     return StaticConfig({
