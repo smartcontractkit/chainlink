@@ -28,8 +28,8 @@ import (
 )
 
 const (
-	OldSha = "07e5df862401c67c3b9c7e771a3abff64a111ac5"
-	NewSha = "a45b5fe13c4c22dd28a0ff61885d9be07ee24b0e"
+	OldSha = "712ce04f688b9c32061b0f2e323fa117a10cbf96"
+	NewSha = "6706bb9f7317b12d7a3b65936760d2f0ece0cd38"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -117,12 +117,8 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 	}
 }
 
-// use this for a quick deploy test locally
-func TestDeployChainContractsChangesetLocal(t *testing.T) {
-	ci := os.Getenv("CI") == "true"
-	if ci {
-		return
-	}
+// use this for a quick deploy test
+func TestDeployChainContractsChangesetPreload(t *testing.T) {
 	t.Parallel()
 	lggr := logger.TestLogger(t)
 	e := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{
@@ -359,7 +355,7 @@ func TestUpgradeLocal(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 }
 
-func TestDeployChainContractsChangesetCI(t *testing.T) {
+func TestUpgradeCI(t *testing.T) {
 	ci := os.Getenv("CI") == "true"
 	if !ci {
 		t.Skip("CI only")
@@ -376,9 +372,6 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	evmSelectors := e.AllChainSelectors()
 	homeChainSel := evmSelectors[0]
 	solChainSelectors := e.AllChainSelectorsSolana()
-
-	err := testhelpers.SavePreloadedSolAddresses(e, solChainSelectors[0])
-	require.NoError(t, err)
 
 	feeAggregatorPrivKey2, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey2 := feeAggregatorPrivKey2.PublicKey()
@@ -398,7 +391,7 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	}
 
 	// simple deploy flow
-	e, err = commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, &buildConfig))
+	e, err := commonchangeset.ApplyChangesetsV2(t, e, initialDeployCS(t, e, &buildConfig))
 	require.NoError(t, err)
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 
@@ -411,8 +404,6 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 		})
 	upgradeAuthority := timelockSignerPDA
 	verifyProgramSizes(t, e)
-	addresses, err := e.ExistingAddresses.AddressesForChain(e.AllChainSelectorsSolana()[0])
-	require.NoError(t, err)
 
 	// upgrade the contracts
 	e, err = commonchangeset.ApplyChangesetsV2(t, e, []commonchangeset.ConfiguredChangeSet{
@@ -508,7 +499,7 @@ func TestDeployChainContractsChangesetCI(t *testing.T) {
 	testhelpers.ValidateSolanaState(t, e, solChainSelectors)
 
 	// Verify router and fee quoter upgraded in place
-	addresses, err = e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
+	addresses, err := e.ExistingAddresses.AddressesForChain(solChainSelectors[0])
 	require.NoError(t, err)
 	numRouters := 0
 	numFeeQuoters := 0

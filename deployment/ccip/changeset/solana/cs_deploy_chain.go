@@ -1004,7 +1004,7 @@ func (cfg SetFeeAggregatorConfig) Validate(e deployment.Environment) error {
 	}
 
 	if solana.MustPublicKeyFromBase58(cfg.FeeAggregator).IsZero() {
-		return fmt.Errorf("fee aggregator address cannot be zero")
+		return errors.New("fee aggregator address cannot be zero")
 	}
 
 	if chainState.GetFeeAggregator(chain).Equals(solana.MustPublicKeyFromBase58(cfg.FeeAggregator)) {
