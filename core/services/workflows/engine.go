@@ -1433,6 +1433,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		maxWorkerLimit:       cfg.MaxWorkerLimit,
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
+		workflowLimits:       cfg.WorkflowLimits,
 		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
