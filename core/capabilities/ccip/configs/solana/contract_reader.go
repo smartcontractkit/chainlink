@@ -16,6 +16,7 @@ var ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
 var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
 var ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
 
+// TODO add events when Querying is finished
 func DestContractReaderConfig() (config.ContractReader, error) {
 	var offRampIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipOffRampIDL), &offRampIDL); err != nil {
@@ -99,18 +100,18 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						},
 					},
 					consts.MethodNameOffRampLatestConfigDetails: {
-						ChainSpecificName: "Config",
-						ReadType:          config.Account,
-						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("config")},
-						// TODO: OutputModifications are currently disabled and a special workaround is built into chainlink-solana for now
-						// OutputModifications: codec.ModifiersConfig{
-						// 	&codec.WrapperModifierConfig{
-						// 		Fields: map[string]string{"Ocr3": "OcrConfig"},
-						// 	},
-						// 	&codec.PropertyExtractorConfig{FieldName: "Ocr3"},
-						// 	&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
-						// 	&codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
-						// },
+						ChainSpecificName:   "Config",
+						ReadType:            config.Account,
+						PDADefinition:       solanacodec.PDATypeDef{Prefix: []byte("config")},
+						OutputModifications: codec.ModifiersConfig{
+							// TODO why does Solana have two of these in an array, but EVM has one
+							// &codec.WrapperModifierConfig{
+							// 	Fields: map[string]string{"Ocr3": "OcrConfig"},
+							// },
+							// &codec.PropertyExtractorConfig{FieldName: "Ocr3"},
+							// &codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
+							// &codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
+						},
 					},
 					consts.MethodNameGetLatestPriceSequenceNumber: {
 						ChainSpecificName: "GlobalState",
@@ -186,6 +187,11 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "SourceChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "Config"},
+							// TODO, onchain comment cays that both can be populated, but EVM contracts only have 1, so we take first here
+							//	  // OnRamp addresses supported from the source chain, each of them has a 64 byte address. So this can hold 2 addresses.
+							//    // If only one address is configured, then the space for the second address must be zeroed.
+							//    // Each address must be right padded with zeros if it is less than 64 bytes.
+							&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
 							// TODO: figure out how this will be properly configured, if it has to be added to SVM state
 							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"IsRMNVerificationDisabled": true}},
 						},
@@ -323,7 +329,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.Bytes()}},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol}},
 							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
 							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
@@ -406,6 +412,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	}, nil
 }
 
+// TODO add events when Querying is finished
 func SourceContractReaderConfig() (config.ContractReader, error) {
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
@@ -622,7 +629,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.Bytes()}},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol}},
 							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
 							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
