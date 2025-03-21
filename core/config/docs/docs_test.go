@@ -49,7 +49,7 @@ func TestDoc(t *testing.T) {
 		docDefaults.ChainType = nil
 
 		// clean up KeySpecific as a special case
-		require.Equal(t, 1, len(docDefaults.KeySpecific))
+		require.Len(t, docDefaults.KeySpecific, 1)
 		ks := toml.KeySpecific{Key: new(types.EIP55Address),
 			GasEstimator: toml.KeySpecificGasEstimator{PriceMax: new(assets.Wei)}}
 		require.Equal(t, ks, docDefaults.KeySpecific[0])

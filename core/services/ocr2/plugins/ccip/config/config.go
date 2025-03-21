@@ -74,22 +74,22 @@ func (c *DynamicPriceGetterConfig) UnmarshalJSON(data []byte) error {
 func (c *DynamicPriceGetterConfig) Validate() error {
 	for addr, v := range c.AggregatorPrices {
 		if addr == utils.ZeroAddress {
-			return fmt.Errorf("token address is zero")
+			return errors.New("token address is zero")
 		}
 		if v.AggregatorContractAddress == utils.ZeroAddress {
-			return fmt.Errorf("aggregator contract address is zero")
+			return errors.New("aggregator contract address is zero")
 		}
 		if v.ChainID == 0 {
-			return fmt.Errorf("chain id is zero")
+			return errors.New("chain id is zero")
 		}
 	}
 
 	for addr, v := range c.StaticPrices {
 		if addr == utils.ZeroAddress {
-			return fmt.Errorf("token address is zero")
+			return errors.New("token address is zero")
 		}
 		if v.ChainID == 0 {
-			return fmt.Errorf("chain id is zero")
+			return errors.New("chain id is zero")
 		}
 	}
 

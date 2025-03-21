@@ -15,7 +15,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 	t.Run("encoding an empty list of upkeep results returns a nil byte array", func(t *testing.T) {
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{})
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Equal(t, b, []byte(nil))
 	})
 
@@ -39,12 +39,12 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			ExecuteGas:       10,
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult})
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Len(t, b, 416)
 
 		t.Run("successfully decodes a report with a single upkeep result", func(t *testing.T) {
 			upkeeps, err := encoder.DecodeReport(b)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			assert.Len(t, upkeeps, 1)
 
 			upkeep := upkeeps[0].(EVMAutomationUpkeepResult20)
@@ -71,7 +71,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "failed to unpack into map")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when an expected key is missing from the map", func(t *testing.T) {
@@ -83,7 +83,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "decoding error")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when the third element of the map is not a slice of big.Int", func(t *testing.T) {
@@ -95,7 +95,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "upkeep ids of incorrect type in report")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when the fourth element of the map is not a struct of perform data", func(t *testing.T) {
@@ -107,7 +107,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "performs of incorrect structure in report")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when the upkeep ids and performDatas are of different lengths", func(t *testing.T) {
@@ -135,7 +135,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "upkeep ids and performs should have matching length")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when the first element of the map is not a big int", func(t *testing.T) {
@@ -147,7 +147,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "fast gas as wrong type")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 
 		t.Run("an error is returned when the second element of the map is not a big int", func(t *testing.T) {
@@ -159,7 +159,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 
 			upkeeps, err := encoder.DecodeReport(b)
 			assert.Error(t, err, "link native as wrong type")
-			assert.Len(t, upkeeps, 0)
+			assert.Empty(t, upkeeps)
 		})
 	})
 
@@ -189,7 +189,7 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 			ExecuteGas:       20,
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0, upkeepResult1})
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 		assert.Len(t, b, 640)
 	})
 
@@ -216,6 +216,6 @@ func TestEVMAutomationEncoder20(t *testing.T) {
 		}
 		b, err := encoder.EncodeReport([]ocr2keepers.UpkeepResult{upkeepResult0})
 		assert.Errorf(t, err, "pack failed: failed to pack report data")
-		assert.Len(t, b, 0)
+		assert.Empty(t, b)
 	})
 }

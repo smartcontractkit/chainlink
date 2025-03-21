@@ -23,7 +23,20 @@ func (r *OutputReader) ReadNodesDetails() NodesDetails {
 
 	var result NodesDetails
 
-	// Unmarshal the JSON into the map
+	err := json.Unmarshal(byteValue, &result)
+	if err != nil {
+		fmt.Println("Error unmarshalling JSON:", err)
+		panic(err)
+	}
+
+	return result
+}
+
+func (r *OutputReader) ReadRMNNodeConfigs() []RMNNodeConfig {
+	byteValue := r.readFile(RMNNodeIdentitiesFileName)
+
+	var result []RMNNodeConfig
+
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
@@ -38,7 +51,6 @@ func (r *OutputReader) ReadChainConfigs() []devenv.ChainConfig {
 
 	var result []devenv.ChainConfig
 
-	// Unmarshal the JSON into the map
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)
@@ -53,7 +65,6 @@ func (r *OutputReader) ReadAddressBook() *deployment.AddressBookMap {
 
 	var result map[uint64]map[string]deployment.TypeAndVersion
 
-	// Unmarshal the JSON into the map
 	err := json.Unmarshal(byteValue, &result)
 	if err != nil {
 		fmt.Println("Error unmarshalling JSON:", err)

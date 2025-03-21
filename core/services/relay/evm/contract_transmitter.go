@@ -17,12 +17,12 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/services"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 type ContractTransmitter interface {
@@ -90,7 +90,7 @@ type contractTransmitter struct {
 	contractReader      contractReader
 	lp                  logpoller.LogPoller
 	lggr                logger.Logger
-	ks                  keystore.Eth
+	ks                  evmkeystore.Locker
 	// Options
 	transmitterOptions *transmitterOps
 }
@@ -107,7 +107,7 @@ func NewOCRContractTransmitter(
 	transmitter Transmitter,
 	lp logpoller.LogPoller,
 	lggr logger.Logger,
-	ks keystore.Eth,
+	ks evmkeystore.Locker,
 	opts ...OCRTransmitterOption,
 ) (*contractTransmitter, error) {
 	transmitted, ok := contractABI.Events["Transmitted"]
@@ -254,19 +254,13 @@ func (oc *contractTransmitter) FromAccount(ctx context.Context) (ocrtypes.Accoun
 
 func (oc *contractTransmitter) Start(ctx context.Context) error {
 	// Lock the transmitters to TXMv1
-	rm, err := oc.ks.GetResourceMutex(ctx, oc.transmitter.FromAddress(ctx))
-	if err != nil {
-		return err
-	}
-	return rm.TryLock(keystore.TXMv1)
+	rm := oc.ks.GetMutex(oc.transmitter.FromAddress(ctx))
+	return rm.TryLock(evmkeystore.TXMv1)
 }
 func (oc *contractTransmitter) Close() error {
 	// Unlock the transmitters to TXMv1
-	rm, err := oc.ks.GetResourceMutex(context.Background(), oc.transmitter.FromAddress(context.Background()))
-	if err != nil {
-		return err
-	}
-	return rm.Unlock(keystore.TXMv1)
+	rm := oc.ks.GetMutex(oc.transmitter.FromAddress(context.Background()))
+	return rm.Unlock(evmkeystore.TXMv1)
 }
 
 // Has no state/lifecycle so it's always healthy and ready

@@ -135,11 +135,11 @@ func TestGateway_CleanStartAndClose(t *testing.T) {
 }
 
 func requireJsonRPCResult(t *testing.T, response []byte, expectedId string, expectedResult string) {
-	require.Equal(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedId, expectedResult), string(response))
+	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","result":%s}`, expectedId, expectedResult), string(response))
 }
 
 func requireJsonRPCError(t *testing.T, response []byte, expectedId string, expectedCode int, expectedMsg string) {
-	require.Equal(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","error":{"code":%d,"message":"%s"}}`, expectedId, expectedCode, expectedMsg), string(response))
+	require.JSONEq(t, fmt.Sprintf(`{"jsonrpc":"2.0","id":"%s","error":{"code":%d,"message":"%s"}}`, expectedId, expectedCode, expectedMsg), string(response))
 }
 
 func newGatewayWithMockHandler(t *testing.T) (gateway.Gateway, *handler_mocks.Handler) {

@@ -332,6 +332,7 @@ func PromoteCandidateChangeset(
 	for _, plugin := range cfg.PluginInfo {
 		for _, donID := range donIDs {
 			promoteCandidateOps, err := promoteCandidateForChainOps(
+				e.Logger,
 				txOpts,
 				homeChain,
 				state.Chains[cfg.HomeChainSelector].CapabilityRegistry,
@@ -379,6 +380,11 @@ type SetCandidatePluginInfo struct {
 	// OCRConfigPerRemoteChainSelector is the chain selector of the chain where the DON will be added.
 	OCRConfigPerRemoteChainSelector map[uint64]CCIPOCRParams
 	PluginType                      types.PluginType
+
+	// SkipChainConfigValidation skips validation of the config for chain on CCIPHome.
+	// WARNING: Never enable this parameter if running this changeset in isolation.
+	// This is only meant to be enabled when running this changeset as part of a larger changeset that groups multiple proposals together.
+	SkipChainConfigValidation bool
 }
 
 func (p SetCandidatePluginInfo) String() string {
@@ -408,25 +414,28 @@ func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state changes
 			return errors.New("execute off-chain config must be set")
 		}
 
-		chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
-		if err != nil {
-			return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
+		if !p.SkipChainConfigValidation {
+			chainConfig, err := state.Chains[homeChain].CCIPHome.GetChainConfig(nil, chainSelector)
+			if err != nil {
+				return fmt.Errorf("can't get chain config for %d: %w", chainSelector, err)
+			}
+			// FChain should never be zero if a chain config is set in CCIPHome
+			if chainConfig.FChain == 0 {
+				return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
+			}
+			if len(chainConfig.Readers) == 0 {
+				return errors.New("readers must be set")
+			}
+			decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
+			if err != nil {
+				return fmt.Errorf("can't decode chain config: %w", err)
+			}
+			if err := decodedChainConfig.Validate(); err != nil {
+				return fmt.Errorf("invalid chain config: %w", err)
+			}
 		}
-		// FChain should never be zero if a chain config is set in CCIPHome
-		if chainConfig.FChain == 0 {
-			return fmt.Errorf("chain config not set up for new chain %d", chainSelector)
-		}
-		if len(chainConfig.Readers) == 0 {
-			return errors.New("readers must be set")
-		}
-		decodedChainConfig, err := chainconfig.DecodeChainConfig(chainConfig.Config)
-		if err != nil {
-			return fmt.Errorf("can't decode chain config: %w", err)
-		}
-		if err := decodedChainConfig.Validate(); err != nil {
-			return fmt.Errorf("invalid chain config: %w", err)
-		}
-		err = params.Validate(e, chainSelector, feedChain, state)
+
+		err := params.Validate(e, chainSelector, feedChain, state)
 		if err != nil {
 			return fmt.Errorf("invalid ccip ocr params: %w", err)
 		}
@@ -568,6 +577,7 @@ func AddDonAndSetCandidateChangeset(
 			params.OCRParameters,
 			params.CommitOffChainConfig,
 			params.ExecuteOffChainConfig,
+			cfg.PluginInfo.SkipChainConfigValidation,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
@@ -687,6 +697,9 @@ type SetCandidateChangesetConfig struct {
 	SetCandidateConfigBase
 
 	PluginInfo []SetCandidatePluginInfo
+
+	// WARNING: Do not use if calling this changeset in isolation
+	DonIDOverrides map[uint64]uint32
 }
 
 func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
@@ -701,6 +714,10 @@ func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state ch
 			return nil, fmt.Errorf("validate plugin info %s: %w", plugin.String(), err)
 		}
 		for chainSelector := range plugin.OCRConfigPerRemoteChainSelector {
+			if donIDOverride, ok := s.DonIDOverrides[chainSelector]; ok {
+				chainToDonIDs[chainSelector] = donIDOverride
+				continue
+			}
 			donID, err := internal.DonIDForChain(
 				state.Chains[s.HomeChainSelector].CapabilityRegistry,
 				state.Chains[s.HomeChainSelector].CCIPHome,
@@ -763,6 +780,7 @@ func SetCandidateChangeset(
 				params.OCRParameters,
 				params.CommitOffChainConfig,
 				params.ExecuteOffChainConfig,
+				plugin.SkipChainConfigValidation,
 			)
 			if err != nil {
 				return deployment.ChangesetOutput{}, err
@@ -942,6 +960,7 @@ func promoteCandidateOp(
 
 // promoteCandidateForChainOps promotes the candidate commit and exec configs to active by calling promoteCandidateAndRevokeActive on CCIPHome through the UpdateDON call on CapReg contract
 func promoteCandidateForChainOps(
+	lggr logger.Logger,
 	txOpts *bind.TransactOpts,
 	homeChain deployment.Chain,
 	capReg *capabilities_registry.CapabilitiesRegistry,
@@ -962,7 +981,7 @@ func promoteCandidateForChainOps(
 	if digest == [32]byte{} && !allowEmpty {
 		return mcmstypes.Transaction{}, errors.New("candidate config digest is zero, promoting empty config is not allowed")
 	}
-	fmt.Println("Promoting candidate for plugin", pluginType.String(), "with digest", digest)
+	lggr.Infow("Promoting candidate for plugin "+pluginType.String(), "digest", digest)
 	updatePluginOp, err := promoteCandidateOp(
 		txOpts,
 		homeChain,
@@ -1278,7 +1297,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
 		}
-		e.Logger.Infof("Updated chain config on chain %d removes %v, adds %v", cfg.HomeChainSelector, cfg.RemoteChainRemoves, cfg.RemoteChainAdds)
+		e.Logger.Infow("Updated chain config", "chain", cfg.HomeChainSelector, "removes", cfg.RemoteChainRemoves, "adds", cfg.RemoteChainAdds)
 		return deployment.ChangesetOutput{}, nil
 	}
 

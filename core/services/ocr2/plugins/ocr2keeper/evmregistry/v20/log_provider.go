@@ -2,7 +2,9 @@ package evm
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -64,7 +66,7 @@ func NewLogProvider(
 
 	abi, err := abi.JSON(strings.NewReader(registry.KeeperRegistryABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %w", ErrABINotParsable, err)
 	}
 
 	// Add log filters for the log poller so that it can poll and find the logs that
@@ -444,11 +446,11 @@ func (c *LogProvider) getCheckBlockNumberFromTxHash(ctx context.Context, txHash 
 		// TODO: the log provider should be in the evm package for isolation
 		res, ok := upkeep.(EVMAutomationUpkeepResult20)
 		if !ok {
-			return "", fmt.Errorf("unexpected type")
+			return "", errors.New("unexpected type")
 		}
 
 		if res.ID.String() == string(id) {
-			bl := fmt.Sprintf("%d", res.Block)
+			bl := strconv.FormatUint(uint64(res.Block), 10)
 
 			c.txCheckBlockCache.Set(cacheKey, bl, pluginutils.DefaultCacheExpiration)
 

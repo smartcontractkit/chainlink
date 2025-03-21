@@ -82,11 +82,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 
@@ -218,11 +213,6 @@ jobs:
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
 
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd
 
@@ -269,11 +259,6 @@ jobs:
 
       - name: Setup Solana
         uses: ./.github/actions/setup-solana
-
-      - name: Build Solana artifacts
-        uses: ./.github/actions/setup-solana/build-contracts
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup wasmd
         uses: ./.github/actions/setup-wasmd

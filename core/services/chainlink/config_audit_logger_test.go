@@ -15,7 +15,7 @@ func TestAuditLoggerConfig(t *testing.T) {
 
 	auditConfig := cfg.AuditLogger()
 
-	require.Equal(t, true, auditConfig.Enabled())
+	require.True(t, auditConfig.Enabled())
 	require.Equal(t, "event", auditConfig.JsonWrapperKey())
 
 	fUrl, err := auditConfig.ForwardToUrl()

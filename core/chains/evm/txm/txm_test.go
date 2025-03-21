@@ -15,9 +15,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/storage"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
@@ -32,14 +32,13 @@ func TestLifecycle(t *testing.T) {
 	address2 := testutils.NewAddress()
 	assert.NotEqual(t, address1, address2)
 	addresses := []common.Address{address1, address2}
-	keystore := newMockKeystore(t)
 
 	t.Run("retries if initial pending nonce call fails", func(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		config := Config{BlockTime: 1 * time.Minute}
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
 		require.NoError(t, txStore.Add(address1))
-		keystore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).Return([]common.Address{address1}, nil).Once()
+		keystore := keystest.Addresses{address1}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, nil, txStore, nil, config, keystore)
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(0), errors.New("error")).Once()
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(100), nil).Once()
@@ -50,7 +49,7 @@ func TestLifecycle(t *testing.T) {
 
 	t.Run("tests lifecycle successfully without any transactions", func(t *testing.T) {
 		config := Config{BlockTime: 200 * time.Millisecond}
-		keystore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).Return(addresses, nil).Once()
+		keystore := keystest.Addresses(addresses)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
 		require.NoError(t, txStore.Add(addresses...))
@@ -72,10 +71,10 @@ func TestTrigger(t *testing.T) {
 	t.Parallel()
 
 	address := testutils.NewAddress()
-	keystore := newMockKeystore(t)
+
 	t.Run("Trigger fails if Txm is unstarted", func(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.ErrorLevel)
-		txm := NewTxm(lggr, nil, nil, nil, nil, nil, Config{}, keystore)
+		txm := NewTxm(lggr, nil, nil, nil, nil, nil, Config{}, keystest.Addresses{})
 		txm.Trigger(address)
 		tests.AssertLogEventually(t, observedLogs, "Txm unstarted")
 	})
@@ -87,7 +86,7 @@ func TestTrigger(t *testing.T) {
 		client := newMockClient(t)
 		ab := newMockAttemptBuilder(t)
 		config := Config{BlockTime: 1 * time.Minute, RetryBlockThreshold: 10}
-		keystore.On("EnabledAddressesForChain", mock.Anything, mock.Anything).Return([]common.Address{address}, nil)
+		keystore := keystest.Addresses{address}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		var nonce uint64
 		// Start
@@ -105,7 +104,7 @@ func TestBroadcastTransaction(t *testing.T) {
 	ab := newMockAttemptBuilder(t)
 	config := Config{}
 	address := testutils.NewAddress()
-	keystore := newMockKeystore(t)
+	keystore := keystest.Addresses{}
 
 	t.Run("fails if FetchUnconfirmedTransactionAtNonceWithCount for unconfirmed transactions fails", func(t *testing.T) {
 		mTxStore := newMockTxStore(t)
@@ -221,7 +220,7 @@ func TestBackfillTransactions(t *testing.T) {
 	txStore := newMockTxStore(t)
 	config := Config{}
 	address := testutils.NewAddress()
-	keystore := newMockKeystore(t)
+	keystore := keystest.Addresses{}
 
 	t.Run("fails if latest nonce fetching fails", func(t *testing.T) {
 		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)

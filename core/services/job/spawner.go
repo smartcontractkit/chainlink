@@ -128,7 +128,7 @@ func (js *spawner) startAllServices(ctx context.Context) {
 	// TODO: rename to find AllJobs
 	jbs, _, err := js.orm.FindJobs(ctx, 0, math.MaxUint32)
 	if err != nil {
-		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %v", err)
+		werr := fmt.Errorf("couldn't fetch unclaimed jobs: %w", err)
 		js.lggr.Critical(werr.Error())
 		js.SvcErrBuffer.Append(werr)
 		return

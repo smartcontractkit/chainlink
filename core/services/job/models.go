@@ -259,7 +259,7 @@ type PipelineRun struct {
 }
 
 func (pr PipelineRun) GetID() string {
-	return fmt.Sprintf("%v", pr.ID)
+	return strconv.FormatInt(pr.ID, 10)
 }
 
 func (pr *PipelineRun) SetID(value string) error {
@@ -295,7 +295,7 @@ type OCROracleSpec struct {
 
 // GetID is a getter function that returns the ID of the spec.
 func (s OCROracleSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 // SetID is a setter function that sets the ID of the spec.
@@ -427,7 +427,7 @@ func (s *OCR2OracleSpec) getChainID() (string, error) {
 func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 	v, exists := s.RelayConfig["chainID"]
 	if !exists {
-		return "", fmt.Errorf("chainID does not exist")
+		return "", errors.New("chainID does not exist")
 	}
 	switch t := v.(type) {
 	case string:
@@ -446,7 +446,7 @@ func (s *OCR2OracleSpec) getChainIdFromRelayConfig() (string, error) {
 
 // GetID is a getter function that returns the ID of the spec.
 func (s OCR2OracleSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 // SetID is a setter function that sets the ID of the spec.
@@ -475,7 +475,7 @@ type WebhookSpec struct {
 }
 
 func (w WebhookSpec) GetID() string {
-	return fmt.Sprintf("%v", w.ID)
+	return strconv.Itoa(int(w.ID))
 }
 
 func (w *WebhookSpec) SetID(value string) error {
@@ -507,7 +507,7 @@ type CronSpec struct {
 }
 
 func (s CronSpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 func (s *CronSpec) SetID(value string) error {
@@ -814,7 +814,7 @@ type GatewaySpec struct {
 }
 
 func (s GatewaySpec) GetID() string {
-	return fmt.Sprintf("%v", s.ID)
+	return strconv.Itoa(int(s.ID))
 }
 
 func (s *GatewaySpec) SetID(value string) error {
@@ -1040,7 +1040,7 @@ type StandardCapabilitiesSpec struct {
 }
 
 func (w *StandardCapabilitiesSpec) GetID() string {
-	return fmt.Sprintf("%v", w.ID)
+	return strconv.Itoa(int(w.ID))
 }
 
 func (w *StandardCapabilitiesSpec) SetID(value string) error {

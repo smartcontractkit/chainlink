@@ -10,8 +10,8 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
-	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_burnmint_token_pool"
-	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/example_lockrelease_token_pool"
+	burnmint "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	lockrelease "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
@@ -207,7 +207,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 	require.NoError(t, err)
 	// Fund account for fees
 	testutils.FundAccounts(e.GetContext(), []solana.PrivateKey{*solChain.DeployerKey}, solChain.Client, t)
-	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	cfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	contractParams := make(map[uint64]v1_6.ChainContractParams)
 	for _, chain := range solChainSelectors {
 		contractParams[chain] = v1_6.ChainContractParams{
@@ -240,7 +240,7 @@ func prepareEnvironmentForOwnershipTransfer(t *testing.T) (deployment.Environmen
 			selectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			cfg,
 		),
 		commonchangeset.Configure(
@@ -344,8 +344,8 @@ func TestTransferCCIPToMCMSWithTimelockSolana(t *testing.T) {
 			FeeQuoter:             true,
 			OffRamp:               true,
 			RMNRemote:             true,
-			BurnMintTokenPools:    []solana.PublicKey{burnMintPoolConfigPDA},
-			LockReleaseTokenPools: []solana.PublicKey{lockReleasePoolConfigPDA},
+			BurnMintTokenPools:    map[solana.PublicKey]solana.PublicKey{burnMintPoolConfigPDA: tokenAddressBurnMint},
+			LockReleaseTokenPools: map[solana.PublicKey]solana.PublicKey{lockReleasePoolConfigPDA: tokenAddressLockRelease},
 		})
 
 	// 5. Now verify on-chain that each contract’s “config account” authority is the Timelock PDA.

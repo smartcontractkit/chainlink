@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strconv"
 	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -167,8 +168,8 @@ func (l *listener) Start(context.Context) error {
 			l.shutdownWaitGroup.Done()
 		}()
 
-		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", fmt.Sprint(l.job.PipelineSpec.JobID))
-		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", fmt.Sprint(l.job.PipelineSpec.JobID))
+		l.mailMon.Monitor(l.mbOracleRequests, "DirectRequest", "Requests", strconv.Itoa(int(l.job.PipelineSpec.JobID)))
+		l.mailMon.Monitor(l.mbOracleCancelRequests, "DirectRequest", "Cancel", strconv.Itoa(int(l.job.PipelineSpec.JobID)))
 
 		return nil
 	})

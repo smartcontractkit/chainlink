@@ -1,7 +1,7 @@
 package ccipcommon
 
 import (
-	"fmt"
+	"errors"
 	"math/rand"
 	"strconv"
 	"testing"
@@ -115,9 +115,9 @@ func TestIsTxRevertError(t *testing.T) {
 		expectedOutput bool
 	}{
 		{name: "empty", inputError: nil, expectedOutput: false},
-		{name: "non-revert error", inputError: fmt.Errorf("nothing"), expectedOutput: false},
-		{name: "geth error", inputError: fmt.Errorf("execution reverted"), expectedOutput: true},
-		{name: "nethermind error", inputError: fmt.Errorf("VM execution error"), expectedOutput: true},
+		{name: "non-revert error", inputError: errors.New("nothing"), expectedOutput: false},
+		{name: "geth error", inputError: errors.New("execution reverted"), expectedOutput: true},
+		{name: "nethermind error", inputError: errors.New("VM execution error"), expectedOutput: true},
 	}
 
 	for _, tc := range testCases {
@@ -140,7 +140,7 @@ func TestRetryUntilSuccess(t *testing.T) {
 		numCalls++
 		numAttempts--
 		if numAttempts > 0 {
-			return numCalls, fmt.Errorf("")
+			return numCalls, errors.New("")
 		}
 		return numCalls, nil
 	}

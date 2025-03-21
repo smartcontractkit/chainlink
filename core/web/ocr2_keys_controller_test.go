@@ -94,7 +94,7 @@ func TestOCR2KeysController_Delete_HappyPath(t *testing.T) {
 	assert.Error(t, utils.JustError(OCRKeyStore.Get(key.ID())))
 
 	keys, _ = OCRKeyStore.GetAll()
-	assert.Equal(t, initialLength, len(keys))
+	assert.Len(t, keys, initialLength)
 }
 
 func setupOCR2KeysControllerTests(t *testing.T) (cltest.HTTPClientCleaner, keystore.OCR2) {

@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"fmt"
 	"math/big"
@@ -86,7 +87,6 @@ func SmokeTestVRF(e helpers.Environment) {
 	// generate VRF key
 	key, err := vrfkey.NewV2()
 	helpers.PanicErr(err)
-	fmt.Println("vrf private key:", hexutil.Encode(key.Raw()))
 	fmt.Println("vrf public key:", key.PublicKey.String())
 	fmt.Println("vrf key hash:", key.PublicKey.MustHash())
 
@@ -562,7 +562,7 @@ func DeployUniverseViaCLI(e helpers.Environment) {
 	}
 
 	if *simulationBlock != "pending" && *simulationBlock != "latest" {
-		helpers.PanicErr(fmt.Errorf("simulation block must be 'pending' or 'latest'"))
+		helpers.PanicErr(errors.New("simulation block must be 'pending' or 'latest'"))
 	}
 
 	fallbackWeiPerUnitLink := decimal.RequireFromString(*fallbackWeiPerUnitLinkString).BigInt()

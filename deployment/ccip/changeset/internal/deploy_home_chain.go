@@ -174,7 +174,7 @@ func BuildSetOCR3ConfigArgs(
 			}
 			configForOCR3 = ocrConfig.CandidateConfig
 		}
-		if err := validateOCR3Config(destSelector, configForOCR3.Config, chainCfg); err != nil {
+		if err := validateOCR3Config(destSelector, configForOCR3.Config, &chainCfg); err != nil {
 			return nil, err
 		}
 
@@ -197,24 +197,33 @@ func BuildSetOCR3ConfigArgs(
 	return offrampOCR3Configs, nil
 }
 
-func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig ccip_home.CCIPHomeChainConfig) error {
-	// chainConfigs must be set before OCR3 configs due to the added fChain == F validation
-	if chainConfig.FChain == 0 || bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
-		return fmt.Errorf("chain config is not set for chain selector %d", chainSel)
-	}
-	for _, reader := range chainConfig.Readers {
-		if bytes.IsEmpty(reader[:]) {
-			return fmt.Errorf("reader is empty, chain selector %d", chainSel)
+func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Config, chainConfig *ccip_home.CCIPHomeChainConfig) error {
+	if chainConfig != nil {
+		// chainConfigs must be set before OCR3 configs due to the added fChain == F validation
+		if chainConfig.FChain == 0 || bytes.IsEmpty(chainConfig.Config) || len(chainConfig.Readers) == 0 {
+			return fmt.Errorf("chain config is not set for chain selector %d", chainSel)
+		}
+		for _, reader := range chainConfig.Readers {
+			if bytes.IsEmpty(reader[:]) {
+				return fmt.Errorf("reader is empty, chain selector %d", chainSel)
+			}
+		}
+		// FRoleDON >= fChain is a requirement
+		if configForOCR3.FRoleDON < chainConfig.FChain {
+			return fmt.Errorf("OCR3 config FRoleDON is lower than chainConfig FChain, chain %d", chainSel)
+		}
+
+		if len(configForOCR3.Nodes) < 3*int(chainConfig.FChain)+1 {
+			return fmt.Errorf("number of nodes %d is less than 3 * fChain + 1 %d", len(configForOCR3.Nodes), 3*int(chainConfig.FChain)+1)
+		}
+		//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
+		minTransmitterReq := 3*int(chainConfig.FChain) + 1
+		if len(configForOCR3.Nodes) < minTransmitterReq {
+			return fmt.Errorf("no of transmitters %d is less than 3 * fChain + 1 %d, chain %d",
+				len(configForOCR3.Nodes), minTransmitterReq, chainSel)
 		}
 	}
-	// FRoleDON >= fChain is a requirement
-	if configForOCR3.FRoleDON < chainConfig.FChain {
-		return fmt.Errorf("OCR3 config FRoleDON is lower than chainConfig FChain, chain %d", chainSel)
-	}
 
-	if len(configForOCR3.Nodes) < 3*int(chainConfig.FChain)+1 {
-		return fmt.Errorf("number of nodes %d is less than 3 * fChain + 1 %d", len(configForOCR3.Nodes), 3*int(chainConfig.FChain)+1)
-	}
 	// check if there is any zero byte address
 	// The reason for this is that the MultiOCR3Base disallows zero addresses and duplicates
 	if bytes.IsEmpty(configForOCR3.OfframpAddress) {
@@ -244,12 +253,6 @@ func validateOCR3Config(chainSel uint64, configForOCR3 ccip_home.CCIPHomeOCR3Con
 		}
 		mapSignerKey[hexutil.Encode(node.SignerKey)] = struct{}{}
 		mapTransmitterKey[hexutil.Encode(node.TransmitterKey)] = struct{}{}
-	}
-	//  transmitters.length should be validated such that it meets the 3 * fChain + 1 requirement
-	minTransmitterReq := 3*int(chainConfig.FChain) + 1
-	if len(configForOCR3.Nodes) < minTransmitterReq {
-		return fmt.Errorf("no of transmitters %d is less than 3 * fChain + 1 %d, chain %d",
-			len(configForOCR3.Nodes), minTransmitterReq, chainSel)
 	}
 	return nil
 }
@@ -324,11 +327,8 @@ func BuildOCR3ConfigForCCIPHome(
 	ocrParams commontypes.OCRParameters,
 	commitOffchainCfg *pluginconfig.CommitOffchainConfig,
 	execOffchainCfg *pluginconfig.ExecuteOffchainConfig,
+	skipChainConfigValidation bool,
 ) (map[types.PluginType]ccip_home.CCIPHomeOCR3Config, error) {
-	chainConfig, err := ccipHome.GetChainConfig(nil, destSelector)
-	if err != nil {
-		return nil, fmt.Errorf("can't get chain config for %d: %w", destSelector, err)
-	}
 	var p2pIDs [][32]byte
 	// Get OCR3 Config from helper
 	var schedule []int
@@ -451,8 +451,15 @@ func BuildOCR3ConfigForCCIPHome(
 			OffchainConfig:        offchainConfig,
 			RmnHomeAddress:        rmnHomeAddress.Bytes(),
 		}
-		if err := validateOCR3Config(destSelector, ocr3Configs[pluginType], chainConfig); err != nil {
-			return nil, fmt.Errorf("failed to validate ocr3 config: %w", err)
+
+		if !skipChainConfigValidation {
+			chainConfig, err := ccipHome.GetChainConfig(nil, destSelector)
+			if err != nil {
+				return nil, fmt.Errorf("can't get chain config for %d: %w", destSelector, err)
+			}
+			if err := validateOCR3Config(destSelector, ocr3Configs[pluginType], &chainConfig); err != nil {
+				return nil, fmt.Errorf("failed to validate ocr3 config: %w", err)
+			}
 		}
 	}
 

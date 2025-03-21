@@ -51,7 +51,7 @@ func NewKeysController[K keystore.Key, R jsonapi.EntityNamer](ks Keystore[K], lg
 	var k K
 	typ, err := keystore.GetFieldNameForKey(k)
 	if err != nil {
-		panic(fmt.Errorf("unable to create keys controller: %v", err))
+		panic(fmt.Errorf("unable to create keys controller: %w", err))
 	}
 	return &keysController[K, R]{
 		ks:           ks,

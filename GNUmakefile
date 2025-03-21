@@ -6,6 +6,14 @@ GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
 
+# LOOP Plugin version defaults
+ifndef COSMOS_SHA
+override COSMOS_SHA = "f740e9ae54e79762991bdaf8ad6b50363261c056"
+endif
+ifndef STARKNET_SHA
+override STARKNET_SHA = "9a780650af4708e4bd9b75495feff2c5b4054e46"
+endif
+
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
 
@@ -75,11 +83,11 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install $(GOFLAGS) ./cmd/chainlink-feeds
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-data-streams) && \
 	go install $(GOFLAGS) ./mercury/cmd/chainlink-mercury
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@f740e9ae54e79762991bdaf8ad6b50363261c056 | jq -r .Dir) && \
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-cosmos@$(COSMOS_SHA) | jq -r .Dir) && \
 	go install $(GOFLAGS) ./pkg/cosmos/cmd/chainlink-cosmos
 	cd $(shell go list -m -f "{{.Dir}}" github.com/smartcontractkit/chainlink-solana) && \
 	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
-	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@9a780650af4708e4bd9b75495feff2c5b4054e46 | jq -r .Dir) && \
+	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
 	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
 
 .PHONY: docker ## Build the chainlink docker image
@@ -102,6 +110,8 @@ docker-ccip:
 docker-plugins:
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
+	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
 	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui
@@ -192,7 +202,7 @@ config-docs: ## Generate core node configuration documentation
 .PHONY: golangci-lint
 golangci-lint: ## Run golangci-lint for all issues.
 	[ -d "./golangci-lint" ] || mkdir ./golangci-lint && \
-	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.64.5 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
+	docker run --rm -v $(shell pwd):/app -w /app golangci/golangci-lint:v1.64.7 golangci-lint run --max-issues-per-linter 0 --max-same-issues 0 | tee ./golangci-lint/$(shell date +%Y-%m-%d_%H:%M:%S).txt
 
 .PHONY: modgraph
 modgraph:
@@ -207,8 +217,8 @@ test-short: ## Run 'go test -short' and suppress uninteresting output
 run_flakeguard_validate_unit_tests:
 	@read -p "Enter a comma-separated list of test packages (e.g., package1,package2): " PKGS; \
 	 read -p "Enter the number of times to rerun the tests (e.g., 5): " REPS; \
-	 read -p "Enter the test runner (default: ubuntu-20.04): " RUNNER; \
-	 RUNNER=$${RUNNER:-ubuntu-20.04}; \
+	 read -p "Enter the test runner (default: ubuntu-24.04): " RUNNER; \
+	 RUNNER=$${RUNNER:-ubuntu-24.04}; \
 	 gh workflow run flakeguard-validate-tests.yml \
 	   -f testPackages="$${PKGS}" \
 	   -f testRepeatCount="$${REPS}" \

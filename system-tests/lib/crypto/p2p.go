@@ -1,8 +1,6 @@
 package crypto
 
 import (
-	"encoding/hex"
-
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -25,7 +23,6 @@ func GenerateP2PKeys(password string, n int) (*types.P2PKeys, error) {
 		result.EncryptedJSONs = append(result.EncryptedJSONs, d)
 		result.PeerIDs = append(result.PeerIDs, key.PeerID().String())
 		result.PublicHexKeys = append(result.PublicHexKeys, key.PublicKeyHex())
-		result.PrivateKeys = append(result.PrivateKeys, hex.EncodeToString(key.Raw()))
 	}
 	return result, nil
 }
