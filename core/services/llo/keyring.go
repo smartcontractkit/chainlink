@@ -14,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
+	"github.com/smartcontractkit/chainlink/v2/core/utils/crypto"
 )
 
 type LLOOnchainKeyring ocr3types.OnchainKeyring[llotypes.ReportInfo]
@@ -28,6 +29,8 @@ type Key interface {
 
 	Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error)
 	Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool
+	SignBlob(b []byte) (sig []byte, err error)
+	VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool
 	PublicKey() ocrtypes.OnchainPublicKey
 	MaxSignatureLength() int
 }
@@ -90,6 +93,19 @@ func (okr *onchainKeyring) Sign(digest types.ConfigDigest, seqNr uint64, r ocr3t
 			}
 			return key.Sign(rc, r.Report)
 		}
+	case llotypes.ReportFormatEVMStreamlined:
+		rf := r.Info.ReportFormat
+		if key, exists := okr.keys[rf]; exists {
+			// NOTE: Report context for EVMStreamlined is digest only since
+			// timestamp is guaranteed unique per round and always included in
+			// the report
+			h, err := crypto.Keccak256(append(digest[:], r.Report...))
+			if err != nil {
+				return nil, fmt.Errorf("failed to hash report: %w", err)
+			}
+
+			return key.SignBlob(h)
+		}
 	default:
 		rf := r.Info.ReportFormat
 		if key, exists := okr.keys[rf]; exists {
@@ -111,6 +127,16 @@ func (okr *onchainKeyring) Verify(key types.OnchainPublicKey, digest types.Confi
 				return false
 			}
 			return verifier.Verify(key, rc, r.Report, signature)
+		}
+	case llotypes.ReportFormatEVMStreamlined:
+		rf := r.Info.ReportFormat
+		if verifier, exists := okr.keys[rf]; exists {
+			h, err := crypto.Keccak256(append(digest[:], r.Report...))
+			if err != nil {
+				okr.lggr.Errorw("failed to hash report", "err", err)
+				return false
+			}
+			return verifier.VerifyBlob(key, h, signature)
 		}
 	default:
 		rf := r.Info.ReportFormat

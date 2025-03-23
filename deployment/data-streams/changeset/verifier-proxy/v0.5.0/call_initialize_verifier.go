@@ -25,7 +25,7 @@ type VerifierProxyInitializeVerifierConfig struct {
 }
 
 type InitializeVerifierConfig struct {
-	ContractAddress common.Address // Todo change to verifierProxyAddress
+	ContractAddress common.Address
 	VerifierAddress common.Address
 }
 
