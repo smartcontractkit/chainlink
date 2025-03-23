@@ -17,7 +17,6 @@ import (
 type DataStreamsTestEnvSetupOutput struct {
 	Env                  deployment.Environment
 	LinkTokenAddress     common.Address
-	linkState            *commonchangesets.LinkTokenState
 	FeeManagerAddress    common.Address
 	RewardManagerAddress common.Address
 }
@@ -27,7 +26,6 @@ type DataStreamsTestEnvOptions struct {
 	DeployFeeManager    bool
 	DeployLinkToken     bool
 	DeployMCMS          bool
-	initialEnv          deployment.Environment
 }
 
 func NewDefaultOptions() DataStreamsTestEnvOptions {

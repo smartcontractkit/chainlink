@@ -28,7 +28,7 @@ type UpdateSubscriberDiscountConfig struct {
 type UpdateSubscriberDiscount struct {
 	FeeManagerAddress common.Address
 	SubscriberAddress common.Address
-	FeedId            [32]byte
+	FeedID            [32]byte
 	TokenAddress      common.Address
 	Discount          uint64
 }
@@ -71,7 +71,7 @@ func doUpdateSubscriberDiscount(
 	return fm.UpdateSubscriberDiscount(
 		deployment.SimTransactOpts(),
 		c.SubscriberAddress,
-		c.FeedId,
+		c.FeedID,
 		c.TokenAddress,
 		c.Discount)
 }

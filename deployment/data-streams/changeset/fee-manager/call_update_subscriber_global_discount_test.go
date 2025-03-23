@@ -40,6 +40,7 @@ func TestUpdateSubscriberGlobalDiscount(t *testing.T) {
 				},
 			},
 		))
+	require.NoError(t, err)
 
 	feeManager, err := LoadFeeManagerState(e, testutil.TestChain.Selector, feeManagerAddress.String())
 	require.NoError(t, err)

@@ -12,7 +12,6 @@ import (
 )
 
 func TestUpdateSubscriberDiscount(t *testing.T) {
-
 	res, err := NewDataStreamsEnvironment(t, NewDefaultOptions())
 	require.NoError(t, err)
 
@@ -25,7 +24,7 @@ func TestUpdateSubscriberDiscount(t *testing.T) {
 
 	subscriber := common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2")
 
-	feedId := [32]byte{1}
+	feedID := [32]byte{1}
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -35,7 +34,7 @@ func TestUpdateSubscriberDiscount(t *testing.T) {
 					testutil.TestChain.Selector: {
 						{FeeManagerAddress: feeManagerAddress,
 							SubscriberAddress: subscriber,
-							FeedId:            feedId,
+							FeedID:            feedID,
 							TokenAddress:      linkTokenAddress,
 							Discount:          1000,
 						},
@@ -43,12 +42,13 @@ func TestUpdateSubscriberDiscount(t *testing.T) {
 				},
 			},
 		))
+	require.NoError(t, err)
 
 	feeManager, err := LoadFeeManagerState(e, testutil.TestChain.Selector, feeManagerAddress.String())
 	require.NoError(t, err)
 	require.NotNil(t, feeManager)
 
-	actualDiscount, err := feeManager.SSubscriberDiscounts(nil, subscriber, feedId, linkTokenAddress)
+	actualDiscount, err := feeManager.SSubscriberDiscounts(nil, subscriber, feedID, linkTokenAddress)
 
 	require.NoError(t, err)
 	require.Equal(t, actualDiscount, big.NewInt(1000))

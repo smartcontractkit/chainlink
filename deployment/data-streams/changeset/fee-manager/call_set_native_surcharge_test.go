@@ -11,7 +11,6 @@ import (
 )
 
 func TestSetNativeSurcharge(t *testing.T) {
-
 	res, err := NewDataStreamsEnvironment(t, NewDefaultOptions())
 	require.NoError(t, err)
 
@@ -35,6 +34,7 @@ func TestSetNativeSurcharge(t *testing.T) {
 				},
 			},
 		))
+	require.NoError(t, err)
 
 	feeManager, err := LoadFeeManagerState(e, testutil.TestChain.Selector, feeManagerAddress.String())
 	require.NoError(t, err)
@@ -43,5 +43,4 @@ func TestSetNativeSurcharge(t *testing.T) {
 	actualNativeSurcharge, err := feeManager.SNativeSurcharge(nil)
 	require.NoError(t, err)
 	require.Equal(t, actualNativeSurcharge, big.NewInt(5000))
-
 }

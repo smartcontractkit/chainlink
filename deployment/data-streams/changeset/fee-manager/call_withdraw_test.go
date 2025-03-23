@@ -12,7 +12,6 @@ import (
 )
 
 func TestWithdraw(t *testing.T) {
-
 	res, err := NewDataStreamsEnvironment(t, NewDefaultOptions())
 	require.NoError(t, err)
 

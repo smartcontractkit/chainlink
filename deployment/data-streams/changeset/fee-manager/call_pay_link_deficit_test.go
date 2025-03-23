@@ -85,7 +85,6 @@ func TestPayLinkDeficit(t *testing.T) {
 	if err != nil {
 		t.Errorf("Error closing log iterator: %v", err)
 	}
-
 }
 
 func MockFeeManagerDeployFn(cfg DeployFeeManagerConfig) changeset.ContractDeployFn[*mock_fee_manager_v0_5_0.MockFeeManager] {
