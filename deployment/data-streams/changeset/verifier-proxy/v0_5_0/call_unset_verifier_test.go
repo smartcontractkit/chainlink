@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	v0_5_0 "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0.5.0"
+	verifierchangeset "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0_5_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -26,8 +26,10 @@ func TestUnsetVerifier(t *testing.T) {
 		commonChangesets.Configure(
 			DeployVerifierProxyChangeset,
 			DeployVerifierProxyConfig{
-				ChainsToDeploy: []uint64{chainSelector},
-				Version:        *semver.MustParse("0.5.0"),
+				ChainsToDeploy: map[uint64]DeployVerifierProxy{
+					chainSelector: {AccessControllerAddress: common.Address{}},
+				},
+				Version: *semver.MustParse("0.5.0"),
 			},
 		),
 	)
@@ -41,11 +43,10 @@ func TestUnsetVerifier(t *testing.T) {
 	// Deploy Verifier
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			v0_5_0.DeployVerifierChangeset,
-			v0_5_0.DeployVerifierConfig{
-				ChainsToDeploy:       []uint64{chainSelector},
-				VerifierProxyAddress: verifierProxyAddr,
-				Version:              *semver.MustParse("0.5.0"),
+			verifierchangeset.DeployVerifierChangeset,
+			verifierchangeset.DeployVerifierConfig{
+				ChainsToDeploy: map[uint64]verifierchangeset.DeployVerifier{
+					chainSelector: {VerifierProxyAddress: verifierProxyAddr}},
 			},
 		),
 	)
@@ -90,7 +91,7 @@ func TestUnsetVerifier(t *testing.T) {
 	}
 	f := uint8(1)
 
-	setConfigPayload := v0_5_0.SetConfig{
+	setConfigPayload := verifierchangeset.SetConfig{
 		VerifierAddress:            verifierAddr,
 		ConfigDigest:               configDigest,
 		Signers:                    signers,
@@ -98,8 +99,8 @@ func TestUnsetVerifier(t *testing.T) {
 		RecipientAddressesAndProps: []verifier_v0_5_0.CommonAddressAndWeight{},
 	}
 
-	callSetCfg := v0_5_0.SetConfigConfig{
-		ConfigsByChain: map[uint64][]v0_5_0.SetConfig{
+	callSetCfg := verifierchangeset.SetConfigConfig{
+		ConfigsByChain: map[uint64][]verifierchangeset.SetConfig{
 			testutil.TestChain.Selector: {setConfigPayload},
 		},
 		MCMSConfig: nil,
@@ -107,7 +108,7 @@ func TestUnsetVerifier(t *testing.T) {
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			v0_5_0.SetConfigChangeset,
+			verifierchangeset.SetConfigChangeset,
 			callSetCfg,
 		),
 	)

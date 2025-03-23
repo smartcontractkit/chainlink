@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	verifier_proxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0.5.0"
+	verifierproxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0_5_0"
 )
 
 // DeployVerifierProxyAndVerifier deploys a VerifierProxy, deploys a Verifier,
@@ -27,9 +27,9 @@ func DeployVerifierProxyAndVerifier(
 	chainSelector := testutil.TestChain.Selector
 
 	// 1) Deploy VerifierProxy
-	deployProxyCfg := verifier_proxy.DeployVerifierProxyConfig{
+	deployProxyCfg := verifierproxy.DeployVerifierProxyConfig{
 		Version: deployment.Version0_5_0,
-		ChainsToDeploy: map[uint64]verifier_proxy.DeployVerifierProxy{
+		ChainsToDeploy: map[uint64]verifierproxy.DeployVerifierProxy{
 			chainSelector: {
 				AccessControllerAddress: common.Address{},
 			},
@@ -37,7 +37,7 @@ func DeployVerifierProxyAndVerifier(
 	}
 	env, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			verifier_proxy.DeployVerifierProxyChangeset,
+			verifierproxy.DeployVerifierProxyChangeset,
 			deployProxyCfg,
 		),
 	)
@@ -72,8 +72,8 @@ func DeployVerifierProxyAndVerifier(
 	require.NotEqual(t, common.Address{}, verifierAddr, "verifier should not be zero address")
 
 	// 3) Initialize the VerifierProxy
-	initCfg := verifier_proxy.VerifierProxyInitializeVerifierConfig{
-		ConfigPerChain: map[uint64][]verifier_proxy.InitializeVerifierConfig{
+	initCfg := verifierproxy.VerifierProxyInitializeVerifierConfig{
+		ConfigPerChain: map[uint64][]verifierproxy.InitializeVerifierConfig{
 			chainSelector: {
 				{
 					VerifierAddress: verifierAddr,
@@ -84,7 +84,7 @@ func DeployVerifierProxyAndVerifier(
 	}
 	env, err = commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
-			verifier_proxy.InitializeVerifierChangeset,
+			verifierproxy.InitializeVerifierChangeset,
 			initCfg,
 		),
 	)

@@ -22,8 +22,10 @@ func TestSetAccessController(t *testing.T) {
 		commonChangesets.Configure(
 			DeployVerifierProxyChangeset,
 			DeployVerifierProxyConfig{
-				ChainsToDeploy: []uint64{testChain},
-				Version:        *semver.MustParse("0.5.0"),
+				ChainsToDeploy: map[uint64]DeployVerifierProxy{
+					testChain: {AccessControllerAddress: common.Address{}},
+				},
+				Version: *semver.MustParse("0.5.0"),
 			},
 		),
 	)

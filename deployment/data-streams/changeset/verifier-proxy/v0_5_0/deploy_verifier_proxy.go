@@ -4,29 +4,42 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	datastreams "github.com/smartcontractkit/chainlink/deployment/data-streams"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 )
 
-var DeployVerifierProxyChangeset = deployment.CreateChangeSet(deployVerifierProxyLogic, deployVerifierProxyPrecondition)
+// DeployVerifierProxyChangeset deploys VerifierProxy to the chains specified in the config.
+var DeployVerifierProxyChangeset deployment.ChangeSetV2[DeployVerifierProxyConfig] = &verifierProxyDeploy{}
+
+type verifierProxyDeploy struct{}
+type DeployVerifierProxyConfig struct {
+	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
+	ChainsToDeploy map[uint64]DeployVerifierProxy
+	Version        semver.Version
+}
 
 type DeployVerifierProxy struct {
-	VerifierProxyAddress common.Address
+	AccessControllerAddress common.Address
 }
 
-type DeployVerifierProxyConfig struct {
-	ChainsToDeploy map[uint64]DeployVerifierProxy
-}
-
-func (cc DeployVerifierProxyConfig) Validate() error {
-	if len(cc.ChainsToDeploy) == 0 {
+func (cfg DeployVerifierProxyConfig) Validate() error {
+	switch cfg.Version {
+	case deployment.Version0_5_0:
+		// no-op
+	default:
+		return fmt.Errorf("unsupported contract version %s", cfg.Version)
+	}
+	if len(cfg.ChainsToDeploy) == 0 {
 		return errors.New("ChainsToDeploy is empty")
 	}
-	for chain := range cc.ChainsToDeploy {
+	for chain := range cfg.ChainsToDeploy {
 		if err := deployment.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
@@ -34,11 +47,11 @@ func (cc DeployVerifierProxyConfig) Validate() error {
 	return nil
 }
 
-func deployVerifierProxyLogic(e deployment.Environment, cc DeployVerifierProxyConfig) (deployment.ChangesetOutput, error) {
+func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierProxyConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
-	err := deployVerifier(e, ab, cc)
+	err := deploy(e, ab, cc)
 	if err != nil {
-		e.Logger.Errorw("Failed to deploy Verifier", "err", err, "addresses", ab)
+		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
 	return deployment.ChangesetOutput{
@@ -46,26 +59,25 @@ func deployVerifierProxyLogic(e deployment.Environment, cc DeployVerifierProxyCo
 	}, nil
 }
 
-func deployVerifierProxyPrecondition(_ deployment.Environment, cc DeployVerifierProxyConfig) error {
+func (v *verifierProxyDeploy) VerifyPreconditions(_ deployment.Environment, cc DeployVerifierProxyConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
-
 	return nil
 }
 
-func deployVerifier(e deployment.Environment, ab deployment.AddressBook, cc DeployVerifierProxyConfig) error {
-	if err := cc.Validate(); err != nil {
+func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerifierProxyConfig) error {
+	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
 
-	for chainSel := range cc.ChainsToDeploy {
+	for chainSel := range cfg.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		deployVerifier := cc.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract[*verifier_proxy_v0_5_0.VerifierProxy](e, ab, chain, VerifierDeployFn(deployVerifier.VerifierProxyAddress))
+		deployProxy := cfg.ChainsToDeploy[chainSel]
+		_, err := changeset.DeployContract[*verifier_proxy_v0_5_0.VerifierProxy](e, ab, chain, verifyProxyDeployFn(deployProxy))
 		if err != nil {
 			return err
 		}
@@ -74,12 +86,12 @@ func deployVerifier(e deployment.Environment, ab deployment.AddressBook, cc Depl
 			e.Logger.Errorw("Failed to get chain addresses", "err", err)
 			return err
 		}
-		chainState, err := changeset.LoadChainState(e.Logger, chain, chainAddresses)
+		chainState, err := datastreams.LoadChainConfig(chain, chainAddresses)
 		if err != nil {
 			e.Logger.Errorw("Failed to load chain state", "err", err)
 			return err
 		}
-		if len(chainState.VerifierProxys) == 0 {
+		if chainState.VerifierProxys == nil || len(chainState.VerifierProxys[chain.Selector]) == 0 {
 			errNoCCS := errors.New("no VerifierProxy on chain")
 			e.Logger.Error(errNoCCS)
 			return errNoCCS
@@ -89,13 +101,13 @@ func deployVerifier(e deployment.Environment, ab deployment.AddressBook, cc Depl
 	return nil
 }
 
-// VerifierDeployFn returns a function that deploys a Verifier contract.
-func VerifierDeployFn(verifierProxyAddress common.Address) changeset.ContractDeployFn[*verifier_proxy_v0_5_0.VerifierProxy] {
+// verifyProxyDeployFn returns a function that deploys a VerifyProxy contract.
+func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*verifier_proxy_v0_5_0.VerifierProxy] {
 	return func(chain deployment.Chain) *changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy] {
-		ccsAddr, ccsTx, ccs, err := verifier_proxy_v0_5_0.DeployVerifierProxy(
+		addr, tx, contract, err := verifier_proxy_v0_5_0.DeployVerifierProxy(
 			chain.DeployerKey,
 			chain.Client,
-			verifierProxyAddress,
+			cfg.AccessControllerAddress,
 		)
 		if err != nil {
 			return &changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy]{
@@ -103,9 +115,9 @@ func VerifierDeployFn(verifierProxyAddress common.Address) changeset.ContractDep
 			}
 		}
 		return &changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy]{
-			Address:  ccsAddr,
-			Contract: ccs,
-			Tx:       ccsTx,
+			Address:  addr,
+			Contract: contract,
+			Tx:       tx,
 			Tv:       deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0),
 			Err:      nil,
 		}

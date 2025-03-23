@@ -10,21 +10,21 @@ import (
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	verifier_proxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0_5_0"
+	verifierproxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0_5_0"
 )
 
 func TestDeployVerifier(t *testing.T) {
 	e := testutil.NewMemoryEnv(t, true)
 
-	cc := verifier_proxy.DeployVerifierProxyConfig{
-		ChainsToDeploy: map[uint64]verifier_proxy.DeployVerifierProxy{
-			testutil.TestChain.Selector: {VerifierProxyAddress: common.Address{}},
+	cc := verifierproxy.DeployVerifierProxyConfig{
+		ChainsToDeploy: map[uint64]verifierproxy.DeployVerifierProxy{
+			testutil.TestChain.Selector: {AccessControllerAddress: common.Address{}},
 		},
 	}
 
 	e, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			verifier_proxy.DeployVerifierProxyChangeset,
+			verifierproxy.DeployVerifierProxyChangeset,
 			cc,
 		),
 	)

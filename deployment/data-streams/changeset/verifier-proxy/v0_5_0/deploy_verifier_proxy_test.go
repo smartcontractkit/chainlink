@@ -18,8 +18,10 @@ import (
 func TestDeployVerifierProxy(t *testing.T) {
 	e := testutil.NewMemoryEnv(t, false, 0)
 	cc := DeployVerifierProxyConfig{
-		ChainsToDeploy: []uint64{testutil.TestChain.Selector},
-		Version:        *semver.MustParse("0.5.0"),
+		ChainsToDeploy: map[uint64]DeployVerifierProxy{
+			testutil.TestChain.Selector: {AccessControllerAddress: common.Address{}},
+		},
+		Version: *semver.MustParse("0.5.0"),
 	}
 
 	e, err := commonChangesets.Apply(t, e, nil,

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	verifier_v0_5_0 "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0.5.0"
+	verifierv050 "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0_5_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -41,11 +41,11 @@ func TestInitializeVerifier(t *testing.T) {
 	// Deploy Verifier
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			verifier_v0_5_0.DeployVerifierChangeset,
-			verifier_v0_5_0.DeployVerifierConfig{
-				ChainsToDeploy:       []uint64{chainSelector},
-				VerifierProxyAddress: verifierProxyAddr,
-				Version:              *semver.MustParse("0.5.0"),
+			verifierv050.DeployVerifierChangeset,
+			verifierv050.DeployVerifierConfig{
+				ChainsToDeploy: map[uint64]verifierv050.DeployVerifier{
+					chainSelector: {VerifierProxyAddress: verifierProxyAddr},
+				},
 			},
 		),
 	)
