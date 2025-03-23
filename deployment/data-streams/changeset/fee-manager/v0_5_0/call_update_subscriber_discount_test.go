@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	"github.com/stretchr/testify/require"
 )
 
 func TestUpdateSubscriberDiscount(t *testing.T) {

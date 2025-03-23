@@ -4,19 +4,21 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	reward_manager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/reward-manager"
+	commonchangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	rewardmanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/reward-manager"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	verifier "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0_5_0"
-	"github.com/stretchr/testify/require"
 )
 
 type DataStreamsTestEnvSetupOutput struct {
 	Env                  deployment.Environment
 	LinkTokenAddress     common.Address
-	linkState            *commonChangesets.LinkTokenState
+	linkState            *commonchangesets.LinkTokenState
 	FeeManagerAddress    common.Address
 	RewardManagerAddress common.Address
 	VerifierAddress      common.Address
@@ -56,9 +58,9 @@ func NewDataStreamsEnvironment(t *testing.T, opts DataStreamsTestEnvOptions) (Da
 
 	linkTokenAddress := common.Address{}
 	if opts.DeployLinkToken {
-		env, err := commonChangesets.Apply(t, e, nil,
-			commonChangesets.Configure(
-				deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+		env, err := commonchangesets.Apply(t, e, nil,
+			commonchangesets.Configure(
+				deployment.CreateLegacyChangeSet(commonchangesets.DeployLinkToken),
 				[]uint64{testutil.TestChain.Selector},
 			),
 		)
@@ -68,7 +70,7 @@ func NewDataStreamsEnvironment(t *testing.T, opts DataStreamsTestEnvOptions) (Da
 		require.NoError(t, err)
 
 		chain := env.Chains[testutil.TestChain.Selector]
-		linkState, err := commonChangesets.MaybeLoadLinkTokenChainState(chain, addresses)
+		linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 		require.NoError(t, err)
 		require.NotNil(t, linkState.LinkToken)
 		linkTokenAddress = linkState.LinkToken.Address()
@@ -76,10 +78,10 @@ func NewDataStreamsEnvironment(t *testing.T, opts DataStreamsTestEnvOptions) (Da
 	}
 
 	if opts.DeployRewardManager {
-		env, err := commonChangesets.Apply(t, e, nil,
-			commonChangesets.Configure(
-				reward_manager.DeployRewardManagerChangeset,
-				reward_manager.DeployRewardManagerConfig{
+		env, err := commonchangesets.Apply(t, e, nil,
+			commonchangesets.Configure(
+				rewardmanager.DeployRewardManagerChangeset,
+				rewardmanager.DeployRewardManagerConfig{
 					ChainsToDeploy:   []uint64{testutil.TestChain.Selector},
 					LinkTokenAddress: linkTokenAddress,
 				},
@@ -104,8 +106,8 @@ func NewDataStreamsEnvironment(t *testing.T, opts DataStreamsTestEnvOptions) (Da
 			RewardManagerAddress: rewardManagerAddress,
 		}
 
-		env, err := commonChangesets.Apply(t, e, nil,
-			commonChangesets.Configure(
+		env, err := commonchangesets.Apply(t, e, nil,
+			commonchangesets.Configure(
 				DeployFeeManagerChangeset,
 				cc,
 			),

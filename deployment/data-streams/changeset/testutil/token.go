@@ -7,9 +7,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/stretchr/testify/require"
 )
 
 func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deployment.Chain, to common.Address, amount int64) {
