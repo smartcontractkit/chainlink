@@ -7,9 +7,7 @@ import {ITypeAndVersion} from "../../../../shared/interfaces/ITypeAndVersion.sol
 import {IERC165} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC165.sol";
 import {Common} from "../../../libraries/Common.sol";
 import {IRewardManager} from "../../interfaces/IRewardManager.sol";
-import {IWERC20} from "../../../../shared/interfaces/IWERC20.sol";
 import {IERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/interfaces/IERC20.sol";
-import {Math} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/utils/math/Math.sol";
 import {SafeERC20} from "../../../../vendor/openzeppelin-solidity/v4.8.3/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IVerifierFeeManager} from "../../interfaces/IVerifierFeeManager.sol";
 
@@ -174,6 +172,7 @@ contract MockFeeManager is IFeeManager, ConfirmedOwner, ITypeAndVersion {
     bytes calldata parameterPayload,
     address subscriber
   ) external payable override onlyProxy {
+      // solhint-disable-next-line no-unused-vars
     (Common.Asset memory fee, Common.Asset memory reward, uint256 appliedDiscount) = _processFee(
       payload,
       parameterPayload,
@@ -228,12 +227,19 @@ contract MockFeeManager is IFeeManager, ConfirmedOwner, ITypeAndVersion {
 
   /// @inheritdoc IFeeManager
   function getFeeAndReward(
+    // solhint-disable-next-line no-unused-vars
     address subscriber,
+    // solhint-disable-next-line no-unused-vars
     bytes memory report,
     address quoteAddress
   ) public view returns (Common.Asset memory, Common.Asset memory, uint256) {
     Common.Asset memory fee;
     Common.Asset memory reward;
+
+    //verify the quote payload is a supported token
+    if (quoteAddress != i_nativeAddress && quoteAddress != i_linkAddress) {
+      revert InvalidQuote();
+    }
 
     return (fee, reward, 0);
   }
@@ -343,7 +349,7 @@ contract MockFeeManager is IFeeManager, ConfirmedOwner, ITypeAndVersion {
   /// @inheritdoc IFeeManager
   function payLinkDeficit(bytes32 configDigest) external onlyOwner {
     uint256 deficit = s_linkDeficit[configDigest];
-    
+
     emit LinkDeficitCleared(configDigest, deficit);
   }
 }
