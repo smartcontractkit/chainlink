@@ -1,4 +1,4 @@
-package changeset
+package fee_manager_v0_5_0
 
 import (
 	"errors"
@@ -12,8 +12,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 )
 
-// DeployFeeManager deploys FeeManager to the chains specified in the config.
-type DeployFeeManager struct{}
+// DeployFeeManagerChangeset deploys FeeManager to the chains specified in the config.
+var DeployFeeManagerChangeset deployment.ChangeSetV2[DeployFeeManagerConfig] = &FeeManagerDeploy{}
+
+type FeeManagerDeploy struct{}
 
 type DeployFeeManagerConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
@@ -36,7 +38,7 @@ func (cc DeployFeeManagerConfig) Validate() error {
 	return nil
 }
 
-func (DeployFeeManager) Apply(e deployment.Environment, cc DeployFeeManagerConfig) (deployment.ChangesetOutput, error) {
+func (FeeManagerDeploy) Apply(e deployment.Environment, cc DeployFeeManagerConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
 	err := deployFeeManager(e, ab, cc)
 	if err != nil {
@@ -48,11 +50,10 @@ func (DeployFeeManager) Apply(e deployment.Environment, cc DeployFeeManagerConfi
 	}, nil
 }
 
-func (DeployFeeManager) VerifyPreconditions(_ deployment.Environment, cc DeployFeeManagerConfig) error {
+func (FeeManagerDeploy) VerifyPreconditions(_ deployment.Environment, cc DeployFeeManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployFeeManagerConfig: %w", err)
 	}
-
 	return nil
 }
 

@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	changeset "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0.5.0"
+	changeset "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0_5_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -63,7 +63,7 @@ func TestSetFeeManager(t *testing.T) {
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			changeset.DeployFeeManager{},
+			changeset.DeployFeeManagerChangeset,
 			cfgFeeManager,
 		),
 	)

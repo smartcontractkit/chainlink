@@ -1,4 +1,4 @@
-package changeset
+package fee_manager_v0_5_0
 
 import (
 	"testing"
@@ -43,7 +43,7 @@ func TestDeployFeeManager(t *testing.T) {
 
 	resp, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			DeployFeeManager{},
+			FeeManagerDeploy{},
 			cc,
 		),
 	)

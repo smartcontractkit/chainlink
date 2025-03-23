@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
-	verifier_proxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0_5_0"
+	verifier_proxy "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier-proxy/v0.5.0"
 )
 
 // DeployVerifierProxyAndVerifier deploys a VerifierProxy, deploys a Verifier,
@@ -28,9 +28,10 @@ func DeployVerifierProxyAndVerifier(
 
 	// 1) Deploy VerifierProxy
 	deployProxyCfg := verifier_proxy.DeployVerifierProxyConfig{
+		Version: deployment.Version0_5_0,
 		ChainsToDeploy: map[uint64]verifier_proxy.DeployVerifierProxy{
 			chainSelector: {
-				VerifierProxyAddress: common.Address{},
+				AccessControllerAddress: common.Address{},
 			},
 		},
 	}
@@ -71,19 +72,19 @@ func DeployVerifierProxyAndVerifier(
 	require.NotEqual(t, common.Address{}, verifierAddr, "verifier should not be zero address")
 
 	// 3) Initialize the VerifierProxy
-	initCfg := verifier_proxy.InitializeConfig{
-		ConfigsByChain: map[uint64][]verifier_proxy.Initialize{
+	initCfg := verifier_proxy.VerifierProxyInitializeVerifierConfig{
+		ConfigPerChain: map[uint64][]verifier_proxy.InitializeVerifierConfig{
 			chainSelector: {
 				{
-					VerifierAddress:      verifierAddr,
-					VerifierProxyAddress: verifierProxyAddr,
+					VerifierAddress: verifierAddr,
+					ContractAddress: verifierProxyAddr,
 				},
 			},
 		},
 	}
 	env, err = commonChangesets.Apply(t, env, nil,
 		commonChangesets.Configure(
-			verifier_proxy.InitializeChangeset,
+			verifier_proxy.InitializeVerifierChangeset,
 			initCfg,
 		),
 	)

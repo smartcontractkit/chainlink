@@ -20,10 +20,13 @@ var DeployVerifierProxyChangeset deployment.ChangeSetV2[DeployVerifierProxyConfi
 
 type verifierProxyDeploy struct{}
 type DeployVerifierProxyConfig struct {
-	AccessControllerAddress common.Address
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
-	ChainsToDeploy []uint64
+	ChainsToDeploy map[uint64]DeployVerifierProxy
 	Version        semver.Version
+}
+
+type DeployVerifierProxy struct {
+	AccessControllerAddress common.Address
 }
 
 func (cfg DeployVerifierProxyConfig) Validate() error {
@@ -36,7 +39,7 @@ func (cfg DeployVerifierProxyConfig) Validate() error {
 	if len(cfg.ChainsToDeploy) == 0 {
 		return errors.New("ChainsToDeploy is empty")
 	}
-	for _, chain := range cfg.ChainsToDeploy {
+	for chain := range cfg.ChainsToDeploy {
 		if err := deployment.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
@@ -68,12 +71,13 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerif
 		return fmt.Errorf("invalid DeployVerifierProxyConfig: %w", err)
 	}
 
-	for _, chainSel := range cfg.ChainsToDeploy {
+	for chainSel := range cfg.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		_, err := changeset.DeployContract[*verifier_proxy_v0_5_0.VerifierProxy](e, ab, chain, verifyProxyDeployFn(cfg))
+		deployProxy := cfg.ChainsToDeploy[chainSel]
+		_, err := changeset.DeployContract[*verifier_proxy_v0_5_0.VerifierProxy](e, ab, chain, verifyProxyDeployFn(deployProxy))
 		if err != nil {
 			return err
 		}
@@ -98,7 +102,7 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerif
 }
 
 // verifyProxyDeployFn returns a function that deploys a VerifyProxy contract.
-func verifyProxyDeployFn(cfg DeployVerifierProxyConfig) changeset.ContractDeployFn[*verifier_proxy_v0_5_0.VerifierProxy] {
+func verifyProxyDeployFn(cfg DeployVerifierProxy) changeset.ContractDeployFn[*verifier_proxy_v0_5_0.VerifierProxy] {
 	return func(chain deployment.Chain) *changeset.ContractDeployment[*verifier_proxy_v0_5_0.VerifierProxy] {
 		addr, tx, contract, err := verifier_proxy_v0_5_0.DeployVerifierProxy(
 			chain.DeployerKey,

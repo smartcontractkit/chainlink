@@ -17,7 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
-
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	verifier "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
@@ -29,6 +29,7 @@ type DataStreamsChainState struct {
 	FeeManagers         map[common.Address]*fee_manager.FeeManager
 	Verifiers           map[common.Address]*verifier.Verifier
 	VerifierProxys      map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy
+	RewardManagers      map[common.Address]*reward_manager_v0_5_0.RewardManager
 }
 
 type DataStreamsOnChainState struct {
@@ -71,6 +72,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	cc.FeeManagers = make(map[common.Address]*fee_manager.FeeManager)
 	cc.Verifiers = make(map[common.Address]*verifier.Verifier)
 	cc.VerifierProxys = make(map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy)
+	cc.RewardManagers = make(map[common.Address]*reward_manager_v0_5_0.RewardManager)
 
 	for address, tvStr := range addresses {
 		switch tvStr.String() {
@@ -108,6 +110,13 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 				return &cc, err
 			}
 			cc.VerifierProxys[common.HexToAddress(address)] = css
+
+		case deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
+			css, err := reward_manager_v0_5_0.NewRewardManager(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return &cc, err
+			}
+			cc.RewardManagers[common.HexToAddress(address)] = css
 
 		default:
 			return &cc, fmt.Errorf("unknown contract %s", tvStr)
