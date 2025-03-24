@@ -23,6 +23,11 @@ import (
 
 var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 
+// AllowedTokenSymbolOverrides is a list of token pool symbols that are allowed to be overridden.
+var AllowedTokenSymbolOverrides = map[changeset.TokenSymbol]changeset.TokenSymbol{
+	changeset.CLCCIPLnMSymbol: changeset.CCIPLnMSymbol, // clCCIP-LnM is allowed to be overridden only with CCIP-LnM
+}
+
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
 	// Inbound is the rate limiter config for inbound transfers from a remote chain.
@@ -70,6 +75,8 @@ type TokenPoolConfig struct {
 	Type deployment.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
+	// OverrideTokenSymbol is the token symbol to use for the token pool (it is mainly used for clCCIP-LnM settings)
+	OverrideTokenSymbol changeset.TokenSymbol
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
@@ -161,7 +168,14 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 				return fmt.Errorf("missing proposerMcm on %s", chain.String())
 			}
 		}
-		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, c.MCMS != nil, c.TokenSymbol); err != nil {
+		tokenSymbol := c.TokenSymbol
+		if poolUpdate.OverrideTokenSymbol != "" {
+			if v, ok := AllowedTokenSymbolOverrides[poolUpdate.OverrideTokenSymbol]; !ok || v != c.TokenSymbol {
+				return fmt.Errorf("invalid pool symbol override %s update on chain %s: %w", poolUpdate.OverrideTokenSymbol, chain.String(), err)
+			}
+			tokenSymbol = poolUpdate.OverrideTokenSymbol
+		}
+		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, c.MCMS != nil, tokenSymbol); err != nil {
 			return fmt.Errorf("invalid pool update on %s: %w", chain.String(), err)
 		}
 	}
@@ -232,7 +246,11 @@ func configureTokenPool(
 		}
 		remoteChain := chains[remoteChainSelector]
 		remotePoolUpdate := config.PoolUpdates[remoteChainSelector]
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+		tokenSymbol := config.TokenSymbol
+		if remotePoolUpdate.OverrideTokenSymbol != "" {
+			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
+		}
+		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 		}
