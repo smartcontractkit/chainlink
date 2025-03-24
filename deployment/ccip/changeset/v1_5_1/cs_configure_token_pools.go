@@ -171,7 +171,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 		tokenSymbol := c.TokenSymbol
 		if poolUpdate.OverrideTokenSymbol != "" {
 			if v, ok := AllowedTokenSymbolOverrides[poolUpdate.OverrideTokenSymbol]; !ok || v != c.TokenSymbol {
-				return fmt.Errorf("invalid pool symbol override %s update on chain %s: %w", poolUpdate.OverrideTokenSymbol, chain.String(), err)
+				return fmt.Errorf("invalid pool symbol override %s update on chain %s", poolUpdate.OverrideTokenSymbol, chain.String())
 			}
 			tokenSymbol = poolUpdate.OverrideTokenSymbol
 		}
