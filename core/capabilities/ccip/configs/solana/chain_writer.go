@@ -17,6 +17,7 @@ import (
 
 var ccipOfframpIDL = idl.FetchCCIPOfframpIDL()
 var ccipRouterIDL = idl.FetchCCIPRouterIDL()
+var ccipCommonIDL = idl.FetchCommonIDL()
 
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
@@ -136,8 +137,8 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 							InternalField: chainwriter.InternalField{
 								TypeName: "TokenAdminRegistry",
 								Location: "LookupTable",
-								// TokenAdminRegistry is in the router program so need to provide the router's IDL
-								IDL: ccipRouterIDL,
+								// TokenAdminRegistry is in the common program so need to provide the IDL
+								IDL: ccipCommonIDL,
 							},
 						},
 					},

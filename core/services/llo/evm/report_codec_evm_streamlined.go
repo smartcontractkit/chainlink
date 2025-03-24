@@ -34,22 +34,22 @@ func (rc ReportCodecEVMStreamlined) Encode(ctx context.Context, r llo.Report, cd
 		return nil, fmt.Errorf("failed to decode opts; got: '%s'; %w", cd.Opts, err)
 	}
 
-	// Always prepend (feed ID or channel ID) + timestamp in nanoseconds
 	if opts.FeedID == nil {
-		// NOTE: 96 bit header means encoding data as a int160 fits the entire
-		// payload into one evm word
-		payload = encodePackedUint32(r.ChannelID)
+		payload = append(
+			encodePackedUint32(uint32(cd.ReportFormat)),
+			encodePackedUint32(r.ChannelID)...,
+		)
 	} else {
-		// NOTE: 256+64 bit header means encoding data as an int192 fits the
-		// entire payload into two evm words
+		// Must assume feed ID is universally unique so contains sufficient
+		// domain separation and info about the report format.
 		payload = opts.FeedID.Bytes()
 	}
 	payload = append(payload, encodePackedUint64(r.ValidAfterNanoseconds)...)
 	// Pack-encode the rest of the values
 	for i, encoder := range opts.ABI {
-		b, err := encoder.EncodePacked(ctx, r.Values[i])
+		b, err := encoder.EncodePacked(r.Values[i])
 		if err != nil {
-			return nil, fmt.Errorf("failed to encode stream value at index %d with abi %q; %w", i, encoder.Type, err)
+			return nil, fmt.Errorf("failed to encode stream value at index %d; %w", i, err)
 		}
 		payload = append(payload, b...)
 	}
@@ -161,7 +161,7 @@ type ReportFormatEVMStreamlinedOpts struct {
 	//
 	// EXAMPLE
 	//
-	// [{"streamID":123,"multiplier":"10000","type":"uint192"}, ...]
+	// [{"multiplier":"10000","type":"uint192"}, ...]
 	//
 	// See definition of ABIEncoder struct for more details.
 	//
