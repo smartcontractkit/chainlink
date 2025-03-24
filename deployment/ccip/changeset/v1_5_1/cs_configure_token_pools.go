@@ -23,12 +23,6 @@ import (
 
 var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 
-// AllowedTokenSymbolOverrides is a list of token pool symbols that are allowed to be overridden.
-var AllowedTokenSymbolOverrides = map[changeset.TokenSymbol]changeset.TokenSymbol{
-	changeset.CLCCIPLnMSymbol: changeset.CCIPLnMSymbol,   // clCCIP-LnM is allowed to be overridden only with CCIP-LnM
-	changeset.CCIPLnMSymbol:   changeset.CLCCIPLnMSymbol, // CCIP-LnM is allowed to be overridden only with clCCIP-LnM
-}
-
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
 type RateLimiterConfig struct {
 	// Inbound is the rate limiter config for inbound transfers from a remote chain.
@@ -76,7 +70,8 @@ type TokenPoolConfig struct {
 	Type deployment.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
-	// OverrideTokenSymbol is the token symbol to use for the token pool (it is mainly used for clCCIP-LnM settings)
+	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
+	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
 	OverrideTokenSymbol changeset.TokenSymbol
 }
 
@@ -89,6 +84,10 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	// Ensure that the inputted version is known
 	if _, ok := changeset.TokenPoolVersions[c.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
+	}
+
+	if c.OverrideTokenSymbol != "" {
+		tokenSymbol = c.OverrideTokenSymbol
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
@@ -169,14 +168,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 				return fmt.Errorf("missing proposerMcm on %s", chain.String())
 			}
 		}
-		tokenSymbol := c.TokenSymbol
-		if poolUpdate.OverrideTokenSymbol != "" {
-			if v, ok := AllowedTokenSymbolOverrides[poolUpdate.OverrideTokenSymbol]; !ok || v != c.TokenSymbol {
-				return fmt.Errorf("invalid pool symbol override %s update on chain %s", poolUpdate.OverrideTokenSymbol, chain.String())
-			}
-			tokenSymbol = poolUpdate.OverrideTokenSymbol
-		}
-		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, c.MCMS != nil, tokenSymbol); err != nil {
+		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, c.MCMS != nil, c.TokenSymbol); err != nil {
 			return fmt.Errorf("invalid pool update on %s: %w", chain.String(), err)
 		}
 	}
@@ -251,7 +243,7 @@ func configureTokenPool(
 		}
 		remoteChain := chains[remoteChainSelector]
 		remotePoolUpdate := config.PoolUpdates[remoteChainSelector]
-		tokenSymbol := config.TokenSymbol
+		tokenSymbol = config.TokenSymbol
 		if remotePoolUpdate.OverrideTokenSymbol != "" {
 			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
 		}
