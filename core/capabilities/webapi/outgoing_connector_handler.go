@@ -190,25 +190,33 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 
 // attemptGatewayConnection uses at most defaultAwaitTimeoutMs to connect to a gateway.
 func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
-	parentDeadline, parentHasDeadline := ctx.Deadline()
-	defaultDeadline := time.Now().Add(defaultAwaitTimeoutMs)
+	et := effectiveTimeout(ctx)
 
-	var connectionDeadline time.Time
-	if parentHasDeadline && parentDeadline.Before(defaultDeadline) {
-		connectionDeadline = parentDeadline // Use parent deadline if it's sooner
-	} else {
-		connectionDeadline = defaultDeadline // Otherwise, use the default
-	}
+	c.lggr.Debugw("await connection with deadline", "timeout", et)
 
-	c.lggr.Debugw("await connection with deadline", "parentHasDeadline", parentHasDeadline, "deadline", connectionDeadline)
-
-	ctxWithDeadline, cancel := context.WithDeadline(ctx, connectionDeadline)
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, et)
 	defer cancel()
 
-	if err := c.gc.AwaitConnection(ctxWithDeadline, gateway); err != nil {
+	if err := c.gc.AwaitConnection(ctxWithTimeout, gateway); err != nil {
 		return fmt.Errorf("gateway connection failed: %w", err)
 	}
 	return nil
+}
+
+// effectiveTimeout returns a default duration if there is no deadline on the context, otherwise returns the time until
+// the deadline.
+func effectiveTimeout(ctx context.Context) time.Duration {
+	dl, ok := ctx.Deadline()
+	originalTimeout := time.Duration(0)
+	if ok {
+		originalTimeout = time.Until(dl)
+	}
+
+	if originalTimeout == 0 {
+		return defaultAwaitTimeoutMs * time.Millisecond
+	}
+
+	return originalTimeout
 }
 
 // HandleGatewayMessage processes incoming messages from the Gateway,
