@@ -7,13 +7,13 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-// ExtraDataCodec is a concrete implementation of ExtraDataCodec
+// ExtraDataCodec is a struct that holds the chain specific extra data codec
 type ExtraDataCodec struct {
 	EVMExtraDataCodec    ChainSpecificExtraDataCodec
 	SolanaExtraDataCodec ChainSpecificExtraDataCodec
 }
 
-// NewExtraDataCodec is a constructor for RealExtraDataCodec
+// NewExtraDataCodec is a constructor for ExtraDataCodec
 func NewExtraDataCodec(evmExtraDataCodec, solanaExtraDataCodec ChainSpecificExtraDataCodec) ExtraDataCodec {
 	return ExtraDataCodec{
 		EVMExtraDataCodec:    evmExtraDataCodec,
