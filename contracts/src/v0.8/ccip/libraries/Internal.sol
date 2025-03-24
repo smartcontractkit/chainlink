@@ -177,7 +177,7 @@ library Internal {
     }
   }
 
-  function _validateSVMAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
+  function _validate32ByteAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
     if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
     if (mustBeNonZero) {
       if (abi.decode(encodedAddress, (bytes32)) == bytes32(0)) {
@@ -277,6 +277,9 @@ library Internal {
 
   // bytes4(keccak256("CCIP ChainFamilySelector SVM"));
   bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+
+  // bytes4(keccak256("CCIP ChainFamilySelector SVM"));
+  bytes4 public constant CHAIN_FAMILY_SELECTOR_APTOS = 0xac77ffec;
 
   /// @dev Holds a merkle root and interval for a source chain so that an array of these can be passed in the CommitReport.
   /// @dev RMN depends on this struct, if changing, please notify the RMN maintainers.
