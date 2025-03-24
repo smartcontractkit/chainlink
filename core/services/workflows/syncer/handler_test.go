@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	ghcapabilities "github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/workflowkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
@@ -44,8 +45,8 @@ type mockFetcher struct {
 	responseMap map[string]mockFetchResp
 }
 
-func (m *mockFetcher) Fetch(_ context.Context, url string, n uint32) ([]byte, error) {
-	return m.responseMap[url].Body, m.responseMap[url].Err
+func (m *mockFetcher) Fetch(_ context.Context, mid string, req ghcapabilities.Request) ([]byte, error) {
+	return m.responseMap[req.URL].Body, m.responseMap[req.URL].Err
 }
 
 func newMockFetcher(m map[string]mockFetchResp) FetcherFunc {
@@ -133,7 +134,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
@@ -154,7 +155,7 @@ func Test_Handler(t *testing.T) {
 		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
-		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 
@@ -216,7 +217,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return nil, assert.AnError
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)
@@ -249,7 +250,7 @@ func Test_Handler(t *testing.T) {
 			},
 		}
 
-		fetcher := func(_ context.Context, _ string, _ uint32) ([]byte, error) {
+		fetcher := func(_ context.Context, _ string, _ ghcapabilities.Request) ([]byte, error) {
 			return []byte("contents"), nil
 		}
 		mockORM.EXPECT().GetSecretsURLByHash(matches.AnyContext, giveHash).Return(giveURL, nil)

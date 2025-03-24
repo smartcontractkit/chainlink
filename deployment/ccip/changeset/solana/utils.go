@@ -55,12 +55,15 @@ func ValidateMCMSConfigSolana(
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.RMNRemoteOwnedByTimelock, chainState.RMNRemote, cs.RMNRemote, tokenAddress); err != nil {
 		return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
-		return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
+	if !tokenAddress.IsZero() {
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
+			return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
+		}
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
+			return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
+		}
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
-		return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
-	}
+
 	return nil
 }
 
