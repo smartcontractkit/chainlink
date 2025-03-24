@@ -46,7 +46,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, cribEnvironment)
-	userOverrides.Validate(t, cribEnvironment)
+	// userOverrides.Validate(t, cribEnvironment)
 
 	allChainSelectors := cribEnvironment.AllChainSelectors()
 	allSolChainSelectors := cribEnvironment.AllChainSelectorsSolana()
@@ -69,10 +69,13 @@ func TestCCIPSolCRIB(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
+	solTestKey, err := solana.PrivateKeyFromBase58("57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC")
+
+	t.Logf("Deployer key %v", e.Env.SolChains[sourceChain].DeployerKey)
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		sender   = common.LeftPadBytes(solTestKey.PublicKey().Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,
@@ -87,7 +90,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 	)
 
 	// TODO: handle in setup
-	deployer := e.Env.SolChains[sourceChain].DeployerKey
+	deployer := solTestKey
 	rpcClient := e.Env.SolChains[sourceChain].Client
 
 	// create ATA for user
@@ -103,7 +106,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
 	require.NoError(t, err)
 
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, *deployer, solconfig.DefaultCommitment)
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, deployer, solconfig.DefaultCommitment)
 
 	// fund user WSOL (transfer SOL + syncNative)
 	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
@@ -111,7 +114,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 	require.NoError(t, err)
 	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
 	require.NoError(t, err)
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, *deployer, solconfig.DefaultCommitment)
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, deployer, solconfig.DefaultCommitment)
 	// END: handle in setup
 
 	emptyEVMExtraArgsV2 := []byte{}

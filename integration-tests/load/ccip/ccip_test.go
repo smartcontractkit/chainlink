@@ -7,7 +7,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -68,7 +67,6 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides.Validate(t, env)
 
 	// initialize additional accounts on other chains
-	// TODO - Add funding method for Solana
 	transmitKeys, err := fundAdditionalKeys(lggr, *env, env.AllChainSelectors()[:*userOverrides.NumDestinationChains])
 	require.NoError(t, err)
 	// todo: defer returning funds
@@ -115,13 +113,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	// confirmed dest chains need a subscription
 	for ind := range *userOverrides.NumDestinationChains {
 		cs := env.AllChainSelectors()[ind]
-		solCs := env.AllChainSelectorsSolana()[ind]
 
 		messageKeys := make(map[uint64]*bind.TransactOpts)
-		// TODO Adjust this to generate sol keys
-
-		solMessageKeys := make(map[uint64]*solana.PrivateKey)
-		// TODO - Add solana selectors here and combine so we send all together
 		other := env.AllChainSelectorsExcluding([]uint64{cs})
 		var mu sync.Mutex
 		var wg2 sync.WaitGroup
