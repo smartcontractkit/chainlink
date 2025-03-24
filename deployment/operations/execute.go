@@ -71,6 +71,45 @@ func ExecuteOperation[IN, OUT, DEP any](
 	return report, report.Err
 }
 
+// ExecuteSequence executes a sequence and returns a SequenceReport.
+func ExecuteSequence[IN, OUT, DEP any](
+	b Bundle, sequence *Sequence[IN, OUT, DEP], deps DEP, input IN,
+) (SequenceReport[IN, OUT], error) {
+	b.Logger.Infow("Executing sequence", "id", sequence.def.ID,
+		"version", sequence.def.Version, "description", sequence.def.Description)
+	recentReporter := NewRecentMemoryReporter(b.reporter)
+	newBundle := Bundle{
+		Logger:     b.Logger,
+		GetContext: b.GetContext,
+		reporter:   recentReporter,
+	}
+	ret, err := sequence.handler(newBundle, deps, input)
+
+	recentReports := recentReporter.GetRecentReports()
+	childReports := make([]string, 0, len(recentReports))
+	for _, rep := range recentReports {
+		childReports = append(childReports, rep.ID)
+	}
+
+	report := NewReport(
+		sequence.def,
+		input,
+		ret,
+		err,
+		childReports...,
+	)
+
+	err = b.reporter.AddReport(genericReport(report))
+	if err != nil {
+		return SequenceReport[IN, OUT]{}, err
+	}
+	executionReports, err := b.reporter.GetExecutionReports(report.ID)
+	if err != nil {
+		return SequenceReport[IN, OUT]{}, err
+	}
+	return SequenceReport[IN, OUT]{report, executionReports}, report.Err
+}
+
 func genericReport[IN, OUT any](r Report[IN, OUT]) Report[any, any] {
 	return Report[any, any]{
 		ID: r.ID,

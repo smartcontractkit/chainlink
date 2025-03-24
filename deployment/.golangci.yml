@@ -177,3 +177,12 @@ issues:
     - linters:
         - govet
       text: "declaration of \"err\" shadows"
+    # ignore false positive by revive on the function names (ID, Version, Description) clash between sequence and operation
+    - path: operations/operation.go
+      text: "^confusing-naming:"
+      linters:
+        - revive
+    - path: operations/sequence.go
+      text: "^confusing-naming:"
+      linters:
+        - revive
