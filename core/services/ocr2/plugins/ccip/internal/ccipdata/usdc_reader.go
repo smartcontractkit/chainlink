@@ -85,7 +85,7 @@ func (u *USDCReaderImpl) GetUSDCMessagePriorToLogIndexInTx(ctx context.Context, 
 	var lpLogs []logpoller.Log
 
 	// fetch all the usdc logs for the provided tx hash
-	k := fmt.Sprintf("usdc-%s", txHash) // custom prefix to avoid key collision if someone re-uses the cache
+	k := "usdc-" + txHash // custom prefix to avoid key collision if someone re-uses the cache
 	if rawLogs, foundInMem := u.shortLivedInMemLogs.Get(k); foundInMem {
 		inMemLogs, ok := rawLogs.([]logpoller.Log)
 		if !ok {

@@ -31,6 +31,7 @@ jobs:
 
   trigger-flaky-test-detection-for-root-project:
       name: Flakeguard Root Project
+      if: ${{ github.event_name != 'pull_request' || !github.event.pull_request.draft }} 
       uses: ./.github/workflows/flakeguard.yml
       with:
         repoUrl: 'https://github.com/smartcontractkit/chainlink'
@@ -47,12 +48,13 @@ jobs:
         GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
         FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
   trigger-flaky-test-detection-for-deployment-project:
     name: Flakeguard Deployment Project
     uses: ./.github/workflows/flakeguard.yml
     needs: [detect-changes]
-    if: ${{ needs.detect-changes.outputs.deployment-changes == 'true'}}
+    if: ${{ (github.event_name != 'pull_request' || !github.event.pull_request.draft) && (needs.detect-changes.outputs.deployment-changes == 'true') }}
     with:
       repoUrl: 'https://github.com/smartcontractkit/chainlink'
       projectPath: 'deployment'
@@ -68,3 +70,4 @@ jobs:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

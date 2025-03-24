@@ -19,11 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -38,7 +39,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keeper"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ethkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr"
 	ocr2validate "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/validate"
@@ -189,8 +189,8 @@ func TestORM(t *testing.T) {
 		require.NoError(t, err)
 		require.Len(t, specErrors, 2)
 
-		assert.Equal(t, specErrors[0].Occurrences, uint(2))
-		assert.Equal(t, specErrors[1].Occurrences, uint(1))
+		assert.Equal(t, uint(2), specErrors[0].Occurrences)
+		assert.Equal(t, uint(1), specErrors[1].Occurrences)
 		assert.True(t, specErrors[0].CreatedAt.Before(specErrors[0].UpdatedAt), "expected created_at (%s) to be before updated_at (%s)", specErrors[0].CreatedAt, specErrors[0].UpdatedAt)
 		assert.Equal(t, specErrors[0].Description, ocrSpecError1)
 		assert.Equal(t, specErrors[1].Description, ocrSpecError2)
@@ -1114,7 +1114,7 @@ func Test_FindJobs(t *testing.T) {
 		jobs, count, err2 := orm.FindJobs(testutils.Context(t), 0, 2)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 2)
-		assert.Equal(t, count, 2)
+		assert.Equal(t, 2, count)
 
 		expectedJobs := []job.Job{jb2, jb1}
 
@@ -1127,7 +1127,7 @@ func Test_FindJobs(t *testing.T) {
 		jobs, count, err2 := orm.FindJobs(testutils.Context(t), 0, 1)
 		require.NoError(t, err2)
 		require.Len(t, jobs, 1)
-		assert.Equal(t, count, 2)
+		assert.Equal(t, 2, count)
 
 		expectedJobs := []job.Job{jb2}
 
@@ -1262,7 +1262,7 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
 
-		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.Positive(t, jb.PipelineSpecID)
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotNil(t, jb.OCROracleSpecID)
 		require.NotNil(t, jb.OCROracleSpec)
@@ -1276,7 +1276,7 @@ func Test_FindJob(t *testing.T) {
 		assert.Equal(t, jb.ID, job.ID)
 		assert.Equal(t, jb.Name, job.Name)
 
-		require.Greater(t, jb.PipelineSpecID, int32(0))
+		require.Positive(t, jb.PipelineSpecID)
 		require.NotNil(t, jb.PipelineSpec)
 		require.NotNil(t, jb.OCROracleSpecID)
 		require.NotNil(t, jb.OCROracleSpec)
@@ -1376,7 +1376,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		assert.Equal(t, jb.ID, jbs[0].ID)
 		assert.Equal(t, jb.Name, jbs[0].Name)
 
-		require.Greater(t, jbs[0].PipelineSpecID, int32(0))
+		require.Positive(t, jbs[0].PipelineSpecID)
 		require.Equal(t, jb.PipelineSpecID, jbs[0].PipelineSpecID)
 		require.NotNil(t, jbs[0].PipelineSpec)
 	})
@@ -1385,7 +1385,7 @@ func Test_FindJobsByPipelineSpecIDs(t *testing.T) {
 		ctx := testutils.Context(t)
 		jbs, err2 := orm.FindJobsByPipelineSpecIDs(ctx, []int32{-1})
 		require.NoError(t, err2)
-		assert.Len(t, jbs, 0)
+		assert.Empty(t, jbs)
 	})
 
 	t.Run("with chainID disabled", func(t *testing.T) {
@@ -1415,8 +1415,8 @@ func Test_FindPipelineRuns(t *testing.T) {
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
-		DB:             db,
 		KeyStore:       keyStore.Eth(),
+		DB:             db,
 	})
 	orm := NewTestORM(t, db, pipelineORM, bridgesORM, keyStore)
 
@@ -1442,7 +1442,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 		ctx := testutils.Context(t)
 		runs, count, err2 := orm.PipelineRuns(ctx, nil, 0, 10)
 		require.NoError(t, err2)
-		assert.Equal(t, count, 0)
+		assert.Equal(t, 0, count)
 		assert.Empty(t, runs)
 	})
 
@@ -1453,7 +1453,7 @@ func Test_FindPipelineRuns(t *testing.T) {
 		runs, count, err2 := orm.PipelineRuns(ctx, nil, 0, 10)
 		require.NoError(t, err2)
 
-		assert.Equal(t, count, 1)
+		assert.Equal(t, 1, count)
 		actual := runs[0]
 
 		// Test pipeline run fields
@@ -1512,7 +1512,7 @@ func Test_PipelineRunsByJobID(t *testing.T) {
 		ctx := testutils.Context(t)
 		runs, count, err2 := orm.PipelineRuns(ctx, &jb.ID, 0, 10)
 		require.NoError(t, err2)
-		assert.Equal(t, count, 0)
+		assert.Equal(t, 0, count)
 		assert.Empty(t, runs)
 	})
 
@@ -1748,7 +1748,7 @@ func Test_FindPipelineRunByID(t *testing.T) {
 	t.Run("with no pipeline run", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		run, err2 := orm.FindPipelineRunByID(ctx, -1)
-		assert.Equal(t, run, pipeline.Run{})
+		assert.Equal(t, pipeline.Run{}, run)
 		require.ErrorIs(t, err2, sql.ErrNoRows)
 	})
 
@@ -1804,8 +1804,8 @@ func Test_FindJobWithoutSpecErrors(t *testing.T) {
 	jbWithErrors, err := orm.FindJob(testutils.Context(t), jobSpec.ID)
 	require.NoError(t, err)
 
-	assert.Equal(t, len(jb.JobSpecErrors), 0)
-	assert.Equal(t, len(jbWithErrors.JobSpecErrors), 2)
+	assert.Empty(t, jb.JobSpecErrors)
+	assert.Len(t, jbWithErrors.JobSpecErrors, 2)
 }
 
 func Test_FindSpecErrorsByJobIDs(t *testing.T) {
@@ -1840,7 +1840,7 @@ func Test_FindSpecErrorsByJobIDs(t *testing.T) {
 	specErrs, err := orm.FindSpecErrorsByJobIDs(ctx, []int32{jobSpec.ID})
 	require.NoError(t, err)
 
-	assert.Equal(t, len(specErrs), 2)
+	assert.Len(t, specErrs, 2)
 }
 
 func Test_CountPipelineRunsByJobID(t *testing.T) {
@@ -2086,7 +2086,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowID, s.WorkflowID)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowOwner, s.WorkflowOwner)
 			assert.EqualValues(t, j.WorkflowSpec.WorkflowName, s.WorkflowName)
-			assert.Equal(t, j.WorkflowSpec.SpecType, job.YamlSpec)
+			assert.Equal(t, job.YamlSpec, j.WorkflowSpec.SpecType)
 		}
 	})
 }
@@ -2361,12 +2361,10 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 		`,
 			dtTransmitterAddress.Address.String())
 
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 		jb, err := ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+completeDualTransmissionSpec, nil)
 		require.NoError(t, err)
 
@@ -2377,12 +2375,10 @@ func TestORM_CreateJob_KeyLocking(t *testing.T) {
 	})
 
 	t.Run("keys locked but job spec misconfigured", func(t *testing.T) {
-		rm, err := ks.Eth().GetResourceMutex(ctx, transmitterID)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv1))
-		rm, err = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
-		require.NoError(t, err)
-		require.NoError(t, rm.TryLock(keystore.TXMv2))
+		rm := ks.Eth().GetResourceMutex(ctx, transmitterID)
+		require.NoError(t, rm.TryLock(keys.TXMv1))
+		rm = ks.Eth().GetResourceMutex(ctx, dtTransmitterAddress.Address)
+		require.NoError(t, rm.TryLock(keys.TXMv2))
 
 		completeDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true

@@ -45,7 +45,7 @@ func TestTransactionsController_Index_Success(t *testing.T) {
 
 	_, count, err := txStore.TransactionsWithAttempts(ctx, 0, 100)
 	require.NoError(t, err)
-	require.Equal(t, count, 3)
+	require.Equal(t, 3, count)
 
 	size := 2
 	resp, cleanup := client.Get(fmt.Sprintf("/v2/transactions?size=%d", size))

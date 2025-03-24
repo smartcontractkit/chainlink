@@ -1,14 +1,20 @@
 package memory
 
 import (
+	"archive/tar"
+	"compress/gzip"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"math/big"
+	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -21,6 +27,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/hashicorp/consul/sdk/freeport"
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
@@ -28,8 +35,8 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"golang.org/x/mod/modfile"
 
-	solTestConfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
@@ -225,25 +232,31 @@ func evmChain(t *testing.T, numUsers int) EVMChain {
 	}
 }
 
+// chainlink-ccip has dynamic resolution which does not work across repos
 var SolanaProgramIDs = map[string]string{
-	"ccip_router":                    solTestConfig.CcipRouterProgram.String(),
-	"test_token_pool":                solTestConfig.CcipTokenPoolProgram.String(),
-	"example_burnmint_token_pool":    "TokenPooL11111111111111111111111111BurnMint",
-	"example_lockrelease_token_pool": "TokenPooL11111111111111111111111LockReLease",
-	"fee_quoter":                     solTestConfig.FeeQuoterProgram.String(),
-	"test_ccip_receiver":             solTestConfig.CcipLogicReceiver.String(),
-	"ccip_offramp":                   solTestConfig.CcipOfframpProgram.String(),
-	"mcm":                            solTestConfig.McmProgram.String(),
-	"timelock":                       solTestConfig.TimelockProgram.String(),
-	"access_controller":              solTestConfig.AccessControllerProgram.String(),
-	"external_program_cpi_stub":      solTestConfig.ExternalCpiStubProgram.String(),
-	"rmn_remote":                     solTestConfig.RMNRemoteProgram.String(),
+	"ccip_router":               "Ccip842gzYHhvdDkSyi2YVCoAWPbYJoApMFzSxQroE9C",
+	"test_token_pool":           "JuCcZ4smxAYv9QHJ36jshA7pA3FuQ3vQeWLUeAtZduJ",
+	"burnmint_token_pool":       "41FGToCmdaWa1dgZLKFAjvmx6e6AjVTX7SVRibvsMGVB",
+	"lockrelease_token_pool":    "8eqh8wppT9c5rw4ERqNCffvU6cNFJWff9WmkcYtmGiqC",
+	"fee_quoter":                "FeeQPGkKDeRV1MgoYfMH6L8o3KeuYjwUZrgn4LRKfjHi",
+	"test_ccip_receiver":        "EvhgrPhTDt4LcSPS2kfJgH6T6XWZ6wT3X9ncDGLT1vui",
+	"ccip_offramp":              "offqSMQWgQud6WJz694LRzkeN5kMYpCHTpXQr3Rkcjm",
+	"mcm":                       "5vNJx78mz7KVMjhuipyr9jKBKcMrKYGdjGkgE4LUmjKk",
+	"timelock":                  "DoajfR5tK24xVw51fWcawUZWhAXD8yrBJVacc13neVQA",
+	"access_controller":         "6KsN58MTnRQ8FfPaXHiFPPFGDRioikj9CdPvPxZJdCjb",
+	"external_program_cpi_stub": "2zZwzyptLqwFJFEFxjPvrdhiGpH9pJ3MfrrmZX6NTKxm",
+	"rmn_remote":                "RmnXLft1mSEwDgMKu2okYuHkiazxntFFcZFrrcXxYg7",
 }
 
 var once = &sync.Once{}
 
 func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string, string, error) {
 	t.Helper()
+
+	once.Do(func() {
+		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
+		require.NoError(t, err)
+	})
 
 	// initialize the docker network used by CTF
 	err := framework.DefaultNetwork(once)
@@ -298,4 +311,173 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	time.Sleep(15 * time.Second) // we have slot errors that force retries if the chain is not given enough time to boot
 
 	return url, wsURL, nil
+}
+
+// TODO: these functions should be moved to a better location
+
+func withGetRequest[T any](ctx context.Context, url string, cb func(res *http.Response) (T, error)) (T, error) {
+	var empty T
+
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	if err != nil {
+		return empty, err
+	}
+
+	res, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return empty, err
+	}
+	defer res.Body.Close()
+
+	return cb(res)
+}
+
+func DownloadTarGzReleaseAssetFromGithub(
+	ctx context.Context,
+	owner string,
+	repo string,
+	name string,
+	tag string,
+	cb func(r *tar.Reader, h *tar.Header) error,
+) error {
+	url := fmt.Sprintf(
+		"https://github.com/%s/%s/releases/download/%s/%s",
+		owner,
+		repo,
+		tag,
+		name,
+	)
+
+	_, err := withGetRequest(ctx, url, func(res *http.Response) (any, error) {
+		if res.StatusCode != http.StatusOK {
+			return nil, fmt.Errorf("request failed with status %d - could not download tar.gz release artifact from Github (url = '%s')", res.StatusCode, url)
+		}
+
+		gzipReader, err := gzip.NewReader(res.Body)
+		if err != nil {
+			return nil, err
+		}
+		defer gzipReader.Close()
+
+		tarReader := tar.NewReader(gzipReader)
+		for {
+			header, err := tarReader.Next()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return nil, err
+			}
+			if err := cb(tarReader, header); err != nil {
+				return nil, err
+			}
+		}
+
+		return nil, nil
+	})
+
+	return err
+}
+
+func getModFilePath() (string, error) {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Get the root directory by walking up from current file until we find go.mod
+	rootDir := filepath.Dir(currentFile)
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(rootDir)
+		if parent == rootDir {
+			return "", errors.New("could not find project root directory containing go.mod")
+		}
+		rootDir = parent
+	}
+	return filepath.Join(rootDir, "go.mod"), nil
+}
+
+func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
+	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
+
+	gomod, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return "", err
+	}
+
+	modFile, err := modfile.ParseLax("go.mod", gomod, nil)
+	if err != nil {
+		return "", err
+	}
+
+	for _, dep := range modFile.Require {
+		if dep.Mod.Path == dependency {
+			return dep.Mod.Version, nil
+		}
+	}
+
+	return "", fmt.Errorf("dependency %s not found", dependency)
+}
+
+func getSha() (version string, err error) {
+	modFilePath, err := getModFilePath()
+	if err != nil {
+		return "", err
+	}
+	go_mod_version, err := getSolanaCcipDependencyVersion(modFilePath)
+	if err != nil {
+		return "", err
+	}
+	tokens := strings.Split(go_mod_version, "-")
+	if len(tokens) == 3 {
+		version := tokens[len(tokens)-1]
+		return version, nil
+	} else {
+		return "", fmt.Errorf("invalid go.mod version: %s", go_mod_version)
+	}
+}
+
+func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {
+	const ownr = "smartcontractkit"
+	const repo = "chainlink-ccip"
+	const name = "artifacts.tar.gz"
+
+	if sha == "" {
+		version, err := getSha()
+		if err != nil {
+			return err
+		}
+		sha = version
+	}
+	tag := "solana-artifacts-localtest-" + sha
+
+	if lggr != nil {
+		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)
+	}
+
+	return DownloadTarGzReleaseAssetFromGithub(ctx, ownr, repo, name, tag, func(r *tar.Reader, h *tar.Header) error {
+		if h.Typeflag != tar.TypeReg {
+			return nil
+		}
+
+		outPath := filepath.Join(dir, filepath.Base(h.Name))
+		if err := os.MkdirAll(filepath.Dir(outPath), os.ModePerm); err != nil {
+			return err
+		}
+
+		outFile, err := os.Create(outPath)
+		if err != nil {
+			return err
+		}
+		defer outFile.Close()
+
+		if _, err := io.Copy(outFile, r); err != nil {
+			return err
+		}
+
+		if lggr != nil {
+			lggr.Infof("Extracted Solana CCIP artifact: %s", outPath)
+		}
+
+		return nil
+	})
 }

@@ -3,9 +3,11 @@ package streams
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -329,24 +331,24 @@ func (s *streams) AllowedToUseMercury(opts *bind.CallOpts, upkeepId *big.Int) (s
 	}
 
 	if err = s.client.CallContext(opts.Context, &resultBytes, "eth_call", args, hexutil.EncodeBig(opts.BlockNumber)); err != nil {
-		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+		return encoding.RpcFlakyFailure, encoding.UpkeepFailureReasonNone, true, false, fmt.Errorf("failed to get upkeep privilege config: %w", err)
 	}
 
 	var upkeepPrivilegeConfigBytes []byte
 	upkeepPrivilegeConfigBytes, err = s.packer.UnpackGetUpkeepPrivilegeConfig(resultBytes)
 
 	if err != nil {
-		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %v", err)
+		return encoding.PackUnpackDecodeFailed, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to get upkeep privilege config: %w", err)
 	}
 
 	if len(upkeepPrivilegeConfigBytes) == 0 {
 		s.mercuryConfig.SetUpkeepAllowed(upkeepId.String(), false, cache.DefaultExpiration)
-		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, fmt.Errorf("upkeep privilege config is empty")
+		return encoding.NoPipelineError, encoding.UpkeepFailureReasonMercuryAccessNotAllowed, false, false, errors.New("upkeep privilege config is empty")
 	}
 
 	var privilegeConfig UpkeepPrivilegeConfig
 	if err = json.Unmarshal(upkeepPrivilegeConfigBytes, &privilegeConfig); err != nil {
-		return encoding.PrivilegeConfigUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %v", err)
+		return encoding.PrivilegeConfigUnmarshalError, encoding.UpkeepFailureReasonNone, false, false, fmt.Errorf("failed to unmarshal privilege config: %w", err)
 	}
 
 	s.mercuryConfig.SetUpkeepAllowed(upkeepId.String(), privilegeConfig.MercuryEnabled, cache.DefaultExpiration)
@@ -372,7 +374,7 @@ func (s *streams) buildCallOpts(ctx context.Context, block *big.Int) *bind.CallO
 
 // generatePluginRetryKey returns a plugin retry cache key
 func generatePluginRetryKey(workID string, block uint64) string {
-	return workID + "|" + fmt.Sprintf("%d", block)
+	return workID + "|" + strconv.FormatUint(block, 10)
 }
 
 func (s *streams) Close() error {

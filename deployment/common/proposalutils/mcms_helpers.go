@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
+
 	owner_helpers "github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -151,7 +152,7 @@ func RunTimelockExecutor(env deployment.Environment, cfg RunTimelockExecutorConf
 					pred = it.Event.Predecessor
 					salt = it.Event.Salt
 					verboseDebug(env.Logger, it.Event)
-					env.Logger.Info("scheduled", "event", it.Event)
+					env.Logger.Infow("scheduled", "event", it.Event)
 					calls = append(calls, owner_helpers.RBACTimelockCall{
 						Target: it.Event.Target,
 						Data:   it.Event.Data,
@@ -185,7 +186,7 @@ func verboseDebug(lggr logger.Logger, event *owner_helpers.RBACTimelockCallSched
 	if err != nil {
 		panic(err)
 	}
-	lggr.Debug("scheduled", "event", string(b))
+	lggr.Debugw("scheduled", "event", string(b))
 }
 
 // MCMSWithTimelockContracts holds the Go bindings

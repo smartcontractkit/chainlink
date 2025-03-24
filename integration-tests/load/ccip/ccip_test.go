@@ -7,6 +7,8 @@ import (
 	"testing"
 	"time"
 
+	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
+
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/assert"
@@ -176,6 +178,19 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			finalSeqNrExecChannels[cs],
 			&wg,
 			mm.InputChan)
+
+		// error watchers
+		go subscribeSkippedIncorrectNonce(
+			ctx,
+			cs,
+			state.Chains[cs].NonceManager,
+			lggr)
+
+		go subscribeAlreadyExecuted(
+			ctx,
+			cs,
+			state.Chains[cs].OffRamp,
+			lggr)
 	}
 
 	requestFrequency, err := time.ParseDuration(*userOverrides.RequestFrequency)
@@ -200,6 +215,18 @@ func TestCCIPLoad_RPS(t *testing.T) {
 			LokiConfig: wasp.NewEnvLokiConfig(),
 			// use the same loki client using `NewLokiClient` with the same config for sending events
 		}))
+	}
+
+	switch config.CCIP.Load.ChaosMode {
+	case ccip.ChaosModeTypeRPCLatency:
+		go runRealisticRPCLatencySuite(t,
+			config.CCIP.Load.GetLoadDuration(),
+			config.CCIP.Load.GetRPCLatency(),
+			config.CCIP.Load.GetRPCJitter(),
+		)
+	case ccip.ChaosModeTypeFull:
+		go runFullChaosSuite(t)
+	case ccip.ChaosModeNone:
 	}
 
 	_, err = p.Run(true)

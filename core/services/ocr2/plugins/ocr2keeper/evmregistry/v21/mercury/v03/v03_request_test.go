@@ -153,7 +153,7 @@ func TestV03_DoMercuryRequestV03(t *testing.T) {
 			}
 
 			b, err := json.Marshal(mr)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 			resp := &http.Response{
 				StatusCode: tt.mockHttpStatusCode,
 				Body:       io.NopCloser(bytes.NewReader(b)),
@@ -202,7 +202,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 			},
 		}
 		b, err := json.Marshal(mr)
-		assert.Nil(t, err)
+		assert.NoError(t, err)
 
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
@@ -225,7 +225,7 @@ func TestV03_DoMercuryRequestV03_MultipleFeedsSuccess(t *testing.T) {
 	}
 
 	state, _, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
-	assert.Equal(t, false, retryable)
+	assert.False(t, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeNil, errCode)
 	assert.Equal(t, encoding.NoPipelineError, state)
@@ -254,7 +254,7 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 		},
 	}
 	b, err := json.Marshal(mr)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -281,8 +281,8 @@ func TestV03_DoMercuryRequestV03_Timeout(t *testing.T) {
 	start := time.Now()
 	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.ConditionTrigger, pluginRetryKey)
 	elapsed := time.Since(start)
-	assert.True(t, elapsed < serverTimeout)
-	assert.Equal(t, false, retryable)
+	assert.Less(t, elapsed, serverTimeout)
+	assert.False(t, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeStreamsTimeout, errCode)
 	assert.Equal(t, encoding.NoPipelineError, state)
@@ -312,7 +312,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 		},
 	}
 	b, err := json.Marshal(mr)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -339,7 +339,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedPipelineError(t *testing.T
 	}
 
 	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
-	assert.Equal(t, true, retryable)
+	assert.True(t, retryable)
 	assert.Equal(t, 1*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeStreamsBadGateway, errCode)
 	assert.Equal(t, encoding.MercuryFlakyFailure, state)
@@ -369,7 +369,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 		},
 	}
 	b, err := json.Marshal(mr)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -389,7 +389,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 		},
 	}
 	b, err = json.Marshal(invalidResponse)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 
 	resp = &http.Response{
 		StatusCode: http.StatusOK,
@@ -411,7 +411,7 @@ func TestV03_DoMercuryRequestV03_OneFeedSuccessOneFeedErrCode(t *testing.T) {
 
 	state, values, errCode, retryable, retryInterval, _ := c.DoRequest(testutils.Context(t), lookup, automationTypes.LogTrigger, pluginRetryKey)
 	assert.Equal(t, [][]byte(nil), values)
-	assert.Equal(t, false, retryable)
+	assert.False(t, retryable)
 	assert.Equal(t, 0*time.Second, retryInterval)
 	assert.Equal(t, encoding.ErrCodeStreamsBadResponse, errCode)
 	assert.Equal(t, encoding.NoPipelineError, state)
@@ -827,7 +827,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 
 			hc := new(MockHttpClient)
 			b, err := json.Marshal(tt.response)
-			assert.Nil(t, err)
+			assert.NoError(t, err)
 
 			if tt.retryNumber == 0 {
 				resp := &http.Response{
@@ -838,13 +838,13 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 			} else if tt.retryNumber < totalAttempt {
 				if tt.firstResponse != nil && tt.response != nil {
 					b0, err := json.Marshal(tt.firstResponse)
-					assert.Nil(t, err)
+					assert.NoError(t, err)
 					resp0 := &http.Response{
 						StatusCode: tt.statusCode,
 						Body:       io.NopCloser(bytes.NewReader(b0)),
 					}
 					b1, err := json.Marshal(tt.response)
-					assert.Nil(t, err)
+					assert.NoError(t, err)
 					resp1 := &http.Response{
 						StatusCode: tt.lastStatusCode,
 						Body:       io.NopCloser(bytes.NewReader(b1)),
@@ -888,7 +888,7 @@ func TestV03_MultiFeedRequest(t *testing.T) {
 				assert.Equal(t, tt.errorMessage, m.Error.Error())
 				assert.Equal(t, [][]byte(nil), m.Bytes)
 			} else {
-				assert.Nil(t, m.Error)
+				assert.NoError(t, m.Error)
 				var reports [][]byte
 				for _, rsp := range tt.response.Reports {
 					b, _ := hexutil.Decode(rsp.FullReport)

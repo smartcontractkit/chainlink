@@ -17,6 +17,7 @@ func NewReportCodecs(lggr logger.Logger, donID uint32) map[llotypes.ReportFormat
 	codecs[llotypes.ReportFormatEVMPremiumLegacy] = evm.NewReportCodecPremiumLegacy(lggr, donID)
 	codecs[llotypes.ReportFormatEVMABIEncodeUnpacked] = evm.NewReportCodecEVMABIEncodeUnpacked(lggr, donID)
 	codecs[llotypes.ReportFormatCapabilityTrigger] = cre.NewReportCodecCapabilityTrigger(lggr, donID)
+	codecs[llotypes.ReportFormatEVMStreamlined] = evm.NewReportCodecStreamlined()
 
 	return codecs
 }

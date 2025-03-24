@@ -2,7 +2,7 @@ package starkkey
 
 import (
 	"crypto/rand"
-	"fmt"
+	"errors"
 	"io"
 	"math/big"
 
@@ -32,7 +32,7 @@ func GenerateKey(material io.Reader) (k Key, err error) {
 	}
 
 	if !curve.Curve.IsOnCurve(k.pub.X, k.pub.Y) {
-		return k, fmt.Errorf("key gen is not on stark curve")
+		return k, errors.New("key gen is not on stark curve")
 	}
 
 	return k, nil

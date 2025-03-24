@@ -2,7 +2,7 @@ package upkeepstate
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"math/big"
 	"sync"
 	"testing"
@@ -140,7 +140,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			},
 			workIDsSelect:      []string{"0x1", "0x2"},
 			workIDsFromScanner: []string{"0x2", "0x222"},
-			errScanner:         fmt.Errorf("test error"),
+			errScanner:         errors.New("test error"),
 			errored:            true,
 		},
 		{
@@ -157,7 +157,7 @@ func TestUpkeepStateStore(t *testing.T) {
 			},
 			workIDsSelect:      []string{"0x1", "0x2"},
 			workIDsFromScanner: []string{"0x2", "0x222"},
-			errDB:              fmt.Errorf("test error"),
+			errDB:              errors.New("test error"),
 			errored:            true,
 		},
 	}

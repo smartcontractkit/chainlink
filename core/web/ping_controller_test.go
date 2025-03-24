@@ -2,7 +2,6 @@ package web_test
 
 import (
 	"net/http"
-	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -30,7 +29,7 @@ func TestPingController_Show_APICredentials(t *testing.T) {
 	defer cleanup()
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))
-	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
+	require.JSONEq(t, `{"message":"pong"}`, body)
 }
 
 func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
@@ -69,7 +68,7 @@ func TestPingController_Show_ExternalInitiatorCredentials(t *testing.T) {
 
 	cltest.AssertServerResponse(t, resp, http.StatusOK)
 	body := string(cltest.ParseResponseBody(t, resp))
-	require.Equal(t, `{"message":"pong"}`, strings.TrimSpace(body))
+	require.JSONEq(t, `{"message":"pong"}`, body)
 }
 
 func TestPingController_Show_NoCredentials(t *testing.T) {

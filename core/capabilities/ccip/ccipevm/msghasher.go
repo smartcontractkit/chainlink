@@ -180,7 +180,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		return [32]byte{}, err
 	}
 
-	gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+	gasLimit, err := parseExtraArgsMap(decodedExtraArgsMap)
 	if err != nil {
 		return [32]byte{}, fmt.Errorf("decode extra args to get gas limit: %w", err)
 	}
@@ -268,7 +268,7 @@ func abiDecodeAddress(data []byte) (common.Address, error) {
 	return val, nil
 }
 
-func parseExtraDataMap(input map[string]any) (*big.Int, error) {
+func parseExtraArgsMap(input map[string]any) (*big.Int, error) {
 	var outputGas *big.Int
 	for fieldName, fieldValue := range input {
 		lowercase := strings.ToLower(fieldName)

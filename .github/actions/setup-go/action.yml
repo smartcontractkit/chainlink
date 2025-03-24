@@ -51,7 +51,7 @@ runs:
     - name: Get branch name
       if: ${{ inputs.only-modules == 'false' }}
       id: branch-name
-      uses: tj-actions/branch-names@6871f53176ad61624f978536bbf089c574dc19a2 # v8.0.1
+      uses: smartcontractkit/.github/actions/branch-names@branch-names/1.0.0
 
     - name: Set go cache keys
       shell: bash

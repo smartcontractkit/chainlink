@@ -1,11 +1,8 @@
 package evm
 
 import (
-	"encoding/hex"
 	"fmt"
-	"math"
 	"math/big"
-	"math/rand/v2"
 	"reflect"
 	"strings"
 	"testing"
@@ -68,8 +65,13 @@ func genABI() gopter.Gen {
 }
 
 func genABIEncoder() gopter.Gen {
-	return gen.StrictStruct(reflect.TypeOf(&ABIEncoder{}), map[string]gopter.Gen{
-		"StreamID":   gen.UInt32().Map(func(i uint32) llotypes.StreamID { return i }),
+	return gen.Struct(reflect.TypeOf(&ABIEncoder{}), map[string]gopter.Gen{
+		"encoders": gen.SliceOf(genSingleABIEncoder()),
+	})
+}
+
+func genSingleABIEncoder() gopter.Gen {
+	return gen.StrictStruct(reflect.TypeOf(&singleABIEncoder{}), map[string]gopter.Gen{
 		"Multiplier": genMultiplier(),
 		"Type":       gen.AnyString(),
 	})
@@ -80,20 +82,6 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 	codec := ReportCodecEVMABIEncodeUnpacked{}
 
 	properties := gopter.NewProperties(nil)
-
-	linkQuoteStreamID := rand.Uint32()
-	ethQuoteStreamID := rand.Uint32()
-	dexBasedAssetDecimalStreamID := rand.Uint32()
-	benchmarkPriceStreamID := rand.Uint32()
-	baseMarketDepthStreamID := rand.Uint32()
-	quoteMarketDepthStreamID := rand.Uint32()
-	marketStatusStreamID := rand.Uint32()
-	binanceFundingRateStreamID := rand.Uint32()
-	binanceFundingTimeStreamID := rand.Uint32()
-	binanceFundingIntervalHoursStreamID := rand.Uint32()
-	deribitFundingRateStreamID := rand.Uint32()
-	deribitFundingTimeStreamID := rand.Uint32()
-	deribitFundingIntervalHoursStreamID := rand.Uint32()
 
 	t.Run("DEX-based asset schema example", func(t *testing.T) {
 		expectedDEXBasedAssetSchema := abi.Arguments([]abi.Argument{
@@ -130,23 +118,11 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				FeedID:           sampleFeedID,
 				ABI: []ABIEncoder{
 					// benchmark price
-					ABIEncoder{
-						StreamID:   dexBasedAssetDecimalStreamID,
-						Type:       "int192",
-						Multiplier: priceMultiplier, // TODO: Default multiplier?
-					},
+					newSingleABIEncoder("int192", priceMultiplier),
 					// base market depth
-					ABIEncoder{
-						StreamID:   baseMarketDepthStreamID,
-						Type:       "int192",
-						Multiplier: marketDepthMultiplier,
-					},
+					newSingleABIEncoder("int192", marketDepthMultiplier),
 					// quote market depth
-					ABIEncoder{
-						StreamID:   quoteMarketDepthStreamID,
-						Type:       "int192",
-						Multiplier: marketDepthMultiplier,
-					},
+					newSingleABIEncoder("int192", marketDepthMultiplier),
 				},
 			}
 			serializedOpts, err := opts.Encode()
@@ -156,23 +132,18 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
-						StreamID:   linkQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   ethQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   dexBasedAssetDecimalStreamID,
 						Aggregator: llotypes.AggregatorQuote,
 					},
 					{
-						StreamID:   baseMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   quoteMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 				},
@@ -261,10 +232,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				FeedID:           sampleFeedID,
 				ABI: []ABIEncoder{
 					// market status
-					ABIEncoder{
-						StreamID: marketStatusStreamID,
-						Type:     "uint32",
-					},
+					newSingleABIEncoder("uint32", nil),
 				},
 			}
 			serializedOpts, err := opts.Encode()
@@ -274,23 +242,18 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
-						StreamID:   linkQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   ethQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   dexBasedAssetDecimalStreamID,
 						Aggregator: llotypes.AggregatorQuote,
 					},
 					{
-						StreamID:   baseMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   quoteMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 				},
@@ -372,11 +335,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				FeedID:           sampleFeedID,
 				ABI: []ABIEncoder{
 					// benchmark price
-					ABIEncoder{
-						StreamID:   dexBasedAssetDecimalStreamID,
-						Type:       "int192",
-						Multiplier: priceMultiplier, // TODO: Default multiplier?
-					},
+					newSingleABIEncoder("int192", priceMultiplier),
 				},
 			}
 			serializedOpts, err := opts.Encode()
@@ -386,15 +345,12 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
-						StreamID:   linkQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   ethQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   benchmarkPriceStreamID,
 						Aggregator: llotypes.AggregatorQuote,
 					},
 				},
@@ -488,12 +444,12 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				ExpirationWindow: sampleExpirationWindow,
 				FeedID:           sampleFeedID,
 				ABI: []ABIEncoder{
-					ABIEncoder{StreamID: binanceFundingRateStreamID, Type: "int192"},
-					ABIEncoder{StreamID: binanceFundingTimeStreamID, Type: "uint32"},
-					ABIEncoder{StreamID: binanceFundingIntervalHoursStreamID, Type: "uint32"},
-					ABIEncoder{StreamID: deribitFundingRateStreamID, Type: "int192"},
-					ABIEncoder{StreamID: deribitFundingTimeStreamID, Type: "uint32"},
-					ABIEncoder{StreamID: deribitFundingIntervalHoursStreamID, Type: "uint32"},
+					newSingleABIEncoder("int192", nil),
+					newSingleABIEncoder("uint32", nil),
+					newSingleABIEncoder("uint32", nil),
+					newSingleABIEncoder("int192", nil),
+					newSingleABIEncoder("uint32", nil),
+					newSingleABIEncoder("uint32", nil),
 				},
 			}
 			serializedOpts, err := opts.Encode()
@@ -503,23 +459,18 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode_properties(t *testing.T) {
 				ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 				Streams: []llotypes.Stream{
 					{
-						StreamID:   linkQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   ethQuoteStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   dexBasedAssetDecimalStreamID,
 						Aggregator: llotypes.AggregatorQuote,
 					},
 					{
-						StreamID:   baseMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 					{
-						StreamID:   quoteMarketDepthStreamID,
 						Aggregator: llotypes.AggregatorMedian,
 					},
 				},
@@ -608,23 +559,18 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode(t *testing.T) {
 			ReportFormat: llotypes.ReportFormatEVMABIEncodeUnpacked,
 			Streams: []llotypes.Stream{
 				{
-					StreamID:   0x06,
 					Aggregator: llotypes.AggregatorMedian,
 				},
 				{
-					StreamID:   0x07,
 					Aggregator: llotypes.AggregatorMedian,
 				},
 				{
-					StreamID:   0x08,
 					Aggregator: llotypes.AggregatorQuote,
 				},
 				{
-					StreamID:   0x09,
 					Aggregator: llotypes.AggregatorMedian,
 				},
 				{
-					StreamID:   0x0a,
 					Aggregator: llotypes.AggregatorMedian,
 				},
 			},
@@ -633,11 +579,11 @@ func TestReportCodecEVMABIEncodeUnpacked_Encode(t *testing.T) {
 
 		codec := ReportCodecEVMABIEncodeUnpacked{}
 		_, err = codec.Encode(tests.Context(t), report, cd)
-		assert.EqualError(t, err, "failed to build payload; ABI and values length mismatch; ABI: 0, Values: 3")
+		require.EqualError(t, err, "failed to build payload; ABI and values length mismatch; ABI: 0, Values: 3")
 
 		report.Values = []llo.StreamValue{}
 		_, err = codec.Encode(tests.Context(t), report, cd)
-		assert.EqualError(t, err, "ReportCodecEVMABIEncodeUnpacked requires at least 2 values (NativePrice, LinkPrice, ...); got report.Values: []")
+		require.EqualError(t, err, "ReportCodecEVMABIEncodeUnpacked requires at least 2 values (NativePrice, LinkPrice, ...); got report.Values: []")
 	})
 }
 
@@ -740,95 +686,6 @@ func mustNewABIType(t string) abi.Type {
 	return result
 }
 
-func Test_ABIEncoder_Encode(t *testing.T) {
-	t.Run("encodes decimals", func(t *testing.T) {
-		tcs := []struct {
-			name       string
-			sv         llo.StreamValue
-			abiType    string
-			multiplier *big.Int
-			errStr     string
-			expected   string
-		}{
-			{
-				name:    "overflow int8",
-				sv:      llo.ToDecimal(decimal.NewFromFloat32(123456789.123456789)),
-				abiType: "int8",
-				errStr:  "invalid type: cannot fit 123456790 into int8",
-			},
-			{
-				name:     "successful int8",
-				sv:       llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				abiType:  "int8",
-				expected: padLeft32Byte(fmt.Sprintf("%x", 123)),
-			},
-			{
-				name:       "negative multiplied int8",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(1.11)),
-				multiplier: big.NewInt(-100),
-				abiType:    "int8",
-				expected:   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff91",
-			},
-			{
-				name:    "negative uint32",
-				sv:      llo.ToDecimal(decimal.NewFromFloat32(-123.456)),
-				abiType: "uint32",
-				errStr:  "invalid type: cannot fit -123 into uint32",
-			},
-			{
-				name:     "successful uint32",
-				sv:       llo.ToDecimal(decimal.NewFromFloat32(123456.456)),
-				abiType:  "uint32",
-				expected: padLeft32Byte(fmt.Sprintf("%x", 123456)),
-			},
-			{
-				name:       "multiplied uint32",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				multiplier: big.NewInt(100),
-				abiType:    "uint32",
-				expected:   padLeft32Byte(fmt.Sprintf("%x", 12345)),
-			},
-			{
-				name:       "negative multiplied int32",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123.456)),
-				multiplier: big.NewInt(-100),
-				abiType:    "int32",
-				expected:   "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffcfc7",
-			},
-			{
-				name:       "overflowing multiplied int32",
-				sv:         llo.ToDecimal(decimal.NewFromInt(math.MaxInt32)),
-				multiplier: big.NewInt(2),
-				abiType:    "int32",
-				errStr:     "invalid type: cannot fit 4294967294 into int32",
-			},
-			{
-				name:       "successful int192",
-				sv:         llo.ToDecimal(decimal.NewFromFloat32(123456.789123)),
-				abiType:    "int192",
-				multiplier: big.NewInt(1e18),
-				expected:   "000000000000000000000000000000000000000000001a249b2292e49d8f0000",
-			},
-		}
-		for _, tc := range tcs {
-			t.Run(tc.name, func(t *testing.T) {
-				enc := ABIEncoder{
-					Type:       tc.abiType,
-					Multiplier: (*ubig.Big)(tc.multiplier),
-				}
-				encoded, err := enc.Encode(tests.Context(t), tc.sv)
-				if tc.errStr != "" {
-					require.Error(t, err)
-					assert.Contains(t, err.Error(), tc.errStr)
-				} else {
-					require.NoError(t, err)
-					require.Equal(t, tc.expected, hex.EncodeToString(encoded))
-				}
-			})
-		}
-	})
-}
-
 func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
 	c := ReportCodecEVMABIEncodeUnpacked{}
 	t.Run("unrecognized fields in opts", func(t *testing.T) {
@@ -883,7 +740,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
 				{StreamID: 1},
 				{StreamID: 2},
 			},
-			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+			Opts: []byte(`{"ABI":[{"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
 		}
 		err := c.Verify(tests.Context(t), cd)
 		require.Error(t, err)
@@ -898,7 +755,7 @@ func TestReportCodecEVMABIEncodeUnpacked_Verify(t *testing.T) {
 				{StreamID: 3},
 				{StreamID: 4},
 			},
-			Opts: []byte(`{"ABI":[{"streamID":1,"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
+			Opts: []byte(`{"ABI":[{"type":"int192"}],"feedID":"0x1111111111111111111111111111111111111111111111111111111111111111"}`),
 		}
 		err := c.Verify(tests.Context(t), cd)
 		require.Error(t, err)
@@ -934,4 +791,13 @@ func padLeft32Byte(str string) string {
 	}
 	padding := strings.Repeat("0", 64-len(str))
 	return padding + str
+}
+
+func newSingleABIEncoder(t string, m *ubig.Big) ABIEncoder {
+	return ABIEncoder{
+		[]singleABIEncoder{{
+			Type:       t,
+			Multiplier: m,
+		}},
+	}
 }

@@ -579,7 +579,7 @@ func (r *CommitReportingPlugin) buildReport(ctx context.Context, lggr logger.Log
 		lggr.Warn("No messages found in interval",
 			"minSeqNr", interval.Min,
 			"maxSeqNr", interval.Max)
-		return cciptypes.CommitStoreReport{}, fmt.Errorf("tried building a tree without leaves")
+		return cciptypes.CommitStoreReport{}, errors.New("tried building a tree without leaves")
 	}
 
 	leaves := make([][32]byte, 0, len(sendRequests))

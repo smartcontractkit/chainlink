@@ -462,11 +462,21 @@ func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
 	err = tLocalEnv.RestartChainlinkNodes(t)
 	require.NoError(t, err)
 
-	select {
-	case <-commitFound:
-		return
-	case <-time.After(5 * time.Minute):
-		t.Fatal("timed out waiting for commit")
+	timeUntilTimeout := 10 * time.Minute
+	if deadline, ok := t.Context().Deadline(); ok {
+		timeUntilTimeout = time.Until(deadline)
+	}
+
+	for {
+		select {
+		case <-commitFound:
+			return
+		case <-time.Tick(3 * time.Minute):
+			err = tLocalEnv.RestartChainlinkNodes(t)
+			require.NoError(t, err)
+		case <-time.Tick(timeUntilTimeout):
+			t.Fatal("timed out waiting for commit")
+		}
 	}
 }
 

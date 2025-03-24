@@ -217,7 +217,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
-		assert.Equal(t, 10, len(ormRows))
+		assert.Len(t, ormRows, 10)
 		compareRows(t, rows, ormRows)
 	})
 
@@ -248,7 +248,7 @@ func TestPlugin_ShouldAcceptFinalizedReport(t *testing.T) {
 		should, err := plugin.ShouldAcceptFinalizedReport(testutils.Context(t), types.ReportTimestamp{}, report)
 		assert.NoError(t, err)
 		assert.False(t, should)
-		assert.Equal(t, 0, len(ormRows))
+		assert.Empty(t, ormRows)
 	})
 }
 

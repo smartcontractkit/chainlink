@@ -144,6 +144,9 @@ type Engine struct {
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
 	meterReport    *MeteringReport
+
+	// sendMeteringReport is a hook for now to prevent this being sent in production
+	sendMeteringReport func(*MeteringReport)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -537,7 +540,7 @@ func (e *Engine) stepUpdateLoop(ctx context.Context, executionID string, stepUpd
 				return
 			}
 			// Executed synchronously to ensure we correctly schedule subsequent tasks.
-			e.logger.Debugw(fmt.Sprintf("received step update for execution %s", stepUpdate.ExecutionID),
+			e.logger.Debugw("received step update for execution "+stepUpdate.ExecutionID,
 				platform.KeyWorkflowExecutionID, stepUpdate.ExecutionID, platform.KeyStepRef, stepUpdate.Ref)
 			err := e.handleStepUpdate(ctx, stepUpdate, workflowCreatedAt)
 			if err != nil {
@@ -654,7 +657,16 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
 		}
+
 		logCustMsg(ctx, cma, "execution status: "+status, l)
+
+		// this case is only for resuming executions and should be updated when metering is added to save execution state
+		if e.meterReport == nil {
+			e.meterReport = NewMeteringReport()
+		}
+
+		e.sendMeteringReport(e.meterReport)
+
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
@@ -1289,6 +1301,7 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
+	sendMeteringReport  func(*MeteringReport)
 }
 
 const (
@@ -1351,6 +1364,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.clock == nil {
 		cfg.clock = clockwork.NewRealClock()
+	}
+
+	if cfg.sendMeteringReport == nil {
+		cfg.sendMeteringReport = func(*MeteringReport) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1423,6 +1440,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
+		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
 	return engine, nil

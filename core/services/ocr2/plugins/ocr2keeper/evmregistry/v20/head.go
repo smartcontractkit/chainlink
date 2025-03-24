@@ -2,7 +2,7 @@ package evm
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 
 	ocr2keepers "github.com/smartcontractkit/chainlink-automation/pkg/v2"
 
@@ -53,5 +53,5 @@ func (w *headWrapper) OnNewLongestChain(ctx context.Context, head *types.Head) {
 		bl = head.Number
 	}
 
-	send(w.c, ocr2keepers.BlockKey(fmt.Sprintf("%d", bl)))
+	send(w.c, ocr2keepers.BlockKey(strconv.FormatInt(bl, 10)))
 }

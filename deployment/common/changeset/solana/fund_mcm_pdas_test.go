@@ -6,10 +6,11 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
-	chainselectors "github.com/smartcontractkit/chain-selectors"
-	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -33,9 +34,10 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	chainSelector := env.AllChainSelectorsSolana()[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
-	testhelpers.SavePreloadedSolAddresses(t, env, chainSelector)
+	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
+	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	err := env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock
@@ -53,6 +55,7 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 }
 
 func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
+	t.Parallel()
 	lggr := logger.TestLogger(t)
 	validEnv := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memory.MemoryEnvironmentConfig{SolChains: 1})
 	validEnv.SolChains[chainselectors.SOLANA_DEVNET.Selector] = deployment.SolChain{}
@@ -230,6 +233,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
+	t.Parallel()
 	env := setupFundingTestEnv(t)
 	cfgAmounts := commonSolana.AmountsToTransfer{
 		ProposeMCM:   100 * solana.LAMPORTS_PER_SOL,

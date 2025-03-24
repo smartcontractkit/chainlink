@@ -31,16 +31,17 @@ type mockKey struct {
 func (m *mockKey) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes.Report) ([]byte, error) {
 	return m.sig, nil
 }
-
 func (m *mockKey) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocrtypes.ReportContext, report ocrtypes.Report, signature []byte) bool {
 	return m.verify
 }
-
 func (m *mockKey) Sign3(digest ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
 	return m.sig, nil
 }
-
 func (m *mockKey) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
+	return m.verify
+}
+func (m *mockKey) SignBlob(b []byte) (sig []byte, err error) { return m.sig, nil }
+func (m *mockKey) VerifyBlob(publicKey ocrtypes.OnchainPublicKey, b []byte, sig []byte) bool {
 	return m.verify
 }
 
@@ -67,6 +68,7 @@ func Test_Keyring(t *testing.T) {
 	ks := map[llotypes.ReportFormat]Key{
 		llotypes.ReportFormatEVMPremiumLegacy: &mockKey{format: llotypes.ReportFormatEVMPremiumLegacy, maxSignatureLen: 1, sig: []byte("sig-1")},
 		llotypes.ReportFormatJSON:             &mockKey{format: llotypes.ReportFormatJSON, maxSignatureLen: 2, sig: []byte("sig-2")},
+		llotypes.ReportFormatEVMStreamlined:   &mockKey{format: llotypes.ReportFormatEVMStreamlined, maxSignatureLen: 6, sig: []byte("sig-6")},
 	}
 
 	kr := NewOnchainKeyring(lggr, ks, 2)
@@ -79,6 +81,9 @@ func Test_Keyring(t *testing.T) {
 		},
 		{
 			llotypes.ReportFormatJSON,
+		},
+		{
+			llotypes.ReportFormatEVMStreamlined,
 		},
 	}
 
@@ -104,10 +109,10 @@ func Test_Keyring(t *testing.T) {
 	})
 
 	t.Run("MaxSignatureLength", func(t *testing.T) {
-		assert.Equal(t, 2+1, kr.MaxSignatureLength())
+		assert.Equal(t, 6+2+1, kr.MaxSignatureLength())
 	})
 	t.Run("PublicKey", func(t *testing.T) {
-		b := make([]byte, 2+1)
+		b := make([]byte, 6+2+1)
 		for i := 0; i < len(b); i++ {
 			b[i] = byte(255)
 		}

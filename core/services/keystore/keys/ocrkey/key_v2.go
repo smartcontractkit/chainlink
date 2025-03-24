@@ -13,8 +13,11 @@ import (
 
 	"github.com/ethereum/go-ethereum/crypto/secp256k1"
 	"github.com/pkg/errors"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 	"golang.org/x/crypto/curve25519"
+
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 var (
@@ -28,23 +31,13 @@ type keyBundleRawData struct {
 	OffChainEncryption [curve25519.ScalarSize]byte
 }
 
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
+func KeyFor(raw internal.Raw) KeyV2 {
 	var key KeyV2
-	err := json.Unmarshal(raw, &key)
+	err := json.Unmarshal(raw.Bytes(), &key)
 	if err != nil {
 		panic(errors.Wrap(err, "while unmarshalling OCR key"))
 	}
 	return key
-}
-
-func (raw Raw) String() string {
-	return "<OCR Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -95,11 +88,15 @@ func MustNewV2XXXTestingOnly(k *big.Int) KeyV2 {
 }
 
 func (key KeyV2) ID() string {
-	sha := sha256.Sum256(key.Raw())
+	sha := sha256.Sum256(key.raw())
 	return hex.EncodeToString(sha[:])
 }
 
-func (key KeyV2) Raw() Raw {
+func (key KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(key.raw())
+}
+
+func (key KeyV2) raw() []byte {
 	marshalledPrivK, err := json.Marshal(key)
 	if err != nil {
 		panic(errors.Wrap(err, "while calculating OCR key ID"))

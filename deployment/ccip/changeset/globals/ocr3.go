@@ -31,10 +31,13 @@ var (
 	// CommitOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see CommitOCRParamsForEthereum).
 	// Most of the intervals here should be generic enough (and chain agnostic) to be reused across different chains.
 	CommitOCRParams = types.OCRParameters{
-		DeltaProgress:               120 * time.Second,
-		DeltaResend:                 30 * time.Second,
-		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
+		DeltaProgress: 120 * time.Second,
+		DeltaResend:   30 * time.Second,
+		DeltaInitial:  20 * time.Second,
+		// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
+		// If we want to produce a report every 20 seconds we would set DeltaRound to 10s
+		// At a ~2s block time, this gives us a commit report every ~10 blocks.
+		DeltaRound:                  10 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
@@ -52,8 +55,10 @@ var (
 	CommitOCRParamsForEthereum = withOverrides(
 		CommitOCRParams,
 		types.OCRParameters{
-			DeltaRound: 90 * time.Second,
-			DeltaStage: 60 * time.Second,
+			// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
+			// If we want to produce a report every 120 seconds we would set DeltaRound to 60s.
+			// At a ~12s block time, this gives us a commit report every ~10 blocks.
+			DeltaRound: 60 * time.Second,
 		},
 	)
 )
@@ -61,17 +66,17 @@ var (
 var (
 	// ExecOCRParams represents the default OCR3 parameters for all chains (beside Ethereum, see ExecOCRParamsForEthereum).
 	ExecOCRParams = types.OCRParameters{
-		DeltaProgress:               100 * time.Second,
+		DeltaProgress:               120 * time.Second,
 		DeltaResend:                 30 * time.Second,
 		DeltaInitial:                20 * time.Second,
-		DeltaRound:                  15 * time.Second,
+		DeltaRound:                  2 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
 		DeltaStage: 25 * time.Second,
 		Rmax:       3,
 		// MaxDurationQuery is set to very low value, because Execution plugin doesn't use Query
-		MaxDurationQuery:                        200 * time.Millisecond,
+		MaxDurationQuery:                        100 * time.Millisecond,
 		MaxDurationObservation:                  13 * time.Second,
 		MaxDurationShouldAcceptAttestedReport:   5 * time.Second,
 		MaxDurationShouldTransmitAcceptedReport: 10 * time.Second,
@@ -82,8 +87,9 @@ var (
 	ExecOCRParamsForEthereum = withOverrides(
 		ExecOCRParams,
 		types.OCRParameters{
-			DeltaRound: 90 * time.Second,
-			DeltaStage: 60 * time.Second,
+			// Since exec produces a report every 3 rounds, and ideally we'd want to produce a report for every block
+			// in instances with high traffic, we do approximate block time (~15s) / 3 = 5s.
+			DeltaRound: 5 * time.Second,
 		},
 	)
 )

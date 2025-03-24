@@ -48,7 +48,7 @@ func TestPipelineRunsController_CreateWithBody_HappyPath(t *testing.T) {
 		defer r.Body.Close()
 		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"result":"12345"}`, string(bs))
+		require.JSONEq(t, `{"result":"12345"}`, string(bs))
 	})
 
 	_, bridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
@@ -108,7 +108,7 @@ func TestPipelineRunsController_CreateNoBody_HappyPath(t *testing.T) {
 		defer r.Body.Close()
 		bs, err := io.ReadAll(r.Body)
 		require.NoError(t, err)
-		require.Equal(t, `{"result":"12345"}`, string(bs))
+		require.JSONEq(t, `{"result":"12345"}`, string(bs))
 	})
 
 	_, submitBridge := cltest.MustCreateBridge(t, app.GetDB(), cltest.BridgeOpts{URL: mockServer.URL})
@@ -178,7 +178,7 @@ func TestPipelineRunsController_Index_GlobalHappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs")
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -201,7 +201,7 @@ func TestPipelineRunsController_Index_HappyPath(t *testing.T) {
 func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs?page=1&size=1")
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs?page=1&size=1")
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 
@@ -223,7 +223,7 @@ func TestPipelineRunsController_Index_Pagination(t *testing.T) {
 func TestPipelineRunsController_Show_HappyPath(t *testing.T) {
 	client, jobID, runIDs := setupPipelineRunsControllerTests(t)
 
-	response, cleanup := client.Get("/v2/jobs/" + fmt.Sprintf("%v", jobID) + "/runs/" + fmt.Sprintf("%v", runIDs[0]))
+	response, cleanup := client.Get("/v2/jobs/" + strconv.Itoa(int(jobID)) + "/runs/" + strconv.FormatInt(runIDs[0], 10))
 	defer cleanup()
 	cltest.AssertServerResponse(t, response, http.StatusOK)
 

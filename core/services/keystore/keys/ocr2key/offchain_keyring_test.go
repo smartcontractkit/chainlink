@@ -42,7 +42,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous_ShortCiphertext(t *testing.T) {
 	shortMessage := []byte("short")
 
 	_, err = kr.NaclBoxOpenAnonymous(shortMessage)
-	assert.Equal(t, err.Error(), "ciphertext too short")
+	assert.Equal(t, "ciphertext too short", err.Error())
 }
 
 func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
@@ -52,7 +52,7 @@ func TestOffchainKeyring_NaclBoxSealAnonymous_FailedDecryption(t *testing.T) {
 	invalid := []byte("invalidEncryptedMessage")
 
 	_, err = kr.NaclBoxOpenAnonymous(invalid)
-	assert.Equal(t, err.Error(), "decryption failed")
+	assert.Equal(t, "decryption failed", err.Error())
 }
 
 func naclBoxSealAnonymous(t *testing.T, peerPublicKey [curve25519.PointSize]byte, plaintext []byte) []byte {

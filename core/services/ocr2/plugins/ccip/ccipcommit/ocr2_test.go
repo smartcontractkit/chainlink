@@ -3,7 +3,6 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"math/big"
 	"math/rand"
 	"slices"
@@ -719,7 +718,7 @@ func TestCommitReportingPlugin_observePriceUpdates(t *testing.T) {
 			mockPriceService := ccipdbmocks.NewPriceService(t)
 			var psError error
 			if tc.psError {
-				psError = fmt.Errorf("price service error")
+				psError = errors.New("price service error")
 			}
 			mockPriceService.On("GetGasAndTokenPrices", ctx, destChainSelector).Return(
 				tc.psGasPricesResult,
