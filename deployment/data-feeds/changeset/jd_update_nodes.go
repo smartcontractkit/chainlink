@@ -49,8 +49,9 @@ func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deploy
 		})
 		if err != nil {
 			env.Logger.Errorw("failed to update node", "nodeName", nodeInfo.Name, "err", err)
+		} else {
+			env.Logger.Infof("node %s updated", nodeInfo.Name)
 		}
-		env.Logger.Infof("node %s updated", nodeInfo.Name)
 	}
 
 	return deployment.ChangesetOutput{}, nil
