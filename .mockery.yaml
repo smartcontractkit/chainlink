@@ -308,7 +308,7 @@ packages:
     config:
       dir: core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts
       filename: evm2_evm_off_ramp_interface.go
-      outpkg: mocks
+      outpkg: mock_contracts
     interfaces:
       EVM2EVMOffRampInterface:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache:
