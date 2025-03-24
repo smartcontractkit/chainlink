@@ -31,7 +31,7 @@ const (
 	USDCSymbol   TokenSymbol = "USDC"
 	CCIPBnMSymbol   TokenSymbol = "CCIP-BnM"
 	CCIPLnMSymbol   TokenSymbol = "CCIP-LnM"
-	CLCCIPLnMSymbol TokenSymbol = "clCCIP--LnM"
+	CLCCIPLnMSymbol TokenSymbol = "clCCIP-LnM"
 	USDCName     string      = "USD Coin"
 	LinkDecimals             = 18
 	WethDecimals             = 18
