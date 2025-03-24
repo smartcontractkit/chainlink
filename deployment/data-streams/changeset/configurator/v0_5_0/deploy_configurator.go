@@ -1,4 +1,4 @@
-package configurator
+package v0_5_0
 
 import (
 	"errors"
@@ -52,7 +52,7 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cc DeployConfig
 	for _, chainSel := range cc.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
-			return fmt.Errorf("Chain not found for chain selector %d", chainSel)
+			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
 		_, err := changeset.DeployContract[*configurator.Configurator](e, ab, chain, DeployFn())
 		if err != nil {

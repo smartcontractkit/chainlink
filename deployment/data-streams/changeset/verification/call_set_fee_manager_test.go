@@ -70,6 +70,7 @@ func TestSetFeeManager(t *testing.T) {
 			cfgFeeManager,
 		),
 	)
+
 	require.NoError(t, err)
 
 	// Ensure the FeeManager was deployed

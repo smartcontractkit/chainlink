@@ -1,4 +1,8 @@
+<<<<<<<< HEAD:deployment/data-streams/changeset/fee-manager/deploy_fee_manager.go
 package fee_manager
+========
+package v0_5_0
+>>>>>>>> d6421371295beb55cfa19e666e24812b38317e63:deployment/data-streams/changeset/fee-manager/v0_5_0/deploy_fee_manager.go
 
 import (
 	"errors"
@@ -12,25 +16,31 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 )
 
+<<<<<<<< HEAD:deployment/data-streams/changeset/fee-manager/deploy_fee_manager.go
 // DeployFeeManagerChangeset deploys FeeManager to the chains specified in the config.
 var DeployFeeManagerChangeset deployment.ChangeSetV2[DeployFeeManagerConfig] = &FeeManagerDeploy{}
 
 type FeeManagerDeploy struct{}
+========
+var DeployFeeManagerChangeset = deployment.CreateChangeSet(deployFeeManagerLogic, deployFeeManagerPrecondition)
+>>>>>>>> d6421371295beb55cfa19e666e24812b38317e63:deployment/data-streams/changeset/fee-manager/v0_5_0/deploy_fee_manager.go
 
-type DeployFeeManagerConfig struct {
-	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
-	ChainsToDeploy       []uint64
+type DeployFeeManager struct {
 	LinkTokenAddress     common.Address
 	NativeTokenAddress   common.Address
 	VerifierProxyAddress common.Address
 	RewardManagerAddress common.Address
 }
 
+type DeployFeeManagerConfig struct {
+	ChainsToDeploy map[uint64]DeployFeeManager
+}
+
 func (cc DeployFeeManagerConfig) Validate() error {
 	if len(cc.ChainsToDeploy) == 0 {
 		return errors.New("ChainsToDeploy is empty")
 	}
-	for _, chain := range cc.ChainsToDeploy {
+	for chain := range cc.ChainsToDeploy {
 		if err := deployment.IsValidChainSelector(chain); err != nil {
 			return fmt.Errorf("invalid chain selector: %d - %w", chain, err)
 		}
@@ -38,7 +48,11 @@ func (cc DeployFeeManagerConfig) Validate() error {
 	return nil
 }
 
+<<<<<<<< HEAD:deployment/data-streams/changeset/fee-manager/deploy_fee_manager.go
 func (FeeManagerDeploy) Apply(e deployment.Environment, cc DeployFeeManagerConfig) (deployment.ChangesetOutput, error) {
+========
+func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) (deployment.ChangesetOutput, error) {
+>>>>>>>> d6421371295beb55cfa19e666e24812b38317e63:deployment/data-streams/changeset/fee-manager/v0_5_0/deploy_fee_manager.go
 	ab := deployment.NewMemoryAddressBook()
 	err := deployFeeManager(e, ab, cc)
 	if err != nil {
@@ -50,11 +64,16 @@ func (FeeManagerDeploy) Apply(e deployment.Environment, cc DeployFeeManagerConfi
 	}, nil
 }
 
+<<<<<<<< HEAD:deployment/data-streams/changeset/fee-manager/deploy_fee_manager.go
 func (FeeManagerDeploy) VerifyPreconditions(_ deployment.Environment, cc DeployFeeManagerConfig) error {
 	if err := cc.Validate(); err != nil {
 		return fmt.Errorf("invalid DeployFeeManagerConfig: %w", err)
 	}
 	return nil
+========
+func deployFeeManagerPrecondition(_ deployment.Environment, cc DeployFeeManagerConfig) error {
+	return cc.Validate()
+>>>>>>>> d6421371295beb55cfa19e666e24812b38317e63:deployment/data-streams/changeset/fee-manager/v0_5_0/deploy_fee_manager.go
 }
 
 func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc DeployFeeManagerConfig) error {
@@ -62,12 +81,13 @@ func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc De
 		return fmt.Errorf("invalid DeployFeeManagerConfig: %w", err)
 	}
 
-	for _, chainSel := range cc.ChainsToDeploy {
+	for chainSel := range cc.ChainsToDeploy {
 		chain, ok := e.Chains[chainSel]
 		if !ok {
-			return fmt.Errorf("Chain not found for chain selector %d", chainSel)
+			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		_, err := changeset.DeployContract[*fee_manager_v0_5_0.FeeManager](e, ab, chain, FeeManagerDeployFn(cc))
+		conf := cc.ChainsToDeploy[chainSel]
+		_, err := changeset.DeployContract[*fee_manager_v0_5_0.FeeManager](e, ab, chain, FeeManagerDeployFn(conf))
 		if err != nil {
 			return err
 		}
@@ -92,7 +112,7 @@ func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc De
 }
 
 // FeeManagerDeployFn returns a function that deploys a FeeManager contract.
-func FeeManagerDeployFn(cfg DeployFeeManagerConfig) changeset.ContractDeployFn[*fee_manager_v0_5_0.FeeManager] {
+func FeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*fee_manager_v0_5_0.FeeManager] {
 	return func(chain deployment.Chain) *changeset.ContractDeployment[*fee_manager_v0_5_0.FeeManager] {
 		ccsAddr, ccsTx, ccs, err := fee_manager_v0_5_0.DeployFeeManager(
 			chain.DeployerKey,

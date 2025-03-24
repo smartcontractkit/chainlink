@@ -1,4 +1,4 @@
-package configurator
+package v0_5_0
 
 import (
 	"encoding/hex"

@@ -659,6 +659,12 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		}
 
 		logCustMsg(ctx, cma, "execution status: "+status, l)
+
+		// this case is only for resuming executions and should be updated when metering is added to save execution state
+		if e.meterReport == nil {
+			e.meterReport = NewMeteringReport()
+		}
+
 		e.sendMeteringReport(e.meterReport)
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
