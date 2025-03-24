@@ -10,7 +10,8 @@ import (
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
@@ -20,8 +21,8 @@ func TestSetFeeManager(t *testing.T) {
 	e := testutil.NewMemoryEnv(t, false, 0)
 
 	testChain := testutil.TestChain.Selector
-	e, err := commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
+	e, err := commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
 			DeployVerifierProxyChangeset,
 			DeployVerifierProxyConfig{
 				ChainsToDeploy: map[uint64]DeployVerifierProxy{
@@ -39,9 +40,9 @@ func TestSetFeeManager(t *testing.T) {
 	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
 
 	// Need the Link Token For FeeManager
-	e, err = commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
 		),
 	)
@@ -51,7 +52,7 @@ func TestSetFeeManager(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := e.Chains[testutil.TestChain.Selector]
-	linkState, err := commonChangesets.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	// Deploy Fee Manager
@@ -63,8 +64,8 @@ func TestSetFeeManager(t *testing.T) {
 		RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
 	}
 
-	e, err = commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
 			feemanager.DeployFeeManagerChangeset,
 			cfgFeeManager,
 		),
@@ -84,8 +85,8 @@ func TestSetFeeManager(t *testing.T) {
 			},
 		},
 	}
-	e, err = commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
+	e, err = commonchangeset.Apply(t, e, nil,
+		commonchangeset.Configure(
 			SetFeeManagerChangeset,
 			cfg,
 		),
