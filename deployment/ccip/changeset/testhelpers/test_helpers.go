@@ -29,7 +29,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
@@ -61,7 +60,6 @@ import (
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
-	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -90,6 +88,9 @@ const (
 var (
 	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
+
+	// bytes4 public constant SVM_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
+	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
 
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
 
@@ -327,7 +328,7 @@ func TestSendRequest(
 	testRouter bool,
 	msg any,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	msgSentEvent, err := SendRequest(t, e, state,
+	msgSentEvent, err := SendRequest(e, state,
 		WithSourceChain(src),
 		WithDestChain(dest),
 		WithTestRouter(testRouter),
@@ -385,7 +386,6 @@ func WithDestChain(destChain uint64) SendReqOpts {
 
 // SendRequest similar to TestSendRequest but returns an error.
 func SendRequest(
-	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
 	opts ...SendReqOpts,
@@ -395,21 +395,21 @@ func SendRequest(
 		opt(cfg)
 	}
 	family, err := chainsel.GetSelectorFamily(cfg.SourceChain)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	switch family {
 	case chainsel.FamilyEVM:
-		return SendRequestEVM(t, e, state, cfg)
+		return SendRequestEVM(e, state, cfg)
 	case chainsel.FamilySolana:
-		return SendRequestSol(t, e, state, cfg)
+		return SendRequestSol(e, state, cfg)
 	default:
-		t.Errorf("send request: unsupported chain family: %v", family)
-		return nil, nil
+		return nil, fmt.Errorf("send request: unsupported chain family: %v", family)
 	}
 }
 
 func SendRequestEVM(
-	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
@@ -418,8 +418,10 @@ func SendRequestEVM(
 	if cfg.Sender == nil {
 		cfg.Sender = e.Chains[cfg.SourceChain].DeployerKey
 	}
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+
+	fmt.Printf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, cfg.Sender.From.String())
+
 	tx, blockNum, err := CCIPSendRequest(e, state, cfg)
 	if err != nil {
 		return nil, err
@@ -434,8 +436,11 @@ func SendRequestEVM(
 		return nil, err
 	}
 
-	require.True(t, it.Next())
-	t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
+	if !it.Next() {
+		return nil, fmt.Errorf("no CCIP message sent event found")
+	}
+
+	fmt.Printf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
 		it.Event.Message.Header.MessageId[:],
 		cfg.SourceChain,
 		cfg.DestChain,
@@ -449,7 +454,6 @@ func SendRequestEVM(
 }
 
 func SendRequestSol(
-	t *testing.T,
 	e deployment.Environment,
 	state changeset.CCIPOnChainState,
 	cfg *CCIPSendReqConfig,
@@ -467,41 +471,65 @@ func SendRequestSol(
 		message.FeeToken = s.WSOL
 	}
 
-	t.Logf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+	fmt.Printf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
 		cfg.SourceChain, cfg.DestChain, sender.String())
 
 	client := e.SolChains[cfg.SourceChain].Client
-	ctx := t.Context()
+	ctx := context.Background()
 
 	destinationChainSelector := cfg.DestChain
 
 	destinationChainStatePDA, err := solstate.FindDestChainStatePDA(destinationChainSelector, s.Router)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	noncePDA, err := solstate.FindNoncePDA(cfg.DestChain, sender.PublicKey(), s.Router)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	feeToken := message.FeeToken
 
 	linkFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(s.LinkToken, s.FeeQuoter)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	feeTokenFqBillingConfigPDA, _, err := solstate.FindFqBillingTokenConfigPDA(feeToken, s.FeeQuoter)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(s.Router)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	feeTokenUserATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, sender.PublicKey())
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	feeTokenReceiverATA, _, err := soltokens.FindAssociatedTokenAddress(solana.TokenProgramID, feeToken, billingSignerPDA)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	fqDestChainPDA, _, err := solstate.FindFqDestChainPDA(cfg.DestChain, s.FeeQuoter)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
+
 	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(s.Router)
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	base := ccip_router.NewCcipSendInstruction(
 		destinationChainSelector,
@@ -542,29 +570,45 @@ func SendRequestSol(
 	for _, tokenAmount := range message.TokenAmounts {
 		token := tokenAmount.Token
 		tokenPool, err := soltokens.NewTokenPool(solana.Token2022ProgramID, s.BurnMintTokenPool, token)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 
 		// Set the token pool's lookup table address
 		var tokenAdminRegistry solRouter.TokenAdminRegistry
 		err = solcommon.GetAccountDataBorshInto(ctx, client, tokenPool.AdminRegistryPDA, solconfig.DefaultCommitment, &tokenAdminRegistry)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+
 		tokenPool.PoolLookupTable = tokenAdminRegistry.LookupTable
 
 		// invalid config account, maybe this billing stuff isn't right
 
 		chainPDA, _, err := soltokens.TokenPoolChainConfigPDA(cfg.DestChain, token, s.BurnMintTokenPool)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+
 		tokenPool.Chain[cfg.DestChain] = chainPDA
 
 		billingPDA, _, err := solstate.FindFqPerChainPerTokenConfigPDA(cfg.DestChain, token, s.FeeQuoter)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+
 		tokenPool.Billing[cfg.DestChain] = billingPDA
 
 		userTokenAccount, _, err := soltokens.FindAssociatedTokenAddress(solana.Token2022ProgramID, token, sender.PublicKey())
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
 
 		tokenMetas, tokenAddressTables, err := soltokens.ParseTokenLookupTableWithChain(ctx, client, tokenPool, userTokenAccount, cfg.DestChain)
-		require.NoError(t, err)
+		if err != nil {
+			return nil, err
+		}
+
 		tokenIndexes = append(tokenIndexes, byte(len(base.AccountMetaSlice)-requiredAccounts))
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
@@ -572,19 +616,29 @@ func SendRequestSol(
 	base.SetTokenIndexes(tokenIndexes)
 
 	ix, err := base.ValidateAndBuild()
-	require.NoError(t, err)
+	if err != nil {
+		return nil, err
+	}
 
 	// for some reason onchain doesn't see extraAccounts
 
 	ixs := []solana.Instruction{ix}
-	result := soltestutils.SendAndConfirmWithLookupTables(ctx, t, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
-	require.NotNil(t, result)
+	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
+	if err != nil {
+		return nil, err
+	}
 
 	// check CCIP event
 	ccipMessageSentEvent := solccip.EventCCIPMessageSent{}
 	printEvents := true
-	require.NoError(t, solcommon.ParseEvent(result.Meta.LogMessages, "CCIPMessageSent", &ccipMessageSentEvent, printEvents))
-	require.Equal(t, len(message.TokenAmounts), len(ccipMessageSentEvent.Message.TokenAmounts))
+	err = solcommon.ParseEvent(result.Meta.LogMessages, "CCIPMessageSent", &ccipMessageSentEvent, printEvents)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(message.TokenAmounts) != len(ccipMessageSentEvent.Message.TokenAmounts) {
+		return nil, fmt.Errorf("token amounts mismatch")
+	}
 
 	// TODO: fee bumping?
 
@@ -634,17 +688,55 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-// NOTE: this is EVM specific (EVM->SVM)
-const SVMExtraArgsV1Tag = "0x1f3b3aba"
+func MakeSVMExtraArgsV1(
+	computeUnits uint32,
+	accountIsWritableBitmap uint64,
+	allowOOO bool,
+	tokenReceiver solana.PublicKey,
+	accounts []solana.PublicKey,
+) []byte {
+	// extra args is the SVM tag followed by the abi-encoded struct fields.
+	var extraArgs []byte
+	extraArgs = append(extraArgs, svmExtraArgsV1Tag...)
 
-func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
-	tagBytes := hexutil.MustDecode(SVMExtraArgsV1Tag)
-	abi, err := message_hasher.MessageHasherMetaData.GetAbi()
-	if err != nil {
-		return nil, err
+	// abi-encode computeUnits
+	computeUnitsBytes := new(big.Int).SetUint64(uint64(computeUnits)).Bytes()
+	computeUnitsBytes = common.LeftPadBytes(computeUnitsBytes, 32)
+
+	// abi-encode accountIsWritableBitmap
+	accountIsWritableBitmapBytes := new(big.Int).SetUint64(accountIsWritableBitmap).Bytes()
+	accountIsWritableBitmapBytes = common.LeftPadBytes(accountIsWritableBitmapBytes, 32)
+
+	// abi-encode allowOOO
+	var allowOOOBytes []byte
+	if allowOOO {
+		allowOOOBytes = append(allowOOOBytes, 1)
+	} else {
+		allowOOOBytes = append(allowOOOBytes, 0)
 	}
-	v, err := abi.Methods["encodeSVMExtraArgsV1"].Inputs.Pack(data)
-	return append(tagBytes, v...), err
+	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
+
+	// abi-encode tokenReceiver
+	tokenReceiverBytes := common.LeftPadBytes(tokenReceiver.Bytes(), 32)
+
+	// abi-encode accounts length
+	accountsLengthBytes := new(big.Int).SetUint64(uint64(len(accounts))).Bytes()
+	accountsLengthBytes = common.LeftPadBytes(accountsLengthBytes, 32)
+
+	// abi-encode accounts
+	var accountsBytes []byte
+	for _, account := range accounts {
+		accountsBytes = append(accountsBytes, account.Bytes()...)
+	}
+
+	// concatenate everything
+	extraArgs = append(extraArgs, computeUnitsBytes...)
+	extraArgs = append(extraArgs, accountIsWritableBitmapBytes...)
+	extraArgs = append(extraArgs, allowOOOBytes...)
+	extraArgs = append(extraArgs, tokenReceiverBytes...)
+	extraArgs = append(extraArgs, accountsLengthBytes...)
+	extraArgs = append(extraArgs, accountsBytes...)
+	return extraArgs
 }
 
 func AddLane(
@@ -1057,7 +1149,8 @@ func DeployTransferableTokenSolana(
 	addresses deployment.AddressBook,
 	evmTokenName string,
 ) (*burn_mint_erc677.BurnMintERC677,
-	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error) {
+	*burn_mint_token_pool.BurnMintTokenPool, solana.PublicKey, error,
+) {
 	selectorFamily, err := chainsel.GetSelectorFamily(evmChainSel)
 	if err != nil {
 		return nil, nil, solana.PublicKey{}, err
@@ -1712,7 +1805,8 @@ type TokenBalanceAccumulator map[uint64][]ExpectedTokenBalance
 func (t TokenBalanceAccumulator) add(
 	destChain uint64,
 	receiver []byte,
-	expectedBalances []ExpectedBalance) {
+	expectedBalances []ExpectedBalance,
+) {
 	for _, expected := range expectedBalances {
 		token := expected.Token
 		balance := expected.Amount
@@ -1856,52 +1950,52 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 // TODO: this should be linked to the solChain function
 func SavePreloadedSolAddresses(e deployment.Environment, solChainSelector uint64) error {
 	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
-	err := e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_router"], tv)
+	err := e.ExistingAddresses.Save(solChainSelector, solconfig.CcipRouterProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipLogicReceiver.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["fee_quoter"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.FeeQuoterProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_offramp"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipOfframpProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["burnmint_token_pool"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipBasePoolBurnMint.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.LockReleaseTokenPool, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["lockrelease_token_pool"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.CcipBasePoolLockRelease.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.McmProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["access_controller"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.AccessControllerProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.TimelockProgram.String(), tv)
 	if err != nil {
 		return err
 	}
 	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
-	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["rmn_remote"], tv)
+	err = e.ExistingAddresses.Save(solChainSelector, solconfig.RMNRemoteProgram.String(), tv)
 	if err != nil {
 		return err
 	}

@@ -98,6 +98,14 @@ func (mc *MultiClient) CallContract(ctx context.Context, msg ethereum.CallMsg, b
 	err := mc.retryWithBackups("CallContract", func(client *ethclient.Client) error {
 		var err error
 		result, err = client.CallContract(ctx, msg, blockNumber)
+
+		// TODO: this is for debugging purposes only - it should be removed
+		if err != nil {
+			mc.lggr.Debugf("ERROR: %w", err)
+		} else {
+			mc.lggr.Debugf("RESULT: %s", string(result))
+		}
+
 		return err
 	})
 	return result, err
@@ -226,7 +234,6 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 		}
 		return nil
 	}, retry.Attempts(RPCDefaultDialRetryAttempts), retry.Delay(RPCDefaultDialRetryDelay))
-
 	if err != nil {
 		return nil, errors.Join(err, fmt.Errorf("failed to dial endpoint '%s' for RPC %s for chain %s after retries", endpoint, rpc.Name, mc.chainName))
 	}
