@@ -1075,6 +1075,8 @@ contract FeeQuoter is AuthorizedCallers, IFeeQuoter, ITypeAndVersion, IReceiver,
   ) internal view returns (bytes memory validatedExtraArgs, bool allowOutOfOrderExecution, bytes memory tokenReceiver) {
     // Since this function is called after getFee, which already validates the params, no validation is necessary.
     DestChainConfig memory destChainConfig = s_destChainConfigs[destChainSelector];
+    // EVM and Aptos both use the same GenericExtraArgs, with EVM also supporting EVMExtraArgsV1 which is handled inside
+    // the generic function.
     if (
       destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_EVM
         || destChainConfig.chainFamilySelector == Internal.CHAIN_FAMILY_SELECTOR_APTOS

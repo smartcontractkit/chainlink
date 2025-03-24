@@ -10,7 +10,7 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 /// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
-  error InvalidSVMAddress(bytes SVMAddress);
+  error Invalid32ByteAddress(bytes encodedAddress);
 
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.
@@ -178,10 +178,10 @@ library Internal {
   }
 
   function _validate32ByteAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
-    if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
+    if (encodedAddress.length != 32) revert Invalid32ByteAddress(encodedAddress);
     if (mustBeNonZero) {
       if (abi.decode(encodedAddress, (bytes32)) == bytes32(0)) {
-        revert InvalidSVMAddress(encodedAddress);
+        revert Invalid32ByteAddress(encodedAddress);
       }
     }
   }
