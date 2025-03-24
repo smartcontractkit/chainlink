@@ -21,6 +21,7 @@ HTTPURL = 'https://foo.bar' # Required
 ## Global
 ```toml
 InsecureFastScrypt = false # Default
+InsecurePPROFHeap = false # Default
 RootDir = '~/.chainlink' # Default
 ShutdownGracePeriod = '5s' # Default
 ```
@@ -32,6 +33,13 @@ ShutdownGracePeriod = '5s' # Default
 InsecureFastScrypt = false # Default
 ```
 InsecureFastScrypt causes all key stores to encrypt using "fast" scrypt params instead. This is insecure and only useful for local testing. DO NOT ENABLE THIS IN PRODUCTION.
+
+### InsecurePPROFHeap
+:warning: **_ADVANCED_**: _Do not change this setting unless you know what you are doing._
+```toml
+InsecurePPROFHeap = false # Default
+```
+InsecurePPROFHeap allows dumping the heap in pprof. This is very useful for debugging memory leaks but in certain rare cases may potentially expose sensitive data e.g. private key components, so is disabled by default.
 
 ### RootDir
 ```toml

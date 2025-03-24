@@ -418,7 +418,7 @@ func v2Routes(app chainlink.Application, r *gin.RouterGroup) {
 		authv2.GET("/build_info", buildInfo.Show)
 
 		// Debug routes accessible via authentication
-		metricRoutes(authv2, build.IsDev())
+		metricRoutes(authv2, app.GetConfig().InsecurePPROFHeap() || build.IsDev())
 	}
 
 	ping := PingController{app}
