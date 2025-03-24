@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
@@ -23,7 +24,7 @@ func TestWithdraw(t *testing.T) {
 	require.NotNil(t, chain)
 
 	recipient := common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2")
-	testutil.MustFundAddressWithLink(t, e, chain, feeManagerAddress, 100)
+	commonChangesets.MustFundAddressWithLink(t, e, chain, feeManagerAddress, 100)
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
@@ -42,9 +43,9 @@ func TestWithdraw(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	recipientBalance := testutil.MustGetLinkBalance(t, e, chain, recipient)
+	recipientBalance := commonChangesets.MaybeGetLinkBalance(t, e, chain, recipient)
 	require.Equal(t, big.NewInt(50), recipientBalance)
 
-	feeManagerBalance := testutil.MustGetLinkBalance(t, e, chain, feeManagerAddress)
+	feeManagerBalance := commonChangesets.MaybeGetLinkBalance(t, e, chain, feeManagerAddress)
 	require.Equal(t, big.NewInt(50), feeManagerBalance)
 }
