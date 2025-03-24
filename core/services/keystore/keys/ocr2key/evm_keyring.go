@@ -47,10 +47,10 @@ func (ekr *evmKeyring) reportToSigData(reportCtx ocrtypes.ReportContext, report 
 }
 
 func (ekr *evmKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return ekr.SignBlob(ekr.reportToSigData3(digest, seqNr, r))
+	return ekr.SignBlob(ReportToSigData3(digest, seqNr, r))
 }
 
-func (ekr *evmKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
+func ReportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
 	rawReportContext := RawReportContext3(digest, seqNr)
 	sigData := crypto.Keccak256(r)
 	sigData = append(sigData, rawReportContext[0][:]...)
@@ -77,7 +77,7 @@ func (ekr *evmKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx ocr
 }
 
 func (ekr *evmKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	hash := ekr.reportToSigData3(cd, seqNr, r)
+	hash := ReportToSigData3(cd, seqNr, r)
 	return ekr.VerifyBlob(publicKey, hash, signature)
 }
 

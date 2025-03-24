@@ -14,7 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
@@ -35,7 +35,6 @@ const (
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
 	SPLTokens                 deployment.ContractType = "SPLTokens"
 	WSOL                      deployment.ContractType = "WSOL"
-	FeeAggregator             deployment.ContractType = "FeeAggregator"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
@@ -60,9 +59,6 @@ type SolCCIPChainState struct {
 	BurnMintTokenPool    solana.PublicKey
 	LockReleaseTokenPool solana.PublicKey
 	RMNRemote            solana.PublicKey
-
-	// fee aggregator
-	FeeAggregator solana.PublicKey
 
 	// test programs
 	Receiver solana.PublicKey
@@ -203,9 +199,6 @@ func LoadChainStateSolana(chain deployment.SolChain, addresses map[string]deploy
 				return state, err
 			}
 			state.OffRampStatePDA = offRampStatePDA
-		case FeeAggregator:
-			pub := solana.MustPublicKeyFromBase58(address)
-			state.FeeAggregator = pub
 		case BurnMintTokenPool:
 			pub := solana.MustPublicKeyFromBase58(address)
 			state.BurnMintTokenPool = pub
@@ -291,7 +284,7 @@ func ValidateOwnershipSolana(
 	}
 	switch contractType {
 	case Router:
-		programData := ccip_router.Config{}
+		programData := solRouter.Config{}
 		err = chain.GetAccountDataBorshInto(e.GetContext(), config, &programData)
 		if err != nil {
 			return fmt.Errorf("failed to get account data: %w", err)
@@ -441,4 +434,14 @@ func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolC
 		chainView.TokenPool[s.LockReleaseTokenPool.String()] = tokenPoolView
 	}
 	return chainView, nil
+}
+
+func (s SolCCIPChainState) GetFeeAggregator(chain deployment.SolChain) solana.PublicKey {
+	var config solRouter.Config
+	configPDA, _, _ := solState.FindConfigPDA(s.Router)
+	err := chain.GetAccountDataBorshInto(context.Background(), configPDA, &config)
+	if err != nil {
+		return solana.PublicKey{}
+	}
+	return config.FeeAggregator
 }

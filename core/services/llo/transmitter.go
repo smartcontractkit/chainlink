@@ -76,7 +76,11 @@ func NewTransmitter(opts TransmitterOpts) (Transmitter, error) {
 			creTransmitterCfg.Logger = opts.Lggr
 			creTransmitterCfg.CapabilitiesRegistry = opts.MercuryTransmitterOpts.CapabilitiesRegistry
 			creTransmitterCfg.DonID = opts.DonID
-			subTransmitters = append(subTransmitters, creTransmitterCfg.NewTransmitter())
+			creTransmitter, err := creTransmitterCfg.NewTransmitter()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create CRE transmitter: %w", err)
+			}
+			subTransmitters = append(subTransmitters, creTransmitter)
 		default:
 			return nil, fmt.Errorf("unknown transmitter type: %s", cfg.Type)
 		}

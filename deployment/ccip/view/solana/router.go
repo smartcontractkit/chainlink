@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/solana-go"
 
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -81,7 +82,7 @@ func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, rem
 		if err != nil {
 			return view, fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", token.String(), program.String(), err)
 		}
-		var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+		var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 		if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err == nil {
 			view.TokenAdminRegistry[token.String()] = RouterTokenAdminRegistry{
 				Version:              tokenAdminRegistryAccount.Version,

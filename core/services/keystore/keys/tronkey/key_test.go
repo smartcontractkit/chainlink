@@ -1,8 +1,6 @@
 package tronkey
 
 import (
-	"crypto/ecdsa"
-	"crypto/rand"
 	"encoding/hex"
 	"testing"
 
@@ -10,22 +8,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-func TestTronKeyRawPrivateKey(t *testing.T) {
-	t.Run("Create from raw bytes and check string representation", func(t *testing.T) {
-		// Generate a private key
-		privateKeyECDSA, err := ecdsa.GenerateKey(crypto.S256(), rand.Reader)
-		require.NoError(t, err, "Failed to generate ECDSA key")
-
-		// Create TronKey from raw bytes
-		tronKey := Raw(privateKeyECDSA.D.Bytes())
-
-		// Check string representation
-		expectedStr := "<Tron Raw Private Key>"
-		assert.Equal(t, expectedStr, tronKey.String(), "Unexpected string representation")
-		assert.Equal(t, expectedStr, tronKey.GoString(), "String() and GoString() should return the same value")
-	})
-}
 
 func TestTronKeyNewKeyGeneration(t *testing.T) {
 	t.Run("Generate new key and verify its components", func(t *testing.T) {

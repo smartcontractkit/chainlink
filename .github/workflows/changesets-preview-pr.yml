@@ -33,7 +33,7 @@ jobs:
         uses: pnpm/action-setup@a3252b78c470c02df07e9d59298aecedc3ccdd6d # v3.0.0
         if: steps.change.outputs.core-changeset == 'true'
         with:
-          version: ^9.0.0
+          version: ^10.0.0
 
       - name: Setup node
         uses: actions/setup-node@v4
