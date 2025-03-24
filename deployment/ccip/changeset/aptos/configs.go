@@ -8,9 +8,10 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
-// DeployAptosChainConfig is a configuration for deploying CCIP Package for Aptos chains
+// DeployAptosChainConfig is a configuration for deploying Aptos chains
 type DeployAptosChainConfig struct {
 	ContractParamsPerChain map[uint64]ChainContractParams
+	MCMSConfigPerChain     map[uint64]mcmstypes.Config
 }
 
 func (c DeployAptosChainConfig) Validate() error {
@@ -54,9 +55,6 @@ type FeeQuoterParams struct {
 }
 
 func (f FeeQuoterParams) Validate() error {
-	if f.MaxFeeJuelsPerMsg < 0 {
-		return fmt.Errorf("MaxFeeJuelsPerMsg must be positive")
-	}
 	if (f.LinkToken == aptos.AccountAddress{}) {
 		return fmt.Errorf("LinkToken is required")
 	}
@@ -112,9 +110,4 @@ func (o OnRampParams) Validate() error {
 		return fmt.Errorf("DestChainSelectors and DestChainAllowlistEnabled must have the same length")
 	}
 	return nil
-}
-
-// DeployAptosMCMSConfig is a configuration for deploying MCMS contracts for Aptos chains
-type DeployAptosMCMSConfig struct {
-	MCMSConfigPerChain map[uint64]mcmstypes.Config
 }
