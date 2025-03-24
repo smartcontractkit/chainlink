@@ -149,14 +149,14 @@ func Test_effectiveTimeout(t *testing.T) {
 		assert.Equal(t, defaultAwaitTimeoutMs*time.Millisecond, timeout)
 	})
 
-	t.Run("deadline greater than default returns deadline", func(t *testing.T) {
+	t.Run("deadline greater than default returns default", func(t *testing.T) {
 		giveTimeout := defaultAwaitTimeoutMs*time.Millisecond + 1*time.Second
 		deadline := time.Now().Add(giveTimeout)
 		ctx, cancel := context.WithDeadline(context.Background(), deadline)
 		defer cancel()
 
 		timeout := effectiveTimeout(ctx)
-		assert.WithinDuration(t, time.Now().Add(giveTimeout), time.Now().Add(timeout), 10*time.Millisecond)
+		assert.WithinDuration(t, time.Now().Add(defaultAwaitTimeoutMs*time.Millisecond), time.Now().Add(timeout), 10*time.Millisecond)
 	})
 }
 

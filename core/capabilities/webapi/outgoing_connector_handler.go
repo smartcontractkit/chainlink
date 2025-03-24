@@ -25,7 +25,7 @@ const (
 	DefaultWorkflowRPS    = 5.0
 	DefaultWorkflowBurst  = 50
 	defaultFetchTimeoutMs = 20_000
-	defaultAwaitTimeoutMs = 8_000
+	defaultAwaitTimeoutMs = 5_000
 
 	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
 	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
@@ -212,8 +212,9 @@ func effectiveTimeout(ctx context.Context) time.Duration {
 		originalTimeout = time.Until(dl)
 	}
 
-	if originalTimeout == 0 {
-		return defaultAwaitTimeoutMs * time.Millisecond
+	dur := defaultAwaitTimeoutMs * time.Millisecond
+	if originalTimeout == 0 || originalTimeout >= dur {
+		return dur
 	}
 
 	return originalTimeout
