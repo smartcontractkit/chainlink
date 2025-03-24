@@ -18,10 +18,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/tidwall/gjson"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/utils"
-
-	"github.com/tidwall/gjson"
 )
 
 func main() {
