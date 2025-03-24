@@ -1,7 +1,6 @@
 package changeset
 
 import (
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -40,18 +39,9 @@ func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 }
 
 func HashedWorkflowName(name string) [10]byte {
-	// Compute SHA-256 hash of the input string
-	hash := sha256.Sum256([]byte(name))
-
-	// Encode as hex to ensure UTF8
-	var hashBytes = hash[:]
-	resultHex := hex.EncodeToString(hashBytes)
-
-	// Truncate to 10 bytes
-	var truncated [10]byte
-	copy(truncated[:], []byte(resultHex)[:10])
-
-	return truncated
+	var result [10]byte
+	copy(result[:], name)
+	return result
 }
 
 func LoadJSON[T any](pth string, fs fs.ReadFileFS) (T, error) {
