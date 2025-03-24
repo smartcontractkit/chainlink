@@ -16,10 +16,9 @@ import (
 
 func TestPayLinkDeficit(t *testing.T) {
 	testOptions := DataStreamsTestEnvOptions{
-		DeployRewardManager: true,
-		DeployLinkToken:     true,
-		DeployMCMS:          true,
-		DeployFeeManager:    false, // we override this below with a MockFeeManager
+		DeployLinkToken:  true,
+		DeployMCMS:       true,
+		DeployFeeManager: false, // we override this below with a MockFeeManager
 	}
 
 	res, err := NewDataStreamsEnvironment(t, testOptions)
@@ -29,11 +28,11 @@ func TestPayLinkDeficit(t *testing.T) {
 	ab := e.ExistingAddresses
 	chain := e.Chains[testutil.TestChain.Selector]
 
-	cc := DeployFeeManagerConfig{
+	cc := DeployFeeManager{
 		LinkTokenAddress:     res.LinkTokenAddress,
 		NativeTokenAddress:   common.HexToAddress("0x55E8606BbE91513725f9e4d405B7956D9F9e236F"),
 		VerifierProxyAddress: common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
-		RewardManagerAddress: res.RewardManagerAddress,
+		RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
 	}
 
 	// This uses a MockFeeManager. The subject under test here is the PayLinkDeficit changeset.
@@ -87,7 +86,7 @@ func TestPayLinkDeficit(t *testing.T) {
 	}
 }
 
-func MockFeeManagerDeployFn(cfg DeployFeeManagerConfig) changeset.ContractDeployFn[*mock_fee_manager_v0_5_0.MockFeeManager] {
+func MockFeeManagerDeployFn(cfg DeployFeeManager) changeset.ContractDeployFn[*mock_fee_manager_v0_5_0.MockFeeManager] {
 	return func(chain deployment.Chain) *changeset.ContractDeployment[*mock_fee_manager_v0_5_0.MockFeeManager] {
 		ccsAddr, ccsTx, ccs, err := mock_fee_manager_v0_5_0.DeployMockFeeManager(
 			chain.DeployerKey,

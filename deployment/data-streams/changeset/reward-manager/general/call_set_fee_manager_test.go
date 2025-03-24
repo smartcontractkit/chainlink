@@ -8,7 +8,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0_5_0"
+	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
@@ -28,7 +28,7 @@ func TestCallSetFeeManager(t *testing.T) {
 					testutil.TestChain.Selector: {
 						LinkTokenAddress:     linkState.LinkToken.Address(),
 						NativeTokenAddress:   common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9"),
-						ProxyAddress:         common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
+						VerifierProxyAddress: common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
 						RewardManagerAddress: rewardManagerAddr,
 					},
 				},
