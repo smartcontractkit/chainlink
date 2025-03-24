@@ -30,6 +30,7 @@ import (
 	ccipreaderpkg "github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/plugintypes"
+	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
@@ -46,6 +47,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
@@ -299,6 +301,7 @@ func TestCCIPReader_GetRMNRemoteConfig(t *testing.T) {
 		chainD,
 		rmnRemoteAddr.Bytes(),
 		mockAddrCodec,
+		*config.MustNewDuration(globals.ConfigPollerSyncFrequency),
 	)
 
 	exp, err := rmnRemote.GetVersionedConfig(&bind.CallOpts{
@@ -423,6 +426,7 @@ func TestCCIPReader_GetOffRampConfigDigest(t *testing.T) {
 		chainD,
 		addr.Bytes(),
 		mokAddrCodec,
+		*config.MustNewDuration(globals.ConfigPollerSyncFrequency),
 	)
 
 	ccipReaderCommitDigest, err := reader.GetOffRampConfigDigest(ctx, consts.PluginTypeCommit)
@@ -1031,7 +1035,16 @@ func TestCCIPReader_DiscoverContracts(t *testing.T) {
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 
 	mokAddrCodec := newMockAddressCodec(t)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, logger.TestLogger(t), contractReaders, contractWriters, chainD, offRampDestAddr.Bytes(), mokAddrCodec)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		logger.TestLogger(t),
+		contractReaders,
+		contractWriters,
+		chainD,
+		offRampDestAddr.Bytes(),
+		mokAddrCodec,
+		*config.MustNewDuration(globals.ConfigPollerSyncFrequency),
+	)
 
 	t.Cleanup(func() {
 		assert.NoError(t, crS1.Close())
@@ -1742,7 +1755,16 @@ func testSetupRealContracts(
 	}
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 	mokAddrCodec := newMockAddressCodec(t)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, cciptypes.ChainSelector(destChain), nil, mokAddrCodec)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		lggr,
+		contractReaders,
+		contractWriters,
+		cciptypes.ChainSelector(destChain),
+		nil,
+		mokAddrCodec,
+		*config.MustNewDuration(globals.ConfigPollerSyncFrequency),
+	)
 
 	return reader
 }
@@ -1859,7 +1881,16 @@ func testSetup(
 	contractWriters := make(map[cciptypes.ChainSelector]types.ContractWriter)
 
 	mokAddrCodec := newMockAddressCodec(t)
-	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(ctx, lggr, contractReaders, contractWriters, params.DestChain, nil, mokAddrCodec)
+	reader := ccipreaderpkg.NewCCIPReaderWithExtendedContractReaders(
+		ctx,
+		lggr,
+		contractReaders,
+		contractWriters,
+		params.DestChain,
+		nil,
+		mokAddrCodec,
+		*config.MustNewDuration(globals.ConfigPollerSyncFrequency),
+	)
 
 	t.Cleanup(func() {
 		require.NoError(t, cr.Close())
