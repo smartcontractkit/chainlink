@@ -157,7 +157,7 @@ contract VerifierProxy is IVerifierProxy, ConfirmedOwner, ITypeAndVersion {
   }
 
   function _verify(bytes calldata payload) internal returns (bytes memory verifiedReport) {
-    // First 32 bytes of the signed report is the config digest
+    // First 32 bytes of the signed report is the routing key
     bytes32 configDigest = bytes32(payload);
     address verifierAddress = s_verifiersByConfig[configDigest];
     if (verifierAddress == address(0)) revert VerifierNotFound(configDigest);

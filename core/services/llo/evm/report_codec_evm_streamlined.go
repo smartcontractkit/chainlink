@@ -111,8 +111,9 @@ func (rc ReportCodecEVMStreamlined) Pack(digest types.ConfigDigest, seqNr uint64
 // packed bytes sigs
 func (rc ReportCodecEVMStreamlined) packPayload(digest types.ConfigDigest, report []byte, sigs []ocr2types.AttributedOnchainSignature) ([]byte, error) {
 	buf := new(bytes.Buffer)
-	// Encode the digest
-	if _, err := buf.Write(digest[:]); err != nil {
+	// Encode the digest as routing key
+	key := routingKey(digest, llotypes.ReportFormatEVMStreamlined)
+	if _, err := buf.Write(key[:]); err != nil {
 		return nil, fmt.Errorf("failed to encode config digest; %w", err)
 	}
 
@@ -178,4 +179,19 @@ func (r *ReportFormatEVMStreamlinedOpts) Decode(opts []byte) error {
 
 func (r *ReportFormatEVMStreamlinedOpts) Encode() ([]byte, error) {
 	return json.Marshal(r)
+}
+
+func routingKey(digest types.ConfigDigest, reportFormat llotypes.ReportFormat) (key common.Hash) {
+	copy(key[:], digest[:])
+
+	// Convert uint32 to 4-byte big-endian
+	var u32Bytes [4]byte
+	binary.BigEndian.PutUint32(u32Bytes[:], uint32(reportFormat))
+
+	// XOR last 4 bytes of the 32-byte array
+	for i := 0; i < 4; i++ {
+		key[32-4+i] ^= u32Bytes[i]
+	}
+
+	return key
 }
