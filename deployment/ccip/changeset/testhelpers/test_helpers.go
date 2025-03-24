@@ -1840,7 +1840,6 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	b, err := json.MarshalIndent(snap, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
-	fmt.Println("Solana:")
 	b, err = json.MarshalIndent(solana, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))

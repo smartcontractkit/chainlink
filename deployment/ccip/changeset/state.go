@@ -603,8 +603,9 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 
 func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := make(map[string]view.ChainView)
-	sm := make(map[string]view.SolChainView)
 	mu := sync.Mutex{}
+	sm := make(map[string]view.SolChainView)
+	solanaMu := sync.Mutex{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
@@ -652,9 +653,9 @@ func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[
 				}
 				chainView.ChainSelector = chainSelector
 				chainView.ChainID = id
-				mu.Lock()
+				solanaMu.Lock()
 				sm[name] = chainView
-				mu.Unlock()
+				solanaMu.Unlock()
 			default:
 				return fmt.Errorf("unsupported chain family %s", family)
 			}
