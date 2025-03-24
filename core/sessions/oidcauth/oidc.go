@@ -179,6 +179,7 @@ func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.R
 		return
 	}
 
+	// TODO: parameterize the Key of json for the claim
 	var claims struct {
 		Email      string   `json:"email"`
 		Groups     []string `json:"groups"`
@@ -232,6 +233,8 @@ func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.R
 		"Authenticated": true,
 		"Session":       session.ID,
 	})
+	// TODO: here we need to set cookie and redirect to login
+	// SET cookie then redirect instead of printing
 	w.Write(jsonData)
 }
 

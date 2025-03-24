@@ -62,3 +62,5 @@ type AuthenticationProvider interface {
 
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
+
+// TODO: new function: extendRouter which will add routes to router object IF OIDC 
