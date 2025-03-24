@@ -83,7 +83,7 @@ func (n Node) MultiAddr() string {
 func (n Node) ReplayLogs(chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
-		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
+		if err := n.App.ReplayFromBlock("evm", strconv.FormatUint(chainID, 10), block, false); err != nil {
 			return err
 		}
 	}

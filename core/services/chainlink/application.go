@@ -25,6 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 	commonservices "github.com/smartcontractkit/chainlink-common/pkg/services"
+	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/timeutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils"
@@ -67,6 +69,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/registrysyncer"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/standardcapabilities"
@@ -126,9 +129,9 @@ type Application interface {
 	// Feeds
 	GetFeedsService() feeds.Service
 
-	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast is
-	// set to true, consumers will reprocess data even if it has already been processed.
-	ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error
+	// ReplayFromBlock replays logs from on or after the given block number. If forceBroadcast (evm only)
+	// is set to true, consumers will reprocess data even if it has already been processed.
+	ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error
 
 	// ID is unique to this particular application instance
 	ID() uuid.UUID
@@ -1200,15 +1203,44 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-// ReplayFromBlock implements the Application interface.
-func (app *ChainlinkApplication) ReplayFromBlock(chainID *big.Int, number uint64, forceBroadcast bool) error {
-	chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID.String())
+func (app *ChainlinkApplication) GetChainStatus(ctx context.Context, chainFamily string, chainID string) (commontypes.ChainStatus, error) {
+	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+		Network: chainFamily,
+		ChainID: chainID,
+	})
 	if err != nil {
-		return err
+		return commontypes.ChainStatus{}, err
 	}
-	chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
-	if app.Config.Feature().LogPoller() {
-		chain.LogPoller().ReplayAsync(int64(number))
+	return relayer.GetChainStatus(ctx)
+}
+
+// ReplayFromBlock implements the Application interface.
+func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
+	switch chainFamily {
+	case relay.NetworkEVM:
+		// TODO: Implement EVM Replay on Relayer instead of using LegacyChains - BCFR-1160
+		chain, err := app.GetRelayers().LegacyEVMChains().Get(chainID)
+		if err != nil {
+			return err
+		}
+		chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
+		if app.Config.Feature().LogPoller() {
+			chain.LogPoller().ReplayAsync(int64(number))
+		}
+	case relay.NetworkSolana:
+		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
+			Network: relay.NetworkSolana,
+			ChainID: chainID,
+		})
+		if err != nil {
+			return err
+		}
+		err = relayer.Replay(ctx, number, map[string]any{})
+		if err != nil {
+			return err
+		}
+	default:
+		return errors.Errorf("Replay not implemented for chain family: %s", chainFamily)
 	}
 	return nil
 }

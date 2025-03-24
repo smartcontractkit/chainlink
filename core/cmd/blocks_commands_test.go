@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
-func Test_ReplayFromBlock(t *testing.T) {
+func Test_EVM_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
 
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
@@ -32,12 +32,39 @@ func Test_ReplayFromBlock(t *testing.T) {
 
 	// Incorrect chain ID
 	require.NoError(t, set.Set("block-number", "1"))
-	require.NoError(t, set.Set("evm-chain-id", "1"))
+	require.NoError(t, set.Set("chain-id", "1"))
+	require.NoError(t, set.Set("family", "evm"))
 	c = cli.NewContext(nil, set, nil)
 	require.ErrorContains(t, client.ReplayFromBlock(c), "does not match any local chains")
 
 	// Correct chain ID
-	require.NoError(t, set.Set("evm-chain-id", "5"))
+	require.NoError(t, set.Set("chain-id", "5"))
+	c = cli.NewContext(nil, set, nil)
+	require.NoError(t, client.ReplayFromBlock(c))
+}
+
+func Test_Solana_ReplayFromBlock(t *testing.T) {
+	t.Parallel()
+
+	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
+		c.Solana[0].ChainID = ptr("devnet")
+		c.Solana[0].Enabled = ptr(true)
+	})
+
+	client, _ := app.NewShellAndRenderer()
+
+	set := flag.NewFlagSet("test", 0)
+	flagSetApplyFromAction(client.ReplayFromBlock, set, "")
+
+	// Incorrect block number
+	require.NoError(t, set.Set("block-number", "0"))
+	c := cli.NewContext(nil, set, nil)
+	require.ErrorContains(t, client.ReplayFromBlock(c), "Must pass a positive value in")
+
+	// Correct block number
+	require.NoError(t, set.Set("block-number", "1"))
+	require.NoError(t, set.Set("chain-id", "devnet"))
+	require.NoError(t, set.Set("family", "solana"))
 	c = cli.NewContext(nil, set, nil)
 	require.NoError(t, client.ReplayFromBlock(c))
 }
