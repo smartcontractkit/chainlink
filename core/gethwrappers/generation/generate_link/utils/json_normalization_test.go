@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/utils"
+
 	"github.com/stretchr/testify/assert"
 )
 
