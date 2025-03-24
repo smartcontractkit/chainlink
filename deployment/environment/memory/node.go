@@ -564,6 +564,28 @@ func CreateKeys(t *testing.T,
 		}
 	}
 
+	if len(aptoschains) > 0 {
+		ctype := chaintype.Aptos
+		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
+		require.NoError(t, err)
+		keys, err := app.GetKeyStore().OCR2().GetAllOfType(ctype)
+		require.NoError(t, err)
+		require.Len(t, keys, 1)
+		keybundle := keys[0]
+		keybundles[ctype] = keybundle
+
+		err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+		require.NoError(t, err, "failed to create key for Aptos")
+
+		aptoskeys, err := app.GetKeyStore().Aptos().GetAll()
+		require.NoError(t, err)
+		require.Len(t, aptoskeys, 1)
+		transmitter := aptoskeys[0]
+		for chainSelector := range aptoschains {
+			transmitters[chainSelector] = transmitter.ID()
+		}
+	}
+
 	return Keys{
 		PeerID:        peerID,
 		CSA:           csaKey,

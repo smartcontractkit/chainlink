@@ -179,6 +179,13 @@ func SignMCMSProposal(t *testing.T, env deployment.Environment, proposal *mcmsli
 		inspectorsMap[chainSel] = mcmssolanasdk.NewInspector(chain.Client)
 	}
 
+	for _, chain := range env.AptosChains {
+		_, exists := chainsel.AptosChainBySelector(chain.Selector)
+		require.True(t, exists)
+		chainSel := mcmstypes.ChainSelector(chain.Selector)
+		inspectorsMap[chainSel] = mcmsaptossdk.NewInspector(chain.Client)
+	}
+
 	proposal.UseSimulatedBackend(true)
 
 	signable, err := mcmslib.NewSignable(proposal, inspectorsMap)

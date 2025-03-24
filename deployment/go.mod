@@ -368,6 +368,7 @@ require (
 	github.com/shirou/gopsutil/v4 v4.25.1 // indirect
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
+	github.com/smartcontractkit/chainlink-aptos/relayer v0.0.0-20250320162700-de7f1c0fd741 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250417193446-eeb0a7d1e049 // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect

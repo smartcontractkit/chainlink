@@ -51,7 +51,7 @@ func loadAptosChainStateFromAddresses(addresses map[string]deployment.TypeAndVer
 	chainState := AptosCCIPChainState{}
 	for addrStr, typeAndVersion := range addresses {
 		// Parse address
-		address := &aptos.AccountAddress{}
+		address := &aptos.AccountZero
 		err := address.ParseStringRelaxed(addrStr)
 		if err != nil {
 			return chainState, fmt.Errorf("failed to parse address %s for %s: %w", addrStr, typeAndVersion.Type, err)
