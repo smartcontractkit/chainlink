@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/generic"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
+	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
 )
 
 type mockEndpoint struct {
@@ -32,6 +33,10 @@ func (m *mockGenerator) GenMonitoringEndpoint(network string, chainID string, co
 		contractID:    contractID,
 		telemetryType: string(telemetryType),
 	}
+}
+
+func (m *mockGenerator) GenMultitypeMonitoringEndpoint(network string, chainID string, contractID string) telemetry.MultitypeMonitoringEndpoint {
+	return nil
 }
 
 func TestTelemetryAdapter(t *testing.T) {

@@ -23,7 +23,7 @@ type GetUpkeepFailure struct{}
 var errGetUpkeep = errors.New("chain connection error example")
 
 func (g *GetUpkeepFailure) GetUpkeep(opts *bind.CallOpts, id *big.Int) (*UpkeepConfig, error) {
-	return nil, fmt.Errorf("%w [%s]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
+	return nil, fmt.Errorf("%w [%w]: getConfig v1.%d", ErrContractCallFailure, errGetUpkeep, RegistryVersion_1_2)
 }
 
 func TestSyncUpkeepWithCallback_UpkeepNotFound(t *testing.T) {

@@ -2,7 +2,6 @@ package mercurytransmitter
 
 import (
 	"context"
-	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/binary"
 	"errors"
@@ -18,13 +17,14 @@ import (
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
-	"github.com/smartcontractkit/chainlink/v2/core/config"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
-
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+
+	"github.com/smartcontractkit/chainlink/v2/core/config"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 )
 
 const (
@@ -115,9 +115,8 @@ type transmitter struct {
 	verboseLogging bool
 	cfg            Config
 
-	orm        ORM
-	servers    map[string]*server
-	registerer prometheus.Registerer
+	orm     ORM
+	servers map[string]*server
 
 	donID       uint32
 	fromAccount string
@@ -127,14 +126,14 @@ type transmitter struct {
 }
 
 type Opts struct {
-	Lggr           logger.Logger
-	Registerer     prometheus.Registerer
-	VerboseLogging bool
-	Cfg            Config
-	Clients        map[string]grpc.Client
-	FromAccount    ed25519.PublicKey
-	DonID          uint32
-	ORM            ORM
+	Lggr                 logger.Logger
+	VerboseLogging       bool
+	Cfg                  Config
+	Clients              map[string]grpc.Client
+	FromAccount          string
+	DonID                uint32
+	ORM                  ORM
+	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 }
 
 func New(opts Opts) Transmitter {
@@ -155,9 +154,8 @@ func newTransmitter(opts Opts) *transmitter {
 		opts.Cfg,
 		opts.ORM,
 		servers,
-		opts.Registerer,
 		opts.DonID,
-		fmt.Sprintf("%x", opts.FromAccount),
+		opts.FromAccount,
 		make(services.StopChan),
 		&sync.WaitGroup{},
 	}

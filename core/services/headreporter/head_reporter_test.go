@@ -45,6 +45,6 @@ func Test_HeadReporterService(t *testing.T) {
 
 	t.Run("has default report period", func(t *testing.T) {
 		service := NewHeadReporterService(pgtest.NewSqlxDB(t), logger.TestLogger(t), NewMockHeadReporter(t))
-		assert.Equal(t, service.reportPeriod, 15*time.Second)
+		assert.Equal(t, 15*time.Second, service.reportPeriod)
 	})
 }

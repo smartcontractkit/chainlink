@@ -5,6 +5,7 @@ import (
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"net/http"
@@ -225,7 +226,7 @@ func TestIntegration_KeeperPluginLogUpkeep(t *testing.T) {
 	commit()
 
 	ids, addrs, contracts := deployUpkeeps(t, backend, carrol, steve, linkToken, registry, upkeeps)
-	require.Equal(t, upkeeps, len(ids))
+	require.Len(t, ids, upkeeps)
 	require.Equal(t, len(ids), len(contracts))
 	require.Equal(t, len(ids), len(addrs))
 
@@ -1157,7 +1158,7 @@ func (c *feedLookupUpkeepController) EmitEvents(
 
 		require.True(t, eventEmitted, "event expected on backend")
 		if !eventEmitted {
-			return fmt.Errorf("event was not emitted")
+			return errors.New("event was not emitted")
 		}
 
 		afterEmit()

@@ -10,6 +10,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -219,6 +222,7 @@ func manuallyExecuteSingle(
 	msgSeqNr uint64,
 	lookbackDuration time.Duration,
 	reExecuteIfFailed bool,
+	extraDataCodec ccipcommon.ExtraDataCodec,
 ) error {
 	onRampAddress := state.Chains[srcChainSel].OnRamp.Address()
 
@@ -280,6 +284,7 @@ func manuallyExecuteSingle(
 		lggr,
 		onRampAddress,
 		ccipMessageSentEvents,
+		extraDataCodec,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to get message hashes: %w", err)
@@ -297,12 +302,27 @@ func manuallyExecuteSingle(
 
 	lggr.Debugw("got hashes and flags", "hashes", hashes, "flags", flags)
 
+	// since we're only executing one message, we need to only include that message
+	// in the report.
+	var filteredMsgSentEvents []onramp.OnRampCCIPMessageSent
+	for i, event := range ccipMessageSentEvents {
+		if event.Message.Header.SequenceNumber == msgSeqNr && event.Message.Header.SourceChainSelector == srcChainSel {
+			filteredMsgSentEvents = append(filteredMsgSentEvents, ccipMessageSentEvents[i])
+		}
+	}
+
+	// sanity check, should not be possible at this point.
+	if len(filteredMsgSentEvents) == 0 {
+		return fmt.Errorf("no message found for seqNr %d", msgSeqNr)
+	}
+
 	execReport, err := manualexeclib.CreateExecutionReport(
 		srcChainSel,
 		onRampAddress,
-		ccipMessageSentEvents,
+		filteredMsgSentEvents,
 		hashes,
 		flags,
+		extraDataCodec,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create execution report: %w", err)
@@ -353,6 +373,7 @@ func ManuallyExecuteAll(
 	lookbackDuration time.Duration,
 	reExecuteIfFailed bool,
 ) error {
+	extraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
 	for _, seqNr := range msgSeqNrs {
 		err := manuallyExecuteSingle(
 			ctx,
@@ -364,6 +385,7 @@ func ManuallyExecuteAll(
 			uint64(seqNr), //nolint:gosec // seqNr is never <= 0.
 			lookbackDuration,
 			reExecuteIfFailed,
+			extraDataCodec,
 		)
 		if err != nil {
 			return err

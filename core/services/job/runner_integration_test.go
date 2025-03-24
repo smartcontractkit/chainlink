@@ -27,7 +27,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox/mailboxtest"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
@@ -90,7 +89,7 @@ func TestRunner(t *testing.T) {
 		DatabaseConfig: config.Database(),
 		FeatureConfig:  config.Feature(),
 		ListenerConfig: config.Database().Listener(),
-		KeyStore:       ethKeyStore,
+		KeyStore:       keyStore.Eth(),
 	})
 	c := clhttptest.NewTestLocalOnlyHTTPClient()
 
@@ -139,8 +138,8 @@ func TestRunner(t *testing.T) {
 		results := taskResults.FinalResult()
 		require.Len(t, results.Values, 2)
 		require.GreaterOrEqual(t, len(results.FatalErrors), 2)
-		assert.Nil(t, results.FatalErrors[0])
-		assert.Nil(t, results.FatalErrors[1])
+		assert.NoError(t, results.FatalErrors[0])
+		assert.NoError(t, results.FatalErrors[1])
 		require.GreaterOrEqual(t, len(results.AllErrors), 2)
 		assert.Equal(t, "6225.6", results.Values[0].(decimal.Decimal).String())
 		assert.Equal(t, "Hal Finney", results.Values[1].(string))
@@ -162,7 +161,9 @@ func TestRunner(t *testing.T) {
 			} else if run.GetDotID() == "ds2_multiply" {
 				assert.Equal(t, "6194.2", run.Output.Val)
 			} else if run.GetDotID() == "ds1" {
-				assert.Equal(t, `{"data": {"result": 62.57}}`, run.Output.Val)
+				s, ok := run.Output.Val.(string)
+				require.True(t, ok)
+				assert.JSONEq(t, `{"data": {"result": 62.57}}`, s)
 			} else if run.GetDotID() == "ds1_parse" {
 				assert.Equal(t, float64(62.57), run.Output.Val)
 			} else if run.GetDotID() == "ds1_multiply" {
@@ -190,13 +191,13 @@ func TestRunner(t *testing.T) {
 		// Should not be able to delete a bridge in use.
 		jids, err := jobORM.FindJobIDsWithBridge(ctx, bridge.Name.String())
 		require.NoError(t, err)
-		require.Equal(t, 1, len(jids))
+		require.Len(t, jids, 1)
 
 		// But if we delete the job, then we can.
 		require.NoError(t, jobORM.DeleteJob(ctx, jb.ID, jb.Type))
 		jids, err = jobORM.FindJobIDsWithBridge(ctx, bridge.Name.String())
 		require.NoError(t, err)
-		require.Equal(t, 0, len(jids))
+		require.Empty(t, jids)
 	})
 
 	t.Run("referencing a non-existent bridge should error", func(t *testing.T) {
@@ -472,7 +473,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -507,7 +509,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -535,7 +538,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -597,7 +601,8 @@ answer1      [type=median index=0];
 			sd := ocr.NewDelegate(
 				db,
 				jobORM,
-				keyStore,
+				ethKeyStore,
+				keyStore.OCR(),
 				nil,
 				pw,
 				monitoringEndpoint,
@@ -642,7 +647,8 @@ answer1      [type=median index=0];
 		sd := ocr.NewDelegate(
 			db,
 			jobORM,
-			keyStore,
+			ethKeyStore,
+			keyStore.OCR(),
 			nil,
 			pw,
 			monitoringEndpoint,
@@ -681,7 +687,7 @@ answer1      [type=median index=0];
 		se = []job.SpecError{}
 		err = db.Select(&se, `SELECT * FROM job_spec_errors`)
 		require.NoError(t, err)
-		require.Len(t, se, 0)
+		require.Empty(t, se)
 
 		// TODO: This breaks the txdb connection, failing subsequent tests. Resolve in the future
 		// Noop once the job is gone.
@@ -724,7 +730,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		results = taskResults.FinalResult()
 		assert.Equal(t, 10.1, results.Values[0])
-		assert.Nil(t, results.FatalErrors[0])
+		assert.NoError(t, results.FatalErrors[0])
 
 		// Job specified task timeout should fail.
 		jb = makeMinimalHTTPOracleSpec(t, db, config, cltest.NewEIP55Address().String(), transmitterAddress.Hex(), cltest.DefaultOCRKeyBundleID, serv.URL, "")
@@ -736,7 +742,7 @@ answer1      [type=median index=0];
 		_, taskResults, err = runner.ExecuteAndInsertFinishedRun(testutils.Context(t), *jb.PipelineSpec, pipeline.NewVarsFrom(nil), true)
 		require.NoError(t, err)
 		resultsNoFatalErrs := taskResults.FinalResult()
-		assert.NotNil(t, resultsNoFatalErrs.FatalErrors[0])
+		assert.Error(t, resultsNoFatalErrs.FatalErrors[0])
 	})
 
 	t.Run("deleting jobs", func(t *testing.T) {
@@ -757,7 +763,7 @@ answer1      [type=median index=0];
 		require.NoError(t, err)
 		results := taskResults.FinalResult()
 		assert.Len(t, results.Values, 1)
-		assert.Nil(t, results.FatalErrors[0])
+		assert.NoError(t, results.FatalErrors[0])
 		assert.Equal(t, "4242", results.Values[0].(decimal.Decimal).String())
 
 		// Delete the job

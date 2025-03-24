@@ -3,6 +3,10 @@ package v1_6
 import (
 	"fmt"
 
+	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment/ccip/view/v1_2"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	router1_2 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
@@ -11,10 +15,18 @@ import (
 
 type OffRampView struct {
 	types.ContractMetaData
-	DynamicConfig             offramp.OffRampDynamicConfig                `json:"dynamicConfig"`
-	LatestPriceSequenceNumber uint64                                      `json:"latestPriceSequenceNumber"`
-	SourceChainConfigs        map[uint64]offramp.OffRampSourceChainConfig `json:"sourceChainConfigs"`
-	StaticConfig              offramp.OffRampStaticConfig                 `json:"staticConfig"`
+	DynamicConfig             offramp.OffRampDynamicConfig        `json:"dynamicConfig"`
+	LatestPriceSequenceNumber uint64                              `json:"latestPriceSequenceNumber"`
+	SourceChainConfigs        map[uint64]OffRampSourceChainConfig `json:"sourceChainConfigs"`
+	StaticConfig              offramp.OffRampStaticConfig         `json:"staticConfig"`
+}
+
+type OffRampSourceChainConfig struct {
+	Router                    common.Address
+	IsEnabled                 bool
+	MinSeqNr                  uint64
+	IsRMNVerificationDisabled bool
+	OnRamp                    string
 }
 
 func GenerateOffRampView(
@@ -40,13 +52,19 @@ func GenerateOffRampView(
 	if err != nil {
 		return OffRampView{}, fmt.Errorf("failed to get source chain selectors: %w", err)
 	}
-	sourceChainConfigs := make(map[uint64]offramp.OffRampSourceChainConfig)
+	sourceChainConfigs := make(map[uint64]OffRampSourceChainConfig)
 	for _, sourceChainSelector := range sourceChainSelectors {
 		sourceChainConfig, err := offRampContract.GetSourceChainConfig(nil, sourceChainSelector)
 		if err != nil {
 			return OffRampView{}, fmt.Errorf("failed to get source chain config: %w", err)
 		}
-		sourceChainConfigs[sourceChainSelector] = sourceChainConfig
+		sourceChainConfigs[sourceChainSelector] = OffRampSourceChainConfig{
+			Router:                    sourceChainConfig.Router,
+			IsEnabled:                 sourceChainConfig.IsEnabled,
+			MinSeqNr:                  sourceChainConfig.MinSeqNr,
+			IsRMNVerificationDisabled: sourceChainConfig.IsRMNVerificationDisabled,
+			OnRamp:                    ccipocr3.UnknownAddress(sourceChainConfig.OnRamp).String(),
+		}
 	}
 
 	staticConfig, err := offRampContract.GetStaticConfig(nil)

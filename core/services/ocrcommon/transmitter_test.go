@@ -1,7 +1,6 @@
 package ocrcommon_test
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -9,14 +8,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	commontxmmocks "github.com/smartcontractkit/chainlink/v2/common/txmgr/types/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
@@ -28,13 +26,10 @@ func newMockTxStrategy(t *testing.T) *commontxmmocks.TxStrategy {
 func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := testutils.NewAddress()
+	ethKeyStore := keystest.Addresses{fromAddress}
 
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
@@ -48,7 +43,6 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
@@ -68,14 +62,12 @@ func Test_DefaultTransmitter_CreateEthTransaction(t *testing.T) {
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	memKeys := keystest.NewMemoryChainStore()
+	fromAddress := memKeys.MustCreate(t)
+	fromAddress2 := memKeys.MustCreate(t)
+	ethKeyStore := keys.NewStore(memKeys)
 
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
@@ -89,7 +81,6 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		ethKeyStore,
 	)
 	require.NoError(t, err)
@@ -119,13 +110,9 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction(t *testing.
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin_Error(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	fromAddress := common.Address{}
+	fromAddress := testutils.NewAddress()
 
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
@@ -139,8 +126,7 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
-		ethKeyStore,
+		keystest.Addresses{},
 	)
 	require.NoError(t, err)
 	require.Error(t, transmitter.CreateEthTransaction(testutils.Context(t), toAddress, payload, nil))
@@ -149,14 +135,10 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_Round_Robin
 func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore_Error(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, fromAddress2 := cltest.MustInsertRandomKey(t, ethKeyStore)
+	fromAddress := testutils.NewAddress()
+	fromAddress2 := testutils.NewAddress()
 
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := common.Address{}
 	txm := txmmocks.NewMockEvmTxManager(t)
 	strategy := newMockTxStrategy(t)
@@ -168,7 +150,6 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
 		nil,
 	)
 	require.Error(t, err)
@@ -177,18 +158,14 @@ func Test_DefaultTransmitter_Forwarding_Enabled_CreateEthTransaction_No_Keystore
 func Test_DualTransmitter(t *testing.T) {
 	t.Parallel()
 
-	db := pgtest.NewSqlxDB(t)
-	ethKeyStore := cltest.NewKeyStore(t, db).Eth()
-	ctx := tests.Context(t)
-
-	_, fromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
-	_, secondaryFromAddress := cltest.MustInsertRandomKey(t, ethKeyStore)
+	memoryKeystore := keystest.NewMemoryChainStore()
+	fromAddress := memoryKeystore.MustCreate(t)
+	secondaryFromAddress := memoryKeystore.MustCreate(t)
 
 	contractAddress := utils.RandomAddress()
 	secondaryContractAddress := utils.RandomAddress()
 
 	gasLimit := uint64(1000)
-	chainID := big.NewInt(0)
 	effectiveTransmitterAddress := fromAddress
 	toAddress := testutils.NewAddress()
 	payload := []byte{1, 2, 3}
@@ -205,7 +182,6 @@ func Test_DualTransmitter(t *testing.T) {
 	}
 
 	transmitter, err := ocrcommon.NewOCR2FeedsTransmitter(
-		ctx,
 		txm,
 		[]common.Address{fromAddress},
 		contractAddress,
@@ -213,8 +189,7 @@ func Test_DualTransmitter(t *testing.T) {
 		effectiveTransmitterAddress,
 		strategy,
 		txmgr.TransmitCheckerSpec{},
-		chainID,
-		ethKeyStore,
+		keys.NewStore(memoryKeystore),
 		dualTransmissionConfig,
 	)
 	require.NoError(t, err)

@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
 
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -19,7 +20,7 @@ func TestPluginPortManager(t *testing.T) {
 	pFoo, err := m.Register("foo")
 	require.NoError(t, err)
 	require.Equal(t, "foo", pFoo.Name)
-	require.Greater(t, pFoo.EnvCfg.PrometheusPort, 0)
+	require.Positive(t, pFoo.EnvCfg.PrometheusPort)
 	// test duplicate
 	pNil, err := m.Register("foo")
 	require.ErrorIs(t, err, ErrExists)
@@ -108,12 +109,12 @@ func TestLoopRegistry_Register(t *testing.T) {
 
 	// Test case 1: Register new loop
 	registeredLoop, err := loopRegistry.Register("testID")
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, "testID", registeredLoop.Name)
 
 	envCfg := registeredLoop.EnvCfg
 
-	require.Equal(t, &url.URL{Scheme: "fake", Host: "database.url"}, envCfg.DatabaseURL)
+	require.Equal(t, (*commonconfig.SecretURL)(&url.URL{Scheme: "fake", Host: "database.url"}), envCfg.DatabaseURL)
 	require.Equal(t, time.Hour, envCfg.DatabaseIdleInTxSessionTimeout)
 	require.Equal(t, time.Minute, envCfg.DatabaseLockTimeout)
 	require.Equal(t, time.Second, envCfg.DatabaseQueryTimeout)

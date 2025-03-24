@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -130,7 +131,7 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 	require.NoError(t, err)
 
 	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), ec)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	coordinator := NewCoordinatorV2(coordinatorV2)
 
 	chain := evmmocks.NewChain(t)
@@ -160,13 +161,13 @@ func setupVRFLogPollerListenerTH(t *testing.T) *vrfLogPollerListenerTH {
 			// listener.job.VRFSpec.CoordinatorAddress.Address(),
 		},
 	})
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.NoError(t, lp.RegisterFilter(ctx, logpoller.Filter{
 		Name:      "Integration test",
 		EventSigs: []common.Hash{emitterABI.Events["Log1"].ID},
 		Addresses: []common.Address{emitterAddress1},
 		Retention: 0}))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Len(t, lp.Filter(nil, nil, nil).Addresses, 2)
 	require.Len(t, lp.Filter(nil, nil, nil).Topics, 1)
 	require.Len(t, lp.Filter(nil, nil, nil).Topics[0], 3)
@@ -231,10 +232,10 @@ func TestInitProcessedBlock_NoVRFReqs(t *testing.T) {
 	// Should return logs from block 5 to 7 (inclusive)
 	logs, err := th.LogPoller.Logs(testutils.Context(t), 4, 7, emitterABI.Events["Log1"].ID, th.EmitterAddress)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(logs))
+	require.Len(t, logs, 3)
 
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
@@ -317,7 +318,7 @@ func TestInitProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	// initializeLastProcessedBlock must return the finalizedBlockNumber (8) instead of
 	// VRF request block number (5), since all VRF requests are fulfilled
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
@@ -369,7 +370,7 @@ func TestInitProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	// initializeLastProcessedBlock must return the unfulfilled VRF
 	// request block number (5) instead of finalizedBlockNumber (8)
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
@@ -429,7 +430,7 @@ func TestInitProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
 	// number instead of finalizedBlockNumber
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
@@ -493,7 +494,7 @@ func TestInitProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	// initializeLastProcessedBlock must return the earliest unfulfilled VRF request block
 	// number instead of finalizedBlockNumber
 	lastProcessedBlock, err := th.Listener.initializeLastProcessedBlock(ctx)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(7), lastProcessedBlock)
 }
 
@@ -559,7 +560,7 @@ func TestUpdateLastProcessedBlock_NoVRFReqs(t *testing.T) {
 	// no VRF requests, after currLastProcessedBlock (block 6). The VRF requests
 	// made above are before the currLastProcessedBlock (7) passed in below
 	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 7)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
@@ -613,7 +614,7 @@ func TestUpdateLastProcessedBlock_NoUnfulfilledVRFReqs(t *testing.T) {
 	// a VRF req at block (5) after currLastProcessedBlock (4) passed below, because
 	// the VRF request is fulfilled
 	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(8), lastProcessedBlock)
 }
 
@@ -663,7 +664,7 @@ func TestUpdateLastProcessedBlock_OneUnfulfilledVRFReq(t *testing.T) {
 	// finalizedBlockNumber (8) after currLastProcessedBlock (4) passed below,
 	// because the VRF request is unfulfilled
 	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(5), lastProcessedBlock)
 }
 
@@ -719,7 +720,7 @@ func TestUpdateLastProcessedBlock_SomeUnfulfilledVRFReqs(t *testing.T) {
 	// finalizedBlockNumber (16) after currLastProcessedBlock (4) passed below,
 	// as block 6 contains the earliest unfulfilled VRF request
 	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(6), lastProcessedBlock)
 }
 
@@ -780,7 +781,7 @@ func TestUpdateLastProcessedBlock_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	// as block 7 contains the earliest unfulfilled VRF request. VRF request
 	// in block 6 has been fulfilled in block 7.
 	lastProcessedBlock, err := th.Listener.updateLastProcessedBlock(ctx, 4)
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t, int64(7), lastProcessedBlock)
 }
 
@@ -815,7 +816,7 @@ func SetupGetUnfulfilledTH(t *testing.T) (*listenerV2, *ubig.Big) {
 	require.NoError(t, err)
 	b.Commit()
 	coordinatorV2, err := vrf_coordinator_v2.NewVRFCoordinatorV2(vrfLogEmitter.Address(), b.Client())
-	require.Nil(t, err)
+	require.NoError(t, err)
 	coordinator := NewCoordinatorV2(coordinatorV2)
 
 	listener := &listenerV2{
@@ -887,7 +888,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 			EventSig:       eventSig,
 			Address:        common.Address{},
 			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
+			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
 			CreatedAt:      time.Now(),
 		})
 		if i%2 == 0 {
@@ -899,7 +900,7 @@ func TestGetUnfulfilled_NoUnfulfilledVRFReqs(t *testing.T) {
 				BlockTimestamp: time.Now(),
 				Topics: [][]byte{
 					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
-					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i)),
+					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i)),
 				},
 				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
 				Address:   common.Address{},
@@ -945,7 +946,7 @@ func TestGetUnfulfilled_OneUnfulfilledVRFReq(t *testing.T) {
 			EventSig:       eventSig,
 			Address:        common.Address{},
 			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
+			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
 			CreatedAt:      time.Now(),
 		})
 	}
@@ -986,19 +987,19 @@ func TestGetUnfulfilled_SomeUnfulfilledVRFReq(t *testing.T) {
 			EventSig:       eventSig,
 			Address:        common.Address{},
 			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
+			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
 			CreatedAt:      time.Now(),
 		})
 	}
 
 	unfulfilled, _, fulfilled := listener.getUnfulfilled(logs, listener.l)
 	require.Len(t, unfulfilled, 5)
-	require.Len(t, fulfilled, 0)
+	require.Empty(t, fulfilled)
 	expected := map[int64]bool{0: true, 2: true, 4: true, 6: true, 8: true}
 	for _, u := range unfulfilled {
 		v, ok := expected[u.RequestID().Int64()]
-		require.Equal(t, ok, true)
-		require.Equal(t, v, true)
+		require.True(t, ok)
+		require.True(t, v)
 	}
 	require.Equal(t, len(expected), len(unfulfilled))
 }
@@ -1033,7 +1034,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 			EventSig:       eventSig,
 			Address:        common.Address{},
 			TxHash:         common.BigToHash(big.NewInt(int64(2 * i))),
-			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
+			Data:           common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i) + "000000000000000000000000000000000000000000000000000000000000006a000000000000000000000000000000000000000000000000000000000000000a00000000000000000000000000000000000000000000000000000000000027100000000000000000000000000000000000000000000000000000000000000002"),
 			CreatedAt:      time.Now(),
 		})
 		if i%2 == 0 && i < 6 {
@@ -1045,7 +1046,7 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 				BlockTimestamp: time.Now(),
 				Topics: [][]byte{
 					common.FromHex("0x7dffc5ae5ee4e2e4df1651cf6ad329a73cebdb728f37ea0187b9b17e036756e4"),
-					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + fmt.Sprintf("%d", i)),
+					common.FromHex("0x000000000000000000000000000000000000000000000000000000000000000" + strconv.Itoa(i)),
 				},
 				EventSig:  vrfEmitterABI.Events["RandomWordsFulfilled"].ID,
 				Address:   common.Address{},
@@ -1062,8 +1063,8 @@ func TestGetUnfulfilled_UnfulfilledNFulfilledVRFReqs(t *testing.T) {
 	expected := map[int64]bool{6: true, 8: true}
 	for _, u := range unfulfilled {
 		v, ok := expected[u.RequestID().Int64()]
-		require.Equal(t, ok, true)
-		require.Equal(t, v, true)
+		require.True(t, ok)
+		require.True(t, v)
 	}
 	require.Equal(t, len(expected), len(unfulfilled))
 }

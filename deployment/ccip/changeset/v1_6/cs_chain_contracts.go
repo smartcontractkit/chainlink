@@ -277,6 +277,10 @@ type UpdateOnRampDestsConfig struct {
 	// Disallow mixing MCMS/non-MCMS per chain for simplicity.
 	// (can still be achieved by calling this function multiple times)
 	MCMS *changeset.MCMSConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the onRamp.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
@@ -302,8 +306,10 @@ func (cfg UpdateOnRampDestsConfig) Validate(e deployment.Environment) error {
 		if chainState.OnRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
-			return err
+		if !cfg.SkipOwnershipCheck {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OnRamp); err != nil {
+				return err
+			}
 		}
 		sc, err := chainState.OnRamp.GetStaticConfig(&bind.CallOpts{Context: e.GetContext()})
 		if err != nil {
@@ -1083,6 +1089,10 @@ type UpdateOffRampSourcesConfig struct {
 	// update on the dest chain offramp.
 	UpdatesByChain map[uint64]map[uint64]OffRampSourceUpdate
 	MCMS           *changeset.MCMSConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the offRamp.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1101,8 +1111,10 @@ func (cfg UpdateOffRampSourcesConfig) Validate(e deployment.Environment, state c
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
-			return err
+		if !cfg.SkipOwnershipCheck {
+			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.OffRamp); err != nil {
+				return err
+			}
 		}
 
 		for source := range updates {
@@ -1222,6 +1234,10 @@ type UpdateRouterRampsConfig struct {
 	TestRouter     bool
 	UpdatesByChain map[uint64]RouterUpdates
 	MCMS           *changeset.MCMSConfig
+	// SkipOwnershipCheck allows you to bypass the ownership check for the router.
+	// WARNING: This should only be used when running this changeset within another changeset that is managing contract ownership!
+	// Never use this option when running this changeset in isolation.
+	SkipOwnershipCheck bool
 }
 
 func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1243,13 +1259,15 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 		if chainState.OffRamp == nil {
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
-		if cfg.TestRouter {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
-				return err
-			}
-		} else {
-			if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
-				return err
+		if !cfg.SkipOwnershipCheck {
+			if cfg.TestRouter {
+				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.TestRouter); err != nil {
+					return err
+				}
+			} else {
+				if err := commoncs.ValidateOwnership(e.GetContext(), cfg.MCMS != nil, e.Chains[chainSel].DeployerKey.From, chainState.Timelock.Address(), chainState.Router); err != nil {
+					return err
+				}
 			}
 		}
 
@@ -1721,20 +1739,20 @@ func DefaultFeeQuoterDestChainConfig(configEnabled bool, destChainSelector ...ui
 	return fee_quoter.FeeQuoterDestChainConfig{
 		IsEnabled:                         configEnabled,
 		MaxNumberOfTokensPerMsg:           10,
-		MaxDataBytes:                      256,
+		MaxDataBytes:                      30_000,
 		MaxPerMsgGasLimit:                 3_000_000,
 		DestGasOverhead:                   ccipevm.DestGasOverhead,
-		DefaultTokenFeeUSDCents:           1,
+		DefaultTokenFeeUSDCents:           25,
 		DestGasPerPayloadByteBase:         ccipevm.CalldataGasPerByteBase,
 		DestGasPerPayloadByteHigh:         ccipevm.CalldataGasPerByteHigh,
 		DestGasPerPayloadByteThreshold:    ccipevm.CalldataGasPerByteThreshold,
 		DestDataAvailabilityOverheadGas:   100,
-		DestGasPerDataAvailabilityByte:    100,
+		DestGasPerDataAvailabilityByte:    16,
 		DestDataAvailabilityMultiplierBps: 1,
-		DefaultTokenDestGasOverhead:       125_000,
+		DefaultTokenDestGasOverhead:       90_000,
 		DefaultTxGasLimit:                 200_000,
 		GasMultiplierWeiPerEth:            11e17, // Gas multiplier in wei per eth is scaled by 1e18, so 11e17 is 1.1 = 110%
-		NetworkFeeUSDCents:                1,
+		NetworkFeeUSDCents:                10,
 		ChainFamilySelector:               [4]byte(familySelector),
 	}
 }

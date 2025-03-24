@@ -10,6 +10,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
 type RMNHomeView struct {
@@ -22,7 +23,7 @@ type RMNHomeVersionedConfig struct {
 	Version       uint32               `json:"version"`
 	StaticConfig  RMNHomeStaticConfig  `json:"staticConfig"`
 	DynamicConfig RMNHomeDynamicConfig `json:"dynamicConfig"`
-	Digest        [32]byte             `json:"digest"`
+	Digest        []byte               `json:"digest"`
 }
 
 func decodeHexString(hexStr string, expectedLength int) ([]byte, error) {
@@ -83,49 +84,8 @@ type RMNHomeSourceChain struct {
 }
 
 type RMNHomeNode struct {
-	PeerId            [32]byte `json:"peerId"`
-	OffchainPublicKey [32]byte `json:"offchainPublicKey"`
-}
-
-func (n RMNHomeNode) MarshalJSON() ([]byte, error) {
-	type Alias RMNHomeNode
-	return json.Marshal(&struct {
-		PeerId            string `json:"peerId"`
-		OffchainPublicKey string `json:"offchainPublicKey"`
-		*Alias
-	}{
-		PeerId:            hex.EncodeToString(n.PeerId[:]),
-		OffchainPublicKey: hex.EncodeToString(n.OffchainPublicKey[:]),
-		Alias:             (*Alias)(&n),
-	})
-}
-
-func (n *RMNHomeNode) UnmarshalJSON(data []byte) error {
-	type Alias RMNHomeNode
-	aux := &struct {
-		PeerId            string `json:"peerId"`
-		OffchainPublicKey string `json:"offchainPublicKey"`
-		*Alias
-	}{
-		Alias: (*Alias)(n),
-	}
-	if err := json.Unmarshal(data, &aux); err != nil {
-		return err
-	}
-
-	peerIdBytes, err := decodeHexString(aux.PeerId, 32)
-	if err != nil {
-		return err
-	}
-	copy(n.PeerId[:], peerIdBytes)
-
-	offchainPublicKeyBytes, err := decodeHexString(aux.OffchainPublicKey, 32)
-	if err != nil {
-		return err
-	}
-	copy(n.OffchainPublicKey[:], offchainPublicKeyBytes)
-
-	return nil
+	PeerID            string `json:"peerId"`
+	OffchainPublicKey []byte `json:"offchainPublicKey"`
 }
 
 type DigestFunc func(*bind.CallOpts) ([32]byte, error)
@@ -133,9 +93,10 @@ type DigestFunc func(*bind.CallOpts) ([32]byte, error)
 func mapNodes(nodes []rmn_home.RMNHomeNode) []RMNHomeNode {
 	result := make([]RMNHomeNode, len(nodes))
 	for i, node := range nodes {
+		peerID := p2pkey.PeerID(node.PeerId)
 		result[i] = RMNHomeNode{
-			PeerId:            node.PeerId,
-			OffchainPublicKey: node.OffchainPublicKey,
+			PeerID:            peerID.String(),
+			OffchainPublicKey: node.OffchainPublicKey[:],
 		}
 	}
 	return result
@@ -179,7 +140,7 @@ func generateRmnHomeVersionedConfig(reader *rmn_home.RMNHome, digestFunc DigestF
 
 	return &RMNHomeVersionedConfig{
 		Version:       config.VersionedConfig.Version,
-		Digest:        config.VersionedConfig.ConfigDigest,
+		Digest:        config.VersionedConfig.ConfigDigest[:],
 		StaticConfig:  staticConfig,
 		DynamicConfig: dynamicConfig,
 	}, nil

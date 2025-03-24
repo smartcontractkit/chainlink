@@ -8,30 +8,9 @@ import (
 	"io"
 
 	"golang.org/x/crypto/sha3"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
-
-// Raw represents the Aptos private key
-type Raw []byte
-
-// Key gets the Key
-func (raw Raw) Key() Key {
-	privKey := ed25519.NewKeyFromSeed(raw)
-	pubKey := privKey.Public().(ed25519.PublicKey)
-	return Key{
-		privkey: privKey,
-		pubKey:  pubKey,
-	}
-}
-
-// String returns description
-func (raw Raw) String() string {
-	return "<Aptos Raw Private Key>"
-}
-
-// GoString wraps String()
-func (raw Raw) GoString() string {
-	return raw.String()
-}
 
 var _ fmt.GoStringer = &Key{}
 
@@ -40,6 +19,15 @@ type Key struct {
 	// TODO: store initial Account() derivation to support key rotation
 	privkey ed25519.PrivateKey
 	pubKey  ed25519.PublicKey
+}
+
+func KeyFor(raw internal.Raw) Key {
+	privKey := ed25519.NewKeyFromSeed(raw.Bytes())
+	pubKey := privKey.Public().(ed25519.PublicKey)
+	return Key{
+		privkey: privKey,
+		pubKey:  pubKey,
+	}
 }
 
 // New creates new Key
@@ -90,8 +78,8 @@ func (key Key) PublicKeyStr() string {
 }
 
 // Raw returns the seed from private key
-func (key Key) Raw() Raw {
-	return key.privkey.Seed()
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.privkey.Seed())
 }
 
 // String is the print-friendly format of the Key

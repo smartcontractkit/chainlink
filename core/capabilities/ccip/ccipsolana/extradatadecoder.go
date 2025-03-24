@@ -7,6 +7,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	agbinary "github.com/gagliardetto/binary"
+
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
@@ -41,7 +42,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 	outputMap := make(map[string]any)
 	switch string(extraArgs[:4]) {
 	case string(evmExtraArgsV2Tag):
-		var args fee_quoter.EVMExtraArgsV2
+		var args fee_quoter.GenericExtraArgsV2
 		decoder := agbinary.NewBorshDecoder(extraArgs[4:])
 		err := args.UnmarshalWithDecoder(decoder)
 		if err != nil {

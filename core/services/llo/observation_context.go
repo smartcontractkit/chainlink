@@ -2,7 +2,10 @@ package llo
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math"
+	"strconv"
 	"sync"
 	"time"
 
@@ -10,6 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/pipeline"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
@@ -78,18 +82,20 @@ func (oc *observationContext) Observe(ctx context.Context, streamID streams.Stre
 			break
 		}
 	}
-	// If no streamID attribute is found in the task results, then assume the
-	// final output is the stream ID and return that. This is safe to do since
-	// the registry will never return a spec that doesn't match either by tag
-	// or by spec streamID.
 	if !found {
-		// FIXME: This is a hack specific for V3 telemetry, future schemas should
-		// use the generic stream value telemetry instead
-		// https://smartcontract-it.atlassian.net/browse/MERC-6290
+		// If no streamID attribute is found in the task results, then assume the
+		// final output is the stream ID and return that. This is safe to do since
+		// the registry will never return a spec that doesn't match either by tag
+		// or by spec streamID.
 		val, err = extractFinalResultAsStreamValue(trrs)
-		oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		if oc.t.CaptureEATelemetry() {
+			// FIXME: This is a hack specific for V3 telemetry, future schemas should
+			// use the generic stream value telemetry instead
+			// https://smartcontract-it.atlassian.net/browse/MERC-6290
+			oc.t.EnqueueV3PremiumLegacy(run, trrs, streamID, opts, val, err)
+		}
 	}
-	if ch := pipeline.GetTelemetryCh(ctx); ch != nil {
+	if ch := GetObservationTelemetryCh(ctx); ch != nil {
 		cd := opts.ConfigDigest()
 		ot := &telem.LLOObservationTelemetry{
 			StreamId:              streamID,
@@ -132,6 +138,8 @@ func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
 		return llo.ToDecimal(v), nil
 	case float64:
 		return llo.ToDecimal(decimal.NewFromFloat(v)), nil
+	case int64:
+		return llo.ToDecimal(decimal.NewFromInt(v)), nil
 	case pipeline.ObjectParam:
 		switch v.Type {
 		case pipeline.DecimalType:
@@ -139,8 +147,113 @@ func resultToStreamValue(val interface{}) (llo.StreamValue, error) {
 		default:
 			return nil, fmt.Errorf("don't know how to convert pipeline.ObjectParam with type %d to llo.StreamValue", v.Type)
 		}
+	case map[string]interface{}:
+		sv, err := resultMapToStreamValue(v)
+		if err != nil {
+			return nil, fmt.Errorf("don't know how to convert map to StreamValue: %w; got: %v", err, v)
+		}
+		return sv, nil
 	default:
 		return nil, fmt.Errorf("don't know how to convert pipeline output result of type %T to llo.StreamValue (got: %v)", val, val)
+	}
+}
+
+// Converts arbitrary JSON (parsed to map) to a StreamValue
+func resultMapToStreamValue(m map[string]interface{}) (llo.StreamValue, error) {
+	var streamValueType llo.LLOStreamValue_Type
+	{
+		raw, exists := m["streamValueType"]
+		if !exists {
+			return nil, errors.New("expected a key labeled 'streamValueType' in the map")
+		}
+		rawInt64, ok := raw.(int64)
+		if !ok {
+			return nil, fmt.Errorf("expected 'streamValueType' to be a int64, got: %T", raw)
+		}
+		if rawInt64 < 0 || rawInt64 > math.MaxUint32 || rawInt64 >= int64(llo.LLOStreamValue_Type(len(llo.LLOStreamValue_Type_name))) { //nolint:gosec // G115 // won't overflow
+			return nil, fmt.Errorf("invalid streamValueType: %v", rawInt64)
+		}
+		streamValueType = llo.LLOStreamValue_Type(rawInt64) //nolint:gosec // G115 // won't overflow due to check above
+	}
+	switch streamValueType {
+	case llo.LLOStreamValue_TimestampedStreamValue:
+		r, err := resultMapToTimestampedStreamValue(m)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse TimestampedStreamValue: %w", err)
+		}
+		return r, nil
+	default:
+		return nil, fmt.Errorf("unknown streamValueType: %v", m["streamValueType"])
+	}
+}
+
+// expects something in the form of:
+//
+//	{
+//	  "timestamps": {
+//	  	"providerIndicatedTimeUnixMs": 1234567890,
+//	  	"providerDataReceivedUnixMs": 1234567890
+//	  },
+//	  "result": "123.456"
+//	}
+func resultMapToTimestampedStreamValue(m map[string]interface{}) (*llo.TimestampedStreamValue, error) {
+	ts, ok := m["timestamps"].(map[string]interface{})
+	if !ok {
+		return nil, errors.New("expected a key labeled 'timestamps' as map[string]interface{}")
+	}
+	// providerIndicatedTimeUnixMs is the best option, with providerDataReceivedUnixMs as a fallback
+	k := "providerIndicatedTimeUnixMs"
+	rawObservedAtMillis, exists := ts[k]
+	if !exists {
+		k = "providerDataReceivedUnixMs"
+		rawObservedAtMillis, exists = ts[k]
+		if !exists {
+			return nil, errors.New("expected a key labeled 'providerIndicatedTimeUnixMs' or 'providerDataReceivedUnixMs'")
+		}
+	}
+	observedAtMillis, err := toUint64(rawObservedAtMillis)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse '%s' as a uint64: %w", k, err)
+	}
+	rStreamValue, exists := m["result"]
+	if !exists {
+		return nil, errors.New("expected a key labeled 'result'")
+	}
+	// Assume it's always a decimal for now
+	svd, err := utils.ToDecimal(rStreamValue)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse 'result' as a decimal: %w", err)
+	}
+
+	if observedAtMillis > (math.MaxUint64 / uint64(1e6)) {
+		return nil, fmt.Errorf("observedAtMillis too large, got: %d", observedAtMillis)
+	}
+
+	return &llo.TimestampedStreamValue{
+		ObservedAtNanoseconds: observedAtMillis * 1e6, // convert ms to ns
+		StreamValue:           llo.ToDecimal(svd),
+	}, nil
+}
+
+func toUint64(v interface{}) (uint64, error) {
+	switch v := v.(type) {
+	case float64:
+		if v < 0 {
+			return 0, fmt.Errorf("expected positive float64, got: %f", v)
+		}
+		if v > math.MaxUint64 {
+			return 0, fmt.Errorf("float64 too large, got: %f", v)
+		}
+		return uint64(v), nil
+	case string:
+		return strconv.ParseUint(v, 10, 64)
+	case int64:
+		if v < 0 {
+			return 0, fmt.Errorf("expected positive int64, got: %d", v)
+		}
+		return uint64(v), nil
+	default:
+		return 0, fmt.Errorf("expected float64 or string, got: %T", v)
 	}
 }
 
@@ -158,7 +271,7 @@ func extractFinalResultAsStreamValue(trrs pipeline.TaskRunResults) (llo.StreamVa
 	case 1:
 		res := finaltrrs[0].Result
 		if res.Error != nil {
-			return nil, res.Error
+			return nil, fmt.Errorf("terminal task error: %w; all task errors: %w", res.Error, trrs.AllErrors())
 		}
 		val, err := toDecimal(res.Value)
 		if err != nil {

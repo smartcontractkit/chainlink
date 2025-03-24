@@ -1,6 +1,7 @@
 package core
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -14,7 +15,7 @@ import (
 
 type triggerWrapper = ac.IAutomationV21PlusCommonLogTrigger
 
-var ErrABINotParsable = fmt.Errorf("error parsing abi")
+var ErrABINotParsable = errors.New("error parsing abi")
 
 // PackTrigger packs the trigger data according to the upkeep type of the given id. it will remove the first 4 bytes of function selector.
 func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
@@ -24,7 +25,7 @@ func PackTrigger(id *big.Int, trig triggerWrapper) ([]byte, error) {
 	// construct utils abi
 	utilsABI, err := abi.JSON(strings.NewReader(ac.AutomationCompatibleUtilsABI))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return nil, fmt.Errorf("%w: %w", ErrABINotParsable, err)
 	}
 
 	// pack trigger based on upkeep type
@@ -62,7 +63,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 	// construct utils abi
 	utilsABI, err := abi.JSON(strings.NewReader(ac.AutomationCompatibleUtilsABI))
 	if err != nil {
-		return triggerWrapper{}, fmt.Errorf("%w: %s", ErrABINotParsable, err)
+		return triggerWrapper{}, fmt.Errorf("%w: %w", ErrABINotParsable, err)
 	}
 
 	upkeepType, ok := getUpkeepTypeFromBigInt(id)
@@ -77,7 +78,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV21PlusCommonConditionalTrigger)).(*ac.IAutomationV21PlusCommonConditionalTrigger)
 		if !ok {
-			return triggerWrapper{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, errors.New("failed to convert type")
 		}
 		triggerW := triggerWrapper{
 			BlockNum: converted.BlockNum,
@@ -91,7 +92,7 @@ func UnpackTrigger(id *big.Int, raw []byte) (triggerWrapper, error) {
 		}
 		converted, ok := abi.ConvertType(unpacked[0], new(ac.IAutomationV21PlusCommonLogTrigger)).(*ac.IAutomationV21PlusCommonLogTrigger)
 		if !ok {
-			return triggerWrapper{}, fmt.Errorf("failed to convert type")
+			return triggerWrapper{}, errors.New("failed to convert type")
 		}
 		triggerW := triggerWrapper{
 			BlockNum: converted.BlockNum,

@@ -160,7 +160,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	r.Metadata = rawRequest.Metadata
 
 	if rawRequest.Config == nil {
-		return r, fmt.Errorf("missing config field")
+		return r, errors.New("missing config field")
 	}
 
 	if err = rawRequest.Config.UnwrapTo(&r.Config); err != nil {
@@ -172,7 +172,7 @@ func evaluate(rawRequest capabilities.CapabilityRequest) (r Request, err error) 
 	}
 
 	if rawRequest.Inputs == nil {
-		return r, fmt.Errorf("missing inputs field")
+		return r, errors.New("missing inputs field")
 	}
 
 	// required field of target's config in the workflow spec

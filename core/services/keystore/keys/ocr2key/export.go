@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/keystore"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/starkkey"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -30,12 +30,12 @@ func (x EncryptedOCRKeyExport) GetCrypto() keystore.CryptoJSON {
 
 // FromEncryptedJSON returns key from encrypted json
 func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
-	return keys.FromEncryptedJSON(
+	return internal.FromEncryptedJSON(
 		keyTypeIdentifier,
 		keyJSON,
 		password,
 		adulteratedPassword,
-		func(export EncryptedOCRKeyExport, rawPrivKey []byte) (KeyBundle, error) {
+		func(export EncryptedOCRKeyExport, rawPrivKey internal.Raw) (KeyBundle, error) {
 			var kb KeyBundle
 			switch export.ChainType {
 			case chaintype.EVM:
@@ -53,7 +53,7 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 			default:
 				return nil, chaintype.NewErrInvalidChainType(export.ChainType)
 			}
-			if err := kb.Unmarshal(rawPrivKey); err != nil {
+			if err := kb.Unmarshal(rawPrivKey.Bytes()); err != nil {
 				return nil, err
 			}
 			return kb, nil
@@ -63,9 +63,8 @@ func FromEncryptedJSON(keyJSON []byte, password string) (KeyBundle, error) {
 
 // ToEncryptedJSON returns encrypted JSON representing key
 func ToEncryptedJSON(key KeyBundle, password string, scryptParams utils.ScryptParams) (export []byte, err error) {
-	return keys.ToEncryptedJSON(
+	return internal.ToEncryptedJSON(
 		keyTypeIdentifier,
-		key.Raw(),
 		key,
 		password,
 		scryptParams,

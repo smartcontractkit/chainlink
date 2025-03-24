@@ -2,7 +2,6 @@ package synchronization
 
 import (
 	"context"
-	"errors"
 	"net/url"
 	"sync/atomic"
 	"time"
@@ -12,7 +11,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
+	"github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
+
 	telemPb "github.com/smartcontractkit/chainlink/v2/core/services/synchronization/telem"
 )
 
@@ -37,8 +38,10 @@ type telemetryIngressClient struct {
 	services.Service
 	eng *services.Engine
 
-	url             *url.URL
-	ks              keystore.CSA
+	url         *url.URL
+	csaKeyStore keystore.CSA
+	csaSigner   *core.Ed25519Signer
+
 	serverPubKeyHex string
 
 	telemClient telemPb.TelemClient
@@ -50,37 +53,43 @@ type telemetryIngressClient struct {
 
 // NewTelemetryIngressClient returns a client backed by wsrpc that
 // can send telemetry to the telemetry ingress server
-func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, ks keystore.CSA, logging bool, lggr logger.Logger, telemBufferSize uint) TelemetryService {
+func NewTelemetryIngressClient(url *url.URL, serverPubKeyHex string, csaKeyStore keystore.CSA, lggr logger.Logger, telemBufferSize uint) TelemetryService {
 	c := &telemetryIngressClient{
 		url:             url,
-		ks:              ks,
+		csaKeyStore:     csaKeyStore,
 		serverPubKeyHex: serverPubKeyHex,
-		logging:         logging,
 		chTelemetry:     make(chan TelemPayload, telemBufferSize),
 	}
 	c.Service, c.eng = services.Config{
 		Name:  "TelemetryIngressClient",
 		Start: c.start,
+		Close: c.close,
 	}.NewServiceEngine(lggr)
 	return c
 }
 
-// Start connects the wsrpc client to the telemetry ingress server
-func (tc *telemetryIngressClient) start(context.Context) error {
-	privkey, err := tc.getCSAPrivateKey()
-	if err != nil {
-		return err
+func (tc *telemetryIngressClient) close() error {
+	if tc.csaSigner != nil {
+		return tc.csaSigner.Close()
 	}
-
-	tc.connect(privkey)
-
 	return nil
 }
 
-func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
+// Start connects the wsrpc client to the telemetry ingress server
+func (tc *telemetryIngressClient) start(context.Context) error {
 	tc.eng.Go(func(ctx context.Context) {
-		serverPubKey := keys.FromHex(tc.serverPubKeyHex)
-		conn, err := wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportCreds(clientPrivKey, serverPubKey), wsrpc.WithLogger(tc.eng))
+		conn, err := func() (*wsrpc.ClientConn, error) {
+			serverPubKey := keys.FromHex(tc.serverPubKeyHex)
+			key, err := keystore.GetDefault(ctx, tc.csaKeyStore)
+			if err != nil {
+				return nil, err
+			}
+			tc.csaSigner, err = core.NewEd25519Signer(key.ID(), keystore.CSASigner{CSA: tc.csaKeyStore}.Sign)
+			if err != nil {
+				return nil, err
+			}
+			return wsrpc.DialWithContext(ctx, tc.url.String(), wsrpc.WithTransportSigner(tc.csaSigner, serverPubKey), wsrpc.WithLogger(tc.eng))
+		}()
 		if err != nil {
 			if ctx.Err() != nil {
 				tc.eng.Warnw("gave up connecting to telemetry endpoint", "err", err)
@@ -104,6 +113,7 @@ func (tc *telemetryIngressClient) connect(clientPrivKey []byte) {
 		// Wait for close
 		<-ctx.Done()
 	})
+	return nil
 }
 
 func (tc *telemetryIngressClient) handleTelemetry() {
@@ -150,20 +160,6 @@ func (tc *telemetryIngressClient) logBufferFullWithExpBackoff(payload TelemPaylo
 	if count > 0 && (count%100 == 0 || count&(count-1) == 0) {
 		tc.eng.Warnw("telemetry ingress client buffer full, dropping message", "telemetry", payload.Telemetry, "droppedCount", count)
 	}
-}
-
-// getCSAPrivateKey gets the client's CSA private key
-func (tc *telemetryIngressClient) getCSAPrivateKey() (privkey []byte, err error) {
-	// Fetch the client's public key
-	keys, err := tc.ks.GetAll()
-	if err != nil {
-		return privkey, err
-	}
-	if len(keys) < 1 {
-		return privkey, errors.New("CSA key does not exist")
-	}
-
-	return keys[0].Raw(), nil
 }
 
 // Send sends telemetry to the ingress server using wsrpc if the client is ready.

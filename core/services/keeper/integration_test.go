@@ -23,13 +23,13 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/forwarders"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/basic_upkeep_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_logic1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_1"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_2"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/keeper_registry_wrapper1_3"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/mock_v3_aggregator_contract"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/operatorforwarder/generated/authorized_forwarder"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -315,7 +315,7 @@ func TestKeeperEthIntegration(t *testing.T) {
 			// This happens in case we start a pipeline run before previous perform tx is committed to chain
 			require.GreaterOrEqual(t, len(runs), 3)
 			prr := webpresenters.NewPipelineRunResource(runs[0], logger.TestLogger(t))
-			require.Equal(t, 1, len(prr.Outputs))
+			require.Len(t, prr.Outputs, 1)
 			require.Nil(t, prr.Outputs[0])
 		})
 	}
@@ -463,7 +463,7 @@ func TestKeeperForwarderEthIntegration(t *testing.T) {
 			require.NoError(t, err2)
 			return upkeepCfg.LastKeeper
 		}
-		require.Equal(t, lastKeeper(), common.Address{})
+		require.Equal(t, common.Address{}, lastKeeper())
 
 		err = app.JobSpawner().StartService(ctx, jb)
 		require.NoError(t, err)

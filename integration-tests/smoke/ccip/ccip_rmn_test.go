@@ -412,6 +412,21 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 			"define curse subjects, your test case should have at least one message not expected to be delivered")
 	}
 
+	// Trying to replay logs at intervals to avoid test flakiness
+	go func() {
+		ticker := time.NewTicker(1 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				t.Logf("replaying logs after waiting for more than 1 minute")
+				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+			case <-t.Context().Done():
+				return
+			}
+		}
+	}()
+
 	commitReportReceived := make(chan struct{})
 	go func() {
 		if len(expectedSeqNum) > 0 {

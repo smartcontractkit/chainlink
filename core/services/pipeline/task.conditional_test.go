@@ -40,10 +40,10 @@ func TestConditionalTask(t *testing.T) {
 				assert.False(t, runInfo.IsRetryable)
 				if test.expectErr {
 					require.Error(t, result.Error)
-					require.Equal(t, nil, result.Value)
+					require.Nil(t, result.Value)
 				} else {
 					require.NoError(t, result.Error)
-					require.Equal(t, true, result.Value.(bool))
+					require.True(t, result.Value.(bool))
 				}
 			})
 			t.Run("with vars", func(t *testing.T) {
@@ -60,10 +60,10 @@ func TestConditionalTask(t *testing.T) {
 				assert.False(t, runInfo.IsRetryable)
 				if test.expectErr {
 					require.Error(t, result.Error)
-					require.Equal(t, nil, result.Value)
+					require.Nil(t, result.Value)
 				} else {
 					require.NoError(t, result.Error)
-					require.Equal(t, true, result.Value.(bool))
+					require.True(t, result.Value.(bool))
 				}
 			})
 		})

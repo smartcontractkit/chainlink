@@ -26,6 +26,10 @@ type CCIPContractsToTransfer struct {
 	Router    bool
 	FeeQuoter bool
 	OffRamp   bool
+	// Token Pool PDA -> Token Mint
+	LockReleaseTokenPools map[solana.PublicKey]solana.PublicKey
+	BurnMintTokenPools    map[solana.PublicKey]solana.PublicKey
+	RMNRemote             bool
 }
 
 type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
@@ -46,6 +50,7 @@ func ValidateContracts(state state2.SolCCIPChainState, chainSelector uint64, con
 		{contracts.Router, state.Router, "Router"},
 		{contracts.FeeQuoter, state.FeeQuoter, "FeeQuoter"},
 		{contracts.OffRamp, state.OffRamp, "OffRamp"},
+		{contracts.RMNRemote, state.RMNRemote, "RMNRemote"},
 	}
 
 	for _, check := range contractChecks {
@@ -194,6 +199,60 @@ func TransferCCIPToMCMSWithTimelockSolana(
 			)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of offRamp: %w", err)
+			}
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+				Transactions:  mcmsTxs,
+			})
+		}
+		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.LockReleaseTokenPools {
+			mcmsTxs, err := transferOwnershipLockReleaseTokenPools(
+				ccipState,
+				tokenPoolConfigPDA,
+				tokenMint,
+				chainSelector,
+				solChain,
+				mcmState.TimelockProgram,
+				mcmState.TimelockSeed,
+			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of lock-release token pools: %w", err)
+			}
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+				Transactions:  mcmsTxs,
+			})
+		}
+
+		for tokenPoolConfigPDA, tokenMint := range contractsToTransfer.BurnMintTokenPools {
+			mcmsTxs, err := transferOwnershipBurnMintTokenPools(
+				ccipState,
+				tokenPoolConfigPDA,
+				tokenMint,
+				chainSelector,
+				solChain,
+				mcmState.TimelockProgram,
+				mcmState.TimelockSeed,
+			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of burn-mint token pools: %w", err)
+			}
+			batches = append(batches, mcmsTypes.BatchOperation{
+				ChainSelector: mcmsTypes.ChainSelector(chainSelector),
+				Transactions:  mcmsTxs,
+			})
+		}
+
+		if contractsToTransfer.RMNRemote {
+			mcmsTxs, err := transferOwnershipRMNRemote(
+				ccipState,
+				chainSelector,
+				solChain,
+				mcmState.TimelockProgram,
+				mcmState.TimelockSeed,
+			)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer ownership of rmnremote: %w", err)
 			}
 			batches = append(batches, mcmsTypes.BatchOperation{
 				ChainSelector: mcmsTypes.ChainSelector(chainSelector),

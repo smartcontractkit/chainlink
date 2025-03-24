@@ -11,7 +11,7 @@ env:
 jobs:
   checks:
     name: "Checks"
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     outputs:
       git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
       ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
@@ -30,10 +30,10 @@ jobs:
         run: |
           # Check if git tag is related to CCIP
           # Should match:
-          #   v1.0.0-ccip1.0.0-beta.1
-          #   v1.0.0-ccip1.0.0-rc.0
-          #   v1.0.0-ccip1.0.0
-          if [[ $GIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ccip[0-9]+\.[0-9]+\.[0-9]+(-((beta|rc)\.[0-9]+))?$ ]]; then
+          #   v1.0.0-ccip-beta.1
+          #   v1.0.0-ccip-rc.0
+          #   v1.0.0-ccip
+          if [[ $GIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ccip(-((beta|rc)\.[0-9]+))?$ ]]; then
             echo "git-tag-type=ccip" | tee -a "$GITHUB_OUTPUT"
             echo "ecr-image-name=chainlink/ccip" | tee -a "$GITHUB_OUTPUT"
           else
@@ -57,7 +57,7 @@ jobs:
 
   build-sign-publish-chainlink:
     needs: [checks]
-    runs-on: ubuntu-20.04
+    runs-on: ubuntu-24.04
     environment: build-publish
     permissions:
       id-token: write

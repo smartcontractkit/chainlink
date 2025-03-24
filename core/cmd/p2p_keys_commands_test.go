@@ -3,7 +3,6 @@ package cmd_test
 import (
 	"bytes"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 
@@ -72,10 +71,10 @@ func TestShell_ListP2PKeys(t *testing.T) {
 
 	client, r := app.NewShellAndRenderer()
 
-	assert.Nil(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
-	require.Equal(t, 1, len(r.Renders))
+	assert.NoError(t, client.ListP2PKeys(cltest.EmptyCLIContext()))
+	require.Len(t, r.Renders, 1)
 	keys := *r.Renders[0].(*cmd.P2PKeyPresenters)
-	assert.True(t, key.PublicKeyHex() == keys[0].PubKey)
+	assert.Equal(t, key.PublicKeyHex(), keys[0].PubKey)
 }
 
 func TestShell_CreateP2PKey(t *testing.T) {
@@ -151,7 +150,7 @@ func TestShell_ImportExportP2PKeyBundle(t *testing.T) {
 	set = flag.NewFlagSet("test P2P export", 0)
 	flagSetApplyFromAction(client.ExportP2PKey, set, "")
 
-	require.NoError(t, set.Parse([]string{fmt.Sprint(key.ID())}))
+	require.NoError(t, set.Parse([]string{key.ID()}))
 	require.NoError(t, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 	require.NoError(t, set.Set("output", keyName))
 

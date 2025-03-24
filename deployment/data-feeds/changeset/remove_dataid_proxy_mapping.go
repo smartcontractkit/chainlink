@@ -26,24 +26,25 @@ func removeFeedProxyMappingLogic(env deployment.Environment, c types.RemoveFeedP
 	}
 
 	tx, err := contract.RemoveDataIdMappingsForProxies(txOpt, c.ProxyAddresses)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove feed proxy mapping %w", err)
-	}
 
 	if c.McmsConfig != nil {
-		proposal, err := BuildMCMProposals(env, "proposal to remove a feed proxy mapping from cache", c.ChainSelector, []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
+		proposalConfig := MultiChainProposalConfig{
+			c.ChainSelector: []ProposalData{
+				{
+					contract: contract.Address().Hex(),
+					tx:       tx,
+				},
 			},
-		}, c.McmsConfig.MinDelay)
+		}
+
+		proposal, err := BuildMultiChainProposals(env, "proposal to remove a feed proxy mapping from cache", proposalConfig, c.McmsConfig.MinDelay)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
 		return deployment.ChangesetOutput{MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal}}, nil
 	}
-	_, err = chain.Confirm(tx)
-	if err != nil {
+
+	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
 	}
 

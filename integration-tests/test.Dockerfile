@@ -14,6 +14,9 @@ RUN cd integration-tests/load && go mod download
 
 COPY . .
 
+# Get the SHA of the current commit and save it to sha.txt
+RUN git rev-parse HEAD > /go/testdir/sha.txt
+
 ARG SUITES=chaos soak benchmark load ccip-load
 
 RUN /go/testdir/integration-tests/scripts/buildTests "${SUITES}"
@@ -24,6 +27,11 @@ RUN mkdir -p /go/testdir/integration-tests/scripts
 COPY --from=build-env /go/testdir/integration-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/ccip-tests/*.test /go/testdir/integration-tests/
 COPY --from=build-env /go/testdir/integration-tests/scripts /go/testdir/integration-tests/scripts/
+COPY --from=build-env /go/testdir/sha.txt /go/testdir/sha.txt
+
+RUN echo "chainlink SHA used:"
+RUN cat /go/testdir/sha.txt
+
 RUN echo "All tests"
 RUN ls -l /go/testdir/integration-tests/*.test
 

@@ -55,15 +55,9 @@ type stepUpdateManager struct {
 }
 
 func (sucm *stepUpdateManager) add(executionID string, ch stepUpdateChannel) (added bool) {
-	sucm.mu.RLock()
-	_, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
-	if ok {
-		return false
-	}
 	sucm.mu.Lock()
 	defer sucm.mu.Unlock()
-	if _, ok = sucm.m[executionID]; ok {
+	if _, ok := sucm.m[executionID]; ok {
 		return false
 	}
 	sucm.m[executionID] = ch
@@ -80,9 +74,10 @@ func (sucm *stepUpdateManager) remove(executionID string) {
 }
 
 func (sucm *stepUpdateManager) send(ctx context.Context, executionID string, stepUpdate store.WorkflowExecutionStep) error {
-	sucm.mu.RLock()
+	sucm.mu.Lock()
+	defer sucm.mu.Unlock()
 	stepUpdateCh, ok := sucm.m[executionID]
-	sucm.mu.RUnlock()
+
 	if !ok {
 		return fmt.Errorf("step update channel not found for execution %s, dropping step update", executionID)
 	}
@@ -147,6 +142,10 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
+	meterReport    *MeteringReport
+
+	// sendMeteringReport is a hook for now to prevent this being sent in production
+	sendMeteringReport func(*MeteringReport)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -568,6 +567,8 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
+	e.meterReport = NewMeteringReport()
+
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
 	ec := &store.WorkflowExecution{
@@ -655,7 +656,16 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 			// This is to ensure that any side effects are executed consistently, since otherwise
 			// the async nature of the workflow engine would provide no guarantees.
 		}
+
 		logCustMsg(ctx, cma, "execution status: "+status, l)
+
+		// this case is only for resuming executions and should be updated when metering is added to save execution state
+		if e.meterReport == nil {
+			e.meterReport = NewMeteringReport()
+		}
+
+		e.sendMeteringReport(e.meterReport)
+
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
 
@@ -1172,6 +1182,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 			e.logger.Info("shutting down heartbeat")
 			return
 		case <-ticker.C:
+			e.metrics.engineHeartbeatGauge(ctx)
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
 		}
@@ -1273,8 +1284,14 @@ type Config struct {
 	SecretsFetcher       secretsFetcher
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
-	RateLimiter          *ratelimiter.RateLimiter
-	WorkflowLimits       *syncerlimiter.Limits
+
+	// RateLimiter limits the workflow execution steps globally and per
+	// second that a workflow owner can make
+	RateLimiter *ratelimiter.RateLimiter
+
+	// WorkflowLimits specifies an upper limit on the count of workflows that can be
+	// running globally and per workflow owner.
+	WorkflowLimits *syncerlimiter.Limits
 
 	// For testing purposes only
 	maxRetries          int
@@ -1283,11 +1300,12 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
+	sendMeteringReport  func(*MeteringReport)
 }
 
 const (
 	defaultWorkerLimit          = 100
-	defaultQueueSize            = 100000
+	defaultQueueSize            = 1000
 	defaultNewWorkerTimeout     = 2 * time.Second
 	defaultMaxExecutionDuration = 10 * time.Minute
 	defaultHeartbeatCadence     = 1 * time.Minute
@@ -1345,6 +1363,10 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 
 	if cfg.clock == nil {
 		cfg.clock = clockwork.NewRealClock()
+	}
+
+	if cfg.sendMeteringReport == nil {
+		cfg.sendMeteringReport = func(*MeteringReport) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1417,6 +1439,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
+		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
 	return engine, nil

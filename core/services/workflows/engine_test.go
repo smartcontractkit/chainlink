@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"math/rand/v2"
+	"sync"
 	"testing"
 	"time"
 
@@ -14,9 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -218,6 +222,16 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
+		sendMeteringReport: func(report *MeteringReport) {
+			detail := report.Description()
+			bClient := beholder.GetClient()
+			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity}
+
+			data, mErr := proto.Marshal(report.Message())
+			require.NoError(t, mErr)
+
+			require.NoError(t, bClient.Emitter.Emit(t.Context(), data, kvAttrs...))
+		},
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -235,7 +249,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) string {
+func getExecutionID(t *testing.T, _ *Engine, hooks *testHooks) string {
 	var eid string
 	select {
 	case <-hooks.initFailed:
@@ -306,6 +320,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	beholderTester := tests.Beholder(t)
 
 	trigger, cr := mockTrigger(t)
 
@@ -348,6 +363,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
 }
 
 const (
@@ -421,6 +437,8 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
+	t.Helper()
+
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
@@ -1692,6 +1710,12 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -1763,6 +1787,12 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -2154,4 +2184,55 @@ func TestMerge(t *testing.T) {
 			assert.Equal(t, tc.expectedConfig, gotMap)
 		})
 	}
+}
+
+// Test_stepUpdateManager ensures that the manager is concurrency safe by sending concurrent
+// requests to send and remove a given execution ID.
+func Test_stepUpdateManager(t *testing.T) {
+	var (
+		wg             sync.WaitGroup
+		ctx            = testutils.Context(t)
+		wantExecutions = 99
+		wantSends      = wantExecutions * 2
+		buffLen        = wantSends // worst case scenario all sends go to one channel
+	)
+
+	// Setup the step update manager
+	mgr := stepUpdateManager{
+		m: make(map[string]stepUpdateChannel),
+	}
+	executionIDs := make([]string, wantExecutions)
+	stepUpdateChs := make([]stepUpdateChannel, wantExecutions)
+	for i := range wantExecutions {
+		executionIDs[i] = fmt.Sprintf("execution-%d", i+1)
+		stepUpdateCh := make(chan store.WorkflowExecutionStep, buffLen) // buffered channel so we don't have to read
+		stepUpdateChs[i] = stepUpdateChannel{
+			executionID: executionIDs[i],
+			ch:          stepUpdateCh,
+		}
+		mgr.add(executionIDs[i], stepUpdateChs[i])
+	}
+
+	// Concurrently send and remove for the same execution ID
+	for range wantSends {
+		eid := executionIDs[rand.IntN(len(executionIDs))]
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			_ = mgr.send(ctx, eid, store.WorkflowExecutionStep{
+				ExecutionID: eid,
+			})
+		}()
+
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			mgr.remove(eid)
+		}()
+	}
+
+	wg.Wait()
 }
