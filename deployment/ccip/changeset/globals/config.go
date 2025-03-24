@@ -17,6 +17,7 @@ const (
 	PermissionLessExecutionThreshold  = 8 * time.Hour
 	RemoteGasPriceBatchWriteFrequency = 30 * time.Minute
 	TokenPriceBatchWriteFrequency     = 30 * time.Minute
+	ConfigPollerSyncFrequency         = 30 * time.Second
 	// Building batches with 6.5m and transmit with 8m to account for overhead.
 	BatchGasLimit               = 6_500_000
 	InflightCacheExpiry         = 1 * time.Minute
@@ -61,6 +62,7 @@ var (
 		TokenPriceAsyncObserverDisabled:    false,
 		TokenPriceAsyncObserverSyncFreq:    *config.MustNewDuration(10 * time.Second),
 		TokenPriceAsyncObserverSyncTimeout: *config.MustNewDuration(12 * time.Second),
+		ConfigPollerSyncFreq:               *config.MustNewDuration(ConfigPollerSyncFrequency),
 
 		// Remaining fields cannot be statically set:
 		// PriceFeedChainSelector: , // Must be configured in CLD
@@ -79,6 +81,7 @@ var (
 		TransmissionDelayMultiplier: TransmissionDelayMultiplier,
 		MaxReportMessages:           0,
 		MaxSingleChainReports:       0,
+		ConfigPollerSyncFreq:        *config.MustNewDuration(ConfigPollerSyncFrequency),
 
 		// Remaining fields cannot be statically set:
 		// TokenDataObservers: , // Must be configured in CLD
