@@ -25,8 +25,8 @@ var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPo
 
 // AllowedTokenSymbolOverrides is a list of token pool symbols that are allowed to be overridden.
 var AllowedTokenSymbolOverrides = map[changeset.TokenSymbol]changeset.TokenSymbol{
-	changeset.CLCCIPLnMSymbol: changeset.CCIPLnMSymbol, // clCCIP-LnM is allowed to be overridden only with CCIP-LnM
-	changeset.CCIPLnMSymbol: changeset.CLCCIPLnMSymbol, // CCIP-LnM is allowed to be overridden only with clCCIP-LnM
+	changeset.CLCCIPLnMSymbol: changeset.CCIPLnMSymbol,   // clCCIP-LnM is allowed to be overridden only with CCIP-LnM
+	changeset.CCIPLnMSymbol:   changeset.CLCCIPLnMSymbol, // CCIP-LnM is allowed to be overridden only with clCCIP-LnM
 }
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
