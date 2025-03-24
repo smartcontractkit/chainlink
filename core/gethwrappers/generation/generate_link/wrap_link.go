@@ -18,10 +18,10 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/json_utils"
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
 
 func main() {
@@ -39,7 +39,7 @@ func main() {
 		"27c0e17a79553fccc63a4400c6bbe415ff710d9cc7c25757bff0f7580205c922" {
 		gethwrappers.Exit("LINK details should never change!", nil)
 	}
-	abi, err := utils.NormalizedJSON([]byte(
+	abi, err := json_utils.NormalizedJSON([]byte(
 		gjson.Get(string(linkDetails), "abi").String()))
 	if err != nil || abi == "" {
 		gethwrappers.Exit("could not extract LINK ABI", err)
