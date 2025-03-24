@@ -47,5 +47,4 @@ func TestWithdraw(t *testing.T) {
 
 	feeManagerBalance := testutil.MustGetLinkBalance(t, e, chain, feeManagerAddress)
 	require.Equal(t, big.NewInt(50), feeManagerBalance)
-
 }

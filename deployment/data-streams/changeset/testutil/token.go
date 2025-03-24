@@ -10,7 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deployment.Chain, to common.Address, amount int64) {
@@ -18,7 +18,7 @@ func MustFundAddressWithLink(t *testing.T, e deployment.Environment, chain deplo
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
-	linkState, err := commonchangeset.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 	require.NotNil(t, linkState.LinkToken)
 
@@ -47,7 +47,7 @@ func MustGetLinkBalance(t *testing.T, e deployment.Environment, chain deployment
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	require.NoError(t, err)
 
-	linkState, err := commonchangeset.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	ctx := e.GetContext()
