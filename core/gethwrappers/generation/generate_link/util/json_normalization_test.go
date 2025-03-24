@@ -1,10 +1,10 @@
-package json_utils_test
+package util_test
 
 import (
 	"encoding/json"
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/json_utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/util"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -48,7 +48,7 @@ func TestNormalizedJSON(t *testing.T) {
 			jsonBytes, err := json.Marshal(test.input)
 			assert.NoError(t, err)
 
-			str, err := json_utils.NormalizedJSON(jsonBytes)
+			str, err := util.NormalizedJSON(jsonBytes)
 
 			assert.Equal(t, test.wantError, err != nil)
 			assert.Equal(t, test.want, str)

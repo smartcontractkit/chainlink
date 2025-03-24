@@ -1,4 +1,4 @@
-package json_utils
+package util
 
 import (
 	"bufio"
