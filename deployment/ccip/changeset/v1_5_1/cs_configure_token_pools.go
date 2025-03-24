@@ -225,8 +225,12 @@ func configureTokenPool(
 	chainSelector uint64,
 ) error {
 	poolUpdate := config.PoolUpdates[chainSelector]
+	tokenSymbol := config.TokenSymbol
+	if poolUpdate.OverrideTokenSymbol != "" {
+		tokenSymbol = poolUpdate.OverrideTokenSymbol
+	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
 	if err != nil {
 		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 	}
