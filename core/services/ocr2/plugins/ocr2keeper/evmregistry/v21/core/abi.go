@@ -1,11 +1,11 @@
 package core
 
 import (
+	ac "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/generated/automation_compatible_utils"
+	autov2common "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/generated/i_automation_v21_plus_common"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/generated/i_log_automation"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/generated/streams_lookup_compatible_interface"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	autov2common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_log_automation"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/streams_lookup_compatible_interface"
 )
 
 var CompatibleUtilsABI = types.MustGetABI(ac.AutomationCompatibleUtilsABI)

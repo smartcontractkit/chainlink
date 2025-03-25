@@ -6,10 +6,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/llo-feeds/generated/verifier_proxy_v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 )
 
 var DeployVerifierProxyChangeset = deployment.CreateChangeSet(deployVerifierProxyLogic, deployVerifierProxyPrecondition)

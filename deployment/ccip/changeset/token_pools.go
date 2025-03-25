@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
 )
 

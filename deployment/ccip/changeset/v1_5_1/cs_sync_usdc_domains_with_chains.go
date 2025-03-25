@@ -8,10 +8,10 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/ccip/generated/v1_5_1/usdc_token_pool"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 )
 
 var _ deployment.ChangeSet[SyncUSDCDomainsWithChainsConfig] = SyncUSDCDomainsWithChainsChangeset

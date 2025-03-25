@@ -25,8 +25,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
+	kcr "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type DonConfig struct {

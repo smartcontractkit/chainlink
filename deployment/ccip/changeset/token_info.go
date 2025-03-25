@@ -13,7 +13,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/shared/generated/aggregator_v3_interface"
 )
 
 type TokenSymbol string

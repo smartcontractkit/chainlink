@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query"
 	"github.com/smartcontractkit/chainlink-common/pkg/types/query/primitives"
 
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 	clhttp "github.com/smartcontractkit/chainlink/v2/core/utils/http"
 )

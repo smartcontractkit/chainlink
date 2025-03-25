@@ -6,12 +6,12 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	rewardManager "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0_5_0"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
 func TestCallSetFeeManager(t *testing.T) {

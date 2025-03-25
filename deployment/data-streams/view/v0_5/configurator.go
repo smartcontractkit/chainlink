@@ -6,7 +6,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/llo-feeds/generated/configurator"
 )
 
 type ConfiguratorView struct {

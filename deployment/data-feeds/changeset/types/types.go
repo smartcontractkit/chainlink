@@ -6,9 +6,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	proxy "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/data-feeds/generated/aggregator_proxy"
+	cache "github.com/smartcontractkit/chainlink-contracts/sdks/evm/go-bindings/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/deployment"
-	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
-	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 )
 
 type MCMSConfig struct {
