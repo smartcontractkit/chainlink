@@ -89,7 +89,8 @@ var (
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 
-	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	OneCoin     = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	TinyOneCoin = new(big.Int).SetUint64(1)
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -1382,6 +1383,7 @@ func Transfer(
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
+	useTestRouter bool,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
@@ -1391,7 +1393,7 @@ func Transfer(
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, useTestRouter, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         data,
 		TokenAmounts: tokens,
@@ -1411,6 +1413,8 @@ type TestTransferRequest struct {
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances map[common.Address]*big.Int
+	RouterAddress         common.Address // Expected for long-living environments
+	UseTestRouter         bool
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1446,8 +1450,16 @@ func TransferMultiple(
 				DestChainSelector:   tt.DestChain,
 			}
 
+			// Approve router to spend tokens
+			if tt.RouterAddress != (common.Address{}) {
+				for _, ta := range tt.Tokens {
+					err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+					require.NoError(t, err)
+				}
+			}
+
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -1494,7 +1506,7 @@ func TransferAndWaitForSuccess(
 	expectedSeqNum := make(map[SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 
-	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, data, extraArgs)
+	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, false, data, extraArgs)
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
 
