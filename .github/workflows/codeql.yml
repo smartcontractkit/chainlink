@@ -1,15 +1,10 @@
-name: "CodeQL"
+name: "CodeQL Advanced"
 
 on:
   merge_group:
-  push:
-    branches:
-      - develop
   pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [develop]
   schedule:
-    - cron: "23 19 * * 4"
+    - cron: "22 22 * * 2"
 
 jobs:
   filter:
@@ -40,43 +35,61 @@ jobs:
               - '**/*.js'
               - '**/*.ts'
             workflow-changes:
-              - '.github/workflows/codeql-analysis.yml'
+              - '.github/workflows/codeql.yml'
 
   analyze:
-    needs: filter
-    name: Analyze ${{ matrix.type.language }}
-    runs-on: ubuntu-latest
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      # required for all workflows
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
     strategy:
       fail-fast: false
       matrix:
-        type:
-          - language: "go"
+        include:
+          - language: actions
+            build-mode: none
+            should-run: true
+          - language: go
+            build-mode: autobuild
             should-run: ${{ needs.filter.outputs.should-run-go }}
-          - language: "javascript"
+          - language: javascript-typescript
+            build-mode: none
             should-run: ${{ needs.filter.outputs.should-run-js }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: false
 
       - name: Set up Go
-        if: ${{ matrix.type.language == 'go' && matrix.type.should-run == 'true' }}
+        if: matrix.language == 'go' && matrix.should-run == 'true'
         uses: ./.github/actions/setup-go
         with:
           go-version-file: "go.mod"
           only-modules: "true"
 
       - name: Touching core/web/assets/index.html
-        if: ${{ matrix.type.language == 'go' && matrix.type.should-run == 'true' }}
+        if: matrix.language == 'go' && matrix.should-run == 'true'
         run: mkdir -p core/web/assets && touch core/web/assets/index.html
 
+      # Initializes the CodeQL tools for scanning.
       - name: Initialize CodeQL
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: github/codeql-action/init@65c74964a9ed8c44ed9f19d4bbc5757a6a8e9ab9 # codeql-bundle-v2.16.1
+        if: matrix.should-run
+        uses: github/codeql-action/init@v3
         with:
-          languages: ${{ matrix.type.language }}
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # By default, queries listed here will override any specified in a config file.
+          # Prefix the list here with "+" to use these queries and those in the config file.
+
+          # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+          # queries: security-extended,security-and-quality
 
       - name: Perform CodeQL Analysis
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: github/codeql-action/analyze@65c74964a9ed8c44ed9f19d4bbc5757a6a8e9ab9 # codeql-bundle-v2.16.1
+        if: matrix.should-run
+        uses: github/codeql-action/analyze@v3
+        with:
+          category: "/language:${{matrix.language}}"
