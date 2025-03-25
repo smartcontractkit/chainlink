@@ -212,10 +212,6 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 	}
 }
 
-type binaryDownloadOutput struct {
-	creCLIAbsPath string
-}
-
 // this is a small hack to avoid changing the reusable workflow, which doesn't allow to run any pre-execution hooks
 func downloadBinaryFiles(in *TestConfig) error {
 	ghReadToken := ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
@@ -622,19 +618,18 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		// TODO: add similar support for CRIB
 		if in.Infra.InfraType == libtypes.Docker {
 			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
-				workerNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
+				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
 					Key:   libnode.NodeTypeKey,
 					Value: keystonetypes.WorkerNode,
 				}, libnode.EqualLabels)
-
-				require.NoError(t, err, "failed to find worker nodes")
+				require.NoError(t, wErr, "failed to find worker nodes")
 
 				for _, node := range workerNodes {
-					nodeIndexStr, err := libnode.FindLabelValue(node, libnode.IndexKey)
-					require.NoError(t, err, "failed to find index label")
+					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
+					require.NoError(t, nErr, "failed to find index label")
 
-					nodeIndex, err := strconv.Atoi(nodeIndexStr)
-					require.NoError(t, err, "failed to convert index to int")
+					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
+					require.NoError(t, nIErr, "failed to convert index to int")
 
 					nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)
 				}
@@ -839,8 +834,8 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
 	if os.Getenv("CI") == "true" {
-		err := downloadBinaryFiles(in)
-		require.NoError(t, err, "failed to download binary files")
+		downloadErr := downloadBinaryFiles(in)
+		require.NoError(t, downloadErr, "failed to download binary files")
 	}
 
 	// Assign all capabilities to the single node set
@@ -946,8 +941,8 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
 	if os.Getenv("CI") == "true" {
-		err := downloadBinaryFiles(in)
-		require.NoError(t, err, "failed to download binary files")
+		downloadErr := downloadBinaryFiles(in)
+		require.NoError(t, downloadErr, "failed to download binary files")
 	}
 
 	// Assign all capabilities to the single node set
@@ -1059,8 +1054,8 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
 
 	if os.Getenv("CI") == "true" {
-		err := downloadBinaryFiles(in)
-		require.NoError(t, err, "failed to download binary files")
+		downloadErr := downloadBinaryFiles(in)
+		require.NoError(t, downloadErr, "failed to download binary files")
 	}
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
