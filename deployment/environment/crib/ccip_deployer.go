@@ -388,7 +388,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 
 	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
 		GitCommitSha:   "develop",
-		DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+		DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
 		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 			BuildLocally: true,
 		},
@@ -398,18 +398,18 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 		return *e, err
 	}
 
-	env, err = commonchangeset.Apply(nil, *e, nil, solCs[0], solCs[1:]...)
+	env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
 	if err != nil {
 		return *e, err
 	}
 
-	err = testhelpers.ValidateSolanaState(env, solChainSelectors)
+	err = testhelpers.ValidateSolanaState(deployedEnv.Env, solChainSelectors)
 	if err != nil {
 		return *e, err
 	}
 
 	lggr.Infow("setup Link pools")
-	return setupLinkPools(&env)
+	return setupLinkPools(&deployedEnv.Env)
 }
 
 func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
