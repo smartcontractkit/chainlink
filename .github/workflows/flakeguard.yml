@@ -382,7 +382,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: raw-output
+          name: raw-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: flakeguard_raw_output
           retention-days: 14
     
@@ -390,7 +390,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: raw-transformed-output
+          name: raw-transformed-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: flakeguard_raw_output_transformed
           retention-days: 14
 
