@@ -12,12 +12,16 @@ import (
 	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
+
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 const (
 	workflowPath = "workflow.tmpl"
 )
+
+type WorkflowSpecAlias sdk.WorkflowSpec
 
 type WorkflowJobCfg struct {
 	JobName       string
@@ -38,6 +42,12 @@ func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName
 	if err != nil {
 		return "", fmt.Errorf("failed to parse workflow spec: %w", err)
 	}
+
+	wfAlias := WorkflowSpecAlias(wf)
+	if err := wfAlias.validate(); err != nil {
+		return "", fmt.Errorf("workflow validation failed: %w", err)
+	}
+
 	externalID, err := createExternalJobID(wf.Name, wf.Owner)
 	if err != nil {
 		return "", fmt.Errorf("failed to get external job id: %w", err)
@@ -56,6 +66,53 @@ func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName
 		return "", fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
 	return workflowJobSpec, nil
+}
+
+func (wf WorkflowSpecAlias) validate() error {
+	configMap := wf.Consensus[0].Config
+	aggregationConfig, ok := configMap["aggregation_config"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid aggregation_config type for workflow %s", wf.Name)
+	}
+
+	feeds, ok := aggregationConfig["feeds"]
+	if !ok {
+		return fmt.Errorf("feeds not found in aggregation_config for workflow %s", wf.Name)
+	}
+	for streamsId, feed := range feeds.(map[string]interface{}) {
+		feedMap, ok := feed.(map[string]string)
+		if !ok {
+			return fmt.Errorf("invalid feed type %s", streamsId)
+		}
+		_, ok = feedMap["deviation"]
+		if !ok {
+			return fmt.Errorf("deviation not found in feed %s", streamsId)
+		}
+		_, ok = feedMap["heartbeat"]
+		if !ok {
+			return fmt.Errorf("heartbeat not found in feed %s", streamsId)
+		}
+		remmapedID, ok := feedMap["remappedID"]
+		if !ok {
+			return fmt.Errorf("remappedID not found in feed %s", streamsId)
+		}
+		if len(remmapedID) != 66 {
+			return fmt.Errorf("invalid remappedID for feed %s", streamsId)
+		}
+	}
+
+	encoderConfig, ok := configMap["encoder_config"].(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("invalid encoder_config type for workflow %s", wf.Name)
+	}
+	encoderABI, ok := encoderConfig["abi"]
+	if !ok {
+		return fmt.Errorf("abi not found in encoder_config for workflow %s", wf.Name)
+	}
+	if encoderABI != "(bytes32 RemappedID, uint32 Timestamp, uint224 Price)[] Reports" {
+		return fmt.Errorf("invalid encoder ABI for workflow %s", wf.Name)
+	}
+	return nil
 }
 
 func (wfCfg *WorkflowJobCfg) createSpec() (string, error) {

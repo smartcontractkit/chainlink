@@ -152,3 +152,7 @@ type ProposeBtJobsConfig struct {
 	Contract         string
 	NodeFilter       *offchain.NodesFilter
 }
+
+type DeleteJobsConfig struct {
+	JobIDs []string
+}

@@ -110,3 +110,17 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 	}
 	return out, nil
 }
+
+func DeleteJobs(ctx context.Context, env deployment.Environment, jobIDs []string) {
+	for _, jobID := range jobIDs {
+		env.Logger.Debugf("Deleting job %s", jobID)
+		_, err := env.Offchain.DeleteJob(ctx, &jobv1.DeleteJobRequest{
+			IdOneof: &jobv1.DeleteJobRequest_Id{Id: jobID},
+		})
+		if err != nil {
+			env.Logger.Errorf("Failed to delete job %s: %v", jobID, err)
+		} else {
+			env.Logger.Debugf("Job %s deleted)", jobID)
+		}
+	}
+}
