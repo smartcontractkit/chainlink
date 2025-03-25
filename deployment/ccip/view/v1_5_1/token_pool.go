@@ -7,9 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
-
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
@@ -93,6 +92,7 @@ type PoolView struct {
 type TokenPoolView struct {
 	types.ContractMetaData
 	Token              common.Address               `json:"token"`
+	TokenPriceFeed     common.Address               `json:"tokenPriceFeed"`
 	RemoteChainConfigs map[uint64]RemoteChainConfig `json:"remoteChainConfigs"`
 	AllowList          []common.Address             `json:"allowList"`
 	AllowListEnabled   bool                         `json:"allowListEnable"`
@@ -111,7 +111,7 @@ type LockReleaseTokenPoolView struct {
 	Rebalancer      common.Address `json:"rebalancer,omitempty"`
 }
 
-func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
+func GenerateTokenPoolView(pool TokenPoolContract, priceFeed common.Address) (TokenPoolView, error) {
 	owner, err := pool.Owner(nil)
 	if err != nil {
 		return TokenPoolView{}, err
@@ -177,14 +177,15 @@ func GenerateTokenPoolView(pool TokenPoolContract) (TokenPoolView, error) {
 			Owner:          owner,
 		},
 		Token:              token,
+		TokenPriceFeed:     priceFeed,
 		RemoteChainConfigs: remoteChainConfigs,
 		AllowList:          allowList,
 		AllowListEnabled:   allowListEnabled,
 	}, nil
 }
 
-func GenerateLockReleaseTokenPoolView(pool *lock_release_token_pool.LockReleaseTokenPool) (PoolView, error) {
-	basePoolView, err := GenerateTokenPoolView(pool)
+func GenerateLockReleaseTokenPoolView(pool *lock_release_token_pool.LockReleaseTokenPool, priceFeed common.Address) (PoolView, error) {
+	basePoolView, err := GenerateTokenPoolView(pool, priceFeed)
 	if err != nil {
 		return PoolView{}, err
 	}
@@ -208,7 +209,7 @@ func GenerateLockReleaseTokenPoolView(pool *lock_release_token_pool.LockReleaseT
 }
 
 func GenerateUSDCTokenPoolView(pool *usdc_token_pool.USDCTokenPool) (PoolView, error) {
-	basePoolView, err := GenerateTokenPoolView(pool)
+	basePoolView, err := GenerateTokenPoolView(pool, common.Address{})
 	if err != nil {
 		return PoolView{}, err
 	}

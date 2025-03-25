@@ -1,0 +1,98 @@
+name: "CodeQL Advanced"
+
+on:
+  merge_group:
+  pull_request:
+  schedule:
+    - cron: "22 22 * * 2"
+
+jobs:
+  filter:
+    name: Detect Changes
+    permissions:
+      pull-requests: read
+    outputs:
+      should-run-go: ${{ steps.changes.outputs.go-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
+      should-run-js: ${{ steps.changes.outputs.js-changes == 'true' || steps.changes.outputs.self-changes == 'true' || github.event == 'schedule' }}
+      should-run-workflow: ${{ steps.changes.outputs.workflow-changes == 'true' || github.event == 'schedule' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          repository: smartcontractkit/chainlink
+      - uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # v3.0.2
+        id: changes
+        with:
+          filters: |
+            go-changes:
+              - '**/*.go'
+              - '**/go.mod'
+              - '**/go.sum'
+            js-changes:
+              - '**/package.json'
+              - '**/pnpm-lock.yaml'
+              - '**/*.js'
+              - '**/*.ts'
+            workflow-changes:
+              - '.github/**'
+            self-changes:
+              - '.github/workflows/codeql.yml'
+
+  analyze:
+    name: Analyze (${{ matrix.language }})
+    runs-on: ${{ (matrix.language == 'swift' && 'macos-latest') || 'ubuntu-latest' }}
+    permissions:
+      # required for all workflows
+      security-events: write
+      # required to fetch internal or private CodeQL packs
+      packages: read
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - language: actions
+            build-mode: none
+            should-run: ${{ needs.filter.outputs.should-run-workflow }}
+          - language: go
+            build-mode: autobuild
+            should-run: ${{ needs.filter.outputs.should-run-go }}
+          - language: javascript-typescript
+            build-mode: none
+            should-run: ${{ needs.filter.outputs.should-run-js }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        if: matrix.language == 'go' && matrix.should-run == 'true'
+        uses: ./.github/actions/setup-go
+        with:
+          go-version-file: "go.mod"
+          only-modules: "true"
+
+      - name: Touching core/web/assets/index.html
+        if: matrix.language == 'go' && matrix.should-run == 'true'
+        run: mkdir -p core/web/assets && touch core/web/assets/index.html
+
+      # Initializes the CodeQL tools for scanning.
+      - name: Initialize CodeQL
+        if: matrix.should-run
+        uses: github/codeql-action/init@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # v3.28.13
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+          # If you wish to specify custom queries, you can do so here or in a config file.
+          # By default, queries listed here will override any specified in a config file.
+          # Prefix the list here with "+" to use these queries and those in the config file.
+
+          # For more details on CodeQL's query packs, refer to: https://docs.github.com/en/code-security/code-scanning/automatically-scanning-your-code-for-vulnerabilities-and-errors/configuring-code-scanning#using-queries-in-ql-packs
+          # queries: security-extended,security-and-quality
+
+      - name: Perform CodeQL Analysis
+        if: matrix.should-run
+        uses: github/codeql-action/analyze@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # v3.28.13
+        with:
+          category: "/language:${{matrix.language}}"

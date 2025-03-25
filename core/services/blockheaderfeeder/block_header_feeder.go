@@ -12,10 +12,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	evmkeystore "github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/blockhashstore"
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 )
 
 var (
@@ -45,11 +45,10 @@ func NewBlockHeaderFeeder(
 	waitBlocks int,
 	lookbackBlocks int,
 	latestBlock func(ctx context.Context) (uint64, error),
-	gethks keystore.Eth,
+	gethks evmkeystore.RoundRobin,
 	getBlockhashesBatchSize uint16,
 	storeBlockhashesBatchSize uint16,
 	fromAddresses []types.EIP55Address,
-	chainID *big.Int,
 ) *BlockHeaderFeeder {
 	return &BlockHeaderFeeder{
 		lggr:                      logger,
@@ -66,7 +65,6 @@ func NewBlockHeaderFeeder(
 		blockHeaderProvider:       blockHeaderProvider,
 		gethks:                    gethks,
 		fromAddresses:             fromAddresses,
-		chainID:                   chainID,
 	}
 }
 
@@ -85,9 +83,8 @@ type BlockHeaderFeeder struct {
 	lastRunBlock              uint64
 	getBlockhashesBatchSize   uint16
 	storeBlockhashesBatchSize uint16
-	gethks                    keystore.Eth
+	gethks                    evmkeystore.RoundRobin
 	fromAddresses             []types.EIP55Address
-	chainID                   *big.Int
 }
 
 // Run the feeder.
@@ -148,7 +145,7 @@ func (f *BlockHeaderFeeder) Run(ctx context.Context) error {
 	}
 
 	// use 1 sending key for all batches because ordering matters for StoreVerifyHeader
-	fromAddress, err := f.gethks.GetRoundRobinAddress(ctx, f.chainID, blockhashstore.SendingKeys(f.fromAddresses)...)
+	fromAddress, err := f.gethks.GetNextAddress(ctx, blockhashstore.SendingKeys(f.fromAddresses)...)
 	if err != nil {
 		return errors.Wrap(err, "getting round robin address")
 	}

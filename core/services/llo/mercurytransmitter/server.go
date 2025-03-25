@@ -23,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )
@@ -85,6 +85,7 @@ type server struct {
 	url string
 
 	evmPremiumLegacyPacker ReportPacker
+	evmStreamlinedPacker   ReportPacker
 	jsonPacker             ReportPacker
 
 	transmitSuccessCount            prometheus.Counter
@@ -125,6 +126,7 @@ func newServer(lggr logger.Logger, verboseLogging bool, cfg QueueConfig, client 
 		NewTransmitQueue(lggr, serverURL, int(cfg.TransmitQueueMaxSize()), pm),
 		serverURL,
 		evm.NewReportCodecPremiumLegacy(codecLggr, pm.DonID()),
+		evm.NewReportCodecStreamlined(),
 		llo.JSONReportCodec{},
 		promTransmitSuccessCount.WithLabelValues(donIDStr, serverURL),
 		promTransmitDuplicateCount.WithLabelValues(donIDStr, serverURL),
@@ -295,6 +297,8 @@ func (s *server) transmit(ctx context.Context, t *Transmission) (*rpc.TransmitRe
 		payload, err = s.jsonPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	case llotypes.ReportFormatEVMPremiumLegacy, llotypes.ReportFormatEVMABIEncodeUnpacked:
 		payload, err = s.evmPremiumLegacyPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
+	case llotypes.ReportFormatEVMStreamlined:
+		payload, err = s.evmStreamlinedPacker.Pack(t.ConfigDigest, t.SeqNr, t.Report.Report, t.Sigs)
 	default:
 		return nil, nil, fmt.Errorf("Transmit failed; don't know how to Pack unsupported report format: %q", t.Report.Info.ReportFormat)
 	}

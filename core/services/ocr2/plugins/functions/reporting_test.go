@@ -143,7 +143,7 @@ func TestFunctionsReporting_Query(t *testing.T) {
 	queryProto := &encoding.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(queryProto.RequestIDs))
+	require.Len(t, queryProto.RequestIDs, 2)
 	require.Equal(t, reqs[0].RequestID[:], queryProto.RequestIDs[0])
 	require.Equal(t, reqs[1].RequestID[:], queryProto.RequestIDs[1])
 }
@@ -163,7 +163,7 @@ func TestFunctionsReporting_Query_HandleCoordinatorMismatch(t *testing.T) {
 	queryProto := &encoding.Query{}
 	err = proto.Unmarshal(q, queryProto)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(queryProto.RequestIDs))
+	require.Len(t, queryProto.RequestIDs, 1)
 	require.Equal(t, reqs[0].RequestID[:], queryProto.RequestIDs[0])
 	// reqs[1] should be excluded from this query because it has a different coordinator address
 }
@@ -196,7 +196,7 @@ func TestFunctionsReporting_Observation(t *testing.T) {
 	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
-	require.Equal(t, len(observationProto.ProcessedRequests), 2)
+	require.Len(t, observationProto.ProcessedRequests, 2)
 	require.Equal(t, observationProto.ProcessedRequests[0].RequestID, req1.RequestID[:])
 	require.Equal(t, observationProto.ProcessedRequests[0].Result, []byte("abc"))
 	require.Equal(t, observationProto.ProcessedRequests[1].RequestID, req3.RequestID[:])
@@ -225,7 +225,7 @@ func TestFunctionsReporting_Observation_IncorrectQuery(t *testing.T) {
 	observationProto := &encoding.Observation{}
 	err = proto.Unmarshal(obs, observationProto)
 	require.NoError(t, err)
-	require.Equal(t, len(observationProto.ProcessedRequests), 1)
+	require.Len(t, observationProto.ProcessedRequests, 1)
 	require.Equal(t, observationProto.ProcessedRequests[0].RequestID, req1.RequestID[:])
 	require.Equal(t, observationProto.ProcessedRequests[0].Result, []byte("abc"))
 }
@@ -258,7 +258,7 @@ func TestFunctionsReporting_Report(t *testing.T) {
 
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(decoded))
+	require.Len(t, decoded, 2)
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
@@ -291,7 +291,7 @@ func TestFunctionsReporting_Report_WithGasLimitAndMetadata(t *testing.T) {
 
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(decoded))
+	require.Len(t, decoded, 2)
 
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
@@ -331,7 +331,7 @@ func TestFunctionsReporting_Report_HandleCoordinatorMismatch(t *testing.T) {
 
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(decoded))
+	require.Len(t, decoded, 2)
 
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, reqId3[:], decoded[1].RequestID)
@@ -362,7 +362,7 @@ func TestFunctionsReporting_Report_CallbackGasLimitExceeded(t *testing.T) {
 	decoded, err := codec.DecodeReport(reportBytes)
 	require.NoError(t, err)
 	// Gas limit is set to 200k per report so we can only fit the first request
-	require.Equal(t, 1, len(decoded))
+	require.Len(t, decoded, 1)
 	require.Equal(t, reqId1[:], decoded[0].RequestID)
 	require.Equal(t, compResult, decoded[0].Result)
 	require.Equal(t, []byte{}, decoded[0].Error)
@@ -395,7 +395,7 @@ func TestFunctionsReporting_Report_DeterministicOrderOfRequests(t *testing.T) {
 
 	decoded, err := codec.DecodeReport(reportBytes1)
 	require.NoError(t, err)
-	require.Equal(t, 3, len(decoded))
+	require.Len(t, decoded, 3)
 }
 
 func TestFunctionsReporting_Report_IncorrectObservation(t *testing.T) {

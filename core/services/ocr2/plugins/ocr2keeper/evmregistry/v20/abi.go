@@ -1,6 +1,7 @@
 package evm
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 	"strings"
@@ -157,7 +158,7 @@ func (rp *evmRegistryPackerV2_0) UnpackTransmitTxInput(raw []byte) ([]ocr2keeper
 	}
 
 	if b, ok = out[1].([]byte); !ok {
-		return nil, fmt.Errorf("unexpected value type in transaction")
+		return nil, errors.New("unexpected value type in transaction")
 	}
 
 	if decoded, err = enc.DecodeReport(b); err != nil {

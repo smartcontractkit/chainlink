@@ -175,7 +175,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Note unsupported chain selector simply returns an empty set not an error
 	gasUpdates, err := pr.GetGasPriceUpdatesCreatedAfter(ctx, 1e6, time.Unix(0, 0), 0)
 	require.NoError(t, err)
-	assert.Len(t, gasUpdates, 0)
+	assert.Empty(t, gasUpdates)
 
 	for i, ts := range th.blockTs {
 		// Should see all updates >= ts.
@@ -211,7 +211,7 @@ func testPriceRegistryReader(t *testing.T, th priceRegReaderTH, pr ccipdata.Pric
 	// Empty token set should return empty set no error.
 	gotEmpty, err := pr.GetTokenPrices(ctx, []cciptypes.Address{})
 	require.NoError(t, err)
-	assert.Len(t, gotEmpty, 0)
+	assert.Empty(t, gotEmpty)
 
 	// We expect latest token prices to apply
 	allTokenUpdates, err := pr.GetTokenPriceUpdatesCreatedAfter(ctx, time.Unix(0, 0), 0)

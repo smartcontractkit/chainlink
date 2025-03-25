@@ -9,7 +9,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -52,7 +51,7 @@ func TestSetFeedConfig(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -70,13 +69,13 @@ func TestSetFeedConfig(t *testing.T) {
 			types.SetFeedDecimalConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				DataIDs:       [][16]byte{dataid},
+				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 			},
@@ -119,13 +118,13 @@ func TestSetFeedConfig(t *testing.T) {
 			types.SetFeedDecimalConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				DataIDs:       [][16]byte{dataid},
+				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 				McmsConfig: &types.MCMSConfig{

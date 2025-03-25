@@ -1,6 +1,7 @@
 package transmit
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
@@ -54,7 +55,7 @@ func defaultLogParser(registry *ac.IAutomationV21PlusCommon, log logpoller.Log) 
 	default:
 		return transmitEventLog{}, fmt.Errorf("unknown log type: %v", l)
 	}
-	return transmitEventLog{}, fmt.Errorf("log with bad structure")
+	return transmitEventLog{}, errors.New("log with bad structure")
 }
 
 // transmitEventLog is a wrapper around logpoller.Log and the parsed log

@@ -8,23 +8,15 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
-
-func TestCSAKeyV2_RawPrivateKey(t *testing.T) {
-	_, privKey, err := ed25519.GenerateKey(nil)
-	require.NoError(t, err)
-
-	privateKey := Raw(privKey)
-
-	assert.Equal(t, "<CSA Raw Private Key>", privateKey.String())
-	assert.Equal(t, privateKey.String(), privateKey.GoString())
-}
 
 func TestCSAKeyV2_FromRawPrivateKey(t *testing.T) {
 	pubKey, privKey, err := ed25519.GenerateKey(nil)
 	require.NoError(t, err)
 
-	keyV2 := Raw(privKey).Key()
+	keyV2 := KeyFor(internal.NewRaw(privKey))
 
 	assert.Equal(t, pubKey, keyV2.PublicKey)
 	assert.Equal(t, privKey, *keyV2.privateKey)

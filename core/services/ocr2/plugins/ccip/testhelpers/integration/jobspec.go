@@ -3,6 +3,7 @@ package integrationtesthelpers
 import (
 	"bytes"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"text/template"
 	"time"
@@ -186,7 +187,7 @@ type CCIPJobSpecParams struct {
 
 func (params CCIPJobSpecParams) Validate() error {
 	if params.CommitStore == common.HexToAddress("0x0") {
-		return fmt.Errorf("must set commit store address")
+		return errors.New("must set commit store address")
 	}
 	return nil
 }
@@ -197,7 +198,7 @@ func (params CCIPJobSpecParams) ValidateCommitJobSpec() error {
 		return commonErr
 	}
 	if params.OffRamp == common.HexToAddress("0x0") {
-		return fmt.Errorf("OffRamp cannot be empty for execution job")
+		return errors.New("OffRamp cannot be empty for execution job")
 	}
 	// Validate token prices config
 	// NB: only validate the dynamic price getter config if present since we could also be using the pipeline instead.
@@ -216,7 +217,7 @@ func (params CCIPJobSpecParams) ValidateExecJobSpec() error {
 		return commonErr
 	}
 	if params.OffRamp == common.HexToAddress("0x0") {
-		return fmt.Errorf("OffRamp cannot be empty for execution job")
+		return errors.New("OffRamp cannot be empty for execution job")
 	}
 	return nil
 }

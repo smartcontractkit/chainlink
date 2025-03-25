@@ -242,6 +242,11 @@ addresses_to_fund = [
 ephemeral_addresses_number = 0
 
 [Load.CCIP.Load]
+# 0 - no chaos, 1 - rpc latency, 2 - full chaos suite
+ChaosMode = 1
+# works only with Load.CCIP.ChaosMode = 1
+RPCLatency = "400ms"
+RPCJitter = "0ms"
 # We have 3 types of messages: TokenTransfer, ProgrammableTokenTransfer, Messaging
 # Each message type has a ratio and a destination gas limit
 # The sum of all ratios should be 100
@@ -255,9 +260,21 @@ MessageDetails = [
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "5s"
-LoadDuration = "3m"
+LoadDuration = "30m"
 # destination chain selectors to send messages to
 NumDestinationChains = 6
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "30m"
+OOOExecution = false
+
+[CCIP.Chaos]
+Namespace = "crib-ccip-chaos-tests"
+# RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
+DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
+WaitBeforeStart = "30s"
+# works only with Load.CCIP.ChaosMode = 2
+# Chaos experiment total duration (chaos + recovery)
+ExperimentFullInterval = "10m"
+# Chaos time
+ExperimentInjectionInterval = "9m"

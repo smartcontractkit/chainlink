@@ -27,7 +27,7 @@ type ErrOverride struct {
 }
 
 func (e ErrOverride) Error() string {
-	return fmt.Sprintf("%s: overrides (duplicate keys or list elements) are not allowed for multiple secrets files", e.Name)
+	return e.Name + ": overrides (duplicate keys or list elements) are not allowed for multiple secrets files"
 }
 
 type ErrDeprecated struct {

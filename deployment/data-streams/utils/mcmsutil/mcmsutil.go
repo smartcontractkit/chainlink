@@ -10,6 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
@@ -63,4 +64,29 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 		proposalName,
 		mcmsMinDelay,
 	)
+}
+
+// ExecuteOrPropose executes the transactions if no MCMS is configured, otherwise creates a proposal.
+func ExecuteOrPropose(
+	e deployment.Environment,
+	txs []*txutil.PreparedTx,
+	mcmsCfg *changeset.MCMSConfig,
+	proposalName string,
+) (deployment.ChangesetOutput, error) {
+	if len(txs) == 0 {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	if mcmsCfg != nil {
+		proposal, err := CreateMCMSProposal(e, txs, mcmsCfg.MinDelay, proposalName)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("error creating MCMS proposal: %w", err)
+		}
+		return deployment.ChangesetOutput{
+			MCMSTimelockProposals: []mcmslib.TimelockProposal{*proposal},
+		}, nil
+	}
+
+	_, err := txutil.SignAndExecute(e, txs)
+	return deployment.ChangesetOutput{}, err
 }

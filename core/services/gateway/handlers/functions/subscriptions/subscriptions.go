@@ -64,7 +64,7 @@ func NewOnchainSubscriptions(client evmclient.Client, config OnchainSubscription
 	}
 	router, err := functions_router.NewFunctionsRouter(config.ContractAddress, client)
 	if err != nil {
-		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %s", err)
+		return nil, fmt.Errorf("unexpected error during functions_router.NewFunctionsRouter: %w", err)
 	}
 
 	// if StoreBatchSize is not specified use the default value

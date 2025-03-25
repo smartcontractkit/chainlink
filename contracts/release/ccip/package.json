@@ -47,7 +47,7 @@
   ],
   "engines": {
     "node": ">=18",
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "dependencies": {
     "@changesets/cli": "~2.27.8",

@@ -112,7 +112,7 @@ func TestNurse(t *testing.T) {
 	require.NoError(t, err)
 	n, err := wc.Write([]byte("junk"))
 	require.NoError(t, err)
-	require.Greater(t, n, 0)
+	require.Positive(t, n)
 	require.NoError(t, wc.Close())
 
 	wc, err = nrse.createFile(time.Now(), "testgz", false)
@@ -127,12 +127,12 @@ func TestNurse(t *testing.T) {
 	testutils.AssertEventually(t, func() bool { return profileExists(t, nrse, traceProfName) })
 	n2, err := nrse.totalProfileBytes()
 	require.NoError(t, err)
-	require.Greater(t, n2, uint64(0))
+	require.Positive(t, n2)
 }
 
 func profileExists(t *testing.T, nrse *Nurse, typ string) bool {
 	profiles, err := nrse.listProfiles()
-	require.Nil(t, err)
+	require.NoError(t, err)
 	for _, p := range profiles {
 		if strings.Contains(p.Name(), typ) {
 			return true

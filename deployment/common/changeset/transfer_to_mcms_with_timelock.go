@@ -86,7 +86,7 @@ var _ deployment.ChangeSet[TransferToMCMSWithTimelockConfig] = TransferToMCMSWit
 // TransferToMCMSWithTimelock creates a changeset that transfers ownership of all the
 // contracts in the provided configuration to the timelock on the chain and generates
 // a corresponding accept ownership proposal to complete the transfer.
-// It assumes that DeployMCMSWithTimelock has already been run s.t.
+// It assumes that DeployMCMSWithTimelockV2 has already been run s.t.
 // the timelock and mcmses exist on the chain and that the proposed addresses to transfer ownership
 // are currently owned by the deployer key.
 // Deprecated: Use TransferToMCMSWithTimelockV2 instead.

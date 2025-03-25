@@ -7,12 +7,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"sync"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
 
-	logger2 "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	commonlogger "github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/smartcontractkit/libocr/networking"
@@ -71,7 +73,11 @@ func (o *bootstrapOracle) Start() error {
 		return fmt.Errorf("failed to start RMNHome reader: %w", err)
 	}
 
-	o.peerGroupDialer.Start()
+	if err := o.peerGroupDialer.Start(); err != nil {
+		// Clean up RMN components if peer group dialer fails to start
+		_ = o.rmnHomeReader.Close()
+		return fmt.Errorf("failed to start peer group dialer: %w", err)
+	}
 
 	// Then start the base oracle (bootstrapper)
 	if err := o.baseOracle.Start(); err != nil {
@@ -152,7 +158,7 @@ func (i *bootstrapOracleCreator) Create(ctx context.Context, _ uint32, config cc
 	}
 
 	destChainFamily := chaintype.EVM
-	destRelayID := types.NewRelayID(string(destChainFamily), fmt.Sprintf("%d", chainID))
+	destRelayID := types.NewRelayID(string(destChainFamily), strconv.FormatUint(chainID, 10))
 
 	oraclePeerIDs := make([]ragep2ptypes.PeerID, 0, len(config.Config.Nodes))
 	for _, n := range config.Config.Nodes {
@@ -222,6 +228,8 @@ func (i *bootstrapOracleCreator) getRmnHomeReader(ctx context.Context, config cc
 // peerGroupDialer keeps watching for RMNHome config changes and calls NewPeerGroup when needed.
 // Required for managing RMN related peer group connections.
 type peerGroupDialer struct {
+	services.StateMachine
+
 	lggr logger.Logger
 
 	peerGroupCreator *peergroup.Creator
@@ -232,13 +240,16 @@ type peerGroupDialer struct {
 	oraclePeerIDs      []ragep2ptypes.PeerID
 	commitConfigDigest [32]byte
 
+	// state: accessed in mutually exclusive fashion
+	// between Close() and syncLoop().
+	// Close shuts down syncLoop() first and then cleans up these.
 	activePeerGroups            []networking.PeerGroup
 	activeEndpointConfigDigests []cciptypes.Bytes32
 
 	syncInterval time.Duration
 
-	mu         *sync.Mutex
-	syncCancel context.CancelFunc
+	stopChan chan struct{}
+	wg       sync.WaitGroup
 }
 
 type syncAction struct {
@@ -276,48 +287,55 @@ func newPeerGroupDialer(
 
 		syncInterval: 12 * time.Second, // todo: make it configurable
 
-		mu:         &sync.Mutex{},
-		syncCancel: nil,
+		stopChan: make(chan struct{}),
+		wg:       sync.WaitGroup{},
 	}
 }
 
-func (d *peerGroupDialer) Start() {
-	if d.syncCancel != nil {
-		d.lggr.Warnw("peer group dialer already started, should not be called twice")
-		return
-	}
+func (d *peerGroupDialer) Start() error {
+	return d.StateMachine.StartOnce("peerGroupDialer", func() error {
+		d.lggr.Infow("Starting peer group dialer")
 
-	d.lggr.Infow("Starting peer group dialer")
+		d.wg.Add(1)
+		go func() {
+			defer d.wg.Done()
+			d.syncLoop()
+		}()
 
-	ctx, cf := context.WithCancel(context.Background())
-	d.syncCancel = cf
+		return nil
+	})
+}
 
-	go func() {
-		d.sync()
+func (d *peerGroupDialer) syncLoop() {
+	// eager sync on start to quickly init.
+	d.sync()
 
-		syncTicker := time.NewTicker(d.syncInterval)
-		for {
-			select {
-			case <-syncTicker.C:
-				d.sync()
-			case <-ctx.Done():
-				return
-			}
+	syncTicker := time.NewTicker(d.syncInterval)
+	for {
+		select {
+		case <-syncTicker.C:
+			d.sync()
+		case <-d.stopChan:
+			return
 		}
-	}()
+	}
 }
 
 func (d *peerGroupDialer) Close() error {
-	d.mu.Lock()
-	defer d.mu.Unlock()
+	return d.StateMachine.StopOnce("peerGroupDialer", func() error {
+		// shut down the sync goroutine.
+		// the order of operations here is important:
+		// * we close the stop channel and wait for the syncLoop to stop
+		// * only when the sync loop is stopped do we close the peer groups
+		// this avoids the race where the sync loop uses peer groups while they are being closed
+		close(d.stopChan)
+		d.wg.Wait()
 
-	d.closeExistingPeerGroups()
+		// close all peer groups.
+		d.closeExistingPeerGroups()
 
-	if d.syncCancel != nil {
-		d.syncCancel()
-	}
-
-	return nil
+		return nil
+	})
 }
 
 // Pure function for calculating sync actions
@@ -375,12 +393,9 @@ func calculateSyncActions(
 }
 
 func (d *peerGroupDialer) sync() {
-	d.mu.Lock()
-	defer d.mu.Unlock()
-
 	activeRmnHomeDigest, candidateRmnHomeDigest := d.rmnHomeReader.GetAllConfigDigests()
 
-	lggr := logger2.With(
+	lggr := commonlogger.With(
 		d.lggr,
 		"method", "sync",
 		"activeRmnHomeDigest", activeRmnHomeDigest.String(),
@@ -399,7 +414,7 @@ func (d *peerGroupDialer) sync() {
 
 	// Handle each action
 	for _, action := range actions {
-		actionLggr := logger2.With(lggr,
+		actionLggr := commonlogger.With(lggr,
 			"action", action.actionType,
 			"endpointConfigDigest", action.endpointConfigDigest,
 			"rmnHomeConfigDigest", action.rmnHomeConfigDigest)

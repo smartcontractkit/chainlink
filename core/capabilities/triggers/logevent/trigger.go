@@ -97,7 +97,7 @@ func newLogEventTrigger(ctx context.Context,
 	// Initialise a Log Event Trigger
 	l := &logEventTrigger{
 		ch:   callbackCh,
-		lggr: logger.Named(lggr, fmt.Sprintf("LogEventTrigger.%s", workflowID)),
+		lggr: logger.Named(lggr, "LogEventTrigger."+workflowID),
 
 		reqConfig:      reqConfig,
 		contractReader: contractReader,
@@ -154,7 +154,7 @@ func (l *logEventTrigger) listen() {
 					Key: l.reqConfig.ContractEventName,
 					Expressions: []query.Expression{
 						query.Confidence(primitives.Finalized),
-						query.Block(fmt.Sprintf("%d", l.startBlockNum), primitives.Gte),
+						query.Block(strconv.FormatUint(l.startBlockNum, 10), primitives.Gte),
 					},
 				},
 				limitAndSort,

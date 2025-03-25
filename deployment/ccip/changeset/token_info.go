@@ -29,6 +29,9 @@ const (
 	WBNBSymbol   TokenSymbol = "WBNB"
 	WPOLSymbol   TokenSymbol = "WPOL"
 	USDCSymbol   TokenSymbol = "USDC"
+	CCIPBnMSymbol   TokenSymbol = "CCIP-BnM"
+	CCIPLnMSymbol   TokenSymbol = "CCIP-LnM"
+	CLCCIPLnMSymbol TokenSymbol = "clCCIP-LnM"
 	USDCName     string      = "USD Coin"
 	LinkDecimals             = 18
 	WethDecimals             = 18

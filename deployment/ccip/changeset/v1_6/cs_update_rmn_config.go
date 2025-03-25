@@ -699,9 +699,16 @@ func SetRMNRemoteConfigChangeset(e deployment.Environment, config SetRMNRemoteCo
 
 	rmnRemotePerChain := BuildRMNRemotePerChain(e, state)
 	batches := make([]mcmstypes.BatchOperation, 0)
+
+	lggr.Infow("built rmn remote per chain", "rmnRemotePerChain", rmnRemotePerChain)
+
 	for chain, remoteConfig := range config.RMNRemoteConfigs {
 		remote, ok := rmnRemotePerChain[chain]
 		if !ok {
+			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
+		}
+
+		if remote == nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("RMNRemote contract not found for chain %d", chain)
 		}
 

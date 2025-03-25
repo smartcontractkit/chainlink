@@ -1,6 +1,7 @@
 package validate
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/google/uuid"
@@ -32,13 +33,13 @@ func ValidatedCCIPSpec(tomlString string) (jb job.Job, err error) {
 		return job.Job{}, fmt.Errorf("the only supported type is currently 'ccip', got %s", jb.Type)
 	}
 	if jb.CCIPSpec.CapabilityLabelledName == "" {
-		return job.Job{}, fmt.Errorf("capabilityLabelledName must be set")
+		return job.Job{}, errors.New("capabilityLabelledName must be set")
 	}
 	if jb.CCIPSpec.CapabilityVersion == "" {
-		return job.Job{}, fmt.Errorf("capabilityVersion must be set")
+		return job.Job{}, errors.New("capabilityVersion must be set")
 	}
 	if jb.CCIPSpec.P2PKeyID == "" {
-		return job.Job{}, fmt.Errorf("p2pKeyID must be set")
+		return job.Job{}, errors.New("p2pKeyID must be set")
 	}
 
 	// ensure that the P2PV2Bootstrappers is in the right format.

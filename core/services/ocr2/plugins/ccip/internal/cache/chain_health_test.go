@@ -3,7 +3,6 @@ package cache
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -48,7 +47,7 @@ func Test_RMNStateCaching(t *testing.T) {
 	assert.NoError(t, err)
 
 	healthy, err = chainState.IsHealthy(ctx)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, healthy)
 
 	// Chain is not cursed, but previous curse should be "sticky" even when force refreshing
@@ -59,7 +58,7 @@ func Test_RMNStateCaching(t *testing.T) {
 	assert.NoError(t, err)
 
 	healthy, err = chainState.IsHealthy(ctx)
-	assert.Nil(t, err)
+	assert.NoError(t, err)
 	assert.False(t, healthy)
 }
 
@@ -216,7 +215,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 	assertHealthy(t, chainState, false)
 
 	// Commit store error
-	mockCommitStore.set(false, fmt.Errorf("commit store error"))
+	mockCommitStore.set(false, errors.New("commit store error"))
 	assertError(t, chainState)
 
 	// Commit store is back
@@ -228,7 +227,7 @@ func Test_RefreshingInBackground(t *testing.T) {
 	assertHealthy(t, chainState, false)
 
 	// OnRamp error
-	mockOnRamp.set(false, fmt.Errorf("onramp error"))
+	mockOnRamp.set(false, errors.New("onramp error"))
 	assertError(t, chainState)
 
 	// All back in healthy state

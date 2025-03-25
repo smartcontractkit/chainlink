@@ -1,23 +1,24 @@
 package crib
 
 const (
-	AddressBookFileName   = "ccip-v2-scripts-address-book.json"
-	NodesDetailsFileName  = "ccip-v2-scripts-nodes-details.json"
-	ChainsConfigsFileName = "ccip-v2-scripts-chains-details.json"
+	AddressBookFileName       = "address-book.json"
+	NodesDetailsFileName      = "nodes-details.json"
+	ChainsConfigsFileName     = "chains-details.json"
+	RMNNodeIdentitiesFileName = "rmn-node-identities.json"
 )
 
 type CRIBEnv struct {
-	envStateDir string
+	cribEnvStateDirPath string
 }
 
 func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
 	return CRIBEnv{
-		envStateDir: envStateDir,
+		cribEnvStateDirPath: envStateDir,
 	}
 }
 
 func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
-	reader := NewOutputReader(c.envStateDir)
+	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails := reader.ReadNodesDetails()
 	chainConfigs := reader.ReadChainConfigs()
 	for i, chain := range chainConfigs {
@@ -48,6 +49,13 @@ type ChainConfig struct {
 	HTTPRPCs  []RPC  // http rpcs to connect to the chain
 }
 
+type BootstrapNode struct {
+	P2PID        string
+	InternalHost string
+	Port         string
+}
+
 type NodesDetails struct {
-	NodeIDs []string
+	NodeIDs       []string
+	BootstrapNode BootstrapNode
 }
