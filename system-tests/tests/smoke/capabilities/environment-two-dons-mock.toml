@@ -9,8 +9,8 @@ image = "job-distributor:0.9.0"
 #image = "localhost:5000/job-distributor:sha-707362c-amd64"
 
 [workflow_load]
-feeds = 1000
-jobs = 10
+feeds = 500
+jobs = 2
 
 [infra]
 type = "crib"
@@ -53,11 +53,12 @@ volume_name = "workflow_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -72,11 +73,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -91,11 +93,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -110,11 +113,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -129,11 +133,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -148,11 +153,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -167,11 +173,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -186,11 +193,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -205,11 +213,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -224,11 +233,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -243,11 +253,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -262,11 +273,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -281,11 +293,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -300,11 +313,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -319,11 +333,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -338,11 +353,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -357,11 +373,12 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
         LogPoller = true
+        FeedsManager = true
 
         [OCR2]
         Enabled = true
@@ -376,7 +393,7 @@ user_config_overrides = """
       """
 
 [[nodesets]]
-nodes = 4
+nodes = 5
 override_mode = "each"
 http_port_range_start = 10200
 name = "capabilities"
@@ -386,13 +403,13 @@ image = "postgres:12.0"
 port = 13200
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
       [Feature]
 			LogPoller = true
+        FeedsManager = true
 
 			[OCR2]
 			Enabled = true
@@ -405,14 +422,14 @@ user_config_overrides = """
 
 
 [[nodesets.node_specs]]
-
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13401:3456']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
+            FeedsManager = true
 
 			[OCR2]
 			Enabled = true
@@ -422,15 +439,16 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
-[[nodesets.node_specs]]
 
+[[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13402:3456']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
+        FeedsManager = true
 
 			[OCR2]
 			Enabled = true
@@ -440,15 +458,16 @@ user_config_overrides = """
 			Enabled = true
 			ListenAddresses = ['0.0.0.0:5001']
       """
-[[nodesets.node_specs]]
 
+[[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:b957388c92f7b455338a6fd2c48ec70ee08b4dea-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13403:3456']
 user_config_overrides = """
       [Feature]
 			LogPoller = true
+        FeedsManager = true
 
 			[OCR2]
 			Enabled = true
@@ -459,3 +478,21 @@ user_config_overrides = """
 			ListenAddresses = ['0.0.0.0:5001']
       """
 
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:7c9cbf43fe27b46c9a18a753991f91f5fbbede63-plugins"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ['13403:3456']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """

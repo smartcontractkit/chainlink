@@ -111,7 +111,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 		//TODO @george-dorin: Add beholder - generate beholder address
 		configOverrides[nodeIndex] += config.Beholder(
-			"beholder-agent",
+			"localhost:4317",
 		)
 
 		// if it's workflow DON configure workflow registry

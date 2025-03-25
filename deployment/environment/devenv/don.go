@@ -327,7 +327,7 @@ func (n *Node) AcceptJob(ctx context.Context, spec string) error {
 	// fetch JD to get the job proposals
 	jd, err := n.gqlClient.GetJobDistributor(ctx, n.JDId)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to get job on %s:%s", n.NodeID, err)
 	}
 	if jd.GetJobProposals() == nil {
 		return fmt.Errorf("no job proposals found for node %s", n.Name)

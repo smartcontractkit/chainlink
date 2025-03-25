@@ -659,6 +659,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 
 		var devspaceErr error
+		//devspaceErr = crib.DeployBeholder(deployCribDonsInput)
+		//require.NoError(t, devspaceErr, "failed to deploy beholder")
+
 		nodeSetInput, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		require.NoError(t, devspaceErr, "failed to deploy Dons with devspace")
 
@@ -802,8 +805,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		err = registerPoRWorkflow(registerInput)
 		require.NoError(t, err, "failed to register PoR workflow")
 	}
-	err = registerPoRWorkflow(registerInput)
-	require.NoError(t, err, "failed to register PoR workflow")
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved

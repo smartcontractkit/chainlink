@@ -2,12 +2,14 @@ package jobs
 
 import (
 	"context"
+	errors2 "errors"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
@@ -48,6 +50,81 @@ func checkForUnknownJobs(jobSpecs types.DonJobs) error {
 	return nil
 }
 
+func CreateWithRetry(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
+	if len(jobSpecs) == 0 {
+		return nil
+	}
+
+	if unknownErr := checkForUnknownJobs(jobSpecs); unknownErr != nil {
+		return errors.Wrap(unknownErr, "failed to create jobs")
+	}
+
+	//errCh := make(chan error, calculateJobCount(jobSpecs))
+	//var wg sync.WaitGroup
+
+	const (
+		maxRetries = 5
+	)
+
+	for i, jobDesc := range SupportedJobs {
+		if keystoneflags.HasFlag(flags, jobDesc.Flag) {
+			if jobReqs, ok := jobSpecs[jobDesc]; ok {
+				for i2, jobReq := range jobReqs {
+					//wg.Add(1)
+					//go func(jobReq *jobv1.ProposeJobRequest, jobDesc types.JobDescription) {
+					//	defer wg.Done()
+					time.Sleep(time.Second * 2)
+					framework.L.Info().Msgf("%d/%d %d/%d Creating job on %s", i, len(SupportedJobs), i2, len(jobReqs), jobReq.NodeId)
+					var lastErr error
+					for attempt := 1; attempt <= maxRetries; attempt++ {
+						framework.L.Info().Msgf("attempt %d", attempt)
+						ctx, cancel := context.WithTimeout(context.Background(), time.Second*20)
+						_, err := offChainClient.ProposeJob(ctx, jobReq)
+						cancel()
+
+						if err == nil {
+							break
+						}
+
+						if strings.Contains(err.Error(), "cannot approve an approved spec") {
+							break
+						}
+
+						lastErr = errors2.Join(lastErr, err)
+						framework.L.Error().Msgf("Got error %s", err.Error())
+					}
+
+					//errCh <- errors.Wrapf(lastErr, "failed to propose job %s for node %s after %d attempts", jobDesc.Flag, jobReq.NodeId, maxRetries)
+					//}(jobReq, jobDesc)
+
+					if lastErr != nil {
+
+						//return lastErr
+					}
+				}
+			}
+		}
+	}
+
+	//wg.Wait()
+	//close(errCh)
+
+	//var finalErr error
+	//for err := range errCh {
+	//	if finalErr == nil {
+	//		finalErr = err
+	//	} else {
+	//		finalErr = errors.Wrap(finalErr, err.Error())
+	//	}
+	//}
+	//
+	//if finalErr != nil {
+	//	return errors.Wrap(finalErr, "failed to create at least one job for DON")
+	//}
+
+	return nil
+}
+
 func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
 	if len(jobSpecs) == 0 {
 		return nil
@@ -65,20 +142,22 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 			if jobReqs, ok := jobSpecs[jobDesc]; ok {
 				for _, jobReq := range jobReqs {
 					wg.Add(1)
-					go func(jobReq *jobv1.ProposeJobRequest) {
+					go func(jobReq *jobv1.ProposeJobRequest, jobDesc types.JobDescription) {
 						defer wg.Done()
 						timeout := time.Second * 60
 						ctx, cancel := context.WithTimeout(context.Background(), timeout)
 						defer cancel()
 						_, err := offChainClient.ProposeJob(ctx, jobReq)
-						if err != nil && !strings.Contains(err.Error(), "cannot approve an approved spec") {
-							errCh <- errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
-						}
-						err = ctx.Err()
 						if err != nil {
-							errCh <- errors.Wrapf(err, "timed out after %s proposing job %s for node %s", timeout.String(), jobDesc.Flag, jobReq.NodeId)
+							if !strings.Contains(err.Error(), "cannot approve an approved spec") {
+								errCh <- errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
+							}
+							return
 						}
-					}(jobReq)
+						if ctx.Err() != nil {
+							errCh <- errors.Wrapf(ctx.Err(), "timed out after %s proposing job %s for node %s", timeout.String(), jobDesc.Flag, jobReq.NodeId)
+						}
+					}(jobReq, jobDesc)
 				}
 			}
 		}

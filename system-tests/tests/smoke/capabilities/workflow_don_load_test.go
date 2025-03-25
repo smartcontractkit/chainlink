@@ -122,6 +122,8 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	})
 
+	require.NoError(t, saveFeedAddresses(feedsAddresses))
+
 	//Get ocr key
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
@@ -131,20 +133,23 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 					continue // Skip bootstrap nodeker
 				}
 
-				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID)
-				require.NoError(t, err)
-				b, err2 := json.Marshal(key)
-				require.NoError(t, err2)
-				kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
-				require.NoError(t, err2)
-				kb = append(kb, kk)
+				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID) //TODO: @george-dorin FIX ME!!!
+				if err == nil {
+					b, err2 := json.Marshal(key)
+					require.NoError(t, err2)
+					kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+					require.NoError(t, err2)
+					kb = append(kb, kk)
+				} else {
+					testLogger.Error().Msgf("Could not export OCR2 key: %s", err)
+				}
+
 			}
 		}
 	}
 
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
 	require.NoError(t, saveKeyBundles(kb))
-	require.NoError(t, saveFeedAddresses(feedsAddresses))
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
@@ -186,7 +191,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel, 500),
+			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel, 500, 1),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -203,6 +208,38 @@ func TestReconnectMock(t *testing.T) {
 	testLogger := framework.L
 	ctx := tests.Context(t)
 
+	//kbID := []string{"785d65035f0a6da879fb732164d1a29c066b8fe4aaf5b3224829c2211a09c014", "3acbbebe4f844f938fb7b48fa638a4746c034065ad93ab28a42bcc2a57e07bf4", "0987c44f9a458a11c8c9d1041fb663343273480084b9ceec396978a400977ddb", "7ca650da9e9de349bcbdb6c28ccf2fd33611f60251b57854342e1eff450593cb"}
+
+	//kb := make([]ocr2key.KeyBundle, 0)
+	//for i := range kbID {
+	//	node, err := devenv.NewNode(devenv.NodeInfo{
+	//		CLConfig: nodeclient.ChainlinkConfig{
+	//			URL:         fmt.Sprintf("https://crib-workflow-don-load-test-capabilities-%d.main.stage.cldev.sh", i),
+	//			Email:       "admin@chain.link",
+	//			Password:    "hWDmgcub2gUhyrG6cxriqt7T",
+	//			InternalIP:  "",
+	//			Headers:     nil,
+	//			HTTPTimeout: nil,
+	//		},
+	//		P2PPort:       "",
+	//		IsBootstrap:   false,
+	//		Name:          "",
+	//		AdminAddr:     "",
+	//		MultiAddr:     "",
+	//		Labels:        nil,
+	//		ContainerName: "",
+	//	})
+	//	require.NoError(t, err)
+	//	key, err := node.ExportOCR2Keys(kbID[i])
+	//	require.NoError(t, err)
+	//	b, err2 := json.Marshal(key)
+	//	require.NoError(t, err2)
+	//	kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+	//	require.NoError(t, err2)
+	//	kb = append(kb, kk)
+	//}
+	//
+	//require.NoError(t, saveKeyBundles(kb))
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err)
 
@@ -230,14 +267,16 @@ func TestReconnectMock(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 100, 2)
+	time.Sleep(time.Second * 5) //Time to precompute
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5,
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 120*time.Minute),
+				wasp.Plain(4, 20*time.Minute),
 			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 500),
+			Gun:                   sg,
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -257,9 +296,12 @@ type StreamsGun struct {
 	recieveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
+	jobLimit    int
+	reportBytes []byte
+	timestamp   int64
 }
 
-func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]string, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int) *StreamsGun {
+func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]string, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
 	sg := &StreamsGun{
 		capProxy:    capProxy,
 		keyBundles:  keyBundles,
@@ -267,51 +309,28 @@ func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundle
 		triggerID:   triggerID,
 		recieveChan: ch,
 		feedLimit:   feedLimit,
+		jobLimit:    jobLimit,
 	}
+	go sg.precomputeReports()
 	go sg.waitHOOKloop()
 	return sg
 }
 
 func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
-	timesteamp := time.Now().Unix()
-	err := s.prepareWaitHOOK(timesteamp)
+	workingTimestamp := s.timestamp
+	err := s.prepareWaitHOOK(workingTimestamp)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	reports := make([]datastreams.FeedReport, 0)
-	for i := range s.feeds {
-		for _, feed := range s.feeds[i] {
-			if i >= s.feedLimit {
-				break
-			}
-			r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), timesteamp, feed, s.keyBundles)
-			if err != nil {
-				return &wasp.Response{Error: err.Error()}
-			}
-			reports = append(reports, *r)
-		}
-	}
-
-	event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
-		Payload:   reports,
-		Metadata:  datastreams.Metadata{},
-		Timestamp: timesteamp,
-	})
+	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, uuid.NewString(), s.reportBytes)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %v+", event))
-	eventBytes, err := mock_capability.MapToBytes(event)
-
-	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, uuid.NewString(), eventBytes)
-	if err != nil {
-		return &wasp.Response{Error: err.Error()}
-	}
-
+	go s.precomputeReports()
 	//Wait for hook back with the same eventID
-	err = s.waitForHOOK(timesteamp)
+	err = s.waitForHOOK(workingTimestamp)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
@@ -380,6 +399,43 @@ func (s *StreamsGun) waitForHOOK(timestamp int64) error {
 		return nil
 	}
 
+}
+
+func (s *StreamsGun) precomputeReports() {
+	timestamp := time.Now().Unix()
+	start := time.Now()
+	reports := make([]datastreams.FeedReport, 0)
+	for i := range s.feeds {
+		if i >= s.jobLimit {
+			break
+		}
+		for i2, feed := range s.feeds[i] {
+			if i2 >= s.feedLimit {
+				break
+			}
+			r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), timestamp, feed, s.keyBundles)
+			if err != nil {
+				panic(err)
+			}
+			reports = append(reports, *r)
+		}
+	}
+
+	event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
+		Payload:   reports,
+		Metadata:  datastreams.Metadata{},
+		Timestamp: timestamp,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	eventBytes, err := mock_capability.MapToBytes(event)
+	s.reportBytes = eventBytes
+	s.timestamp = timestamp
+
+	framework.L.Info().Msgf("precomputeReports took %s, size-byte %dKB", time.Since(start), len(eventBytes)/1000)
+	return
 }
 
 func createFeedReport(price *big.Int, observationTimestamp int64,

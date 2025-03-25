@@ -31,7 +31,7 @@ import (
 var defaultStreamConfig = p2ptypes.StreamConfig{
 	IncomingMessageBufferSize: 500,
 	OutgoingMessageBufferSize: 500,
-	MaxMessageLenBytes:        500000 * 4, // 500 KB;  max capacity = 500 * 500000 = 250 MB
+	MaxMessageLenBytes:        500000, // 500 KB;  max capacity = 500 * 500000 = 250 MB
 	MessageRateLimiter: ragep2p.TokenBucketParams{
 		Rate:     100.0,
 		Capacity: 500,

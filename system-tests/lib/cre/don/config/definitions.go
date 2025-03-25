@@ -135,10 +135,12 @@ func Beholder(beholderAddress string) string {
 	return fmt.Sprintf(`
 	[Telemetry]
 	Enabled = true
-	Endpoint = '%s:4317'
+	Endpoint = '%s'
 	InsecureConnection = true
-	TraceSampleRatio = 0.1
+	TraceSampleRatio = 0.01
 	EmitterExportTimeout = '30s'
+	[Telemetry.ResourceAttributes]
+	load_test='workflow_don'
 `,
 		beholderAddress)
 }

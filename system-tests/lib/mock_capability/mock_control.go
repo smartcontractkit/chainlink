@@ -131,7 +131,7 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 	for _, client := range c.Nodes {
 		hook, errC := client.API.HookExecutables(context.TODO())
 		if errC != nil {
-			return fmt.Errorf("cannot hook into executable at %s", client.URL)
+			return fmt.Errorf("cannot hook into executable at %s: %s", client.URL, errC)
 		}
 
 		go func() {

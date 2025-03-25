@@ -99,6 +99,14 @@ func DeployBlockchain(input *types.DeployCribBlockchainInput) (*blockchain.Outpu
 	return blockchainOut, nil
 }
 
+func DeployBeholder(input *types.DeployCribDonsInput) error {
+	_, err := input.NixShell.RunCommandWithEnvVars("devspace run beholder", map[string]string{})
+	if err != nil {
+		return errors.Wrap(err, "failed to run devspace run beholder")
+	}
+	return nil
+}
+
 func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNodeSet, error) {
 	if input == nil {
 		return nil, errors.New("DeployCribDonsInput is nil")

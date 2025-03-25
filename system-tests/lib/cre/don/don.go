@@ -27,7 +27,7 @@ func CreateJobs(testLogger zerolog.Logger, input cretypes.CreateJobsInput) error
 
 	for _, don := range input.DonTopology.DonsWithMetadata {
 		if jobSpecs, ok := input.DonToJobSpecs[don.ID]; ok {
-			createErr := jobs.Create(input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
+			createErr := jobs.CreateWithRetry(input.CldEnv.Offchain, don.DON, don.Flags, jobSpecs)
 			if createErr != nil {
 				return errors.Wrapf(createErr, "failed to create jobs for DON %d", don.ID)
 			}
