@@ -136,7 +136,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@912e1bf81ee925929965f80b81af5f0b741f2a65 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29f056838540623f59107a6e0cc33e1c0921121c # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -331,7 +331,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@912e1bf81ee925929965f80b81af5f0b741f2a65 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29f056838540623f59107a6e0cc33e1c0921121c # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -441,7 +441,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@912e1bf81ee925929965f80b81af5f0b741f2a65 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@29f056838540623f59107a6e0cc33e1c0921121c # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -748,6 +748,38 @@ jobs:
                       "text": {
                         "type": "mrkdwn",
                         "text": "<@U01Q4N37KFG> <@U04DYU1KLGJ> ${{ format('<{0}/{1}/actions/runs/{2}|See details>', github.server_url, github.repository, github.run_id) }} and diagnose the issue."
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
+      - name: Send Slack message for Found Panics
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).panicked_tests > 0 }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#C62828",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Flakeguard Found a Panic :warning:"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<@U01Q4N37KFG> ${{ format('<{0}/{1}/actions/runs/{2}|See details>', github.server_url, github.repository, github.run_id) }} and add to panic detection scenarios."
                       }
                     }
                   ]
