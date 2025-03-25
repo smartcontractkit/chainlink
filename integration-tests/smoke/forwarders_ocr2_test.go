@@ -126,7 +126,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 		ResponseBody:       5,
 		ResponseStatusCode: http.StatusOK,
 	}
-	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
+	require.GreaterOrEqual(t, sethClient.ChainID, int64(0), "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		ocrInstances,
 		bootstrapNode,

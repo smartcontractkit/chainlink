@@ -147,7 +147,7 @@ func TestOCRv2JobReplacement(t *testing.T) {
 
 	route.ResponseBody = 15
 	require.NoError(t, err, "Failed to set route in mock adapter")
-	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
+	require.GreaterOrEqual(t, sethClient.ChainID, int64(0), "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		aggregatorContracts,
 		bootstrapNode,
@@ -236,7 +236,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 		ResponseBody:       firstRoundResult,
 		ResponseStatusCode: http.StatusOK,
 	}
-	require.GreaterOrEqual(t, sethClient.ChainID, 0, "Chain ID should be greater than or equal to 0")
+	require.GreaterOrEqual(t, sethClient.ChainID, int64(0), "Chain ID should be greater than or equal to 0")
 	err = actions.CreateOCRv2JobsLocal(
 		aggregatorContracts,
 		bootstrapNode,
