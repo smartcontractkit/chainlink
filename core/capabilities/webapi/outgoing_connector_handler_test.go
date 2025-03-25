@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"testing"
-	"time"
 
 	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
@@ -131,33 +130,6 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			mockConnector.AssertExpectations(t)
 		})
 	}
-}
-
-func Test_effectiveTimeout(t *testing.T) {
-	t.Run("deadline less than default returns deadline", func(t *testing.T) {
-		deadline := time.Now().Add(50 * time.Millisecond)
-		ctx, cancel := context.WithDeadline(context.Background(), deadline)
-		defer cancel()
-
-		timeout := maxAwaitTimeout(ctx)
-		assert.WithinDuration(t, time.Now().Add(50*time.Millisecond), time.Now().Add(timeout), 10*time.Millisecond)
-	})
-
-	t.Run("no deadline returns default", func(t *testing.T) {
-		ctx := context.Background()
-		timeout := maxAwaitTimeout(ctx)
-		assert.Equal(t, defaultAwaitTimeoutMs*time.Millisecond, timeout)
-	})
-
-	t.Run("deadline greater than default returns default", func(t *testing.T) {
-		giveTimeout := defaultAwaitTimeoutMs*time.Millisecond + 1*time.Second
-		deadline := time.Now().Add(giveTimeout)
-		ctx, cancel := context.WithDeadline(context.Background(), deadline)
-		defer cancel()
-
-		timeout := maxAwaitTimeout(ctx)
-		assert.WithinDuration(t, time.Now().Add(defaultAwaitTimeoutMs*time.Millisecond), time.Now().Add(timeout), 10*time.Millisecond)
-	})
 }
 
 func TestHandleSingleNodeRequest(t *testing.T) {

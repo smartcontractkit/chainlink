@@ -25,7 +25,6 @@ const (
 	DefaultWorkflowRPS    = 5.0
 	DefaultWorkflowBurst  = 50
 	defaultFetchTimeoutMs = 20_000
-	defaultAwaitTimeoutMs = 5_000
 
 	errorOutgoingRatelimitGlobal   = "global limit of gateways requests has been exceeded"
 	errorOutgoingRatelimitWorkflow = "workflow exceeded limit of gateways requests"
@@ -148,12 +147,6 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 // using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
 // cancellation or timeout.
 func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
-	return c.awaitConnectionUntilCanceled(ctx)
-}
-
-// awaitConnectionUntilCanceled cycles through gateways via a round robin and attempts a connection.
-// Attempts a connection until the passed context is canceled.
-func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Context) (string, error) {
 	selector := NewRoundRobinSelector(c.gc.GatewayIDs())
 	attempts := make(map[string]int)
 	wait := 10 * time.Millisecond
@@ -172,7 +165,14 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 			if attempts[gateway] > 0 {
 				c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", wait)
 				attempts = make(map[string]int)
-				<-time.After(wait)
+
+				// hold until wait or context expires
+				select {
+				case <-ctx.Done():
+					return "", ctx.Err()
+				case <-time.After(wait):
+				}
+
 				wait *= 2
 			}
 
@@ -190,11 +190,10 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 }
 
 // attemptGatewayConnection waits to connect to a gateway with a new child context
-// whose timeout is at most defaultAwaitTimoutMs.
 func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
-	timeout := maxAwaitTimeout(ctx)
+	timeout := (defaultFetchTimeoutMs / 4) * time.Millisecond
 
-	c.lggr.Debugw("await connection with deadline", "timeout", timeout)
+	c.lggr.Debugw("awaiting connection", "selectedGateway", gateway, "timeout", timeout)
 
 	// create a new child context to wait on gateway connection
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
@@ -204,22 +203,6 @@ func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context,
 		return fmt.Errorf("gateway connection failed: %w", err)
 	}
 	return nil
-}
-
-// maxAwaitTimeout returns a wait time capped by defaultAwaitTimeoutMs
-func maxAwaitTimeout(ctx context.Context) time.Duration {
-	dl, ok := ctx.Deadline()
-	originalTimeout := time.Duration(0)
-	if ok {
-		originalTimeout = time.Until(dl)
-	}
-
-	maxWaitTime := defaultAwaitTimeoutMs * time.Millisecond
-	if !ok || originalTimeout >= maxWaitTime {
-		return maxWaitTime
-	}
-
-	return originalTimeout
 }
 
 // HandleGatewayMessage processes incoming messages from the Gateway,
