@@ -681,12 +681,24 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 	}
 
 	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
+	bitmap := new(big.Int)
 	for i, node := range nodes {
 		rmnNodes[i] = rmn_home.RMNHomeNode{
 			PeerId:            node.PeerId,
 			OffchainPublicKey: node.OffchainPublicKey,
 		}
+		bitmap.SetBit(bitmap, i, 1)
 	}
+
+	sourceChains := make([]rmn_home.RMNHomeSourceChain, len(allChains))
+	for i, chain := range allChains {
+		sourceChains[i] = rmn_home.RMNHomeSourceChain{
+			ChainSelector:       chain,
+			FObserve:            1,
+			ObserverNodesBitmap: bitmap,
+		}
+	}
+
 	env, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			// Enable the OCR config on the remote chains
@@ -696,6 +708,10 @@ func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig 
 				RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
 					Nodes:          rmnNodes,
 					OffchainConfig: []byte{},
+				},
+				RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+					OffchainConfig: []byte{},
+					SourceChains:   sourceChains,
 				},
 			},
 		),
