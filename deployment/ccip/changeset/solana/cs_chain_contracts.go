@@ -33,7 +33,6 @@ var _ deployment.ChangeSet[TransferAdminRoleTokenAdminRegistryConfig] = Transfer
 var _ deployment.ChangeSet[AcceptAdminRoleTokenAdminRegistryConfig] = AcceptAdminRoleTokenAdminRegistry
 var _ deployment.ChangeSet[SetFeeAggregatorConfig] = SetFeeAggregator
 var _ deployment.ChangeSet[BillingTokenConfig] = AddBillingTokenChangeset
-var _ deployment.ChangeSet[DeployTestRouterConfig] = DeployTestRouter
 var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresses
 var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
@@ -96,8 +95,8 @@ func commonValidation(e deployment.Environment, selector uint64, tokenPubKey sol
 	return nil
 }
 
-func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState, testRouter bool) error {
-	_, routerConfigPDA, err := chainState.GetRouterInfo(testRouter)
+func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
+	_, routerConfigPDA, err := chainState.GetRouterInfo()
 	if err != nil {
 		return err
 	}
@@ -110,16 +109,8 @@ func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.So
 }
 
 func validateFeeAggregatorConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
-	if chainState.FeeAggregator.IsZero() {
+	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
-	}
-	var routerConfigAccount solRouter.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
-	if err != nil {
-		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
-	}
-	if !routerConfigAccount.FeeAggregator.Equals(chainState.FeeAggregator) {
-		return fmt.Errorf("fee aggregator %s does not match router config %s", chainState.FeeAggregator.String(), routerConfigAccount.FeeAggregator.String())
 	}
 	return nil
 }
@@ -270,7 +261,6 @@ type SetUpgradeAuthorityConfig struct {
 	NewUpgradeAuthority   solana.PublicKey
 	SetAfterInitialDeploy bool // set all of the programs after the initial deploy
 	SetOffRamp            bool // offramp not upgraded in place, so may need to set separately
-	SetTestRouter         bool // test router not upgraded in place, so may need to set separately
 	SetMCMSPrograms       bool // these all deploy at once so just set them all
 }
 
@@ -294,9 +284,6 @@ func SetUpgradeAuthorityChangeset(
 	}
 	if config.SetOffRamp {
 		programs = append(programs, chainState.OffRamp)
-	}
-	if config.SetTestRouter {
-		programs = append(programs, chainState.TestRouter)
 	}
 	if config.SetMCMSPrograms {
 		addresses, err := e.ExistingAddresses.AddressesForChain(config.ChainSelector)

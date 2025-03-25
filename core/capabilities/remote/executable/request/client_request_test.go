@@ -3,11 +3,13 @@ package request_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -30,7 +32,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	numCapabilityPeers := 2
 	capabilityPeers := make([]p2ptypes.PeerID, numCapabilityPeers)
-	for i := 0; i < numCapabilityPeers; i++ {
+	for i := range numCapabilityPeers {
 		capabilityPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -49,7 +51,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 	numWorkflowPeers := 2
 	workflowPeers := make([]p2ptypes.PeerID, numWorkflowPeers)
-	for i := 0; i < numWorkflowPeers; i++ {
+	for i := range numWorkflowPeers {
 		workflowPeers[i] = NewP2PPeerID(t)
 	}
 
@@ -99,8 +101,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	}
 
 	t.Run("Send second message with different response", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -142,8 +143,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message from non calling Don peer", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -168,8 +168,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message from same peer as first message", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -191,8 +190,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Send second message with same error as first", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -212,7 +210,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 			Payload:         rawResponse,
 			MessageId:       []byte("messageID"),
 			Error:           types.Error_INTERNAL_ERROR,
-			ErrorMsg:        "an error",
+			ErrorMsg:        assert.AnError.Error(),
 		}
 
 		msgWithError.Sender = capabilityPeers[0][:]
@@ -225,12 +223,11 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		response := <-request.ResponseChan()
 
-		assert.Equal(t, "an error", response.Err.Error())
+		assert.Equal(t, fmt.Sprintf("%s : %s", types.Error_INTERNAL_ERROR, assert.AnError.Error()), response.Err.Error())
 	})
 
 	t.Run("Send second message with different error to first", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -279,8 +276,7 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 	})
 
 	t.Run("Execute Request", func(t *testing.T) {
-		ctx, cancel := context.WithCancel(context.Background())
-		defer cancel()
+		ctx := t.Context()
 
 		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
 		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
@@ -308,6 +304,166 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		assert.Equal(t, resp, values.NewString("response1"))
 	})
+
+	t.Run("Executes full schedule", func(t *testing.T) {
+		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+
+		numPeers := 3
+		capPeers := make([]p2ptypes.PeerID, numPeers)
+		for i := range numPeers {
+			capPeers[i] = NewP2PPeerID(t)
+		}
+
+		capDonInfo := commoncap.DON{
+			ID:      1,
+			Members: capPeers,
+			F:       1,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             "cap_id@1.0.0",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+			Description:    "Remote Target",
+			DON:            &capDonInfo,
+		}
+
+		ctx := t.Context()
+		ctxWithCancel, cancelFn := context.WithCancel(t.Context())
+
+		// cancel the context immediately so we can verify
+		// that the schedule is still executed entirely.
+		cancelFn()
+
+		// Buffered channel so the goroutines block
+		// when executing the schedule
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		request, err := request.NewClientExecuteRequest(
+			ctxWithCancel,
+			lggr,
+			capabilityRequest,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+		)
+		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
+
+		// Despite the context being cancelled,
+		// we still send the full schedule.
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		msg.Sender = capPeers[0][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capPeers[1][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+
+		assert.Equal(t, resp, values.NewString("response1"))
+
+		logs := obs.FilterMessage("sending request to peers").All()
+		assert.Len(t, logs, 1)
+
+		log := logs[0]
+		for _, k := range log.Context {
+			if k.Key == "originalTimeout" {
+				assert.Equal(t, int64(0), k.Integer)
+			}
+
+			if k.Key == "effectiveTimeout" {
+				assert.Greater(t, k.Integer, int64(10*time.Second))
+			}
+		}
+	})
+
+	t.Run("Uses passed in time out if larger than schedule", func(t *testing.T) {
+		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+
+		numPeers := 3
+		capPeers := make([]p2ptypes.PeerID, numPeers)
+		for i := range numPeers {
+			capPeers[i] = NewP2PPeerID(t)
+		}
+
+		capDonInfo := commoncap.DON{
+			ID:      1,
+			Members: capPeers,
+			F:       1,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             "cap_id@1.0.0",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+			Description:    "Remote Target",
+			DON:            &capDonInfo,
+		}
+
+		ctx := t.Context()
+		ctx, cancelFn := context.WithTimeout(ctx, 15*time.Second)
+		defer cancelFn()
+
+		// Buffered channel so the goroutines block
+		// when executing the schedule
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		request, err := request.NewClientExecuteRequest(
+			ctx,
+			lggr,
+			capabilityRequest,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+		)
+		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
+
+		// Despite the context being cancelled,
+		// we still send the full schedule.
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		msg.Sender = capPeers[0][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capPeers[1][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+
+		assert.Equal(t, resp, values.NewString("response1"))
+
+		logs := obs.FilterMessage("sending request to peers").All()
+		assert.Len(t, logs, 1)
+
+		log := logs[0]
+		for _, k := range log.Context {
+			if k.Key == "effectiveTimeout" {
+				// Greater than what it would otherwise be
+				// i.e. 2 *deltaStage + margin = 12s
+				assert.Greater(t, k.Integer, int64(12*time.Second))
+			}
+		}
+	})
+
 }
 
 type clientRequestTestDispatcher struct {

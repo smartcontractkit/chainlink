@@ -9,6 +9,8 @@ import (
 
 	gethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/jmoiron/sqlx"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys/keystest"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -21,6 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/configtest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 )
@@ -29,9 +32,12 @@ import (
 func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(b *testing.B) {
 	db := testutils.NewSqlxDB(b)
 	ctx := tests.Context(b)
+
+	ethClient := clienttest.NewClientWithDefaultChainID(b)
 	txStore := cltest.NewTestTxStore(b, db)
-	ethKeyStore := cltest.NewKeyStore(b, db).Eth()
-	_, fromAddress := cltest.MustInsertRandomKey(b, ethKeyStore)
+	memKeystore := keystest.NewMemoryChainStore()
+	ethKeyStore := keys.NewChainStore(memKeystore, ethClient.ConfiguredChainID())
+	fromAddress := memKeystore.MustCreate(b)
 
 	toAddress := gethCommon.HexToAddress("0x6C03DDA95a2AEd917EeCc6eddD4b9D16E6380411")
 
@@ -48,7 +54,6 @@ func BenchmarkEthBroadcaster_ProcessUnstartedEthTxs_Success(b *testing.B) {
 		State:          txmgrcommon.TxUnstarted,
 	}
 
-	ethClient := clienttest.NewClientWithDefaultChainID(b)
 	evmcfg := configtest.NewChainScopedConfig(b, nil)
 	checkerFactory := &txmgr.CheckerFactory{Client: ethClient}
 	lggr := logger.Test(b)

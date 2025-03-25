@@ -68,6 +68,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 					return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 				}
 
+				if tokenAmount.Amount.Int.Sign() < 0 {
+					return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
+				}
+
 				destExecDataDecodedMap, err := e.extraDataCodec.DecodeTokenAmountDestExecData(tokenAmount.DestExecData, chainReport.SourceChainSelector)
 				if err != nil {
 					return nil, fmt.Errorf("failed to decode dest exec data: %w", err)
@@ -104,7 +108,7 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, err
 			}
 
-			gasLimit, err := parseExtraDataMap(decodedExtraArgsMap)
+			gasLimit, err := parseExtraArgsMap(decodedExtraArgsMap)
 			if err != nil {
 				return nil, fmt.Errorf("decode extra args to get gas limit: %w", err)
 			}

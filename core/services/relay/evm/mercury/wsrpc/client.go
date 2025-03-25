@@ -2,6 +2,7 @@ package wsrpc
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -21,7 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 
-	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/pb"
@@ -84,7 +84,7 @@ type DialWithContextFunc func(ctxCaller context.Context, target string, opts ...
 type client struct {
 	services.StateMachine
 
-	csaKey       csakey.KeyV2
+	csaSigner    crypto.Signer
 	serverPubKey []byte
 	serverURL    string
 
@@ -111,11 +111,11 @@ type client struct {
 }
 
 type ClientOpts struct {
-	Logger        logger.SugaredLogger
-	ClientPrivKey csakey.KeyV2
-	ServerPubKey  []byte
-	ServerURL     string
-	CacheSet      cache.CacheSet
+	Logger       logger.SugaredLogger
+	CSASigner    crypto.Signer
+	ServerPubKey []byte
+	ServerURL    string
+	CacheSet     cache.CacheSet
 
 	// DialWithContext allows optional dependency injection for testing
 	DialWithContext DialWithContextFunc
@@ -132,14 +132,14 @@ func newClient(opts ClientOpts) *client {
 		dialWithContext = opts.DialWithContext
 	} else {
 		// NOTE: Wrap here since wsrpc.DialWithContext returns a concrete *wsrpc.Conn, not an interface
-		dialWithContext = func(ctxCaller context.Context, target string, opts ...wsrpc.DialOption) (Conn, error) {
-			conn, err := wsrpc.DialWithContext(ctxCaller, target, opts...)
+		dialWithContext = func(ctx context.Context, target string, opts ...wsrpc.DialOption) (Conn, error) {
+			conn, err := wsrpc.DialWithContext(ctx, target, opts...)
 			return conn, err
 		}
 	}
 	return &client{
 		dialWithContext:            dialWithContext,
-		csaKey:                     opts.ClientPrivKey,
+		csaSigner:                  opts.CSASigner,
 		serverPubKey:               opts.ServerPubKey,
 		serverURL:                  opts.ServerURL,
 		logger:                     opts.Logger.Named("WSRPC").Named(opts.ServerURL).With("serverURL", opts.ServerURL),
@@ -181,7 +181,7 @@ func (w *client) dial(ctx context.Context, opts ...wsrpc.DialOption) error {
 	w.dialCountMetric.Inc()
 	conn, err := w.dialWithContext(ctx, w.serverURL,
 		append(opts,
-			wsrpc.WithTransportCreds(w.csaKey.Raw().Bytes(), w.serverPubKey),
+			wsrpc.WithTransportSigner(w.csaSigner, w.serverPubKey),
 			wsrpc.WithLogger(w.logger),
 		)...,
 	)

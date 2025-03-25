@@ -33,11 +33,20 @@
     "_comment2_logger": "See https://github.com/ethers-io/ethers.js/issues/379 we pin this version since that's what was used in the old yarn lockfile",
     "overrides": {
       "@ethersproject/logger": "5.0.6"
-    }
+    },
+    "onlyBuiltDependencies": [
+      "// keccak@3.0.4, secp256k1@4.0.4 run node-gyp-build during install",
+      "// core-js@3.4.0 has a postinstall script to print a banner",
+      "// @arbitrum/nitro-contracts@1.1.1 has a postinstall script that runs patch-package. But has no patches.",
+      "secp256k1",
+      "keccak",
+      "core-js",
+      "@arbitrum/nitro-contracts"
+    ]
   },
   "engines": {
     "node": ">=18",
-    "pnpm": ">=9"
+    "pnpm": ">=10"
   },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.4.4",

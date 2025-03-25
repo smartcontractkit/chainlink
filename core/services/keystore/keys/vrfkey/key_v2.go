@@ -10,30 +10,22 @@ import (
 	"go.dedis.ch/kyber/v3"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 	"github.com/smartcontractkit/chainlink/v2/core/services/signatures/secp256k1"
 	bm "github.com/smartcontractkit/chainlink/v2/core/utils/big_math"
 )
 
 var suite = secp256k1.NewBlakeKeccackSecp256k1()
 
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
-	rawKeyInt := new(big.Int).SetBytes(raw)
+func KeyFor(raw internal.Raw) KeyV2 {
+	rawKeyInt := new(big.Int).SetBytes(raw.Bytes())
 	k := secp256k1.IntToScalar(rawKeyInt)
 	key, err := keyFromScalar(k)
 	if err != nil {
 		panic(err)
 	}
 	return key
-}
-
-func (raw Raw) String() string {
-	return "<VRF Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -60,8 +52,8 @@ func (key KeyV2) ID() string {
 	return hexutil.Encode(key.PublicKey[:])
 }
 
-func (key KeyV2) Raw() Raw {
-	return secp256k1.ToInt(*key.k).Bytes()
+func (key KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(secp256k1.ToInt(*key.k).Bytes())
 }
 
 // GenerateProofWithNonce allows external nonce generation for testing purposes
@@ -72,7 +64,7 @@ func (key KeyV2) Raw() Raw {
 func (key KeyV2) GenerateProofWithNonce(seed, nonce *big.Int) (Proof, error) {
 	secretKey := secp256k1.ScalarToHash(*key.k).Big()
 	if !(secp256k1.RepresentsScalar(secretKey) && seed.BitLen() <= 256) {
-		return Proof{}, fmt.Errorf("badly-formatted key or seed")
+		return Proof{}, errors.New("badly-formatted key or seed")
 	}
 	skAsScalar := secp256k1.IntToScalar(secretKey)
 	publicKey := Secp256k1Curve.Point().Mul(skAsScalar, nil)
@@ -152,7 +144,7 @@ func keyFromScalar(k kyber.Scalar) (KeyV2, error) {
 	}
 	var publicKey secp256k1.PublicKey
 	if l := copy(publicKey[:], rawPublicKey); l != secp256k1.CompressedPublicKeyLength {
-		panic(fmt.Errorf("failed to copy correct length in serialized public key"))
+		panic(errors.New("failed to copy correct length in serialized public key"))
 	}
 	return KeyV2{
 		k:         &k,

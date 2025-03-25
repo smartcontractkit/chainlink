@@ -416,6 +416,75 @@ func TestHTTPClient_BlocksUnallowed(t *testing.T) {
 	}
 }
 
+func TestHTTPClient_AllowedIPsCIDR(t *testing.T) {
+	t.Parallel()
+
+	// Setup the test environment
+	lggr := logger.Test(t)
+
+	// Start a test server
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	u, err := url.Parse(server.URL)
+	require.NoError(t, err)
+
+	hostname, port := u.Hostname(), u.Port()
+	t.Logf("hostname: %s, port: %s", hostname, port)
+	portInt, err := strconv.ParseInt(port, 10, 32)
+	require.NoError(t, err)
+
+	// Define test cases
+	tests := []struct {
+		name          string
+		allowedCIDRs  []string
+		expectedError string
+	}{
+		{
+			name:          "allowed CIDR block",
+			allowedCIDRs:  []string{"127.0.0.1/32"},
+			expectedError: "",
+		},
+		{
+			name:          "blocked CIDR block",
+			allowedCIDRs:  []string{"192.168.1.0/24"},
+			expectedError: "ip: 127.0.0.1 not found in allowlist",
+		},
+	}
+
+	// Execute test cases
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			config := HTTPClientConfig{
+				MaxResponseBytes: 1024,
+				DefaultTimeout:   5 * time.Second,
+				AllowedPorts:     []int{int(portInt)},
+				AllowedIPsCIDR:   tt.allowedCIDRs,
+			}
+
+			client, err := NewHTTPClient(config, lggr)
+			require.NoError(t, err)
+
+			_, err = client.Send(context.Background(), HTTPRequest{
+				Method:  "GET",
+				URL:     server.URL,
+				Headers: map[string]string{},
+				Body:    nil,
+				Timeout: 1 * time.Second,
+			})
+
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.expectedError)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
 func Test_ConfigApplyDefaults(t *testing.T) {
 	t.Parallel()
 	t.Run("successfully overrides defaults", func(t *testing.T) {

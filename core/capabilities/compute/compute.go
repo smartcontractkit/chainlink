@@ -3,6 +3,7 @@ package compute
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -112,7 +113,7 @@ func (c *Compute) UnregisterFromWorkflow(ctx context.Context, request capabiliti
 
 func generateID(binary []byte) string {
 	id := sha256.Sum256(binary)
-	return fmt.Sprintf("%x", id)
+	return hex.EncodeToString(id[:])
 }
 
 func (c *Compute) Execute(ctx context.Context, request capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
@@ -353,17 +354,18 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 		}
 
 		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-			URL:       req.Url,
-			Method:    req.Method,
-			Headers:   headersReq,
-			Body:      req.Body,
-			TimeoutMs: req.TimeoutMs,
+			URL:        req.Url,
+			Method:     req.Method,
+			Headers:    headersReq,
+			Body:       req.Body,
+			TimeoutMs:  req.TimeoutMs,
+			WorkflowID: req.Metadata.WorkflowId,
 		})
 		if err != nil {
 			return nil, err
 		}
 
-		log.Debugw("received gateway response", "resp", resp)
+		log.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
 		var response wasmpb.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {

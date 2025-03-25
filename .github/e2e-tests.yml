@@ -182,15 +182,15 @@ runner-test-matrix:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
       ENABLE_OTEL_TRACES: true
 
-  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_SingleDon
-    path: system-tests/tests/smoke/capabilities/workflow_test.go
+  - id: system-tests/smoke/cre/por_test.go:TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice
+    path: system-tests/tests/smoke/cre/por_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR Workflow Engine E2E Core Tests
+      - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
-    pyroscope_env: ci-smoke-capabilities-evm-simulated
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    pyroscope_env: ci-smoke-cre-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
       E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
@@ -200,39 +200,39 @@ runner-test-matrix:
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_GatewayDon
-    path: system-tests/tests/smoke/capabilities/workflow_test.go
+  - id: system-tests/smoke/cre/por_test.go:TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice
+    path: system-tests/tests/smoke/cre/por_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR Workflow Engine E2E Core Tests
+      - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
       E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: "{{ env.GITHUB_API_TOKEN }}" # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
-      CTF_CONFIGS: "environment-two-dons-ci.toml"
+      CTF_CONFIGS: "environment-gateway-don-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-  - id: system-tests/smoke/capabilities/workflow_test.go:TestKeystoneWithOCR3Workflow_ThreeDons
-    path: system-tests/tests/smoke/capabilities/workflow_test.go
+  - id: system-tests/smoke/cre/por_test.go:TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice
+    path: system-tests/tests/smoke/cre/por_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR Workflow Engine E2E Core Tests
+      - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/capabilities -v -run "^(TestKeystoneWithOCR3Workflow_ThreeDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
       E2E_JD_VERSION: 0.9.0 # there is no latest tag for this repo, so we need to specify the version
       GITHUB_READ_TOKEN: "{{ env.GITHUB_API_TOKEN }}" # GATI-provided token that can read from capabilities and dev-platform repos
       CI: "true"
-      CTF_CONFIGS: "environment-three-dons-ci.toml"
+      CTF_CONFIGS: "environment-capabilities-don-ci.toml"
       # Anvil developer key, not a secret
       PRIVATE_KEY: "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
@@ -257,8 +257,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_0|TestAutomationBasic/registry_2_1_conditional|TestAutomationBasic/registry_2_1_logtrigger$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -268,8 +266,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_1_with_mercury_v02|TestAutomationBasic/registry_2_1_with_mercury_v03|TestAutomationBasic/registry_2_1_with_logtrigger_and_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -279,8 +275,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_2_conditional|TestAutomationBasic/registry_2_2_logtrigger|TestAutomationBasic/registry_2_2_with_mercury_v02$" -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -290,8 +284,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_2_with_mercury_v03|TestAutomationBasic/registry_2_2_with_logtrigger_and_mercury_v02$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -301,8 +293,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_conditional_native|TestAutomationBasic/registry_2_3_conditional_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -312,8 +302,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_logtrigger_native|TestAutomationBasic/registry_2_3_logtrigger_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -323,8 +311,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run "^TestAutomationBasic/registry_2_3_with_mercury_v03_link|TestAutomationBasic/registry_2_3_with_logtrigger_and_mercury_v02_link$" -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -334,8 +320,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetUpkeepTriggerConfig$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -345,8 +329,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -356,8 +338,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseUnPause$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -367,8 +347,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -378,8 +356,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPauseRegistry$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -389,8 +365,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationKeeperNodesDown$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -400,8 +374,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationPerformSimulation$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -411,8 +383,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestAutomationCheckPerformGasLimit$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -422,8 +392,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestUpdateCheckData$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -433,8 +401,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestSetOffchainConfigWithMaxGasPrice$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-automation-evm-simulated
@@ -444,7 +410,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBasicSmoke$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -454,7 +419,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperBlockCountPerTurn$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -464,7 +428,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperSimulation$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -474,7 +437,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperCheckPerformGasLimit$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -484,7 +446,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRegisterUpkeep$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -494,7 +455,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperAddFunds$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -504,7 +464,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperRemove$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -514,7 +473,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseRegistry$ -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -524,7 +482,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperMigrateRegistry$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -534,7 +491,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperNodeDown$ -test.parallel=3 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -544,7 +500,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperPauseUnPauseUpkeep$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -554,7 +509,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperUpdateCheckData$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -564,7 +518,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke && go test -test.run ^TestKeeperJobReplacement$ -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-smoke-keeper-evm-simulated
@@ -921,8 +874,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRunLogBasic" -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-runlog-evm-simulated
@@ -932,8 +883,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestCronV2Pipeline|TestCronV2Schedule" -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-cron-evm-simulated
@@ -943,8 +892,6 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
-      - PR E2E Core Tests
-      - Merge Queue E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestFluxBasic" -timeout 30m -count=1 -test.parallel=2 -json
     pyroscope_env: ci-smoke-flux-evm-simulated
@@ -1021,14 +968,14 @@ runner-test-matrix:
   - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse_Uncurse$
     path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
     test_env_type: docker
-    runs_on: ubuntu-latest
+    runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 18m -count=1 -test.parallel=1 -json
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 30m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.6.0
+      E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
@@ -1036,15 +983,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$
@@ -1052,15 +998,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughObservers$
@@ -1068,15 +1013,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughObservers$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughObservers$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentSigners$
@@ -1084,15 +1028,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentSigners$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentSigners$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_NotEnoughSigners$
@@ -1100,15 +1043,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughSigners$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughSigners$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_DifferentRmnNodesForDifferentChains$
@@ -1116,15 +1058,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentRmnNodesForDifferentChains$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentRmnNodesForDifferentChains$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOneSourceChainCursed$
@@ -1132,15 +1073,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOneSourceChainCursed$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOneSourceChainCursed$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$
@@ -1148,15 +1088,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_IncorrectSig$
@@ -1164,15 +1103,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_IncorrectSig$ -timeout 20m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_IncorrectSig$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$
@@ -1180,15 +1118,14 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
-      - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$ -timeout 12m -test.parallel=1 -count=1 -json
+    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       E2E_JD_VERSION: 0.9.0
-      E2E_RMN_RAGEPROXY_VERSION: 678509b
-      E2E_RMN_AFN2PROXY_VERSION: 678509b
+      E2E_RMN_RAGEPROXY_VERSION: master-amd6416f5d86
+      E2E_RMN_AFN2PROXY_VERSION: master-amd64-10b42b2
       CCIP_V16_TEST_ENV: docker
 
   - id: smoke/ccip/ccip_jobspec_test.go.go:TestDeleteCCIPJobs

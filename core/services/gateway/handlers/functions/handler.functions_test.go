@@ -133,7 +133,7 @@ func TestFunctionsHandler_HandleUserMessage_SecretsSet(t *testing.T) {
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(response.Msg.Body.Payload, &payload))
 				require.Equal(t, test.expectedGatewayResult, payload.Success)
-				require.Equal(t, test.expectedNodeMessageCount, len(payload.NodeResponses))
+				require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
 			}()
 
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)
@@ -177,7 +177,7 @@ func TestFunctionsHandler_HandleUserMessage_Heartbeat(t *testing.T) {
 				var payload functions.CombinedResponse
 				require.NoError(t, json.Unmarshal(response.Msg.Body.Payload, &payload))
 				require.Equal(t, test.expectedGatewayResult, payload.Success)
-				require.Equal(t, test.expectedNodeMessageCount, len(payload.NodeResponses))
+				require.Len(t, payload.NodeResponses, test.expectedNodeMessageCount)
 			}()
 
 			allowlist.On("Allow", common.HexToAddress(user.Address)).Return(true, nil)

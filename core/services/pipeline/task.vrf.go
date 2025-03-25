@@ -80,7 +80,7 @@ func (t *VRFTask) Run(_ context.Context, _ logger.Logger, vars Vars, inputs []Re
 	}
 	pk, err := secp256k1.NewPublicKeyFromBytes(pubKey)
 	if err != nil {
-		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %v", err)}, runInfo
+		return Result{Error: fmt.Errorf("failed to create PublicKey from bytes %w", err)}, runInfo
 	}
 	pkh := pk.MustHash()
 	// Validate the key against the spec

@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 // Configuration
@@ -25,15 +26,30 @@ const (
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
-	cs.TestRouter:                  "programs/ccip-router/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
 	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
-	cs.BurnMintTokenPool:           "programs/example-burnmint-token-pool/src/lib.rs",
-	cs.LockReleaseTokenPool:        "programs/example-lockrelease-token-pool/src/lib.rs",
+	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
+	cs.LockReleaseTokenPool:        "programs/lockrelease-token-pool/src/lib.rs",
 	cs.RMNRemote:                   "programs/rmn-remote/src/lib.rs",
 	types.AccessControllerProgram:  "programs/access-controller/src/lib.rs",
 	types.ManyChainMultisigProgram: "programs/mcm/src/lib.rs",
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
+}
+
+type LocalBuildConfig struct {
+	BuildLocally         bool
+	CleanDestinationDir  bool
+	CreateDestinationDir bool
+	// Forces re-clone of git directory. Useful for forcing regeneration of keys
+	CleanGitDir bool
+	UpgradeKeys map[deployment.ContractType]string
+}
+
+type BuildSolanaConfig struct {
+	GitCommitSha string
+	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
+	DestinationDir string
+	LocalBuild     LocalBuildConfig
 }
 
 // Run a command in a specific directory
@@ -137,13 +153,10 @@ func copyFile(srcFile string, destDir string) error {
 }
 
 // Build the project with Anchor
-func buildProject(e deployment.Environment, testRouter bool) error {
+func buildProject(e deployment.Environment) error {
 	solanaDir := filepath.Join(cloneDir, anchorDir, "..")
 	e.Logger.Debugw("Building project", "solanaDir", solanaDir)
 	args := []string{"docker-build-contracts"}
-	if testRouter {
-		args = append(args, "ANCHOR_BUILD_ARGS=-p ccip_router")
-	}
 	output, err := runCommand("make", args, solanaDir)
 	if err != nil {
 		return fmt.Errorf("anchor build failed: %s %w", output, err)
@@ -151,36 +164,10 @@ func buildProject(e deployment.Environment, testRouter bool) error {
 	return nil
 }
 
-type BuildSolanaConfig struct {
-	GitCommitSha string
-	// when running using CLD, this should be same as the secret (solana_program_path) or envvar (SOLANA_PROGRAM_PATH)
-	DestinationDir       string
-	CleanDestinationDir  bool
-	CreateDestinationDir bool
-	// Forces re-clone of git directory. Useful for forcing regeneration of keys
-	CleanGitDir bool
-	UpgradeKeys map[deployment.ContractType]string
-	TestRouter  bool
-}
-
-func filterRouterFiles(files []os.DirEntry) ([]os.DirEntry, error) {
-	// Filter files to only include those with "router" in the name
-	// ccip_router.so, ccip_router-keypair.json
-	var routerFiles []os.DirEntry
-
-	// Compile the regex pattern once
-	re := regexp.MustCompile(`(?i)router`)
-	for _, file := range files {
-		if re.MatchString(file.Name()) {
-			routerFiles = append(routerFiles, file)
-		}
-	}
-	return routerFiles, nil
-}
-
-func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
+	e.Logger.Debugw("Starting local build process", "destinationDir", config.DestinationDir)
 	// Clone the repository
-	if err := cloneRepo(e, config.GitCommitSha, config.CleanGitDir); err != nil {
+	if err := cloneRepo(e, config.GitCommitSha, config.LocalBuild.CleanGitDir); err != nil {
 		return fmt.Errorf("error cloning repo: %w", err)
 	}
 
@@ -191,16 +178,16 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 
 	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
 	// We need to do this so the keys will match the existing deployed program
-	if err := replaceKeysForUpgrade(e, config.UpgradeKeys); err != nil {
+	if err := replaceKeysForUpgrade(e, config.LocalBuild.UpgradeKeys); err != nil {
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
 	}
 
 	// Build the project with Anchor
-	if err := buildProject(e, config.TestRouter); err != nil {
+	if err := buildProject(e); err != nil {
 		return fmt.Errorf("error building project: %w", err)
 	}
 
-	if config.CleanDestinationDir {
+	if config.LocalBuild.CleanDestinationDir {
 		e.Logger.Debugw("Cleaning destination dir", "destinationDir", config.DestinationDir)
 		if err := os.RemoveAll(config.DestinationDir); err != nil {
 			return fmt.Errorf("error cleaning build folder: %w", err)
@@ -210,7 +197,7 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 		if err != nil {
 			return fmt.Errorf("failed to create build directory: %w", err)
 		}
-	} else if config.CreateDestinationDir {
+	} else if config.LocalBuild.CreateDestinationDir {
 		e.Logger.Debugw("Creating destination dir", "destinationDir", config.DestinationDir)
 		err := os.MkdirAll(config.DestinationDir, os.ModePerm)
 		if err != nil {
@@ -225,13 +212,6 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 		return fmt.Errorf("failed to read deploy directory: %w", err)
 	}
 
-	if config.TestRouter {
-		files, err = filterRouterFiles(files)
-		if err != nil {
-			return fmt.Errorf("failed to filter router files: %w", err)
-		}
-	}
-
 	for _, file := range files {
 		filePath := filepath.Join(deployFilePath, file.Name())
 		e.Logger.Debugw("Copying file", "filePath", filePath, "destinationDir", config.DestinationDir)
@@ -240,5 +220,23 @@ func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
 			return fmt.Errorf("failed to copy file: %w", err)
 		}
 	}
+	return nil
+}
+
+func BuildSolana(e deployment.Environment, config BuildSolanaConfig) error {
+	if !config.LocalBuild.BuildLocally {
+		e.Logger.Debug("Downloading Solana CCIP program artifacts...")
+		err := memory.DownloadSolanaCCIPProgramArtifacts(e.GetContext(), config.DestinationDir, e.Logger, config.GitCommitSha)
+		if err != nil {
+			return fmt.Errorf("error downloading solana ccip program artifacts: %w", err)
+		}
+	} else {
+		e.Logger.Debug("Building Solana CCIP program artifacts locally...")
+		err := buildLocally(e, config)
+		if err != nil {
+			return fmt.Errorf("error building solana ccip program artifacts: %w", err)
+		}
+	}
+
 	return nil
 }

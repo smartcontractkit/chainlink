@@ -9,18 +9,17 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/crypto"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 // Tron uses the same elliptic curve cryptography as Ethereum (ECDSA with secp256k1)
 var curve = crypto.S256()
 
-// Raw represents the Tron private key
-type Raw []byte
-
 // Key generates a public-private key pair from the raw private key
-func (raw Raw) Key() Key {
+func KeyFor(raw internal.Raw) Key {
 	var privKey ecdsa.PrivateKey
-	d := big.NewInt(0).SetBytes(raw)
+	d := big.NewInt(0).SetBytes(raw.Bytes())
 	privKey.PublicKey.Curve = curve
 	privKey.D = d
 	privKey.PublicKey.X, privKey.PublicKey.Y = curve.ScalarBaseMult(d.Bytes())
@@ -28,14 +27,6 @@ func (raw Raw) Key() Key {
 		pubKey:  &privKey.PublicKey,
 		privKey: &privKey,
 	}
-}
-
-func (raw Raw) String() string {
-	return "<Tron Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
 }
 
 var _ fmt.GoStringer = &Key{}
@@ -74,8 +65,8 @@ func (key Key) ID() string {
 	return key.Base58Address()
 }
 
-func (key Key) Raw() Raw {
-	return key.privKey.D.Bytes()
+func (key Key) Raw() internal.Raw {
+	return internal.NewRaw(key.privKey.D.Bytes())
 }
 
 func (key Key) ToEcdsaPrivKey() *ecdsa.PrivateKey {

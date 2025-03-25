@@ -16,9 +16,11 @@ import (
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -220,6 +222,16 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
+		sendMeteringReport: func(report *MeteringReport) {
+			detail := report.Description()
+			bClient := beholder.GetClient()
+			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity}
+
+			data, mErr := proto.Marshal(report.Message())
+			require.NoError(t, mErr)
+
+			require.NoError(t, bClient.Emitter.Emit(t.Context(), data, kvAttrs...))
+		},
 	}
 	for _, o := range opts {
 		o(&cfg)
@@ -237,7 +249,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 //
 // If the engine fails to initialize, the test will fail rather
 // than blocking indefinitely.
-func getExecutionID(t *testing.T, eng *Engine, hooks *testHooks) string {
+func getExecutionID(t *testing.T, _ *Engine, hooks *testHooks) string {
 	var eid string
 	select {
 	case <-hooks.initFailed:
@@ -308,6 +320,7 @@ func (m *mockTriggerCapability) UnregisterTrigger(ctx context.Context, req capab
 func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	beholderTester := tests.Beholder(t)
 
 	trigger, cr := mockTrigger(t)
 
@@ -349,7 +362,8 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
 }
 
 const (
@@ -423,6 +437,8 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
+	t.Helper()
+
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
 			"mercury-trigger@1.0.0",
@@ -750,9 +766,9 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusErrored)
+	assert.Equal(t, store.StatusErrored, state.Status)
 	// evm_median is the ref of our failing consensus step
-	assert.Equal(t, state.Steps["evm_median"].Status, store.StatusErrored)
+	assert.Equal(t, store.StatusErrored, state.Steps["evm_median"].Status)
 }
 
 func TestEngine_GracefulEarlyTermination(t *testing.T) {
@@ -772,8 +788,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	eid := getExecutionID(t, eng, hooks)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
-
-	assert.Equal(t, state.Status, store.StatusCompletedEarlyExit)
+	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
 }
 
@@ -867,7 +882,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 
 	// The inputs to the consensus step should
 	// be the outputs of the two dependents.
@@ -1218,7 +1233,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 
 	// There is passthrough interpolation between the consensus and target steps,
 	// so the input of one should be the output of the other, exactly.
@@ -1365,13 +1380,13 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 
 	// Assert that the config from the CR is merged with the default config from the registry.
 	m, err := values.Unwrap(gotConfig)
 	require.NoError(t, err)
-	assert.Equal(t, m.(map[string]any)["deltaStage"], "1s")
-	assert.Equal(t, m.(map[string]any)["schedule"], "allAtOnce")
+	assert.Equal(t, "1s", m.(map[string]any)["deltaStage"])
+	assert.Equal(t, "allAtOnce", m.(map[string]any)["schedule"])
 
 	for _, k := range wantConfigKeys {
 		assert.Contains(t, m.(map[string]any), k)
@@ -1506,7 +1521,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 
 	// Assert that the config from the CR is merged with the default config from the registry. With
 	// the CR config taking precedence.
@@ -1560,7 +1575,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 
 	m, err := values.Unwrap(gotConfig)
 	require.NoError(t, err)
@@ -1694,6 +1709,12 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,
@@ -1750,7 +1771,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
 
-	assert.Equal(t, state.Status, store.StatusCompleted)
+	assert.Equal(t, store.StatusCompleted, state.Status)
 	res, ok := state.ResultForStep("compute")
 	assert.True(t, ok)
 	assert.True(t, res.Outputs.(*values.Map).Underlying["Value"].(*values.Bool).Underlying)
@@ -1765,6 +1786,12 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	cfg := compute.Config{
 		ServiceConfig: webapi.ServiceConfig{
+			OutgoingRateLimiter: common.RateLimiterConfig{
+				GlobalRPS:      100.0,
+				GlobalBurst:    100,
+				PerSenderRPS:   100.0,
+				PerSenderBurst: 100,
+			},
 			RateLimiter: common.RateLimiterConfig{
 				GlobalRPS:      100.0,
 				GlobalBurst:    100,

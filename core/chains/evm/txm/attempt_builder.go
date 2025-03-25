@@ -9,26 +9,20 @@ import (
 	evmtypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txm/types"
 )
 
-type AttemptBuilderKeystore interface {
-	SignTx(ctx context.Context, fromAddress common.Address, tx *evmtypes.Transaction, chainID *big.Int) (*evmtypes.Transaction, error)
-}
-
 type attemptBuilder struct {
 	gas.EvmFeeEstimator
-	chainID     *big.Int
 	priceMaxKey func(common.Address) *assets.Wei
-	keystore    AttemptBuilderKeystore
+	keystore    keys.TxSigner
 }
 
-func NewAttemptBuilder(chainID *big.Int, priceMaxKey func(common.Address) *assets.Wei, estimator gas.EvmFeeEstimator, keystore AttemptBuilderKeystore) *attemptBuilder {
+func NewAttemptBuilder(priceMaxKey func(common.Address) *assets.Wei, estimator gas.EvmFeeEstimator, keystore keys.TxSigner) *attemptBuilder {
 	return &attemptBuilder{
-		chainID:         chainID,
 		priceMaxKey:     priceMaxKey,
 		EvmFeeEstimator: estimator,
 		keystore:        keystore,
@@ -104,7 +98,7 @@ func (a *attemptBuilder) newLegacyAttempt(ctx context.Context, tx *types.Transac
 		Data:     data,
 	}
 
-	signedTx, err := a.keystore.SignTx(ctx, tx.FromAddress, evmtypes.NewTx(&legacyTx), a.chainID)
+	signedTx, err := a.keystore.SignTx(ctx, tx.FromAddress, evmtypes.NewTx(&legacyTx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign attempt for txID: %v, err: %w", tx.ID, err)
 	}
@@ -143,7 +137,7 @@ func (a *attemptBuilder) newDynamicFeeAttempt(ctx context.Context, tx *types.Tra
 		Data:      data,
 	}
 
-	signedTx, err := a.keystore.SignTx(ctx, tx.FromAddress, evmtypes.NewTx(&dynamicTx), a.chainID)
+	signedTx, err := a.keystore.SignTx(ctx, tx.FromAddress, evmtypes.NewTx(&dynamicTx))
 	if err != nil {
 		return nil, fmt.Errorf("failed to sign attempt for txID: %v, err: %w", tx.ID, err)
 	}

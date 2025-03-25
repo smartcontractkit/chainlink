@@ -3,6 +3,7 @@ package request
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -70,8 +71,13 @@ func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req common
 		return nil, fmt.Errorf("failed to extract transmission config from request: %w", err)
 	}
 
+	lggr = lggr.With("requestId", requestID, "capabilityID", remoteCapabilityInfo.ID)
 	return newClientRequest(ctx, lggr, requestID, remoteCapabilityInfo, localDonInfo, dispatcher, requestTimeout, tc, types.MethodExecute, rawRequest)
 }
+
+var (
+	defaultDelayMargin = 10 * time.Second
+)
 
 func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string, remoteCapabilityInfo commoncap.CapabilityInfo,
 	localDonInfo commoncap.DON, dispatcher types.Dispatcher, requestTimeout time.Duration,
@@ -86,16 +92,51 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		return nil, fmt.Errorf("failed to get peer ID to transmission delay: %w", err)
 	}
 
-	lggr.Debugw("sending request to peers", "requestID", requestID, "schedule", peerIDToTransmissionDelay)
-
 	responseReceived := make(map[p2ptypes.PeerID]bool)
 
-	ctxWithCancel, cancelFn := context.WithCancel(ctx)
-	wg := &sync.WaitGroup{}
+	maxDelayDuration := time.Duration(0)
+	for _, delay := range peerIDToTransmissionDelay {
+		if delay > maxDelayDuration {
+			maxDelayDuration = delay
+		}
+	}
+
+	// Add some margin to allow the last peer to respond
+	maxDelayDuration += defaultDelayMargin
+
+	// Instantiate a new context based on the parent, but without its deadline.
+	// We set a new deadline instead equal to the original timeout OR the full length
+	// of the execution schedule plus some margin, whichever is greater
+
+	// We do this to ensure that we will always execute the entire transmission schedule.
+	// This ensures that all capability DON nodes will receive a quorum of requests,
+	// and will execute all requests they receive from the workflow DON, preventing
+	// quorum errors from lagging members of the workflow DON.
+	dl, ok := ctx.Deadline()
+	originalTimeout := time.Duration(0)
+	if ok {
+		originalTimeout = time.Until(dl)
+	}
+	effectiveTimeout := originalTimeout
+	if originalTimeout < maxDelayDuration {
+		effectiveTimeout = maxDelayDuration
+	}
+
+	// Now let's create a new context based on the adjusted timeout value.
+	// By calling WithoutCancel, we ensure that this context can only be cancelled in
+	// one of two ways -- 1) by explicitly calling the cancelFn we create below, or 2)
+	// after the adjusted timeout expires.
+	ctxWithoutCancel := context.WithoutCancel(ctx)
+	ctxWithCancel, cancelFn := context.WithTimeout(ctxWithoutCancel, effectiveTimeout)
+
+	lggr.Debugw("sending request to peers", "schedule", peerIDToTransmissionDelay, "originalTimeout", originalTimeout, "effectiveTimeout", effectiveTimeout)
+
+	var wg sync.WaitGroup
 	for peerID, delay := range peerIDToTransmissionDelay {
 		responseReceived[peerID] = false
+
 		wg.Add(1)
-		go func(ctx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
+		go func(innerCtx context.Context, peerID ragep2ptypes.PeerID, delay time.Duration) {
 			defer wg.Done()
 			message := &types.MessageBody{
 				CapabilityId:    remoteCapabilityInfo.ID,
@@ -107,14 +148,14 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 			}
 
 			select {
-			case <-ctxWithCancel.Done():
-				lggr.Debugw("context done, not sending request to peer", "requestID", requestID, "peerID", peerID)
+			case <-innerCtx.Done():
+				lggr.Debugw("context done, not sending request to peer", "peerID", peerID)
 				return
 			case <-time.After(delay):
-				lggr.Debugw("sending request to peer", "requestID", requestID, "peerID", peerID)
+				lggr.Debugw("sending request to peer", "peerID", peerID)
 				err := dispatcher.Send(peerID, message)
 				if err != nil {
-					lggr.Errorw("failed to send message", "peerID", peerID, "err", err)
+					lggr.Errorw("failed to send message", "peerID", peerID, "error", err)
 				}
 			}
 		}(ctxWithCancel, peerID, delay)
@@ -130,7 +171,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan clientResponse, 1),
-		wg:                         wg,
+		wg:                         &wg,
 		lggr:                       lggr,
 	}, nil
 }
@@ -169,7 +210,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		return errors.New("sender missing from message")
 	}
 
-	c.lggr.Debugw("OnMessage called for client request", "messageID", msg.MessageId)
+	c.lggr.Debugw("OnMessage called for client request")
 
 	sender, err := remote.ToPeerID(msg.Sender)
 	if err != nil {
@@ -191,18 +232,26 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 		responseID := sha256.Sum256(msg.Payload)
 		c.responseIDCount[responseID]++
 
+		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "count", c.responseIDCount[responseID], "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+		lggr.Debug("received response from peer")
+
 		if len(c.responseIDCount) > 1 {
-			c.lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
+			lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
 		}
 
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
 			c.sendResponse(clientResponse{Result: msg.Payload})
 		}
 	} else {
-		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(msg.ErrorMsg))
+		c.lggr.Debug("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
 		c.errorCount[msg.ErrorMsg]++
+
+		if len(c.errorCount) > 1 {
+			c.lggr.Warn("received multiple different errors for the same request, number of different errors received", "errorCount", len(c.errorCount))
+		}
+
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
-			c.sendResponse(clientResponse{Err: errors.New(msg.ErrorMsg)})
+			c.sendResponse(clientResponse{Err: fmt.Errorf("%s : %s", msg.Error, msg.ErrorMsg)})
 		}
 	}
 	return nil
@@ -212,4 +261,9 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 	c.responseCh <- response
 	close(c.responseCh)
 	c.respSent = true
+	if response.Err != nil {
+		c.lggr.Warnw("received error response", "error", remote.SanitizeLogString(response.Err.Error()))
+		return
+	}
+	c.lggr.Debugw("received OK response", "count", c.requiredIdenticalResponses)
 }

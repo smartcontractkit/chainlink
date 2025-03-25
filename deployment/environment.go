@@ -27,6 +27,8 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink/deployment/operations"
+
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -107,6 +109,8 @@ type Environment struct {
 	Offchain          OffchainClient
 	GetContext        func() context.Context
 	OCRSecrets        OCRSecrets
+	// OperationsBundle contains dependencies required by the operations API.
+	OperationsBundle operations.Bundle
 }
 
 func NewEnvironment(
@@ -130,6 +134,8 @@ func NewEnvironment(
 		Offchain:          offchain,
 		GetContext:        ctx,
 		OCRSecrets:        secrets,
+		// default to memory reporter as that is the only reporter available for now
+		OperationsBundle: operations.NewBundle(ctx, logger, operations.NewMemoryReporter()),
 	}
 }
 

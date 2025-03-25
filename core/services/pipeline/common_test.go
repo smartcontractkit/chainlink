@@ -22,7 +22,7 @@ func TestAtrributesAttribute(t *testing.T) {
 	p, err := pipeline.Parse(a)
 	require.NoError(t, err)
 	task := p.Tasks[0]
-	assert.Equal(t, "{\"attribute1\":\"value1\", \"attribute2\":42}", task.TaskTags())
+	assert.JSONEq(t, "{\"attribute1\":\"value1\", \"attribute2\":42}", task.TaskTags())
 }
 
 func TestTimeoutAttribute(t *testing.T) {
@@ -33,14 +33,14 @@ func TestTimeoutAttribute(t *testing.T) {
 	require.NoError(t, err)
 	timeout, set := p.Tasks[0].TaskTimeout()
 	assert.Equal(t, cltest.MustParseDuration(t, "10s"), timeout)
-	assert.Equal(t, true, set)
+	assert.True(t, set)
 
 	a = `ds1 [type=http method=GET url="https://chain.link/voter_turnout/USA-2020" requestData=<{"hi": "hello"}>];`
 	p, err = pipeline.Parse(a)
 	require.NoError(t, err)
 	timeout, set = p.Tasks[0].TaskTimeout()
 	assert.Equal(t, cltest.MustParseDuration(t, "0s"), timeout)
-	assert.Equal(t, false, set)
+	assert.False(t, set)
 }
 
 func TestTaskHTTPUnmarshal(t *testing.T) {
@@ -64,7 +64,7 @@ func TestTaskAnyUnmarshal(t *testing.T) {
 	require.Len(t, p.Tasks, 1)
 	_, ok := p.Tasks[0].(*pipeline.AnyTask)
 	require.True(t, ok)
-	require.Equal(t, true, p.Tasks[0].Base().FailEarly)
+	require.True(t, p.Tasks[0].Base().FailEarly)
 }
 
 func TestRetryUnmarshal(t *testing.T) {
@@ -213,7 +213,7 @@ func TestCheckInputs(t *testing.T) {
 			outputs, err := pipeline.CheckInputs(test.pr, test.minLen, test.maxLen, test.maxErrors)
 			if test.err == nil {
 				assert.NoError(t, err)
-				assert.Equal(t, test.outputsLen, len(outputs))
+				assert.Len(t, outputs, test.outputsLen)
 			} else {
 				assert.Equal(t, test.err, errors.Cause(err))
 			}
@@ -317,13 +317,13 @@ func TestGetNextTaskOf(t *testing.T) {
 
 	firstTask := trrs[0]
 	nextTask := trrs.GetNextTaskOf(firstTask)
-	assert.Equal(t, nextTask.Task.ID(), 2)
+	assert.Equal(t, 2, nextTask.Task.ID())
 
 	nextTask = trrs.GetNextTaskOf(*nextTask)
-	assert.Equal(t, nextTask.Task.ID(), 3)
+	assert.Equal(t, 3, nextTask.Task.ID())
 
 	nextTask = trrs.GetNextTaskOf(*nextTask)
-	assert.Equal(t, nextTask.Task.ID(), 4)
+	assert.Equal(t, 4, nextTask.Task.ID())
 
 	nextTask = trrs.GetNextTaskOf(*nextTask)
 	assert.Empty(t, nextTask)
@@ -382,7 +382,7 @@ func TestGetDescendantTasks(t *testing.T) {
 			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, nil, 0),
 		}
 		descendents := taskWithRepeats.GetDescendantTasks()
-		assert.Len(t, descendents, 0)
+		assert.Empty(t, descendents)
 	})
 
 	t.Run("GetDescendantTasks with empty list of output tasks", func(t *testing.T) {
@@ -391,6 +391,6 @@ func TestGetDescendantTasks(t *testing.T) {
 			BaseTask: pipeline.NewBaseTask(0, "taskWithRepeats", nil, []pipeline.Task{}, 0),
 		}
 		descendents := taskWithRepeats.GetDescendantTasks()
-		assert.Len(t, descendents, 0)
+		assert.Empty(t, descendents)
 	})
 }

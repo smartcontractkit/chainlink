@@ -42,7 +42,7 @@ func writeDefaults(r io.Reader, w *io.PipeWriter) {
 		}
 	}
 	if err := s.Err(); err != nil {
-		w.CloseWithError(fmt.Errorf("failed to scan core defaults: %v", err))
+		w.CloseWithError(fmt.Errorf("failed to scan core defaults: %w", err))
 	}
 }
 
