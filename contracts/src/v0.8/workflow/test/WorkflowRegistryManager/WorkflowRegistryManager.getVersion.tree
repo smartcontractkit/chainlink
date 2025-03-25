@@ -1,5 +1,0 @@
-WorkflowRegistryManager.getVersion
-├── when versionNumber is not registered
-│   └── it should revert with VersionNotRegistered
-└── when versionNumber is registered
-    └── it should return the correct version details
