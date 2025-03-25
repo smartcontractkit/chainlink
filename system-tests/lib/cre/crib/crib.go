@@ -59,10 +59,12 @@ func StartNixShell(input *types.StartNixShellInput) (*nix.Shell, error) {
 		return nil, errors.Wrap(err, "failed to create Nix shell")
 	}
 
-	// we need to run `devspace purge` to clean up the environment, in case our namespace is already used
-	_, err = nixShell.RunCommand("devspace purge --no-warn")
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to run devspace purge")
+	if input.PurgeNamespace {
+		// we run `devspace purge` to clean up the environment, in case our namespace is already used
+		_, err = nixShell.RunCommand("devspace purge --no-warn")
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to run devspace purge")
+		}
 	}
 
 	return nixShell, nil
