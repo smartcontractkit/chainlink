@@ -7,7 +7,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	changeset "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0.5.0"
+	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager/v0_5_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -53,20 +53,22 @@ func TestSetFeeManager(t *testing.T) {
 	require.NoError(t, err)
 
 	// Deploy Fee Manager
-	cfgFeeManager := changeset.DeployFeeManagerConfig{
-		ChainsToDeploy:       []uint64{testChain},
-		LinkTokenAddress:     linkState.LinkToken.Address(),
-		NativeTokenAddress:   common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9"),
-		ProxyAddress:         common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
-		RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
-	}
-
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			changeset.DeployFeeManager{},
-			cfgFeeManager,
+			feeManagerCs.DeployFeeManagerChangeset,
+			feeManagerCs.DeployFeeManagerConfig{
+				ChainsToDeploy: map[uint64]feeManagerCs.DeployFeeManager{
+					testutil.TestChain.Selector: {
+						LinkTokenAddress:     linkState.LinkToken.Address(),
+						NativeTokenAddress:   common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9"),
+						ProxyAddress:         common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
+						RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
+					},
+				},
+			},
 		),
 	)
+
 	require.NoError(t, err)
 
 	// Ensure the FeeManager was deployed

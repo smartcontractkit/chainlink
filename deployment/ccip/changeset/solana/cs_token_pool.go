@@ -11,6 +11,7 @@ import (
 
 	solBaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/base_token_pool"
 	solBurnMintTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/burnmint_token_pool"
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solLockReleaseTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/lockrelease_token_pool"
 	solTestTokenPool "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_token_pool"
@@ -359,7 +360,6 @@ func getInstructionsForBurnMint(
 		poolConfigPDA,
 		remoteChainConfigPDA,
 		authority,
-		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate instructions: %w", err)
@@ -440,7 +440,6 @@ func getInstructionsForLockRelease(
 		poolConfigPDA,
 		remoteChainConfigPDA,
 		authority,
-		solana.SystemProgramID,
 	).ValidateAndBuild()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate instructions: %w", err)
@@ -567,7 +566,7 @@ func (cfg SetPoolConfig) Validate(e deployment.Environment) error {
 	if err != nil {
 		return fmt.Errorf("failed to find token admin registry pda (mint: %s, router: %s): %w", tokenPubKey.String(), routerProgramAddress.String(), err)
 	}
-	var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+	var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 	if err := chain.GetAccountDataBorshInto(context.Background(), tokenAdminRegistryPDA, &tokenAdminRegistryAccount); err != nil {
 		return fmt.Errorf("token admin registry not found for (mint: %s, router: %s), cannot set pool", tokenPubKey.String(), routerProgramAddress.String())
 	}
@@ -1173,7 +1172,6 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 				poolConfigPDA,
 				remoteChainConfigPDA,
 				authority,
-				solana.SystemProgramID,
 			).ValidateAndBuild()
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
@@ -1215,7 +1213,6 @@ func TokenPoolOps(e deployment.Environment, cfg TokenPoolOpsCfg) (deployment.Cha
 				poolConfigPDA,
 				remoteChainConfigPDA,
 				authority,
-				solana.SystemProgramID,
 			).ValidateAndBuild()
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
