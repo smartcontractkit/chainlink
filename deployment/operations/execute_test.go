@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
+	"sync"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -489,13 +490,36 @@ func Test_constructUniqueHashFrom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			hash, err := constructUniqueHashFrom(tt.def, tt.input)
+			cache := &sync.Map{}
+			hash, err := constructUniqueHashFrom(cache, tt.def, tt.input)
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.ErrorContains(t, err, tt.wantErr)
+
+				// should not store anything in cache on failure
+				key := struct {
+					Def   Definition
+					Input any
+				}{tt.def, tt.input}
+				_, ok := cache.Load(key)
+				require.False(t, ok)
 			} else {
 				require.NoError(t, err)
 				assert.Equal(t, tt.want, hash)
+
+				// check cache
+				key := struct {
+					Def   Definition
+					Input any
+				}{tt.def, tt.input}
+				cached, ok := cache.Load(key)
+				require.True(t, ok)
+				assert.Equal(t, tt.want, cached)
+
+				// this call should use the cache
+				hash2, err := constructUniqueHashFrom(cache, tt.def, tt.input)
+				require.NoError(t, err)
+				assert.Equal(t, tt.want, hash2)
 			}
 		})
 	}

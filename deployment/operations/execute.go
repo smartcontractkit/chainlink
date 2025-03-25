@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/avast/retry-go/v4"
 )
@@ -118,9 +119,10 @@ func ExecuteSequence[IN, OUT, DEP any](
 		"version", sequence.def.Version, "description", sequence.def.Description)
 	recentReporter := NewRecentMemoryReporter(b.reporter)
 	newBundle := Bundle{
-		Logger:     b.Logger,
-		GetContext: b.GetContext,
-		reporter:   recentReporter,
+		Logger:          b.Logger,
+		GetContext:      b.GetContext,
+		reporter:        recentReporter,
+		reportHashCache: b.reportHashCache,
 	}
 	ret, err := sequence.handler(newBundle, deps, input)
 
@@ -156,7 +158,18 @@ func NewUnrecoverableError(err error) error {
 	return retry.Unrecoverable(err)
 }
 
-func constructUniqueHashFrom(def Definition, input any) (string, error) {
+func constructUniqueHashFrom(hashCache *sync.Map, def Definition, input any) (string, error) {
+	// Create cache key by combining def and input
+	key := struct {
+		Def   Definition
+		Input any
+	}{def, input}
+
+	if cached, ok := hashCache.Load(key); ok {
+		return cached.(string), nil
+	}
+
+	// Calculate hash if not in cache
 	defBytes, err := json.Marshal(def)
 	if err != nil {
 		return "", err
@@ -167,8 +180,10 @@ func constructUniqueHashFrom(def Definition, input any) (string, error) {
 	}
 
 	hash := sha256.Sum256(append(defBytes, inputBytes...))
+	result := hex.EncodeToString(hash[:])
 
-	return hex.EncodeToString(hash[:]), nil
+	hashCache.Store(key, result)
+	return result, nil
 }
 
 func loadPreviousSuccessfulReport[IN, OUT any](
@@ -179,7 +194,7 @@ func loadPreviousSuccessfulReport[IN, OUT any](
 		b.Logger.Errorw("Failed to get reports", "error", err)
 		return Report[IN, OUT]{}, false
 	}
-	currentHash, err := constructUniqueHashFrom(def, input)
+	currentHash, err := constructUniqueHashFrom(b.reportHashCache, def, input)
 	if err != nil {
 		b.Logger.Errorw("Failed to construct unique hash", "error", err)
 		return Report[IN, OUT]{}, false
@@ -187,7 +202,7 @@ func loadPreviousSuccessfulReport[IN, OUT any](
 
 	for _, report := range prevReports {
 		// Check if operation/sequence was run previously and return the report if successful
-		reportHash, err := constructUniqueHashFrom(report.Def, report.Input)
+		reportHash, err := constructUniqueHashFrom(b.reportHashCache, report.Def, report.Input)
 		if err != nil {
 			b.Logger.Errorw("Failed to construct unique hash for previous report", "error", err)
 			continue
