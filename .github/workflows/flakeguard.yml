@@ -384,7 +384,8 @@ jobs:
         with:
           name: raw-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: flakeguard_raw_output
-          retention-days: 14
+          retention-days: 7
+          compression-level: 9
     
       - name: Upload raw test logs as artifact
         if: always()
@@ -392,7 +393,8 @@ jobs:
         with:
           name: raw-transformed-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: flakeguard_raw_output_transformed
-          retention-days: 14
+          retention-days: 7
+          compression-level: 9
 
   report:
     needs: [get-tests, run-tests]
