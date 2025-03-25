@@ -79,25 +79,25 @@ func (wf WorkflowSpecAlias) validate() error {
 	if !ok {
 		return fmt.Errorf("feeds not found in aggregation_config for workflow %s", wf.Name)
 	}
-	for streamsId, feed := range feeds.(map[string]interface{}) {
-		feedMap, ok := feed.(map[string]string)
-		if !ok {
-			return fmt.Errorf("invalid feed type %s", streamsId)
+	for streamsID, feed := range feeds.(map[string]interface{}) {
+		feedMap, feedMapExists := feed.(map[string]string)
+		if !feedMapExists {
+			return fmt.Errorf("invalid feed type %s", streamsID)
 		}
-		_, ok = feedMap["deviation"]
-		if !ok {
-			return fmt.Errorf("deviation not found in feed %s", streamsId)
+		_, deviation := feedMap["deviation"]
+		if !deviation {
+			return fmt.Errorf("deviation not found in feed %s", streamsID)
 		}
-		_, ok = feedMap["heartbeat"]
-		if !ok {
-			return fmt.Errorf("heartbeat not found in feed %s", streamsId)
+		_, heartbeat := feedMap["heartbeat"]
+		if !heartbeat {
+			return fmt.Errorf("heartbeat not found in feed %s", streamsID)
 		}
-		remmapedID, ok := feedMap["remappedID"]
-		if !ok {
-			return fmt.Errorf("remappedID not found in feed %s", streamsId)
+		remmapedID, hasRemmapedID := feedMap["remappedID"]
+		if !hasRemmapedID {
+			return fmt.Errorf("remappedID not found in feed %s", streamsID)
 		}
 		if len(remmapedID) != 66 {
-			return fmt.Errorf("invalid remappedID for feed %s", streamsId)
+			return fmt.Errorf("invalid remappedID for feed %s", streamsID)
 		}
 	}
 
