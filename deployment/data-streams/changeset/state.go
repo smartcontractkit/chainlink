@@ -11,13 +11,17 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
 
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
+	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 	verifier "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
@@ -27,6 +31,8 @@ type DataStreamsChainState struct {
 	Configurators       map[common.Address]*configurator.Configurator
 	ChannelConfigStores map[common.Address]*channel_config_store.ChannelConfigStore
 	FeeManagers         map[common.Address]*fee_manager.FeeManager
+	LinkTokens          map[common.Address]*link_token_interface.LinkToken
+	RewardManagers      map[common.Address]*rewardManager.RewardManager
 	Verifiers           map[common.Address]*verifier.Verifier
 	VerifierProxys      map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy
 }
@@ -69,6 +75,8 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	cc.Configurators = make(map[common.Address]*configurator.Configurator)
 	cc.ChannelConfigStores = make(map[common.Address]*channel_config_store.ChannelConfigStore)
 	cc.FeeManagers = make(map[common.Address]*fee_manager.FeeManager)
+	cc.LinkTokens = make(map[common.Address]*link_token_interface.LinkToken)
+	cc.RewardManagers = make(map[common.Address]*rewardManager.RewardManager)
 	cc.Verifiers = make(map[common.Address]*verifier.Verifier)
 	cc.VerifierProxys = make(map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy)
 
@@ -88,12 +96,26 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 			}
 			cc.FeeManagers[common.HexToAddress(address)] = ccs
 
+		case deployment.NewTypeAndVersion(commonTypes.LinkToken, deployment.Version1_0_0).String():
+			ccs, err := link_token_interface.NewLinkToken(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return &cc, err
+			}
+			cc.LinkTokens[common.HexToAddress(address)] = ccs
+
 		case deployment.NewTypeAndVersion(types.Configurator, deployment.Version0_5_0).String():
 			ccs, err := configurator.NewConfigurator(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &cc, err
 			}
 			cc.Configurators[common.HexToAddress(address)] = ccs
+
+		case deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0).String():
+			ccs, err := rewardManager.NewRewardManager(common.HexToAddress(address), chain.Client)
+			if err != nil {
+				return &cc, err
+			}
+			cc.RewardManagers[common.HexToAddress(address)] = ccs
 
 		case deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0).String():
 			ccs, err := verifier.NewVerifier(common.HexToAddress(address), chain.Client)

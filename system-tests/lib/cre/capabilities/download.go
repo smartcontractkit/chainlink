@@ -2,6 +2,7 @@ package capabilities
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 )
@@ -24,5 +25,10 @@ func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (stri
 		return "", err
 	}
 
-	return fileName, nil
+	absPath, err := filepath.Abs(fileName)
+	if err != nil {
+		return "", err
+	}
+
+	return absPath, nil
 }

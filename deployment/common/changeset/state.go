@@ -19,10 +19,14 @@ import (
 // for a MCMSWithTimelock contract deployment.
 // It is public for use in product specific packages.
 // Either all fields are nil or all fields are non-nil.
+// Deprecated: use MCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 type MCMSWithTimelockState struct {
 	*proposalutils.MCMSWithTimelockContracts
 }
 
+// Deprecated: use GenerateMCMSWithTimelockView from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWithTimelockView, error) {
 	if err := state.Validate(); err != nil {
 		return v1_0.MCMSWithTimelockView{}, err
@@ -57,6 +61,8 @@ func (state MCMSWithTimelockState) GenerateMCMSWithTimelockView() (v1_0.MCMSWith
 }
 
 // MaybeLoadMCMSWithTimelockState loads the MCMSWithTimelockState state for each chain in the given environment.
+// Deprecated: use MaybeLoadMCMSWithTimelockState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*MCMSWithTimelockState, error) {
 	result := map[uint64]*MCMSWithTimelockState{}
 	for _, chainSelector := range chainSelectors {
@@ -85,6 +91,8 @@ func MaybeLoadMCMSWithTimelockState(env deployment.Environment, chainSelectors [
 // - Found but was unable to load a contract
 // - It only found part of the bundle of contracts
 // - If found more than one instance of a contract (we expect one bundle in the given addresses)
+// Deprecated: use MaybeLoadMCMSWithTimelockChainState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadMCMSWithTimelockChainState(
 	chain deployment.Chain,
 	addresses map[string]deployment.TypeAndVersion,
@@ -181,6 +189,8 @@ type LinkTokenState struct {
 	LinkToken *link_token.LinkToken
 }
 
+// Deprecated: use GenerateLinkView from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 	if s.LinkToken == nil {
 		return v1_0.LinkTokenView{}, errors.New("link token not found")
@@ -189,6 +199,8 @@ func (s LinkTokenState) GenerateLinkView() (v1_0.LinkTokenView, error) {
 }
 
 // MaybeLoadLinkTokenState loads the LinkTokenState state for each chain in the given environment.
+// Deprecated: use MaybeLoadLinkTokenState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64) (map[uint64]*LinkTokenState, error) {
 	result := map[uint64]*LinkTokenState{}
 	for _, chainSelector := range chainSelectors {
@@ -209,6 +221,8 @@ func MaybeLoadLinkTokenState(env deployment.Environment, chainSelectors []uint64
 	return result, nil
 }
 
+// Deprecated: use MaybeLoadLinkTokenChainState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadLinkTokenChainState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*LinkTokenState, error) {
 	state := LinkTokenState{}
 	linkToken := deployment.NewTypeAndVersion(types.LinkToken, deployment.Version1_0_0)
@@ -238,6 +252,8 @@ type StaticLinkTokenState struct {
 	StaticLinkToken *link_token_interface.LinkToken
 }
 
+// Deprecated: use GenerateStaticLinkView from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView, error) {
 	if s.StaticLinkToken == nil {
 		return v1_0.StaticLinkTokenView{}, errors.New("static link token not found")
@@ -245,6 +261,8 @@ func (s StaticLinkTokenState) GenerateStaticLinkView() (v1_0.StaticLinkTokenView
 	return v1_0.GenerateStaticLinkTokenView(s.StaticLinkToken)
 }
 
+// Deprecated: use MaybeLoadStaticLinkTokenState from deployment/common/changeset/state/evm.go instead
+// if you are changing this, please make the similar changes in deployment/common/changeset/state
 func MaybeLoadStaticLinkTokenState(chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (*StaticLinkTokenState, error) {
 	state := StaticLinkTokenState{}
 	staticLinkToken := deployment.NewTypeAndVersion(types.StaticLinkToken, deployment.Version1_0_0)

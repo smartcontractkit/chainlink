@@ -1,6 +1,7 @@
 package llo
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -18,6 +19,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
 )
+
+type mockLogPoller struct {
+	unregisteredFilterNames []string
+}
+
+func (m *mockLogPoller) UnregisterFilter(ctx context.Context, name string) error {
+	m.unregisteredFilterNames = append(m.unregisteredFilterNames, name)
+	return nil
+}
 
 func makeSampleTransmissions(n int) []*mercurytransmitter.Transmission {
 	transmissions := make([]*mercurytransmitter.Transmission, n)

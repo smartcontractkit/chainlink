@@ -25,6 +25,8 @@ type LokiMetric struct {
 	SequenceNumber uint64 `json:"sequence_number"`
 	CommitDuration uint64 `json:"commit_duration"`
 	ExecDuration   uint64 `json:"exec_duration"`
+	FailedCommit   bool   `json:"failed_commit"`
+	FailedExec     bool   `json:"failed_exec"`
 }
 
 // MetricsManager is used for maintaining state of different sequence numbers
@@ -100,6 +102,8 @@ func (mm *MetricManager) Start(ctx context.Context) {
 					ExecDuration:   execDuration,
 					CommitDuration: commitDuration,
 					SequenceNumber: srcDstSeqNum.seqNum,
+					FailedCommit:   timestamps[committed] == 0,
+					FailedExec:     timestamps[executed] == 0,
 				})
 			}
 			return
@@ -131,19 +135,30 @@ func (mm *MetricManager) Start(ctx context.Context) {
 			if data.eventType == executed {
 				mm.lggr.Infow("new state for received seqNum is ", "dst", data.dst, "seqNum", data.seqNum, "timestamps", state.timestamps)
 			}
-			// we have all data needed to push to Loki
-			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
-				lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
-				if err != nil {
-					mm.lggr.Error("error setting loki labels", "error", err)
-				}
-				SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
-					TransmitTime:   state.timestamps[transmitted],
-					ExecDuration:   state.timestamps[executed] - state.timestamps[committed],
-					CommitDuration: state.timestamps[committed] - state.timestamps[transmitted],
-					SequenceNumber: data.seqNum,
-				})
+			lokiLabels, err := setLokiLabels(data.src, data.dst, mm.testLabel)
+			if err != nil {
+				mm.lggr.Error("error setting loki labels", "error", err)
+			}
 
+			// only add commit and exec durations if we have correct timestamps to calculate them
+			commitDuration := uint64(0)
+			if state.timestamps[committed] != 0 && state.timestamps[transmitted] != 0 {
+				commitDuration = state.timestamps[committed] - state.timestamps[transmitted]
+			}
+			execDuration := uint64(0)
+			if state.timestamps[executed] != 0 && state.timestamps[committed] != 0 {
+				execDuration = state.timestamps[executed] - state.timestamps[committed]
+			}
+
+			SendMetricsToLoki(mm.lggr, mm.loki, lokiLabels, &LokiMetric{
+				TransmitTime:   state.timestamps[transmitted],
+				ExecDuration:   execDuration,
+				CommitDuration: commitDuration,
+				SequenceNumber: data.seqNum,
+			})
+
+			if state.timestamps[transmitted] != 0 && state.timestamps[committed] != 0 && state.timestamps[executed] != 0 {
+				// We have a fully completed sequence number, remove it from state for subsequent tests
 				delete(mm.state, data.srcDstSeqNum)
 			}
 		}

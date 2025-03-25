@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"testing"
 
 	"github.com/shopspring/decimal"
@@ -33,7 +32,7 @@ func Test_ReportCodec(t *testing.T) {
 			Values:                          []llo.StreamValue{llo.ToDecimal(decimal.NewFromInt(35)), llo.ToDecimal(decimal.NewFromInt(36))},
 			Specimen:                        false,
 		}
-		encoded, err := c.Encode(context.Background(), r, llotypes.ChannelDefinition{
+		encoded, err := c.Encode(r, llotypes.ChannelDefinition{
 			Streams: []llotypes.Stream{
 				{StreamID: 1},
 				{StreamID: 2},
@@ -69,10 +68,10 @@ func Test_ReportCodec(t *testing.T) {
 		donID := uint32(1)
 		c := NewReportCodecCapabilityTrigger(logger.Test(t), donID)
 
-		err := c.Verify(context.Background(), llotypes.ChannelDefinition{})
+		err := c.Verify(llotypes.ChannelDefinition{})
 		require.NoError(t, err)
 
-		err = c.Verify(context.Background(), llotypes.ChannelDefinition{Opts: []byte{1, 2, 3}})
+		err = c.Verify(llotypes.ChannelDefinition{Opts: []byte{1, 2, 3}})
 		require.EqualError(t, err, "capability trigger does not support channel definitions with options")
 	})
 }

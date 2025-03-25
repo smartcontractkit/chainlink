@@ -86,6 +86,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 		params.OCRParameters,
 		params.CommitOffChainConfig,
 		&globals.DefaultExecuteOffChainCfg,
+		false,
 	)
 	require.Errorf(t, err, "expected error")
 	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`

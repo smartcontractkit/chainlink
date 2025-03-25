@@ -53,8 +53,8 @@ func TestAcceptOwnership(t *testing.T) {
 		commonChangesets.Configure(
 			AcceptOwnershipChangeset,
 			types.AcceptOwnershipConfig{
-				ChainSelector:   chainSelector,
-				ContractAddress: cache.Contract.Address(),
+				ChainSelector:     chainSelector,
+				ContractAddresses: []common.Address{cache.Contract.Address()},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 1,
 				},
