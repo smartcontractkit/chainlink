@@ -98,8 +98,12 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 
 		keys, err := app.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoErrorf(t, err, "failed to get keys")
-		for _, key := range keys {
-			t.Logf("Existing key address: %s", key.Address.Hex())
+		if len(keys) == 0 {
+			t.Logf("No keys found")
+		} else {
+			for _, key := range keys {
+				t.Logf("Existing key address: %s", key.Address.Hex())
+			}
 		}
 
 		nodes = append(nodes, Node{

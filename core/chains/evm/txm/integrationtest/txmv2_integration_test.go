@@ -116,31 +116,33 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// donID := uint32(995544)
 
-	var allPrimaryTransmitterAddresses []common.Address
-
 	for i, node := range nodes {
 		// set up the keys
-		primaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
-		require.NoErrorf(t, err, "could not create primary transmitter key for node %d", i)
-		secondaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
-		require.NoErrorf(t, err, "could not create secondary transmitter key for node %d", i)
-
-		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
-		require.NoError(t, err, "could not get eth keys for node %d", i)
-
-		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, primaryTransmitterKey.Address)
-		t.Logf("Keys are %#v", keys)
-		t.Logf("allPrimaryTransmitterAddresses are %#v", keys)
-
-		// fund addresses
-		err = fundAddressOf(primaryTransmitterKey, transactOpts, backend)
-		require.NoError(t, err, "Funding primary transmitter shouldn't fail for node %d", i)
+		transmitterKey1, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
+		err = fundAddressOf(transmitterKey1, transactOpts, backend)
+		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
 		backend.Commit()
-		err = fundAddressOf(secondaryTransmitterKey, transactOpts, backend)
-		require.NoError(t, err, "Funding secondary transmitter shouldn't fail for node %d", i)
+
+		transmitterKey2, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
+		require.NoErrorf(t, err, "could not create transmitter key for node %d", i)
+		err = fundAddressOf(transmitterKey2, transactOpts, backend)
+		require.NoError(t, err, "Funding transmitter shouldn't fail for node %d", i)
 		backend.Commit()
+
 		t.Logf("Funded primary and secondary transmitter for node %d", i)
 	}
+
+	var allPrimaryTransmitterAddresses []common.Address
+	var allSecondaryTransmitterAddresses []common.Address
+	for i, node := range nodes {
+		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
+		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
+		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, keys[0].Address)
+		allSecondaryTransmitterAddresses = append(allSecondaryTransmitterAddresses, keys[1].Address)
+	}
+	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
+	t.Logf("allSecondaryTransmitterAddresses: %v", allSecondaryTransmitterAddresses)
 
 	// _, err = operatorInstance.AcceptAuthorizedReceivers(transactOpts, []common.Address{forwarder.Address()}, []common.Address{primaryTransmitterKey.Address, secondaryTransmitterKey.Address})
 	// require.NoError(t, err, "Accepting authorized forwarder shouldn't fail")
