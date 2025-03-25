@@ -145,13 +145,14 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 }
 
 // AwaitConnection attempts to establish a connection to an available gateway.  It iterates through available gateways
-// using the gatewaySelector, attempting to connect to each.  The method respects the provided context, allowing for
+// using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
 // cancellation or timeout.
 func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
 	return c.awaitConnectionUntilCanceled(ctx)
 }
 
 // awaitConnectionUntilCanceled cycles through gateways via a round robin and attempts a connection.
+// Attempts a connection until the passed context is canceled.
 func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Context) (string, error) {
 	selector := NewRoundRobinSelector(c.gc.GatewayIDs())
 	attempts := make(map[string]int)
@@ -188,13 +189,15 @@ func (c *OutgoingConnectorHandler) awaitConnectionUntilCanceled(ctx context.Cont
 	}
 }
 
-// attemptGatewayConnection uses at most defaultAwaitTimeoutMs to connect to a gateway.
+// attemptGatewayConnection waits to connect to a gateway with a new child context
+// whose timeout is at most defaultAwaitTimoutMs.
 func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
-	et := effectiveTimeout(ctx)
+	timeout := maxAwaitTimeout(ctx)
 
-	c.lggr.Debugw("await connection with deadline", "timeout", et)
+	c.lggr.Debugw("await connection with deadline", "timeout", timeout)
 
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, et)
+	// create a new child context to wait on gateway connection
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	if err := c.gc.AwaitConnection(ctxWithTimeout, gateway); err != nil {
@@ -203,18 +206,17 @@ func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context,
 	return nil
 }
 
-// effectiveTimeout returns a default duration if there is no deadline on the context, otherwise returns the time until
-// the deadline.
-func effectiveTimeout(ctx context.Context) time.Duration {
+// maxAwaitTimeout returns a wait time capped by defaultAwaitTimeoutMs
+func maxAwaitTimeout(ctx context.Context) time.Duration {
 	dl, ok := ctx.Deadline()
 	originalTimeout := time.Duration(0)
 	if ok {
 		originalTimeout = time.Until(dl)
 	}
 
-	dur := defaultAwaitTimeoutMs * time.Millisecond
-	if originalTimeout == 0 || originalTimeout >= dur {
-		return dur
+	maxWaitTime := defaultAwaitTimeoutMs * time.Millisecond
+	if !ok || originalTimeout >= maxWaitTime {
+		return maxWaitTime
 	}
 
 	return originalTimeout
