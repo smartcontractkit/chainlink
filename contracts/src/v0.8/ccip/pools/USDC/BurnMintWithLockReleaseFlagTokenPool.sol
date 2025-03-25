@@ -21,6 +21,26 @@ contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
     address router
   ) BurnMintTokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
 
+    /// @notice Mint tokens from the pool to the recipient
+  /// @dev The _validateReleaseOrMint check is an essential security check
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
+    _validateReleaseOrMint(releaseOrMintIn);
+
+    // Calculate the local amount. Since the remote token pool's source data is expected to be the LOCK_RELEASE_FLAG,
+    // a new bytes(0) is passed to _parseRemoteDecimals to avoid a revert.
+    uint256 localAmount =
+      _calculateLocalAmount(releaseOrMintIn.amount, _parseRemoteDecimals(new bytes(0)));
+
+    // Mint to the receiver
+    IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, localAmount);
+
+    emit Minted(msg.sender, releaseOrMintIn.receiver, localAmount);
+
+    return Pool.ReleaseOrMintOutV1({destinationAmount: localAmount});
+  }
+
   /// @notice Burn the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check
   /// @dev Performs the exact same functionality as BurnMintTokenPool, but returns the LOCK_RELEASE_FLAG
