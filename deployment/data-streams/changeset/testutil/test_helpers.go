@@ -8,12 +8,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	dsChangesets "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -63,6 +65,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 func DeployMCMS(
 	t *testing.T,
 	e deployment.Environment,
+	addrs ...map[uint64][]common.Address,
 ) (env deployment.Environment, mcmsState *commonChangesets.MCMSWithTimelockState, timelocks map[uint64]*proposalutils.TimelockExecutionContracts) {
 	t.Helper()
 
@@ -104,5 +107,26 @@ func DeployMCMS(
 		},
 	}
 
+	if len(addrs) > 0 {
+		env, err = commonChangesets.Apply(
+			t, env, timelocks,
+			commonChangesets.Configure(
+				deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
+				commonChangesets.TransferToMCMSWithTimelockConfig{
+					ContractsByChain: addrs[0],
+					MinDelay:         0,
+				},
+			),
+		)
+		require.NoError(t, err)
+	}
+
 	return env, mcmsState, timelocks
+}
+
+func GetMCMSConfig(useMCMS bool) *dsChangesets.MCMSConfig {
+	if useMCMS {
+		return &dsChangesets.MCMSConfig{MinDelay: 0, OverrideRoot: true}
+	}
+	return nil
 }
