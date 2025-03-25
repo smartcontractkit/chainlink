@@ -14,11 +14,10 @@ import (
 )
 
 // NewFeedWithProxyChangeset configures new feeds with a proxy addresses
-// 1. Deploys AggregatorProxy contracts for given chainselector
-// 2. Proposes and confirms DataFeedsCache contract as an aggregator on AggregatorProxy contracts
-// 3. Creates an MCMS proposal to transfer the ownership of AggregatorProxy contracts to timelock
-// 4. Creates a proposal to set a feed configs on DataFeedsCache contract
-// 5. Creates a proposal to set a feed proxy mappings on DataFeedsCache contract
+// 1. Deploys AggregatorProxy contracts for given chainselector with DataFeedsCache as an aggregator
+// 2. Creates an MCMS proposal to transfer the ownership of AggregatorProxy contracts to timelock
+// 3. Creates a proposal to set a feed configs on DataFeedsCache contract
+// 4. Creates a proposal to set a feed proxy mappings on DataFeedsCache contract
 // Returns a new addressbook with the new AggregatorProxy contracts address and MCMS proposal
 var NewFeedWithProxyChangeset = deployment.CreateChangeSet(newFeedWithProxyLogic, newFeedWithProxyPrecondition)
 
@@ -45,7 +44,7 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 	var proxyAddresses []common.Address
 	var acceptProxyOwnerShipProposals []ProposalData
 
-	// For each Data ID, deploy an AggregatorProxy contract and propose DataFeedsCache as an aggregator on it.
+	// For each Data ID, deploy an AggregatorProxy contract with DataFeedsCache as an aggregator on it.
 	// Transfer ownership to timelock and create accept ownership proposal
 	for index := range c.DataIDs {
 		// Deploy AggregatorProxy contract with deployer key
@@ -61,23 +60,6 @@ func newFeedWithProxyLogic(env deployment.Environment, c types.NewFeedWithProxyC
 		proxyAddress, err := deployment.SearchAddressBook(newEnv.AddressBook, c.ChainSelector, "AggregatorProxy")
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("AggregatorProxy not present in addressbook: %w", err)
-		}
-
-		// Propose and confirm DataFeedsCache contract as an aggregator on AggregatorProxy
-		proposeAggregatorConfig := types.ProposeConfirmAggregatorConfig{
-			ChainSelector:        c.ChainSelector,
-			ProxyAddress:         common.HexToAddress(proxyAddress),
-			NewAggregatorAddress: common.HexToAddress(dataFeedsCacheAddress),
-		}
-
-		_, err = ProposeAggregatorChangeset.Apply(env, proposeAggregatorConfig)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute ProposeAggregatorChangeset: %w", err)
-		}
-
-		_, err = ConfirmAggregatorChangeset.Apply(env, proposeAggregatorConfig)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to execute ConfirmAggregatorChangeset: %w", err)
 		}
 
 		// Create an MCMS proposal to transfer the ownership of AggregatorProxy contract to timelock and set the feed configs
