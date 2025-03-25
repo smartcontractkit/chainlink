@@ -205,7 +205,7 @@ contract FeeQuoter_getValidatedFee is FeeQuoterFeeSetup {
     s_feeQuoter.getValidatedFee(DEST_CHAIN_SELECTOR, message);
   }
 
-  function test_getValidatedFee_SOL() public {
+  function test_getValidatedFee_SVM() public {
     // Update config to add a Solana chain.
     vm.stopPrank();
     vm.startPrank(OWNER);
