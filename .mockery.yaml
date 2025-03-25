@@ -87,18 +87,6 @@ packages:
       FlagsInterface:
         config:
           mockname: Flags
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface:
-    config:
-      dir: core/services/vrf/mocks
-      filename: aggregator_v3_interface.go
-    interfaces:
-      AggregatorV3InterfaceInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2:
-    config:
-      dir: core/services/vrf/mocks
-      filename: vrf_coordinator_v2.go
-    interfaces:
-      VRFCoordinatorV2Interface:
   github.com/smartcontractkit/chainlink/v2/core/logger:
     config:
       dir: "{{ .InterfaceDir }}"
@@ -267,7 +255,6 @@ packages:
     config:
       dir: "{{ .InterfaceDir }}/../mocks"
     interfaces:
-      Config:
       FeeConfig:
   github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
     config:

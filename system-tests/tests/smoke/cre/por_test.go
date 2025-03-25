@@ -1,6 +1,7 @@
 package capabilities_test
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"math/big"
@@ -29,6 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -174,13 +176,13 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 
 		// disabled until we can figure out how to generate a gist read:write token in CI
 		/*
-		 This test can be run in two modes:
-		 1. `existing` mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
-		 2. `compile` mode: it compiles a new workflow binary and uploads it to Gist
+		   This test can be run in two modes:
+		   1. `existing` mode: it uses a workflow binary (and configuration) file that is already uploaded to Gist
+		   2. `compile` mode: it compiles a new workflow binary and uploads it to Gist
 
-		 For the `new` mode to work, the `GITHUB_API_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
-		 are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
-		 is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
+		   For the `new` mode to work, the `GITHUB_API_TOKEN` env var must be set to a token that has `gist:read` and `gist:write` permissions, but this permissions
+		   are tied to account not to repository. Currently, we have no service account in the CI at all. And using a token that's tied to personal account of a developer
+		   is not a good idea. So, for now, we are only allowing the `existing` mode in CI.
 		*/
 
 		// we use this special function to subsitute a placeholder env variable with the actual environment variable name
@@ -510,6 +512,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		Logger:            singeFileLogger,
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
+		GetContext: func() context.Context {
+			return testcontext.Get(t)
+		},
 	}
 
 	keystoneContractsInput := &keystonetypes.KeystoneContractsInput{

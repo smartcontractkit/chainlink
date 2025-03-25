@@ -14,13 +14,15 @@ import (
 type Bundle struct {
 	Logger     logger.Logger
 	GetContext func() context.Context
+	reporter   Reporter
 }
 
 // NewBundle creates and returns a new Bundle.
-func NewBundle(getContext func() context.Context, logger logger.Logger) Bundle {
+func NewBundle(getContext func() context.Context, logger logger.Logger, reporter Reporter) Bundle {
 	return Bundle{
 		Logger:     logger,
 		GetContext: getContext,
+		reporter:   reporter,
 	}
 }
 

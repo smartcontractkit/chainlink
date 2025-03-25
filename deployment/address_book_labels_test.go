@@ -55,6 +55,27 @@ func TestLabelSet_Contains(t *testing.T) {
 	assert.False(t, ms.Contains("baz"))
 }
 
+func TestLabelSet_List(t *testing.T) {
+	t.Run("list with items", func(t *testing.T) {
+		ms := NewLabelSet("foo", "bar", "baz")
+
+		labels := ms.List()
+
+		assert.Len(t, labels, 3, "expected 3 labels in the list")
+		assert.Equal(t, "bar", labels[0])
+		assert.Equal(t, "baz", labels[1])
+		assert.Equal(t, "foo", labels[2])
+	})
+
+	t.Run("empty list", func(t *testing.T) {
+		ms := NewLabelSet()
+
+		labels := ms.List()
+
+		assert.Empty(t, labels, "expected 0 labels in the list")
+	})
+}
+
 // TestLabelSet_String tests the String() method of the LabelSet type.
 func TestLabelSet_String(t *testing.T) {
 	tests := []struct {

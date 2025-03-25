@@ -24,12 +24,13 @@ func TestAddressStringToBytes(t *testing.T) {
 	require.Equal(t, want, got)
 }
 
-func TestInvalidAddressBytesToString(t *testing.T) {
-	addressCodec := AddressCodec{}
-	addr := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12}
-	_, err := addressCodec.AddressBytesToString(addr)
-	require.Error(t, err)
-}
+// we allow various sizes since some contracts store the 20-byte address as 32-byte
+// func TestInvalidAddressBytesToString(t *testing.T) {
+// 	addressCodec := AddressCodec{}
+// 	addr := []byte{0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x10, 0x11, 0x12}
+// 	_, err := addressCodec.AddressBytesToString(addr)
+// 	require.Error(t, err)
+// }
 
 func TestInvalidAddressStringToBytes(t *testing.T) {
 	addressCodec := AddressCodec{}

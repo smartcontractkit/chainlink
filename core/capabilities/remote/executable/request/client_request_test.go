@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/zap/zapcore"
 
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -303,6 +304,166 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 
 		assert.Equal(t, resp, values.NewString("response1"))
 	})
+
+	t.Run("Executes full schedule", func(t *testing.T) {
+		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+
+		numPeers := 3
+		capPeers := make([]p2ptypes.PeerID, numPeers)
+		for i := range numPeers {
+			capPeers[i] = NewP2PPeerID(t)
+		}
+
+		capDonInfo := commoncap.DON{
+			ID:      1,
+			Members: capPeers,
+			F:       1,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             "cap_id@1.0.0",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+			Description:    "Remote Target",
+			DON:            &capDonInfo,
+		}
+
+		ctx := t.Context()
+		ctxWithCancel, cancelFn := context.WithCancel(t.Context())
+
+		// cancel the context immediately so we can verify
+		// that the schedule is still executed entirely.
+		cancelFn()
+
+		// Buffered channel so the goroutines block
+		// when executing the schedule
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		request, err := request.NewClientExecuteRequest(
+			ctxWithCancel,
+			lggr,
+			capabilityRequest,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+		)
+		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
+
+		// Despite the context being cancelled,
+		// we still send the full schedule.
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		msg.Sender = capPeers[0][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capPeers[1][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+
+		assert.Equal(t, resp, values.NewString("response1"))
+
+		logs := obs.FilterMessage("sending request to peers").All()
+		assert.Len(t, logs, 1)
+
+		log := logs[0]
+		for _, k := range log.Context {
+			if k.Key == "originalTimeout" {
+				assert.Equal(t, int64(0), k.Integer)
+			}
+
+			if k.Key == "effectiveTimeout" {
+				assert.Greater(t, k.Integer, int64(10*time.Second))
+			}
+		}
+	})
+
+	t.Run("Uses passed in time out if larger than schedule", func(t *testing.T) {
+		lggr, obs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
+
+		numPeers := 3
+		capPeers := make([]p2ptypes.PeerID, numPeers)
+		for i := range numPeers {
+			capPeers[i] = NewP2PPeerID(t)
+		}
+
+		capDonInfo := commoncap.DON{
+			ID:      1,
+			Members: capPeers,
+			F:       1,
+		}
+
+		capInfo := commoncap.CapabilityInfo{
+			ID:             "cap_id@1.0.0",
+			CapabilityType: commoncap.CapabilityTypeTarget,
+			Description:    "Remote Target",
+			DON:            &capDonInfo,
+		}
+
+		ctx := t.Context()
+		ctx, cancelFn := context.WithTimeout(ctx, 15*time.Second)
+		defer cancelFn()
+
+		// Buffered channel so the goroutines block
+		// when executing the schedule
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody)}
+		request, err := request.NewClientExecuteRequest(
+			ctx,
+			lggr,
+			capabilityRequest,
+			capInfo,
+			workflowDonInfo,
+			dispatcher,
+			10*time.Minute,
+		)
+		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
+
+		// Despite the context being cancelled,
+		// we still send the full schedule.
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		<-dispatcher.msgs
+		assert.Empty(t, dispatcher.msgs)
+
+		msg.Sender = capPeers[0][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capPeers[1][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+
+		assert.Equal(t, resp, values.NewString("response1"))
+
+		logs := obs.FilterMessage("sending request to peers").All()
+		assert.Len(t, logs, 1)
+
+		log := logs[0]
+		for _, k := range log.Context {
+			if k.Key == "effectiveTimeout" {
+				// Greater than what it would otherwise be
+				// i.e. 2 *deltaStage + margin = 12s
+				assert.Greater(t, k.Integer, int64(12*time.Second))
+			}
+		}
+	})
+
 }
 
 type clientRequestTestDispatcher struct {

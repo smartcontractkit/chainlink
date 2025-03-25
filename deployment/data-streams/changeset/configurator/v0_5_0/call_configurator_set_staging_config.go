@@ -1,4 +1,4 @@
-package configurator
+package v0_5_0
 
 import (
 	"errors"
@@ -127,7 +127,7 @@ func callSetConfigCommon[T Config](
 			proposerAddressPerChain,
 			inspectorPerChain,
 			allBatches,
-			"PromoteStagingConfig proposal",
+			proposalName,
 			mcmsConfig.MinDelay,
 		)
 		if err != nil {

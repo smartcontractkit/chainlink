@@ -17,7 +17,6 @@ import (
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
-	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -26,6 +25,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
@@ -263,6 +263,12 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		})
 		require.NoError(t, err)
 
+		// check that counter is 0
+		var receiverCounterAccount soltesthelpers.ReceiverCounter
+		err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+		require.NoError(t, err, "failed to get account info")
+		require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
 		out = mt.Run(
 			mt.TestCase{
 				TestSetup:              setup,
@@ -274,10 +280,10 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
 				ExtraAssertions: []func(t *testing.T){
 					func(t *testing.T) {
-						var receiverCounterAccount test_ccip_receiver.Counter
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
 						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
 						require.NoError(t, err, "failed to get account info")
-						require.Equal(t, uint64(1), receiverCounterAccount.Value)
+						require.Equal(t, uint8(1), receiverCounterAccount.Value)
 					},
 				},
 			},
