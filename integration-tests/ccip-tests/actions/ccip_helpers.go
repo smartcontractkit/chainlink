@@ -4083,12 +4083,15 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
-	mockAdapterURL := env.LocalCluster.MockAdapter.InternalEndpoint
-	if env.LocalCluster == nil {
+	var mockAdapterURL string
+
+	if env.LocalCluster != nil && env.LocalCluster.MockAdapter != nil {
+		mockAdapterURL = env.LocalCluster.MockAdapter.InternalEndpoint
+	} else {
 		mockAdapterURL = env.MockServer.InternalEndpoint
 	}
 
-	var tokenAddresses []string
+	tokenAddresses := make([]string, len(lane.Dest.Common.BridgeTokens))
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
 	}
@@ -4125,7 +4128,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		DestStartBlock:         currentBlockOnDest,
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsUSDCDeployment() {
-		// TODO: Parrot: I suspect this could have some issues?
 		if lane.Source.Common.TokenTransmitter == nil {
 			return fmt.Errorf("token transmitter address not set")
 		}
@@ -4138,7 +4140,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		}
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
-		// TODO: Parrot: I suspect this could have some issues?
 		// Only one LBTC allowed per chain
 		jobParams.LBTCConfig = &config.LBTCConfig{
 			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
