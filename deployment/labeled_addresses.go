@@ -7,7 +7,7 @@ type LabeledAddresses map[string]TypeAndVersion
 // labels.  If labels is empty, then only unlabeled entries are returned.
 func (la LabeledAddresses) And(labels ...string) LabeledAddresses {
 	var (
-		filtered        = make(LabeledAddresses, 0)
+		filtered        = make(LabeledAddresses)
 		selectUnlabeled = len(labels) == 0
 		filterByLabels  = len(labels) > 0
 	)

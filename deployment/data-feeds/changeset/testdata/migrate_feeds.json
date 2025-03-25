@@ -1,7 +1,7 @@
 [
   {
     "address": "0x33442400910b7B03316fe47eF8fC7bEd54Bca407",
-    "feedId": "01bb0467f50003040000000000000000",
+    "feedId": "0x01bb0467f50003040000000000000000",
     "description": "TEST / USD",
     "typeAndVersion": {
       "type": "AggregatorProxy",
@@ -10,7 +10,7 @@
   },
   {
     "address": "0x43442400910b7B03316fe47eF8fC7bEd54Bca407",
-    "feedId": "01b40467f50003040000000000000000",
+    "feedId": "0x01b40467f50003040000000000000000",
     "description": "LINK / USD",
     "typeAndVersion": {
       "type": "AggregatorProxy",

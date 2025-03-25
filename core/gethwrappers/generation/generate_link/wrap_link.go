@@ -21,7 +21,7 @@ import (
 	"github.com/tidwall/gjson"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers"
-	"github.com/smartcontractkit/chainlink/v2/core/utils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generation/generate_link/utils"
 )
 
 func main() {

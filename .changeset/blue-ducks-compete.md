@@ -1,5 +1,0 @@
----
-"chainlink": minor
----
-
-#bugfix

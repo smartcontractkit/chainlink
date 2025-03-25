@@ -46,6 +46,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/periodicbackup"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/wsrpc/cache"
@@ -250,7 +251,7 @@ func (n ChainlinkAppFactory) NewApplication(ctx context.Context, cfg chainlink.G
 		SecretGenerator:          chainlink.FilePersistedSecretGenerator{},
 		GRPCOpts:                 grpcOpts,
 		MercuryPool:              mercuryPool,
-		RetirementReportCache:    llo.NewRetirementReportCache(appLggr, ds),
+		RetirementReportCache:    retirement.NewRetirementReportCache(appLggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, appLggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 	})
 }
