@@ -94,7 +94,7 @@ func TestForwarderOCR2Basic(t *testing.T) {
 	}
 
 	// Gather transmitters
-	transmitters := make([]string, len(authorizedForwarders))
+	var transmitters []string
 	for _, forwarderCommonAddress := range authorizedForwarders {
 		transmitters = append(transmitters, forwarderCommonAddress.Hex())
 	}

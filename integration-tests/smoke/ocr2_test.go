@@ -214,7 +214,7 @@ func prepareORCv2SmokeTestEnv(t *testing.T, testData ocr2test, l zerolog.Logger,
 	})
 
 	// Gather transmitters
-	transmitters := make([]string, len(workerNodes))
+	var transmitters []string
 	for _, node := range workerNodes {
 		addr, err := node.PrimaryEthAddress()
 		if err != nil {

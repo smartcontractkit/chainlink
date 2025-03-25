@@ -43,7 +43,7 @@ import (
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	parrot_helm "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -4084,14 +4084,13 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 	}
 
 	var mockAdapterURL string
-
 	if env.LocalCluster != nil && env.LocalCluster.MockAdapter != nil {
 		mockAdapterURL = env.LocalCluster.MockAdapter.InternalEndpoint
-	} else {
+	} else if env.MockServer != nil {
 		mockAdapterURL = env.MockServer.InternalEndpoint
 	}
 
-	tokenAddresses := make([]string, len(lane.Dest.Common.BridgeTokens))
+	var tokenAddresses []string
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
 	}
@@ -4577,7 +4576,7 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
-		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
+		if _, exists := c.K8Env.URLs[parrot_helm.InternalURLsKey]; exists {
 			c.MockServer = ctftestenv.ConnectParrotTestEnv(c.K8Env)
 		}
 	}
