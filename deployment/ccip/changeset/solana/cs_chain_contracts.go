@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -37,7 +38,7 @@ var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresse
 var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {
-	MCMS *ccipChangeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 	// Public key of program authorities. Depending on when this changeset is called, some may be under
 	// the control of the deployer, and some may be under the control of the timelock. (e.g. during new offramp deploy)
 	RouterOwnedByTimelock    bool

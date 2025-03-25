@@ -15,6 +15,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
@@ -34,7 +35,7 @@ var (
 
 type SetRMNRemoteOnRMNProxyConfig struct {
 	ChainSelectors []uint64
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *commoncs.TimelockConfig
 }
 
 func (c SetRMNRemoteOnRMNProxyConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -174,7 +175,7 @@ func (c RMNNopConfig) SetBit(bitmap *big.Int, value bool) {
 	}
 }
 
-func getDeployer(e deployment.Environment, chain uint64, mcmConfig *changeset.MCMSConfig) *bind.TransactOpts {
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *commoncs.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.Chains[chain].DeployerKey
 	}
@@ -187,7 +188,7 @@ type SetRMNHomeCandidateConfig struct {
 	RMNStaticConfig   rmn_home.RMNHomeStaticConfig
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	DigestToOverride  [32]byte
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *commoncs.TimelockConfig
 }
 
 func (c SetRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -293,7 +294,7 @@ func isRMNDynamicConfigEqual(a, b rmn_home.RMNHomeDynamicConfig) bool {
 type PromoteRMNHomeCandidateConfig struct {
 	HomeChainSelector uint64
 	DigestToPromote   [32]byte
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *commoncs.TimelockConfig
 }
 
 func (c PromoteRMNHomeCandidateConfig) Validate(state changeset.CCIPOnChainState) error {
@@ -493,7 +494,7 @@ type RMNRemoteConfig struct {
 type SetRMNRemoteConfig struct {
 	HomeChainSelector uint64
 	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *commoncs.TimelockConfig
 }
 
 func (c SetRMNRemoteConfig) Validate() error {
@@ -526,7 +527,7 @@ type SetRMNHomeDynamicConfigConfig struct {
 	HomeChainSelector uint64
 	RMNDynamicConfig  rmn_home.RMNHomeDynamicConfig
 	ActiveDigest      [32]byte
-	MCMS              *changeset.MCMSConfig
+	MCMS              *commoncs.TimelockConfig
 }
 
 func (c SetRMNHomeDynamicConfigConfig) Validate(e deployment.Environment) error {
@@ -601,7 +602,7 @@ func SetRMNHomeDynamicConfigChangeset(e deployment.Environment, cfg SetRMNHomeDy
 type RevokeCandidateConfig struct {
 	HomeChainSelector uint64
 	CandidateDigest   [32]byte
-	MCMS              *changeset.MCMSConfig
+	MCMS              *commoncs.TimelockConfig
 }
 
 func (c RevokeCandidateConfig) Validate(e deployment.Environment) error {

@@ -27,7 +27,7 @@ type RMNCurseAction struct {
 type CurseAction func(e deployment.Environment) []RMNCurseAction
 
 type RMNCurseConfig struct {
-	MCMS         *changeset.MCMSConfig
+	MCMS         *commoncs.TimelockConfig
 	CurseActions []CurseAction
 	Reason       string
 }

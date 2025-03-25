@@ -212,7 +212,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &changeset.MCMSConfig{MinDelay: 0},
+		MCMS:         &commonchangeset.TimelockConfig{MinDelay: 0},
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -342,7 +342,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &changeset.MCMSConfig{MinDelay: 0},
+		MCMS:         &commonchangeset.TimelockConfig{MinDelay: 0},
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
