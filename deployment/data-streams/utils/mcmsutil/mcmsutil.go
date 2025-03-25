@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
 )
 
@@ -70,7 +70,7 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 func ExecuteOrPropose(
 	e deployment.Environment,
 	txs []*txutil.PreparedTx,
-	mcmsCfg *changeset.MCMSConfig,
+	mcmsCfg *dsTypes.MCMSConfig,
 	proposalName string,
 ) (deployment.ChangesetOutput, error) {
 	if len(txs) == 0 {

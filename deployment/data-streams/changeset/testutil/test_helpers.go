@@ -9,13 +9,12 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	dsChangesets "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
+	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -48,9 +47,9 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 	if deployMCMS {
 		config := proposalutils.SingleGroupTimelockConfigV2(t)
 		// Deploy MCMS and Timelock
-		_, err := changeset.Apply(t, env, nil,
-			changeset.Configure(
-				deployment.CreateLegacyChangeSet(changeset.DeployMCMSWithTimelockV2),
+		_, err := commonChangesets.Apply(t, env, nil,
+			commonChangesets.Configure(
+				deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 				map[uint64]types.MCMSWithTimelockConfigV2{
 					chainSelector: config,
 				},
@@ -124,9 +123,9 @@ func DeployMCMS(
 	return env, mcmsState, timelocks
 }
 
-func GetMCMSConfig(useMCMS bool) *dsChangesets.MCMSConfig {
+func GetMCMSConfig(useMCMS bool) *dsTypes.MCMSConfig {
 	if useMCMS {
-		return &dsChangesets.MCMSConfig{MinDelay: 0, OverrideRoot: true}
+		return &dsTypes.MCMSConfig{MinDelay: 0, OverrideRoot: true}
 	}
 	return nil
 }

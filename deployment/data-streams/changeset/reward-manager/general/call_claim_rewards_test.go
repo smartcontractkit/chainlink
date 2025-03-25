@@ -6,8 +6,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
 func TestCallClaimRewards(t *testing.T) {
@@ -55,7 +55,7 @@ func TestCallClaimRewardsMCMS(t *testing.T) {
 						PoolIDs:              [][32]byte{poolID},
 					}},
 				},
-				MCMSConfig: &changeset.MCMSConfig{MinDelay: 0, OverrideRoot: true},
+				MCMSConfig: &types.MCMSConfig{MinDelay: 0, OverrideRoot: true},
 			},
 		),
 	)
