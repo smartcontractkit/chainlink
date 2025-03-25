@@ -229,7 +229,8 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 	mcmSigner := state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
 	chainSelector := env.AllChainSelectorsSolana()[0]
 	solChain := env.SolChains[chainSelector]
-	memory.FundSolanaAccounts(env.GetContext(), t, []solana.PublicKey{timelockSigner, mcmSigner, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
+	err = memory.FundSolanaAccounts(env.GetContext(), []solana.PublicKey{timelockSigner, mcmSigner, solChain.DeployerKey.PublicKey()}, 150, solChain.Client)
+	require.NoError(t, err)
 
 	changesetInstance := example.TransferFromTimelock{}
 

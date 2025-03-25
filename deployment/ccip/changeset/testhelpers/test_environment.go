@@ -536,7 +536,7 @@ func NewEnvironmentWithJobsAndContracts(t *testing.T, tEnv TestEnvironment) Depl
 	return e
 }
 
-func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([]commonchangeset.ConfiguredChangeSet, error) {
+func DeployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64, buildSolConfig *ccipChangeSetSolana.BuildSolanaConfig) ([]commonchangeset.ConfiguredChangeSet, error) {
 	err := SavePreloadedSolAddresses(e.Env, solChainSelector)
 	if err != nil {
 		return nil, err
@@ -585,6 +585,7 @@ func deployChainContractsToSolChainCS(e DeployedEnv, solChainSelector uint64) ([
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
+				BuildConfig: buildSolConfig,
 			},
 		)}, nil
 }
@@ -643,7 +644,7 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		),
 	}...)
 	if len(solChains) != 0 {
-		solCs, err := deployChainContractsToSolChainCS(e, solChains[0])
+		solCs, err := DeployChainContractsToSolChainCS(e, solChains[0], nil)
 		require.NoError(t, err)
 		apps = append(apps, solCs...)
 	}
@@ -876,8 +877,10 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		require.NotNil(t, state.Chains[chain].OffRamp)
 		require.NotNil(t, state.Chains[chain].OnRamp)
 	}
-	ValidateSolanaState(t, e.Env, solChains)
+	err = ValidateSolanaState(e.Env, solChains)
+	require.NoError(t, err)
 	tEnv.UpdateDeployedEnvironment(e)
+
 	return e
 }
 

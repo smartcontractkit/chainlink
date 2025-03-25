@@ -127,5 +127,6 @@ func fundSignerPDAs(
 	timelockSignerPDA := state.GetTimelockSignerPDA(chainState.TimelockProgram, chainState.TimelockSeed)
 	mcmSignerPDA := state.GetMCMSignerPDA(chainState.McmProgram, chainState.ProposerMcmSeed)
 	signerPDAs := []solana.PublicKey{timelockSignerPDA, mcmSignerPDA}
-	memory.FundSolanaAccounts(env.GetContext(), t, signerPDAs, 1, solChain.Client)
+	err := memory.FundSolanaAccounts(env.GetContext(), signerPDAs, 1, solChain.Client)
+	require.NoError(t, err)
 }

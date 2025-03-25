@@ -1952,43 +1952,84 @@ func SavePreloadedSolAddresses(e deployment.Environment, solChainSelector uint64
 	return nil
 }
 
-func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
+func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) error {
 	state, err := changeset.LoadOnchainStateSolana(e)
-	require.NoError(t, err, "Failed to load Solana state")
+	if err != nil {
+		return err
+	}
 
 	for _, sel := range solChainSelectors {
 		// Validate chain exists in state
 		chainState, exists := state.SolChains[sel]
-		require.True(t, exists, "Chain selector %d not found in Solana state", sel)
+		if !exists {
+			return fmt.Errorf("Chain selector %d not found in Solana state", sel)
+		}
 
 		// Validate addresses
-		require.False(t, chainState.Router.IsZero(), "Router address is zero for chain %d", sel)
-		require.False(t, chainState.OffRamp.IsZero(), "OffRamp address is zero for chain %d", sel)
-		require.False(t, chainState.FeeQuoter.IsZero(), "FeeQuoter address is zero for chain %d", sel)
-		require.False(t, chainState.LinkToken.IsZero(), "Link token address is zero for chain %d", sel)
-		require.False(t, chainState.RMNRemote.IsZero(), "RMNRemote address is zero for chain %d", sel)
+		if chainState.Router.IsZero() {
+			return fmt.Errorf("Router address is zero for chain %d", sel)
+		}
+		if chainState.OffRamp.IsZero() {
+			return fmt.Errorf("OffRamp address is zero for chain %d", sel)
+		}
+		if chainState.FeeQuoter.IsZero() {
+			return fmt.Errorf("FeeQuoter address is zero for chain %d", sel)
+		}
+		if chainState.LinkToken.IsZero() {
+			return fmt.Errorf("Link token address is zero for chain %d", sel)
+		}
+		if chainState.RMNRemote.IsZero() {
+			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
+		}
+
+		ctx := context.Background()
 
 		// Get router config
 		var routerConfigAccount solRouter.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RouterConfigPDA, &routerConfigAccount)
-		require.NoError(t, err, "Failed to deserialize router config for chain %d", sel)
+		err := e.SolChains[sel].GetAccountDataBorshInto(
+			ctx,
+			chainState.RouterConfigPDA,
+			&routerConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
+		}
 
 		// Get fee quoter config
 		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.FeeQuoterConfigPDA, &feeQuoterConfigAccount)
-		require.NoError(t, err, "Failed to deserialize fee quoter config for chain %d", sel)
+		err = e.SolChains[sel].GetAccountDataBorshInto(
+			ctx,
+			chainState.FeeQuoterConfigPDA,
+			&feeQuoterConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
+		}
 
-		// Get offramp config
+		// Get off-ramp config
 		var offRampConfigAccount solOffRamp.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.OffRampConfigPDA, &offRampConfigAccount)
-		require.NoError(t, err, "Failed to deserialize offramp config for chain %d", sel)
+		err = e.SolChains[sel].GetAccountDataBorshInto(
+			ctx,
+			chainState.OffRampConfigPDA,
+			&offRampConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
+		}
 
-		// Get rmn remote config
+		// Get RMN remote config
 		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(testcontext.Get(t), chainState.RMNRemoteConfigPDA, &rmnRemoteConfigAccount)
-		require.NoError(t, err, "Failed to deserialize rmn remote config for chain %d", sel)
+		err = e.SolChains[sel].GetAccountDataBorshInto(
+			ctx,
+			chainState.RMNRemoteConfigPDA,
+			&rmnRemoteConfigAccount,
+		)
+		if err != nil {
+			return fmt.Errorf("failed to deserialize RMN remote config for chain %d: %w", sel, err)
+		}
 
 	}
+	return nil
 }
 
 func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
@@ -2044,8 +2085,9 @@ func TransferOwnershipSolana(
 	// If we don't fund, execute() calls will fail with "no funds" errors.
 	timelockSignerPDA = state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
 	mcmSignerPDA = state.GetMCMSignerPDA(mcmState.McmProgram, mcmState.ProposerMcmSeed)
-	memory.FundSolanaAccounts(e.GetContext(), t, []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
+	err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{timelockSignerPDA, mcmSignerPDA},
 		100, e.SolChains[solChain].Client)
+	require.NoError(t, err)
 	t.Logf("funded timelock signer PDA: %s", timelockSignerPDA.String())
 	t.Logf("funded mcm signer PDA: %s", mcmSignerPDA.String())
 	// Apply transfer ownership changeset
