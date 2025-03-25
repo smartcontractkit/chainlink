@@ -160,6 +160,17 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			gasLimit:      gasLimit,
 			destGasAmount: destGasAmount,
 		},
+		{
+			name: "reports have negative token amounts",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].TokenAmounts[0].Amount = cciptypes.NewBigInt(big.NewInt(-1))
+				return report
+			},
+			expErr:        true,
+			chainSelector: 5009297550715157269, // ETH mainnet chain selector
+			gasLimit:      gasLimit,
+			destGasAmount: destGasAmount,
+		},
 	}
 
 	// Deploy the contract

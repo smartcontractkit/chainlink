@@ -18,7 +18,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	evminternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/evm"
-	solanainternal "github.com/smartcontractkit/chainlink/deployment/common/changeset/internal/solana"
+	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -69,7 +69,7 @@ func DeployMCMSWithTimelockV2(
 			}
 
 		case chain_selectors.FamilySolana:
-			_, err := solanainternal.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
+			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
 			}

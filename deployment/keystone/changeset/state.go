@@ -1,8 +1,10 @@
 package changeset
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"sync"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -73,46 +75,149 @@ func (cs ContractSet) TransferableContracts() []common.Address {
 }
 
 // View is a view of the keystone chain
-// It is best effort and logs errors
-func (cs ContractSet) View(lggr logger.Logger) (KeystoneChainView, error) {
+// It is best-effort, logs errors and generates the views in parallel.
+func (cs ContractSet) View(ctx context.Context, prevView KeystoneChainView, lggr logger.Logger) (KeystoneChainView, error) {
 	out := NewKeystoneChainView()
+	var outMu sync.Mutex
 	var allErrs error
+	var wg sync.WaitGroup
+	errCh := make(chan error, 4) // We are generating 4 views concurrently
+
+	// Check if context is already done before starting work
+	select {
+	case <-ctx.Done():
+		return out, ctx.Err()
+	default:
+		// Continue processing
+	}
+
 	if cs.CapabilitiesRegistry != nil {
-		capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
-		if err != nil {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Warn("failed to generate capability registry view: %w", err)
-		}
-		out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				capRegView, err := common_v1_0.GenerateCapabilityRegistryView(cs.CapabilitiesRegistry)
+				if err != nil {
+					lggr.Warn("failed to generate capability registry view: %w", err)
+					errCh <- err
+				}
+				outMu.Lock()
+				out.CapabilityRegistry[cs.CapabilitiesRegistry.Address().String()] = capRegView
+				outMu.Unlock()
+			}
+		}()
 	}
 
 	if cs.OCR3 != nil {
-		for addr, ocr3Cap := range cs.OCR3 {
-			oc := *ocr3Cap
-			addrCopy := addr
-			ocrView, err := GenerateOCR3ConfigView(oc)
-			if err != nil {
-				allErrs = errors.Join(allErrs, err)
-				// don't block view on single OCR3 not being configured
-				if errors.Is(err, ErrOCR3NotConfigured) {
-					lggr.Warnf("ocr3 not configured for address %s", addr)
-				} else {
-					lggr.Errorf("failed to generate OCR3 config view: %v", err)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for addr, ocr3Cap := range cs.OCR3 {
+				select {
+				case <-ctx.Done():
+					errCh <- ctx.Err()
+					return
+				default:
+					oc := *ocr3Cap
+					addrCopy := addr
+					ocrView, err := GenerateOCR3ConfigView(ctx, oc)
+					if err != nil {
+						// don't block view on single OCR3 not being configured
+						if errors.Is(err, ErrOCR3NotConfigured) {
+							lggr.Warnf("ocr3 not configured for address %s", addr)
+						} else {
+							lggr.Errorf("failed to generate OCR3 config view: %v", err)
+							errCh <- err
+						}
+						continue
+					}
+					outMu.Lock()
+					out.OCRContracts[addrCopy.String()] = ocrView
+					outMu.Unlock()
 				}
 			}
-			out.OCRContracts[addrCopy.String()] = ocrView
-		}
+		}()
 	}
 
 	// Process the workflow registry and print if WorkflowRegistryError errors.
 	if cs.WorkflowRegistry != nil {
-		wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
-		for _, err := range wrErrs {
-			allErrs = errors.Join(allErrs, err)
-			lggr.Errorf("WorkflowRegistry error: %v", err)
-		}
-		out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				wrView, wrErrs := common_v1_0.GenerateWorkflowRegistryView(cs.WorkflowRegistry)
+				for _, err := range wrErrs {
+					lggr.Errorf("WorkflowRegistry error: %v", err)
+					errCh <- err
+				}
+				outMu.Lock()
+				out.WorkflowRegistry[cs.WorkflowRegistry.Address().String()] = wrView
+				outMu.Unlock()
+			}
+		}()
 	}
+
+	if cs.Forwarder != nil {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fwrAddr := cs.Forwarder.Address().String()
+			var prevViews []ForwarderView
+			if prevView.Forwarders != nil {
+				pv, ok := prevView.Forwarders[fwrAddr]
+				if !ok {
+					prevViews = []ForwarderView{}
+				} else {
+					prevViews = pv
+				}
+			} else {
+				prevViews = []ForwarderView{}
+			}
+
+			select {
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			default:
+				fwrView, fwrErr := GenerateForwarderView(ctx, cs.Forwarder, prevViews)
+				if fwrErr != nil {
+					// don't block view on single forwarder not being configured
+					switch {
+					case errors.Is(fwrErr, ErrForwarderNotConfigured):
+						lggr.Warnf("forwarder not configured for address %s", cs.Forwarder.Address())
+					case errors.Is(fwrErr, context.Canceled), errors.Is(fwrErr, context.DeadlineExceeded):
+						lggr.Warnf("forwarder view generation cancelled for address %s", cs.Forwarder.Address())
+						errCh <- fwrErr
+					default:
+						lggr.Errorf("failed to generate forwarder view: %v", fwrErr)
+						errCh <- fwrErr
+					}
+				} else {
+					outMu.Lock()
+					out.Forwarders[fwrAddr] = fwrView
+					outMu.Unlock()
+				}
+			}
+		}()
+	}
+
+	wg.Wait()
+	close(errCh)
+
+	var errList []error
+	// Collect all errors
+	for err := range errCh {
+		errList = append(errList, err)
+	}
+	allErrs = errors.Join(errList...)
 
 	return out, allErrs
 }
@@ -131,7 +236,24 @@ func GetContractSets(lggr logger.Logger, req *GetContractSetsRequest) (*GetContr
 			return nil, fmt.Errorf("failed to get addresses for chain %d: %w", id, err)
 		}
 
+		// Forwarder addresses now have informative labels, but we don't want them to be ignored if no labels are provided for filtering.
+		// If labels are provided, just filter by those.
+		forwarderAddrs := make(map[string]deployment.TypeAndVersion)
+		if len(req.Labels) == 0 {
+			for addr, tv := range addrs {
+				if tv.Type == KeystoneForwarder {
+					forwarderAddrs[addr] = tv
+				}
+			}
+		}
+
+		// TODO: we need to expand/refactor the way labeled addresses are filtered
+		// see: https://smartcontract-it.atlassian.net/browse/CRE-363
 		filtered := deployment.LabeledAddresses(addrs).And(req.Labels...)
+
+		for addr, tv := range forwarderAddrs {
+			filtered[addr] = tv
+		}
 
 		cs, err := loadContractSet(lggr, chain, filtered)
 		if err != nil {
