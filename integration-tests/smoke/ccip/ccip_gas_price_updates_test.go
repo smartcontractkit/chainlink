@@ -88,18 +88,32 @@ func Test_CCIPGasPriceUpdatesWriteFrequency(t *testing.T) {
 		t.Logf("chainFee1 (stored in chain2): %v", chain1FeeNow)
 		t.Logf("chainFee2 (stored in chain1): %v", chain2FeeNow)
 
-		chain1Changed := chain1FeeNow.Value.Cmp(initialChain1Fee.Value) != 0 &&
-			chain1FeeNow.Timestamp > initialChain1Fee.Timestamp
-		chain2Changed := chain2FeeNow.Value.Cmp(initialChain2Fee.Value) != 0 &&
-			chain2FeeNow.Timestamp > initialChain2Fee.Timestamp
-		if chain1Changed {
+		// First time the value changes anyways because the initial fee is different from the calculated fee
+		// To determine if the fee was updated due to expiration and not deviation,
+		// we need to check if the timestamp was updated after the first update and make sure value stays the same.
+		if chain1FeeNow.Value.Cmp(initialChain1Fee.Value) != 0 {
 			t.Logf("chainFee1 changed: %v prev:%v", chain1FeeNow, initialChain1Fee.Value)
+			initialChain1Fee = chain1FeeNow
+			return false
 		}
-		if chain2Changed {
+		if chain2FeeNow.Value.Cmp(initialChain2Fee.Value) != 0 {
 			t.Logf("chainFee2 changed: %v prev:%v", chain2FeeNow, initialChain2Fee.Value)
+			initialChain2Fee = chain2FeeNow
+			return false
 		}
 
-		if chain1Changed && chain2Changed {
+		chain1TimeChanged := chain1FeeNow.Value.Cmp(initialChain1Fee.Value) == 0 &&
+			chain1FeeNow.Timestamp > initialChain1Fee.Timestamp
+		chain2TimeChanged := chain2FeeNow.Value.Cmp(initialChain2Fee.Value) == 0 &&
+			chain2FeeNow.Timestamp > initialChain2Fee.Timestamp
+		if chain1TimeChanged {
+			t.Logf("chainFee1 changed: %v prev:%v", chain1FeeNow, initialChain1Fee)
+		}
+		if chain2TimeChanged {
+			t.Logf("chainFee2 changed: %v prev:%v", chain2FeeNow, initialChain2Fee)
+		}
+
+		if chain1TimeChanged && chain2TimeChanged {
 			t.Logf("Calculated fees updated on both chains because expiration is reached")
 			return true
 		}
