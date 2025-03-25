@@ -4,9 +4,10 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/stretchr/testify/require"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
