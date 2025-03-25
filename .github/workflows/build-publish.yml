@@ -30,10 +30,10 @@ jobs:
         run: |
           # Check if git tag is related to CCIP
           # Should match:
-          #   v1.0.0-ccip1.0.0-beta.1
-          #   v1.0.0-ccip1.0.0-rc.0
-          #   v1.0.0-ccip1.0.0
-          if [[ $GIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ccip[0-9]+\.[0-9]+\.[0-9]+(-((beta|rc)\.[0-9]+))?$ ]]; then
+          #   v1.0.0-ccip-beta.1
+          #   v1.0.0-ccip-rc.0
+          #   v1.0.0-ccip
+          if [[ $GIT_TAG =~ ^v[0-9]+\.[0-9]+\.[0-9]+-ccip(-((beta|rc)\.[0-9]+))?$ ]]; then
             echo "git-tag-type=ccip" | tee -a "$GITHUB_OUTPUT"
             echo "ecr-image-name=chainlink/ccip" | tee -a "$GITHUB_OUTPUT"
           else

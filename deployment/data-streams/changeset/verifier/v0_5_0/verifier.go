@@ -6,7 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	verifier_v0_5_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
 
@@ -25,27 +25,21 @@ func loadVerifierState(
 		return nil, err
 	}
 
-	tv, found := addresses[contractAddr]
+	chainState, err := changeset.LoadChainState(e.Logger, chain, addresses)
+	if err != nil {
+		e.Logger.Errorw("Failed to load chain state", "err", err)
+		return nil, err
+	}
+
+	conf, found := chainState.Verifiers[common.HexToAddress(contractAddr)]
+
 	if !found {
 		return nil, fmt.Errorf(
-			"unable to find Verifier contract on chain %s (selector %d)",
+			"unable to find Verifier contract on chain %s (selector %d, address %s)",
 			chain.Name(),
 			chain.Selector,
+			contractAddr,
 		)
-	}
-
-	if tv.Type != types.Verifier || tv.Version != deployment.Version0_5_0 {
-		return nil, fmt.Errorf(
-			"unexpected contract type %s for Verifier on chain %s (selector %d)",
-			tv,
-			chain.Name(),
-			chain.Selector,
-		)
-	}
-
-	conf, err := verifier_v0_5_0.NewVerifier(common.HexToAddress(contractAddr), chain.Client)
-	if err != nil {
-		return nil, err
 	}
 
 	return conf, nil

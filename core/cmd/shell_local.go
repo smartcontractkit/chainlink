@@ -396,7 +396,7 @@ func (s *Shell) runNode(c *cli.Context) error {
 			}
 			_, err2 = app.GetKeyStore().Eth().Import(rootCtx, []byte(k.JSON()), k.Password(), cid)
 			if err2 != nil {
-				if errors.Is(err, keystore.ErrKeyExists) {
+				if errors.Is(err2, keystore.ErrKeyExists) {
 					lggr.Debugf("Eth key %s already exists for chain %v", k.JSON(), k.ChainDetails())
 					continue
 				}

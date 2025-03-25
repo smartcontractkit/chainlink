@@ -8,7 +8,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	v0_5_0 "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0.5.0"
+	v0_5_0 "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verifier/v0_5_0"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -43,9 +43,11 @@ func TestUnsetVerifier(t *testing.T) {
 		commonChangesets.Configure(
 			v0_5_0.DeployVerifierChangeset,
 			v0_5_0.DeployVerifierConfig{
-				ChainsToDeploy:       []uint64{chainSelector},
-				VerifierProxyAddress: verifierProxyAddr,
-				Version:              *semver.MustParse("0.5.0"),
+				ChainsToDeploy: map[uint64]v0_5_0.DeployVerifier{
+					chainSelector: {
+						VerifierProxyAddress: verifierProxyAddr,
+					},
+				},
 			},
 		),
 	)

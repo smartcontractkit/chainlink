@@ -24,9 +24,10 @@ func removeFeedLogic(env deployment.Environment, c types.RemoveFeedConfig) (depl
 	if c.McmsConfig != nil {
 		txOpt = deployment.SimTransactOpts()
 	}
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
 
 	// remove the feed config
-	removeConfigTx, err := contract.RemoveFeedConfigs(txOpt, c.DataIDs)
+	removeConfigTx, err := contract.RemoveFeedConfigs(txOpt, dataIDs)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to remove feed config %w", err)
 	}
@@ -81,6 +82,10 @@ func removeFeedPrecondition(env deployment.Environment, c types.RemoveFeedConfig
 	}
 	if len(c.DataIDs) != len(c.ProxyAddresses) {
 		return errors.New("dataIDs and proxy addresses must have the same length")
+	}
+	_, err := FeedIDsToBytes16(c.DataIDs)
+	if err != nil {
+		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
 	if c.McmsConfig != nil {

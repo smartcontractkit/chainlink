@@ -10,6 +10,7 @@ import (
 
 	solToken "github.com/gagliardetto/solana-go/programs/token"
 
+	solCommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_common"
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
@@ -693,7 +694,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 			require.NoError(t, err)
 
 			tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
-			var tokenAdminRegistryAccount solRouter.TokenAdminRegistry
+			var tokenAdminRegistryAccount solCommon.TokenAdminRegistry
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistryAccount)
 			require.NoError(t, err)
 			require.Equal(t, solana.PublicKey{}, tokenAdminRegistryAccount.Administrator)
@@ -701,7 +702,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 			require.Equal(t, newAdmin, tokenAdminRegistryAccount.PendingAdministrator)
 
 			linkTokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(linkTokenAddress, state.SolChains[solChain].Router)
-			var linkTokenAdminRegistryAccount solRouter.TokenAdminRegistry
+			var linkTokenAdminRegistryAccount solCommon.TokenAdminRegistry
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, linkTokenAdminRegistryPDA, &linkTokenAdminRegistryAccount)
 			require.NoError(t, err)
 			require.Equal(t, newAdmin, linkTokenAdminRegistryAccount.PendingAdministrator)
@@ -847,7 +848,7 @@ func TestPoolLookupTable(t *testing.T) {
 				),
 			)
 			require.NoError(t, err)
-			tokenAdminRegistry := solRouter.TokenAdminRegistry{}
+			tokenAdminRegistry := solCommon.TokenAdminRegistry{}
 			tokenAdminRegistryPDA, _, _ := solState.FindTokenAdminRegistryPDA(tokenAddress, state.SolChains[solChain].Router)
 
 			err = e.SolChains[solChain].GetAccountDataBorshInto(ctx, tokenAdminRegistryPDA, &tokenAdminRegistry)

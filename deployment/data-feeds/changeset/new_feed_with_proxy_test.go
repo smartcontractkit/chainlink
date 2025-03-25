@@ -1,13 +1,13 @@
 package changeset_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -79,7 +79,8 @@ func TestNewFeedWithProxy(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid := "0x01bb0467f50003040000000000000000"
+	dataid2 := "0x01475851f90003320000000000000000"
 
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
 		commonChangesets.Configure(
@@ -87,13 +88,13 @@ func TestNewFeedWithProxy(t *testing.T) {
 			types.NewFeedWithProxyConfig{
 				ChainSelector:    chainSelector,
 				AccessController: common.HexToAddress("0x00"),
-				DataID:           dataid,
-				Description:      "test2",
+				DataIDs:          []string{dataid, dataid2},
+				Descriptions:     []string{"feed1", "feed2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 				McmsConfig: &types.MCMSConfig{
@@ -105,7 +106,8 @@ func TestNewFeedWithProxy(t *testing.T) {
 	require.NoError(t, err)
 
 	addrs, err := newEnv.ExistingAddresses.AddressesForChain(chainSelector)
+	fmt.Println(addrs)
 	require.NoError(t, err)
-	// AggregatorProxy, DataFeedsCache, CallProxy, RBACTimelock, ProposerManyChainMultiSig, BypasserManyChainMultiSig, CancellerManyChainMultiSig
-	require.Len(t, addrs, 7)
+	// 2 AggregatorProxy, DataFeedsCache, CallProxy, RBACTimelock, ProposerManyChainMultiSig, BypasserManyChainMultiSig, CancellerManyChainMultiSig
+	require.Len(t, addrs, 8)
 }

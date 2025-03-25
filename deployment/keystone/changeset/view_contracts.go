@@ -1,10 +1,15 @@
 package changeset
 
 import (
+	"context"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math"
+	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -15,10 +20,13 @@ import (
 
 	capocr3types "github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 
+	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	common_v1_0 "github.com/smartcontractkit/chainlink/deployment/common/view/v1_0"
+	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 )
 
 type KeystoneChainView struct {
@@ -26,6 +34,7 @@ type KeystoneChainView struct {
 	// OCRContracts is a map of OCR3 contract addresses to their configuration view
 	OCRContracts     map[string]OCR3ConfigView                   `json:"ocrContracts,omitempty"`
 	WorkflowRegistry map[string]common_v1_0.WorkflowRegistryView `json:"workflowRegistry,omitempty"`
+	Forwarders       map[string][]ForwarderView                  `json:"forwarders,omitempty"`
 }
 
 type OCR3ConfigView struct {
@@ -37,9 +46,21 @@ type OCR3ConfigView struct {
 	OffchainConfig        OracleConfig        `json:"offchainConfig"`
 }
 
-var ErrOCR3NotConfigured = errors.New("OCR3 not configured")
+type ForwarderView struct {
+	DonID         uint32   `json:"donId"`
+	ConfigVersion uint32   `json:"configVersion"`
+	F             uint8    `json:"f"`
+	Signers       []string `json:"signers"`
+	TxHash        string   `json:"txHash,omitempty"`
+	BlockNumber   uint64   `json:"blockNumber,omitempty"`
+}
 
-func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
+var (
+	ErrOCR3NotConfigured      = errors.New("OCR3 not configured")
+	ErrForwarderNotConfigured = errors.New("forwarder not configured")
+)
+
+func GenerateOCR3ConfigView(ctx context.Context, ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigView, error) {
 	details, err := ocr3Cap.LatestConfigDetails(nil)
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -49,7 +70,7 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	configIterator, err := ocr3Cap.FilterConfigSet(&bind.FilterOpts{
 		Start:   blockNumber,
 		End:     &blockNumber,
-		Context: nil,
+		Context: ctx,
 	})
 	if err != nil {
 		return OCR3ConfigView{}, err
@@ -135,6 +156,99 @@ func GenerateOCR3ConfigView(ocr3Cap ocr3_capability.OCR3Capability) (OCR3ConfigV
 	}, nil
 }
 
+func GenerateForwarderView(ctx context.Context, f *forwarder.KeystoneForwarder, prevViews []ForwarderView) ([]ForwarderView, error) {
+	startBlock := uint64(0)
+
+	if len(prevViews) > 0 {
+		// Sort `prevViews` by block number in ascending order, we make sure the last item has the highest block number
+		sort.Slice(prevViews, func(i, j int) bool {
+			return prevViews[i].BlockNumber < prevViews[j].BlockNumber
+		})
+
+		// If we have previous views, we will start from the last block number +1 of the previous views
+		startBlock = prevViews[len(prevViews)-1].BlockNumber + 1
+	} else {
+		// If we don't have previous views, we will start from the deployment block number
+		// which is stored in the forwarder's type and version labels.
+		var deploymentBlock uint64
+		lblPrefix := internal.DeploymentBlockLabel + ": "
+		tvStr, err := f.TypeAndVersion(nil)
+		if err != nil {
+			return nil, fmt.Errorf("error getting TypeAndVersion for forwarder: %w", err)
+		}
+		tv, err := deployment.TypeAndVersionFromString(tvStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
+		}
+		for lbl := range tv.Labels {
+			if strings.HasPrefix(lbl, lblPrefix) {
+				// Extract the block number part after the prefix
+				blockStr := strings.TrimPrefix(lbl, lblPrefix)
+				blockNum, err := strconv.ParseUint(blockStr, 10, 64)
+				if err == nil {
+					deploymentBlock = blockNum
+					break
+				}
+			}
+		}
+
+		if deploymentBlock > 0 {
+			startBlock = deploymentBlock
+		}
+	}
+
+	// Let's fetch the `SetConfig` events since the deployment block, since we don't have specific block numbers
+	// for the `SetConfig` events.
+	// If no deployment block is available, it will start from 0.
+	configIterator, err := f.FilterConfigSet(&bind.FilterOpts{
+		Start:   startBlock,
+		End:     nil,
+		Context: ctx,
+	}, nil, nil)
+	if err != nil {
+		return nil, fmt.Errorf("error filtering ConfigSet events: %w", err)
+	}
+
+	configSets := make([]*forwarder.KeystoneForwarderConfigSet, 0)
+	for configIterator.Next() {
+		// We wait for the iterator to receive an event
+		if configIterator.Event == nil {
+			// We cannot return an error, since we are capturing all `SetConfig` events, so if there's a nil event,
+			// we ignore it.
+			continue
+		}
+		configSets = append(configSets, configIterator.Event)
+	}
+	if len(configSets) == 0 {
+		// Forwarder is not configured only if we don't have any previous configuration events.
+		if len(prevViews) == 0 {
+			return nil, ErrForwarderNotConfigured
+		}
+
+		// If we don't have any new config sets, we return the previous views as is.
+		return prevViews, nil
+	}
+
+	// We now create a slice with all previous views and the new views, so they get all added to the final view.
+	forwarderViews := append([]ForwarderView{}, prevViews...)
+	for _, configSet := range configSets {
+		var readableSigners []string
+		for _, s := range configSet.Signers {
+			readableSigners = append(readableSigners, s.String())
+		}
+		forwarderViews = append(forwarderViews, ForwarderView{
+			DonID:         configSet.DonId,
+			ConfigVersion: configSet.ConfigVersion,
+			F:             configSet.F,
+			Signers:       readableSigners,
+			TxHash:        configSet.Raw.TxHash.String(),
+			BlockNumber:   configSet.Raw.BlockNumber,
+		})
+	}
+
+	return forwarderViews, nil
+}
+
 func millisecondsToUint32(dur time.Duration) uint32 {
 	ms := dur.Milliseconds()
 	if ms > int64(math.MaxUint32) {
@@ -149,6 +263,7 @@ func NewKeystoneChainView() KeystoneChainView {
 		CapabilityRegistry: make(map[string]common_v1_0.CapabilityRegistryView),
 		OCRContracts:       make(map[string]OCR3ConfigView),
 		WorkflowRegistry:   make(map[string]common_v1_0.WorkflowRegistryView),
+		Forwarders:         make(map[string][]ForwarderView),
 	}
 }
 
