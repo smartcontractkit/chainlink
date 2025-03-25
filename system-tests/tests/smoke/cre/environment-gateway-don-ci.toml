@@ -62,7 +62,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -80,7 +79,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -98,7 +96,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -116,7 +113,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true

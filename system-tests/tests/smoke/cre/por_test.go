@@ -49,8 +49,10 @@ import (
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	libenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
@@ -60,7 +62,7 @@ import (
 )
 
 const (
-	cronCapabilityAssetFile            = "amd64_cron"
+	cronCapabilityAssetFile            = "cron"
 	ghReadTokenEnvVarName              = "GITHUB_READ_TOKEN"
 	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
@@ -147,11 +149,17 @@ func init() {
 	}
 }
 
-// Defines relases/versions of test dependencies that will be downloaded from Github
+// Defines the location of the binary files that are required to run the test
+// When test runs in CI hardcoded versions will be downloaded instead
 type DependenciesConfig struct {
-	CapabiltiesVersion string `toml:"capabilities_version" validate:"required"`
-	CRECLIVersion      string `toml:"cre_cli_version" validate:"required"`
+	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path" validate:"required"`
+	CRECLIBinaryPath         string `toml:"cre_cli_binary_path" validate:"required"`
 }
+
+const (
+	CronBinaryVersion   = "v1.0.2-alpha"
+	CRECLIBinaryVersion = "v0.1.5"
+)
 
 // Defines the location of already compiled workflow binary and config files
 // They will be used if WorkflowConfig.ShouldCompileNewWorkflow is `false`
@@ -209,29 +217,23 @@ type binaryDownloadOutput struct {
 }
 
 // this is a small hack to avoid changing the reusable workflow, which doesn't allow to run any pre-execution hooks
-func downloadBinaryFiles(in *TestConfig) (*binaryDownloadOutput, error) {
-	var ghReadToken string
-	if os.Getenv("CI") == "true" {
-		ghReadToken = ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
-	} else {
-		ghReadToken = os.Getenv(ghReadTokenEnvVarName)
-	}
+func downloadBinaryFiles(in *TestConfig) error {
+	ghReadToken := ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
 
-	_, err := keystonecapabilities.DownloadCapabilityFromRelease(ghReadToken, in.WorkflowConfig.DependenciesConfig.CapabiltiesVersion, cronCapabilityAssetFile)
+	var err error
+	in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath, err = keystonecapabilities.DownloadCapabilityFromRelease(ghReadToken, CronBinaryVersion, cronCapabilityAssetFile)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
+		return errors.Wrap(err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
 	}
-
-	output := &binaryDownloadOutput{}
 
 	if in.WorkflowConfig.UseCRECLI {
-		output.creCLIAbsPath, err = libcrecli.DownloadAndInstallChainlinkCLI(ghReadToken, in.WorkflowConfig.DependenciesConfig.CRECLIVersion)
+		in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath, err = libcrecli.DownloadAndInstallChainlinkCLI(ghReadToken, CRECLIBinaryVersion)
 		if err != nil {
-			return nil, errors.Wrap(err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
+			return errors.Wrap(err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
 		}
 	}
 
-	return output, nil
+	return nil
 }
 
 type registerPoRWorkflowInput struct {
@@ -246,7 +248,7 @@ type registerPoRWorkflowInput struct {
 	sethClient                  *seth.Client
 	deployerPrivateKey          string
 	blockchain                  *blockchain.Output
-	binaryDownloadOutput        binaryDownloadOutput
+	creCLIAbsPath               string
 }
 
 func registerPoRWorkflow(input registerPoRWorkflowInput) error {
@@ -284,7 +286,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 
 	// compile and upload the workflow, if we are not using an existing one
 	if input.WorkflowConfig.ShouldCompileNewWorkflow {
-		compilationResult, err := libcrecli.CompileWorkflow(input.binaryDownloadOutput.creCLIAbsPath, *input.WorkflowConfig.WorkflowFolderLocation, workflowConfigFile, settingsFile)
+		compilationResult, err := libcrecli.CompileWorkflow(input.creCLIAbsPath, *input.WorkflowConfig.WorkflowFolderLocation, workflowConfigFile, settingsFile)
 		if err != nil {
 			return errors.Wrap(err, "failed to compile workflow")
 		}
@@ -296,7 +298,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 		workflowConfigURL = input.WorkflowConfig.CompiledWorkflowConfig.ConfigURL
 	}
 
-	registerErr := libcrecli.DeployWorkflow(input.binaryDownloadOutput.creCLIAbsPath, input.WorkflowName, workflowURL, workflowConfigURL, settingsFile)
+	registerErr := libcrecli.DeployWorkflow(input.creCLIAbsPath, input.WorkflowName, workflowURL, workflowConfigURL, settingsFile)
 	if registerErr != nil {
 		return errors.Wrap(registerErr, "failed to register workflow")
 	}
@@ -451,7 +453,7 @@ type setupOutput struct {
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, binaryDownloadOutput binaryDownloadOutput, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -614,6 +616,29 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		for j := range donMetadata.NodesMetadata {
 			nodeSetInput[i].NodeSpecs[j].Node.TestConfigOverrides = config[j]
 			nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
+		}
+
+		// instruct Docker which capabilities to copy to the container
+		// TODO: add similar support for CRIB
+		if in.Infra.InfraType == libtypes.Docker {
+			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
+				workerNodes, err := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
+					Key:   libnode.NodeTypeKey,
+					Value: keystonetypes.WorkerNode,
+				}, libnode.EqualLabels)
+
+				require.NoError(t, err, "failed to find worker nodes")
+
+				for _, node := range workerNodes {
+					nodeIndexStr, err := libnode.FindLabelValue(node, libnode.IndexKey)
+					require.NoError(t, err, "failed to find index label")
+
+					nodeIndex, err := strconv.Atoi(nodeIndexStr)
+					require.NoError(t, err, "failed to convert index to int")
+
+					nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)
+				}
+			}
 		}
 	}
 
@@ -780,7 +805,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		sethClient:                  blockchainsOutput.sethClient,
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
-		binaryDownloadOutput:        binaryDownloadOutput,
+		creCLIAbsPath:               in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath,
 	}
 
 	err = registerPoRWorkflow(registerInput)
@@ -813,8 +838,10 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
+	if os.Getenv("CI") == "true" {
+		err := downloadBinaryFiles(in)
+		require.NoError(t, err, "failed to download binary files")
+	}
 
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
@@ -832,7 +859,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -918,8 +945,10 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
+	if os.Getenv("CI") == "true" {
+		err := downloadBinaryFiles(in)
+		require.NoError(t, err, "failed to download binary files")
+	}
 
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
@@ -943,7 +972,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1029,8 +1058,10 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
 
-	binaryDownloadOutput, err := downloadBinaryFiles(in)
-	require.NoError(t, err, "failed to download binary files")
+	if os.Getenv("CI") == "true" {
+		err := downloadBinaryFiles(in)
+		require.NoError(t, err, "failed to download binary files")
+	}
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -1057,7 +1088,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, *binaryDownloadOutput, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
