@@ -1,7 +1,6 @@
 package general
 
 import (
-	"math/big"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -13,8 +12,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
@@ -67,51 +64,4 @@ func DeployRewardManagerAndLink(
 	require.NotEqual(t, common.Address{}, rewardManagerAddr, "RewardManager should not be zero address")
 
 	return env, rewardManagerAddr, linkState
-}
-
-func DeployMCMS(
-	t *testing.T,
-	e deployment.Environment,
-) (env deployment.Environment, mcmsState *commonChangesets.MCMSWithTimelockState, timelocks map[uint64]*proposalutils.TimelockExecutionContracts) {
-	t.Helper()
-
-	chainSelector := testutil.TestChain.Selector
-	config := proposalutils.SingleGroupMCMSV2(t)
-
-	env, err := commonChangesets.Apply(t, e, nil,
-		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
-			[]uint64{chainSelector},
-		),
-		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
-			map[uint64]types.MCMSWithTimelockConfigV2{
-				chainSelector: {
-					Canceller:        config,
-					Bypasser:         config,
-					Proposer:         config,
-					TimelockMinDelay: big.NewInt(0),
-				},
-			},
-		),
-	)
-
-	require.NoError(t, err)
-
-	addresses, err := e.ExistingAddresses.AddressesForChain(testutil.TestChain.Selector)
-	require.NoError(t, err)
-
-	chain := e.Chains[chainSelector]
-
-	mcmsState, err = commonChangesets.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
-	require.NoError(t, err)
-
-	timelocks = map[uint64]*proposalutils.TimelockExecutionContracts{
-		chainSelector: {
-			Timelock:  mcmsState.Timelock,
-			CallProxy: mcmsState.CallProxy,
-		},
-	}
-
-	return env, mcmsState, timelocks
 }
