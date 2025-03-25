@@ -136,7 +136,7 @@ core/scripts/gateway @smartcontractkit/dev-services
 
 
 # Tests
-/integration-tests/ @smartcontractkit/test-tooling-team @smartcontractkit/core
+/integration-tests/ @smartcontractkit/devex-tooling @smartcontractkit/core
 /integration-tests/ccip-tests @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 /integration-tests/**/*keeper* @smartcontractkit/dev-services @smartcontractkit/core
 /integration-tests/**/*automation* @smartcontractkit/dev-services @smartcontractkit/core
@@ -153,16 +153,16 @@ core/scripts/gateway @smartcontractkit/dev-services
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD
-/.github/** @smartcontractkit/releng @smartcontractkit/test-tooling-team @smartcontractkit/core
+/.github/** @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core
 /.github/CODEOWNERS @smartcontractkit/core @smartcontractkit/foundations
-/.github/workflows/performance-tests.yml @smartcontractkit/test-tooling-team
+/.github/workflows/performance-tests.yml @smartcontractkit/devex-tooling
 /.github/workflows/automation-ondemand-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-benchmark-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-load-tests.yml @smartcontractkit/dev-services
 /.github/workflows/automation-nightly-tests.yml @smartcontractkit/dev-services
-/.github/workflows/*solidity* @smartcontractkit/releng @smartcontractkit/test-tooling-team @smartcontractkit/core-solidity
+/.github/workflows/*solidity* @smartcontractkit/devex-cicd @smartcontractkit/devex-tooling @smartcontractkit/core-solidity
 
-/core/chainlink.Dockerfile @smartcontractkit/releng @smartcontractkit/foundations @smartcontractkit/core
+/core/chainlink.Dockerfile @smartcontractkit/devex-cicd @smartcontractkit/foundations @smartcontractkit/core
 
 # Dependencies
 contracts/scripts/requirements.txt @smartcontractkit/core
@@ -172,8 +172,8 @@ contracts/package.json @smartcontractkit/foundations @smartcontractkit/core
 contracts/pnpm.lock @smartcontractkit/core
 go.mod @smartcontractkit/core @smartcontractkit/foundations
 go.sum @smartcontractkit/core @smartcontractkit/foundations
-integration-tests/go.mod @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
-integration-tests/go.sum @smartcontractkit/core @smartcontractkit/test-tooling-team @smartcontractkit/foundations
+integration-tests/go.mod @smartcontractkit/core @smartcontractkit/devex-tooling @smartcontractkit/foundations
+integration-tests/go.sum @smartcontractkit/core @smartcontractkit/devex-tooling @smartcontractkit/foundations
 flake.nix @smartcontractkit/core
 flake.lock @smartcontractkit/core
 
