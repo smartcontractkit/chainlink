@@ -9,7 +9,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 )
@@ -34,7 +33,7 @@ type DONConfigSchema struct {
 const productLabel = "data-feeds"
 
 func registerNodesToJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
-	dons, _ := shared.LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
+	dons, _ := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, don := range dons {
 		for _, node := range don.Nodes {
@@ -105,7 +104,7 @@ func registerNodesToJDLogicPrecondition(env deployment.Environment, c types.Node
 		return errors.New("input file name is required")
 	}
 
-	_, err := shared.LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
+	_, err := LoadJSON[[]*DONConfigSchema](c.InputFileName, c.InputFS)
 	if err != nil {
 		return fmt.Errorf("failed to load don config input file: %w", err)
 	}

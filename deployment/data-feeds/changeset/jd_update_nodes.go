@@ -8,7 +8,6 @@ import (
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
 // UpdatesNodesJDChangeset is a changeset that reads node info from a JSON file and updates node name and labels in Job Distributor
@@ -22,7 +21,7 @@ type NodeConfigSchema struct {
 }
 
 func updatesNodesJDLogic(env deployment.Environment, c types.NodeConfig) (deployment.ChangesetOutput, error) {
-	nodes, _ := shared.LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
+	nodes, _ := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
 
 	for _, node := range nodes {
 		n, err := env.Offchain.GetNode(env.GetContext(), &nodev1.GetNodeRequest{
@@ -62,7 +61,7 @@ func updatesNodesJDLogicPrecondition(env deployment.Environment, c types.NodeCon
 		return errors.New("input file name is required")
 	}
 
-	_, err := shared.LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
+	_, err := LoadJSON[[]*NodeConfigSchema](c.InputFileName, c.InputFS)
 	if err != nil {
 		return fmt.Errorf("failed to load node config input file: %w", err)
 	}
