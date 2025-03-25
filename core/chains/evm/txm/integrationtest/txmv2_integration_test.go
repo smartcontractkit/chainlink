@@ -53,6 +53,11 @@ var (
 	nNodes = 4
 )
 
+// TODO(gg): redirect core node logs to separate file
+
+// TODO(gg): update bootstrap config to have lower finalityDepth
+//    logger.go:146: 2025-03-24T14:33:08.030Z	DEBUG	bootstrap_svr.EVM.1337.HeadSaver	heads/saver.go:72	chain shorter than FinalityDepth	{"version": "unset@unset", "chainLen": 8, "evmFinalityDepth": 10}
+
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// testStartTimeStamp := time.Now()
 	// multiplier := decimal.New(1, 18)
@@ -75,13 +80,13 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// Setup bootstrap node
 	bootstrapCSAKey := csakey.MustNewV2XXXTestingOnly(big.NewInt(salt - 1))
 	bootstrapNodePort := freeport.GetOne(t)
-	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_svr", backend, bootstrapCSAKey)
+	appBootstrap, bootstrapPeerID, _, bootstrapKb, _ := setupNode(t, bootstrapNodePort, "bootstrap_node", backend, bootstrapCSAKey)
 	bootstrapNode := Node{App: appBootstrap, KeyBundle: bootstrapKb}
-	t.Logf("created bootstrap node with id %s and public key %#v\n", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
+	t.Logf("created bootstrap node with id %q and public key %#v", bootstrapPeerID, bootstrapNode.KeyBundle.OnChainPublicKey())
 
 	// Setup oracle nodes
 	oracles, nodes := setupNodes(t, nNodes, backend, clientCSAKeys)
-	t.Logf("created %d oracle nodes with public keys %#v\n", len(nodes), clientPubKeys)
+	t.Logf("created %d oracle nodes", len(nodes))
 
 	// Deploy link address? // TODO(gg): maybe not needed
 
@@ -111,6 +116,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// donID := uint32(995544)
 
+	var allTransmitters []common.Address
+
 	for i, node := range nodes {
 		// set up the keys
 		primaryTransmitterKey, err := node.App.GetKeyStore().Eth().Create(context.Background(), big.NewInt(int64(1337)))
@@ -121,6 +128,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoError(t, err, "could not get eth keys for node %d", i)
 
+		allTransmitters = append(allTransmitters, primaryTransmitterKey.Address, secondaryTransmitterKey.Address)
 		t.Logf("Keys are %#v", keys)
 
 		// fund addresses
@@ -204,6 +212,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	for _, transmitter := range transmitters {
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(transmitter)))
 	}
+	t.Logf("TransmitterAddresses: %v", transmitterAddresses)
+	t.Logf("AllTransmitters: %v", allTransmitters)
 
 	_, err = dualAggregatorInstance.SetConfig(transactOpts, signerAddresses, transmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
@@ -261,13 +271,12 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	require.NoError(t, err, "Failed to create bootstrap job")
 	t.Logf("Created bootstrap job")
 
-	t.Logf("Creating feed for %s", dualAggAddress.String())
+	t.Logf("Creating job for feed %s", dualAggAddress.String())
 
 	pl, err := pipeline.Parse(observationSource)
 	require.NoErrorf(t, err, "Failed to parse observation source")
 
 	for i, node := range nodes {
-
 		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoErrorf(t, err, "could not get eth keys for node %d", i)
 
@@ -288,8 +297,8 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				OCRKeyBundleID:       null.StringFrom(node.KeyBundle.ID()),
 				PluginType:           clcommonTypes.Median,
 				TransmitterID:        null.StringFrom(keys[0].Address.Hex()),
-				AllowNoBootstrappers: true,                      // TODO(gg): maybe we can get away with this?
-				P2PV2Bootstrappers:   []string{bootstrapPeerID}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
+				AllowNoBootstrappers: true,                                                                         // TODO(gg): maybe we can get away with this?
+				P2PV2Bootstrappers:   []string{fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 				RelayConfig: map[string]any{
 					"chainID":                testutils.SimulatedChainID.String(),
 					"fromBlock":              fromBlock,
@@ -311,8 +320,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		err = node.App.AddJobV2(context.Background(), jb)
 		require.NoError(t, err, "Failed to create feed job")
 	}
+	t.Logf("Created jobs for feed %s", dualAggAddress.String())
 
-	nrOfBlocks := uint64(10)
+	nrOfBlocks := uint64(100)
 	currentBlock, err := backend.Client().BlockNumber(context.Background())
 	require.NoError(t, err)
 
@@ -328,6 +338,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		select {
 		case <-t.Context().Done():
 			return
+		case <-time.After(1 * time.Second):
+			t.Logf("new block created")
+			backend.Commit()
 		case head := <-ch:
 			t.Logf("Received block %s", head.Number.String())
 			if head.Number.Cmp(targetBlock) >= 0 {

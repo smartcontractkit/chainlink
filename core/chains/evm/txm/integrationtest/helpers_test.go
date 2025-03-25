@@ -93,7 +93,8 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec string) {
 func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKeys []csakey.KeyV2) (oracles []confighelper.OracleIdentityExtra, nodes []Node) {
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
-		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("oracle_svr_%d", i), backend, clientCSAKeys[i])
+		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
+		t.Logf("Node %d with transmitter %#v (%s) started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), ports[i])
 
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
