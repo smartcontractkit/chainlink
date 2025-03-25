@@ -7,17 +7,12 @@ import (
 	"math/big"
 	"os"
 	"sync"
-	"time"
 
-	solBinary "github.com/gagliardetto/binary"
 	"github.com/gagliardetto/solana-go"
-	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/rs/zerolog"
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solFeeQuoter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	solRmnRemote "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -33,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
@@ -70,10 +66,13 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 
 	// Fund the deployer
 	solChainSelectors := e.AllChainSelectorsSolana()
-	lggr.Info("Funding solana deployer accounts")
-	err = FundSolDeployer(ctx, lggr, *e, envConfig, solChainSelectors)
-	if err != nil {
-		return deployment.CapabilityRegistryConfig{}, nil, err
+
+	for _, selector := range solChainSelectors {
+		lggr.Info("Funding solana deployer account %v", e.SolChains[selector].DeployerKey.PublicKey())
+		err = memory.FundSolanaAccounts(ctx, []solana.PublicKey{e.SolChains[selector].DeployerKey.PublicKey()}, 10000*solana.LAMPORTS_PER_SOL, e.SolChains[selector].Client)
+		if err != nil {
+			return deployment.CapabilityRegistryConfig{}, nil, err
+		}
 	}
 
 	p2pIds := nodes.NonBootstraps().PeerIDs()
@@ -153,16 +152,16 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
-	solChainSelectors := e.AllChainSelectorsSolana()
+	// solChainSelectors := e.AllChainSelectorsSolana()
 
-	// Create lanes for all chains with sol
-	for _, chain := range e.Chains {
-		fromFamily, _ := chainsel.GetSelectorFamily(chain.Selector)
-		*e, err = SetupSolLanes(*e, solChainSelectors[0], chain.Selector, fromFamily)
-		if err != nil {
-			return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
-		}
-	}
+	// // Create lanes for all chains with sol
+	// for _, chain := range e.Chains {
+	// 	fromFamily, _ := chainsel.GetSelectorFamily(chain.Selector)
+	// 	*e, err = SetupSolLanes(*e, solChainSelectors[0], chain.Selector, fromFamily)
+	// 	if err != nil {
+	// 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
+	// 	}
+	// }
 	// ------ Part 1 -----
 
 	// ----- Part 2 -----
@@ -310,8 +309,8 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	chainConfigs := make(map[uint64]v1_6.ChainConfig)
 	nodeInfo, err := deployment.NodeInfo(e.NodeIDs, e.Offchain)
 
-	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
-	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	// feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
+	// feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
 
 	if err != nil {
 		return *e, fmt.Errorf("failed to get node info from env: %w", err)
@@ -340,27 +339,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 			OffRampParams:   v1_6.DefaultOffRampParams(),
 		}
 	}
-	contractParamsPerChain := map[uint64]ccipChangesetSolana.ChainContractParams{
-		solChainSelectors[0]: {
-			FeeQuoterParams: ccipChangesetSolana.FeeQuoterParams{
-				DefaultMaxFeeJuelsPerMsg: solBinary.Uint128{Lo: 300000000, Hi: 0, Endianness: nil},
-			},
-			OffRampParams: ccipChangesetSolana.OffRampParams{
-				EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
-			},
-		},
-	}
 
-	initialDeployConfig := ccipChangesetSolana.DeployChainContractsConfig{
-		HomeChainSelector:      homeChainSel,
-		ContractParamsPerChain: contractParamsPerChain,
-	}
-
-	initialDeployConfig.BuildConfig = ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:        "28994272f7ef0d58d70e723ab59c186355e05e6d",
-		DestinationDir:      e.SolChains[solChainSelectors[0]].ProgramsPath,
-		CleanDestinationDir: true,
-	}
 	env, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
@@ -369,36 +348,14 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 				RemoteChainAdds:   chainConfigs,
 			},
 		),
-		// Deploy
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
 			chainSelectors,
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployLinkToken),
-			e.AllChainSelectorsSolana(),
-		),
-		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployPrerequisitesChangeset),
 			changeset.DeployPrerequisiteConfig{
 				Configs: prereqCfgs,
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployChainContractsChangeset),
-			initialDeployConfig,
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployForTest),
-			ccipChangesetSolana.DeployForTestConfig{
-				ChainSelector: solChainSelectors[0],
-			},
-		),
-		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetFeeAggregator),
-			ccipChangesetSolana.SetFeeAggregatorConfig{
-				ChainSelector: solChainSelectors[0],
-				FeeAggregator: feeAggregatorPubKey.String(),
 			},
 		),
 		commonchangeset.Configure(
@@ -422,7 +379,31 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	if err != nil {
 		return *e, fmt.Errorf("failed to apply changesets: %w", err)
 	}
-	err = ValidateSolanaState(env, solChainSelectors)
+
+	deployedEnv := testhelpers.DeployedEnv{
+		Env:          env,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: homeChainSel,
+	}
+
+	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
+		GitCommitSha:   "develop",
+		DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
+		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
+			BuildLocally: true,
+		},
+	}
+	solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], &buildConfig)
+	if err != nil {
+		return *e, err
+	}
+
+	env, err = commonchangeset.Apply(nil, *e, nil, solCs[0], solCs[1:]...)
+	if err != nil {
+		return *e, err
+	}
+
+	err = testhelpers.ValidateSolanaState(env, solChainSelectors)
 	if err != nil {
 		return *e, err
 	}
@@ -980,139 +961,4 @@ func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyIm
 		}
 	}
 	return rmnNodeConfigs, nil
-// Copy of https://github.com/smartcontractkit/chainlink/blob/a4de5b3bf6aa194df7387d38ba27d2d78c96ebd5/deployment/ccip/changeset/testhelpers/test_helpers.go#L1633
-// Original func uses the testing interface
-func ValidateSolanaState(e deployment.Environment, solChainSelectors []uint64) error {
-	state, err := changeset.LoadOnchainStateSolana(e)
-	if err != nil {
-		return err
-	}
-
-	for _, sel := range solChainSelectors {
-		// Validate chain exists in state
-		chainState, exists := state.SolChains[sel]
-		if !exists {
-			return fmt.Errorf("Chain selector %d not found in Solana state", sel)
-		}
-
-		// Validate addresses
-		if chainState.Router.IsZero() {
-			return fmt.Errorf("Router address is zero for chain %d", sel)
-		}
-		if chainState.OffRamp.IsZero() {
-			return fmt.Errorf("OffRamp address is zero for chain %d", sel)
-		}
-		if chainState.FeeQuoter.IsZero() {
-			return fmt.Errorf("FeeQuoter address is zero for chain %d", sel)
-		}
-		if chainState.LinkToken.IsZero() {
-			return fmt.Errorf("Link token address is zero for chain %d", sel)
-		}
-		if chainState.RMNRemote.IsZero() {
-			return fmt.Errorf("RMNRemote address is zero for chain %d", sel)
-		}
-
-		ctx := context.Background()
-
-		// Get router config
-		var routerConfigAccount solRouter.Config
-		err := e.SolChains[sel].GetAccountDataBorshInto(
-			ctx,
-			chainState.RouterConfigPDA,
-			&routerConfigAccount,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to deserialize router config for chain %d: %w", sel, err)
-		}
-
-		// Get fee quoter config
-		var feeQuoterConfigAccount solFeeQuoter.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(
-			ctx,
-			chainState.FeeQuoterConfigPDA,
-			&feeQuoterConfigAccount,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to deserialize fee quoter config for chain %d: %w", sel, err)
-		}
-
-		// Get off-ramp config
-		var offRampConfigAccount solOffRamp.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(
-			ctx,
-			chainState.OffRampConfigPDA,
-			&offRampConfigAccount,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to deserialize off-ramp config for chain %d: %w", sel, err)
-		}
-
-		// Get RMN remote config
-		var rmnRemoteConfigAccount solRmnRemote.Config
-		err = e.SolChains[sel].GetAccountDataBorshInto(
-			ctx,
-			chainState.RMNRemoteConfigPDA,
-			&rmnRemoteConfigAccount,
-		)
-		if err != nil {
-			return fmt.Errorf("failed to deserialize RMN remote config for chain %d: %w", sel, err)
-		}
-
-	}
-	return nil
-}
-
-func FundSolDeployer(ctx context.Context, lggr logger.Logger, e deployment.Environment, envConfig devenv.EnvironmentConfig, solChainSelectors []uint64) error {
-	// Fund deployer
-	var sigs = make([]solana.Signature, 0, len(e.SolChains))
-	for i := range len(e.SolChains) {
-		lggr.Infof("Funding account: %s", envConfig.Chains[i].SolDeployerKey.PublicKey().String())
-		sig, err := e.SolChains[solChainSelectors[i]].Client.RequestAirdrop(ctx, envConfig.Chains[i].SolDeployerKey.PublicKey(), 10000*solana.LAMPORTS_PER_SOL, solRpc.CommitmentConfirmed)
-		if err != nil {
-			return err
-		}
-		sigs = append(sigs, sig)
-	}
-
-	const timeout = 10 * time.Second
-	const pollInterval = 50 * time.Millisecond
-
-	// Create a context that times out after 'timeout'
-	timeoutCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(pollInterval)
-	defer ticker.Stop()
-
-	remaining := len(sigs)
-	for remaining > 0 {
-		select {
-		case <-timeoutCtx.Done():
-			// Return an error instead of calling require.NoError
-			return errors.New("unable to find transaction within timeout")
-		case <-ticker.C:
-			// Check signature statuses
-			statusRes, sigErr := e.SolChains[solChainSelectors[0]].Client.GetSignatureStatuses(ctx, true, sigs...)
-			if sigErr != nil {
-				// Return error if we can’t fetch signature statuses
-				return fmt.Errorf("failed to get signature statuses: %w", sigErr)
-			}
-			if statusRes == nil || statusRes.Value == nil {
-				// Return error if statusRes is unexpectedly nil
-				return errors.New("nil signature status response")
-			}
-
-			// Count how many transactions are still unconfirmed
-			unconfirmedTxCount := 0
-			for _, res := range statusRes.Value {
-				// If res is nil or only processed, we consider it unconfirmed
-				if res == nil || res.ConfirmationStatus == solRpc.ConfirmationStatusProcessed {
-					unconfirmedTxCount++
-				}
-			}
-			remaining = unconfirmedTxCount
-		}
-	}
-
-	return nil
 }
