@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -36,7 +37,7 @@ func deployContractsToChain(req deployContractsRequest) (*deployContractSetRespo
 			return nil, fmt.Errorf("failed to deploy OCR3Capability: %w", err)
 		}
 	}
-	_, err := DeployForwarder(req.chain, resp.AddressBook)
+	_, err := DeployForwarder(context.Background(), req.chain, resp.AddressBook)
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}
@@ -79,12 +80,12 @@ func DeployOCR3(chain deployment.Chain, ab deployment.AddressBook) (*DeployRespo
 
 // DeployForwarder deploys the KeystoneForwarder contract to the chain
 // and saves the address in the address book. This mutates the address book.
-func DeployForwarder(chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
+func DeployForwarder(ctx context.Context, chain deployment.Chain, ab deployment.AddressBook) (*DeployResponse, error) {
 	forwarderDeployer, err := NewKeystoneForwarderDeployer()
 	if err != nil {
 		return nil, fmt.Errorf("failed to create KeystoneForwarderDeployer: %w", err)
 	}
-	forwarderResp, err := forwarderDeployer.deploy(DeployRequest{Chain: chain})
+	forwarderResp, err := forwarderDeployer.deploy(ctx, DeployRequest{Chain: chain})
 	if err != nil {
 		return nil, fmt.Errorf("failed to deploy KeystoneForwarder: %w", err)
 	}

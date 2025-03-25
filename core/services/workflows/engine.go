@@ -659,6 +659,12 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		}
 
 		logCustMsg(ctx, cma, "execution status: "+status, l)
+
+		// this case is only for resuming executions and should be updated when metering is added to save execution state
+		if e.meterReport == nil {
+			e.meterReport = NewMeteringReport()
+		}
+
 		e.sendMeteringReport(e.meterReport)
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
@@ -1177,6 +1183,7 @@ func (e *Engine) heartbeat(ctx context.Context) {
 			e.logger.Info("shutting down heartbeat")
 			return
 		case <-ticker.C:
+			e.metrics.engineHeartbeatGauge(ctx)
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
 			e.metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)

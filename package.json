@@ -1,6 +1,6 @@
 {
   "name": "chainlink",
-  "version": "2.21.0",
+  "version": "2.22.0",
   "description": "node of the decentralized oracle network, bridging on and off-chain computation",
   "main": "index.js",
   "scripts": {

@@ -5,27 +5,17 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/types"
 )
 
 type ChainScopedORM interface {
-	ChannelDefinitionCacheORM
-}
-
-type PersistedDefinitions struct {
-	ChainSelector uint64                      `db:"chain_selector"`
-	Address       common.Address              `db:"addr"`
-	Definitions   llotypes.ChannelDefinitions `db:"definitions"`
-	// The block number in which the log for this definitions was emitted
-	BlockNum  int64     `db:"block_num"`
-	DonID     uint32    `db:"don_id"`
-	Version   uint32    `db:"version"`
-	UpdatedAt time.Time `db:"updated_at"`
+	channeldefinitions.ChannelDefinitionCacheORM
 }
 
 var _ ChainScopedORM = &chainScopedORM{}
@@ -39,8 +29,8 @@ func NewChainScopedORM(ds sqlutil.DataSource, chainSelector uint64) ChainScopedO
 	return &chainScopedORM{ds, chainSelector}
 }
 
-func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *PersistedDefinitions, err error) {
-	pd = new(PersistedDefinitions)
+func (o *chainScopedORM) LoadChannelDefinitions(ctx context.Context, addr common.Address, donID uint32) (pd *types.PersistedDefinitions, err error) {
+	pd = new(types.PersistedDefinitions)
 	err = o.ds.GetContext(ctx, pd, "SELECT * FROM channel_definitions WHERE chain_selector = $1 AND addr = $2 AND don_id = $3", o.chainSelector, addr, donID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, nil

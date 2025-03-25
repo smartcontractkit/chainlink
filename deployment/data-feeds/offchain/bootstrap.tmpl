@@ -1,0 +1,11 @@
+type = "bootstrap"
+schemaVersion = 1
+name = "{{ .JobName }}"
+externalJobID = "{{ .ExternalJobID }}"
+forwardingAllowed = false
+contractID = "{{ .ContractID }}"
+relay = "evm"
+
+[relayConfig]
+chainID = {{ .ChainID }}
+providerType = "ocr3-capability"

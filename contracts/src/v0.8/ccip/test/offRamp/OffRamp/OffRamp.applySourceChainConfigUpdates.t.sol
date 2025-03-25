@@ -149,6 +149,7 @@ contract OffRamp_applySourceChainConfigUpdates is OffRampSetup {
     vm.assume(sourceChainConfigArgs.sourceChainSelector != 0);
     vm.assume(sourceChainConfigArgs.onRamp.length != 0);
     vm.assume(address(sourceChainConfigArgs.router) != address(0));
+    vm.assume(keccak256(sourceChainConfigArgs.onRamp) != keccak256(abi.encode(address(0))));
 
     OffRamp.SourceChainConfigArgs[] memory sourceChainConfigs = new OffRamp.SourceChainConfigArgs[](2);
     sourceChainConfigs[0] = OffRamp.SourceChainConfigArgs({
