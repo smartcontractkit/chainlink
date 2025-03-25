@@ -116,7 +116,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 
 	// donID := uint32(995544)
 
-	var allTransmitters []common.Address
+	var allPrimaryTransmitterAddresses []common.Address
 
 	for i, node := range nodes {
 		// set up the keys
@@ -128,8 +128,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		keys, err := node.App.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoError(t, err, "could not get eth keys for node %d", i)
 
-		allTransmitters = append(allTransmitters, primaryTransmitterKey.Address, secondaryTransmitterKey.Address)
+		allPrimaryTransmitterAddresses = append(allPrimaryTransmitterAddresses, primaryTransmitterKey.Address)
 		t.Logf("Keys are %#v", keys)
+		t.Logf("allPrimaryTransmitterAddresses are %#v", keys)
 
 		// fund addresses
 		err = fundAddressOf(primaryTransmitterKey, transactOpts, backend)
@@ -213,9 +214,9 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 		transmitterAddresses = append(transmitterAddresses, common.HexToAddress(string(transmitter)))
 	}
 	t.Logf("TransmitterAddresses: %v", transmitterAddresses)
-	t.Logf("AllTransmitters: %v", allTransmitters)
+	t.Logf("allPrimaryTransmitterAddresses: %v", allPrimaryTransmitterAddresses)
 
-	_, err = dualAggregatorInstance.SetConfig(transactOpts, signerAddresses, transmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
+	_, err = dualAggregatorInstance.SetConfig(transactOpts, signerAddresses, allPrimaryTransmitterAddresses, f, onchainConfig, offchainConfigVersion, offchainConfig)
 	if err != nil {
 		// decode the revert reason
 		cerr, ok := err.(rpc.DataError)

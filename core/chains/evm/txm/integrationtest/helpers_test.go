@@ -96,6 +96,12 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
 		t.Logf("Node %d with transmitter %#v (%s) started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), ports[i])
 
+		keys, err := app.GetKeyStore().Eth().GetAll(context.Background())
+		require.NoErrorf(t, err, "failed to get keys")
+		for _, key := range keys {
+			t.Logf("Existing key address: %s", key.Address.Hex())
+		}
+
 		nodes = append(nodes, Node{
 			app, transmitter, kb, observedLogs,
 		})
