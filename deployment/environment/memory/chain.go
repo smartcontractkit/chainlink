@@ -254,7 +254,7 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 	t.Helper()
 
 	once.Do(func() {
-		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t))
+		err := DownloadSolanaCCIPProgramArtifacts(t.Context(), ProgramsPath, logger.Test(t), "")
 		require.NoError(t, err)
 	})
 
@@ -379,7 +379,24 @@ func DownloadTarGzReleaseAssetFromGithub(
 	return err
 }
 
-func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
+func getModFilePath() (string, error) {
+	_, currentFile, _, _ := runtime.Caller(0)
+	// Get the root directory by walking up from current file until we find go.mod
+	rootDir := filepath.Dir(currentFile)
+	for {
+		if _, err := os.Stat(filepath.Join(rootDir, "go.mod")); err == nil {
+			break
+		}
+		parent := filepath.Dir(rootDir)
+		if parent == rootDir {
+			return "", errors.New("could not find project root directory containing go.mod")
+		}
+		rootDir = parent
+	}
+	return filepath.Join(rootDir, "go.mod"), nil
+}
+
+func getSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	const dependency = "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 
 	gomod, err := os.ReadFile(gomodPath)
@@ -401,31 +418,37 @@ func GetSolanaCcipDependencyVersion(gomodPath string) (string, error) {
 	return "", fmt.Errorf("dependency %s not found", dependency)
 }
 
-func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger) error {
+func getSha() (version string, err error) {
+	modFilePath, err := getModFilePath()
+	if err != nil {
+		return "", err
+	}
+	go_mod_version, err := getSolanaCcipDependencyVersion(modFilePath)
+	if err != nil {
+		return "", err
+	}
+	tokens := strings.Split(go_mod_version, "-")
+	if len(tokens) == 3 {
+		version := tokens[len(tokens)-1]
+		return version, nil
+	} else {
+		return "", fmt.Errorf("invalid go.mod version: %s", go_mod_version)
+	}
+}
+
+func DownloadSolanaCCIPProgramArtifacts(ctx context.Context, dir string, lggr logger.Logger, sha string) error {
 	const ownr = "smartcontractkit"
 	const repo = "chainlink-ccip"
 	const name = "artifacts.tar.gz"
 
-	tag, ok := os.LookupEnv("SOLANA_CCIP_RELEASE_TAG")
-	if !ok {
-		_, currentFile, _, _ := runtime.Caller(0)
-		deploymentDir := filepath.Dir(filepath.Dir(filepath.Dir(currentFile)))
-		if lggr != nil {
-			lggr.Infof("Inferring release tag from the go.mod in: %s", deploymentDir)
-		}
-
-		version, err := GetSolanaCcipDependencyVersion(filepath.Join(deploymentDir, "go.mod"))
+	if sha == "" {
+		version, err := getSha()
 		if err != nil {
 			return err
 		}
-
-		tokens := strings.Split(version, "-")
-		if len(tokens) == 3 {
-			version = tokens[len(tokens)-1]
-		}
-
-		tag = "solana-artifacts-localtest-" + version
+		sha = version
 	}
+	tag := "solana-artifacts-localtest-" + sha
 
 	if lggr != nil {
 		lggr.Infof("Downloading Solana CCIP program artifacts (tag = %s)", tag)

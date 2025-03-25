@@ -51,6 +51,10 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 				return nil, fmt.Errorf("empty amount for token: %s", tokenAmount.DestTokenAddress)
 			}
 
+			if tokenAmount.Amount.Int.Sign() < 0 {
+				return nil, fmt.Errorf("negative amount for token: %s", tokenAmount.DestTokenAddress)
+			}
+
 			if len(tokenAmount.DestTokenAddress) != solana.PublicKeyLength {
 				return nil, fmt.Errorf("invalid destTokenAddress address: %v", tokenAmount.DestTokenAddress)
 			}

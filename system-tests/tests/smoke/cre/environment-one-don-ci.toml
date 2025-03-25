@@ -21,8 +21,8 @@
   should_compile_new_workflow = false
 
   [workflow_config.dependencies]
-  capabilities_version = "v1.0.2-alpha"
-  cre_cli_version = "v0.1.5"
+  cron_capability_binary_path = "injected-at-runtime"
+  cre_cli_binary_path = "injected-at-runtime"
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/0a595b92554b375415925749cc126969/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
@@ -62,7 +62,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -80,7 +79,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -98,7 +96,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -116,7 +113,6 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
-      capabilities = ["./amd64_cron"]
       user_config_overrides = """
       [Feature]
 			LogPoller = true

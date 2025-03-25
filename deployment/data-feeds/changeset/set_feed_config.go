@@ -25,7 +25,8 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.SetDecimalFeedConfigs(txOpt, c.DataIDs, c.Descriptions, c.WorkflowMetadata)
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
+	tx, err := contract.SetDecimalFeedConfigs(txOpt, dataIDs, c.Descriptions, c.WorkflowMetadata)
 
 	if c.McmsConfig != nil {
 		proposals := MultiChainProposalConfig{
@@ -61,6 +62,10 @@ func setFeedConfigPrecondition(env deployment.Environment, c types.SetFeedDecima
 	}
 	if len(c.DataIDs) != len(c.Descriptions) {
 		return errors.New("dataIDs and descriptions must have the same length")
+	}
+	_, err := FeedIDsToBytes16(c.DataIDs)
+	if err != nil {
+		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
 	if c.McmsConfig != nil {

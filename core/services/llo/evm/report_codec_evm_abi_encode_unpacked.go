@@ -47,7 +47,7 @@ type ReportFormatEVMABIEncodeOpts struct {
 	//
 	// EXAMPLE
 	//
-	// [{"streamID":123,"multiplier":"10000","type":"uint192"}, ...]
+	// [{"multiplier":"10000","type":"uint192"}, ...]
 	//
 	// See definition of ABIEncoder struct for more details.
 	//
@@ -133,7 +133,7 @@ func buildPayload(ctx context.Context, encoders []ABIEncoder, values []llo.Strea
 	}
 
 	for i, encoder := range encoders {
-		b, err := encoder.EncodePadded(ctx, values[i])
+		b, err := encoder.EncodePadded(values[i])
 		if err != nil {
 			var vStr []byte
 			if values[i] == nil {
@@ -145,7 +145,7 @@ func buildPayload(ctx context.Context, encoders []ABIEncoder, values []llo.Strea
 					vStr = []byte(fmt.Sprintf("%v(failed to marshal: %s)", values[i], marshalErr))
 				}
 			}
-			merr = errors.Join(merr, fmt.Errorf("failed to encode stream value %s at index %d with abi %q; %w", string(vStr), i, encoder.Type, err))
+			merr = errors.Join(merr, fmt.Errorf("failed to encode stream value %s at index %d; %w", string(vStr), i, err))
 			continue
 		}
 		payload = append(payload, b...)

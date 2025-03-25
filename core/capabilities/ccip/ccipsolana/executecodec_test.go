@@ -156,17 +156,26 @@ func TestExecutePluginCodecV1(t *testing.T) {
 			expErr:        true,
 			chainSelector: 124615329519749607, // Solana mainnet chain selector
 		},
+		{
+			name: "reports have negative token amount",
+			report: func(report cciptypes.ExecutePluginReport) cciptypes.ExecutePluginReport {
+				report.ChainReports[0].Messages[0].TokenAmounts[0].Amount = cciptypes.NewBigInt(big.NewInt(-1))
+				return report
+			},
+			expErr:        true,
+			chainSelector: 124615329519749607, // Solana mainnet chain selector
+		},
 	}
 
 	ctx := testutils.Context(t)
 	mockExtraDataCodec := mocks.NewExtraDataCodec(t)
 	mockExtraDataCodec.On("DecodeTokenAmountDestExecData", mock.Anything, mock.Anything).Return(map[string]any{
 		"destGasAmount": uint32(10),
-	}, nil)
+	}, nil).Maybe()
 	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
-	}, nil)
+	}, nil).Maybe()
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
