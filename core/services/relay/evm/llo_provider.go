@@ -26,8 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	evmllo "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -78,12 +80,12 @@ func NewLLOProvider(
 	cc evmllo.ConfigCache,
 	chain legacyevm.Chain,
 	configuratorAddress common.Address,
-	cdcFactory llo.ChannelDefinitionCacheFactory,
+	cdcFactory channeldefinitions.ChannelDefinitionCacheFactory,
 	relayConfig types.RelayConfig,
 	relayOpts *types.RelayOpts,
 	csaKeystore coretypes.Keystore,
 	mercuryCfg MercuryConfig,
-	retirementReportCache llo.RetirementReportCache,
+	retirementReportCache retirement.RetirementReportCache,
 	ds sqlutil.DataSource,
 	mercuryPool wsrpc.Pool,
 	capabilitiesRegistry coretypes.CapabilitiesRegistry,

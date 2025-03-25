@@ -48,22 +48,33 @@ The test requires several environment variables. Below is a launch configuration
   "type": "go",
   "request": "launch",
   "mode": "test",
-  "program": "${workspaceFolder}/integration-tests/smoke/capabilities",
+  "program": "${workspaceFolder}/system-tests/tests/smoke/cre",
   "env": {
-    "CTF_CONFIGS": "environment.toml",
+    "CTF_CONFIGS": "environment-one-don.toml",
     "PRIVATE_KEY": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    "GITHUB_GIST_API_TOKEN": "your-gist-read:write-fpat-token",
-    "GITHUB_CAP_API_TOKEN": "your-capabilities-repo-content-read-fpat-token"
   },
   "args": [
     "-test.run",
-    "TestKeystoneWithOCR3Workflow"
+    "TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice"
   ]
 }
 ```
 
-- **`GITHUB_READ_TOKEN`**: Required for downloading the `cron` capability binary and CRE CLI (if enabled). Requires `content:read` permission for `smartcontractkit/capabilities` and `smartcontractkit/dev-platform` repositories. Use a fine-grained personal access token (PAT) tied to the **organization’s GitHub account**.
-- **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
+You might also need to adjust the TOML configuration file used by your test, so that it points to correct location of two binaries:
+* `cron` -- cron capability binary for AMD platform that lives in [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities)
+* `CRE CLI` -- CLI binary compiled for architecture of your host machine, that lives in [smartcontractkit/dev-platform](https://github.com/smartcontractkit/dev-platform)
+
+The easiest way to go about it would be to download them from releases page.
+
+TOML config part that needs to be adjusted is the following one:
+```toml
+  [workflow_config.dependencies]
+  # v1.0.2-alpha should work
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
+```
+
+In CI the flow is a bit different, because we generate one-time access tokens to these two repositories and testing code downloads required assets on its own.
 
 Test also expects you to have the Job Distributor image available locally. By default, `environment-*.toml`'s expect image tagged as `job-distributor:0.9.0`. The easiest way to get it, is to clone the Job Distributor repository and build it locally with:
 ```bash
@@ -329,12 +340,16 @@ Let's assume we want to add a capability that represents writing to Aptos chain.
 
 ### Copying the Binary to the Container
 
-The test configuration is defined in a TOML file (e.g. `environment-*.toml`), which specifies properties for Chainlink nodes. The `capabilities` property of the `node_specs.node` determines which binaries are copied to the container:
+The test configuration is defined in a TOML file (e.g. `environment-*.toml`), which specifies properties for Chainlink nodes. The `capabilities` property of the `node_specs.node` determines which binaries are copied to the container.
+We use Go code to programmatically modify that `node_spec` based on the capabilities each DON has to copy required binary files to the container during runtime.
+
+Config part that's effectively modified:
 
 ```toml
   [[nodeset.node_specs]]
 
     [nodeset.node_specs.node]
+      # it's best if you don't use this directive in TOML and instead copy your capability using Go code, like we do for cron
       capabilities = ["./aptos_linux_amd64"]
 ```
 
@@ -363,16 +378,6 @@ const (
 ```
 
 This ensures the TOML configuration correctly maps each DON to its capabilities.
-
-Optionally, add the new flag to the default capabilities used in a single DON setup:
-
-```go
-var (
-	// Add new capabilities here as well, if single DON should have them by default
-	SingleDonFlags = []string{"workflow", "capabilities", "ocr3", "cron", "custom-compute", "write-evm", "write-aptos"}
-                                                                                                        // <------------ New entry
-)
-```
 
 Now that the flag is defined, let's configure the nodes and jobs.
 
@@ -442,7 +447,7 @@ The final step is adding support for registration of the capability with the Cap
 if hasFlag(donTopology.Flags, WriteAptosCapability) {
   capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
     Capability: kcr.CapabilitiesRegistryCapability{
-      LabelledName:   "write_aptos-testnet",          // <------- Ensure correct name
+      LabelledName:   "write_aptos-testnet",          // <------- Ensure correct name (it might be dynamic and depend on things like chainID)
       Version:        "1.0.0",                        // <------- Ensure correct version
       CapabilityType: 3, // TARGET
       ResponseType:   1, // OBSERVATION_IDENTICAL
@@ -501,7 +506,7 @@ workflowConfig := PoRWorkflowConfig{
 ---
 
 ### Workflow Secrets
-Currently, workflow secrets are **not supported**.
+Currently, workflow secrets are **not supported** yet.
 
 ---
 

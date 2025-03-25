@@ -11,33 +11,32 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 )
 
-// AcceptOwnershipChangeset is a changeset that will create an MCM proposal to accept the ownership of a contract.
-// Returns an MSM proposal to accept the ownership of a contract. Doesn't return a new addressbook.
-// Once proposal is executed, new owned contract can be imported into the addressbook.
+// AcceptOwnershipChangeset is a changeset that will create an MCM proposal to accept the ownership of contracts.
+// Returns an MSM proposal to accept the ownership of contracts. Doesn't return a new addressbook.
+// Once proposal is executed, new owned contracts can be imported into the addressbook.
 var AcceptOwnershipChangeset = deployment.CreateChangeSet(acceptOwnershipLogic, acceptOwnershipPrecondition)
 
 func acceptOwnershipLogic(env deployment.Environment, c types.AcceptOwnershipConfig) (deployment.ChangesetOutput, error) {
 	chain := env.Chains[c.ChainSelector]
 
-	_, contract, err := commonChangesets.LoadOwnableContract(c.ContractAddress, chain.Client)
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
+	var mcmsProposals []ProposalData
+	for _, contractAddress := range c.ContractAddresses {
+		_, contract, err := commonChangesets.LoadOwnableContract(contractAddress, chain.Client)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to load the contract %w", err)
+		}
+
+		tx, err := contract.AcceptOwnership(deployment.SimTransactOpts())
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
+		}
+		mcmsProposals = append(mcmsProposals, ProposalData{
+			contract: contract.Address().Hex(),
+			tx:       tx,
+		})
 	}
 
-	tx, err := contract.AcceptOwnership(deployment.SimTransactOpts())
-	if err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create accept transfer ownership tx %w", err)
-	}
-
-	proposalConfig := MultiChainProposalConfig{
-		c.ChainSelector: []ProposalData{
-			{
-				contract: contract.Address().Hex(),
-				tx:       tx,
-			},
-		},
-	}
-
+	proposalConfig := MultiChainProposalConfig{c.ChainSelector: mcmsProposals}
 	proposal, err := BuildMultiChainProposals(env, "accept ownership to timelock", proposalConfig, c.McmsConfig.MinDelay)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
