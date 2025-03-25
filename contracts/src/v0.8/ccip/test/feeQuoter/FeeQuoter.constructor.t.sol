@@ -39,7 +39,7 @@ contract FeeQuoter_constructor is FeeQuoterSetup {
     _assertFeeQuoterStaticConfigsEqual(s_feeQuoter.getStaticConfig(), staticConfig);
     assertEq(feeTokens, s_feeQuoter.getFeeTokens());
     assertEq(priceUpdaters, s_feeQuoter.getAllAuthorizedCallers());
-    assertEq(s_feeQuoter.typeAndVersion(), "FeeQuoter 1.6.0");
+    assertEq(s_feeQuoter.typeAndVersion(), "FeeQuoter 1.6.1-dev");
 
     _assertTokenPriceFeedConfigEquality(
       tokenPriceFeedUpdates[0].feedConfig, s_feeQuoter.getTokenPriceFeedConfig(s_sourceTokens[0])

@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -26,7 +25,7 @@ func NewReportCodecCapabilityTrigger(lggr logger.Logger, donID uint32) ReportCod
 	return ReportCodecCapabilityTrigger{lggr, donID}
 }
 
-func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	if len(cd.Streams) != len(report.Values) {
 		// Invariant violation
 		return nil, fmt.Errorf("capability trigger expected %d streams, got %d", len(cd.Streams), len(report.Values))
@@ -77,7 +76,7 @@ func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastr
 	return b, nil
 }
 
-func (r ReportCodecCapabilityTrigger) Verify(_ context.Context, cd llotypes.ChannelDefinition) error {
+func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) error {
 	if len(cd.Opts) > 0 {
 		return errors.New("capability trigger does not support channel definitions with options")
 	}

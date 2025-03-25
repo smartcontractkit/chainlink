@@ -44,6 +44,8 @@ import (
 	txm "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -151,8 +153,8 @@ type Relayer struct {
 	triggerCapability *triggers.MercuryTriggerService
 
 	// LLO/data streams
-	cdcFactory            func() (llo.ChannelDefinitionCacheFactory, error)
-	retirementReportCache llo.RetirementReportCache
+	cdcFactory            func() (channeldefinitions.ChannelDefinitionCacheFactory, error)
+	retirementReportCache retirement.RetirementReportCache
 	registerer            prometheus.Registerer
 }
 
@@ -167,7 +169,7 @@ type RelayerOpts struct {
 	CSAKeystore           coretypes.Keystore
 	EVMKeystore           keys.ChainStore
 	MercuryPool           wsrpc.Pool
-	RetirementReportCache llo.RetirementReportCache
+	RetirementReportCache retirement.RetirementReportCache
 	MercuryConfig
 	CapabilitiesRegistry coretypes.CapabilitiesRegistry
 	HTTPClient           *http.Client
@@ -200,13 +202,13 @@ func NewRelayer(lggr logger.Logger, chain legacyevm.Chain, opts RelayerOpts) (*R
 	}
 	sugared := logger.Sugared(lggr).Named("Relayer").With("evmChainID", chain.ID())
 	mercuryORM := mercury.NewORM(opts.DS)
-	cdcFactory := sync.OnceValues(func() (llo.ChannelDefinitionCacheFactory, error) {
+	cdcFactory := sync.OnceValues(func() (channeldefinitions.ChannelDefinitionCacheFactory, error) {
 		chainSelector, err := chainselectors.SelectorFromChainId(chain.ID().Uint64())
 		if err != nil {
 			return nil, fmt.Errorf("failed to get chain selector for chain id %s: %w", chain.ID(), err)
 		}
 		lloORM := llo.NewChainScopedORM(opts.DS, chainSelector)
-		return llo.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
+		return channeldefinitions.NewChannelDefinitionCacheFactory(sugared, lloORM, chain.LogPoller(), opts.HTTPClient), nil
 	})
 	return &Relayer{
 		ds:                    opts.DS,
@@ -701,7 +703,7 @@ func (r *Relayer) NewConfigProvider(ctx context.Context, args commontypes.RelayA
 		// Use NullRetirementReportCache since we never run LLO jobs on
 		// bootstrap nodes, and there's no need to introduce a failure mode or
 		// performance hit no matter how minor.
-		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &llo.NullRetirementReportCache{}, relayOpts)
+		configProvider, err = newLLOConfigProvider(ctx, lggr, r.chain, &retirement.NullRetirementReportCache{}, relayOpts)
 	case "ocr3-capability":
 		configProvider, err = newOCR3CapabilityConfigProvider(ctx, lggr, r.chain, relayOpts)
 	default:
