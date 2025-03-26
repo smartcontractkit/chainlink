@@ -72,11 +72,11 @@ func TestConnectNewChain(t *testing.T) {
 		Msg                        string
 		TransferRemoteChainsToMCMS bool
 		TestRouter                 bool
-		MCMS                       *commoncs.TimelockConfig
+		MCMS                       *proposalutils.TimelockConfig
 		ErrStr                     string
 	}
 
-	mcmsConfig := &commoncs.TimelockConfig{
+	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: timelock.Schedule,
 	}
@@ -240,10 +240,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 	type test struct {
 		Msg  string
-		MCMS *commoncs.TimelockConfig
+		MCMS *proposalutils.TimelockConfig
 	}
 
-	mcmsConfig := &commoncs.TimelockConfig{
+	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: timelock.Schedule,
 	}

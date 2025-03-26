@@ -17,7 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -92,7 +91,7 @@ type UpgradeConfig struct {
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
-	MCMS *commoncs.TimelockConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
@@ -202,7 +201,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 			inspectors,
 			batches,
 			"proposal to upgrade CCIP contracts",
-			c.UpgradeConfig.MCMS.MinDelay)
+			*c.UpgradeConfig.MCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}

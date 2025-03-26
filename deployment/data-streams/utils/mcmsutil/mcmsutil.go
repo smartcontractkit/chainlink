@@ -62,7 +62,7 @@ func CreateMCMSProposal(e deployment.Environment, preparedTxs []*txutil.Prepared
 		inspectors,
 		batches,
 		proposalName,
-		mcmsMinDelay,
+		proposalutils.TimelockConfig{MinDelay: mcmsMinDelay},
 	)
 }
 

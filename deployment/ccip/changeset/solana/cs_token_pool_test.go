@@ -18,6 +18,7 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	changeset_solana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -89,7 +90,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				OffRamp:   true,
 			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &commonchangeset.TimelockConfig{
+			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 1 * time.Second,
 			},
 			RouterOwnedByTimelock:    true,

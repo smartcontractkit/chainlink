@@ -122,7 +122,10 @@ func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfi
 			inspectorPerChain,
 			allBatches,
 			"PromoteStagingConfig proposal",
-			cfg.MCMSConfig.MinDelay,
+			proposalutils.TimelockConfig{
+				MinDelay:     cfg.MCMSConfig.MinDelay,
+				OverrideRoot: cfg.MCMSConfig.OverrideRoot,
+			},
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

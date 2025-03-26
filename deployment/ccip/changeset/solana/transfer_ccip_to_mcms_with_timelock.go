@@ -3,7 +3,6 @@ package solana
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
@@ -36,8 +35,8 @@ type TransferCCIPToMCMSWithTimelockSolanaConfig struct {
 	// ContractsByChain is a map of chain selector the contracts we want to transfer.
 	// Each contract set to true will be transferred
 	ContractsByChain map[uint64]CCIPContractsToTransfer
-	// MinDelay is for the accept ownership proposal
-	MinDelay time.Duration
+	// MCMSCfg is for the accept ownership proposal
+	MCMSCfg proposalutils.TimelockConfig
 }
 
 // ValidateContracts checks if the required contracts are present on the chain
@@ -268,7 +267,7 @@ func TransferCCIPToMCMSWithTimelockSolana(
 		inspectors,
 		batches,
 		"proposal to transfer ownership of CCIP contracts to timelock",
-		cfg.MinDelay)
+		cfg.MCMSCfg)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}

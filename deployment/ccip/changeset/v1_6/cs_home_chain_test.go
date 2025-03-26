@@ -193,7 +193,7 @@ func TestRemoveDons(t *testing.T) {
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
-				MCMS:         &commoncs.TimelockConfig{MinDelay: 0},
+				MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)
@@ -316,9 +316,9 @@ func TestRemoveNodes(t *testing.T) {
 			homeChain := s.Chains[e.HomeChainSel]
 			allChains := e.Env.AllChainSelectors()
 
-			var mcmsConfig *commoncs.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commoncs.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
