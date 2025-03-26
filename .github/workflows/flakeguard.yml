@@ -751,7 +751,7 @@ jobs:
           path: context
           pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
       - name: Analyze
-        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@bfc57f4713a053f79e32d82083ae92fb3ab3cf1a
+        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@193e619cec6d3e3baec110a1c44f168a39bd1101
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
