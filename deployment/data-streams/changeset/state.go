@@ -189,6 +189,7 @@ func (c DataStreamsChainState) GenerateView() (view.ChainView, error) {
 	return chainView, nil
 }
 
+// Helper function to determine if an address belongs to the MCMS contracts, and should be loaded in a separated way
 func belongsToMCMS(addr string, mcmsWithTimelock *commonchangeset.MCMSWithTimelockState) bool {
 	if mcmsWithTimelock == nil || mcmsWithTimelock.MCMSWithTimelockContracts == nil {
 		return false

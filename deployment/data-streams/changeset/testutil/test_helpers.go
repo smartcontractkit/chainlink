@@ -66,7 +66,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 func DeployMCMS(
 	t *testing.T,
 	e deployment.Environment,
-	addrs ...map[uint64][]common.Address,
+	addressesToTransfer ...map[uint64][]common.Address,
 ) (env deployment.Environment, mcmsState *commonChangesets.MCMSWithTimelockState, timelocks map[uint64]*proposalutils.TimelockExecutionContracts) {
 	t.Helper()
 
@@ -104,13 +104,13 @@ func DeployMCMS(
 		},
 	}
 
-	if len(addrs) > 0 {
+	if len(addressesToTransfer) > 0 {
 		env, err = commonChangesets.Apply(
 			t, env, timelocks,
 			commonChangesets.Configure(
 				deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 				commonChangesets.TransferToMCMSWithTimelockConfig{
-					ContractsByChain: addrs[0],
+					ContractsByChain: addressesToTransfer[0],
 					MinDelay:         0,
 				},
 			),
