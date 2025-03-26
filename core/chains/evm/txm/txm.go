@@ -2,6 +2,7 @@ package txm
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -38,6 +39,7 @@ type TxStore interface {
 	CreateEmptyUnconfirmedTransaction(context.Context, common.Address, uint64, uint64) (*types.Transaction, error)
 	CreateTransaction(context.Context, *types.TxRequest) (*types.Transaction, error)
 	FetchUnconfirmedTransactionAtNonceWithCount(context.Context, uint64, common.Address) (*types.Transaction, int, error)
+	FindNextNonce(context.Context, common.Address, *big.Int) (uint64, error)
 	MarkConfirmedAndReorgedTransactions(context.Context, uint64, common.Address) ([]*types.Transaction, []uint64, error)
 	MarkUnconfirmedTransactionPurgeable(context.Context, uint64, common.Address) error
 	UpdateTransactionBroadcast(context.Context, uint64, uint64, common.Hash, common.Address) error
@@ -124,6 +126,7 @@ func (t *Txm) Start(ctx context.Context) error {
 		for _, address := range addresses {
 			t.startAddress(address)
 		}
+		t.lggr.Info("TXM started successfully")
 		return nil
 	})
 }
@@ -141,9 +144,15 @@ func (t *Txm) initializeNonce(ctx context.Context, address common.Address) {
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, pendingNonceDefaultTimeout)
 	defer cancel()
 	for {
-		pendingNonce, err := t.client.PendingNonceAt(ctxWithTimeout, address)
-		if err != nil {
-			t.lggr.Errorw("Error when fetching initial nonce", "address", address, "err", err)
+		pendingNonce, rErr := t.client.PendingNonceAt(ctxWithTimeout, address)
+		if rErr != nil {
+			t.lggr.Criticalw("Error while fetching initial nonce", "address", address, "err", rErr)
+		}
+		storedNonce, sErr := t.txStore.FindNextNonce(ctxWithTimeout, address, t.chainID)
+		if sErr != nil {
+			t.lggr.Errorw("Error while fetching nonce from storage", "address", address, "err", sErr)
+		}
+		if rErr != nil || sErr != nil {
 			select {
 			case <-time.After(pendingNonceRecheckInterval):
 			case <-ctx.Done():
@@ -152,16 +161,43 @@ func (t *Txm) initializeNonce(ctx context.Context, address common.Address) {
 			}
 			continue
 		}
-		t.setNonce(address, pendingNonce)
+		t.setNonce(address, max(pendingNonce, storedNonce))
 		t.lggr.Debugf("Set initial nonce for address: %v to %d", address, pendingNonce)
 		return
 	}
+}
+
+func (t *Txm) Reset(ctx context.Context, address *common.Address) (err error) {
+	if !t.IfStarted(func() {
+		close(t.stopCh)
+		t.wg.Wait()
+		t.stopCh = make(chan struct{})
+
+		if address != nil {
+			if err = t.txStore.AbandonPendingTransactions(ctx, *address); err != nil {
+				return
+			}
+		}
+
+		var addresses []common.Address
+		addresses, err = t.keystore.EnabledAddresses(ctx)
+		if err != nil {
+			return
+		}
+		for _, address := range addresses {
+			t.startAddress(address)
+		}
+	}) {
+		return errors.New("Txm unstarted")
+	}
+	return
 }
 
 func (t *Txm) Close() error {
 	return t.StopOnce("Txm", func() error {
 		close(t.stopCh)
 		t.wg.Wait()
+		t.lggr.Info("TXM closed successfully")
 		return nil
 	})
 }
@@ -188,12 +224,6 @@ func (t *Txm) Trigger(address common.Address) {
 	}) {
 		t.lggr.Error("Txm unstarted")
 	}
-}
-
-func (t *Txm) Abandon(address common.Address) error {
-	// TODO: restart txm
-	t.lggr.Infof("Dropping unstarted and unconfirmed transactions for address: %v", address)
-	return t.txStore.AbandonPendingTransactions(context.TODO(), address)
 }
 
 func (t *Txm) getNonce(address common.Address) uint64 {

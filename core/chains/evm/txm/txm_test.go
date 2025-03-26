@@ -43,7 +43,7 @@ func TestLifecycle(t *testing.T) {
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(0), errors.New("error")).Once()
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(100), nil).Once()
 		require.NoError(t, txm.Start(tests.Context(t)))
-		tests.AssertLogEventually(t, observedLogs, "Error when fetching initial nonce")
+		tests.AssertLogEventually(t, observedLogs, "Error while fetching initial nonce")
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Set initial nonce for address: %v to %d", address1, 100))
 	})
 
@@ -321,5 +321,87 @@ func TestBackfillTransactions(t *testing.T) {
 		_, err = txm.backfillTransactions(tests.Context(t), address)
 		require.NoError(t, err)
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Rebroadcasting attempt for txID: %d", attempt.TxID))
+	})
+}
+
+func TestReset(t *testing.T) {
+	t.Run("throws an error if txm is not started", func(t *testing.T) {
+		txm := NewTxm(logger.Test(t), testutils.FixtureChainID, nil, nil, nil, nil, Config{}, nil)
+		require.Error(t, txm.Reset(tests.Context(t), nil))
+	})
+
+	t.Run("resets all addresses but abandonds one", func(t *testing.T) {
+		// Init TXM
+		ctx := tests.Context(t)
+		address1 := testutils.NewAddress()
+		address2 := testutils.NewAddress()
+		assert.NotEqual(t, address1, address2)
+		addresses := []common.Address{address1, address2}
+		config := Config{BlockTime: 2 * time.Minute}
+		ab := newMockAttemptBuilder(t) 
+		client := newMockClient(t)
+		keystore := keystest.Addresses{address1, address2}
+
+		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
+		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
+		require.NoError(t, txStore.Add(addresses...))
+		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
+		var nonce uint64 = 4
+		// Start
+		client.On("PendingNonceAt", mock.Anything, address1).Return(nonce, nil).Once()
+		client.On("PendingNonceAt", mock.Anything, address2).Return(nonce, nil).Once()
+
+		servicetest.Run(t, txm)
+		tests.AssertLogCountEventually(t, observedLogs, "Unstarted transactions queue is empty", 2)
+
+		// Insert unstarted transaction
+		r1 := types.TxRequest{FromAddress: address1, ChainID: testutils.FixtureChainID}
+		tx1, err := txm.CreateTransaction(ctx, &r1)
+		require.NoError(t, err)
+
+		// Broadcast unstarted transaction and increase nonce to 5 for address1
+		a1 := &types.Attempt{
+			TxID:     tx1.ID,
+			Fee:      gas.EvmFee{GasPrice: assets.NewWeiI(1)},
+			GasLimit: 21000,
+		}
+		ab.On("NewAttempt", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(a1, nil).Once()
+		client.On("SendTransaction", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		_, err = txm.broadcastTransaction(ctx, address1)
+		require.NoError(t, err)
+		tx1, count, err := txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 4, address1)
+		assert.Equal(t, 1, count)
+		require.NotNil(t, tx1)
+		require.NoError(t, err)
+		assert.Equal(t, nonce, *tx1.Nonce)
+
+		// Reset
+		client.On("PendingNonceAt", mock.Anything, address1).Return(nonce, nil).Once() // Unconfirmed tx was abandoned so pending nonce is back to 4
+		client.On("PendingNonceAt", mock.Anything, address2).Return(nonce, nil).Once()
+		require.NoError(t, txm.Reset(ctx, &address1))
+		_, count, err = txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 0, address1)
+		require.NoError(t, err)
+		assert.Equal(t, 0, count)
+		tests.AssertLogCountEventually(t, observedLogs, "Set initial nonce for address", 2)
+		assert.Equal(t, nonce, txm.getNonce(address1))
+
+		// Broadcast new transaction from address1 with the correct nonce
+		r2 := types.TxRequest{FromAddress: address1, ChainID: testutils.FixtureChainID}
+		tx2, err := txm.CreateTransaction(ctx, &r2)
+		require.NoError(t, err)
+		a2 := &types.Attempt{
+			TxID:     tx2.ID,
+			Fee:      gas.EvmFee{GasPrice: assets.NewWeiI(2)},
+			GasLimit: 22000,
+		}
+		ab.On("NewAttempt", mock.Anything, mock.Anything, mock.Anything, mock.Anything).Return(a2, nil).Once()
+		client.On("SendTransaction", mock.Anything, mock.Anything, mock.Anything).Return(nil).Once()
+		_, err = txm.broadcastTransaction(ctx, address1)
+		require.NoError(t, err)
+		tx, count, err := txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 4, address1)
+		assert.Equal(t, 1, count)
+		require.NotNil(t, tx)
+		require.NoError(t, err)
+		assert.Equal(t, nonce, *tx.Nonce)
 	})
 }

@@ -8,6 +8,8 @@ import (
 	"math"
 	"math/big"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -32,6 +34,7 @@ type OrchestratorTxStore interface {
 	Add(addresses ...common.Address) error
 	FetchUnconfirmedTransactionAtNonceWithCount(context.Context, uint64, common.Address) (*txmtypes.Transaction, int, error)
 	FindTxWithIdempotencyKey(context.Context, string) (*txmtypes.Transaction, error)
+	Remove(addresses ...common.Address) error
 }
 
 type OrchestratorAttemptBuilder[
@@ -56,6 +59,10 @@ type Orchestrator[
 	keystore       keys.Addresses
 	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD]
 	resumeCallback txmgr.ResumeCallback
+	enabledAddresses map[common.Address]bool
+	chReset          chan *common.Address
+	chStop           services.StopChan
+	wg               *sync.WaitGroup
 }
 
 func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]](
@@ -75,6 +82,10 @@ func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]
 		keystore:       keystore,
 		attemptBuilder: attemptBuilder,
 		fwdMgr:         fwdMgr,
+		enabledAddresses: make(map[common.Address]bool),
+		chReset:          make(chan *common.Address),
+		chStop:           make(chan struct{}),
+		wg:               new(sync.WaitGroup),
 	}
 }
 
@@ -92,6 +103,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 			return err
 		}
 		for _, address := range addresses {
+			o.enabledAddresses[address] = true
 			err := o.txStore.Add(address)
 			if err != nil {
 				return err
@@ -105,12 +117,18 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 				return fmt.Errorf("Orchestrator: ForwarderManager failed to start: %w", err)
 			}
 		}
+		o.wg.Add(1)
+		go o.runLoop()
 		return nil
 	})
 }
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 	return o.StopOnce("Orchestrator", func() error {
+		close(o.chReset)
+		close(o.chStop)
+		o.wg.Done()
+
 		if o.fwdMgr != nil {
 			if err := o.fwdMgr.Close(); err != nil {
 				merr = errors.Join(merr, fmt.Errorf("Orchestrator failed to stop ForwarderManager: %w", err))
@@ -127,6 +145,64 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 		}
 		return merr
 	})
+}
+
+func (o *Orchestrator[BLOCK_HASH, HEAD]) runLoop() {
+	defer o.wg.Done()
+	ctx, cancel := o.chStop.NewCtx()
+	defer cancel()
+
+	pollEnabledAddresses := services.NewTicker(time.Minute)
+	defer pollEnabledAddresses.Stop()
+
+	for {
+		select {
+		case <-o.chStop:
+			return
+		case <-pollEnabledAddresses.C:
+			updatedEnabledAddresses, err := o.keystore.EnabledAddresses(ctx)
+			if err != nil {
+				o.lggr.Critical("Failed to reload key states after key change")
+				o.SvcErrBuffer.Append(err)
+				continue
+			}
+			o.lggr.Debugw("Keys changed, reloading", "enabledAddresses", updatedEnabledAddresses)
+
+			// this will help with lookup
+			updatedEnabledAddressesMap := make(map[common.Address]bool)
+			updated := false
+			for _, updatedAddress := range updatedEnabledAddresses {
+				updatedEnabledAddressesMap[updatedAddress] = true
+				if _, exists := o.enabledAddresses[updatedAddress]; !exists {
+					if err := o.txStore.Add(updatedAddress); err != nil {
+						o.lggr.Errorw("Failed to add address to InMemoryStore", "address", updatedAddress, "err", err)
+						continue
+					}
+					updated = true
+				}
+			}
+
+			for oldEnabledAddress := range o.enabledAddresses {
+				if !updatedEnabledAddressesMap[oldEnabledAddress] {
+					if err := o.txStore.Remove(oldEnabledAddress); err != nil {
+						o.lggr.Errorw("Failed to remove address from InMemoryStore", "address", oldEnabledAddress, "err", err)
+						continue
+					}
+					updated = true
+				}
+			}
+			o.enabledAddresses = updatedEnabledAddressesMap
+			if updated {
+				if err := o.txm.Reset(ctx, nil); err != nil {
+					o.lggr.Errorw("Failed to Reset TXM", "err", err)
+				}
+			}
+		case abandonAddress := <-o.chReset:
+			if err := o.txm.Reset(ctx, abandonAddress); err != nil {
+				o.lggr.Errorw("Failed to Reset TXM", "err", err)
+			}
+		}
+	}
 }
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) Trigger(addr common.Address) {
@@ -147,8 +223,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) RegisterResumeCallback(fn txmgr.ResumeC
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) Reset(addr common.Address, abandon bool) error {
 	ok := o.IfStarted(func() {
-		if err := o.txm.Abandon(addr); err != nil {
-			o.lggr.Error(err)
+		if abandon {
+			o.chReset <- &addr
+		} else {
+			o.chReset <- nil
 		}
 	})
 	if !ok {

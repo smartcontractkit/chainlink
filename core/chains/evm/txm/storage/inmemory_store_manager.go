@@ -46,6 +46,16 @@ func (m *InMemoryStoreManager) Add(addresses ...common.Address) (err error) {
 	return
 }
 
+func (m *InMemoryStoreManager) Remove(addresses ...common.Address) (err error) {
+	for _, address := range addresses {
+		if _, exists := m.InMemoryStoreMap[address]; !exists {
+			err = errors.Join(err, fmt.Errorf("address %v doesn't exist in store manager", address))
+		}
+		delete(m.InMemoryStoreMap, address)
+	}
+	return
+}
+
 func (m *InMemoryStoreManager) AppendAttemptToTransaction(_ context.Context, txNonce uint64, fromAddress common.Address, attempt *types.Attempt) error {
 	if store, exists := m.InMemoryStoreMap[fromAddress]; exists {
 		return store.AppendAttemptToTransaction(txNonce, attempt)
@@ -80,6 +90,14 @@ func (m *InMemoryStoreManager) FetchUnconfirmedTransactionAtNonceWithCount(_ con
 		return
 	}
 	return nil, 0, fmt.Errorf(StoreNotFoundForAddress, fromAddress)
+}
+
+func (m *InMemoryStoreManager) FindNextNonce(ctx context.Context, fromAddress common.Address, chainID *big.Int) (maxNonce uint64, err error) {
+	if store, exists := m.InMemoryStoreMap[fromAddress]; exists {
+		maxNonce = store.FindNextNonce()
+		return
+	}
+	return 0, fmt.Errorf(StoreNotFoundForAddress, fromAddress)
 }
 
 func (m *InMemoryStoreManager) MarkConfirmedAndReorgedTransactions(_ context.Context, nonce uint64, fromAddress common.Address) (confirmedTxs []*types.Transaction, unconfirmedTxIDs []uint64, err error) {

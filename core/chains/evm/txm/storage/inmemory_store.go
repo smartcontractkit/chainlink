@@ -180,6 +180,28 @@ func (m *InMemoryStore) FetchUnconfirmedTransactionAtNonceWithCount(latestNonce 
 	return
 }
 
+func (m *InMemoryStore) FindNextNonce() (maxNonce uint64) {
+	m.RLock()
+	defer m.RUnlock()
+
+	if len(m.UnconfirmedTransactions) == 0 && len(m.ConfirmedTransactions) == 0 {
+		return
+	}
+
+	for _, tx := range m.UnconfirmedTransactions {
+		if tx.Nonce != nil {
+			maxNonce = max(*tx.Nonce, maxNonce)
+		}
+	}
+
+	for _, tx := range m.ConfirmedTransactions {
+		if tx.Nonce != nil {
+			maxNonce = max(*tx.Nonce, maxNonce)
+		}
+	}
+	return maxNonce + 1
+}
+
 func (m *InMemoryStore) MarkConfirmedAndReorgedTransactions(latestNonce uint64) ([]*types.Transaction, []uint64, error) {
 	m.Lock()
 	defer m.Unlock()
