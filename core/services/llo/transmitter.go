@@ -62,8 +62,13 @@ type TransmitterOpts struct {
 
 // The transmitter will handle starting and stopping the subtransmitters
 func NewTransmitter(opts TransmitterOpts) (Transmitter, error) {
-	subTransmitters := []Transmitter{
-		mercurytransmitter.New(&(opts.MercuryTransmitterOpts)),
+	subTransmitters := []Transmitter{}
+
+	if opts.MercuryTransmitterOpts != nil {
+		subTransmitters = append(
+			subTransmitters,
+			mercurytransmitter.New(*opts.MercuryTransmitterOpts),
+		)
 	}
 	for _, cfg := range opts.Subtransmitters {
 		switch cfg.Type {
