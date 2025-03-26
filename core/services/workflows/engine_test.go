@@ -2302,10 +2302,10 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
 	beholderTester := tests.Beholder(t)
 
-	trigger1, cr := mockTrigger(t)
+	trigger1, cr1 := mockTrigger(t)
 	require.NoError(t, reg.Add(ctx, trigger1))
 
-	trigger2, cr := mockTriggerWithName(t, "other-trigger@1.0.0")
+	trigger2, cr2 := mockTriggerWithName(t, "other-trigger@1.0.0")
 	require.NoError(t, reg.Add(ctx, trigger2))
 
 	require.NoError(t, reg.Add(ctx, mockConsensus("")))
@@ -2338,10 +2338,10 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	// gets the execution ID of the first execution
 	eid := getExecutionID(t, eng, testHooks)
 	resp1 := <-target1.response
-	assert.Equal(t, cr.Event.Outputs, resp1.Value)
+	assert.Equal(t, cr1.Event.Outputs, resp1.Value)
 
 	resp2 := <-target2.response
-	assert.Equal(t, cr.Event.Outputs, resp2.Value)
+	assert.Equal(t, cr2.Event.Outputs, resp2.Value)
 
 	state, err := eng.executionStates.Get(ctx, eid)
 	require.NoError(t, err)
