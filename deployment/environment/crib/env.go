@@ -1,5 +1,9 @@
 package crib
 
+import (
+	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+)
+
 const (
 	AddressBookFileName       = "address-book.json"
 	NodesDetailsFileName      = "nodes-details.json"
@@ -8,19 +12,27 @@ const (
 )
 
 type CRIBEnv struct {
+	lggr                logger.Logger
 	cribEnvStateDirPath string
 }
 
-func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
+func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv {
 	return CRIBEnv{
+		lggr:                lggr,
 		cribEnvStateDirPath: envStateDir,
 	}
 }
 
 func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 	reader := NewOutputReader(c.cribEnvStateDirPath)
-	nodesDetails := reader.ReadNodesDetails()
-	chainConfigs := reader.ReadChainConfigs()
+	nodesDetails, err := reader.ReadNodesDetails()
+	if err != nil {
+		c.lggr.Warn("No nodes details found, not necessary for testing.. continuing...", err)
+	}
+	chainConfigs, err := reader.ReadChainConfigs()
+	if err != nil {
+		return DeployOutput{}, err
+	}
 	for i, chain := range chainConfigs {
 		err := chain.SetDeployerKey(&key)
 		if err != nil {
@@ -29,8 +41,13 @@ func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 		chainConfigs[i] = chain
 	}
 
+	addressBook, err := reader.ReadAddressBook()
+	if err != nil {
+		return DeployOutput{}, err
+	}
+
 	return DeployOutput{
-		AddressBook: reader.ReadAddressBook(),
+		AddressBook: addressBook,
 		NodeIDs:     nodesDetails.NodeIDs,
 		Chains:      chainConfigs,
 	}, nil

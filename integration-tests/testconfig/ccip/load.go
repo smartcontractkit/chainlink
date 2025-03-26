@@ -33,6 +33,7 @@ type LoadConfig struct {
 	TestLabel            *string
 	GasLimit             *uint64
 	OOOExecution         *bool
+	mainDeployKey        *string
 }
 
 const (
@@ -80,6 +81,13 @@ func (l *LoadConfig) GetTimeoutDuration() time.Duration {
 		return 30 * time.Minute
 	}
 	return ld
+}
+
+func (l *LoadConfig) getDeployerKey() string {
+	if l.mainDeployKey == nil {
+		return ""
+	}
+	return *l.mainDeployKey
 }
 
 type MsgDetails struct {

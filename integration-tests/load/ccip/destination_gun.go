@@ -5,26 +5,22 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"go.uber.org/atomic"
 	"math/big"
 	mathrand "math/rand"
 	"time"
 
-	"github.com/ethereum/go-ethereum/common/hexutil"
-
-	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"go.uber.org/atomic"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
-
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 )
 
@@ -133,18 +129,20 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 			"destchain", m.chainSelector,
 			"err", deployment.MaybeDataErr(err))
 
-		// in the event of an error, still push a metric
-		// sequence numbers start at 1 so using 0 as a sentinel value
-		data := messageData{
-			eventType: transmitted,
-			srcDstSeqNum: srcDstSeqNum{
-				src:    src,
-				dst:    m.chainSelector,
-				seqNum: 0,
-			},
-			timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
+		if m.metricPipe != nil {
+			// in the event of an error, still push a metric
+			// sequence numbers start at 1 so using 0 as a sentinel value
+			data := messageData{
+				eventType: transmitted,
+				srcDstSeqNum: srcDstSeqNum{
+					src:    src,
+					dst:    m.chainSelector,
+					seqNum: 0,
+				},
+				timestamp: uint64(time.Now().Unix()), //nolint:gosec // G115
+			}
+			m.metricPipe <- data
 		}
-		m.metricPipe <- data
 
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
 	}
