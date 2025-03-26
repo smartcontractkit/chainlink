@@ -2,4 +2,4 @@
 "chainlink": patch
 ---
 
-Update LLO Config Validation to allow CRE Transmitter without Mercury Server
+#updated LLO Config Validation to allow CRE Transmitter without Mercury Server
