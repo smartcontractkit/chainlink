@@ -253,7 +253,7 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	for {
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
-			return nil, 0, fmt.Errorf("failed to get fee: %w", err)
+			return nil, 0, fmt.Errorf("failed to get fee: %w", deployment.MaybeDataErr(err))
 		}
 
 		cfg.Sender.Value = fee
