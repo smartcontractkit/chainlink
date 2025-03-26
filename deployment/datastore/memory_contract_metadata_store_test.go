@@ -241,7 +241,7 @@ func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 		name          string
 		givenState    []ContractMetadataRecord
 		expectedState []ContractMetadataRecord
-		giveRecord    ContractMetadataRecord
+		giveKey       ContractMetadataKey
 		expectedError error
 	}{
 		{
@@ -251,7 +251,7 @@ func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveRecord: recordTwo,
+			giveKey: recordTwo.Key(),
 			expectedState: []ContractMetadataRecord{
 				recordOne,
 				recordThree,
@@ -263,7 +263,7 @@ func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 				recordOne,
 				recordThree,
 			},
-			giveRecord:    recordTwo,
+			giveKey:       recordTwo.Key(),
 			expectedError: ErrContractMetadataRecordNotFound,
 		},
 	}
@@ -271,7 +271,7 @@ func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := InMemoryContractMetadataStore{records: tt.givenState}
-			err := store.Delete(tt.giveRecord)
+			err := store.Delete(tt.giveKey)
 
 			if tt.expectedError != nil {
 				require.Error(t, err)
@@ -422,7 +422,7 @@ func TestInMemoryContractMetadataStore_Filter(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []ContractMetadataRecord
-		giveFilters    []func([]ContractMetadataRecord) []ContractMetadataRecord
+		giveFilters    []FilterFunc[ContractMetadataKey, ContractMetadataRecord]
 		expectedResult []ContractMetadataRecord
 	}{{
 		name: "success: no filters returns all records",
@@ -431,7 +431,7 @@ func TestInMemoryContractMetadataStore_Filter(t *testing.T) {
 			recordTwo,
 			recordThree,
 		},
-		giveFilters:    []func([]ContractMetadataRecord) []ContractMetadataRecord{},
+		giveFilters:    []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{},
 		expectedResult: []ContractMetadataRecord{recordOne, recordTwo, recordThree},
 	},
 		{
@@ -441,8 +441,8 @@ func TestInMemoryContractMetadataStore_Filter(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []func([]ContractMetadataRecord) []ContractMetadataRecord{
-				MetaByChain(2),
+			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{
+				ContractMetadataByChain(2),
 			},
 			expectedResult: []ContractMetadataRecord{recordTwo},
 		},
@@ -453,8 +453,8 @@ func TestInMemoryContractMetadataStore_Filter(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []func([]ContractMetadataRecord) []ContractMetadataRecord{
-				MetaByChain(4),
+			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{
+				ContractMetadataByChain(4),
 			},
 			expectedResult: []ContractMetadataRecord(nil),
 		},
@@ -513,7 +513,7 @@ func TestMetaByChain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := MetaByChain(tt.giveChain)
+			filter := ContractMetadataByChain(tt.giveChain)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})

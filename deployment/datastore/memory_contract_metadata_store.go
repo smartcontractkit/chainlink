@@ -44,7 +44,7 @@ func (s *InMemoryContractMetadataStore) Fetch() ([]ContractMetadataRecord, error
 	return records, nil
 }
 
-func (s *InMemoryContractMetadataStore) Filter(filters ...func([]ContractMetadataRecord) []ContractMetadataRecord) []ContractMetadataRecord {
+func (s *InMemoryContractMetadataStore) Filter(filters ...FilterFunc[ContractMetadataKey, ContractMetadataRecord]) []ContractMetadataRecord {
 	records := append([]ContractMetadataRecord{}, s.records...)
 	for _, filter := range filters {
 		records = filter(records)
@@ -80,24 +80,11 @@ func (s *InMemoryContractMetadataStore) Update(record ContractMetadataRecord) er
 	return nil
 }
 
-func (s *InMemoryContractMetadataStore) Delete(record ContractMetadataRecord) error {
-	idx := s.indexOf(record.Key())
+func (s *InMemoryContractMetadataStore) Delete(key ContractMetadataKey) error {
+	idx := s.indexOf(key)
 	if idx == -1 {
 		return ErrContractMetadataRecordNotFound
 	}
 	s.records = append(s.records[:idx], s.records[idx+1:]...)
 	return nil
-}
-
-// Filter functions
-func MetaByChain(chain uint64) func([]ContractMetadataRecord) []ContractMetadataRecord {
-	return func(records []ContractMetadataRecord) []ContractMetadataRecord {
-		var filtered []ContractMetadataRecord
-		for _, record := range records {
-			if record.Chain == chain {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
 }
