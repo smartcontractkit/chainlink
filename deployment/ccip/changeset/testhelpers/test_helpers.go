@@ -325,9 +325,9 @@ func TestSendRequest(
 		WithEvm2AnyMessage(evm2AnyMessage),
 	}
 
-	allOpts := append(baseOpts, opts...)
+	baseOpts = append(baseOpts, opts...)
 
-	msgSentEvent, err := DoSendRequest(t, e, state, allOpts...)
+	msgSentEvent, err := DoSendRequest(t, e, state, baseOpts...)
 	require.NoError(t, err)
 	return msgSentEvent
 }
