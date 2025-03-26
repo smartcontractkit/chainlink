@@ -50,8 +50,8 @@ var (
 		"TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
 		"TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
 		"TestScripts/nodes/solana/list/list":    "https://smartcontract-it.atlassian.net/browse/CRE-155",
-		"TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
-		"TestScripts/health/default":            "https://smartcontract-it.atlassian.net/browse/DX-109",
+		//"TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
+		"TestScripts/health/default": "https://smartcontract-it.atlassian.net/browse/DX-109",
 	}
 )
 
@@ -110,6 +110,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 			if err2 != nil {
 				return err2
 			}
+			te.T().Log("test port allocated:", port)
 			te.Defer(ret)
 
 			te.Setenv(envVarName, strconv.Itoa(port))
@@ -123,6 +124,7 @@ func commonEnv(t testing.TB) func(*testscript.Env) error {
 			te.T().Log("test database requested:", envVarName)
 
 			u2 := newDB(t)
+			te.T().Log("test database created")
 
 			te.Setenv(envVarName, u2)
 		}
