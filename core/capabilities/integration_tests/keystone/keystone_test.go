@@ -77,7 +77,7 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 			err = workflowDon.AddJob(ctx, &job)
 			require.NoError(t, err)
 
-			reports := []*datastreams.FeedReport{
+			reports := []*datastreams.FeedReport{p
 				createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonConfiguration.KeyBundles),
 				createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonConfiguration.KeyBundles),
 				createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonConfiguration.KeyBundles),
@@ -117,12 +117,11 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 				remappedID: "0x" + hex.EncodeToString(streamIDtoFeedID[2]),
 				price:      decimal.NewFromFloat(42.37),
 			},
-			/*			{
-							id:         3,
-							remappedID: "0x" + hex.EncodeToString(streamIDtoFeedID[3]),
-							price:      decimal.NewFromFloat(0.003),
-						},
-			*/
+			{
+				id:         3,
+				remappedID: "0x" + hex.EncodeToString(streamIDtoFeedID[3]),
+				price:      decimal.NewFromFloat(0.003),
+			},
 		}
 
 		ts := uint64(time.Now().UnixNano())

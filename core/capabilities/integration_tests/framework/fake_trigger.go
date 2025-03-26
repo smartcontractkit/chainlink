@@ -80,10 +80,14 @@ func (r *TriggerSink) SendOutput(outputs *values.Map) {
 }
 
 func (r *TriggerSink) SendOCREvent(ocrEvent *capabilities.OCRTriggerEvent, eventID string) {
+	o, err := ocrEvent.ToMap()
+	if err != nil {
+		panic(err)
+	}
 	triggerEvent := capabilities.TriggerEvent{
 		TriggerType: r.triggerID,
 		ID:          eventID,
-		OCREvent:    ocrEvent,
+		Outputs:     o,
 	}
 
 	resp := capabilities.TriggerResponse{

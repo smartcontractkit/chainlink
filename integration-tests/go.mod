@@ -45,7 +45,7 @@ require (
 	github.com/smartcontractkit/chain-selectors v1.0.46
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250320162139-28994272f7ef
-	github.com/smartcontractkit/chainlink-common v0.5.1-0.20250326001746-ec8bce5e6209
+	github.com/smartcontractkit/chainlink-common v0.5.1-0.20250326172520-47e1849e9723
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250317165050-f8c18e1f415e
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
