@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
@@ -71,11 +72,11 @@ func TestConnectNewChain(t *testing.T) {
 		Msg                        string
 		TransferRemoteChainsToMCMS bool
 		TestRouter                 bool
-		MCMS                       *changeset.MCMSConfig
+		MCMS                       *commoncs.TimelockConfig
 		ErrStr                     string
 	}
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &commoncs.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: timelock.Schedule,
 	}
@@ -239,10 +240,10 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 	type test struct {
 		Msg  string
-		MCMS *changeset.MCMSConfig
+		MCMS *commoncs.TimelockConfig
 	}
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &commoncs.TimelockConfig{
 		MinDelay:   0 * time.Second,
 		MCMSAction: timelock.Schedule,
 	}

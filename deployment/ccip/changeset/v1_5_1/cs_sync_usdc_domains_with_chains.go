@@ -23,7 +23,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	// ChainSelectorToUSDCDomain maps chains selectors to their USDC domain identifiers.
 	ChainSelectorToUSDCDomain map[uint64]uint32
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 }
 
 func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {

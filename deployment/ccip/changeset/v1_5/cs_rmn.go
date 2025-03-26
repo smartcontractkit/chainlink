@@ -57,7 +57,7 @@ type PermaBlessCommitStoreConfigPerDest struct {
 
 type PermaBlessCommitStoreConfig struct {
 	Configs    map[uint64]PermaBlessCommitStoreConfigPerDest
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *commoncs.TimelockConfig
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error {

@@ -116,7 +116,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.

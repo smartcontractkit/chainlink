@@ -89,7 +89,7 @@ func doTestTokenPool(t *testing.T, mcms bool) {
 				OffRamp:   true,
 			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &ccipChangeset.MCMSConfig{
+			MCMS: &commonchangeset.TimelockConfig{
 				MinDelay: 1 * time.Second,
 			},
 			RouterOwnedByTimelock:    true,

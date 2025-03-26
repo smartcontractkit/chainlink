@@ -201,7 +201,7 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &changeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 0,
 					},
 				},

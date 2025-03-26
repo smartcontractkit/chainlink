@@ -212,10 +212,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &changeset.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -417,7 +417,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
-				MCMSConfig: &changeset.MCMSConfig{
+				MCMSConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 			},
