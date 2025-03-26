@@ -122,7 +122,7 @@ func NewLLOProvider(
 	} else {
 		clients := make(map[string]grpc.Client)
 
-		mercuryServers := mercuryCfg.GetServers()
+		mercuryServers := lloCfg.GetServers()
 
 		for _, server := range mercuryServers {
 			var client grpc.Client
