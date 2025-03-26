@@ -21,11 +21,12 @@ require (
 	github.com/gin-gonic/gin v1.10.0
 	github.com/go-playground/universal-translator v0.18.1
 	github.com/go-playground/validator/v10 v10.25.0
-	github.com/google/uuid v1.6.0
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
+	github.com/shopspring/decimal v1.4.0
 	github.com/smartcontractkit/chain-selectors v1.0.47
 	github.com/smartcontractkit/chainlink-common v0.5.1-0.20250326001746-ec8bce5e6209
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250324203309-1688933a889f
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
@@ -236,6 +237,7 @@ require (
 	github.com/google/pprof v0.0.0-20241210010833-40e02aabc2ad // indirect
 	github.com/google/s2a-go v0.1.9 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
+	github.com/google/uuid v1.6.0 // indirect
 	github.com/googleapis/enterprise-certificate-proxy v0.3.4 // indirect
 	github.com/googleapis/gax-go/v2 v2.14.1 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -411,13 +413,11 @@ require (
 	github.com/shirou/gopsutil v3.21.11+incompatible // indirect
 	github.com/shirou/gopsutil/v3 v3.24.3 // indirect
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250322131411-c7a8d6a077bf // indirect
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250322131411-c7a8d6a077bf // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250324203309-1688933a889f // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5 // indirect
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250211162441-3d6cea220efb // indirect
