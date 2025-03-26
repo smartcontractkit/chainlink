@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -55,16 +56,19 @@ func ValidateMCMSConfigSolana(
 	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.RMNRemoteOwnedByTimelock, chainState.RMNRemote, cs.RMNRemote, tokenAddress); err != nil {
 		return fmt.Errorf("failed to validate ownership for rmnremote: %w", err)
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
-		return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
+	if !tokenAddress.IsZero() {
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.BurnMintTokenPoolOwnedByTimelock[tokenAddress], chainState.BurnMintTokenPool, cs.BurnMintTokenPool, tokenAddress); err != nil {
+			return fmt.Errorf("failed to validate ownership for burnmint: %w", err)
+		}
+		if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
+			return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
+		}
 	}
-	if err := ccipChangeset.ValidateOwnershipSolana(&e, chain, mcms != nil && mcms.LockReleaseTokenPoolOwnedByTimelock[tokenAddress], chainState.LockReleaseTokenPool, cs.LockReleaseTokenPool, tokenAddress); err != nil {
-		return fmt.Errorf("failed to validate ownership for lockrelease: %w", err)
-	}
+
 	return nil
 }
 
-func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs.MCMSConfig) error {
+func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *commoncs.TimelockConfig) error {
 	if mcms != nil {
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)

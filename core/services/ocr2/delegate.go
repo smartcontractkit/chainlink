@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -122,7 +123,7 @@ type Delegate struct {
 	RelayGetter
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
-	retirementReportCache llo.RetirementReportCache
+	retirementReportCache retirement.RetirementReportCache
 
 	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry core.CapabilitiesRegistry
@@ -232,7 +233,7 @@ type DelegateOpts struct {
 	Relayers              RelayGetter
 	MailMon               *mailbox.Monitor
 	CapabilitiesRegistry  core.CapabilitiesRegistry
-	RetirementReportCache llo.RetirementReportCache
+	RetirementReportCache retirement.RetirementReportCache
 }
 
 func NewDelegate(

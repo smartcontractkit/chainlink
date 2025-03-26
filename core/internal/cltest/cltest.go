@@ -38,6 +38,7 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
@@ -204,6 +205,7 @@ type TestApplication struct {
 	t testing.TB
 	*chainlink.ChainlinkApplication
 	Logger             logger.Logger
+	Emitter            *tests.BeholderTester
 	Server             *httptest.Server
 	Started            bool
 	Backend            *simulated.Backend
@@ -447,7 +449,7 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 		SecretGenerator:          MockSecretGenerator{},
 		MercuryPool:              mercuryPool,
 		NewOracleFactoryFn:       newOracleFactoryFn,
-		RetirementReportCache:    llo.NewRetirementReportCache(lggr, ds),
+		RetirementReportCache:    retirement.NewRetirementReportCache(lggr, ds),
 		LLOTransmissionReaper:    llo.NewTransmissionReaper(ds, lggr, cfg.Mercury().Transmitter().ReaperFrequency().Duration(), cfg.Mercury().Transmitter().ReaperMaxAge().Duration()),
 		EVMFactoryConfigFn:       evmFactoryConfigFn,
 	})
@@ -462,6 +464,12 @@ func NewApplicationWithConfig(t testing.TB, cfg chainlink.GeneralConfig, flagsAn
 	for _, dep := range flagsAndDeps {
 		if k, ok := dep.(ethkey.KeyV2); ok {
 			ta.Keys = append(ta.Keys, k)
+		}
+	}
+
+	for _, dep := range flagsAndDeps {
+		if k, ok := dep.(*tests.BeholderTester); ok {
+			ta.Emitter = k
 		}
 	}
 

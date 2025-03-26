@@ -70,6 +70,9 @@ type TokenPoolConfig struct {
 	Type deployment.ContractType
 	// Version is the version of the token pool.
 	Version semver.Version
+	// OverrideTokenSymbol is the token symbol to use to override against main symbol (ex: override to clCCIP-LnM when the main token symbol is CCIP-LnM)
+	// WARNING: This should only be used in exceptional cases where the token symbol on a particular chain differs from the main tokenSymbol
+	OverrideTokenSymbol changeset.TokenSymbol
 }
 
 func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
@@ -81,6 +84,10 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	// Ensure that the inputted version is known
 	if _, ok := changeset.TokenPoolVersions[c.Version]; !ok {
 		return fmt.Errorf("%s is not a known token pool version", c.Version)
+	}
+
+	if c.OverrideTokenSymbol != "" {
+		tokenSymbol = c.OverrideTokenSymbol
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
@@ -109,7 +116,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.
@@ -210,8 +217,12 @@ func configureTokenPool(
 	chainSelector uint64,
 ) error {
 	poolUpdate := config.PoolUpdates[chainSelector]
+	tokenSymbol := config.TokenSymbol
+	if poolUpdate.OverrideTokenSymbol != "" {
+		tokenSymbol = poolUpdate.OverrideTokenSymbol
+	}
 	chain := chains[chainSelector]
-	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
+	tokenPool, _, tokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, poolUpdate.Type, poolUpdate.Version, chain, state.Chains[chainSelector])
 	if err != nil {
 		return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 	}
@@ -232,7 +243,11 @@ func configureTokenPool(
 		}
 		remoteChain := chains[remoteChainSelector]
 		remotePoolUpdate := config.PoolUpdates[remoteChainSelector]
-		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, config.TokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
+		tokenSymbol = config.TokenSymbol
+		if remotePoolUpdate.OverrideTokenSymbol != "" {
+			tokenSymbol = remotePoolUpdate.OverrideTokenSymbol
+		}
+		remoteTokenPool, remoteTokenAddress, remoteTokenConfig, err := getTokenStateFromPool(ctx, tokenSymbol, remotePoolUpdate.Type, remotePoolUpdate.Version, remoteChain, state.Chains[remoteChainSelector])
 		if err != nil {
 			return fmt.Errorf("failed to get token state from pool with address %s on %s: %w", tokenPool.Address(), chain.String(), err)
 		}

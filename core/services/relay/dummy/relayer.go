@@ -9,8 +9,9 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 )
 
@@ -58,11 +59,11 @@ func (r *relayer) NewLLOProvider(ctx context.Context, rargs types.RelayArgs, par
 	if err = pluginCfg.Unmarshal(pargs.PluginConfig); err != nil {
 		return nil, err
 	}
-	cdc, err := llo.NewStaticChannelDefinitionCache(r.lggr, pluginCfg.ChannelDefinitions)
+	cdc, err := channeldefinitions.NewStaticChannelDefinitionCache(r.lggr, pluginCfg.ChannelDefinitions)
 	if err != nil {
 		return nil, err
 	}
-	src := llo.NewNeverShouldRetireCache()
+	src := retirement.NewNeverShouldRetireCache()
 	return NewLLOProvider(r.lggr, cp, transmitter, cdc, src), nil
 }
 func (r *relayer) LatestHead(_ context.Context) (types.Head, error) {

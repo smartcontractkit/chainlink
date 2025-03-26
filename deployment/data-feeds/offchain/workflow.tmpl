@@ -1,0 +1,10 @@
+type = "workflow"
+schemaVersion = 1
+externalJobID = "{{ .ExternalJobID }}"
+name = "{{ .JobName }}"
+forwardingAllowed = false
+workflowID = "{{ .WorkflowID }}"
+workflow = """
+{{ .Workflow }}
+"""
+workflowOwner = "{{ .WorkflowOwner }}"
