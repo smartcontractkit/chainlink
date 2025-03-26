@@ -41,9 +41,12 @@ type Record[K Comparable[K], R PrimaryKeyHolder[K]] interface {
 	PrimaryKeyHolder[K]
 }
 
+// FilterFunc is a function that filters a slice of records.
+type FilterFunc[K Comparable[K], R Record[K, R]] func([]R) []R
+
 // Filterable provides a Filter() method which is used to complete a filtered query with from a Store.
 type Filterable[K Comparable[K], R Record[K, R]] interface {
-	Filter(filters ...func([]R) []R) []R
+	Filter(filters ...FilterFunc[K, R]) []R
 }
 
 // Store is an interface that represents an immutable set of records.
@@ -68,7 +71,7 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// the non-primary-key values of the supplied AddressRecord.
 	Update(record R) error
 
-	// Delete deletes record whose primary key elements match the supplied AddressRecord, returning an error if no
+	// Delete deletes record whose primary key elements match the supplied key, returning an error if no
 	// such record exists to be deleted
-	Delete(record R) error
+	Delete(key K) error
 }

@@ -292,7 +292,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 		name          string
 		givenState    []AddressReferenceRecord
 		expectedState []AddressReferenceRecord
-		giveRecord    AddressReferenceRecord
+		giveKey       AddressReferenceKey
 		expectedError error
 	}{
 		{
@@ -302,7 +302,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveRecord: recordTwo,
+			giveKey: recordTwo.Key(),
 			expectedState: []AddressReferenceRecord{
 				recordOne,
 				recordThree,
@@ -314,7 +314,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 				recordOne,
 				recordThree,
 			},
-			giveRecord:    recordTwo,
+			giveKey:       recordTwo.Key(),
 			expectedError: ErrAddressReferenceRecordNotFound,
 		},
 	}
@@ -322,7 +322,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := InMemoryAddressReferenceStore{records: tt.givenState}
-			err := store.Delete(tt.giveRecord)
+			err := store.Delete(tt.giveKey)
 
 			if tt.expectedError != nil {
 				require.Error(t, err)
@@ -509,7 +509,7 @@ func TestInMemoryAddressReferenceStore_Filter(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressReferenceRecord
-		giveFilters    []func([]AddressReferenceRecord) []AddressReferenceRecord
+		giveFilters    []FilterFunc[AddressReferenceKey, AddressReferenceRecord]
 		expectedResult []AddressReferenceRecord
 	}{{
 		name: "success: no filters returns all records",
@@ -518,7 +518,7 @@ func TestInMemoryAddressReferenceStore_Filter(t *testing.T) {
 			recordTwo,
 			recordThree,
 		},
-		giveFilters:    []func([]AddressReferenceRecord) []AddressReferenceRecord{},
+		giveFilters:    []FilterFunc[AddressReferenceKey, AddressReferenceRecord]{},
 		expectedResult: []AddressReferenceRecord{recordOne, recordTwo, recordThree},
 	},
 		{
@@ -528,9 +528,9 @@ func TestInMemoryAddressReferenceStore_Filter(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []func([]AddressReferenceRecord) []AddressReferenceRecord{
-				ByChain(2),
-				ByType("typeX"),
+			giveFilters: []FilterFunc[AddressReferenceKey, AddressReferenceRecord]{
+				AddressReferenceRecordByChain(2),
+				AddressReferenceRecordByType("typeX"),
 			},
 			expectedResult: []AddressReferenceRecord{recordTwo},
 		},
@@ -541,9 +541,9 @@ func TestInMemoryAddressReferenceStore_Filter(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []func([]AddressReferenceRecord) []AddressReferenceRecord{
-				ByChain(4),
-				ByType("typeX"),
+			giveFilters: []FilterFunc[AddressReferenceKey, AddressReferenceRecord]{
+				AddressReferenceRecordByChain(4),
+				AddressReferenceRecordByType("typeX"),
 			},
 			expectedResult: []AddressReferenceRecord(nil),
 		},
@@ -612,7 +612,7 @@ func TestByChain(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := ByChain(tt.giveChain)
+			filter := AddressReferenceRecordByChain(tt.giveChain)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})
@@ -674,7 +674,7 @@ func TestByType(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := ByType(tt.giveType)
+			filter := AddressReferenceRecordByType(tt.giveType)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})
@@ -709,7 +709,7 @@ func TestByVersion(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressReferenceRecord
-		giveVersion    string
+		giveVersion    semver.Version
 		expectedResult []AddressReferenceRecord
 	}{
 		{
@@ -718,7 +718,7 @@ func TestByVersion(t *testing.T) {
 				recordOne,
 				recordTwo,
 			},
-			giveVersion: "0.5.0",
+			giveVersion: semver.MustParse("0.5.0"),
 			expectedResult: []AddressReferenceRecord{
 				recordOne,
 				recordTwo,
@@ -730,14 +730,14 @@ func TestByVersion(t *testing.T) {
 				recordOne,
 				recordTwo,
 			},
-			giveVersion:    "0.7.0",
+			giveVersion:    semver.MustParse("0.6.0"),
 			expectedResult: []AddressReferenceRecord(nil),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := ByVersion(tt.giveVersion)
+			filter := AddressReferenceRecordByVersion(tt.giveVersion)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})
@@ -799,7 +799,7 @@ func TestByQualifier(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			filter := ByQualifier(tt.giveQualifier)
+			filter := AddressReferenceRecordByQualifier(tt.giveQualifier)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})
