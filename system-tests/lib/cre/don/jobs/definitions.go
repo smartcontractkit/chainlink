@@ -152,10 +152,6 @@ const (
 	EmptyStdCapConfig = "\"\""
 )
 
-func ExternalCapabilityPath(binaryName string) string {
-	return "/home/capabilities/" + binaryName
-}
-
 func WorkerStandardCapability(nodeID, name, command, config string) *jobv1.ProposeJobRequest {
 	uuid := uuid.NewString()
 

@@ -25,7 +25,8 @@ func updateDataIDProxyLogic(env deployment.Environment, c types.UpdateDataIDProx
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.ProxyAddresses, c.DataIDs)
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
+	tx, err := contract.UpdateDataIdMappingsForProxies(txOpt, c.ProxyAddresses, dataIDs)
 
 	if c.McmsConfig != nil {
 		proposals := MultiChainProposalConfig{
@@ -62,6 +63,10 @@ func updateDataIDProxyPrecondition(env deployment.Environment, c types.UpdateDat
 	}
 	if len(c.DataIDs) != len(c.ProxyAddresses) {
 		return errors.New("dataIds and proxies length mismatch")
+	}
+	_, err := FeedIDsToBytes16(c.DataIDs)
+	if err != nil {
+		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 
 	if c.McmsConfig != nil {

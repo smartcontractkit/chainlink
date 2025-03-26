@@ -53,7 +53,7 @@ func TestDeployHomeChain(t *testing.T) {
 	require.NotNil(t, state.Chains[homeChainSel].CapabilityRegistry)
 	require.NotNil(t, state.Chains[homeChainSel].CCIPHome)
 	require.NotNil(t, state.Chains[homeChainSel].RMNHome)
-	snap, err := state.View([]uint64{homeChainSel})
+	snap, _, err := state.View(&e, []uint64{homeChainSel})
 	require.NoError(t, err)
 	chainName := e.Chains[homeChainSel].Name()
 	_, ok := snap[chainName]
@@ -193,7 +193,7 @@ func TestRemoveDons(t *testing.T) {
 			v1_6.RemoveDONsConfig{
 				HomeChainSel: e.HomeChainSel,
 				DonIDs:       []uint32{donsBefore[0].Id},
-				MCMS:         &changeset.MCMSConfig{MinDelay: 0},
+				MCMS:         &commoncs.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)
@@ -316,9 +316,9 @@ func TestRemoveNodes(t *testing.T) {
 			homeChain := s.Chains[e.HomeChainSel]
 			allChains := e.Env.AllChainSelectors()
 
-			var mcmsConfig *changeset.MCMSConfig
+			var mcmsConfig *commoncs.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
+				mcmsConfig = &commoncs.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

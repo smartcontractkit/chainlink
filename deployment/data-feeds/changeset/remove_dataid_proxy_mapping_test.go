@@ -8,12 +8,10 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -50,7 +48,7 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -71,7 +69,7 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
 				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataid},
+				DataIDs:        []string{dataid},
 			},
 		),
 		// remove the feed proxy mapping
@@ -122,7 +120,7 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
 				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataid},
+				DataIDs:        []string{dataid},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 0,
 				},

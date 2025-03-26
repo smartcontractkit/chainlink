@@ -41,11 +41,17 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
   }
 
   function test_applyDestChainConfigUpdates() public {
-    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](2);
+    FeeQuoter.DestChainConfigArgs[] memory destChainConfigArgs = new FeeQuoter.DestChainConfigArgs[](3);
     destChainConfigArgs[0] = _generateFeeQuoterDestChainConfigArgs()[0];
     destChainConfigArgs[0].destChainConfig.isEnabled = false;
+
     destChainConfigArgs[1] = _generateFeeQuoterDestChainConfigArgs()[0];
     destChainConfigArgs[1].destChainSelector = DEST_CHAIN_SELECTOR + 1;
+    destChainConfigArgs[1].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_SVM;
+
+    destChainConfigArgs[2] = _generateFeeQuoterDestChainConfigArgs()[0];
+    destChainConfigArgs[2].destChainSelector = DEST_CHAIN_SELECTOR + 2;
+    destChainConfigArgs[2].destChainConfig.chainFamilySelector = Internal.CHAIN_FAMILY_SELECTOR_APTOS;
 
     vm.expectEmit();
     emit FeeQuoter.DestChainConfigUpdated(DEST_CHAIN_SELECTOR, destChainConfigArgs[0].destChainConfig);
@@ -57,10 +63,12 @@ contract FeeQuoter_applyDestChainConfigUpdates is FeeQuoterSetup {
 
     FeeQuoter.DestChainConfig memory gotDestChainConfig0 = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR);
     FeeQuoter.DestChainConfig memory gotDestChainConfig1 = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR + 1);
+    FeeQuoter.DestChainConfig memory gotDestChainConfig2 = s_feeQuoter.getDestChainConfig(DEST_CHAIN_SELECTOR + 2);
 
-    assertEq(vm.getRecordedLogs().length, 2);
+    assertEq(vm.getRecordedLogs().length, destChainConfigArgs.length);
     _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[0].destChainConfig, gotDestChainConfig0);
     _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[1].destChainConfig, gotDestChainConfig1);
+    _assertFeeQuoterDestChainConfigsEqual(destChainConfigArgs[2].destChainConfig, gotDestChainConfig2);
   }
 
   function test_applyDestChainConfigUpdatesZeroInput() public {

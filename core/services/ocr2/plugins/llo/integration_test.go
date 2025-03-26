@@ -40,6 +40,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
+	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -60,7 +61,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/csakey"
-	lloevm "github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"

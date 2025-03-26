@@ -27,7 +27,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &commonchangeset.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -116,7 +116,7 @@ func TestSetPoolChangeset_Validations(t *testing.T) {
 }
 
 func TestSetPoolChangeset_Execution(t *testing.T) {
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Set pool with MCMS"
 		if mcmsConfig == nil {
 			msg = "Set pool without MCMS"

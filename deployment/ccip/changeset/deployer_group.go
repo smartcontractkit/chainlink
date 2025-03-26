@@ -6,7 +6,6 @@ import (
 	"math/big"
 	"slices"
 	"strings"
-	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -17,36 +16,15 @@ import (
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
-
-// MCMSConfig defines timelock duration.
-type MCMSConfig struct {
-	MinDelay   time.Duration
-	MCMSAction timelock.TimelockOperation
-}
-
-func (mcmsConfig *MCMSConfig) Validate() error {
-	// to make it backwards compatible with the old MCMSConfig , if MCMSAction is not set, default to timelock.Schedule
-	// TODO remove this after all the usages are updated to reflect canceller and bypasser with new mcmslib
-	if mcmsConfig.MCMSAction == "" {
-		mcmsConfig.MCMSAction = timelock.Schedule
-	}
-	if mcmsConfig.MCMSAction != timelock.Schedule &&
-		mcmsConfig.MCMSAction != timelock.Cancel &&
-		mcmsConfig.MCMSAction != timelock.Bypass {
-		return fmt.Errorf("invalid MCMS type %s", mcmsConfig.MCMSAction)
-	}
-	return nil
-}
 
 type DeployerGroup struct {
 	e                 deployment.Environment
 	state             CCIPOnChainState
-	mcmConfig         *MCMSConfig
+	mcmConfig         *commonchangeset.TimelockConfig
 	deploymentContext *DeploymentContext
 	txDecoder         *proposalutils.TxCallDecoder
 	describeContext   *proposalutils.ArgumentContext
@@ -86,7 +64,7 @@ type DeployerGroupWithContext interface {
 type deployerGroupBuilder struct {
 	e               deployment.Environment
 	state           CCIPOnChainState
-	mcmConfig       *MCMSConfig
+	mcmConfig       *commonchangeset.TimelockConfig
 	txDecoder       *proposalutils.TxCallDecoder
 	describeContext *proposalutils.ArgumentContext
 }
@@ -114,7 +92,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *MCMSConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *commonchangeset.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	return &deployerGroupBuilder{
 		e:               e,

@@ -38,7 +38,7 @@ require (
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250317165050-f8c18e1f415e
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250324062818-f3e2fd199908
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250325104625-225cb5a9190a
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250220133800-f3b940c4f298
@@ -356,9 +356,9 @@ require (
 	github.com/shopspring/decimal v1.4.0 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/smartcontractkit/chainlink-automation v0.8.1 // indirect
-	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250324204052-1e456bc3e371 // indirect
+	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250324203309-1688933a889f // indirect
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135 // indirect
-	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250317154237-afa0f9b81806 // indirect
+	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5 // indirect
 	github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 // indirect
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0 // indirect
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.50.10 // indirect

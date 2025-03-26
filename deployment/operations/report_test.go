@@ -110,3 +110,28 @@ func Test_RecentReporter(t *testing.T) {
 	assert.Len(t, reports, 1)
 	assert.Equal(t, newReport, reports[0])
 }
+
+func Test_typeReport(t *testing.T) {
+	t.Parallel()
+
+	report := Report[any, any]{
+		ID:                    "1",
+		Def:                   Definition{},
+		Output:                2,
+		Input:                 1,
+		Timestamp:             time.Now(),
+		Err:                   nil,
+		ChildOperationReports: []string{uuid.New().String()},
+	}
+
+	_, ok := typeReport[int, int](report)
+	assert.True(t, ok)
+
+	// incorrect input type
+	_, ok = typeReport[string, int](report)
+	assert.False(t, ok)
+
+	// incorrect output type
+	_, ok = typeReport[int, string](report)
+	assert.False(t, ok)
+}

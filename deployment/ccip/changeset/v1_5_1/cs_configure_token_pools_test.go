@@ -379,7 +379,7 @@ func TestValidateConfigureTokenPoolContracts(t *testing.T) {
 	}
 
 	for _, test := range tests {
-		for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
+		for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} { // Run all tests with and without MCMS
 			t.Run(test.Msg, func(t *testing.T) {
 				e, selectorA, selectorB, tokens, timelockContracts := testhelpers.SetupTwoChainEnvironmentWithTokens(t, logger.TestLogger(t), mcmsConfig != nil)
 
