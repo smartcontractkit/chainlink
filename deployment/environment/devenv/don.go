@@ -222,7 +222,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		case "EVM":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if accountAddr == nil {
 				return fmt.Errorf("no account address found for node %s", n.Name)
@@ -235,7 +235,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 		case "APTOS", "SOLANA":
 			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
+				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
 			}
 			if len(accounts) == 0 {
 				return fmt.Errorf("no account address found for node %s", n.Name)

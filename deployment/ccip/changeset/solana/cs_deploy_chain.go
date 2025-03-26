@@ -274,7 +274,7 @@ func initializeRouter(
 	feeQuoterAddress solana.PublicKey,
 	rmnRemoteAddress solana.PublicKey,
 ) error {
-	e.Logger.Debugw("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
+	e.Logger.Infow("Initializing router", "chain", chain.String(), "ccipRouterProgram", ccipRouterProgram.String())
 	programData, err := solProgramData(e, chain, ccipRouterProgram)
 	if err != nil {
 		return fmt.Errorf("failed to get solana router program data: %w", err)
