@@ -62,7 +62,7 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 	return env
 }
 
-// Deploy MCMS and Timelock, optionally transfering ownership of the provided contracts to Timelock
+// Deploy MCMS and Timelock, optionally transferring ownership of the provided contracts to Timelock
 func DeployMCMS(
 	t *testing.T,
 	e deployment.Environment,
