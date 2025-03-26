@@ -709,7 +709,7 @@ func TestByVersion(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressReferenceRecord
-		giveVersion    string
+		giveVersion    semver.Version
 		expectedResult []AddressReferenceRecord
 	}{
 		{
@@ -718,7 +718,7 @@ func TestByVersion(t *testing.T) {
 				recordOne,
 				recordTwo,
 			},
-			giveVersion: "0.5.0",
+			giveVersion: semver.MustParse("0.5.0"),
 			expectedResult: []AddressReferenceRecord{
 				recordOne,
 				recordTwo,
@@ -730,7 +730,7 @@ func TestByVersion(t *testing.T) {
 				recordOne,
 				recordTwo,
 			},
-			giveVersion:    "0.7.0",
+			giveVersion:    semver.MustParse("0.6.0"),
 			expectedResult: []AddressReferenceRecord(nil),
 		},
 	}

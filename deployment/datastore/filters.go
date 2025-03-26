@@ -1,6 +1,10 @@
 package datastore
 
-import "github.com/smartcontractkit/chainlink/deployment"
+import (
+	"github.com/blang/semver/v4"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+)
 
 // The following functions are a default set of filters that can be used with the Filter method of the
 // AddressReferenceStore AddressReferenceStore interface. These filters are composable and can be combined
@@ -10,7 +14,7 @@ import "github.com/smartcontractkit/chainlink/deployment"
 //		records := store.Filter(
 //			AddressReferenceRecordByChain(1),
 //			AddressReferenceRecordByType(deployment.ContractType("type1")),
-//			AddressReferenceRecordByVersion("my-qualifier"),
+//			AddressReferenceRecordByQualifier("my-qualifier"),
 //		)
 //	```
 // This allows for a more flexible and reusable way to filter records. And opens the possibility for any user
@@ -43,11 +47,11 @@ func AddressReferenceRecordByType(contractType deployment.ContractType) FilterFu
 }
 
 // AddressReferenceRecordByVersion returns a filter that only includes records with the provided version.
-func AddressReferenceRecordByVersion(version string) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
+func AddressReferenceRecordByVersion(version semver.Version) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
 	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
 		var filtered []AddressReferenceRecord
 		for _, record := range records {
-			if record.Version.String() == version {
+			if record.Version.EQ(version) {
 				filtered = append(filtered, record)
 			}
 		}
