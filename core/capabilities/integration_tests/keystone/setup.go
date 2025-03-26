@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
@@ -118,42 +117,6 @@ func createFeedReport(t *testing.T, price *big.Int, observationTimestamp int64,
 	return report
 }
 
-func createLLOEvent(t *testing.T, observationTimestamp uint64,
-	streamPrices map[uint32]decimal.Decimal) *datastreams.LLOStreamsTriggerEvent {
-
-	event := &datastreams.LLOStreamsTriggerEvent{
-
-		ObservationTimestampNanoseconds: observationTimestamp,
-		Payload:                         make([]*datastreams.LLOStreamDecimal, 0, len(streamPrices)),
-	}
-	for streamID, price := range streamPrices {
-		// Convert decimal to binary representation
-		priceBinary, _ := price.MarshalBinary()
-		event.Payload = append(event.Payload, &datastreams.LLOStreamDecimal{
-			StreamID: streamID,
-			Decimal:  priceBinary,
-		})
-	}
-	return event
-}
-
-/*
-	func wrapLLOEvent(t *testing.T, event *datastreams.LLOStreamsTriggerEvent, keyBundles []ocr2key.KeyBundle) *commoncap.OCRTriggerEvent {
-		wrappedEvent := &commoncap.OCRTriggerEvent{
-			Payload:   event,
-			Timestamp: int64(event.ObservationTimestampNanoseconds),
-		}
-
-		for _, key := range keyBundles {
-			sig, err := key.Sign(wrappedEvent.Payload, nil)
-			require.NoError(t, err)
-			wrappedEvent.Signatures = append(wrappedEvent.Signatures, sig)
-		}
-
-		return wrappedEvent
-
-}
-*/
 func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 	rc := evmutil.RawReportContext(reportCtx)
 	flat := []byte{}

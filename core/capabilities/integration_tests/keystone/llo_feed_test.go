@@ -1,7 +1,6 @@
 package keystone
 
 import (
-	"context"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -74,9 +73,9 @@ type streamUpdate struct {
 	price      decimal.Decimal
 }
 
-// M
+// MakeOCRTriggerEvent creates an OCR trigger event from the given LLOStreamsTriggerEvent and key bundles
+// It can be used to create the underlying data of [capabilities.TriggerEvent.Outputs] in the llo-specific format
 func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTriggerEvent, keyBundles []ocr2key.KeyBundle) (event *commoncap.OCRTriggerEvent, eventID string, err error) {
-	// Create the report codec with a don ID (using 1 for testing)
 	reportCodec := cre.NewReportCodecCapabilityTrigger(lggr, 1 /*donID, unused*/)
 
 	// Convert LLOStreamsTriggerEvent to datastreamsllo.Report
@@ -104,13 +103,12 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 			StreamID: payload.StreamID,
 		}
 	}
-
 	channelDef := llotypes.ChannelDefinition{
 		Streams: streams,
 	}
 
 	// Encode the report to bytes
-	reportBytes, err := reportCodec.Encode(context.Background(), report, channelDef)
+	reportBytes, err := reportCodec.Encode(report, channelDef)
 	if err != nil {
 		return nil, "", fmt.Errorf("failed to encode report: %w", err)
 	}

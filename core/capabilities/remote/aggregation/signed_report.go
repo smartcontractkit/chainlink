@@ -52,6 +52,9 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 }
 
 // Accept first response with valid signatures and expected event ID
+// every element in responses is must be a [capabilitypb.TriggerResponse]
+// and for each of them, we expect the [capabilitypb.TriggerResponse.Event.Outputs] field
+// to be the [values.Map] representation a [capabilities.OCRTriggerEvent] (see [capabilities.OCRTriggerEvent.ToMap])
 func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, responses [][]byte) (capabilities.TriggerResponse, error) {
 	for _, response := range responses {
 		triggerResp, err := capabilitiespb.UnmarshalTriggerResponse(response)
@@ -64,13 +67,7 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 		if err != nil {
 			a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID, "err", err)
 		}
-		/*
-			if triggerResp.Event.OCREvent == nil || len(triggerResp.Event.OCREvent.Report) == 0 {
-				a.lggr.Errorw("trigger response does not contain an OCR report", "id", triggerResp.Event.ID)
-				continue
-			}
-		*/
-		rawReport := ocrEvent.Report //triggerResp.Event.OCREvent.Report
+		rawReport := ocrEvent.Report
 		rep := &capabilitiespb.OCRTriggerReport{}
 		err = proto.Unmarshal(rawReport, rep)
 		if err != nil {
