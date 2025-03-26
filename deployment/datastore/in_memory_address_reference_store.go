@@ -1,0 +1,186 @@
+package datastore
+
+import (
+	"github.com/smartcontractkit/chainlink/deployment"
+)
+
+// AddressReferenceStore is an interface that represents an immutable view over a set
+// of AddressReferenceRecords identified by AddressReferenceKeys.
+type AddressReferenceStore interface {
+	Store[AddressReferenceKey, AddressReferenceRecord]
+}
+
+// MutableAddressReferenceStore is an interface that represents a mutable AddressReferenceStore
+// of AddressReferenceRecords identified by AddressReferenceKeys.
+type MutableAddressReferenceStore interface {
+	MutableStore[AddressReferenceKey, AddressReferenceRecord]
+}
+
+// InMemoryAddressReferenceStore is an in-memory implementation of the AddressReferenceStore and
+// MutableAddressReferenceStore interfaces.
+var _ AddressReferenceStore = &InMemoryAddressReferenceStore{}
+var _ MutableAddressReferenceStore = &InMemoryAddressReferenceStore{}
+
+type InMemoryAddressReferenceStore struct {
+	records []AddressReferenceRecord
+}
+
+func NewInMemoryAddressReferenceStore() InMemoryAddressReferenceStore {
+	return InMemoryAddressReferenceStore{records: []AddressReferenceRecord{}}
+}
+
+// Store interface methods implementation
+
+// Get returns the AddressReferenceRecord for the provided key, or an error if no such record exists.
+func (s *InMemoryAddressReferenceStore) Get(key AddressReferenceKey) (AddressReferenceRecord, error) {
+	idx := s.indexOf(key)
+	if idx == -1 {
+		return AddressReferenceRecord{}, ErrAddressReferenceRecordNotFound
+	}
+	return s.records[idx].Clone(), nil
+}
+
+// Fetch returns a copy of all AddressReferenceRecords in the store.
+func (s *InMemoryAddressReferenceStore) Fetch() ([]AddressReferenceRecord, error) {
+	records := []AddressReferenceRecord{}
+	for _, record := range s.records {
+		records = append(records, record.Clone())
+	}
+	return records, nil
+}
+
+// Filter returns a copy of all AddressReferenceRecords in the store that pass all of the provided filters.
+// Filters are applied in the order they are provided.
+// If no filters are provided, all records are returned.
+func (s *InMemoryAddressReferenceStore) Filter(filters ...func([]AddressReferenceRecord) []AddressReferenceRecord) []AddressReferenceRecord {
+	records := append([]AddressReferenceRecord{}, s.records...)
+	for _, filter := range filters {
+		records = filter(records)
+	}
+
+	return records
+}
+
+// MutableStore interface methods implementation
+
+// indexOf returns the index of the record with the provided key, or -1 if no such record exists.
+func (s *InMemoryAddressReferenceStore) indexOf(key AddressReferenceKey) int {
+	for idx, record := range s.records {
+		if record.Key().Equals(key) {
+			return idx
+		}
+	}
+	return -1
+}
+
+// Add inserts a new record into the store.
+// If a record with the same key already exists, an error is returned.
+func (s *InMemoryAddressReferenceStore) Add(record AddressReferenceRecord) error {
+	idx := s.indexOf(record.Key())
+	if idx != -1 {
+		return ErrAddressReferenceRecordExists
+	}
+	s.records = append(s.records, record)
+	return nil
+}
+
+// AddOrUpdate inserts a new record into the store if no record with the same key already exists.
+// If a record with the same key already exists, it is updated.
+func (s *InMemoryAddressReferenceStore) AddOrUpdate(record AddressReferenceRecord) error {
+	idx := s.indexOf(record.Key())
+	if idx != -1 {
+		s.records[idx] = record
+		return nil
+	}
+	s.records = append(s.records, record)
+	return nil
+}
+
+// Update edits an existing record whose fields match the primary key elements of the supplied AddressRecord, with
+// the non-primary-key values of the supplied AddressRecord.
+// If no such record exists, an error is returned.
+func (s *InMemoryAddressReferenceStore) Update(record AddressReferenceRecord) error {
+	idx := s.indexOf(record.Key())
+	if idx == -1 {
+		return ErrAddressReferenceRecordNotFound
+	}
+	s.records[idx] = record
+	return nil
+}
+
+// Delete deletes record whose primary key elements match the supplied AddressRecord, returning an error if no
+// such record exists to be deleted.
+func (s *InMemoryAddressReferenceStore) Delete(record AddressReferenceRecord) error {
+	idx := s.indexOf(record.Key())
+	if idx == -1 {
+		return ErrAddressReferenceRecordNotFound
+	}
+	s.records = append(s.records[:idx], s.records[idx+1:]...)
+	return nil
+}
+
+// The following functions are a default set of filters that can be used with the Filter method of the
+// AddressReferenceStore AddressReferenceStore interface. These filters are composable and can be combined
+// to create more complex filters.
+// For example, to filter records by chain and contract type, you can use the following:
+//	```
+//		records := store.Filter(
+//			ByChain(1),
+//			ByType(deployment.ContractType("type1")),
+//			ByQualifier("my-qualifier"),
+//		)
+//	```
+// This allows for a more flexible and reusable way to filter records. And opens the possibility for any user
+// to create their own custom filters.
+
+// ByChain returns a filter that only includes records with the provided chain.
+func ByChain(chain uint64) func([]AddressReferenceRecord) []AddressReferenceRecord {
+	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
+		var filtered []AddressReferenceRecord
+		for _, record := range records {
+			if record.Chain == chain {
+				filtered = append(filtered, record)
+			}
+		}
+		return filtered
+	}
+}
+
+// ByType returns a filter that only includes records with the provided contract type.
+func ByType(contractType deployment.ContractType) func([]AddressReferenceRecord) []AddressReferenceRecord {
+	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
+		var filtered []AddressReferenceRecord
+		for _, record := range records {
+			if record.Type == contractType {
+				filtered = append(filtered, record)
+			}
+		}
+		return filtered
+	}
+}
+
+// ByVersion returns a filter that only includes records with the provided version.
+func ByVersion(version string) func([]AddressReferenceRecord) []AddressReferenceRecord {
+	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
+		var filtered []AddressReferenceRecord
+		for _, record := range records {
+			if record.Version.String() == version {
+				filtered = append(filtered, record)
+			}
+		}
+		return filtered
+	}
+}
+
+// ByQualifier returns a filter that only includes records with the provided qualifier.
+func ByQualifier(qualifier string) func([]AddressReferenceRecord) []AddressReferenceRecord {
+	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
+		var filtered []AddressReferenceRecord
+		for _, record := range records {
+			if record.Qualifier == qualifier {
+				filtered = append(filtered, record)
+			}
+		}
+		return filtered
+	}
+}
