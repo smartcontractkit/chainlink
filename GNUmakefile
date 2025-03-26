@@ -114,10 +114,17 @@ docker-ccip:
 
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
+	@if [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required for fetching plugins from private repositories."; \
+		echo "Usage: GITHUB_TOKEN=$(gh auth token) make docker-plugins"; \
+		exit 1; \
+	fi
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
+	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
 	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
 	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
+	--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
 	-f plugins/chainlink.Dockerfile .
 
 .PHONY: operator-ui

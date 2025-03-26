@@ -20,6 +20,9 @@ ARG GO_GCFLAGS
 
 COPY . .
 
+# Used to authenticate with GitHub to fetch private dependencies.
+RUN --mount=type=secret,id=GIT_AUTH_TOKEN ./plugins/scripts/setup_git_auth.sh
+
 RUN apt-get update && apt-get install -y jq
 
 # Install Delve for debugging
