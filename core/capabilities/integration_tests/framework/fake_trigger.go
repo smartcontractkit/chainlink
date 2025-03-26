@@ -79,6 +79,21 @@ func (r *TriggerSink) SendOutput(outputs *values.Map) {
 	}
 }
 
+func (r *TriggerSink) SendOCREvent(ocrEvent *capabilities.OCRTriggerEvent, eventID string) {
+	triggerEvent := capabilities.TriggerEvent{
+		TriggerType: r.triggerID,
+		ID:          eventID,
+		OCREvent:    ocrEvent,
+	}
+
+	resp := capabilities.TriggerResponse{
+		Event: triggerEvent,
+	}
+
+	for _, trigger := range r.triggers {
+		trigger.sendResponse(resp)
+	}
+}
 func (r *TriggerSink) CreateNewTrigger(t *testing.T) capabilities.TriggerCapability {
 	trigger := newFakeTrigger(t, r.triggerID, &r.wg, r.stopCh)
 	r.triggers = append(r.triggers, trigger)
