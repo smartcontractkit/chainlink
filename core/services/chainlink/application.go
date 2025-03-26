@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -1286,7 +1287,7 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if err != nil {
 			return err
 		}
-		err = relayer.Replay(ctx, number, map[string]any{})
+		err = relayer.Replay(ctx, strconv.FormatUint(number, 10), map[string]any{})
 		if err != nil {
 			return err
 		}
