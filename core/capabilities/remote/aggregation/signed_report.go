@@ -39,6 +39,17 @@ func NewSignedReportRemoteAggregator(allowedSigners [][]byte, minRequiredSignatu
 	for _, signer := range allowedSigners {
 		signersMap[common.BytesToAddress(signer)] = struct{}{}
 	}
+	lggr = logger.Named(lggr, "SignedReportRemoteAggregator")
+	/*
+		signerStrings := func() []string {
+			signers := make([]string, 0, len(allowedSigners))
+			for _, s := range allowedSigners {
+				signers = append(signers, common.BytesToAddress(s).String())
+			}
+			return signers
+		}
+	*/
+	lggr.Warnw("created", "allowedSigners", signersMap, "minRequiredSignatures", minRequiredSignatures, "maxAgeSec", maxAgeSec, "capID", capID)
 	return &signedReportRemoteAggregator{
 		allowedSigners:        signersMap,
 		minRequiredSignatures: minRequiredSignatures,
