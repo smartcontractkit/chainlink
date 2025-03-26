@@ -1,0 +1,228 @@
+package v1_6
+
+import (
+	"fmt"
+	"math/big"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/mcms"
+)
+
+// AddBidirectionalLanesChangeset adds multiple bidirectional lanes to CCIP.
+// It batches all lane additions into a single MCMS proposal.
+var AddBidirectionalLanesChangeset = deployment.CreateChangeSet(addBidirectionalLanesLogic, addBidirectionalLanesPrecondition)
+
+// BidirectionalLaneDefinition indicates two chains that we want to connect.
+type BidirectionalLaneDefinition [2]ChainDefinition
+
+// laneDefinition defines a lane between source and destination.
+type laneDefinition struct {
+	// Source defines the source chain.
+	Source ChainDefinition
+	// Dest defines the destination chain.
+	Dest ChainDefinition
+}
+
+// AddBidirectionalLanesConfig is a configuration struct for AddBidirectionalLanesChangeset.
+type AddBidirectionalLanesConfig struct {
+	// MCMSConfig defines the MCMS configuration for the changeset.
+	MCMSConfig *changeset.MCMSConfig
+	// Lanes describes the lanes that we want to create.
+	Lanes []BidirectionalLaneDefinition
+	// TestRouter indicates if we want to enable these lanes on the test router.
+	TestRouter bool
+}
+
+type addBidirectionalLanesChangesetConfigs struct {
+	UpdateFeeQuoterDestsConfig  UpdateFeeQuoterDestsConfig
+	UpdateFeeQuoterPricesConfig UpdateFeeQuoterPricesConfig
+	UpdateOnRampDestsConfig     UpdateOnRampDestsConfig
+	UpdateOffRampSourcesConfig  UpdateOffRampSourcesConfig
+	UpdateRouterRampsConfig     UpdateRouterRampsConfig
+}
+
+func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChangesetConfigs {
+	onRampUpdatesByChain := make(map[uint64]map[uint64]OnRampDestinationUpdate)
+	offRampUpdatesByChain := make(map[uint64]map[uint64]OffRampSourceUpdate)
+	routerUpdatesByChain := make(map[uint64]RouterUpdates)
+	feeQuoterDestUpdatesByChain := make(map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+	feeQuoterPriceUpdatesByChain := make(map[uint64]FeeQuoterPriceUpdatePerSource)
+
+	for _, lane := range c.Lanes {
+		chainA := lane[0]
+		chainB := lane[1]
+
+		laneAToB := laneDefinition{
+			Source: chainA,
+			Dest:   chainB,
+		}
+		laneBToA := laneDefinition{
+			Source: chainB,
+			Dest:   chainA,
+		}
+
+		for _, laneDef := range []laneDefinition{laneAToB, laneBToA} {
+			// Setting the destination on the on ramp
+			if onRampUpdatesByChain[laneDef.Source.Selector] == nil {
+				onRampUpdatesByChain[laneDef.Source.Selector] = make(map[uint64]OnRampDestinationUpdate)
+			}
+			onRampUpdatesByChain[laneDef.Source.Selector][laneDef.Dest.Selector] = OnRampDestinationUpdate{
+				IsEnabled:        true,
+				TestRouter:       c.TestRouter,
+				AllowListEnabled: laneDef.Dest.AllowListEnabled,
+			}
+
+			// Setting the source on the off ramp
+			if offRampUpdatesByChain[laneDef.Dest.Selector] == nil {
+				offRampUpdatesByChain[laneDef.Dest.Selector] = make(map[uint64]OffRampSourceUpdate)
+			}
+			offRampUpdatesByChain[laneDef.Dest.Selector][laneDef.Source.Selector] = OffRampSourceUpdate{
+				IsEnabled:                 true,
+				TestRouter:                c.TestRouter,
+				IsRMNVerificationDisabled: laneDef.Source.RMNVerificationDisabled,
+			}
+
+			// Setting the on ramp on the source router
+			routerUpdatesOnSource := routerUpdatesByChain[laneDef.Source.Selector]
+			if routerUpdatesByChain[laneDef.Source.Selector].OnRampUpdates == nil {
+				routerUpdatesOnSource.OnRampUpdates = make(map[uint64]bool)
+			}
+			routerUpdatesOnSource.OnRampUpdates[laneDef.Source.Selector] = true
+			routerUpdatesByChain[laneDef.Source.Selector] = routerUpdatesOnSource
+
+			// Setting the off ramp on the dest router
+			routerUpdatesOnDest := routerUpdatesByChain[laneDef.Dest.Selector]
+			if routerUpdatesByChain[laneDef.Dest.Selector].OffRampUpdates == nil {
+				routerUpdatesOnDest.OffRampUpdates = make(map[uint64]bool)
+			}
+			routerUpdatesOnDest.OffRampUpdates[laneDef.Dest.Selector] = true
+			routerUpdatesByChain[laneDef.Dest.Selector] = routerUpdatesOnDest
+
+			// Setting the fee quoter destination on the source chain
+			if feeQuoterDestUpdatesByChain[laneDef.Source.Selector] == nil {
+				feeQuoterDestUpdatesByChain[laneDef.Source.Selector] = make(map[uint64]fee_quoter.FeeQuoterDestChainConfig)
+			}
+			feeQuoterDestUpdatesByChain[laneDef.Source.Selector][laneDef.Dest.Selector] = laneDef.Dest.FeeQuoterDestChainConfig
+
+			// setting the destination gas prices on the source chain
+			feeQuoterPriceUpdatesOnSource := feeQuoterPriceUpdatesByChain[laneDef.Source.Selector]
+			if feeQuoterPriceUpdatesOnSource.GasPrices == nil {
+				feeQuoterPriceUpdatesOnSource.GasPrices = make(map[uint64]*big.Int)
+			}
+			feeQuoterPriceUpdatesOnSource.GasPrices[laneDef.Dest.Selector] = laneDef.Dest.GasPrice
+			feeQuoterPriceUpdatesByChain[laneDef.Source.Selector] = feeQuoterPriceUpdatesOnSource
+		}
+	}
+
+	return addBidirectionalLanesChangesetConfigs{
+		UpdateFeeQuoterDestsConfig: UpdateFeeQuoterDestsConfig{
+			MCMS:           c.MCMSConfig,
+			UpdatesByChain: feeQuoterDestUpdatesByChain,
+		},
+		UpdateFeeQuoterPricesConfig: UpdateFeeQuoterPricesConfig{
+			MCMS:          c.MCMSConfig,
+			PricesByChain: feeQuoterPriceUpdatesByChain,
+		},
+		UpdateOnRampDestsConfig: UpdateOnRampDestsConfig{
+			MCMS:           c.MCMSConfig,
+			UpdatesByChain: onRampUpdatesByChain,
+		},
+		UpdateOffRampSourcesConfig: UpdateOffRampSourcesConfig{
+			MCMS:           c.MCMSConfig,
+			UpdatesByChain: offRampUpdatesByChain,
+		},
+		UpdateRouterRampsConfig: UpdateRouterRampsConfig{
+			TestRouter:     c.TestRouter,
+			MCMS:           c.MCMSConfig,
+			UpdatesByChain: routerUpdatesByChain,
+		},
+	}
+}
+
+func addBidirectionalLanesPrecondition(e deployment.Environment, c AddBidirectionalLanesConfig) error {
+	configs := c.buildConfigs()
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return fmt.Errorf("failed to load onchain state: %w", err)
+	}
+
+	err = configs.UpdateFeeQuoterDestsConfig.Validate(e)
+	if err != nil {
+		return fmt.Errorf("failed to validate UpdateFeeQuoterDestsConfig: %w", err)
+	}
+
+	err = configs.UpdateFeeQuoterPricesConfig.Validate(e)
+	if err != nil {
+		return fmt.Errorf("failed to validate UpdateFeeQuoterPricesConfig: %w", err)
+	}
+
+	err = configs.UpdateOnRampDestsConfig.Validate(e)
+	if err != nil {
+		return fmt.Errorf("failed to validate UpdateOnRampDestsConfig: %w", err)
+	}
+
+	err = configs.UpdateOffRampSourcesConfig.Validate(e, state)
+	if err != nil {
+		return fmt.Errorf("failed to validate UpdateOffRampSourcesConfig: %w", err)
+	}
+
+	err = configs.UpdateRouterRampsConfig.Validate(e, state)
+	if err != nil {
+		return fmt.Errorf("failed to validate UpdateRouterRampsConfig: %w", err)
+	}
+
+	return nil
+}
+
+func addBidirectionalLanesLogic(e deployment.Environment, c AddBidirectionalLanesConfig) (deployment.ChangesetOutput, error) {
+	proposals := make([]mcms.TimelockProposal, 0)
+	configs := c.buildConfigs()
+
+	out, err := UpdateFeeQuoterDestsChangeset(e, configs.UpdateFeeQuoterDestsConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterDestsChangeset: %w", err)
+	}
+	proposals = append(proposals, out.MCMSTimelockProposals...)
+
+	out, err = UpdateFeeQuoterPricesChangeset(e, configs.UpdateFeeQuoterPricesConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateFeeQuoterPricesChangeset: %w", err)
+	}
+	proposals = append(proposals, out.MCMSTimelockProposals...)
+
+	out, err = UpdateOnRampsDestsChangeset(e, configs.UpdateOnRampDestsConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOnRampDestsChangeset: %w", err)
+	}
+	proposals = append(proposals, out.MCMSTimelockProposals...)
+
+	out, err = UpdateOffRampSourcesChangeset(e, configs.UpdateOffRampSourcesConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateOffRampSourcesChangeset: %w", err)
+	}
+	proposals = append(proposals, out.MCMSTimelockProposals...)
+
+	out, err = UpdateRouterRampsChangeset(e, configs.UpdateRouterRampsConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to run UpdateRouterRampsChangeset: %w", err)
+	}
+	proposals = append(proposals, out.MCMSTimelockProposals...)
+
+	state, err := changeset.LoadOnchainState(e)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
+	}
+	proposal, err := aggregateProposals(e, state, proposals, nil, "Add multiple bidirectional lanes", c.MCMSConfig)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
+	}
+	if proposal == nil {
+		return deployment.ChangesetOutput{}, nil
+	}
+
+	return deployment.ChangesetOutput{
+		MCMSTimelockProposals: []mcms.TimelockProposal{*proposal},
+	}, nil
+}
