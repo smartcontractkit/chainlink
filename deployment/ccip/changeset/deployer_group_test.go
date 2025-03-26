@@ -239,7 +239,9 @@ func TestDeployerGroupMCMS(t *testing.T) {
 					deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 					commonchangeset.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
-						MinDelay:         0,
+						MCMSConfig: proposalutils.TimelockConfig{
+							MinDelay: 0,
+						},
 					},
 				),
 			)
@@ -316,7 +318,9 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)
@@ -380,7 +384,9 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)

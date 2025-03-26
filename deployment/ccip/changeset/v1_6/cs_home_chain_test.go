@@ -185,7 +185,9 @@ func TestRemoveDons(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					e.HomeChainSel: {homeChain.CapabilityRegistry.Address()},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 		commoncs.Configure(
