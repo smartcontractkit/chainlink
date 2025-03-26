@@ -121,7 +121,10 @@ func NewLLOProvider(
 		transmitter = bm.NewTransmitter(lggr, csaPub)
 	} else {
 		clients := make(map[string]grpc.Client)
-		for _, server := range lloCfg.GetServers() {
+
+		mercuryServers := mercuryCfg.GetServers()
+
+		for _, server := range mercuryServers {
 			var client grpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
@@ -144,15 +147,11 @@ func NewLLOProvider(
 			}
 			clients[server.URL] = client
 		}
-		// FIXME: The transmitter instantiation really ought to be moved out of
-		// the evm relay into llo package
-		// https://smartcontract-it.atlassian.net/browse/MERC-6847
-		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:           lggr,
-			DonID:          lloCfg.DonID,
-			FromAccount:    csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
-			VerboseLogging: mercuryCfg.VerboseLogging(),
-			MercuryTransmitterOpts: mercurytransmitter.Opts{
+
+		mercuryTransmitterOpts := nil
+
+		if len(mercuryServers) > 0 {
+			mercuryTransmitterOpts = mercurytransmitter.Opts{
 				Lggr:                 lggr,
 				VerboseLogging:       mercuryCfg.VerboseLogging(),
 				Cfg:                  mercuryCfg.Transmitter(),
@@ -161,7 +160,18 @@ func NewLLOProvider(
 				DonID:                lloCfg.DonID,
 				ORM:                  mercurytransmitter.NewORM(ds, relayConfig.LLODONID),
 				CapabilitiesRegistry: capabilitiesRegistry,
-			},
+			}
+		}
+
+		// FIXME: The transmitter instantiation really ought to be moved out of
+		// the evm relay into llo package
+		// https://smartcontract-it.atlassian.net/browse/MERC-6847
+		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
+			Lggr:           lggr,
+			DonID:          lloCfg.DonID,
+			FromAccount:    csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			VerboseLogging: mercuryCfg.VerboseLogging(),
+			MercuryTransmitterOpts: mercuryTransmitterOpts,
 			Subtransmitters:       lloCfg.Transmitters,
 			RetirementReportCache: retirementReportCache,
 		})
