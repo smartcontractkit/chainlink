@@ -39,10 +39,6 @@ func OneDonMetadataWithFlag(donTopologies []*types.DonMetadata, flag string) (*t
 
 func NodeSetFlags(nodeSet *types.CapabilitiesAwareNodeSet) ([]string, error) {
 	var stringCaps []string
-	if len(nodeSet.Capabilities) == 0 && len(nodeSet.DONTypes) == 0 {
-		// if no flags are set, we assign all known capabilities to the DON
-		return types.SingleDonFlags, nil
-	}
 
 	stringCaps = append(stringCaps, append(nodeSet.Capabilities, nodeSet.DONTypes...)...)
 	return stringCaps, nil

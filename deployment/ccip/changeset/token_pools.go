@@ -200,7 +200,7 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 // TokenAdminRegistryChangesetConfig defines a config for all token admin registry actions.
 type TokenAdminRegistryChangesetConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *MCMSConfig
+	MCMS *commoncs.TimelockConfig
 	// Pools defines the pools corresponding to the tokens we want to accept admin role for.
 	Pools map[uint64]map[TokenSymbol]TokenPoolInfo
 }

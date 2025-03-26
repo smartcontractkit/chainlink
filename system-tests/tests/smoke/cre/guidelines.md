@@ -465,6 +465,8 @@ If they do not match, the test will likely fail in a way that is difficult to di
 
 Some capabilities may also require a `ConfigurationContract`. Check with the capability author for the necessary values and ensure the correct capability type is set.
 
+You can either add your new capability to an existing Capability Factory Function or to a new one (as long as it has the following type: `func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig`). In the latter case remember to pass it as an argument, when calling `func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn) error {`.
+
 > **Note:** Since this test code is constantly evolving, no specific line numbers or function names are provided.
 
 ## Using a New Workflow
@@ -552,6 +554,10 @@ Currently, the supported capabilities are:
 - `ocr3`
 - `custom-compute`
 - `write-evm`
+- `read contract`
+- `log-event-trigger` (under development)
+- `web-api-trigger` (under development)
+- `web-api-target` (under development)
 
 To enable multi-DON support, update the configuration file by:
 - Defining a new nodeset.
@@ -615,6 +621,10 @@ The following capabilities are supported:
 - `cron`
 - `custom-compute`
 - `write-evm`
+- `read contract` (no test uses it)
+- `log-event-trigger` (no test uses it)
+- `web-api-trigger` (no test uses it)
+- `web-api-target` (no test uses it)
 
 ### HTTP Port Range Start
 

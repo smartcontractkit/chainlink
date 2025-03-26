@@ -58,7 +58,7 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpe
 			input.BlockchainOutput,
 			donWithMetadata,
 			input.OCR3CapabilityAddress,
-			input.CronCapBinName,
+			input.CronCapBinPath,
 			input.ExtraAllowedPorts,
 			input.ExtraAllowedIPs,
 			gatewayConnectorData,
@@ -80,7 +80,7 @@ func generateDonJobSpecs(
 	blockchainOutput *blockchain.Output,
 	donWithMetadata *types.DonWithMetadata,
 	oCR3CapabilityAddress common.Address,
-	cronCapBinName string,
+	cronCapBinPath string,
 	extraAllowedPorts []int,
 	extraAllowedIPs []string,
 	gatewayConnectorOutput types.GatewayConnectorOutput,
@@ -159,7 +159,7 @@ func generateDonJobSpecs(
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
-			jobSpec := jobs.WorkerStandardCapability(nodeID, "cron-capability", jobs.ExternalCapabilityPath(cronCapBinName), jobs.EmptyStdCapConfig)
+			jobSpec := jobs.WorkerStandardCapability(nodeID, "cron-capability", cronCapBinPath, jobs.EmptyStdCapConfig)
 			jobDesc := types.JobDescription{Flag: types.CronCapability, NodeType: types.WorkerNode}
 
 			if _, ok := jobSpecs[jobDesc]; !ok {
@@ -189,17 +189,17 @@ func generateDonJobSpecs(
 			}
 		}
 
-		nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.EthAddressKey)
-		if ethErr != nil {
-			return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
-		}
-
-		ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
-		if ocr2Err != nil {
-			return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
-		}
-
 		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
+			nodeEthAddr, ethErr := node.FindLabelValue(workerNode, node.EthAddressKey)
+			if ethErr != nil {
+				return nil, errors.Wrap(ethErr, "failed to get eth address from labels")
+			}
+
+			ocr2KeyBundleID, ocr2Err := node.FindLabelValue(workerNode, node.NodeOCR2KeyBundleIDKey)
+			if ocr2Err != nil {
+				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
+			}
+
 			jobSpec := jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64)
 			jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
 

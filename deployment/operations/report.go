@@ -164,3 +164,40 @@ func NewRecentMemoryReporter(reporter Reporter) *RecentReporter {
 	}
 	return r
 }
+
+func genericReport[IN, OUT any](r Report[IN, OUT]) Report[any, any] {
+	return Report[any, any]{
+		ID: r.ID,
+		Def: Definition{
+			ID:          r.Def.ID,
+			Version:     r.Def.Version,
+			Description: r.Def.Description,
+		},
+		Output:                r.Output,
+		Input:                 r.Input,
+		Timestamp:             r.Timestamp,
+		Err:                   r.Err,
+		ChildOperationReports: r.ChildOperationReports,
+	}
+}
+
+func typeReport[Input, Output any](r Report[any, any]) (Report[Input, Output], bool) {
+	input, ok := r.Input.(Input)
+	if !ok {
+		return Report[Input, Output]{}, false
+	}
+
+	output, ok := r.Output.(Output)
+	if !ok {
+		return Report[Input, Output]{}, false
+	}
+
+	return Report[Input, Output]{
+		ID:        r.ID,
+		Def:       r.Def,
+		Output:    output,
+		Input:     input,
+		Timestamp: r.Timestamp,
+		Err:       r.Err,
+	}, true
+}

@@ -20,6 +20,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -457,7 +458,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *changeset.MCMSConfig
+	MCMS         *commonchangeset.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
@@ -544,7 +545,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *changeset.MCMSConfig
+	MCMSCfg        *commonchangeset.TimelockConfig
 }
 
 func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) error {

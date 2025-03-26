@@ -21,7 +21,7 @@ func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (stri
 	}
 	defer file.Close()
 
-	if _, err := file.Write(content); err != nil {
+	if _, err = file.Write(content); err != nil {
 		return "", err
 	}
 
