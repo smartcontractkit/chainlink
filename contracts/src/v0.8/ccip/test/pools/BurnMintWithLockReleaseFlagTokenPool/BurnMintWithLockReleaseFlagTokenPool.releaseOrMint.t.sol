@@ -1,13 +1,8 @@
 // SPDX-License-Identifier: BUSL-1.1
 pragma solidity ^0.8.24;
 
-import {ITokenMessenger} from "../../../pools/USDC/ITokenMessenger.sol";
-
 import {Pool} from "../../../libraries/Pool.sol";
-
-import {CCTPMessageTransmitterProxy} from "../../../pools/USDC/CCTPMessageTransmitterProxy.sol";
 import {LOCK_RELEASE_FLAG} from "../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
-import {HybridLockReleaseUSDCTokenPool} from "../../../pools/USDC/HybridLockReleaseUSDCTokenPool.sol";
 import {HybridLockReleaseUSDCTokenPoolSetup} from
   "../USDC/HybridLockReleaseUSDCTokenPool/HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 import {BurnMintWithLockReleaseFlagTokenPoolSetup} from "./BurnMintWithLockReleaseFlagTokenPoolSetup.t.sol";

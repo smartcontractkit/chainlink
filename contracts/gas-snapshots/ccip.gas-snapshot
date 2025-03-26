@@ -148,6 +148,7 @@ HybridLockReleaseUSDCTokenPool_lockOrBurn:test_onLockReleaseMechanism() (gas: 14
 HybridLockReleaseUSDCTokenPool_lockOrBurn:test_onLockReleaseMechanism_thenSwitchToPrimary() (gas: 202932)
 HybridLockReleaseUSDCTokenPool_releaseOrMint:test_OnLockReleaseMechanism() (gas: 206305)
 HybridLockReleaseUSDCTokenPool_releaseOrMint:test_incomingMessageWithPrimaryMechanism() (gas: 265499)
+HybridLockReleaseUSDCTokenPool_releaseOrMint_E2ETest:test_releaseOrMint_E2E() (gas: 374077)
 LockReleaseTokenPool_canAcceptLiquidity:test_CanAcceptLiquidity() (gas: 3222607)
 LockReleaseTokenPool_lockOrBurn:test_LockOrBurnWithAllowList() (gas: 72828)
 LockReleaseTokenPool_releaseOrMint:test_ReleaseOrMint() (gas: 217898)
