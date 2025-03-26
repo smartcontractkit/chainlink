@@ -62,15 +62,15 @@ contract ZKSyncValidator is BaseValidator {
     return CHAIN_ID;
   }
 
-  /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
+  /// @notice _validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the Bridgehub. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
-  function validate(
+  function _validate(
     uint256 /* previousRoundId */,
     int256 /* previousAnswer */,
     uint256 /* currentRoundId */,
     int256 currentAnswer
-  ) external override checkAccess returns (bool) {
+  ) internal override returns (bool) {
     IBridgehub bridgeHub = IBridgehub(L1_CROSS_DOMAIN_MESSENGER_ADDRESS);
 
     uint256 transactionBaseCostEstimate = bridgeHub.l2TransactionBaseCost(

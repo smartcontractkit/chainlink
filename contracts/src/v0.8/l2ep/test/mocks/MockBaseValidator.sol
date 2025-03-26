@@ -20,4 +20,13 @@ contract MockBaseValidator is BaseValidator {
   ) external view override checkAccess returns (bool) {
     return true;
   }
+
+  function _validate(
+    uint256 /* previousRoundId */,
+    int256 /* previousAnswer */,
+    uint256 /* currentRoundId */,
+    int256 /* currentAnswer */
+  ) internal override returns (bool) {
+    return true;
+  }
 }

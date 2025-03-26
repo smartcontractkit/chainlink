@@ -11,6 +11,13 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
   /// @param gasLimit updated gas cost
   event GasLimitUpdated(uint32 gasLimit);
 
+  /// @notice emitted when a validation is executed successfully
+  /// @param previousRoundId previous aggregator OCR round id
+  /// @param previousAnswer previous aggregator answer
+  /// @param currentRoundId current aggregator OCR round id
+  /// @param currentAnswer new aggregator answer - value of 1 considers the service offline.
+  event ValidatedStatus(uint256 previousRoundId, int256 previousAnswer, uint256 currentRoundId, int256 currentAnswer);
+
   error L1CrossDomainMessengerAddressZero();
   error L2UptimeFeedAddrZero();
 
@@ -38,6 +45,24 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
     s_gasLimit = gasLimit;
   }
+
+  function validate(
+    uint256 previousRoundId,
+    int256 previousAnswer,
+    uint256 currentRoundId,
+    int256 currentAnswer
+  ) external virtual override checkAccess returns (bool) {
+    bool status = _validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+    emit ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+    return status;
+  }
+
+  function _validate(
+    uint256 /* previousRoundId */,
+    int256 /* previousAnswer */,
+    uint256 /* currentRoundId */,
+    int256 currentAnswer
+  ) internal virtual returns (bool);
 
   /// @notice fetches the gas cost of sending a cross chain message
   function getGasLimit() external view returns (uint32) {

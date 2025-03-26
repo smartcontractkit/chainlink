@@ -23,12 +23,12 @@ contract OptimismValidator is BaseValidator {
   /// @notice validate method sends an xDomain L2 tx to update Uptime Feed contract on L2.
   /// @dev A message is sent using the L1CrossDomainMessenger. This method is accessed controlled.
   /// @param currentAnswer new aggregator answer - value of 1 considers the sequencer offline.
-  function validate(
+  function _validate(
     uint256 /* previousRoundId */,
     int256 /* previousAnswer */,
     uint256 /* currentRoundId */,
     int256 currentAnswer
-  ) external override checkAccess returns (bool) {
+  ) internal override returns (bool) {
     // Encode the OptimismSequencerUptimeFeed call
     bytes4 selector = ISequencerUptimeFeed.updateStatus.selector;
     bool status = currentAnswer == ANSWER_SEQ_OFFLINE;

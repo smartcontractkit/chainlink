@@ -80,6 +80,15 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
   event L2WithdrawalRequested(uint256 indexed id, uint256 amount, address indexed refundAddr);
 
   /**
+   * @notice emitted when a validation is executed successfully
+   * @param previousRoundId previous aggregator OCR round id
+   * @param previousAnswer previous aggregator answer
+   * @param currentRoundId current aggregator OCR round id
+   * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
+   */
+  event ValidatedStatus(uint256 previousRoundId, int256 previousAnswer, uint256 currentRoundId, int256 currentAnswer);
+
+  /**
    * @param crossDomainMessengerAddr address the xDomain bridge messenger (Arbitrum Inbox L1) contract address
    * @param l2ArbitrumSequencerUptimeFeedAddr the L2 Flags contract address
    * @param configACAddr address of the access controller for managing gas price on Arbitrum
@@ -251,9 +260,9 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
    * @param currentAnswer new aggregator answer - value of 1 considers the service offline.
    */
   function validate(
-    uint256 /* previousRoundId */,
+    uint256 previousRoundId,
     int256 previousAnswer,
-    uint256 /* currentRoundId */,
+    uint256 currentRoundId,
     int256 currentAnswer
   ) external override checkAccess returns (bool) {
     // Avoids resending to L2 the same tx on every call
@@ -289,6 +298,7 @@ contract ArbitrumValidator is ITypeAndVersion, AggregatorValidatorInterface, Sim
       gasPriceBid,
       message
     );
+    emit ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // return success
     return true;
   }
