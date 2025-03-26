@@ -1,12 +1,14 @@
 package por
 
 import (
+	"encoding/hex"
 	"fmt"
 	"strconv"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
@@ -17,7 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput, loadFeedAddresses [][]string) (types.DonsToJobSpecs, error) {
+type FeedWithStreamID struct {
+	Feed     string `json:"feed"`
+	StreamID uint32 `json:"streamID"`
+}
+
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput, loadFeedAddresses [][]FeedWithStreamID) (types.DonsToJobSpecs, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -88,7 +95,7 @@ func generateDonJobSpecs(
 	extraAllowedPorts []int,
 	extraAllowedIPs []string,
 	gatewayConnectorOutput *types.GatewayConnectorOutput,
-	loadFeedAddresses [][]string,
+	loadFeedAddresses [][]FeedWithStreamID,
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs)
 
@@ -228,7 +235,23 @@ func generateDonJobSpecs(
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
 			for i := range loadFeedAddresses {
-				jobSpec := jobs.TextWorkflow(nodeID, fmt.Sprintf("load_%d", i), loadFeedAddresses[i])
+				feedConfig := make([]jobs.FeedConfig, 0)
+
+				for _, feed := range loadFeedAddresses[i] {
+					feedID, err2 := datastreams.NewFeedID(feed.Feed)
+					if err2 != nil {
+						return nil, err2
+					}
+					feedBytes := feedID.Bytes()
+					feedConfig = append(feedConfig, jobs.FeedConfig{
+						FeedIDsIndex: int(feed.StreamID),
+						Deviation:    "0.001",
+						Heartbeat:    3600,
+						RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
+					})
+				}
+
+				jobSpec := jobs.TextWorkflow(nodeID, fmt.Sprintf("load_%d", i), feedConfig)
 				jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
 
 				if _, ok := jobSpecs[jobDesc]; !ok {

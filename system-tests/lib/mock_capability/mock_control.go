@@ -32,6 +32,18 @@ type MockClient struct {
 	URL string
 }
 
+type OCRTriggerEvent struct {
+	ConfigDigest []byte
+	SeqNr        uint64
+	Report       []byte
+	Sigs         []OCRTriggerEventSig
+}
+
+type OCRTriggerEventSig struct {
+	Signature []byte
+	Signer    uint32
+}
+
 func NewMockCapabilityController(lggr zerolog.Logger) *MockCapabilityController {
 	return &MockCapabilityController{Nodes: make([]MockClient, 0), lggr: lggr}
 }
@@ -110,13 +122,30 @@ func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb
 	return nil
 }
 
-func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
+func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, eventID string, payload []byte, ocr *OCRTriggerEvent) error {
 	for _, client := range c.Nodes {
 		data := pb.SendTriggerEventRequest{
 			ID:      id,
 			EventID: eventID,
 			Payload: payload,
 		}
+
+		if ocr != nil {
+			data.OCRTriggerEvent = &pb.OCRTriggerEvent{
+				ConfigDigest: ocr.ConfigDigest,
+				SeqNr:        ocr.SeqNr,
+				Report:       ocr.Report,
+				Sigs:         make([]*pb.OCRAttributedOnchainSignature, 0),
+			}
+
+			for _, s := range ocr.Sigs {
+				data.OCRTriggerEvent.Sigs = append(data.OCRTriggerEvent.Sigs, &pb.OCRAttributedOnchainSignature{
+					Signature: s.Signature,
+					Signer:    s.Signer,
+				})
+			}
+		}
+
 		framework.L.Info().Msg(fmt.Sprintf("Sending trigger response %s:%s", id, eventID))
 
 		_, err := client.API.SendTriggerEvent(ctx, &data)

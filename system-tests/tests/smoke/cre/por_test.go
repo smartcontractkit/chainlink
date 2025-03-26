@@ -473,7 +473,7 @@ type setupOutput struct {
 	creds                credentials.TransportCredentials
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]string) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]keystonepor.FeedWithStreamID) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -763,8 +763,8 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ExtraAllowedPorts:      extraAllowedPorts,
 			ExtraAllowedIPs:        extraAllowedIPs,
 			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
-			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
-		}, loadFeedAddresses
+			GatewayConnectorOutput: topology.GatewayConnectorOutput,
+		}, loadFeedAddresses,
 	)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
@@ -866,7 +866,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]keystonepor.FeedWithStreamID{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -979,7 +979,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]keystonepor.FeedWithStreamID{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1095,7 +1095,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]keystonepor.FeedWithStreamID{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {

@@ -16,22 +16,24 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
-	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/mock_capability"
@@ -39,6 +41,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury/v3/reportcodec"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -70,12 +73,15 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	feedsAddresses := make([][]string, in.WorkflowLoad.Jobs)
+	feedsAddresses := make([][]por.FeedWithStreamID, in.WorkflowLoad.Jobs)
 	for i := range in.WorkflowLoad.Jobs {
-		feedsAddresses[i] = make([]string, 0)
-		for range in.WorkflowLoad.Feeds {
+		feedsAddresses[i] = make([]por.FeedWithStreamID, 0)
+		for streamID := range in.WorkflowLoad.Feeds {
 			_, id := NewFeedID(t)
-			feedsAddresses[i] = append(feedsAddresses[i], id)
+			feedsAddresses[i] = append(feedsAddresses[i], por.FeedWithStreamID{
+				Feed:     id,
+				StreamID: uint32((in.WorkflowLoad.Feeds * i) + streamID),
+			})
 		}
 	}
 
@@ -191,7 +197,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
 			),
-			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@1.0.0", receiveChannel, 500, 1),
+			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
 			Labels:                labels,
 			LokiConfig:            wasp.NewEnvLokiConfig(),
 			RateLimitUnitDuration: time.Minute,
@@ -267,7 +273,7 @@ func TestReconnectMock(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 50, 2)
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 50, 2)
 	time.Sleep(time.Second * 5) //Time to precompute
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
@@ -290,18 +296,19 @@ var _ wasp.Gun = (*StreamsGun)(nil)
 type StreamsGun struct {
 	capProxy    *mock_capability.MockCapabilityController
 	keyBundles  []ocr2key.KeyBundle
-	feeds       [][]string
+	feeds       [][]por.FeedWithStreamID
 	triggerID   string
-	waitChans   map[int64]chan interface{}
+	waitChans   map[uint64]chan interface{}
 	recieveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
 	jobLimit    int
-	reportBytes []byte
-	timestamp   int64
+	event       *capabilities.OCRTriggerEvent
+	eventID     string
+	timestamp   uint64
 }
 
-func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]string, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
+func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]por.FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
 	sg := &StreamsGun{
 		capProxy:    capProxy,
 		keyBundles:  keyBundles,
@@ -323,7 +330,21 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, uuid.NewString(), s.reportBytes)
+	event := &mock_capability.OCRTriggerEvent{
+		ConfigDigest: s.event.ConfigDigest,
+		SeqNr:        s.event.SeqNr,
+		Report:       s.event.Report,
+		Sigs:         make([]mock_capability.OCRTriggerEventSig, 0),
+	}
+
+	for _, sig := range s.event.Sigs {
+		event.Sigs = append(event.Sigs, mock_capability.OCRTriggerEventSig{
+			Signature: sig.Signature,
+			Signer:    sig.Signer,
+		})
+	}
+
+	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, s.eventID, nil, event)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
@@ -361,7 +382,7 @@ func (s *StreamsGun) waitHOOKloop() error {
 
 			s.mu.Lock()
 			//Check if exist
-			if ch, exist := s.waitChans[int64(timestamp)]; exist {
+			if ch, exist := s.waitChans[uint64(timestamp)]; exist {
 				s.mu.Unlock()
 				ch <- m //This is blocking
 			} else {
@@ -373,11 +394,11 @@ func (s *StreamsGun) waitHOOKloop() error {
 	return nil
 }
 
-func (s *StreamsGun) prepareWaitHOOK(reportTimestamp int64) error {
+func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waitChans == nil {
-		s.waitChans = make(map[int64]chan interface{})
+		s.waitChans = make(map[uint64]chan interface{})
 	}
 	if _, exists := s.waitChans[reportTimestamp]; exists {
 		return fmt.Errorf("cannot prepare for HOOK, timestamp  %d already exits", reportTimestamp)
@@ -386,7 +407,7 @@ func (s *StreamsGun) prepareWaitHOOK(reportTimestamp int64) error {
 	return nil
 }
 
-func (s *StreamsGun) waitForHOOK(timestamp int64) error {
+func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
 	s.mu.Lock()
 
 	if ch, exists := s.waitChans[timestamp]; !exists {
@@ -402,79 +423,132 @@ func (s *StreamsGun) waitForHOOK(timestamp int64) error {
 }
 
 func (s *StreamsGun) precomputeReports() {
-	timestamp := time.Now().Unix()
+	timestamp := uint64(time.Now().UnixNano())
 	start := time.Now()
-	reports := make([]datastreams.FeedReport, 0)
-	for i := range s.feeds {
-		if i >= s.jobLimit {
+
+	price := decimal.NewFromInt(int64(rand.IntN(100)))
+
+	feeds := make([]por.FeedWithStreamID, 0)
+	for jobNr, _ := range s.feeds {
+		if jobNr > s.jobLimit {
 			break
 		}
-		for i2, feed := range s.feeds[i] {
-			if i2 >= s.feedLimit {
+
+		for feedNr, feed := range s.feeds[jobNr] {
+			if feedNr > s.feedLimit {
 				break
 			}
-			r, err := createFeedReport(big.NewInt(int64(rand.IntN(100))), timestamp, feed, s.keyBundles)
-			if err != nil {
-				panic(err)
-			}
-			reports = append(reports, *r)
+			feeds = append(feeds, feed)
 		}
 	}
 
-	event, err := values.WrapMap(datastreams.StreamsTriggerEvent{
-		Payload:   reports,
-		Metadata:  datastreams.Metadata{},
-		Timestamp: timestamp,
-	})
+	event, eventID, err := createFeedReport(logger.NullLogger, price, timestamp, feeds, s.keyBundles)
 	if err != nil {
 		panic(err)
 	}
 
-	eventBytes, err := mock_capability.MapToBytes(event)
-	s.reportBytes = eventBytes
+	s.event = event
+	s.eventID = eventID
 	s.timestamp = timestamp
 
-	framework.L.Info().Msgf("precomputeReports took %s, size-byte %dKB", time.Since(start), len(eventBytes)/1000)
+	framework.L.Info().Msgf("precomputeReports took %s", time.Since(start))
 	return
 }
 
-func createFeedReport(price *big.Int, observationTimestamp int64,
-	feedIDString string,
-	keyBundles []ocr2key.KeyBundle) (*datastreams.FeedReport, error) {
-	reportCtx := ocrTypes.ReportContext{}
-	rawCtx := RawReportContext(reportCtx)
+func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
+	feeds []por.FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
 
-	bytes, err := hex.DecodeString(feedIDString[2:])
+	values := make([]datastreamsllo.StreamValue, 0)
+
+	priceBytes, err := price.MarshalBinary()
 	if err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	var feedIDBytes [32]byte
-	copy(feedIDBytes[:], bytes)
+	streams := make([]llotypes.Stream, 0)
 
-	fullReport, err := newReport(feedIDBytes, price, observationTimestamp)
+	for _, f := range feeds {
+		dec := &datastreamsllo.Decimal{}
+		dec.UnmarshalBinary(priceBytes)
+		values = append(values)
+		streams = append(streams, llotypes.Stream{
+			StreamID: llotypes.StreamID(f.StreamID),
+		})
+	}
+
+	reportCodec := cre.NewReportCodecCapabilityTrigger(lggr, 1)
+
+	report := datastreamsllo.Report{
+		ObservationTimestampNanoseconds: timestamp,
+		Values:                          values,
+	}
+
+	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
+		Streams: streams,
+	})
 	if err != nil {
-		return nil, err
+		return nil, "", err
+	}
+	eventID := reportCodec.EventID(report)
+
+	event := &capabilities.OCRTriggerEvent{
+		ConfigDigest: []byte{0: 1, 31: 2},
+		SeqNr:        0,
+		Report:       reportBytes,
+		Sigs:         make([]capabilities.OCRAttributedOnchainSignature, 0, len(keyBundles)),
 	}
 
-	report := &datastreams.FeedReport{
-		FeedID:               feedIDString,
-		FullReport:           fullReport,
-		BenchmarkPrice:       price.Bytes(),
-		ObservationTimestamp: observationTimestamp,
-		Signatures:           [][]byte{},
-		ReportContext:        rawCtx,
-	}
-
-	for _, key := range keyBundles {
-		sig, err := key.Sign(reportCtx, report.FullReport)
-		if err != nil {
-			return nil, err
+	for i, key := range keyBundles {
+		sig, err2 := key.Sign3(ocrTypes.ConfigDigest(event.ConfigDigest), event.SeqNr, reportBytes)
+		if err2 != nil {
+			return nil, "", err
 		}
-		report.Signatures = append(report.Signatures, sig)
+		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
+			Signer:    uint32(i),
+			Signature: sig,
+		})
 	}
 
-	return report, nil
+	return event, eventID, nil
 }
+
+// func createFeedReport(price *big.Int, observationTimestamp int64,
+//
+//		feedIDString string,
+//		keyBundles []ocr2key.KeyBundle) (*datastreams.FeedReport, error) {
+//		reportCtx := ocrTypes.ReportContext{}
+//		rawCtx := RawReportContext(reportCtx)
+//
+//		bytes, err := hex.DecodeString(feedIDString[2:])
+//		if err != nil {
+//			return nil, err
+//		}
+//		var feedIDBytes [32]byte
+//		copy(feedIDBytes[:], bytes)
+//
+//		fullReport, err := newReport(feedIDBytes, price, observationTimestamp)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		report := &datastreams.FeedReport{
+//			FeedID:               feedIDString,
+//			FullReport:           fullReport,
+//			BenchmarkPrice:       price.Bytes(),
+//			ObservationTimestamp: observationTimestamp,
+//			Signatures:           [][]byte{},
+//			ReportContext:        rawCtx,
+//		}
+//
+//		for _, key := range keyBundles {
+//			sig, err := key.Sign(reportCtx, report.FullReport)
+//			if err != nil {
+//				return nil, err
+//			}
+//			report.Signatures = append(report.Signatures, sig)
+//		}
+//
+//		return report, nil
+//	}
 func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 	rc := evmutil.RawReportContext(reportCtx)
 	flat := []byte{}
@@ -633,7 +707,7 @@ func NewFeedID(t *testing.T) ([32]byte, string) {
 	return buf, "0x" + hex.EncodeToString(buf[:])
 }
 
-func saveFeedAddresses(feedsAddresses [][]string) error {
+func saveFeedAddresses(feedsAddresses [][]por.FeedWithStreamID) error {
 	cacheDir := "cache/feeds"
 	if err := os.MkdirAll(cacheDir, 0755); err != nil {
 		return fmt.Errorf("failed to create cache directory: %w", err)
@@ -652,7 +726,7 @@ func saveFeedAddresses(feedsAddresses [][]string) error {
 	return nil
 }
 
-func loadFeedAddressesFromCache() ([][]string, error) {
+func loadFeedAddressesFromCache() ([][]por.FeedWithStreamID, error) {
 	cacheDir := "cache/feeds"
 	filename := fmt.Sprintf("%s/feed_addresses.json", cacheDir)
 
@@ -661,7 +735,7 @@ func loadFeedAddressesFromCache() ([][]string, error) {
 		return nil, fmt.Errorf("failed to read feed addresses file: %w", err)
 	}
 
-	var feedsAddresses [][]string
+	var feedsAddresses [][]por.FeedWithStreamID
 	if err := json.Unmarshal(bytes, &feedsAddresses); err != nil {
 		return nil, fmt.Errorf("failed to unmarshal feed addresses: %w", err)
 	}

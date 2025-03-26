@@ -252,7 +252,7 @@ func makeOCRTriggerEvent2(t *testing.T, reports *datastreams.LLOStreamsTriggerEv
 	}
 
 	// Encode the report to bytes
-	reportBytes, err := reportCodec.Encode(context.Background(), report, channelDef)
+	reportBytes, err := reportCodec.Encode(report, channelDef)
 	require.NoError(t, err)
 	eventID = reportCodec.EventID(report)
 	// Create report context

@@ -139,7 +139,7 @@ var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(do
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "streams-trigger",
-					Version:        "1.0.0",
+					Version:        "2.0.0",
 					CapabilityType: 0, // TARGET
 				},
 				Config: &capabilitiespb.CapabilityConfig{},

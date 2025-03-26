@@ -267,7 +267,7 @@ type GeneratePoRJobSpecsInput struct {
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
 	CronCapBinPath         string
-	GatewayConnectorOutput GatewayConnectorOutput
+	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 func (g *GeneratePoRJobSpecsInput) Validate() error {

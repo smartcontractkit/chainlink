@@ -27,7 +27,7 @@ func NewReportCodecCapabilityTrigger(lggr logger.Logger, donID uint32) ReportCod
 
 // Encode a report into a capability trigger report
 // the returned byte slice is the marshaled protobuf of [capabilitiespb.OCRTriggerReport]
-func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	if len(cd.Streams) != len(report.Values) {
 		// Invariant violation
 		return nil, fmt.Errorf("capability trigger expected %d streams, got %d", len(cd.Streams), len(report.Values))
