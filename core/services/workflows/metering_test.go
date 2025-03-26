@@ -151,6 +151,7 @@ func Test_MeterReports(t *testing.T) {
 		mr.Add("exec1", NewMeteringReport())
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
+		//nolint:errcheck
 		r.SetStep("ref1", []MeteringReportStep{})
 		mr.Delete("exec1")
 	}()
@@ -168,6 +169,7 @@ func Test_MeterReports(t *testing.T) {
 		mr.Add("exec1", NewMeteringReport())
 		r, ok := mr.Get("exec1")
 		assert.True(t, ok)
+		//nolint:errcheck
 		r.SetStep("ref1", []MeteringReportStep{})
 		mr.Delete("exec1")
 	}()
