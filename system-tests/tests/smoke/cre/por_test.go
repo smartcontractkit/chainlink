@@ -738,7 +738,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
 			ExtraAllowedPorts:     extraAllowedPorts,
 			ExtraAllowedIPs:       extraAllowedIPs,
-			//ExtraAllowedIPsCIDR is not needed for this test, but is supported
+			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
 			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
