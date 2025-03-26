@@ -164,12 +164,5 @@ func maxReadBytes(sizes readSize) uint32 {
 	if sizes.requestSize == 0 {
 		return sizes.defaultSize
 	}
-	return minUint32(sizes.defaultSize, sizes.requestSize)
-}
-
-func minUint32(a, b uint32) uint32 {
-	if a < b {
-		return a
-	}
-	return b
+	return min(sizes.defaultSize, sizes.requestSize)
 }
