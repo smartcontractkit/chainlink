@@ -837,10 +837,10 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
+	// if os.Getenv("CI") == "true" {
+	// 	downloadErr := downloadBinaryFiles(in)
+	// 	require.NoError(t, downloadErr, "failed to download binary files")
+	// }
 
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
