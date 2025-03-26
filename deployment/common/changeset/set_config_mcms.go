@@ -41,7 +41,8 @@ type ConfigPerRoleV2 struct {
 }
 
 type TimelockConfig struct {
-	MinDelay time.Duration // delay for timelock worker to execute the transfers.
+	MinDelay   time.Duration // delay for timelock worker to execute the transfers.
+	MCMSAction timelock.TimelockOperation
 }
 
 type MCMSConfig struct {

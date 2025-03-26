@@ -89,7 +89,8 @@ var (
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 
-	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	OneCoin     = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	TinyOneCoin = new(big.Int).SetUint64(1)
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -1382,6 +1383,7 @@ func Transfer(
 	sourceChain, destChain uint64,
 	tokens []router.ClientEVMTokenAmount,
 	receiver common.Address,
+	useTestRouter bool,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
@@ -1391,7 +1393,7 @@ func Transfer(
 	block := latesthdr.Number.Uint64()
 	startBlocks[destChain] = &block
 
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, router.ClientEVM2AnyMessage{
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, useTestRouter, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(receiver.Bytes(), 32),
 		Data:         data,
 		TokenAmounts: tokens,
@@ -1411,6 +1413,8 @@ type TestTransferRequest struct {
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances map[common.Address]*big.Int
+	RouterAddress         common.Address // Expected for long-living environments
+	UseTestRouter         bool
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1446,8 +1450,16 @@ func TransferMultiple(
 				DestChainSelector:   tt.DestChain,
 			}
 
+			// Approve router to spend tokens
+			if tt.RouterAddress != (common.Address{}) {
+				for _, ta := range tt.Tokens {
+					err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+					require.NoError(t, err)
+				}
+			}
+
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tt.Tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -1494,7 +1506,7 @@ func TransferAndWaitForSuccess(
 	expectedSeqNum := make(map[SourceDestPair]uint64)
 	expectedSeqNumExec := make(map[SourceDestPair][]uint64)
 
-	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, data, extraArgs)
+	msgSentEvent, startBlocks := Transfer(ctx, t, env, state, sourceChain, destChain, tokens, receiver, false, data, extraArgs)
 	expectedSeqNum[identifier] = msgSentEvent.SequenceNumber
 	expectedSeqNumExec[identifier] = []uint64{msgSentEvent.SequenceNumber}
 
@@ -1619,37 +1631,58 @@ func DefaultRouterMessage(receiverAddress common.Address) router.ClientEVM2AnyMe
 }
 
 // TODO: this should be linked to the solChain function
-func SavePreloadedSolAddresses(t *testing.T, e deployment.Environment, solChainSelector uint64) {
+func SavePreloadedSolAddresses(e deployment.Environment, solChainSelector uint64) error {
 	tv := deployment.NewTypeAndVersion(changeset.Router, deployment.Version1_0_0)
 	err := e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_router"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.Receiver, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["test_ccip_receiver"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.FeeQuoter, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["fee_quoter"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.OffRamp, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["ccip_offramp"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.BurnMintTokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["burnmint_token_pool"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.LockReleaseTokenPool, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["lockrelease_token_pool"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(commontypes.ManyChainMultisigProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["mcm"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(commontypes.AccessControllerProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["access_controller"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(commontypes.RBACTimelockProgram, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["timelock"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
 	tv = deployment.NewTypeAndVersion(changeset.RMNRemote, deployment.Version1_0_0)
 	err = e.ExistingAddresses.Save(solChainSelector, memory.SolanaProgramIDs["rmn_remote"], tv)
-	require.NoError(t, err)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func ValidateSolanaState(t *testing.T, e deployment.Environment, solChainSelectors []uint64) {
@@ -1807,7 +1840,8 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Deploy all the CCIP contracts.
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
+	allChains := append(e.Env.AllChainSelectors(), e.Env.AllChainSelectorsSolana()...)
+	snap, solana, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
@@ -1816,6 +1850,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
 	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(solana, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }

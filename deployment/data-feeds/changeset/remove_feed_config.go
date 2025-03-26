@@ -25,7 +25,8 @@ func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigC
 		txOpt = deployment.SimTransactOpts()
 	}
 
-	tx, err := contract.RemoveFeedConfigs(txOpt, c.DataIDs)
+	dataIDs, _ := FeedIDsToBytes16(c.DataIDs)
+	tx, err := contract.RemoveFeedConfigs(txOpt, dataIDs)
 
 	if c.McmsConfig != nil {
 		proposalConfig := MultiChainProposalConfig{
@@ -54,6 +55,10 @@ func removeFeedConfigLogic(env deployment.Environment, c types.RemoveFeedConfigC
 func removeFeedConfigPrecondition(env deployment.Environment, c types.RemoveFeedConfigCSConfig) error {
 	if len(c.DataIDs) == 0 {
 		return errors.New("dataIDs must not be empty")
+	}
+	_, err := FeedIDsToBytes16(c.DataIDs)
+	if err != nil {
+		return fmt.Errorf("failed to convert feed ids to bytes16: %w", err)
 	}
 	if c.McmsConfig != nil {
 		if err := ValidateMCMSAddresses(env.ExistingAddresses, c.ChainSelector); err != nil {

@@ -29,7 +29,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &commonchangeset.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -160,7 +160,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role without external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role without external admin without MCMS"
@@ -232,7 +232,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role with external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role with external admin without MCMS"

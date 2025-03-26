@@ -34,9 +34,10 @@ func setupFundingTestEnv(t *testing.T) deployment.Environment {
 	chainSelector := env.AllChainSelectorsSolana()[0]
 
 	config := proposalutils.SingleGroupTimelockConfigV2(t)
-	testhelpers.SavePreloadedSolAddresses(t, env, chainSelector)
+	err := testhelpers.SavePreloadedSolAddresses(env, chainSelector)
+	require.NoError(t, err)
 	// Initialize the address book with a dummy address to avoid deploy precondition errors.
-	err := env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
+	err = env.ExistingAddresses.Save(chainSelector, "dummyAddress", deployment.TypeAndVersion{Type: "dummy", Version: deployment.Version1_0_0})
 	require.NoError(t, err)
 
 	// Deploy MCMS and Timelock

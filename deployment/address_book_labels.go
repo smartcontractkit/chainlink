@@ -36,8 +36,19 @@ func (ls LabelSet) Contains(labels string) bool {
 // String returns the labels as a sorted, space-separated string.
 // It implements the fmt.Stringer interface.
 func (ls LabelSet) String() string {
-	if len(ls) == 0 {
+	labels := ls.List()
+	if len(labels) == 0 {
 		return ""
+	}
+
+	// Concatenate the sorted labels into a single string
+	return strings.Join(labels, " ")
+}
+
+// List returns the labels as a sorted slice of strings.
+func (ls LabelSet) List() []string {
+	if len(ls) == 0 {
+		return []string{}
 	}
 
 	// Collect labels into a slice
@@ -49,8 +60,7 @@ func (ls LabelSet) String() string {
 	// Sort the labels to ensure consistent ordering
 	sort.Strings(labels)
 
-	// Concatenate the sorted labels into a single string
-	return strings.Join(labels, " ")
+	return labels
 }
 
 // Equal checks if two LabelSets are equal.

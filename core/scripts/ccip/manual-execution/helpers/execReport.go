@@ -170,7 +170,7 @@ func getMetaDataHash[H Hash](ctx Ctx[H], prefix [32]byte, sourceChainID uint64, 
 	paddedOnRamp := onRampID.Bytes()
 	return ctx.Hash(ConcatBytes(prefix[:],
 		math.U256Bytes(big.NewInt(0).SetUint64(sourceChainID)),
-		math.U256Bytes(big.NewInt(0).SetUint64(destChainID)), paddedOnRamp[:]))
+		math.U256Bytes(big.NewInt(0).SetUint64(destChainID)), paddedOnRamp))
 }
 
 // ConcatBytes appends a bunch of byte arrays into a single byte array

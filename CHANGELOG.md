@@ -1,5 +1,104 @@
 # Changelog Chainlink Core
 
+## 2.22.0 - 2025-03-19
+
+:warning: On **May 31, 2025**, Ubuntu 20.04 will reach end-of-life and will no longer receive security updates. We strongly encourage you to begin upgrading your environments to a stable support Ubuntu versions. **We are bumping the Chainlink image to 24.04 in this release.** We will continue to provide an image that is 20.04 as well to ensure there is ample time to upgrade and remove support as it goes to eol.
+
+### Minor Changes
+
+- [#16755](https://github.com/smartcontractkit/chainlink/pull/16755) [`928fa92d33`](https://github.com/smartcontractkit/chainlink/commit/928fa92d337e0e8ccc896d49dab260e62184934c) - Bump to start the next version
+
+- [#16575](https://github.com/smartcontractkit/chainlink/pull/16575) [`79ce88cc5a`](https://github.com/smartcontractkit/chainlink/commit/79ce88cc5ab0c9920e035b9abc79ab58b828a3e4) - Upgrade LLO protocol to support sub-seconds reports. #nops #added
+
+  NOTE: Protocol version 0 does NOT support gapless handover on sub-second reports. You must upgrade to version 1 for that.
+
+  Rollout plan is here: https://smartcontract-it.atlassian.net/browse/MERC-6852
+
+- [#16343](https://github.com/smartcontractkit/chainlink/pull/16343) [`3a0b6384e5`](https://github.com/smartcontractkit/chainlink/commit/3a0b6384e5d5200eb411b6eda7e0415c527bc3a1) - #bugfix
+
+- [#16528](https://github.com/smartcontractkit/chainlink/pull/16528) [`396fe0a845`](https://github.com/smartcontractkit/chainlink/commit/396fe0a845495cfb74eda9cd0673be2e9b770f50) - #updated update mcms lib dependency.
+
+- [#16609](https://github.com/smartcontractkit/chainlink/pull/16609) [`92b7e28896`](https://github.com/smartcontractkit/chainlink/commit/92b7e28896325192f3a1afd5867b0fd518c44580) - Send more data with TxMessage
+
+- [#16485](https://github.com/smartcontractkit/chainlink/pull/16485) [`82fade97ba`](https://github.com/smartcontractkit/chainlink/commit/82fade97ba57a8242abcf0c7d828f6137b17dd76) - address codec implementation #added
+
+- [#16402](https://github.com/smartcontractkit/chainlink/pull/16402) [`13b7d5abf5`](https://github.com/smartcontractkit/chainlink/commit/13b7d5abf5ee307dae13095542dd179efb065c08) - refactor extradata codec logic and unblock ccip msg optimization using protobuf #added
+
+- [#16671](https://github.com/smartcontractkit/chainlink/pull/16671) [`88a12ed13f`](https://github.com/smartcontractkit/chainlink/commit/88a12ed13ff7183f95f518ccc348d2cb75d97b56) - #updated Compile functions using forge instead of solc.
+
+- [#16513](https://github.com/smartcontractkit/chainlink/pull/16513) [`60d011a0d5`](https://github.com/smartcontractkit/chainlink/commit/60d011a0d5236e3db66af9eb153c02aa569c57a7) - #updated Move BoxOutput util function to the only place it is called.
+
+- [#16723](https://github.com/smartcontractkit/chainlink/pull/16723) [`aac9ddf67d`](https://github.com/smartcontractkit/chainlink/commit/aac9ddf67d4171fe30a83ece2a6dca986bece120) - #nops bump chain selector
+
+- [#16550](https://github.com/smartcontractkit/chainlink/pull/16550) [`73b6542360`](https://github.com/smartcontractkit/chainlink/commit/73b6542360a051845e2916a00032c534a8263521) - #updated Removed unnecessary dependendies from json_normalization_test.go.
+
+- [#16654](https://github.com/smartcontractkit/chainlink/pull/16654) [`8ccee340b0`](https://github.com/smartcontractkit/chainlink/commit/8ccee340b0cb7d879973930eb8637c8524dde7cb) - #updated Generate keystone wrappers using forge.
+
+- [#16457](https://github.com/smartcontractkit/chainlink/pull/16457) [`fb15e1614c`](https://github.com/smartcontractkit/chainlink/commit/fb15e1614c8ba7f01e6bc40533f8afe3d1595f3f) - remove extra data codec for ocr factory function param #added
+
+- [#16521](https://github.com/smartcontractkit/chainlink/pull/16521) [`4d679878a2`](https://github.com/smartcontractkit/chainlink/commit/4d679878a242038f175efe10825b07d14af486c4) - fix test for chainlink-ccip #added
+
+- [#16564](https://github.com/smartcontractkit/chainlink/pull/16564) [`f638d606fd`](https://github.com/smartcontractkit/chainlink/commit/f638d606fd93f347db265c985e4ee628c2db2691) - #updated Fix abigen compilation on Mac.
+
+- [#16546](https://github.com/smartcontractkit/chainlink/pull/16546) [`c44201af99`](https://github.com/smartcontractkit/chainlink/commit/c44201af990aacc9aca7a2d2f64afe9bbdb7580f) - #updated Moved Mailboxes.md to docs.
+
+- [#16685](https://github.com/smartcontractkit/chainlink/pull/16685) [`18fbb3ce7a`](https://github.com/smartcontractkit/chainlink/commit/18fbb3ce7ad194d220ace2e7c4c5a72d6f6e74b3) - enable Solana LOOPP mode by default
+
+- [#16357](https://github.com/smartcontractkit/chainlink/pull/16357) [`112402014b`](https://github.com/smartcontractkit/chainlink/commit/112402014b37e9aed934e28fd1e0d8d079c052ce) - #updated Use MustNewSimTransactor from chainlink-integrations instead of its old copy.
+
+- [#16433](https://github.com/smartcontractkit/chainlink/pull/16433) [`4539ec5399`](https://github.com/smartcontractkit/chainlink/commit/4539ec5399107d93e65bfe270dd542cef9242a7c) - #updated Moved a 10-line method DeepCopyLog to the only module calling it.
+
+- [#16482](https://github.com/smartcontractkit/chainlink/pull/16482) [`080caf9ed6`](https://github.com/smartcontractkit/chainlink/commit/080caf9ed674c8aad2ad663ee8cd07bb5c44a188) - remove extradata codec reference on CCIP #added
+
+- [#16554](https://github.com/smartcontractkit/chainlink/pull/16554) [`db8613afad`](https://github.com/smartcontractkit/chainlink/commit/db8613afadfb806696329e6a06055d011fc7d2ab) - #internal fix bump chainlink-ccip due to bumping mcms
+
+- [#16605](https://github.com/smartcontractkit/chainlink/pull/16605) [`2245fc41d5`](https://github.com/smartcontractkit/chainlink/commit/2245fc41d554b3e9447ca445a36e78532722d9d6) - #changed: Add more granularity for workflow completed histogram metric around expected values
+
+- [#16568](https://github.com/smartcontractkit/chainlink/pull/16568) [`521217ea33`](https://github.com/smartcontractkit/chainlink/commit/521217ea3338dadbddc587f97ddea0167e723c3d) - #removed Remove bash wrappers and call solidity compilation directly.
+
+### Patch Changes
+
+- [#16438](https://github.com/smartcontractkit/chainlink/pull/16438) [`46abdafc1d`](https://github.com/smartcontractkit/chainlink/commit/46abdafc1d730c9a7a2d105e79134c8c0649afbe) - Add support for custom deviation functions in median plugin. #added
+
+  Do this like so, by adding the following config to a "median" job spec:
+
+  ```toml
+  [pluginConfig.deviationFunc]
+  expiresAt = 1739895051.0 # REQUIRED. Unix timestamp indicating the expiry date. Should be specified as a float64 so even for integer values, add a decimal point.
+  type = "pendle" # REQUIRED. Currently only "pendle" is supported.
+  multiplier = "1000000" # OPTIONAL. Must be supplied as string integer. Default is 1e18 if omitted.
+  ```
+
+- [#16627](https://github.com/smartcontractkit/chainlink/pull/16627) [`499283ed18`](https://github.com/smartcontractkit/chainlink/commit/499283ed18aa92e2dc23c93878de3927cfd6310b) - #changed Disabled fee boosting when destination is Hedera
+
+- [#16328](https://github.com/smartcontractkit/chainlink/pull/16328) [`c200abc2bf`](https://github.com/smartcontractkit/chainlink/commit/c200abc2bfa2448bfc45e93b456498cce0fcde14) - #internal #bugfix correct request id to support parallel step execution
+
+- [#16352](https://github.com/smartcontractkit/chainlink/pull/16352) [`125f547233`](https://github.com/smartcontractkit/chainlink/commit/125f54723339cdaac00b2325c88dfe6f0359b0df) - #internal Add Aptos environment and state
+
+- [#16287](https://github.com/smartcontractkit/chainlink/pull/16287) [`073eac4da6`](https://github.com/smartcontractkit/chainlink/commit/073eac4da697cc9b50c571760ec92f2e38b2bd0a) - #internal refactor app startup using cre services
+
+- [#15752](https://github.com/smartcontractkit/chainlink/pull/15752) [`39d09094fe`](https://github.com/smartcontractkit/chainlink/commit/39d09094fea9b1754cb94e41d0fae017c9126cb2) - #added add exponential backoff retry to feeds.SyncNodeInfo()
+
+- [#16366](https://github.com/smartcontractkit/chainlink/pull/16366) [`4704eb51dd`](https://github.com/smartcontractkit/chainlink/commit/4704eb51ddea9f2e79de1a50695190e702ac2b24) - fixes inability to approve multiple jobs with same command for standard capabilities
+
+- [#16505](https://github.com/smartcontractkit/chainlink/pull/16505) [`e13e5675d3`](https://github.com/smartcontractkit/chainlink/commit/e13e5675d3852b04e18dad9881e958066a2bf87a) - #added support importing eth and p2p keys on startup
+
+- [#16263](https://github.com/smartcontractkit/chainlink/pull/16263) [`aeb468e1f9`](https://github.com/smartcontractkit/chainlink/commit/aeb468e1f9d4cccd7a73c474b0515700613d9bc4) - #changed enhanced logging for capabilities' server requests
+
+- [#16624](https://github.com/smartcontractkit/chainlink/pull/16624) [`953cdc8bbe`](https://github.com/smartcontractkit/chainlink/commit/953cdc8bbecdb42fc7429b3986d3355f45d00926) - fix: resovles panic send: on closed channel in workflow engine #bugfix
+
+- [#16477](https://github.com/smartcontractkit/chainlink/pull/16477) [`d27cae5991`](https://github.com/smartcontractkit/chainlink/commit/d27cae599135636da62c9af40ddcbafc61b864cb) - go.mod update in core/scripts #updated
+
+- [#16725](https://github.com/smartcontractkit/chainlink/pull/16725) [`9449594efd`](https://github.com/smartcontractkit/chainlink/commit/9449594efdf879ce350e2aca274a90fd01147b39) - Switch MultiNode's metrics test from go test script to regular test to reduce flakiness #internal
+
+- [#16668](https://github.com/smartcontractkit/chainlink/pull/16668) [`7752576dbe`](https://github.com/smartcontractkit/chainlink/commit/7752576dbe2bb13dfef8818739c6e097470c8a86) - Create evm TXM benchmark tests #internal
+
+- [#16411](https://github.com/smartcontractkit/chainlink/pull/16411) [`227ded3d23`](https://github.com/smartcontractkit/chainlink/commit/227ded3d2321aa7f9154359a6677474ebecbf64c) - #updated ccip-owner-contracts in CLD to latest
+
+- [#16246](https://github.com/smartcontractkit/chainlink/pull/16246) [`d96c444704`](https://github.com/smartcontractkit/chainlink/commit/d96c444704b7516ab35cad319214394b26d0a2cb) - #internal bump core/scripts/go.mod dependencies
+
+- [#16464](https://github.com/smartcontractkit/chainlink/pull/16464) [`8d2b90ce52`](https://github.com/smartcontractkit/chainlink/commit/8d2b90ce5208f1dc7dfedadbd6356bab5f3ebc55) - fix(chainlink/deployment): loads unlabeled contracts from address book by default
+
 ## 2.21.0 - 2025-02-27
 
 ### Minor Changes

@@ -16,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
@@ -51,7 +50,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	dataID, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataID := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -70,7 +69,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
 				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataID},
+				DataIDs:        []string{dataID},
 			},
 		),
 	)
@@ -111,7 +110,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
 				ProxyAddresses: []common.Address{common.HexToAddress("0x11")},
-				DataIDs:        [][16]byte{dataID},
+				DataIDs:        []string{dataID},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 0,
 				},

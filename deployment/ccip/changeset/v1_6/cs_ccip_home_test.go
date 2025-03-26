@@ -86,6 +86,7 @@ func TestInvalidOCR3Params(t *testing.T) {
 		params.OCRParameters,
 		params.CommitOffChainConfig,
 		&globals.DefaultExecuteOffChainCfg,
+		false,
 	)
 	require.Errorf(t, err, "expected error")
 	pattern := `DeltaRound \(\d+\.\d+s\) must be less than DeltaProgress \(\d+s\)`
@@ -145,9 +146,9 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
-			var mcmsConfig *changeset.MCMSConfig
+			var mcmsConfig *commonchangeset.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
+				mcmsConfig = &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -242,9 +243,9 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *changeset.MCMSConfig
+			var mcmsConfig *commonchangeset.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
+				mcmsConfig = &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -401,9 +402,9 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *changeset.MCMSConfig
+			var mcmsConfig *commonchangeset.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
+				mcmsConfig = &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -570,9 +571,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotZero(t, otherChainConfig.FChain)
 
-			var mcmsConfig *changeset.MCMSConfig
+			var mcmsConfig *commonchangeset.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &changeset.MCMSConfig{
+				mcmsConfig = &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
