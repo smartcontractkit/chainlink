@@ -1,7 +1,7 @@
 # start node
 exec sh -c 'eval "echo \"$(cat config.toml.tmpl)\" > config.toml"'
 exec sh -c 'eval "echo \"FINAL $(cat config.toml)\""'
-exec chainlink -c config.toml node start -p password -a creds
+exec chainlink -c config.toml node start -p password -a creds &
 
 # initialize client
 env NODEURL=http://localhost:$PORT

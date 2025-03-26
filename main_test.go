@@ -50,7 +50,7 @@ var (
 		"TestScripts/nodes/evm/list/list":       "https://smartcontract-it.atlassian.net/browse/DX-107",
 		"TestScripts/keys/eth/list/unavailable": "https://smartcontract-it.atlassian.net/browse/DX-110",
 		"TestScripts/nodes/solana/list/list":    "https://smartcontract-it.atlassian.net/browse/CRE-155",
-		//"TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
+		// "TestScripts/health/multi-chain":        "https://smartcontract-it.atlassian.net/browse/CRE-159",
 		"TestScripts/health/default": "https://smartcontract-it.atlassian.net/browse/DX-109",
 	}
 )
