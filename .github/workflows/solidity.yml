@@ -1,19 +1,68 @@
 name: Solidity
+
 on:
   merge_group:
   push:
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  lint:
+  readonly_changes:
     if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  changes:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  tag-check:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  prepublish-test:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  native-compile:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  # The if statements for steps after checkout repo is a workaround for
+  # passing required check for PRs that don't have filtered changes.
+  lint:
     name: Solidity Lint
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - run: echo "Success!"
 
   prettier:
-    if: always()
     name: Prettier Formatting
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  publish-beta:
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "Success!"
+
+  publish-prod:
+    if: always()
     runs-on: ubuntu-latest
     steps:
       - run: echo "Success!"
