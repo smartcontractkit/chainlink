@@ -552,34 +552,37 @@ func requireEqualRoots(
 		)
 	}
 }
-
-func TestCCIPReader_ExecutedMessages(t *testing.T) {
+func commitSqNrs(
+	s *testSetupData,
+	chainSel cciptypes.ChainSelector,
+	seqNums []uint64,
+	state uint8) error {
+	for _, sqnr := range seqNums {
+		_, err := s.contract.EmitExecutionStateChanged(
+			s.auth,
+			uint64(chainSel),
+			sqnr,
+			cciptypes.Bytes32{1, 0, 0, 1},
+			cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
+			state,
+			[]byte{1, 2, 3, 4},
+			big.NewInt(250_000),
+		)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+func TestCCIPReader_ExecutedMessages_SingleChain(t *testing.T) {
 	t.Parallel()
 	ctx := tests.Context(t)
 	s := setupExecutedMessagesTest(ctx, t, false)
-	_, err := s.contract.EmitExecutionStateChanged(
-		s.auth,
-		uint64(chainS1),
-		14,
-		cciptypes.Bytes32{1, 0, 0, 1},
-		cciptypes.Bytes32{1, 0, 0, 1, 1, 0, 0, 1},
-		1,
-		[]byte{1, 2, 3, 4},
-		big.NewInt(250_000),
-	)
+	err := commitSqNrs(s, chainS1, []uint64{14}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
 
-	_, err = s.contract.EmitExecutionStateChanged(
-		s.auth,
-		uint64(chainS1),
-		15,
-		cciptypes.Bytes32{1, 0, 0, 2},
-		cciptypes.Bytes32{1, 0, 0, 2, 1, 0, 0, 2},
-		1,
-		[]byte{1, 2, 3, 4, 5},
-		big.NewInt(350_000),
-	)
+	err = commitSqNrs(s, chainS1, []uint64{15}, 1)
 	require.NoError(t, err)
 	s.sb.Commit()
 
@@ -587,19 +590,103 @@ func TestCCIPReader_ExecutedMessages(t *testing.T) {
 	// Maybe another situation where chain reader doesn't register filters as expected.
 	require.NoError(t, s.lp.Replay(ctx, 1))
 
-	var executedMsgs []cciptypes.SeqNum
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
 	require.Eventually(t, func() bool {
 		executedMsgs, err = s.reader.ExecutedMessages(
 			ctx,
-			chainS1,
-			cciptypes.NewSeqNumRange(14, 15),
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(14, 15),
+				},
+			},
+			primitives.Unconfirmed,
+		)
+		require.NoError(t, err)
+		return len(executedMsgs[chainS1]) == 2
+	}, tests.WaitTimeout(t), 50*time.Millisecond)
+
+	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs[chainS1])
+}
+
+func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	s := setupExecutedMessagesTest(ctx, t, false)
+	err := commitSqNrs(s, chainS1, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS2, []uint64{15}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
+	require.Eventually(t, func() bool {
+		executedMsgs, err = s.reader.ExecutedMessages(
+			ctx,
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(14, 16),
+				},
+				chainS2: {
+					cciptypes.NewSeqNumRange(15, 15),
+				},
+			},
+			primitives.Unconfirmed,
+		)
+		require.NoError(t, err)
+		return executedMsgs[chainS1][0] == 15 && executedMsgs[chainS2][0] == 15
+	}, tests.WaitTimeout(t), 50*time.Millisecond)
+
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS1])
+	assert.Len(t, executedMsgs, 2)
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15}, executedMsgs[chainS2])
+}
+
+func TestCCIPReader_ExecutedMessages_MultiChainDisjoint(t *testing.T) {
+	t.Parallel()
+	ctx := tests.Context(t)
+	s := setupExecutedMessagesTest(ctx, t, false)
+	err := commitSqNrs(s, chainS1, []uint64{15, 17, 70}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	err = commitSqNrs(s, chainS2, []uint64{15, 16}, 1)
+	require.NoError(t, err)
+	s.sb.Commit()
+
+	// Need to replay as sometimes the logs are not picked up by the log poller (?)
+	// Maybe another situation where chain reader doesn't register filters as expected.
+	require.NoError(t, s.lp.Replay(ctx, 1))
+
+	var executedMsgs map[cciptypes.ChainSelector][]cciptypes.SeqNum
+	require.Eventually(t, func() bool {
+		executedMsgs, err = s.reader.ExecutedMessages(
+			ctx,
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(10, 20),
+					cciptypes.NewSeqNumRange(70, 70),
+				},
+				chainS2: {
+					cciptypes.NewSeqNumRange(15, 16),
+				},
+			},
 			primitives.Unconfirmed,
 		)
 		require.NoError(t, err)
 		return len(executedMsgs) == 2
 	}, tests.WaitTimeout(t), 50*time.Millisecond)
 
-	assert.Equal(t, []cciptypes.SeqNum{14, 15}, executedMsgs)
+	assert.Len(t, executedMsgs[chainS1], 3)
+	assert.Len(t, executedMsgs[chainS2], 2)
+	assert.Equal(t, []cciptypes.SeqNum{15, 17, 70}, executedMsgs[chainS1])
+	assert.Equal(t, []cciptypes.SeqNum{15, 16}, executedMsgs[chainS2])
 }
 
 func TestCCIPReader_MsgsBetweenSeqNums(t *testing.T) {
@@ -1397,12 +1484,15 @@ func benchmarkExecutedMessages(b *testing.B, logsInsertedFirst int, startSeqNum,
 	for i := 0; i < b.N; i++ {
 		executedRanges, err := s.reader.ExecutedMessages(
 			ctx,
-			chainS1,
-			cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+			map[cciptypes.ChainSelector][]cciptypes.SeqNumRange{
+				chainS1: {
+					cciptypes.NewSeqNumRange(startSeqNum, endSeqNum),
+				},
+			},
 			primitives.Unconfirmed,
 		)
 		require.NoError(b, err)
-		require.Len(b, executedRanges, expectedRangeLen)
+		require.Len(b, executedRanges[chainS1], expectedRangeLen)
 	}
 }
 
