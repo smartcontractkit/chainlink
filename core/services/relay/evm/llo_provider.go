@@ -148,10 +148,10 @@ func NewLLOProvider(
 			clients[server.URL] = client
 		}
 
-		mercuryTransmitterOpts := nil
+		var mercuryTransmitterOpts *mercurytransmitter.Opts = nil
 
 		if len(mercuryServers) > 0 {
-			mercuryTransmitterOpts = mercurytransmitter.Opts{
+			mercuryTransmitterOpts = &mercurytransmitter.Opts{
 				Lggr:                 lggr,
 				VerboseLogging:       mercuryCfg.VerboseLogging(),
 				Cfg:                  mercuryCfg.Transmitter(),
@@ -167,13 +167,13 @@ func NewLLOProvider(
 		// the evm relay into llo package
 		// https://smartcontract-it.atlassian.net/browse/MERC-6847
 		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:           lggr,
-			DonID:          lloCfg.DonID,
-			FromAccount:    csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
-			VerboseLogging: mercuryCfg.VerboseLogging(),
+			Lggr:                   lggr,
+			DonID:                  lloCfg.DonID,
+			FromAccount:            csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			VerboseLogging:         mercuryCfg.VerboseLogging(),
 			MercuryTransmitterOpts: mercuryTransmitterOpts,
-			Subtransmitters:       lloCfg.Transmitters,
-			RetirementReportCache: retirementReportCache,
+			Subtransmitters:        lloCfg.Transmitters,
+			RetirementReportCache:  retirementReportCache,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)
