@@ -21,6 +21,8 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/ccip/view"
+	viewSolana "github.com/smartcontractkit/chainlink/deployment/ccip/view/solana"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -359,6 +361,79 @@ func (s SolCCIPChainState) GetRouterInfo() (router, routerConfigPDA solana.Publi
 func FindReceiverTargetAccount(receiverID solana.PublicKey) solana.PublicKey {
 	receiverTargetAccount, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverID)
 	return receiverTargetAccount
+}
+
+func (s SolCCIPChainState) GenerateView(solChain deployment.SolChain) (view.SolChainView, error) {
+	chainView := view.NewSolChain()
+	var remoteChains []uint64
+	for selector := range s.DestChainStatePDAs {
+		remoteChains = append(remoteChains, selector)
+	}
+	var allTokens []solana.PublicKey
+	allTokens = append(allTokens, s.LinkToken)
+	allTokens = append(allTokens, s.WSOL)
+	allTokens = append(allTokens, s.SPL2022Tokens...)
+	allTokens = append(allTokens, s.SPLTokens...)
+	for _, token := range allTokens {
+		if !token.IsZero() {
+			program, err := s.TokenToTokenProgram(token)
+			if err != nil {
+				return chainView, fmt.Errorf("failed to find token program for token %s: %w", token, err)
+			}
+			tokenView, err := viewSolana.GenerateTokenView(solChain, token, program.String())
+			if err != nil {
+				return chainView, fmt.Errorf("failed to generate token view for token %s: %w", token, err)
+			}
+			if token.Equals(s.LinkToken) {
+				chainView.LinkToken = tokenView
+			} else {
+				chainView.Tokens[token.String()] = tokenView
+			}
+		}
+	}
+	if !s.FeeQuoter.IsZero() {
+		fqView, err := viewSolana.GenerateFeeQuoterView(solChain, s.FeeQuoter, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate fee quoter view %s: %w", s.FeeQuoter, err)
+		}
+		chainView.FeeQuoter[s.FeeQuoter.String()] = fqView
+	}
+	if !s.Router.IsZero() {
+		routerView, err := viewSolana.GenerateRouterView(solChain, s.Router, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate router view %s: %w", s.Router, err)
+		}
+		chainView.Router[s.Router.String()] = routerView
+	}
+	if !s.OffRamp.IsZero() {
+		offRampView, err := viewSolana.GenerateOffRampView(solChain, s.OffRamp, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate offramp view %s: %w", s.OffRamp, err)
+		}
+		chainView.OffRamp[s.OffRamp.String()] = offRampView
+	}
+	if !s.RMNRemote.IsZero() {
+		rmnRemoteView, err := viewSolana.GenerateRMNRemoteView(solChain, s.RMNRemote, remoteChains, allTokens)
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate rmn remote view %s: %w", s.RMNRemote, err)
+		}
+		chainView.RMNRemote[s.RMNRemote.String()] = rmnRemoteView
+	}
+	if !s.BurnMintTokenPool.IsZero() {
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.BurnMintTokenPool, remoteChains, allTokens, "BurnMintTokenPool")
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate burn mint token pool view %s: %w", s.BurnMintTokenPool, err)
+		}
+		chainView.TokenPool[s.BurnMintTokenPool.String()] = tokenPoolView
+	}
+	if !s.LockReleaseTokenPool.IsZero() {
+		tokenPoolView, err := viewSolana.GenerateTokenPoolView(solChain, s.LockReleaseTokenPool, remoteChains, allTokens, "LockReleaseTokenPool")
+		if err != nil {
+			return chainView, fmt.Errorf("failed to generate lock release token pool view %s: %w", s.LockReleaseTokenPool, err)
+		}
+		chainView.TokenPool[s.LockReleaseTokenPool.String()] = tokenPoolView
+	}
+	return chainView, nil
 }
 
 func (s SolCCIPChainState) GetFeeAggregator(chain deployment.SolChain) solana.PublicKey {

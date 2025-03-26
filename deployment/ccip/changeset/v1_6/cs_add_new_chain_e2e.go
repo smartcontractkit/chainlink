@@ -95,7 +95,7 @@ type AddCandidatesForNewChainConfig struct {
 	// MCMSDeploymentConfig configures the MCMS deployment to the new chain.
 	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *commoncs.TimelockConfig
 }
 
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
@@ -240,7 +240,7 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get owner of RMN proxy on chain with selector %d: %w", c.NewChain.Selector, err)
 	}
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *commoncs.TimelockConfig
 	if owner == state.Chains[c.NewChain.Selector].Timelock.Address() {
 		mcmsConfig = c.MCMSConfig
 	}
@@ -385,7 +385,7 @@ type PromoteNewChainForTestingConfig struct {
 	HomeChainSelector uint64
 	NewChain          NewChainDefinition
 	RemoteChains      []ChainDefinition
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *commoncs.TimelockConfig
 }
 
 func (c PromoteNewChainForTestingConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
@@ -573,7 +573,7 @@ type ConnectNewChainConfig struct {
 	// TestRouter is true if we want to connect via test routers.
 	TestRouter *bool
 	// MCMSConfig is the MCMS configuration, omit to use deployer key only.
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *commoncs.TimelockConfig
 }
 
 func (c ConnectNewChainConfig) validateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -731,7 +731,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 
 	// Enable the production router on [new chain -> each remote chain] and [each remote chain -> new chain].
 	var allEnablementProposals []mcmslib.TimelockProposal
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *commoncs.TimelockConfig
 	if !*c.TestRouter {
 		mcmsConfig = c.MCMSConfig
 	}
@@ -771,7 +771,7 @@ func connectRampsAndRouters(
 	e deployment.Environment,
 	chainSelector uint64,
 	remoteChains map[uint64]ConnectionConfig,
-	mcmsConfig *changeset.MCMSConfig,
+	mcmsConfig *commoncs.TimelockConfig,
 	testRouter bool,
 	proposalAggregate []mcmslib.TimelockProposal,
 ) ([]mcmslib.TimelockProposal, error) {
@@ -874,7 +874,7 @@ func aggregateProposals(
 	proposals []mcmslib.TimelockProposal,
 	legacyProposals []timelock.MCMSWithTimelockProposal,
 	description string,
-	mcmsConfig *changeset.MCMSConfig,
+	mcmsConfig *commoncs.TimelockConfig,
 ) (*mcmslib.TimelockProposal, error) {
 	if mcmsConfig == nil {
 		return nil, nil

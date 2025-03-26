@@ -6,7 +6,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
 )
 
 // ImportToAddressbookChangeset is a changeset that reads already deployed contract addresses from input file
@@ -22,7 +21,7 @@ type AddressesSchema struct {
 func importToAddressbookLogic(env deployment.Environment, c types.ImportToAddressbookConfig) (deployment.ChangesetOutput, error) {
 	ab := deployment.NewMemoryAddressBook()
 
-	addresses, _ := shared.LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
+	addresses, _ := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 
 	for _, address := range addresses {
 		address.TypeAndVersion.AddLabel(address.Label)
@@ -49,7 +48,7 @@ func importToAddressbookPrecondition(env deployment.Environment, c types.ImportT
 		return errors.New("input file name is required")
 	}
 
-	_, err := shared.LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
+	_, err := LoadJSON[[]*AddressesSchema](c.InputFileName, c.InputFS)
 	if err != nil {
 		return fmt.Errorf("failed to load addresses input file: %w", err)
 	}

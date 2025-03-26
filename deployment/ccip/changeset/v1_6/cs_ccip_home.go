@@ -218,7 +218,7 @@ type PromoteCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
@@ -226,13 +226,10 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 	if err != nil {
 		return nil, err
 	}
-	if err := deployment.IsValidChainSelector(p.HomeChainSelector); err != nil {
-		return nil, fmt.Errorf("home chain selector invalid: %w", err)
+	if err := changeset.ValidateChain(e, state, p.HomeChainSelector, p.MCMS); err != nil {
+		return nil, fmt.Errorf("home chain invalid: %w", err)
 	}
-	homeChainState, exists := state.Chains[p.HomeChainSelector]
-	if !exists {
-		return nil, fmt.Errorf("home chain %d does not exist", p.HomeChainSelector)
-	}
+	homeChainState := state.Chains[p.HomeChainSelector]
 	if err := commoncs.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.Chains[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return nil, err
 	}
@@ -453,7 +450,7 @@ type SetCandidateConfigBase struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 }
 
 func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -1008,7 +1005,7 @@ type RevokeCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 }
 
 func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (donID uint32, err error) {
@@ -1197,7 +1194,7 @@ type UpdateChainConfigConfig struct {
 	HomeChainSelector  uint64
 	RemoteChainRemoves []uint64
 	RemoteChainAdds    map[uint64]ChainConfig
-	MCMS               *changeset.MCMSConfig
+	MCMS               *commoncs.TimelockConfig
 }
 
 func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {

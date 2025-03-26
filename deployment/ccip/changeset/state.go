@@ -13,6 +13,7 @@ import (
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -601,24 +602,21 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := make(map[string]view.ChainView)
 	mu := sync.Mutex{}
+	sm := make(map[string]view.SolChainView)
+	solanaMu := sync.Mutex{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
-		var chainView view.ChainView
 		chainSelector := chainSelector
 		grp.Go(func() error {
-			chainInfo, err := deployment.ChainInfo(chainSelector)
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			if err != nil {
 				return err
 			}
-			if _, ok := s.Chains[chainSelector]; !ok {
-				return fmt.Errorf("chain not supported %d", chainSelector)
-			}
-			chainState := s.Chains[chainSelector]
-			chainView, err = chainState.GenerateView()
+			chainInfo, err := deployment.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -626,19 +624,46 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 			if chainInfo.ChainName == "" {
 				name = strconv.FormatUint(chainSelector, 10)
 			}
-			chainView.ChainSelector = chainSelector
 			id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
 			if err != nil {
 				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 			}
-			chainView.ChainID = id
-			mu.Lock()
-			m[name] = chainView
-			mu.Unlock()
+			switch family {
+			case chain_selectors.FamilyEVM:
+				if _, ok := s.Chains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.Chains[chainSelector]
+				chainView, err := chainState.GenerateView()
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				mu.Lock()
+				m[name] = chainView
+				mu.Unlock()
+			case chain_selectors.FamilySolana:
+				if _, ok := s.SolChains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.SolChains[chainSelector]
+				chainView, err := chainState.GenerateView(e.SolChains[chainSelector])
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				solanaMu.Lock()
+				sm[name] = chainView
+				solanaMu.Unlock()
+			default:
+				return fmt.Errorf("unsupported chain family %s", family)
+			}
 			return nil
 		})
 	}
-	return m, grp.Wait()
+	return m, sm, grp.Wait()
 }
 
 func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
@@ -1131,7 +1156,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *commoncs.TimelockConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -1145,6 +1170,15 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
 	if mcmsCfg != nil {
+		// if MCMSAction is not set, default to timelock.Schedule
+		if mcmsCfg.MCMSAction == "" {
+			mcmsCfg.MCMSAction = timelock.Schedule
+		}
+		if mcmsCfg.MCMSAction != timelock.Schedule &&
+			mcmsCfg.MCMSAction != timelock.Cancel &&
+			mcmsCfg.MCMSAction != timelock.Bypass {
+			return fmt.Errorf("invalid MCMS type %s", mcmsCfg.MCMSAction)
+		}
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}

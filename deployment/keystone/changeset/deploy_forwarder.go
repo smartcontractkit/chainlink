@@ -37,7 +37,7 @@ func DeployForwarder(env deployment.Environment, cfg DeployForwarderRequest) (de
 			return deployment.ChangesetOutput{}, fmt.Errorf("chain with selector %d not found", sel)
 		}
 		lggr.Infow("deploying forwarder", "chainSelector", chain.Selector)
-		forwarderResp, err := internal.DeployForwarder(chain, ab)
+		forwarderResp, err := internal.DeployForwarder(env.GetContext(), chain, ab)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy KeystoneForwarder to chain selector %d: %w", chain.Selector, err)
 		}

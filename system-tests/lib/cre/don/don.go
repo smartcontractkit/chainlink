@@ -61,32 +61,17 @@ func BuildTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraInput
 	topology := &cretypes.Topology{}
 	donsWithMetadata := make([]*cretypes.DonMetadata, len(nodeSetInput))
 
-	// one DON to do everything
-	if len(nodeSetInput) == 1 {
-		flags, err := flags.NodeSetFlags(nodeSetInput[0])
+	for i := range nodeSetInput {
+		flags, err := flags.NodeSetFlags(nodeSetInput[i])
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[0].Name)
+			return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[i].Name)
 		}
 
-		donsWithMetadata[0] = &cretypes.DonMetadata{
-			ID:            1,
+		donsWithMetadata[i] = &cretypes.DonMetadata{
+			ID:            libc.MustSafeUint32(i + 1),
 			Flags:         flags,
-			NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[0].NodeSpecs)),
-			Name:          nodeSetInput[0].Name,
-		}
-	} else {
-		for i := range nodeSetInput {
-			flags, err := flags.NodeSetFlags(nodeSetInput[i])
-			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get flags for nodeset %s", nodeSetInput[i].Name)
-			}
-
-			donsWithMetadata[i] = &cretypes.DonMetadata{
-				ID:            libc.MustSafeUint32(i + 1),
-				Flags:         flags,
-				NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
-				Name:          nodeSetInput[i].Name,
-			}
+			NodesMetadata: make([]*cretypes.NodeMetadata, len(nodeSetInput[i].NodeSpecs)),
+			Name:          nodeSetInput[i].Name,
 		}
 	}
 

@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -14,13 +15,18 @@ import (
 type Bundle struct {
 	Logger     logger.Logger
 	GetContext func() context.Context
+	reporter   Reporter
+	// internal use only, for storing the hash of the report to avoid repeat sha256 computation.
+	reportHashCache *sync.Map
 }
 
 // NewBundle creates and returns a new Bundle.
-func NewBundle(getContext func() context.Context, logger logger.Logger) Bundle {
+func NewBundle(getContext func() context.Context, logger logger.Logger, reporter Reporter) Bundle {
 	return Bundle{
-		Logger:     logger,
-		GetContext: getContext,
+		Logger:          logger,
+		GetContext:      getContext,
+		reporter:        reporter,
+		reportHashCache: &sync.Map{},
 	}
 }
 

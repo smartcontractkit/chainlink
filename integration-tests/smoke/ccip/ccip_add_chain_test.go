@@ -15,7 +15,6 @@ import (
 	state2 "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 
-	ccipcs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
@@ -425,9 +424,9 @@ func setupInboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *ccipcs.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &ccipcs.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -466,9 +465,9 @@ func setupOutboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *ccipcs.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &ccipcs.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
