@@ -94,7 +94,7 @@ func setupNodes(t *testing.T, nNodes int, backend evmtypes.Backend, clientCSAKey
 	ports := freeport.GetN(t, nNodes)
 	for i := 0; i < nNodes; i++ {
 		app, peerID, transmitter, kb, observedLogs := setupNode(t, ports[i], fmt.Sprintf("core_node_%d", i), backend, clientCSAKeys[i])
-		t.Logf("Node %d with transmitter %#v (%s) started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), ports[i])
+		t.Logf("Node %d with transmitter %#v (%s) and peer id %s started on port %d", i, transmitter, fmt.Sprintf("%x", transmitter[:]), peerID, ports[i])
 
 		keys, err := app.GetKeyStore().Eth().GetAll(context.Background())
 		require.NoErrorf(t, err, "failed to get keys")
@@ -133,6 +133,7 @@ func setupNode(
 ) (app chainlink.Application, peerID string, clientPubKey credentials.StaticSizedPublicKey, ocr2kb ocr2key.KeyBundle, observedLogs *observer.ObservedLogs) {
 	k := big.NewInt(int64(port)) // keys unique to port
 	p2pKey := p2pkey.MustNewV2XXXTestingOnly(k)
+	t.Logf("GEERT p2pkey is %s", p2pKey.PeerID().Raw())
 	rdr := keystest.NewRandReaderFromSeed(int64(port))
 	ocr2kb = ocr2key.MustNewInsecure(rdr, chaintype.EVM)
 
@@ -211,6 +212,7 @@ func setupNode(
 		assert.NoError(t, app.Stop())
 	})
 
+	t.Logf("GEERT p2pkey raw is %s", p2pKey.PeerID().Raw())
 	return app, p2pKey.PeerID().Raw(), csaKey.StaticSizedPublicKey(), ocr2kb, observedLogs
 }
 

@@ -58,6 +58,8 @@ var (
 // TODO(gg): update bootstrap config to have lower finalityDepth
 //    logger.go:146: 2025-03-24T14:33:08.030Z	DEBUG	bootstrap_svr.EVM.1337.HeadSaver	heads/saver.go:72	chain shorter than FinalityDepth	{"version": "unset@unset", "chainLen": 8, "evmFinalityDepth": 10}
 
+// TODO(gg) use framework.Context from "github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework" for Contexts
+
 func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	// testStartTimeStamp := time.Now()
 	// multiplier := decimal.New(1, 18)
@@ -300,7 +302,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 				OCRKeyBundleID:       null.StringFrom(node.KeyBundle.ID()),
 				PluginType:           clcommonTypes.Median,
 				TransmitterID:        null.StringFrom(keys[0].Address.Hex()),
-				AllowNoBootstrappers: true,                                                                         // TODO(gg): maybe we can get away with this?
+				AllowNoBootstrappers: false,                                                                        // TODO(gg): maybe we can get away with this?
 				P2PV2Bootstrappers:   []string{fmt.Sprintf("%s@127.0.0.1:%d", bootstrapPeerID, bootstrapNodePort)}, // TODO(gg) bootstrapPeerID.Data[0].Attributes.PeerID, needed?
 				RelayConfig: map[string]any{
 					"chainID":                testutils.SimulatedChainID.String(),
