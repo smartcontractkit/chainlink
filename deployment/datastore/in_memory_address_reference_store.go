@@ -110,8 +110,8 @@ func (s *InMemoryAddressReferenceStore) Update(record AddressReferenceRecord) er
 
 // Delete deletes record whose primary key elements match the supplied AddressRecord, returning an error if no
 // such record exists to be deleted.
-func (s *InMemoryAddressReferenceStore) Delete(record AddressReferenceRecord) error {
-	idx := s.indexOf(record.Key())
+func (s *InMemoryAddressReferenceStore) Delete(key AddressReferenceKey) error {
+	idx := s.indexOf(key)
 	if idx == -1 {
 		return ErrAddressReferenceRecordNotFound
 	}

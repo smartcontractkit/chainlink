@@ -68,7 +68,7 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// the non-primary-key values of the supplied AddressRecord.
 	Update(record R) error
 
-	// Delete deletes record whose primary key elements match the supplied AddressRecord, returning an error if no
+	// Delete deletes record whose primary key elements match the supplied key, returning an error if no
 	// such record exists to be deleted
-	Delete(record R) error
+	Delete(key K) error
 }

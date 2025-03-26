@@ -292,7 +292,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 		name          string
 		givenState    []AddressReferenceRecord
 		expectedState []AddressReferenceRecord
-		giveRecord    AddressReferenceRecord
+		giveKey       AddressReferenceKey
 		expectedError error
 	}{
 		{
@@ -302,7 +302,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 				recordTwo,
 				recordThree,
 			},
-			giveRecord: recordTwo,
+			giveKey: recordTwo.Key(),
 			expectedState: []AddressReferenceRecord{
 				recordOne,
 				recordThree,
@@ -314,7 +314,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 				recordOne,
 				recordThree,
 			},
-			giveRecord:    recordTwo,
+			giveKey:       recordTwo.Key(),
 			expectedError: ErrAddressReferenceRecordNotFound,
 		},
 	}
@@ -322,7 +322,7 @@ func TestInMemoryAddressReferenceStore_Delete(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := InMemoryAddressReferenceStore{records: tt.givenState}
-			err := store.Delete(tt.giveRecord)
+			err := store.Delete(tt.giveKey)
 
 			if tt.expectedError != nil {
 				require.Error(t, err)
