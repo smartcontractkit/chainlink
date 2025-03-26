@@ -424,9 +424,9 @@ func setupInboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *ccipcs.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &ccipcs.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -465,9 +465,9 @@ func setupOutboundWiring(
 	testRouterEnabled,
 	mcmsEnabled bool,
 ) testhelpers.DeployedEnv {
-	var mcmsConfig *ccipcs.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &ccipcs.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}

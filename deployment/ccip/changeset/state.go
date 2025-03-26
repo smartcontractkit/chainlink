@@ -1155,7 +1155,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *commoncs.TimelockConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -1169,6 +1169,15 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
 	if mcmsCfg != nil {
+		// if MCMSAction is not set, default to timelock.Schedule
+		if mcmsCfg.MCMSAction == "" {
+			mcmsCfg.MCMSAction = timelock.Schedule
+		}
+		if mcmsCfg.MCMSAction != timelock.Schedule &&
+			mcmsCfg.MCMSAction != timelock.Cancel &&
+			mcmsCfg.MCMSAction != timelock.Bypass {
+			return fmt.Errorf("invalid MCMS type %s", mcmsCfg.MCMSAction)
+		}
 		if chainState.Timelock == nil {
 			return fmt.Errorf("missing timelock on %s", chain)
 		}
