@@ -28,18 +28,7 @@ contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
-    bytes memory sourcePoolData;
-
-    // Since the remote token pool's source data is expected to be the LOCK_RELEASE_FLAG,
-    // a new bytes(0) is passed to _parseRemoteDecimals to avoid a revert, but the sourcePoolData
-    // may be used in the future for other purposes so it is used as-provided for all other purposes
-    if (bytes4(releaseOrMintIn.sourcePoolData) == LOCK_RELEASE_FLAG) {
-      sourcePoolData = new bytes(0);
-    } else {
-      sourcePoolData = releaseOrMintIn.sourcePoolData;
-    }
-
-    uint256 localAmount = _calculateLocalAmount(releaseOrMintIn.amount, _parseRemoteDecimals(sourcePoolData));
+    uint256 localAmount = _calculateLocalAmount(releaseOrMintIn.amount, _parseRemoteDecimals(""));
 
     // Mint to the receiver
     IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, localAmount);
