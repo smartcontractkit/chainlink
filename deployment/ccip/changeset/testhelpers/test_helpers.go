@@ -245,6 +245,7 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
+	const cannotDecodeErrorReason = "could not decode error reason"
 
 	defer func() { cfg.Sender.Value = nil }()
 
@@ -252,22 +253,14 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 	for {
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
-			if retryCount >= cfg.MaxRetries {
-				return nil, 0, fmt.Errorf("failed to get fee after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
-			}
-			retryCount++
-			continue
+			return nil, 0, fmt.Errorf("failed to get fee: %w", err)
 		}
 
 		cfg.Sender.Value = fee
 
 		tx, err := r.CcipSend(cfg.Sender, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
-			if retryCount >= cfg.MaxRetries {
-				return nil, 0, fmt.Errorf("failed to send CCIP message after %d retries: %w", retryCount, err)
-			}
-			retryCount++
-			continue
+			return nil, 0, fmt.Errorf("failed to send CCIP message: %w", err)
 		}
 
 		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
@@ -276,13 +269,15 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 				// Don't count insufficient fee as part of the retry count
 				// because this is expected and we need to adjust the fee
 				continue
+			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) {
+				if retryCount >= cfg.MaxRetries {
+					return nil, 0, fmt.Errorf("failed to confirm CCIP message after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
+				}
+				retryCount++
+				continue
 			}
 
-			if retryCount >= cfg.MaxRetries {
-				return nil, 0, fmt.Errorf("failed to confirm CCIP message after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
-			}
-			retryCount++
-			continue
+			return nil, 0, fmt.Errorf("failed to confirm CCIP message: %w", deployment.MaybeDataErr(err))
 		}
 
 		return tx, blockNum, nil
