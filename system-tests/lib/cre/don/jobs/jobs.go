@@ -11,7 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 
-	types "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
 func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []string, jobSpecs types.DonJobs) error {
@@ -47,13 +47,4 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 	}
 
 	return nil
-}
-
-func calculateJobCount(jobSpecs types.DonJobs) int {
-	count := 0
-	for _, jobSpec := range jobSpecs {
-		count += len(jobSpec)
-	}
-
-	return count
 }

@@ -1840,7 +1840,8 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Deploy all the CCIP contracts.
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
+	allChains := append(e.Env.AllChainSelectors(), e.Env.AllChainSelectorsSolana()...)
+	snap, solana, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
@@ -1849,6 +1850,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
 	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(solana, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }
