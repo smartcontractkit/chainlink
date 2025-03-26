@@ -177,20 +177,20 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 	s := []int{1, 2, 2, 2}
 
 	signerKeys, transmitters, f, _, offchainConfigVersion, offchainConfig, err := confighelper.ContractSetConfigArgsForTests(
-		30*time.Second, // deltaProgress time.Duration,
-		30*time.Second, // deltaResend time.Duration,
-		10*time.Second, // deltaRound time.Duration,
-		20*time.Second, // deltaGrace time.Duration,
-		20*time.Second, // deltaStage time.Duration,
-		3,              // rMax uint8,
-		s,              // s []int,
+		20*time.Second,       // deltaProgress time.Duration,
+		20*time.Second,       // deltaResend time.Duration,
+		1*time.Second,        // deltaRound time.Duration,
+		250*time.Millisecond, // deltaGrace time.Duration,
+		20*time.Second,       // deltaStage time.Duration,
+		3,                    // rMax uint8,
+		s,                    // s []int,
 		oracles,
 		median.OffchainConfig{
 			AlphaReportInfinite: false,
 			AlphaReportPPB:      1,
 			AlphaAcceptInfinite: false,
 			AlphaAcceptPPB:      1,
-			DeltaC:              time.Minute * 30,
+			DeltaC:              500 * time.Millisecond,
 		}.Encode(), // reportingPluginConfig []byte,
 		nil,
 		5*time.Second, // maxDurationQuery time.Duration,
