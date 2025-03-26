@@ -12,12 +12,9 @@ import (
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 )
 
-const (
-	cronCapabilityAssetFile = "cron"
-)
-
 var (
-	cronVersion           string
+	capabilityVersion     string
+	capabilityName        string
 	creCliVersion         string
 	outputDir             string
 	ghReadTokenEnvVarName string
@@ -30,17 +27,17 @@ func main() {
 		Long:  `A CLI tool that helps download binary dependencies for CRE testing`,
 	}
 
-	downloadCronCmd := &cobra.Command{
-		Use:   "cron",
-		Short: "Download CRE cron capability binary",
-		Long:  `Download the cron capability binary from GitHub releases`,
+	downloadCapabilityCmd := &cobra.Command{
+		Use:   "capability",
+		Short: "Download a capability binary",
+		Long:  `Download a capability binary from GitHub releases`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			githubToken, err := ghToken()
 			if err != nil {
 				return err
 			}
 
-			return downloadCapability(githubToken, cronVersion, cronCapabilityAssetFile)
+			return downloadCapability(githubToken, capabilityName, capabilityVersion)
 		},
 	}
 
@@ -70,7 +67,7 @@ func main() {
 
 			fmt.Println("Downloading all binaries...")
 
-			if err := downloadCapability(githubToken, cronVersion, cronCapabilityAssetFile); err != nil {
+			if err := downloadCapability(githubToken, capabilityName, capabilityVersion); err != nil {
 				return err
 			}
 
@@ -81,12 +78,14 @@ func main() {
 	rootCmd.PersistentFlags().StringVar(&outputDir, "output-dir", ".", "Directory to save the binaries (defaults to current directory)")
 	rootCmd.PersistentFlags().StringVar(&ghReadTokenEnvVarName, "gh-token-env-var-name", "GITHUB_READ_TOKEN", "Name of the environment variable that contains the GitHub read token")
 
-	downloadCronCmd.Flags().StringVar(&cronVersion, "version", "v1.0.2-alpha", "Version of the cron capability to download (requires GITHUB_READ_TOKEN)")
-	downloadCreCliCmd.Flags().StringVar(&creCliVersion, "version", "v0.1.5", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&cronVersion, "cron-version", "v1.0.2-alpha", "Version of the cron capability to download (requires GITHUB_READ_TOKEN)")
-	downloadAllCmd.Flags().StringVar(&creCliVersion, "cre-cli-version", "v0.1.5", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
+	downloadCapabilityCmd.Flags().StringVar(&capabilityName, "name", "", "Name of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadCapabilityCmd.Flags().StringVar(&capabilityVersion, "version", "", "Version of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadCreCliCmd.Flags().StringVar(&creCliVersion, "version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
+	downloadAllCmd.Flags().StringVar(&capabilityName, "capability-name", "", "Name of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadAllCmd.Flags().StringVar(&capabilityVersion, "capability-version", "", "Version of the capability to download (requires GITHUB_READ_TOKEN)")
+	downloadAllCmd.Flags().StringVar(&creCliVersion, "cre-cli-version", "", "Version of the CRE CLI to download (requires GITHUB_READ_TOKEN)")
 
-	rootCmd.AddCommand(downloadCronCmd)
+	rootCmd.AddCommand(downloadCapabilityCmd)
 	rootCmd.AddCommand(downloadCreCliCmd)
 	rootCmd.AddCommand(downloadAllCmd)
 
@@ -137,6 +136,13 @@ func ghToken() (string, error) {
 }
 
 func downloadCapability(githubToken, name, version string) error {
+	if name == "" {
+		return errors.New("name flag is required")
+	}
+	if version == "" {
+		return errors.New("version flag is required")
+	}
+
 	fmt.Printf("Downloading %s capability binary version %s...\n", name, version)
 	path, err := keystonecapabilities.DownloadCapabilityFromRelease(githubToken, version, name)
 	if err != nil {
@@ -156,6 +162,10 @@ func downloadCapability(githubToken, name, version string) error {
 }
 
 func downloadCreCLI(githubToken, version string) error {
+	if version == "" {
+		return errors.New("version flag is required")
+	}
+
 	fmt.Printf("Downloading CRE CLI binary version %s...\n", version)
 	path, err := libcrecli.DownloadAndInstallChainlinkCLI(githubToken, version)
 	if err != nil {
