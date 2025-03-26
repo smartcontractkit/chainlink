@@ -11,6 +11,12 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
   /// @param gasLimit updated gas cost
   event GasLimitUpdated(uint32 gasLimit);
 
+  /// @notice emitted when the contract config is updated
+  /// @param l1CrossDomainMessengerAddress address the L1CrossDomainMessenger contract address
+  /// @param l2UptimeFeedAddr the address of the L2 SequencerUptimeFeed contract address
+  /// @param gasLimit the gasLimit to use for sending a message from L1 to L2
+  event ConfigUpdated(address l1CrossDomainMessengerAddress, address l2UptimeFeedAddr, uint32 gasLimit);
+
   /// @notice emitted when a validation is executed successfully
   /// @param previousRoundId previous aggregator OCR round id
   /// @param previousAnswer previous aggregator answer
@@ -44,6 +50,7 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
     L1_CROSS_DOMAIN_MESSENGER_ADDRESS = l1CrossDomainMessengerAddress;
     L2_UPTIME_FEED_ADDR = l2UptimeFeedAddr;
     s_gasLimit = gasLimit;
+    emit ConfigUpdated(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit);
   }
 
   function validate(
