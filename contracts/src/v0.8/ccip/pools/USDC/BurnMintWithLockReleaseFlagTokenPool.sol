@@ -28,9 +28,10 @@ contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
   ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
     _validateReleaseOrMint(releaseOrMintIn);
 
-    uint256 localAmount = _calculateLocalAmount(releaseOrMintIn.amount, _parseRemoteDecimals(""));
+    // Since the remote token is always canonical USDC, the decimals should always, the decimals should always be 6
+    // for remote tokens, which enables potentially local non-canonical USDC with different decimals to be minted.
+    uint256 localAmount = _calculateLocalAmount(releaseOrMintIn.amount, 6);
 
-    // Mint to the receiver
     IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, localAmount);
 
     emit Minted(msg.sender, releaseOrMintIn.receiver, localAmount);
