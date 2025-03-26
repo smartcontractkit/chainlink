@@ -1255,17 +1255,6 @@ func (app *ChainlinkApplication) GetFeedsService() feeds.Service {
 	return app.FeedsService
 }
 
-func (app *ChainlinkApplication) GetChainStatus(ctx context.Context, chainFamily string, chainID string) (commontypes.ChainStatus, error) {
-	relayer, err := app.GetRelayers().Get(commontypes.RelayID{
-		Network: chainFamily,
-		ChainID: chainID,
-	})
-	if err != nil {
-		return commontypes.ChainStatus{}, err
-	}
-	return relayer.GetChainStatus(ctx)
-}
-
 // ReplayFromBlock implements the Application interface.
 func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamily string, chainID string, number uint64, forceBroadcast bool) error {
 	switch chainFamily {
