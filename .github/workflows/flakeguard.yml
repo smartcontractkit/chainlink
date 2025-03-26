@@ -758,5 +758,5 @@ jobs:
       - name: Upload Analysis
         uses: actions/upload-artifact@v4
         with:
-          name: llm-analysis.jsonl
+          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
           path: ${{ github.workspace }}/analysis.jsonl
