@@ -77,7 +77,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 				OffRamp:   true,
 			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &ccipChangeset.MCMSConfig{
+			MCMS: &commonchangeset.TimelockConfig{
 				MinDelay: 1 * time.Second,
 			},
 			RouterOwnedByTimelock:    true,
@@ -301,7 +301,7 @@ func TestSetOcr3(t *testing.T) {
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    solChainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS:               &ccipChangeset.MCMSConfig{MinDelay: 1 * time.Second},
+				MCMS:               &commonchangeset.TimelockConfig{MinDelay: 1 * time.Second},
 			},
 		),
 	})
@@ -350,7 +350,7 @@ func TestBilling(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -633,7 +633,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -781,7 +781,7 @@ func TestPoolLookupTable(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,

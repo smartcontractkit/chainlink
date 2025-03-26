@@ -224,7 +224,7 @@ func TestUpgrade(t *testing.T) {
 					NewMCMVersion:       &deployment.Version1_1_0,
 					UpgradeAuthority:    upgradeAuthority,
 					SpillAddress:        upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -263,7 +263,7 @@ func TestUpgrade(t *testing.T) {
 					NewRMNRemoteVersion:            &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
 					SpillAddress:                   upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -281,7 +281,7 @@ func TestUpgrade(t *testing.T) {
 					NewTimelockVersion:         &deployment.Version1_1_0,
 					UpgradeAuthority:           upgradeAuthority,
 					SpillAddress:               upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -293,7 +293,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey2.String(),
 				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -320,7 +320,7 @@ func TestUpgrade(t *testing.T) {
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
 					SpillAddress:      upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &commonchangeset.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
