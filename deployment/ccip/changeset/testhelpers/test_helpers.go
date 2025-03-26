@@ -270,6 +270,9 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 				// because this is expected and we need to adjust the fee
 				continue
 			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) {
+				// If the error reason cannot be decoded, we retry to avoid transient issues. The retry behavior is disabled by default
+				// It is configured in the CCIPSendReqConfig.
+				// This retry was originally added to solve transient failure in end to end tests
 				if retryCount >= cfg.MaxRetries {
 					return nil, 0, fmt.Errorf("failed to confirm CCIP message after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
 				}
