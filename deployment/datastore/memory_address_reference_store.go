@@ -2,8 +2,6 @@ package datastore
 
 import (
 	"sync"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // AddressReferenceStore is an interface that represents an immutable view over a set
@@ -61,7 +59,7 @@ func (s *InMemoryAddressReferenceStore) Fetch() ([]AddressReferenceRecord, error
 // Filter returns a copy of all AddressReferenceRecords in the store that pass all of the provided filters.
 // Filters are applied in the order they are provided.
 // If no filters are provided, all records are returned.
-func (s *InMemoryAddressReferenceStore) Filter(filters ...func([]AddressReferenceRecord) []AddressReferenceRecord) []AddressReferenceRecord {
+func (s *InMemoryAddressReferenceStore) Filter(filters ...FilterFunc[AddressReferenceKey, AddressReferenceRecord]) []AddressReferenceRecord {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -141,70 +139,4 @@ func (s *InMemoryAddressReferenceStore) Delete(key AddressReferenceKey) error {
 	}
 	s.records = append(s.records[:idx], s.records[idx+1:]...)
 	return nil
-}
-
-// The following functions are a default set of filters that can be used with the Filter method of the
-// AddressReferenceStore AddressReferenceStore interface. These filters are composable and can be combined
-// to create more complex filters.
-// For example, to filter records by chain and contract type, you can use the following:
-//	```
-//		records := store.Filter(
-//			ByChain(1),
-//			ByType(deployment.ContractType("type1")),
-//			ByQualifier("my-qualifier"),
-//		)
-//	```
-// This allows for a more flexible and reusable way to filter records. And opens the possibility for any user
-// to create their own custom filters.
-
-// ByChain returns a filter that only includes records with the provided chain.
-func ByChain(chain uint64) func([]AddressReferenceRecord) []AddressReferenceRecord {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
-		for _, record := range records {
-			if record.Chain == chain {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
-}
-
-// ByType returns a filter that only includes records with the provided contract type.
-func ByType(contractType deployment.ContractType) func([]AddressReferenceRecord) []AddressReferenceRecord {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
-		for _, record := range records {
-			if record.Type == contractType {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
-}
-
-// ByVersion returns a filter that only includes records with the provided version.
-func ByVersion(version string) func([]AddressReferenceRecord) []AddressReferenceRecord {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
-		for _, record := range records {
-			if record.Version.String() == version {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
-}
-
-// ByQualifier returns a filter that only includes records with the provided qualifier.
-func ByQualifier(qualifier string) func([]AddressReferenceRecord) []AddressReferenceRecord {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
-		for _, record := range records {
-			if record.Qualifier == qualifier {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
 }
