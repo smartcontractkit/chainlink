@@ -858,13 +858,13 @@ func runBatchingStrategyTests(t *testing.T, strategy BatchingStrategy, available
 // Utility function to run common assertions
 func runAssertions(t *testing.T, tc testCase, seqNrs []ccip.ObservedMessage, execStates []messageExecStatus, strategy BatchingStrategy) {
 	if tc.expectedSeqNrs == nil {
-		assert.Len(t, seqNrs, 0)
+		assert.Empty(t, seqNrs)
 	} else {
 		assert.Equal(t, tc.expectedSeqNrs, seqNrs)
 	}
 
 	if tc.expectedStates == nil {
-		assert.Len(t, execStates, 0)
+		assert.Empty(t, execStates)
 	} else {
 		assert.Equal(t, tc.expectedStates, execStates)
 	}

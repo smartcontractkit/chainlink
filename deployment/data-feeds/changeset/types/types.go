@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -66,7 +68,7 @@ type ProposeConfirmAggregatorConfig struct {
 type SetFeedDecimalConfig struct {
 	ChainSelector    uint64
 	CacheAddress     common.Address
-	DataIDs          [][16]byte // without the 0x prefix
+	DataIDs          []string
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
@@ -76,14 +78,14 @@ type RemoveFeedConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
-	DataIDs        [][16]byte // without the 0x prefix
+	DataIDs        []string
 	McmsConfig     *MCMSConfig
 }
 
 type RemoveFeedConfigCSConfig struct {
 	ChainSelector uint64
 	CacheAddress  common.Address
-	DataIDs       [][16]byte // without the 0x prefix
+	DataIDs       []string
 	McmsConfig    *MCMSConfig
 }
 
@@ -91,7 +93,7 @@ type UpdateDataIDProxyConfig struct {
 	ChainSelector  uint64
 	CacheAddress   common.Address
 	ProxyAddresses []common.Address
-	DataIDs        [][16]byte
+	DataIDs        []string
 	McmsConfig     *MCMSConfig
 }
 
@@ -117,17 +119,40 @@ type MigrationConfig struct {
 }
 
 type AcceptOwnershipConfig struct {
-	ContractAddress common.Address
-	ChainSelector   uint64
-	McmsConfig      *MCMSConfig
+	ContractAddresses []common.Address
+	ChainSelector     uint64
+	McmsConfig        *MCMSConfig
 }
 
 type NewFeedWithProxyConfig struct {
 	ChainSelector    uint64
 	AccessController common.Address
 	Labels           []string // labels for AggregatorProxy
-	DataID           [16]byte // without the 0x prefix
-	Description      string
+	DataIDs          []string
+	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
+}
+
+type NodeConfig struct {
+	InputFileName string
+	InputFS       embed.FS
+}
+
+type ProposeWfJobsConfig struct {
+	InputFileName   string // workflow yaml file path
+	InputFS         embed.FS
+	WorkflowJobName string
+	NodeFilter      *offchain.NodesFilter
+}
+
+type ProposeBtJobsConfig struct {
+	ChainSelector    uint64
+	BootstrapJobName string
+	Contract         string
+	NodeFilter       *offchain.NodesFilter
+}
+
+type DeleteJobsConfig struct {
+	JobIDs []string
 }

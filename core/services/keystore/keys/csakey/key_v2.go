@@ -1,6 +1,7 @@
 package csakey
 
 import (
+	"crypto"
 	"crypto/ed25519"
 	cryptorand "crypto/rand"
 	"encoding/hex"
@@ -8,28 +9,16 @@ import (
 	"math/big"
 
 	"github.com/smartcontractkit/wsrpc/credentials"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
-type Raw []byte
-
-func (raw Raw) Key() KeyV2 {
-	privKey := ed25519.PrivateKey(raw)
+func KeyFor(raw internal.Raw) KeyV2 {
+	privKey := ed25519.PrivateKey(raw.Bytes())
 	return KeyV2{
 		privateKey: &privKey,
 		PublicKey:  privKey.Public().(ed25519.PublicKey),
 	}
-}
-
-func (raw Raw) String() string {
-	return "<CSA Raw Private Key>"
-}
-
-func (raw Raw) GoString() string {
-	return raw.String()
-}
-
-func (raw Raw) Bytes() []byte {
-	return ([]byte)(raw)
 }
 
 var _ fmt.GoStringer = &KeyV2{}
@@ -79,11 +68,11 @@ func (k KeyV2) PublicKeyString() string {
 	return hex.EncodeToString(k.PublicKey)
 }
 
-func (k KeyV2) Raw() Raw {
-	return Raw(*k.privateKey)
+func (k KeyV2) Raw() internal.Raw {
+	return internal.NewRaw(*k.privateKey)
 }
 
-func (k KeyV2) PrivateKey() ed25519.PrivateKey {
+func (k KeyV2) Signer() crypto.Signer {
 	return *k.privateKey
 }
 

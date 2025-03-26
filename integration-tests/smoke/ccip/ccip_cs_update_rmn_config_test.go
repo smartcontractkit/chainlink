@@ -212,10 +212,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *commonchangeset.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &changeset.MCMSConfig{
+		mcmsConfig = &commonchangeset.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -335,11 +335,11 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 	t.Parallel()
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNoJobsAndContracts())
 	allChains := e.Env.AllChainSelectors()
-	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfig)
+	mcmsCfg := make(map[uint64]commontypes.MCMSWithTimelockConfigV2)
 	var err error
 	prereqCfgs := make([]changeset.DeployPrerequisiteConfigPerChain, 0)
 	for _, c := range e.Env.AllChainSelectors() {
-		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfig(t)
+		mcmsCfg[c] = proposalutils.SingleGroupTimelockConfigV2(t)
 		prereqCfgs = append(prereqCfgs, changeset.DeployPrerequisiteConfigPerChain{
 			ChainSelector: c,
 		})
@@ -358,7 +358,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			},
 		),
 		commonchangeset.Configure(
-			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelock),
+			deployment.CreateLegacyChangeSet(commonchangeset.DeployMCMSWithTimelockV2),
 			mcmsCfg,
 		),
 	)
@@ -417,7 +417,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
-				MCMSConfig: &changeset.MCMSConfig{
+				MCMSConfig: &commonchangeset.TimelockConfig{
 					MinDelay: 0,
 				},
 			},

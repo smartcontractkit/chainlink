@@ -71,7 +71,7 @@ type Run struct {
 }
 
 func (r Run) GetID() string {
-	return fmt.Sprintf("%v", r.ID)
+	return strconv.FormatInt(r.ID, 10)
 }
 
 func (r *Run) SetID(value string) error {

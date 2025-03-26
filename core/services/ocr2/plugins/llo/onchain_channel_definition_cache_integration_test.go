@@ -2,6 +2,7 @@ package llo_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -35,6 +36,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 )
 
 type mockHTTPClient struct {
@@ -160,7 +162,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 	client := &mockHTTPClient{}
 	donID := rand.Uint32()
 
-	cdc := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, llo.WithLogPollInterval(100*time.Millisecond))
+	cdc := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 0, channeldefinitions.WithLogPollInterval(100*time.Millisecond))
 	servicetest.Run(t, cdc)
 
 	t.Run("before any logs, returns empty Definitions", func(t *testing.T) {
@@ -271,7 +273,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(3), fields["version"])
 		assert.Equal(t, "http://example.com/foo3", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())
@@ -288,7 +290,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		t.Run("new cdc with same config should load from DB", func(t *testing.T) {
 			// fromBlock far in the future to ensure logs are not used
-			cdc2 := llo.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
+			cdc2 := channeldefinitions.NewChannelDefinitionCache(lggr, orm, client, lp, configStoreAddress, donID, 1000)
 			servicetest.Run(t, cdc2)
 
 			assert.Equal(t, sampleDefinitions, cdc.Definitions())
@@ -354,7 +356,7 @@ func Test_ChannelDefinitionCache_Integration(t *testing.T) {
 
 		assert.Equal(t, uint32(5), fields["version"])
 		assert.Equal(t, "http://example.com/foo5", fields["url"])
-		assert.Equal(t, fmt.Sprintf("%x", sampleDefinitionsSHA), fields["sha"])
+		assert.Equal(t, hex.EncodeToString(sampleDefinitionsSHA[:]), fields["sha"])
 		assert.Equal(t, donID, fields["donID"])
 
 		assert.Equal(t, sampleDefinitions, cdc.Definitions())

@@ -18,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	csState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
@@ -37,7 +38,7 @@ var _ deployment.ChangeSet[OffRampRefAddressesConfig] = UpdateOffRampRefAddresse
 var _ deployment.ChangeSet[SetUpgradeAuthorityConfig] = SetUpgradeAuthorityChangeset
 
 type MCMSConfigSolana struct {
-	MCMS *ccipChangeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 	// Public key of program authorities. Depending on when this changeset is called, some may be under
 	// the control of the deployer, and some may be under the control of the timelock. (e.g. during new offramp deploy)
 	RouterOwnedByTimelock    bool
@@ -109,16 +110,8 @@ func validateRouterConfig(chain deployment.SolChain, chainState ccipChangeset.So
 }
 
 func validateFeeAggregatorConfig(chain deployment.SolChain, chainState ccipChangeset.SolCCIPChainState) error {
-	if chainState.FeeAggregator.IsZero() {
+	if chainState.GetFeeAggregator(chain).IsZero() {
 		return fmt.Errorf("fee aggregator not found in existing state, set the fee aggregator first for chain %d", chain.Selector)
-	}
-	var routerConfigAccount solRouter.Config
-	err := chain.GetAccountDataBorshInto(context.Background(), chainState.RouterConfigPDA, &routerConfigAccount)
-	if err != nil {
-		return fmt.Errorf("router config not found in existing state, initialize the router first %d", chain.Selector)
-	}
-	if !routerConfigAccount.FeeAggregator.Equals(chainState.FeeAggregator) {
-		return fmt.Errorf("fee aggregator %s does not match router config %s", chainState.FeeAggregator.String(), routerConfigAccount.FeeAggregator.String())
 	}
 	return nil
 }

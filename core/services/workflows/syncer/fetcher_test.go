@@ -5,7 +5,7 @@ import (
 	"crypto/ecdsa"
 	"encoding/json"
 	"math"
-	"strings"
+	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/mock"
@@ -39,7 +39,7 @@ func TestNewFetcherService(t *testing.T) {
 
 	var (
 		url   = "http://example.com"
-		msgID = strings.Join([]string{ghcapabilities.MethodWorkflowSyncer, hash(url)}, "/")
+		msgID = messageID(url)
 		donID = "don-id"
 	)
 
@@ -58,7 +58,13 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().DonID().Return(donID)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 
-		payload, err := fetcher.Fetch(ctx, url, 0)
+		req := ghcapabilities.Request{
+			URL:              url,
+			Method:           http.MethodGet,
+			MaxResponseBytes: 0,
+			WorkflowID:       "foo",
+		}
+		payload, err := fetcher.Fetch(ctx, msgID, req)
 		require.NoError(t, err)
 
 		expectedPayload := []byte("response body")
@@ -80,7 +86,13 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url, 0)
+		req := ghcapabilities.Request{
+			URL:              url,
+			Method:           http.MethodGet,
+			MaxResponseBytes: 0,
+			WorkflowID:       "foo",
+		}
+		_, err := fetcher.Fetch(ctx, msgID, req)
 		require.Error(t, err)
 	})
 
@@ -99,7 +111,13 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err := fetcher.Fetch(ctx, url, 0)
+		req := ghcapabilities.Request{
+			URL:              url,
+			Method:           http.MethodGet,
+			MaxResponseBytes: 0,
+			WorkflowID:       "foo",
+		}
+		_, err := fetcher.Fetch(ctx, msgID, req)
 		require.Error(t, err)
 		require.ErrorContains(t, err, "invalid response from gateway")
 	})
@@ -133,11 +151,17 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
-		_, err = fetcher.Fetch(ctx, url, math.MaxUint32)
+		req := ghcapabilities.Request{
+			URL:              url,
+			Method:           http.MethodGet,
+			MaxResponseBytes: math.MaxUint32,
+			WorkflowID:       "foo",
+		}
+		_, err = fetcher.Fetch(ctx, msgID, req)
 		require.Error(t, err, "execution error from gateway: http: request body too large")
 	})
 
-	t.Run("NOK-bad_requet", func(t *testing.T) {
+	t.Run("NOK-bad_request", func(t *testing.T) {
 		connector.EXPECT().AddHandler([]string{capabilities.MethodWorkflowSyncer}, mock.Anything).Return(nil)
 		connector.EXPECT().GatewayIDs().Return([]string{"gateway1", "gateway2"})
 
@@ -152,7 +176,13 @@ func TestNewFetcherService(t *testing.T) {
 		connector.EXPECT().DonID().Return(donID)
 		connector.EXPECT().AwaitConnection(matches.AnyContext, "gateway1").Return(nil)
 
-		payload, err := fetcher.Fetch(ctx, url, 0)
+		req := ghcapabilities.Request{
+			URL:              url,
+			Method:           http.MethodGet,
+			MaxResponseBytes: math.MaxUint32,
+			WorkflowID:       "foo",
+		}
+		payload, err := fetcher.Fetch(ctx, msgID, req)
 		require.ErrorContains(t, err, "request failed with status code")
 
 		expectedPayload := []byte("response body")

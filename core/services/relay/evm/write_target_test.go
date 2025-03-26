@@ -14,9 +14,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
+	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
@@ -114,6 +117,8 @@ func TestEvmWrite(t *testing.T) {
 
 	txManager.On("GetTransactionStatus", mock.Anything, mock.Anything).Return(commonTypes.Finalized, nil)
 
+	chain.On("Start", mock.Anything).Return(nil)
+	chain.On("Close").Return(nil)
 	chain.On("ID").Return(big.NewInt(11155111))
 	chain.On("TxManager").Return(txManager)
 	chain.On("LogPoller").Return(poller)
@@ -146,12 +151,14 @@ func TestEvmWrite(t *testing.T) {
 
 	lggr := logger.TestLogger(t)
 	cRegistry := evmcapabilities.NewRegistry(lggr)
-	relayer, err := relayevm.NewRelayer(testutils.Context(t), lggr, chain, relayevm.RelayerOpts{
+	relayer, err := relayevm.NewRelayer(lggr, chain, relayevm.RelayerOpts{
 		DS:                   db,
-		CSAETHKeystore:       keyStore,
+		EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+		CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 		CapabilitiesRegistry: cRegistry,
 	})
 	require.NoError(t, err)
+	servicetest.Run(t, relayer)
 	registeredCapabilities, err := cRegistry.List(testutils.Context(t))
 	require.NoError(t, err)
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
@@ -270,16 +277,20 @@ func TestEvmWrite(t *testing.T) {
 			require.NoError(t, err2)
 			c.EVM[0].Workflow.ForwarderAddress = &forwarderAddr
 		})
+		testChain.On("Start", mock.Anything).Return(nil)
+		testChain.On("Close").Return(nil)
 		testChain.On("ID").Return(big.NewInt(11155111))
 		testChain.On("Config").Return(evmtest.NewChainScopedConfig(t, testCfg))
 		capabilityRegistry := evmcapabilities.NewRegistry(lggr)
 
-		_, err := relayevm.NewRelayer(ctx, lggr, testChain, relayevm.RelayerOpts{
+		relayer, err := relayevm.NewRelayer(lggr, testChain, relayevm.RelayerOpts{
 			DS:                   db,
-			CSAETHKeystore:       keyStore,
+			EVMKeystore:          keys.NewChainStore(keystore.NewEthSigner(keyStore.Eth(), chain.ID()), chain.ID()),
+			CSAKeystore:          &keystore.CSASigner{CSA: keyStore.CSA()},
 			CapabilitiesRegistry: capabilityRegistry,
 		})
 		require.NoError(t, err)
+		servicetest.Run(t, relayer)
 
 		l, err := capabilityRegistry.List(ctx)
 		require.NoError(t, err)

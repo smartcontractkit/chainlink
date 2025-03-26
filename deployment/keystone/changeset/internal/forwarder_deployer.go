@@ -1,6 +1,7 @@
 package internal
 
 import (
+	"context"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -10,6 +11,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
+)
+
+const (
+	DeploymentBlockLabel = "deployment-block"
+	DeploymentHashLabel  = "deployment-hash"
 )
 
 type KeystoneForwarderDeployer struct {
@@ -24,7 +30,7 @@ func NewKeystoneForwarderDeployer() (*KeystoneForwarderDeployer, error) {
 	}
 	return &KeystoneForwarderDeployer{lggr: lggr}, nil
 }
-func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, error) {
+func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployRequest) (*DeployResponse, error) {
 	est, err := estimateDeploymentGas(req.Chain.Client, forwarder.KeystoneForwarderABI)
 	if err != nil {
 		return nil, fmt.Errorf("failed to estimate gas: %w", err)
@@ -50,9 +56,16 @@ func (c *KeystoneForwarderDeployer) deploy(req DeployRequest) (*DeployResponse, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse type and version from %s: %w", tvStr, err)
 	}
+	txHash := tx.Hash()
+	txReceipt, err := req.Chain.Client.TransactionReceipt(ctx, tx.Hash())
+	if err != nil {
+		return nil, fmt.Errorf("failed to get transaction receipt: %w", err)
+	}
+	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentHashLabel, txHash.Hex()))
+	tv.Labels.Add(fmt.Sprintf("%s: %s", DeploymentBlockLabel, txReceipt.BlockNumber.String()))
 	resp := &DeployResponse{
 		Address: forwarderAddr,
-		Tx:      tx.Hash(),
+		Tx:      txHash,
 		Tv:      tv,
 	}
 	c.contract = forwarder
@@ -68,7 +81,7 @@ type ConfigureForwarderContractsResponse struct {
 	OpsPerChain map[uint64]timelock.BatchChainOperation
 }
 
-// Depreciated: use [changeset.ConfigureForwarders] instead
+// Depreciated: use [changeset.ConfigureForwardContracts] instead
 // ConfigureForwardContracts configures the forwarder contracts on all chains for the given DONS
 // the address book is required to contain the an address of the deployed forwarder contract for every chain in the environment
 func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForwarderContractsRequest) (*ConfigureForwarderContractsResponse, error) {

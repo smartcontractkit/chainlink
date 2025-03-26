@@ -27,7 +27,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &commonchangeset.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -116,7 +116,7 @@ func TestAcceptAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestAcceptAdminRoleChangeset_Execution(t *testing.T) {
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Accept admin role with MCMS"
 		if mcmsConfig == nil {
 			msg = "Accept admin role without MCMS"

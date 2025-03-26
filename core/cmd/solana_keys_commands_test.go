@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"flag"
-	"fmt"
 	"os"
 	"testing"
 
@@ -76,10 +75,10 @@ func TestShell_SolanaKeys(t *testing.T) {
 		key, err := app.GetKeyStore().Solana().Create(ctx)
 		require.NoError(t, err)
 		requireSolanaKeyCount(t, app, 1)
-		assert.Nil(t, cmd.NewSolanaKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
-		require.Equal(t, 1, len(r.Renders))
+		assert.NoError(t, cmd.NewSolanaKeysClient(client).ListKeys(cltest.EmptyCLIContext()))
+		require.Len(t, r.Renders, 1)
 		keys := *r.Renders[0].(*cmd.SolanaKeyPresenters)
-		assert.True(t, key.PublicKeyStr() == keys[0].PubKey)
+		assert.Equal(t, key.PublicKeyStr(), keys[0].PubKey)
 	})
 
 	t.Run("CreateSolanaKey", func(tt *testing.T) {
@@ -142,7 +141,7 @@ func TestShell_SolanaKeys(t *testing.T) {
 		set = flag.NewFlagSet("test Solana export", 0)
 		flagSetApplyFromAction(cmd.NewSolanaKeysClient(client).ExportKey, set, "solana")
 
-		require.NoError(tt, set.Parse([]string{fmt.Sprint(key.ID())}))
+		require.NoError(tt, set.Parse([]string{key.ID()}))
 		require.NoError(tt, set.Set("new-password", "../internal/fixtures/incorrect_password.txt"))
 		require.NoError(tt, set.Set("output", keyName))
 

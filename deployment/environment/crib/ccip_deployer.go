@@ -5,13 +5,15 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"os"
 	"sync"
+
+	"github.com/rs/zerolog"
+	xerrgroup "golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-
-	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
@@ -32,7 +34,10 @@ import (
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 )
 
@@ -101,7 +106,7 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 }
 
 // DeployCCIPAndAddLanes is the actual ccip setup once the nodes are initialized.
-func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
+func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
 	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
@@ -131,7 +136,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 
 	// ----- Part 2 -----
 	lggr.Infow("setting up ocr...")
-	*e, err = mustOCR(e, homeChainSel, feedChainSel, true)
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, true, rmnEnabled)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
 	}
@@ -212,17 +217,21 @@ func ConnectCCIPLanes(ctx context.Context, lggr logger.Logger, envConfig devenv.
 }
 
 // ConfigureCCIPOCR is a group of changesets used from CRIB to redeploy the chainlink don on an existing setup
-func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook) (DeployCCIPOutput, error) {
-	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, rmnEnabled bool) (DeployCCIPOutput, error) {
+	e, don, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to initiate new environment: %w", err)
 	}
 	e.ExistingAddresses = ab
 
 	lggr.Infow("resetting ocr...")
-	*e, err = mustOCR(e, homeChainSel, feedChainSel, false)
+	*e, err = mustOCR(e, homeChainSel, feedChainSel, false, rmnEnabled)
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for setting up OCR: %w", err)
+	}
+	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
 	}
 
 	addresses, err := e.ExistingAddresses.Addresses()
@@ -409,7 +418,7 @@ func setupLinkPools(e *deployment.Environment) (deployment.Environment, error) {
 }
 
 func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (deployment.Environment, error) {
-	eg := errgroup.Group{}
+	eg := xerrgroup.Group{}
 	poolUpdates := make(map[uint64]v1_5_1.TokenPoolConfig)
 	rateLimitPerChain := make(v1_5_1.RateLimiterPerChain)
 	mu := sync.Mutex{}
@@ -528,18 +537,23 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	return *e, err
 }
 
-func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
-	// chainType := v1_6.Default
+	chainType := v1_6.Default
 
-	// TODO Passing SimulationTest to reduce number of changes in the CRIB (load test setup)
-	// @Austin please flip it back to Default once we reach a stable state
-	chainType := v1_6.SimulationTest
+	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
+	if rmnEnabled {
+		overrides = func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			params.CommitOffChainConfig.RMNEnabled = true
+			return params
+		}
+	}
+
 	for selector := range e.Chains {
-		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}
 
@@ -623,4 +637,181 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 			},
 		),
 	)
+}
+
+type RMNNodeConfig struct {
+	v1_6.RMNNopConfig
+	RageProxyKeystore string
+	RMNKeystore       string
+	Passphrase        string
+}
+
+func SetupRMNNodeOnAllChains(ctx context.Context, lggr logger.Logger, envConfig devenv.EnvironmentConfig, homeChainSel, feedChainSel uint64, ab deployment.AddressBook, nodes []RMNNodeConfig) (DeployCCIPOutput, error) {
+	e, _, err := devenv.NewEnvironment(func() context.Context { return ctx }, lggr, envConfig)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to create environment: %w", err)
+	}
+
+	e.ExistingAddresses = ab
+
+	allChains := e.AllChainSelectors()
+	allUpdates := make(map[uint64]map[uint64]v1_6.OffRampSourceUpdate)
+	for _, chainIdx := range allChains {
+		updates := make(map[uint64]v1_6.OffRampSourceUpdate)
+
+		for _, subChainID := range allChains {
+			if subChainID == chainIdx {
+				continue
+			}
+			updates[subChainID] = v1_6.OffRampSourceUpdate{
+				IsRMNVerificationDisabled: false,
+				IsEnabled:                 true,
+			}
+		}
+
+		allUpdates[chainIdx] = updates
+	}
+
+	_, err = v1_6.UpdateOffRampSourcesChangeset(*e, v1_6.UpdateOffRampSourcesConfig{
+		UpdatesByChain: allUpdates,
+	})
+
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to update dynamic off ramp config: %w", err)
+	}
+
+	rmnNodes := make([]rmn_home.RMNHomeNode, len(nodes))
+	bitmap := new(big.Int)
+	for i, node := range nodes {
+		rmnNodes[i] = rmn_home.RMNHomeNode{
+			PeerId:            node.PeerId,
+			OffchainPublicKey: node.OffchainPublicKey,
+		}
+		bitmap.SetBit(bitmap, i, 1)
+	}
+
+	sourceChains := make([]rmn_home.RMNHomeSourceChain, len(allChains))
+	for i, chain := range allChains {
+		sourceChains[i] = rmn_home.RMNHomeSourceChain{
+			ChainSelector:       chain,
+			FObserve:            1,
+			ObserverNodesBitmap: bitmap,
+		}
+	}
+
+	env, err := commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains
+			deployment.CreateLegacyChangeSet(v1_6.SetRMNHomeCandidateConfigChangeset),
+			v1_6.SetRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				RMNStaticConfig: rmn_home.RMNHomeStaticConfig{
+					Nodes:          rmnNodes,
+					OffchainConfig: []byte{},
+				},
+				RMNDynamicConfig: rmn_home.RMNHomeDynamicConfig{
+					OffchainConfig: []byte{},
+					SourceChains:   sourceChains,
+				},
+			},
+		),
+	)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn node candidate: %w", err)
+	}
+
+	state, err := changeset.LoadOnchainState(env)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to load chain state: %w", err)
+	}
+
+	configDigest, err := state.Chains[homeChainSel].RMNHome.GetCandidateDigest(nil)
+
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get rmn home candidate digest: %w", err)
+	}
+
+	env, err = commonchangeset.Apply(nil, *e, nil,
+		commonchangeset.Configure(
+			deployment.CreateLegacyChangeSet(v1_6.PromoteRMNHomeCandidateConfigChangeset),
+			v1_6.PromoteRMNHomeCandidateConfig{
+				HomeChainSelector: homeChainSel,
+				DigestToPromote:   configDigest,
+			},
+		),
+	)
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to promote rmn node candidate: %w", err)
+	}
+
+	signers := make([]rmn_remote.RMNRemoteSigner, len(nodes))
+	for i, node := range nodes {
+		signers[i] = node.ToRMNRemoteSigner()
+	}
+
+	g, ctx := xerrgroup.WithContext(context.Background())
+	for _, chain := range allChains {
+		g.Go(func() error {
+			rmnRemoteConfig := map[uint64]v1_6.RMNRemoteConfig{
+				chain: {
+					Signers: signers,
+					F:       1,
+				},
+			}
+
+			_, err := v1_6.SetRMNRemoteConfigChangeset(*e, v1_6.SetRMNRemoteConfig{
+				HomeChainSelector: homeChainSel,
+				RMNRemoteConfigs:  rmnRemoteConfig,
+			})
+			return err
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to set rmn remote config: %w", err)
+	}
+
+	addresses, err := env.ExistingAddresses.Addresses()
+	if err != nil {
+		return DeployCCIPOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	return DeployCCIPOutput{
+		AddressBook: *deployment.NewMemoryAddressBookFromMap(addresses),
+		NodeIDs:     e.NodeIDs,
+	}, nil
+}
+
+func GenerateRMNNodeIdentities(rmnNodeCount uint, rageProxyImageURI, rageProxyImageTag, afn2proxyImageURI,
+	afn2proxyImageTag string, imagePlatform string) ([]RMNNodeConfig, error) {
+	lggr := zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout})
+	rmnNodeConfigs := make([]RMNNodeConfig, rmnNodeCount)
+
+	for i := uint(0); i < rmnNodeCount; i++ {
+		peerID, rawKeystore, _, err := devenv.GeneratePeerID(zerolog.New(zerolog.ConsoleWriter{Out: os.Stdout}), rageProxyImageURI, rageProxyImageTag, imagePlatform)
+		if err != nil {
+			return nil, err
+		}
+
+		keys, rawRMNKeystore, afnPassphrase, err := devenv.GenerateRMNKeyStore(lggr, afn2proxyImageURI, afn2proxyImageTag, imagePlatform)
+		if err != nil {
+			return nil, err
+		}
+
+		newPeerID, err := p2pkey.MakePeerID(peerID.String())
+		if err != nil {
+			return nil, err
+		}
+
+		rmnNodeConfigs[i] = RMNNodeConfig{
+			RMNNopConfig: v1_6.RMNNopConfig{
+				NodeIndex:           uint64(i),
+				OffchainPublicKey:   [32]byte(keys.OffchainPublicKey),
+				EVMOnChainPublicKey: keys.EVMOnchainPublicKey,
+				PeerId:              newPeerID,
+			},
+			RageProxyKeystore: rawKeystore,
+			RMNKeystore:       rawRMNKeystore,
+			Passphrase:        afnPassphrase,
+		}
+	}
+	return rmnNodeConfigs, nil
 }

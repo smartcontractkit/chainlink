@@ -55,7 +55,7 @@ func TestCommitReportEncoding(t *testing.T) {
 
 	encodedReport, err := c.EncodeCommitReport(ctx, report)
 	require.NoError(t, err)
-	assert.Greater(t, len(encodedReport), 0)
+	assert.NotEmpty(t, encodedReport)
 
 	decodedReport, err := c.DecodeCommitReport(ctx, encodedReport)
 	require.NoError(t, err)

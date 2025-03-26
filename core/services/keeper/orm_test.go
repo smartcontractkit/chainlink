@@ -80,7 +80,7 @@ func TestKeeperDB_Registries(t *testing.T) {
 
 	existingRegistries, err := orm.Registries(ctx)
 	require.NoError(t, err)
-	require.Equal(t, 2, len(existingRegistries))
+	require.Len(t, existingRegistries, 2)
 }
 
 func TestKeeperDB_RegistryByContractAddress(t *testing.T) {
@@ -211,12 +211,12 @@ func TestKeeperDB_NewEligibleUpkeeps_GracePeriod(t *testing.T) {
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0, last_run_block_height = 10 RETURNING *`))
 	list0, err := orm.EligibleUpkeepsForRegistry(ctx, registry.ContractAddress, 21, 100, fmt.Sprintf("%b", evmutils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
-	require.Equal(t, 0, len(list0), "should be 0 as all last perform was done by current node")
+	require.Empty(t, list0, "should be 0 as all last perform was done by current node")
 
 	// once passed grace period
 	list1, err := orm.EligibleUpkeepsForRegistry(ctx, registry.ContractAddress, 121, 100, fmt.Sprintf("%b", evmutils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
-	require.NotEqual(t, 0, len(list1), "should get some eligible upkeeps now that they are outside grace period")
+	require.NotEmpty(t, list1, "should get some eligible upkeeps now that they are outside grace period")
 }
 
 func TestKeeperDB_EligibleUpkeeps_TurnsRandom(t *testing.T) {
@@ -283,7 +283,7 @@ func TestKeeperDB_NewEligibleUpkeeps_SkipIfLastPerformedByCurrentKeeper(t *testi
 	require.NoError(t, db.Get(&upkeep, `UPDATE upkeep_registrations SET last_keeper_index = 0 RETURNING *`))
 	list0, err := orm.EligibleUpkeepsForRegistry(ctx, registry.ContractAddress, 21, 100, fmt.Sprintf("%b", evmutils.NewHash().Big())) // none eligible
 	require.NoError(t, err)
-	require.Equal(t, 0, len(list0), "should be 0 as all last perform was done by current node")
+	require.Empty(t, list0, "should be 0 as all last perform was done by current node")
 }
 
 func TestKeeperDB_NewEligibleUpkeeps_CoverBuddy(t *testing.T) {
@@ -330,7 +330,7 @@ func TestKeeperDB_NewEligibleUpkeeps_FirstTurn(t *testing.T) {
 	// last keeper index is null to simulate a normal first run
 	listKpr0, err := orm.EligibleUpkeepsForRegistry(ctx, registry.ContractAddress, 21, 100, binaryHash) // someone eligible only kpr0 turn
 	require.NoError(t, err)
-	require.NotEqual(t, 0, len(listKpr0), "kpr0 should have some eligible as a normal turn")
+	require.NotEmpty(t, listKpr0, "kpr0 should have some eligible as a normal turn")
 }
 
 func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
@@ -354,8 +354,8 @@ func TestKeeperDB_NewEligibleUpkeeps_FiltersByRegistry(t *testing.T) {
 	list2, err := orm.EligibleUpkeepsForRegistry(ctx, registry2.ContractAddress, 20, 100, binaryHash)
 	require.NoError(t, err)
 
-	assert.Equal(t, 1, len(list1))
-	assert.Equal(t, 1, len(list2))
+	assert.Len(t, list1, 1)
+	assert.Len(t, list2, 1)
 }
 
 func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
@@ -368,7 +368,7 @@ func TestKeeperDB_AllUpkeepIDsForRegistry(t *testing.T) {
 	upkeepIDs, err := orm.AllUpkeepIDsForRegistry(ctx, registry.ID)
 	require.NoError(t, err)
 	// No upkeeps returned
-	require.Len(t, upkeepIDs, 0)
+	require.Empty(t, upkeepIDs)
 
 	upkeep := newUpkeep(registry, 3)
 	err = orm.UpsertUpkeep(ctx, &upkeep)
@@ -421,22 +421,22 @@ func TestKeeperDB_NewSetLastRunInfoForUpkeepOnJob(t *testing.T) {
 	// update
 	rowsAffected, err := orm.SetLastRunInfoForUpkeepOnJob(ctx, j.ID, upkeep.UpkeepID, 100, registry.FromAddress)
 	require.NoError(t, err)
-	require.Equal(t, rowsAffected, int64(1))
+	require.Equal(t, int64(1), rowsAffected)
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to lower block height not allowed
 	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(ctx, j.ID, upkeep.UpkeepID, 0, registry.FromAddress)
 	require.NoError(t, err)
-	require.Equal(t, rowsAffected, int64(0))
+	require.Equal(t, int64(0), rowsAffected)
 	assertLastRunHeight(t, db, upkeep, 100, 0)
 	// update to same block height allowed
 	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(ctx, j.ID, upkeep.UpkeepID, 100, types.EIP55AddressFromAddress(evmutils.ZeroAddress))
 	require.NoError(t, err)
-	require.Equal(t, rowsAffected, int64(1))
+	require.Equal(t, int64(1), rowsAffected)
 	assertLastRunHeight(t, db, upkeep, 100, 1)
 	// update to higher block height allowed
 	rowsAffected, err = orm.SetLastRunInfoForUpkeepOnJob(ctx, j.ID, upkeep.UpkeepID, 101, registry.FromAddress)
 	require.NoError(t, err)
-	require.Equal(t, rowsAffected, int64(1))
+	require.Equal(t, int64(1), rowsAffected)
 	assertLastRunHeight(t, db, upkeep, 101, 0)
 }
 

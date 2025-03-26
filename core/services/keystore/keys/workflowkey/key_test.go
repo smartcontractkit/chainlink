@@ -10,6 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/crypto/nacl/box"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/internal"
 )
 
 func TestNew(t *testing.T) {
@@ -27,23 +29,13 @@ func TestPublicKey(t *testing.T) {
 	assert.Equal(t, *key.publicKey, key.PublicKey())
 }
 
-func TestEncryptKeyRawPrivateKey(t *testing.T) {
-	privKey, err := New()
-	require.NoError(t, err)
-
-	privateKey := privKey.Raw()
-
-	assert.Equal(t, "<Workflow Raw Private Key>", privateKey.String())
-	assert.Equal(t, privateKey.String(), privateKey.GoString())
-}
-
 func TestEncryptKeyFromRawPrivateKey(t *testing.T) {
 	boxPubKey, boxPrivKey, err := box.GenerateKey(cryptorand.Reader)
 	require.NoError(t, err)
 
 	privKey := make([]byte, 32)
 	copy(privKey, boxPrivKey[:])
-	key := Raw(privKey).Key()
+	key := KeyFor(internal.NewRaw(privKey))
 
 	assert.Equal(t, boxPubKey, key.publicKey)
 	assert.Equal(t, boxPrivKey, key.privateKey)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"sync"
@@ -464,7 +465,7 @@ func TestSyncer_DBIntegration(t *testing.T) {
 
 	factory := newContractReaderFactory(t, sim)
 	syncerORM := newORM(t)
-	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, fmt.Errorf("no state found"))
+	syncerORM.ormMock.On("LatestLocalRegistry", mock.Anything).Return(nil, errors.New("no state found"))
 	syncerORM.ormMock.On("AddLocalRegistry", mock.Anything, mock.Anything).Return(nil)
 	syncer, err := newTestSyncer(logger.TestLogger(t), func() (p2ptypes.PeerID, error) { return p2ptypes.PeerID{}, nil }, factory, regAddress.Hex(), syncerORM)
 	require.NoError(t, err)

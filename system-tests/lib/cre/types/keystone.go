@@ -13,6 +13,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
 
@@ -186,6 +188,7 @@ func (c *CreateJobsInput) Validate() error {
 type DebugInput struct {
 	DebugDons        []*DebugDon
 	BlockchainOutput *blockchain.Output
+	InfraInput       *types.InfraInput
 }
 
 type DebugDon struct {
@@ -214,6 +217,9 @@ func (d *DebugInput) Validate() error {
 	}
 	if d.BlockchainOutput == nil {
 		return errors.New("blockchain output not set")
+	}
+	if d.InfraInput == nil {
+		return errors.New("infra input not set")
 	}
 
 	return nil
@@ -260,7 +266,7 @@ type GeneratePoRJobSpecsInput struct {
 	OCR3CapabilityAddress  common.Address
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
-	CronCapBinName         string
+	CronCapBinPath         string
 	GatewayConnectorOutput GatewayConnectorOutput
 }
 
@@ -274,8 +280,8 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 	if g.OCR3CapabilityAddress == (common.Address{}) {
 		return errors.New("ocr3 capability address not set")
 	}
-	if g.CronCapBinName == "" {
-		return errors.New("cron cap bin name not set")
+	if g.CronCapBinPath == "" {
+		return errors.New("cron cap bin path not set")
 	}
 	if g.GatewayConnectorOutput.Path == "" {
 		return errors.New("gateway connector path is not set")
@@ -491,3 +497,86 @@ type FullCLDEnvironmentOutput struct {
 	Environment *deployment.Environment
 	DonTopology *DonTopology
 }
+
+type DeployCribDonsInput struct {
+	Topology       *Topology
+	NodeSetInputs  []*CapabilitiesAwareNodeSet
+	NixShell       *nix.Shell
+	CribConfigsDir string
+}
+
+func (d *DeployCribDonsInput) Validate() error {
+	if d.Topology == nil {
+		return errors.New("topology not set")
+	}
+	if len(d.Topology.DonsMetadata) == 0 {
+		return errors.New("metadata not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if len(d.NodeSetInputs) == 0 {
+		return errors.New("node set inputs not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type DeployCribJdInput struct {
+	JDInput        *jd.Input
+	NixShell       *nix.Shell
+	CribConfigsDir string
+}
+
+func (d *DeployCribJdInput) Validate() error {
+	if d.JDInput == nil {
+		return errors.New("jd input not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type DeployCribBlockchainInput struct {
+	BlockchainInput *blockchain.Input
+	NixShell        *nix.Shell
+	CribConfigsDir  string
+}
+
+func (d *DeployCribBlockchainInput) Validate() error {
+	if d.BlockchainInput == nil {
+		return errors.New("blockchain input not set")
+	}
+	if d.NixShell == nil {
+		return errors.New("nix shell not set")
+	}
+	if d.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type StartNixShellInput struct {
+	InfraInput     *types.InfraInput
+	CribConfigsDir string
+	ExtraEnvVars   map[string]string
+	PurgeNamespace bool
+}
+
+func (s *StartNixShellInput) Validate() error {
+	if s.InfraInput == nil {
+		return errors.New("infra input not set")
+	}
+	if s.CribConfigsDir == "" {
+		return errors.New("crib configs dir not set")
+	}
+	return nil
+}
+
+type DONCapabilityWithConfigFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig

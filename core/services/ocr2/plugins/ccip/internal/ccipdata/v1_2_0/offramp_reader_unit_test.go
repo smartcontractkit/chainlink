@@ -2,7 +2,7 @@ package v1_2_0
 
 import (
 	"encoding/binary"
-	"fmt"
+	"errors"
 	"math/rand"
 	"slices"
 	"testing"
@@ -23,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	evm_2_evm_offramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/mocks/v1_2_0"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcalc"
+	mock_contracts "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib/rpclibmocks"
 )
@@ -48,7 +48,7 @@ func TestOffRampGetDestinationTokensFromSourceTokens(t *testing.T) {
 		{
 			name: "rpc error",
 			outputChangeFn: func(outputs []rpclib.DataAndErr) []rpclib.DataAndErr {
-				outputs[2].Err = fmt.Errorf("some error")
+				outputs[2].Err = errors.New("some error")
 				return outputs
 			},
 			expErr: true,

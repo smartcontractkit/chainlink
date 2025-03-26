@@ -24,8 +24,8 @@ func TestLogConfig(t *testing.T) {
 	assert.Equal(t, uint64(100*utils.GB), uint64(file.MaxSize()))
 	assert.Equal(t, int64(17), file.MaxAgeDays())
 	assert.Equal(t, int64(9), file.MaxBackups())
-	assert.Equal(t, true, log.UnixTimestamps())
-	assert.Equal(t, true, log.JSONConsole())
+	assert.True(t, log.UnixTimestamps())
+	assert.True(t, log.JSONConsole())
 	assert.Equal(t, zapcore.Level(3), log.DefaultLevel())
 	assert.Equal(t, zapcore.Level(3), log.Level())
 }

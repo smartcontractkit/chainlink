@@ -2,7 +2,7 @@ package tokendata
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strconv"
 	"sync"
 	"time"
@@ -119,7 +119,7 @@ func (w *BackgroundWorker) GetMsgTokenData(ctx context.Context, msg cciptypes.EV
 			return nil, r.Err
 		}
 		if r.TokenAmountIndex < 0 || r.TokenAmountIndex >= len(msg.TokenAmounts) {
-			return nil, fmt.Errorf("token data index inconsistency")
+			return nil, errors.New("token data index inconsistency")
 		}
 		tokenDatas[r.TokenAmountIndex] = r.Data
 	}

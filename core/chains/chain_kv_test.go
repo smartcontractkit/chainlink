@@ -23,12 +23,12 @@ func Test_ChainKV(t *testing.T) {
 	assert.Nil(t, c)
 	assert.ErrorIs(t, err, chains.ErrNoSuchChainID)
 
-	assert.Equal(t, kv.Len(), 0)
-	assert.Len(t, kv.Slice(), 0)
+	assert.Equal(t, 0, kv.Len())
+	assert.Empty(t, kv.Slice())
 
 	cs, err := kv.List()
 	assert.NoError(t, err)
-	assert.Len(t, cs, 0)
+	assert.Empty(t, cs)
 
 	// test with one chain
 	onechain := map[string]*testChainService{testChainID: testChain}
@@ -37,7 +37,7 @@ func Test_ChainKV(t *testing.T) {
 	assert.Equal(t, c, testChain)
 	assert.NoError(t, err)
 
-	assert.Equal(t, kv.Len(), 1)
+	assert.Equal(t, 1, kv.Len())
 	assert.Len(t, kv.Slice(), 1)
 
 	cs, err = kv.List()
@@ -53,7 +53,7 @@ func Test_ChainKV(t *testing.T) {
 	// List no such id
 	cs, err = kv.List("no such id")
 	assert.Error(t, err)
-	assert.Len(t, cs, 0)
+	assert.Empty(t, cs)
 }
 
 type testChainService struct {

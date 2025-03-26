@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -90,7 +91,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 						selector: deployment.Version1_5_1,
 					},
 					ChainSelectorToUSDCDomain: map[uint64]uint32{},
-					MCMS:                      &changeset.MCMSConfig{MinDelay: 0 * time.Second},
+					MCMS:                      &commonchangeset.TimelockConfig{MinDelay: 0 * time.Second},
 				}
 			},
 			DeployUSDC: true,
@@ -179,7 +180,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
 
-	for _, mcmsConfig := range []*changeset.MCMSConfig{nil, &changeset.MCMSConfig{MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Sync domains without MCMS"
 		if mcmsConfig != nil {
 			msg = "Sync domains with MCMS"

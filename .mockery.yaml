@@ -87,18 +87,6 @@ packages:
       FlagsInterface:
         config:
           mockname: Flags
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface:
-    config:
-      dir: core/services/vrf/mocks
-      filename: aggregator_v3_interface.go
-    interfaces:
-      AggregatorV3InterfaceInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2:
-    config:
-      dir: core/services/vrf/mocks
-      filename: vrf_coordinator_v2.go
-    interfaces:
-      VRFCoordinatorV2Interface:
   github.com/smartcontractkit/chainlink/v2/core/logger:
     config:
       dir: "{{ .InterfaceDir }}"
@@ -267,7 +255,6 @@ packages:
     config:
       dir: "{{ .InterfaceDir }}/../mocks"
     interfaces:
-      Config:
       FeeConfig:
   github.com/smartcontractkit/chainlink/v2/core/services/telemetry:
     config:
@@ -304,41 +291,13 @@ packages:
         config:
           dir: core/services/relay/evm/mocks
       ContractWriter:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp:
-    config:
-      dir: core/gethwrappers/ccip/mocks/
-      filename: evm2_evm_on_ramp_interface.go
-      outpkg: mock_contracts
-    interfaces:
-      EVM2EVMOnRampInterface: 
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp:
-      config:
-        dir: core/gethwrappers/ccip/mocks/
-        filename: evm2_evm_off_ramp_interface.go
-        outpkg: mock_contracts
-      interfaces:
-        EVM2EVMOffRampInterface: 
   github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp:
     config:
-      dir: core/gethwrappers/ccip/mocks/v1_2_0/
+      dir: core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts
       filename: evm2_evm_off_ramp_interface.go
       outpkg: mock_contracts
     interfaces:
       EVM2EVMOffRampInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store:
-    config:
-      dir: core/gethwrappers/ccip/mocks/
-      filename: commit_store_interface.go
-      outpkg: mock_contracts
-    interfaces:
-      CommitStoreInterface:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface:
-    config:
-      dir: core/gethwrappers/ccip/mocks/
-      filename: link_token_interface.go
-      outpkg: mock_contracts
-    interfaces:
-      LinkTokenInterface:
   github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache:
     config:
       filename: chain_health_mock.go

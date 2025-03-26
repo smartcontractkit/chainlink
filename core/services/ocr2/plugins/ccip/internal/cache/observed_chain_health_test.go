@@ -1,7 +1,7 @@
 package cache
 
 import (
-	"fmt"
+	"errors"
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -20,7 +20,7 @@ var address = cciptypes.Address(common.HexToAddress("0x1234567890123456789012345
 
 func Test_ObservedChainStateSkipErrors(t *testing.T) {
 	mockedHealthcheck := mocks.NewChainHealthcheck(t)
-	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(false, fmt.Errorf("error"))
+	mockedHealthcheck.On("IsHealthy", mock.Anything).Return(false, errors.New("error"))
 
 	observedChainState := NewObservedChainHealthCheck(
 		mockedHealthcheck,

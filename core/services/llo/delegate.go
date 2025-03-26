@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
@@ -21,6 +22,9 @@ import (
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/observation"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/telem"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
@@ -40,7 +44,7 @@ type delegate struct {
 
 	src   datastreamsllo.ShouldRetireCache
 	ds    datastreamsllo.DataSource
-	telem TelemeterService
+	telem telem.TelemeterService
 
 	oracles []Closer
 }
@@ -49,7 +53,7 @@ type DelegateConfig struct {
 	Logger                      logger.Logger
 	DataSource                  sqlutil.DataSource
 	Runner                      streams.Runner
-	Registry                    Registry
+	Registry                    observation.Registry
 	JobName                     null.String
 	CaptureEATelemetry          bool
 	CaptureObservationTelemetry bool
@@ -59,7 +63,7 @@ type DelegateConfig struct {
 	// LLO
 	ChannelDefinitionCache   llotypes.ChannelDefinitionCache
 	ReportingPluginConfig    datastreamsllo.Config
-	RetirementReportCache    RetirementReportCache
+	RetirementReportCache    retirement.RetirementReportCache
 	RetirementReportCodec    datastreamsllo.RetirementReportCodec
 	ShouldRetireCache        datastreamsllo.ShouldRetireCache
 	PluginMonitoringEndpoint telemetry.MultitypeMonitoringEndpoint
@@ -106,7 +110,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 	}
 	reportCodecs := NewReportCodecs(codecLggr, cfg.DonID)
 
-	t := NewTelemeterService(TelemeterParams{
+	t := telem.NewTelemeterService(telem.TelemeterParams{
 		Logger:                      lggr,
 		MonitoringEndpoint:          cfg.PluginMonitoringEndpoint,
 		DonID:                       cfg.DonID,
@@ -115,7 +119,7 @@ func NewDelegate(cfg DelegateConfig) (job.ServiceCtx, error) {
 		CaptureOutcomeTelemetry:     cfg.CaptureOutcomeTelemetry,
 		CaptureReportTelemetry:      cfg.CaptureReportTelemetry,
 	})
-	ds := newDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
+	ds := observation.NewDataSource(logger.Named(lggr, "DataSource"), cfg.Registry, t)
 
 	return &delegate{services.StateMachine{}, cfg, reportCodecs, cfg.ShouldRetireCache, ds, t, []Closer{}}, nil
 }
@@ -133,9 +137,9 @@ func (d *delegate) Start(ctx context.Context) error {
 
 		merr = errors.Join(merr, d.telem.Start(ctx))
 
-		psrrc := NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
+		psrrc := retirement.NewPluginScopedRetirementReportCache(d.cfg.RetirementReportCache, d.cfg.OnchainKeyring, d.cfg.RetirementReportCodec)
 		for i, configTracker := range d.cfg.ContractConfigTrackers {
-			lggr := logger.Named(d.cfg.Logger, fmt.Sprintf("%d", i))
+			lggr := logger.Named(d.cfg.Logger, strconv.Itoa(i))
 			switch i {
 			case 0:
 				lggr = logger.With(lggr, "instanceType", "Blue")
