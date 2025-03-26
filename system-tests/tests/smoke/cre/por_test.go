@@ -733,11 +733,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       blockchainsOutput.blockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      extraAllowedPorts,
-			ExtraAllowedIPs:        extraAllowedIPs,
+			BlockchainOutput:      blockchainsOutput.blockchainOutput,
+			DonsWithMetadata:      fullCldOutput.DonTopology.DonsWithMetadata,
+			OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
+			ExtraAllowedPorts:     extraAllowedPorts,
+			ExtraAllowedIPs:       extraAllowedIPs,
+			//ExtraAllowedIPsCIDR is not needed for this test, but is supported
 			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},

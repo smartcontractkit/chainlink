@@ -266,6 +266,7 @@ type GeneratePoRJobSpecsInput struct {
 	OCR3CapabilityAddress  common.Address
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
+	ExtraAllowedIPsCIDR    []string
 	CronCapBinPath         string
 	GatewayConnectorOutput GatewayConnectorOutput
 }
