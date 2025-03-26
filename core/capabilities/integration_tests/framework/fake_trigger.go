@@ -5,8 +5,6 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/google/uuid"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
@@ -63,10 +61,11 @@ func (r *TriggerSink) Close() error {
 	})
 }
 
-func (r *TriggerSink) SendOutput(outputs *values.Map) {
+// SendOutput wraps the given output in a TriggerEvent and sends it to all triggers created by this factory
+func (r *TriggerSink) SendOutput(outputs *values.Map, eventID string) {
 	triggerEvent := capabilities.TriggerEvent{
 		TriggerType: r.triggerID,
-		ID:          uuid.New().String(),
+		ID:          eventID,
 		Outputs:     outputs,
 	}
 
@@ -79,25 +78,6 @@ func (r *TriggerSink) SendOutput(outputs *values.Map) {
 	}
 }
 
-func (r *TriggerSink) SendOCREvent(ocrEvent *capabilities.OCRTriggerEvent, eventID string) {
-	o, err := ocrEvent.ToMap()
-	if err != nil {
-		panic(err)
-	}
-	triggerEvent := capabilities.TriggerEvent{
-		TriggerType: r.triggerID,
-		ID:          eventID,
-		Outputs:     o,
-	}
-
-	resp := capabilities.TriggerResponse{
-		Event: triggerEvent,
-	}
-
-	for _, trigger := range r.triggers {
-		trigger.sendResponse(resp)
-	}
-}
 func (r *TriggerSink) CreateNewTrigger(t *testing.T) capabilities.TriggerCapability {
 	trigger := newFakeTrigger(t, r.triggerID, &r.wg, r.stopCh)
 	r.triggers = append(r.triggers, trigger)

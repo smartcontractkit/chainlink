@@ -105,17 +105,15 @@ targets:
       address: "%s"
       params: ["$(report)"]
       abi: "receive(report bytes)"
-      deltaStage: %s
-      schedule: %s
+      deltaStage: 1s
+      schedule: oneAtATime
 `
 
 func createLLOStreamWorkflowJob(t *testing.T,
 	workflowName string,
 	workflowOwner string,
-	streamIDremapped map[uint32][]byte,
-	consumerAddr common.Address,
-	deltaStage string,
-	schedule string) job.Job {
+	streamIDremapped map[uint32]string,
+	consumerAddr common.Address) job.Job {
 	triggerFeedIDs := ""
 	// keys of the map are stream IDs
 	streamIDs := make([]uint32, 0, len(streamIDremapped))
@@ -129,10 +127,10 @@ func createLLOStreamWorkflowJob(t *testing.T,
 
 	aggregationFeeds := ""
 	for _, streamID := range streamIDs {
-		aggregationFeeds += fmt.Sprintf("          \"%d\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n            remappedID: %x\n", streamID, streamIDremapped[streamID])
+		aggregationFeeds += fmt.Sprintf("          \"%d\":\n            deviation: \"0.001\"\n            heartbeat: 3600\n            remappedID: \"%s\"\n", streamID, streamIDremapped[streamID])
 	}
 
 	workflowJobSpec := testspecs.GenerateWorkflowJobSpec(t, fmt.Sprintf(lloStreamsWorkflow, workflowName, workflowOwner, triggerFeedIDs, aggregationFeeds,
-		consumerAddr.String(), deltaStage, schedule))
+		consumerAddr.String()))
 	return workflowJobSpec.Job()
 }
