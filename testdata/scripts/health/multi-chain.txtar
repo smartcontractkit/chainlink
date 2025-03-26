@@ -7,6 +7,7 @@ exec chainlink -c config.toml node start -p password -a creds &
 env NODEURL=http://localhost:$PORT
 exec curl --retry 10 --retry-max-time 60 --retry-connrefused $NODEURL
 exec chainlink --remote-node-url $NODEURL admin login -file creds --bypass-version-check
+exec sh -c 'eval "echo \"STDOUT (test): $(cat stdout)\""'
 
 exec chainlink --remote-node-url $NODEURL health
 cmp stdout out.txt
