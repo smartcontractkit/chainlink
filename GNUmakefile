@@ -13,6 +13,9 @@ endif
 ifndef STARKNET_SHA
 override STARKNET_SHA = "9a780650af4708e4bd9b75495feff2c5b4054e46"
 endif
+ifndef APTOS_RELAYER_GIT_REF
+override APTOS_RELAYER_GIT_REF = "213b9555e7ece0e7988d2aea844ad8d1d736201a"
+endif
 
 .PHONY: install
 install: install-chainlink-autoinstall ## Install chainlink and all its dependencies.
@@ -89,6 +92,9 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
 	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
 	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
+	# Set GOPRIVATE to ensure go installs from our repository instead of the public proxy since we're using lightweight git tags.
+	cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-aptos go mod download -json github.com/smartcontractkit/chainlink-aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
+	go install $(GOFLAGS) ./cmd/chainlink-aptos
 
 .PHONY: docker ## Build the chainlink docker image
 docker:

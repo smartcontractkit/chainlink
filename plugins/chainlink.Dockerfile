@@ -63,6 +63,8 @@ COPY --from=buildgo /go/bin/chainlink-cosmos /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
+COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
+ENV CL_APTOS_CMD chainlink-aptos
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
