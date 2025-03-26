@@ -74,10 +74,6 @@ func DeployMCMS(
 
 	env, err := commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
-			[]uint64{chainSelector},
-		),
-		commonChangesets.Configure(
 			deployment.CreateLegacyChangeSet(commonChangesets.DeployMCMSWithTimelockV2),
 			map[uint64]types.MCMSWithTimelockConfigV2{
 				chainSelector: {
