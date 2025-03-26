@@ -6,8 +6,8 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
@@ -78,7 +78,7 @@ func TestConnectNewChain(t *testing.T) {
 
 	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
-		MCMSAction: timelock.Schedule,
+		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
 
 	tests := []test{
@@ -153,7 +153,9 @@ func TestConnectNewChain(t *testing.T) {
 						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MinDelay:         0 * time.Second,
+							MCMSConfig: proposalutils.TimelockConfig{
+								MinDelay: 0 * time.Second,
+							},
 						},
 					),
 				)
@@ -245,7 +247,7 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 
 	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
-		MCMSAction: timelock.Schedule,
+		MCMSAction: mcmstypes.TimelockActionSchedule,
 	}
 
 	tests := []test{
@@ -356,7 +358,9 @@ func TestAddAndPromoteCandidatesForNewChain(t *testing.T) {
 						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MinDelay:         0 * time.Second,
+							MCMSConfig: proposalutils.TimelockConfig{
+								MinDelay: 0 * time.Second,
+							},
 						},
 					),
 				)

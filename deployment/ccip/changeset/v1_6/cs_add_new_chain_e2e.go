@@ -703,7 +703,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},
-			MinDelay: c.MCMSConfig.MinDelay,
+			MCMSConfig: *c.MCMSConfig,
 		})
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", c.NewChainSelector, err)

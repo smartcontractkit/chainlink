@@ -3,6 +3,7 @@ package ccip
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -198,7 +199,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 				deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)
@@ -391,7 +394,9 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second,
+				},
 			},
 		),
 		commonchangeset.Configure(
