@@ -398,8 +398,12 @@ func (c *chain) Transact(ctx context.Context, from, to string, amount *big.Int, 
 	return errors.New("LOOPP not yet supported")
 }
 
-func (c *chain) Replay(ctx context.Context, fromBlock uint64, args map[string]any) error {
-	return c.logPoller.Replay(ctx, int64(fromBlock))
+func (c *chain) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	block, err := strconv.ParseInt(fromBlock, 10, 64)
+	if err != nil {
+		return err
+	}
+	return c.logPoller.Replay(ctx, block)
 }
 
 func (c *chain) SendTx(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
