@@ -26,71 +26,116 @@ import (
 	keystonenode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 )
 
-func ConfigureKeystone(input types.ConfigureKeystoneInput) error {
-	if err := input.Validate(); err != nil {
-		return errors.Wrap(err, "input validation failed")
+var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+	if flags.HasFlag(donFlags, types.CronCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "cron-trigger",
+				Version:        "1.0.0",
+				CapabilityType: 0, // TRIGGER
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
 	}
 
-	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(input.Topology.DonsMetadata))
+	if flags.HasFlag(donFlags, types.CustomComputeCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "custom-compute",
+				Version:        "1.0.0",
+				CapabilityType: 1, // ACTION
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
 
-	for _, donMetadata := range input.Topology.DonsMetadata {
-		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
-		// since it doesn't have any capabilities
-		if flags.HasOnlyOneFlag(donMetadata.Flags, types.GatewayDON) {
-			continue
-		}
+	if flags.HasFlag(donFlags, types.OCR3Capability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "offchain_reporting",
+				Version:        "1.0.0",
+				CapabilityType: 2, // CONSENSUS
+				ResponseType:   0, // REPORT
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
 
+	if flags.HasFlag(donFlags, types.WriteEVMCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "write_geth-testnet",
+				Version:        "1.0.0",
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	return capabilities
+}
+
+var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+	if flags.HasFlag(donFlags, types.LogTriggerCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "web-api-trigger",
+				Version:        "1.0.0",
+				CapabilityType: 0, // TRIGGER
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	if flags.HasFlag(donFlags, types.WebAPITargetCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "web-api-target",
+				Version:        "1.0.0",
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
+	return capabilities
+}
+
+var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
-		// check what capabilities each DON has and register them with Capabilities Registry contract
-		if flags.HasFlag(donMetadata.Flags, types.CronCapability) {
+		if flags.HasFlag(donFlags, types.LogTriggerCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "cron-trigger",
+					LabelledName:   fmt.Sprintf("log-event-trigger-%s-%d", chainFamily, chainID),
 					Version:        "1.0.0",
 					CapabilityType: 0, // TRIGGER
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		if flags.HasFlag(donMetadata.Flags, types.CustomComputeCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "custom-compute",
-					Version:        "1.0.0",
-					CapabilityType: 1, // ACTION
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		if flags.HasFlag(donMetadata.Flags, types.OCR3Capability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "offchain_reporting",
-					Version:        "1.0.0",
-					CapabilityType: 2, // CONSENSUS
 					ResponseType:   0, // REPORT
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
 		}
 
-		if flags.HasFlag(donMetadata.Flags, types.WriteEVMCapability) {
+		if flags.HasFlag(donFlags, types.ReadContractCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "write_geth-testnet",
+					LabelledName:   fmt.Sprintf("read-contract-%s-%d", chainFamily, chainID),
 					Version:        "1.0.0",
-					CapabilityType: 3, // TARGET
-					ResponseType:   1, // OBSERVATION_IDENTICAL
+					CapabilityType: 0, // TRIGGER
+					ResponseType:   0, // REPORT
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
 		}
 
-		// Add support for new capabilities here as needed
-		if flags.HasFlag(donMetadata.Flags, types.MockCapability) {
+		if flags.HasFlag(donFlags, types.MockCapability) {
 			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
 				Capability: kcr.CapabilitiesRegistryCapability{
 					LabelledName:   "streams-trigger",
@@ -108,6 +153,31 @@ func ConfigureKeystone(input types.ConfigureKeystoneInput) error {
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
+		}
+
+		return capabilities
+	}
+}
+
+func ConfigureKeystone(input types.ConfigureKeystoneInput, capabilityFactoryFns []types.DONCapabilityWithConfigFactoryFn) error {
+	if err := input.Validate(); err != nil {
+		return errors.Wrap(err, "input validation failed")
+	}
+
+	donCapabilities := make([]keystone_changeset.DonCapabilities, 0, len(input.Topology.DonsMetadata))
+
+	for _, donMetadata := range input.Topology.DonsMetadata {
+		// if it's only a gateway DON, we don't want to register it with the Capabilities Registry
+		// since it doesn't have any capabilities
+		if flags.HasOnlyOneFlag(donMetadata.Flags, types.GatewayDON) {
+			continue
+		}
+
+		var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+		// check what capabilities each DON has and register them with Capabilities Registry contract
+		for _, factoryFn := range capabilityFactoryFns {
+			capabilities = append(capabilities, factoryFn(donMetadata.Flags)...)
 		}
 
 		workerNodes, workerNodesErr := node.FindManyWithLabel(donMetadata.NodesMetadata, &types.Label{

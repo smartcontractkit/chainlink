@@ -951,14 +951,28 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
-  - id: smoke/ccip/ccip_gas_price_updates_test.go:*
+  - id: smoke/ccip/ccip_gas_price_updates_test.go:^Test_CCIPGasPriceUpdatesWriteFrequency$
     path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
     test_env_type: docker
     runs_on: ubuntu-latest
     triggers:
       - PR E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdates$ -timeout 18m -count=1 -test.parallel=1 -json
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesWriteFrequency$ -timeout 18m -count=1 -test.parallel=1 -json
+    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
+    test_env_vars:
+      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
+      E2E_JD_VERSION: 0.9.0
+      CCIP_V16_TEST_ENV: docker
+
+  - id: smoke/ccip/ccip_gas_price_updates_test.go:^Test_CCIPGasPriceUpdatesDeviation$
+    path: integration-tests/smoke/ccip/ccip_gas_price_updates_test.go
+    test_env_type: docker
+    runs_on: ubuntu-latest
+    triggers:
+      - PR E2E Core Tests
+      - Nightly E2E Tests
+    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^Test_CCIPGasPriceUpdatesDeviation$ -timeout 18m -count=1 -test.parallel=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2

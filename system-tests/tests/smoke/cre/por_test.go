@@ -46,7 +46,6 @@ import (
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
-	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
@@ -66,6 +65,10 @@ const (
 	E2eJobDistributorImageEnvVarName   = "E2E_JD_IMAGE"
 	E2eJobDistributorVersionEnvVarName = "E2E_JD_VERSION"
 	cribConfigsDir                     = "crib-configs"
+)
+
+var (
+	SinglePoRDonCapabilitiesFlags = []string{"ocr3", "cron", "custom-compute", "write-evm"}
 )
 
 type TestConfig struct {
@@ -194,8 +197,8 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 		// we cannot execute this part in workflow steps (it doesn't support any pre-execution hooks)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_IMAGE_ENV)
 		require.NotEmpty(t, os.Getenv(ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV), "missing env var: "+ctfconfig.E2E_TEST_CHAINLINK_VERSION_ENV)
-		require.NotEmpty(t, os.Getenv(libjobs.E2eJobDistributorImageEnvVarName), "missing env var: "+libjobs.E2eJobDistributorImageEnvVarName)
-		require.NotEmpty(t, os.Getenv(libjobs.E2eJobDistributorVersionEnvVarName), "missing env var: "+libjobs.E2eJobDistributorVersionEnvVarName)
+		require.NotEmpty(t, os.Getenv(E2eJobDistributorImageEnvVarName), "missing env var: "+E2eJobDistributorImageEnvVarName)
+		require.NotEmpty(t, os.Getenv(E2eJobDistributorVersionEnvVarName), "missing env var: "+E2eJobDistributorVersionEnvVarName)
 
 		// disabled until we can figure out how to generate a gist read:write token in CI
 		/*
@@ -759,9 +762,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
 			ExtraAllowedPorts:      extraAllowedPorts,
 			ExtraAllowedIPs:        extraAllowedIPs,
-			CronCapBinName:         cronCapabilityAssetFile,
-			GatewayConnectorOutput: topology.GatewayConnectorOutput,
-		}, loadFeedAddresses)
+			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
+			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
+		}, loadFeedAddresses
+	)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
 	createJobsInput := keystonetypes.CreateJobsInput{
@@ -789,7 +793,8 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		CldEnv:        fullCldOutput.Environment,
 		Topology:      topology,
 	}
-	err = libcontracts.ConfigureKeystone(configureKeystoneInput)
+
+	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn})
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Universal setup -- END
@@ -850,7 +855,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       keystonetypes.SingleDonFlags,
+				Capabilities:       SinglePoRDonCapabilitiesFlags,
 				DONTypes:           []string{keystonetypes.WorkflowDON, keystonetypes.GatewayDON},
 				BootstrapNodeIndex: 0, // not required, but set to make the configuration explicit
 				GatewayNodeIndex:   0, // not required, but set to make the configuration explicit
@@ -957,7 +962,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
 				Input:              input[0],
-				Capabilities:       keystonetypes.SingleDonFlags,
+				Capabilities:       SinglePoRDonCapabilitiesFlags,
 				DONTypes:           []string{keystonetypes.WorkflowDON},
 				BootstrapNodeIndex: 0,
 			},

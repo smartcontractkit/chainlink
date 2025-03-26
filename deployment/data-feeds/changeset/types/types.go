@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-feeds/offchain"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	proxy "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/aggregator_proxy"
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
@@ -130,4 +132,27 @@ type NewFeedWithProxyConfig struct {
 	Descriptions     []string
 	WorkflowMetadata []cache.DataFeedsCacheWorkflowMetadata
 	McmsConfig       *MCMSConfig
+}
+
+type NodeConfig struct {
+	InputFileName string
+	InputFS       embed.FS
+}
+
+type ProposeWfJobsConfig struct {
+	InputFileName   string // workflow yaml file path
+	InputFS         embed.FS
+	WorkflowJobName string
+	NodeFilter      *offchain.NodesFilter
+}
+
+type ProposeBtJobsConfig struct {
+	ChainSelector    uint64
+	BootstrapJobName string
+	Contract         string
+	NodeFilter       *offchain.NodesFilter
+}
+
+type DeleteJobsConfig struct {
+	JobIDs []string
 }

@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -32,6 +33,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
@@ -90,7 +92,7 @@ type UpgradeConfig struct {
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
-	MCMS *ccipChangeset.MCMSConfig
+	MCMS *commoncs.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
