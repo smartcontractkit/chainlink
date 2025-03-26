@@ -110,7 +110,11 @@ jobs:
               - 'integration-tests/**/*.toml'
             cre_changes:
               - *core_changes
+              - 'contracts/src/**/keystone/**'
               - 'core/gethwrappers/keystone/**'
+              - 'contracts/GNUmakefile'
+              - 'contracts/foundry.toml'
+              - 'contracts/package.json'
             ccip_changes:
               - '**/*ccip*'
               - '**/*ccip*/**'
