@@ -12,16 +12,14 @@ import (
 )
 
 const (
-	ghReadTokenEnvVarName   = "GITHUB_READ_TOKEN"
 	cronCapabilityAssetFile = "cron"
 )
 
 var (
-	cronVersion   string
-	creCliVersion string
-	outputDir     string
-	githubToken   string
-	outputPath    string
+	cronVersion           string
+	creCliVersion         string
+	outputDir             string
+	ghReadTokenEnvVarName string
 )
 
 func main() {
@@ -36,12 +34,9 @@ func main() {
 		Short: "Download CRE cron capability binary",
 		Long:  `Download the cron capability binary from GitHub releases`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			githubToken := os.Getenv(ghReadTokenEnvVarName)
 			if githubToken == "" {
-				token := os.Getenv(ghReadTokenEnvVarName)
-				if token == "" {
-					return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
-				}
-				githubToken = token
+				return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
 			}
 
 			fmt.Printf("Downloading cron capability binary version %s...\n", cronVersion)
@@ -53,11 +48,11 @@ func main() {
 			fmt.Printf("Cron capability binary downloaded to: %s\n", path)
 
 			// Move binary if output path is specified
-			if outputPath != "" && outputPath != "." {
-				if err := moveFile(path, outputPath); err != nil {
+			if outputDir != "" && outputDir != "." {
+				if err := moveFile(path, outputDir); err != nil {
 					return fmt.Errorf("failed to move binary to output path: %w", err)
 				}
-				fmt.Printf("Moved binary to: %s\n", filepath.Join(outputPath, filepath.Base(path)))
+				fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
 			}
 
 			return nil
@@ -69,12 +64,9 @@ func main() {
 		Short: "Download CRE CLI binary",
 		Long:  `Download the CRE CLI binary from GitHub releases`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			githubToken := os.Getenv(ghReadTokenEnvVarName)
 			if githubToken == "" {
-				token := os.Getenv(ghReadTokenEnvVarName)
-				if token == "" {
-					return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
-				}
-				githubToken = token
+				return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
 			}
 
 			fmt.Printf("Downloading CRE CLI binary version %s...\n", creCliVersion)
@@ -86,11 +78,11 @@ func main() {
 			fmt.Printf("CRE CLI binary downloaded to: %s\n", path)
 
 			// Move binary if output path is specified
-			if outputPath != "" && outputPath != "." {
-				if err := moveFile(path, outputPath); err != nil {
+			if outputDir != "" && outputDir != "." {
+				if err := moveFile(path, outputDir); err != nil {
 					return fmt.Errorf("failed to move binary to output path: %w", err)
 				}
-				fmt.Printf("Moved binary to: %s\n", filepath.Join(outputPath, filepath.Base(path)))
+				fmt.Printf("Moved binary to: %s\n", filepath.Join(outputDir, filepath.Base(path)))
 			}
 
 			return nil
@@ -102,12 +94,9 @@ func main() {
 		Short: "Download all binaries",
 		Long:  `Download both the cron capability and CRE CLI binaries`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			githubToken := os.Getenv(ghReadTokenEnvVarName)
 			if githubToken == "" {
-				token := os.Getenv(ghReadTokenEnvVarName)
-				if token == "" {
-					return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
-				}
-				githubToken = token
+				return fmt.Errorf("%s environment variable is not set", ghReadTokenEnvVarName)
 			}
 
 			fmt.Println("Downloading all binaries...")
@@ -127,16 +116,16 @@ func main() {
 			fmt.Printf("CRE CLI binary downloaded to: %s\n", cliPath)
 
 			// Move binaries if output path is specified
-			if outputPath != "" && outputPath != "." {
-				if err := moveFile(cronPath, outputPath); err != nil {
+			if outputDir != "" && outputDir != "." {
+				if err := moveFile(cronPath, outputDir); err != nil {
 					return fmt.Errorf("failed to move cron capability binary to output path: %w", err)
 				}
-				fmt.Printf("Moved cron capability binary to: %s\n", filepath.Join(outputPath, filepath.Base(cronPath)))
+				fmt.Printf("Moved cron capability binary to: %s\n", filepath.Join(outputDir, filepath.Base(cronPath)))
 
-				if err := moveFile(cliPath, outputPath); err != nil {
+				if err := moveFile(cliPath, outputDir); err != nil {
 					return fmt.Errorf("failed to move CRE CLI binary to output path: %w", err)
 				}
-				fmt.Printf("Moved CRE CLI binary to: %s\n", filepath.Join(outputPath, filepath.Base(cliPath)))
+				fmt.Printf("Moved CRE CLI binary to: %s\n", filepath.Join(outputDir, filepath.Base(cliPath)))
 			}
 
 			return nil
@@ -144,12 +133,8 @@ func main() {
 	}
 
 	// Adding flags for all commands
-	rootCmd.PersistentFlags().StringVar(&githubToken, "token", "", "GitHub token with read access (can also use GITHUB_READ_TOKEN env var)")
-	rootCmd.PersistentFlags().StringVar(&outputDir, "output-dir", "", "Directory to save the binaries (defaults to library default)")
-
-	downloadCronCmd.Flags().StringVar(&outputPath, "output", ".", "Directory to move the downloaded binary to (default is current directory)")
-	downloadCreCliCmd.Flags().StringVar(&outputPath, "output", ".", "Directory to move the downloaded binary to (default is current directory)")
-	downloadAllCmd.Flags().StringVar(&outputPath, "output", ".", "Directory to move the downloaded binaries to (default is current directory)")
+	rootCmd.PersistentFlags().StringVar(&outputDir, "output-dir", ".", "Directory to save the binaries (defaults to current directory)")
+	rootCmd.PersistentFlags().StringVar(&ghReadTokenEnvVarName, "gh-token-env-var-name", "GITHUB_READ_TOKEN", "Name of the environment variable that contains the GitHub read token")
 
 	downloadCronCmd.Flags().StringVar(&cronVersion, "version", "v1.0.2-alpha", "Version of the cron capability to download")
 	downloadCreCliCmd.Flags().StringVar(&creCliVersion, "version", "v0.1.5", "Version of the CRE CLI to download")
