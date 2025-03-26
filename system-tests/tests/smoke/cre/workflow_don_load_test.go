@@ -79,7 +79,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, nil, nil, mustSetCapabilitiesFn, feedsAddresses)
+	setupOutput := setupTestEnvironment(t, testLogger, in, nil, mustSetCapabilitiesFn, feedsAddresses)
 
 	ctx := tests.Context(t)
 	// Log extra information that might help debugging
@@ -267,14 +267,14 @@ func TestReconnectMock(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 100, 2)
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@1.0.0", receiveChannel, 50, 2)
 	time.Sleep(time.Second * 5) //Time to precompute
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5,
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 20*time.Minute),
+				wasp.Plain(4, 120*time.Minute),
 			),
 			Gun:                   sg,
 			Labels:                labels,

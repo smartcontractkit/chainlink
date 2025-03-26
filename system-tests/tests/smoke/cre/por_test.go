@@ -259,7 +259,6 @@ type registerPoRWorkflowInput struct {
 	sethClient                  *seth.Client
 	deployerPrivateKey          string
 	blockchain                  *blockchain.Output
-	binaryDownloadOutput        *binaryDownloadOutput
 	creCLIAbsPath               string
 }
 
@@ -471,7 +470,7 @@ type setupOutput struct {
 	creds                credentials.TransportCredentials
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,loadFeedAddresses [][]string) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, loadFeedAddresses [][]string) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -812,25 +811,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	_, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
 	require.NoError(t, err, "failed to configure feeds consumer")
 
-	registerInput := registerPoRWorkflowInput{
-		WorkflowConfig:              in.WorkflowConfig,
-		chainSelector:               blockchainsOutput.chainSelector,
-		workflowDonID:               fullCldOutput.DonTopology.WorkflowDonID,
-		feedID:                      in.WorkflowConfig.FeedID,
-		workflowRegistryAddress:     keystoneContractsOutput.WorkflowRegistryAddress,
-		feedConsumerAddress:         deployFeedsConsumerOutput.FeedConsumerAddress,
-		capabilitiesRegistryAddress: keystoneContractsOutput.CapabilitiesRegistryAddress,
-		priceProvider:               priceProvider,
-		sethClient:                  blockchainsOutput.sethClient,
-		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
-		blockchain:                  blockchainsOutput.blockchainOutput,
-		creCLIAbsPath:               in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath,
-	}
-	if binaryDownloadOutput != nil {
-		registerInput.binaryDownloadOutput = binaryDownloadOutput
-		err = registerPoRWorkflow(registerInput)
-		require.NoError(t, err, "failed to register PoR workflow")
-	}
 	// Workflow-specific configuration -- END
 
 	// Set inputs in the test config, so that they can be saved
@@ -881,7 +861,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -994,7 +974,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1110,7 +1090,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, [][]string{})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {

@@ -55,7 +55,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_WriteDON_Mock(t *testing.T) {
 		}
 	}
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, nil, nil, mustSetCapabilitiesFn, nil)
+	setupOutput := setupTestEnvironment(t, testLogger, in, nil, mustSetCapabilitiesFn, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
