@@ -2,7 +2,6 @@ package cmd_test
 
 import (
 	"flag"
-	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"math/big"
 	"testing"
 
@@ -10,21 +9,22 @@ import (
 	"github.com/urfave/cli"
 
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
 )
 
 func Test_ReplayFromBlock(t *testing.T) {
 	t.Parallel()
 
-	solCfg := &config.TOMLConfig{
-		ChainID: ptr("devnet"),
-		Enabled: ptr(true),
-	}
-	solCfg.SetDefaults()
-
 	app := startNewApplicationV2(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.EVM[0].ChainID = (*ubig.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
+
+		solCfg := &config.TOMLConfig{
+			ChainID: ptr("devnet"),
+			Enabled: ptr(true),
+		}
+		solCfg.SetDefaults()
 		c.Solana = config.TOMLConfigs{solCfg}
 	})
 

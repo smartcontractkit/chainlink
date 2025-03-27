@@ -124,14 +124,10 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 	v := url.Values{}
 
 	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", fmt.Sprintf("%d", c.Int64("evm-chain-id")))
+		v.Add("evmChainID", c.String("evm-chain-id"))
 	}
 
-	resp, err := s.HTTP.Get(s.ctx(),
-		fmt.Sprintf(
-			"/v2/find_lca?%s",
-			v.Encode(),
-		))
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/find_lca?%s"+v.Encode())
 	if err != nil {
 		return s.errorOut(err)
 	}

@@ -1264,9 +1264,11 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if err != nil {
 			return err
 		}
-		chain.LogBroadcaster().ReplayFromBlock(int64(number), forceBroadcast)
+		//nolint:gosec // this won't overflow
+		fromBlock := int64(number)
+		chain.LogBroadcaster().ReplayFromBlock(fromBlock, forceBroadcast)
 		if app.Config.Feature().LogPoller() {
-			chain.LogPoller().ReplayAsync(int64(number))
+			chain.LogPoller().ReplayAsync(fromBlock)
 		}
 	case relay.NetworkSolana:
 		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
