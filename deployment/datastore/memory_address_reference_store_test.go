@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"github.com/blang/semver/v4"
+	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -709,7 +709,7 @@ func TestByVersion(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressReferenceRecord
-		giveVersion    semver.Version
+		giveVersion    *semver.Version
 		expectedResult []AddressReferenceRecord
 	}{
 		{

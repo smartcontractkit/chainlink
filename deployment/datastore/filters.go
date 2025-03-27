@@ -1,7 +1,7 @@
 package datastore
 
 import (
-	"github.com/blang/semver/v4"
+	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -47,11 +47,11 @@ func AddressReferenceRecordByType(contractType deployment.ContractType) FilterFu
 }
 
 // AddressReferenceRecordByVersion returns a filter that only includes records with the provided version.
-func AddressReferenceRecordByVersion(version semver.Version) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
+func AddressReferenceRecordByVersion(version *semver.Version) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
 	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
 		var filtered []AddressReferenceRecord
 		for _, record := range records {
-			if record.Version.EQ(version) {
+			if record.Version.Equal(version) {
 				filtered = append(filtered, record)
 			}
 		}
