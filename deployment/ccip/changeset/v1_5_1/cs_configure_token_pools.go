@@ -14,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -116,7 +117,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 // ConfigureTokenPoolContractsConfig is the configuration for the ConfigureTokenPoolContractsConfig changeset.
 type ConfigureTokenPoolContractsConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *commoncs.TimelockConfig
+	MCMS *proposalutils.TimelockConfig
 	// PoolUpdates defines the changes that we want to make to the token pool on a chain
 	PoolUpdates map[uint64]TokenPoolConfig
 	// Symbol is the symbol of the token of interest.

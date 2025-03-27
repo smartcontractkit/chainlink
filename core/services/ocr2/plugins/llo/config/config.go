@@ -97,8 +97,8 @@ func (p PluginConfig) Validate() (merr error) {
 		merr = errors.Join(merr, errors.New("llo: DonID must be specified and not zero"))
 	}
 
-	if len(p.Servers) == 0 {
-		merr = errors.Join(merr, errors.New("llo: At least one Mercury server must be specified"))
+	if len(p.Servers) == 0 && len(p.Transmitters) == 0 {
+		merr = errors.Join(merr, errors.New("llo: At least one Mercury server or Transmitter must be specified"))
 	} else {
 		for serverName, serverPubKey := range p.Servers {
 			if err := validateURL(serverName); err != nil {

@@ -8,6 +8,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -106,7 +107,7 @@ func TestRemoveFeedProxyMapping(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)

@@ -979,19 +979,6 @@ runner-test-matrix:
       E2E_JD_VERSION: 0.9.0
       CCIP_V16_TEST_ENV: docker
 
-  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse_Uncurse$
-    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
-    test_env_type: docker
-    runs_on: ubuntu24.04-8cores-32GB
-    triggers:
-      - Nightly E2E Tests
-    test_cmd: cd integration-tests && go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 30m -count=1 -test.parallel=1 -json
-    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
-    test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.9.0
-      CCIP_V16_TEST_ENV: docker
-
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker

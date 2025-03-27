@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -29,7 +30,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &commonchangeset.TimelockConfig{
+	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -160,7 +161,7 @@ func TestProposeAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role without external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role without external admin without MCMS"
@@ -232,7 +233,7 @@ func TestProposeAdminRoleChangeset_ExecutionWithoutExternalAdmin(t *testing.T) {
 }
 
 func TestProposeAdminRoleChangeset_ExecutionWithExternalAdmin(t *testing.T) {
-	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Propose admin role with external admin with MCMS"
 		if mcmsConfig == nil {
 			msg = "Propose admin role with external admin without MCMS"

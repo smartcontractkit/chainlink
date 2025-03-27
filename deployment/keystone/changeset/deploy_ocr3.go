@@ -113,7 +113,7 @@ func ConfigureOCR3Contract(env deployment.Environment, cfg ConfigureOCR3Config) 
 			inspectorPerChain,
 			[]mcmstypes.BatchOperation{*resp.Ops},
 			"proposal to set OCR3 config",
-			cfg.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: cfg.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

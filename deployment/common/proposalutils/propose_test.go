@@ -146,7 +146,7 @@ func TestBuildProposalFromBatchesV2(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelockAddressPerChain,
-				proposerAddressPerChain, inspectorPerChain, tt.batches, description, minDelay)
+				proposerAddressPerChain, inspectorPerChain, tt.batches, description, proposalutils.TimelockConfig{MinDelay: minDelay})
 			if tt.wantErr {
 				require.Error(t, err)
 				assert.Nil(t, proposal)
