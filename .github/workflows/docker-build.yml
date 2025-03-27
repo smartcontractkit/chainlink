@@ -59,7 +59,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@1c1e3aa4f1a02ed28d98b7fe1bd4d9d34f5bc57c # 2025-03-26
     with:
       aws-ecr-name: chainlink
       dockerfile: core/chainlink.Dockerfile
@@ -83,7 +83,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@1c1e3aa4f1a02ed28d98b7fe1bd4d9d34f5bc57c # 2025-03-26
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
@@ -109,7 +109,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@1c1e3aa4f1a02ed28d98b7fe1bd4d9d34f5bc57c # 2025-03-26
     with:
       aws-ecr-name: ccip
       dockerfile: core/chainlink.Dockerfile
