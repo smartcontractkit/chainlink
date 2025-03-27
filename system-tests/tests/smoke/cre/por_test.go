@@ -43,6 +43,7 @@ import (
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -773,7 +774,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		Topology:      topology,
 	}
 
-	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(uint64(chainIDInt))})
+	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Universal setup -- END
@@ -812,7 +813,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
 		creCLIAbsPath:               creCLIAbsPath,
-		writeTargetName:             corevm.GenerateWriteTargetName(uint64(chainIDInt)),
+		writeTargetName:             corevm.GenerateWriteTargetName(libc.MustSafeUint64(int64(chainIDInt))),
 	}
 
 	err = registerPoRWorkflow(registerInput)
