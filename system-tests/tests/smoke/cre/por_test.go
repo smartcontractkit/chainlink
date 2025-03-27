@@ -42,7 +42,6 @@ import (
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -154,7 +153,8 @@ func init() {
 }
 
 // Defines the location of the binary files that are required to run the test
-// When test runs in CI hardcoded versions will be downloaded instead
+// When test runs in CI hardcoded versions will be downloaded before the test starts
+// Command that downloads them is part of "test_cmd" in .github/e2e-tests.yml file
 type DependenciesConfig struct {
 	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path" validate:"required"`
 	CRECLIBinaryPath         string `toml:"cre_cli_binary_path" validate:"required"`
@@ -214,26 +214,6 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 			require.NoError(t, err, "failed to set CRE_GITHUB_API_TOKEN env var")
 		}
 	}
-}
-
-// this is a small hack to avoid changing the reusable workflow, which doesn't allow to run any pre-execution hooks
-func downloadBinaryFiles(in *TestConfig) error {
-	ghReadToken := ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
-
-	var err error
-	in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath, err = keystonecapabilities.DownloadCapabilityFromRelease(ghReadToken, CronBinaryVersion, cronCapabilityAssetFile)
-	if err != nil {
-		return errors.Wrap(err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
-	}
-
-	if in.WorkflowConfig.UseCRECLI {
-		in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath, err = libcrecli.DownloadAndInstallChainlinkCLI(ghReadToken, CRECLIBinaryVersion)
-		if err != nil {
-			return errors.Wrap(err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
-		}
-	}
-
-	return nil
 }
 
 type registerPoRWorkflowInput struct {
@@ -734,11 +714,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       blockchainsOutput.blockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      extraAllowedPorts,
-			ExtraAllowedIPs:        extraAllowedIPs,
+			BlockchainOutput:      blockchainsOutput.blockchainOutput,
+			DonsWithMetadata:      fullCldOutput.DonTopology.DonsWithMetadata,
+			OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
+			ExtraAllowedPorts:     extraAllowedPorts,
+			ExtraAllowedIPs:       extraAllowedIPs,
+			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
 			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
@@ -842,11 +823,6 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
-
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -948,11 +924,6 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
-
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
 
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
@@ -1061,11 +1032,6 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
-
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
