@@ -61,6 +61,7 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpe
 			input.CronCapBinPath,
 			input.ExtraAllowedPorts,
 			input.ExtraAllowedIPs,
+			input.ExtraAllowedIPsCIDR,
 			gatewayConnectorData,
 		)
 		if err != nil {
@@ -83,6 +84,7 @@ func generateDonJobSpecs(
 	cronCapBinPath string,
 	extraAllowedPorts []int,
 	extraAllowedIPs []string,
+	extraAllowedIPsCIDR []string,
 	gatewayConnectorOutput types.GatewayConnectorOutput,
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs)
@@ -105,7 +107,7 @@ func generateDonJobSpecs(
 			return nil, errors.Wrap(gatewayErr, "failed to get gateway node id from labels")
 		}
 
-		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, gatewayConnectorOutput)}
+		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput)}
 	}
 
 	// if it's only a gateway node, we don't need to create any other job specs

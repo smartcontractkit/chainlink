@@ -352,9 +352,9 @@ func (t *Txm) sendTransactionWithError(ctx context.Context, tx *types.Transactio
 			return
 		}
 	} else if txErr != nil {
-		pendingNonce, err := t.client.PendingNonceAt(ctx, fromAddress)
-		if err != nil {
-			return err
+		pendingNonce, pErr := t.client.PendingNonceAt(ctx, fromAddress)
+		if pErr != nil {
+			return pErr
 		}
 		if pendingNonce <= *tx.Nonce {
 			return fmt.Errorf("pending nonce for txID: %v didn't increase. PendingNonce: %d, TxNonce: %d. TxErr: %w", tx.ID, pendingNonce, *tx.Nonce, txErr)

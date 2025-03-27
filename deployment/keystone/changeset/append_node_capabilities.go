@@ -55,7 +55,7 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 			inspectorPerChain,
 			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

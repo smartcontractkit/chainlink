@@ -1816,7 +1816,7 @@ func TransferOwnershipSolana(
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MinDelay: 1 * time.Second,
+				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
 					solChain: contractsToTransfer,
 				},

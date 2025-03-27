@@ -41,7 +41,7 @@ func BootstrapOCR3(nodeID string, ocr3CapabilityAddress common.Address, chainID 
 	}
 }
 
-func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
+func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllowedPorts []int, extraAllowedIps, extrAallowedIPsCIDR []string, gatewayConnectorData types.GatewayConnectorOutput) *jobv1.ProposeJobRequest {
 	var gatewayDons string
 
 	for _, don := range gatewayConnectorData.Dons {
@@ -139,6 +139,16 @@ func AnyGateway(bootstrapNodeID string, chainID uint64, donID uint32, extraAllow
 	AllowedIps = ["%s"]
 `,
 			allowedIPs,
+		)
+	}
+
+	if len(extrAallowedIPsCIDR) != 0 {
+		allowedIPsCIDR := strings.Join(extrAallowedIPsCIDR, `", "`)
+
+		gatewayJobSpec += fmt.Sprintf(`
+	AllowedIPsCIDR = ["%s"]
+`,
+			allowedIPsCIDR,
 		)
 	}
 

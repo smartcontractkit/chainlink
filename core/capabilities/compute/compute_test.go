@@ -66,7 +66,6 @@ func setup(t *testing.T, config Config) testHarness {
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
 	idGeneratorFn := func() string { return validRequestUUID }
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
 	require.NoError(t, err)
 
@@ -209,8 +208,8 @@ func TestComputeFetch(t *testing.T) {
 	}, "/")
 
 	gatewayResp := gatewayResponse(t, msgID, []byte("response body"))
-	th.connector.On("SignAndSendToGateway", mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(args mock.Arguments) {
-		th.connectorHandler.HandleGatewayMessage(context.Background(), "gateway1", gatewayResp)
+	th.connector.EXPECT().SignAndSendToGateway(mock.Anything, "gateway1", mock.Anything).Return(nil).Run(func(ctx context.Context, gatewayID string, msg *api.MessageBody) {
+		th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 	}).Once()
 
 	require.NoError(t, th.compute.Start(tests.Context(t)))
