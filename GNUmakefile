@@ -93,8 +93,8 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
 	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
 	# Set GOPRIVATE to ensure go installs from our repository instead of the public proxy since we're using lightweight git tags.
-	cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./cmd/chainlink-internal-integrations
+	cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
+	go install $(GOFLAGS) ./aptos/relayer/cmd/chainlink-aptos
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
