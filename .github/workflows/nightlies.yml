@@ -10,11 +10,28 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  init:
+    runs-on: ubuntu-24.04
+    permissions:
+      id-token: write
+      contents: read
+    outputs:
+      github-token: ${{ steps.token.outputs.access-token }}
+    steps:
+      - name: Setup GitHub token using GATI
+        id: token
+        uses: smartcontractkit/.github/actions/setup-github-token@9fc306ac63d8997c9ca0da283e56caaf71589f83 # setup-github-token/1.0.0
+        with:
+          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+          aws-region: ${{ secrets.AWS_REGION }}
+          aws-role-duration-seconds: "1800"
+
   docker-core:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
     with:
       aws-ecr-name: chainlink
       dockerfile: core/chainlink.Dockerfile
@@ -34,10 +51,11 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
 
   docker-core-plugins:
+    needs: [init]
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
@@ -51,6 +69,7 @@ jobs:
       git-sha: ${{ github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
+      github-token: ${{ needs.init.outputs.github-token }}
       github-workflow-repository: ${{ github.repository }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
@@ -61,7 +80,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@cdd6cd208e7d778ce97b57aa459d8c2242aa8e11 # 2025-03-10
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
     with:
       aws-ecr-name: ccip
       dockerfile: core/chainlink.Dockerfile
