@@ -38,32 +38,32 @@ type OracleIdentity struct {
 }
 
 type CCIPHomeOCR3Config struct {
-	PluginType                              uint8                              `json:",omitempty"`
-	ChainSelector                           uint64                             `json:",omitempty"`
-	FRoleDON                                uint8                              `json:",omitempty"`
-	OffchainConfigVersion                   uint64                             `json:",omitempty"`
-	OfframpAddress                          string                             `json:",omitempty"`
-	RmnHomeAddress                          string                             `json:",omitempty"`
-	Nodes                                   []CCIPHomeOCR3Node                 `json:",omitempty"`
-	OffchainConfig                          []byte                             `json:",omitempty"`
-	DeltaProgress                           string                             `json:"omitempty"`
-	DeltaResend                             string                             `json:"omitempty"`
-	DeltaInitial                            string                             `json:",omitempty"`
-	DeltaRound                              string                             `json:",omitempty"`
-	DeltaGrace                              string                             `json:",omitempty"`
-	DeltaCertifiedCommitRequest             string                             `json:",omitempty"`
-	DeltaStage                              string                             `json:",omitempty"`
-	RMax                                    uint64                             `json:",omitempty"`
-	MaxDurationInitialization               string                             `json:",omitempty"`
-	MaxDurationQuery                        string                             `json:",omitempty"`
-	MaxDurationObservation                  string                             `json:",omitempty"`
-	MaxDurationShouldAcceptAttestedReport   string                             `json:",omitempty"`
-	MaxDurationShouldTransmitAcceptedReport string                             `json:",omitempty"`
-	F                                       int                                `json:",omitempty"`
-	CommitOffChainConfig                    pluginconfig.CommitOffchainConfig  `json:",omitempty"`
-	ExecuteOffChainConfig                   pluginconfig.ExecuteOffchainConfig `json:",omitempty"`
-	S                                       []int                              `json:",omitempty"`
-	OracleIdentities                        []OracleIdentity                   `json:",omitempty"`
+	PluginType                              uint8                               `json:",omitempty"`
+	ChainSelector                           uint64                              `json:",omitempty"`
+	FRoleDON                                uint8                               `json:",omitempty"`
+	OffchainConfigVersion                   uint64                              `json:",omitempty"`
+	OfframpAddress                          string                              `json:",omitempty"`
+	RmnHomeAddress                          string                              `json:",omitempty"`
+	Nodes                                   []CCIPHomeOCR3Node                  `json:",omitempty"`
+	OffchainConfig                          []byte                              `json:",omitempty"`
+	DeltaProgress                           string                              `json:"omitempty"`
+	DeltaResend                             string                              `json:"omitempty"`
+	DeltaInitial                            string                              `json:",omitempty"`
+	DeltaRound                              string                              `json:",omitempty"`
+	DeltaGrace                              string                              `json:",omitempty"`
+	DeltaCertifiedCommitRequest             string                              `json:",omitempty"`
+	DeltaStage                              string                              `json:",omitempty"`
+	RMax                                    uint64                              `json:",omitempty"`
+	MaxDurationInitialization               string                              `json:",omitempty"`
+	MaxDurationQuery                        string                              `json:",omitempty"`
+	MaxDurationObservation                  string                              `json:",omitempty"`
+	MaxDurationShouldAcceptAttestedReport   string                              `json:",omitempty"`
+	MaxDurationShouldTransmitAcceptedReport string                              `json:",omitempty"`
+	F                                       int                                 `json:",omitempty"`
+	CommitOffChainConfig                    *pluginconfig.CommitOffchainConfig  `json:",omitempty"`
+	ExecuteOffChainConfig                   *pluginconfig.ExecuteOffchainConfig `json:",omitempty"`
+	S                                       []int                               `json:",omitempty"`
+	OracleIdentities                        []OracleIdentity                    `json:",omitempty"`
 }
 
 type CCIPHomeOCR3Node struct {
@@ -256,16 +256,18 @@ func populateDecodedOCRParams(config *CCIPHomeOCR3Config, ccipHomeCfg ccip_home.
 		})
 	}
 	if pluginType == cciptypes.PluginTypeCCIPCommit {
-		config.CommitOffChainConfig, err = pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
+		commitOffChain, err := pluginconfig.DecodeCommitOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err != nil {
 			return fmt.Errorf("failed to decode commit offchain config: %w", err)
 		}
+		config.CommitOffChainConfig = &commitOffChain
 	}
 	if pluginType == cciptypes.PluginTypeCCIPExec {
-		config.ExecuteOffChainConfig, err = pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
+		executeOffChainConfig, err := pluginconfig.DecodeExecuteOffchainConfig(publicConfig.ReportingPluginConfig)
 		if err != nil {
 			return fmt.Errorf("failed to decode execute offchain config: %w", err)
 		}
+		config.ExecuteOffChainConfig = &executeOffChainConfig
 	}
 	config.DeltaProgress = publicConfig.DeltaProgress.String()
 	config.DeltaResend = publicConfig.DeltaResend.String()
