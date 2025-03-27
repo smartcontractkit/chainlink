@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/ethereum/go-ethereum/common"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
@@ -69,12 +70,13 @@ func TestCCIPSolCRIB(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
-	t.Logf("Deployer key %v", *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey)
+	t.Logf("Deployer key %v", *e.Env.SolChains[sourceChain].DeployerKey)
+	t.Logf("Deployer pub key %v", e.Env.SolChains[sourceChain].DeployerKey.PublicKey())
 
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey
+		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,
@@ -89,8 +91,8 @@ func TestCCIPSolCRIB(t *testing.T) {
 	)
 
 	// TODO: handle in setup
-	deployer := *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey
-	rpcClient := e.Env.SolChains[allSolChainSelectors[0]].Client
+	deployer := *e.Env.SolChains[sourceChain].DeployerKey
+	rpcClient := e.Env.SolChains[sourceChain].Client
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID
@@ -118,6 +120,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 
 	emptyEVMExtraArgsV2 := []byte{}
 
+	t.Logf("Dest chain %v", state.Chains[destChain].Receiver.Address())
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
 		extraArgs := emptyEVMExtraArgsV2
 		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
