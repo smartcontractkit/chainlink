@@ -116,6 +116,19 @@ func (c *ChainConfig) SetDeployerKey(pvtKeyStr *string) error {
 	}
 	return nil
 }
+func (c *ChainConfig) SetSolDeployerKey(keyString *string) error {
+	if keyString == nil || *keyString == "" {
+		return fmt.Errorf("no Solana private key provided")
+	}
+
+	solKey, err := solana.PrivateKeyFromBase58(*keyString)
+	if err != nil {
+		return fmt.Errorf("invalid Solana private key: %w", err)
+	}
+
+	c.SolDeployerKey = solKey
+	return nil
+}
 
 func (c *ChainConfig) ToRPCs() []deployment.RPC {
 	var rpcs []deployment.RPC
@@ -208,6 +221,8 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 					return err
 				}
 
+				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
+				logger.Infof("Deployer newChains %v", chainCfg.DeployerKey)
 				keyPairPath, err := generateSolanaKeypair(chainCfg.SolDeployerKey, keyPairDir)
 				sc := solRpc.New(chainCfg.HTTPRPCs[0].External)
 				solSyncMap.Store(chainDetails.ChainSelector, deployment.SolChain{
@@ -235,7 +250,10 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 			return fmt.Errorf("chain type %s is not supported", chainCfg.ChainType)
 		})
 	}
-	err := g.Wait()
+	if err := g.Wait(); err != nil {
+		// Handle the error here
+		return nil, nil, err
+	}
 
 	evmSyncMap.Range(func(sel, value interface{}) bool {
 		evmChains[sel.(uint64)] = value.(deployment.Chain)
@@ -247,7 +265,14 @@ func NewChains(logger logger.Logger, configs []ChainConfig) (map[uint64]deployme
 		return true
 	})
 
-	return evmChains, solChains, err
+	for sel, solChain := range solChains {
+		logger.Infof("Sol chain key: %d, chain data: %+v", sel, solChain.DeployerKey)
+	}
+	for sel, evmChain := range evmChains {
+		logger.Infof("EVM chain key: %d, chain data: %+v", sel, evmChain.DeployerKey)
+	}
+
+	return evmChains, solChains, nil
 }
 
 func generateSolanaKeypair(privateKey solana.PrivateKey, dir string) (string, error) {

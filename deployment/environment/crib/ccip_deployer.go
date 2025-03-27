@@ -66,8 +66,8 @@ func DeployHomeChainContracts(ctx context.Context, lggr logger.Logger, envConfig
 	solChainSelectors := e.AllChainSelectorsSolana()
 
 	for _, selector := range solChainSelectors {
-		lggr.Info("Funding solana deployer account %v", e.SolChains[selector].DeployerKey.PublicKey())
-		err = memory.FundSolanaAccounts(ctx, []solana.PublicKey{e.SolChains[selector].DeployerKey.PublicKey()}, 10000*solana.LAMPORTS_PER_SOL, e.SolChains[selector].Client)
+		lggr.Infof("Funding solana deployer account %v", e.SolChains[selector].DeployerKey.PublicKey())
+		err = memory.FundSolanaAccounts(e.GetContext(), []solana.PublicKey{e.SolChains[selector].DeployerKey.PublicKey()}, 10000, e.SolChains[selector].Client)
 		if err != nil {
 			return deployment.CapabilityRegistryConfig{}, nil, err
 		}
@@ -150,23 +150,40 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, fmt.Errorf("failed to apply changesets for connecting lanes: %w", err)
 	}
 
+	evmChainSelectors := e.AllChainSelectors()
 	solChainSelectors := e.AllChainSelectorsSolana()
 
 	// Set up SOL <--> EVM lanes
-	lggr.Infow("setting up solana lanes...")
+	lggr.Infof("setting up solana lanes for %d chains", len(e.Chains))
 	var laneChangesets []commonchangeset.ConfiguredChangeSet
 
-	for _, chain := range e.Chains {
-		evmFamily, _ := chainsel.GetSelectorFamily(chain.Selector)
-		// solFamily, _ := chainsel.GetSelectorFamily(solChainSelectors[0])
+	deployedEnv := testhelpers.DeployedEnv{
+		Env:          *e,
+		HomeChainSel: homeChainSel,
+		FeedChainSel: homeChainSel,
+	}
+	for _, evmSelector := range evmChainSelectors {
+		gasPrices := map[uint64]*big.Int{
+			solChainSelectors[0]: testhelpers.DefaultGasPrice,
+		}
+		tokenPrices := map[common.Address]*big.Int{}
+		stateChainFrom := state.Chains[evmSelector]
+		tokenPrices = map[common.Address]*big.Int{
+			stateChainFrom.LinkToken.Address(): testhelpers.DefaultLinkPrice,
+			stateChainFrom.Weth9.Address():     testhelpers.DefaultWethPrice,
+		}
+		fqCfg := v1_6.DefaultFeeQuoterDestChainConfig(true, solChainSelectors[0])
+		evmFamily, _ := chainsel.GetSelectorFamily(evmSelector)
 
-		// SOL -> EVM
-		cs := testhelpers.AddLaneSolanaChangesets(solChainSelectors[0], chain.Selector, evmFamily)
+		// EVM -> SOL
+		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], true, gasPrices, tokenPrices, fqCfg)
+		laneChangesets = append(laneChangesets, cs...)
+		cs = testhelpers.AddLaneSolanaChangesets(solChainSelectors[0], evmSelector, evmFamily)
 		laneChangesets = append(laneChangesets, cs...)
 
-		// // EVM -> SOL
-		// cs = testhelpers.AddLaneSolanaChangesets(chain.Selector, solChainSelectors[0], solFamily)
-		// laneChangesets = append(laneChangesets, cs...)
+		// SOL -> EVM
+		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], true)
+		laneChangesets = append(laneChangesets, cs...)
 
 		*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)
 		if err != nil {
@@ -347,10 +364,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 		}
 	}
 
-	var allChangesets []commonchangeset.ConfiguredChangeSet
-
-	evmChangesets := []commonchangeset.ConfiguredChangeSet{
-
+	env, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
 			v1_6.UpdateChainConfigConfig{
@@ -389,12 +403,13 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 			deployment.CreateLegacyChangeSet(v1_6.CCIPCapabilityJobspecChangeset),
 			nil, // ChangeSet does not use a config.
 		),
+	)
+	if err != nil {
+		return *e, fmt.Errorf("failed to apply EVM changesets: %w", err)
 	}
-	allChangesets = append(allChangesets, evmChangesets...)
 
-	// Conforming with the solana deployed env
 	deployedEnv := testhelpers.DeployedEnv{
-		Env:          *e,
+		Env:          env,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: homeChainSel,
 	}
@@ -406,12 +421,22 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 			BuildLocally: true,
 		},
 	}
-	solanaChangesets, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
+
+	solTestRouter := commonchangeset.Configure(
+		deployment.CreateLegacyChangeSet(ccipChangesetSolana.DeployReceiverForTest),
+		ccipChangesetSolana.DeployForTestConfig{
+			ChainSelector: solChainSelectors[0],
+		},
+	)
+
+	solCs, err := testhelpers.DeployChainContractsToSolChainCS(deployedEnv, solChainSelectors[0], false, &buildConfig)
 	if err != nil {
 		return *e, err
 	}
-	allChangesets = append(allChangesets, solanaChangesets...)
-	deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, allChangesets[0], allChangesets[1:]...)
+
+	solCs = append(solCs, solTestRouter)
+
+	deployedEnv.Env, err = commonchangeset.Apply(nil, deployedEnv.Env, nil, solCs[0], solCs[1:]...)
 	if err != nil {
 		return *e, err
 	}

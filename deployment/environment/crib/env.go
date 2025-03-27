@@ -17,16 +17,26 @@ func NewDevspaceEnvFromStateDir(envStateDir string) CRIBEnv {
 	}
 }
 
-func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
+func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
 	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails := reader.ReadNodesDetails()
 	chainConfigs := reader.ReadChainConfigs()
 	for i, chain := range chainConfigs {
-		err := chain.SetDeployerKey(&key)
-		if err != nil {
-			return DeployOutput{}, err
+		if chain.ChainType == "EVM" {
+			err := chain.SetDeployerKey(&evmKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
 		}
-		chainConfigs[i] = chain
+
+		if chain.ChainType == "SOLANA" {
+			err := chain.SetSolDeployerKey(&solKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
+		}
 	}
 
 	return DeployOutput{

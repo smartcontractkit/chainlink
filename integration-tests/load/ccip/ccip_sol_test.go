@@ -5,7 +5,6 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/gagliardetto/solana-go"
 
 	"github.com/stretchr/testify/require"
@@ -27,6 +26,7 @@ import (
 func TestCCIPSolCRIB(t *testing.T) {
 
 	simChainTestKey := "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+	solTestKey := "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
 
 	// comment out when executing the test
 	// t.Skip("Skipping test as this test should not be auto triggered")
@@ -41,12 +41,12 @@ func TestCCIPSolCRIB(t *testing.T) {
 
 	// generate environment from crib-produced files
 	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
 	require.NotNil(t, cribEnvironment)
-	// userOverrides.Validate(t, cribEnvironment)
+	userOverrides.Validate(t, cribEnvironment)
 
 	allChainSelectors := cribEnvironment.AllChainSelectors()
 	allSolChainSelectors := cribEnvironment.AllChainSelectorsSolana()
@@ -69,13 +69,12 @@ func TestCCIPSolCRIB(t *testing.T) {
 		", dest chain selector:", destChain,
 	)
 
-	solTestKey, err := solana.PrivateKeyFromBase58("57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC")
+	t.Logf("Deployer key %v", *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey)
 
-	t.Logf("Deployer key %v", e.Env.SolChains[sourceChain].DeployerKey)
 	var (
 		replayed bool
 		nonce    uint64
-		sender   = common.LeftPadBytes(solTestKey.PublicKey().Bytes(), 32)
+		sender   = *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey
 		out      mt.TestCaseOutput
 		setup    = mt.NewTestSetupWithDeployedEnv(
 			t,
@@ -90,8 +89,8 @@ func TestCCIPSolCRIB(t *testing.T) {
 	)
 
 	// TODO: handle in setup
-	deployer := solTestKey
-	rpcClient := e.Env.SolChains[sourceChain].Client
+	deployer := *e.Env.SolChains[allSolChainSelectors[0]].DeployerKey
+	rpcClient := e.Env.SolChains[allSolChainSelectors[0]].Client
 
 	// create ATA for user
 	tokenProgram := solana.TokenProgramID
