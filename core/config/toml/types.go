@@ -3,6 +3,7 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
@@ -15,8 +16,6 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
-
-	"maps"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
