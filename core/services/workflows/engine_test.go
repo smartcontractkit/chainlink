@@ -806,6 +806,77 @@ func TestEngine_RateLimit(t *testing.T) {
 		require.Error(t, err)
 		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
 	})
+
+	// Verify that overriding the perOwner limit enables an external workflow
+	// owner to have limiting independent of the defaults.  Here an external
+	// workflow owner is capped at two running workflows, but the default per owner
+	// limit is one workflow.
+	t.Run("override per owner workflow limit", func(t *testing.T) {
+		externalWFOwner := "external-workflow-owner"
+		overrides := map[string]int32{
+			externalWFOwner: 2,
+		}
+		ctx := testutils.Context(t)
+		reg := coreCap.NewRegistry(logger.TestLogger(t))
+
+		trigger, _ := mockTrigger(t)
+		require.NoError(t, reg.Add(ctx, trigger))
+		require.NoError(t, reg.Add(ctx, mockConsensus("")))
+		target1 := mockTarget("")
+		require.NoError(t, reg.Add(ctx, target1))
+
+		target2 := newMockCapability(
+			capabilities.MustNewCapabilityInfo(
+				"write_ethereum-testnet-sepolia@1.0.0",
+				capabilities.CapabilityTypeTarget,
+				"a write capability targeting ethereum sepolia testnet",
+			),
+			func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+				m := req.Inputs.Underlying["report"].(*values.Map)
+				return capabilities.CapabilityResponse{
+					Value: m,
+				}, nil
+			},
+		)
+		require.NoError(t, reg.Add(ctx, target2))
+
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+			Global:            10,
+			PerOwner:          1,
+			PerOwnerOverrides: overrides,
+		})
+		require.NoError(t, err)
+
+		// define functional options
+		setWorkflowLimits := func(c *Config) {
+			c.WorkflowLimits = workflowLimits
+		}
+
+		setWorkflowOwner := func(c *Config) {
+			c.WorkflowOwner = externalWFOwner
+		}
+
+		// allow two workflows for the external owner, so the third one should be rate limited
+		ownerAllow, globalAllow := workflowLimits.Allow(externalWFOwner)
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
+		ownerAllow, globalAllow = workflowLimits.Allow(externalWFOwner)
+		require.True(t, ownerAllow)
+		require.True(t, globalAllow)
+
+		eng, _ := newTestEngineWithYAMLSpec(
+			t,
+			reg,
+			hardcodedWorkflow,
+			setWorkflowLimits,
+			setWorkflowOwner,
+		)
+
+		err = eng.Start(context.Background())
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errPerOwnerWorkflowCountLimitReached)
+	})
 }
 
 func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
