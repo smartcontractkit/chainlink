@@ -55,8 +55,8 @@ func TestCCIPLoad_RPS(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
-	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, "")
 	require.NoError(t, err)
 	env, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
 	require.NoError(t, err)
