@@ -588,6 +588,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
 		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, opts...)
+		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
 		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID)
 	})
