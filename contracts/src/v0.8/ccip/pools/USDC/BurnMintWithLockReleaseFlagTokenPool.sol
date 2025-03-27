@@ -11,7 +11,7 @@ import {LOCK_RELEASE_FLAG} from "./HybridLockReleaseUSDCTokenPool.sol";
 /// instead of minting. This enables interoperability with HybridLockReleaseUSDCTokenPool which uses
 // the destPoolData to determine whether to mint or release tokens.
 /// @dev The only difference between this contract and BurnMintTokenPool is the destPoolData returns the
-/// abi-encoded LOCK_RELEASE_FLAG instead of an empty string.
+/// abi-encoded LOCK_RELEASE_FLAG instead of the local token decimals.
 contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
   constructor(
     IBurnMintERC20 token,
