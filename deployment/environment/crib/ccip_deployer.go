@@ -642,12 +642,20 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 	return *e, err
 }
 
-func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool) (deployment.Environment, error) {
+func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
 	chainSelectors := e.AllChainSelectors()
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
 	chainType := v1_6.Default
+
+	overrides := func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams { return params }
+	if rmnEnabled {
+		overrides = func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+			params.CommitOffChainConfig.RMNEnabled = true
+			return params
+		}
+	}
 
 	for selector := range e.Chains {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
