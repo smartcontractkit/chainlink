@@ -840,7 +840,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
-	inputs, outputs, err := e.executeStep(ctx, l, msg)
+	inputs, outputs, metadata, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	curStepID := "UNSET"
@@ -854,13 +854,13 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case err != nil && capabilities.ErrStopExecution.Is(err):
+	case sErr != nil && capabilities.ErrStopExecution.Is(sErr):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompletedEarlyExit
-	case err != nil:
-		lmsg := fmt.Sprintf("error executing step request: %s", err)
+	case sErr != nil:
+		lmsg := fmt.Sprintf("error executing step request: %s", sErr)
 		l.Error(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusErrored
@@ -872,9 +872,33 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusCompleted
 	}
 
+	meteringSteps := make([]MeteringReportStep, len(metadata.Metering))
+
+	for idx, detail := range metadata.Metering {
+		unit := MeteringSpendUnit(detail.SpendUnit)
+		value, err := unit.StringToSpendValue(detail.SpendValue)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		}
+
+		meteringSteps[idx] = MeteringReportStep{
+			Peer2PeerID: detail.Peer2PeerID,
+			SpendUnit:   unit,
+			SpendValue:  value,
+		}
+	}
+
+	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
+		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
+			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
+		}
+	} else {
+		l.Warn(fmt.Sprintf("no metering report found for %s", msg.state.ExecutionID))
+	}
+
 	stepState.Status = stepStatus
 	stepState.Outputs.Value = outputs
-	stepState.Outputs.Err = err
+	stepState.Outputs.Err = sErr
 	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
@@ -884,8 +908,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
 	l.Debugf("trying to send step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
-	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
-	if err != nil {
+	if err := e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState); err != nil {
 		l.Errorf("failed to issue step state update; error %v", err)
 		return
 	}
@@ -989,10 +1012,10 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
+func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, capabilities.ResponseMetadata, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, capabilities.ResponseMetadata{}, err
 	}
 
 	var inputs any
@@ -1004,17 +1027,17 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 
 	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, capabilities.ResponseMetadata{}, err
 	}
 
 	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, capabilities.ResponseMetadata{}, err
 	}
 
 	config, err := e.configForStep(ctx, lggr, curStep)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, capabilities.ResponseMetadata{}, err
 	}
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
@@ -1053,10 +1076,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	output, err := curStep.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
-		return inputsMap, nil, err
+		return inputsMap, nil, capabilities.ResponseMetadata{}, err
 	}
 
-	return inputsMap, output.Value, err
+	return inputsMap, output.Value, output.Metadata, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
