@@ -69,6 +69,9 @@ func DeployMCMSWithTimelockV2(
 			}
 
 		case chain_selectors.FamilySolana:
+			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
+			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
+			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
 			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err

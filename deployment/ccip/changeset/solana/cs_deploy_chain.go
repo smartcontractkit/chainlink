@@ -61,7 +61,7 @@ type DeployChainContractsConfig struct {
 	UpgradeConfig          UpgradeConfig
 	BuildConfig            *BuildSolanaConfig
 	// TODO: add validation for this
-	MCMSWithTimelockConfig types.MCMSWithTimelockConfigV2
+	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
 type ChainContractParams struct {
@@ -131,6 +131,15 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	}
 	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
+	}
+	chainState := existingState.SolChains[c.ChainSelector]
+	// for in memory tests, programs and state are pre-loaded, so we can pass nil mcms config
+	// like we do in test_helpers.go/deployChainContractsToSolChainCS
+	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
+	if chainState.Router.IsZero() {
+		if c.MCMSWithTimelockConfig == nil {
+			return fmt.Errorf("Router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
+		}
 	}
 	return nil
 }
@@ -694,8 +703,8 @@ func deployChainContractsSolana(
 	// MCMS
 	// this should selectively deploy anything if required
 	// TODO: bad check
-	if config.MCMSWithTimelockConfig.TimelockMinDelay != nil {
-		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+	if config.MCMSWithTimelockConfig != nil {
+		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, *config.MCMSWithTimelockConfig)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
 		}

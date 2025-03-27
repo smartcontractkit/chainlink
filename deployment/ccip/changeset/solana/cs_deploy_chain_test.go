@@ -68,6 +68,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 	require.NoError(t, err)
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -98,7 +99,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
-				MCMSWithTimelockConfig: proposalutils.SingleGroupTimelockConfigV2(t),
+				MCMSWithTimelockConfig: &mcmsConfig,
 				BuildConfig:            buildConfig,
 			},
 		),
