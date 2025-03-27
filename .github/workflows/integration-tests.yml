@@ -386,46 +386,6 @@ jobs:
     runs-on: ubuntu-latest
     needs: [build-chainlink, run-core-e2e-tests-for-pr, run-core-cre-e2e-tests-for-pr, run-ccip-e2e-tests-for-pr, run-core-e2e-tests-for-merge-queue, run-ccip-e2e-tests-for-merge-queue]
     steps:
-      - name: Check Core test results
-        id: check_core_results
-        run: |
-          results='${{ needs.run-core-e2e-tests-for-pr.outputs.test_results }}'
-          echo "Core e2e test results:"
-          echo "$results" | jq .
-
-          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
-
-      - name: Check Core CRE test results
-        id: check_core_cre_results
-        run: |
-          results='${{ needs.run-core-cre-e2e-tests-for-pr.outputs.test_results }}'
-          echo "CRE e2e test results:"
-          echo "$results" | jq .
-
-          node_migration_tests_failed=$(echo $results | jq '[.[] | select(.id == "integration-tests/migration/upgrade_version_test.go:*" ) | select(.result != "success")] | length > 0')
-          echo "node_migration_tests_failed=$node_migration_tests_failed" >> $GITHUB_OUTPUT
-
-      - name: Check CCIP test results
-        id: check_ccip_results
-        run: |
-          if [[ '${{ needs.run-ccip-e2e-tests-for-pr.result }}' != 'skipped' ]]; then
-            results='${{ needs.run-ccip-e2e-tests-for-pr.outputs.test_results }}'
-            echo "CCIP test results:"
-            echo "$results" | jq .
-          else
-            echo "CCIP tests were skipped."
-          fi
-
-      - name: Send slack notification for failed migration tests
-        if: steps.check_core_results.outputs.node_migration_tests_failed == 'true' && github.event_name != 'workflow_dispatch'
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
-        with:
-          channel-id: "#team-test-tooling-internal"
-          slack-message: ":x: :mild-panic-intensifies: Node Migration Tests Failed: \n${{ format('https://github.com/{0}/actions/runs/{1}', github.repository, github.run_id) }}\n${{ format('Notifying <!subteam^{0}|{0}>', secrets.GUARDIAN_SLACK_NOTIFICATION_HANDLE) }}"
-
       - name: Fail the job if core tests in PR not successful
         if: always() && needs.run-core-e2e-tests-for-pr.result == 'failure'
         run: exit 1
