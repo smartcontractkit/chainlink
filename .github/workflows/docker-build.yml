@@ -1,12 +1,21 @@
-name: Nightlies
-description: Build and publish nightly releases from trunk.
+name: Docker Build
+description: Docker build and publish non-releases to AWS ECR.
 
 on:
   schedule:
     - cron: "0 3 * * *" # daily at 03:00 UTC
+  pull_request:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      git_ref:
+        description: "The git ref to check out"
+        required: true
 
 concurrency:
-  group: nightlies
+  group: "docker-build-${{ github.ref_name }}-${{ github.sha }}"
   cancel-in-progress: true
 
 jobs:
@@ -16,6 +25,7 @@ jobs:
       id-token: write
       contents: read
     outputs:
+      build-type: ${{ steps.build-type.outputs.build-type }}
       github-token: ${{ steps.token.outputs.access-token }}
     steps:
       - name: Setup GitHub token using GATI
@@ -26,12 +36,30 @@ jobs:
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: "1800"
+      - name: Set Build Type
+        id: build-type
+        shell: bash
+        env:
+          BUILD_TRIGGER: ${{ github.event_name }}
+        run: |
+          if [[ "${BUILD_TRIGGER}" == "schedule" ]]; then
+            echo "build-type=nightly" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'push' ]]; then
+            echo "build-type=branch" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'pull_request' ]]; then
+            echo "build-type=pr" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'workflow_dispatch' ]]; then
+            echo "build-type=sha" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
+          fi
 
   docker-core:
+    needs: [init]
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: core/chainlink.Dockerfile
@@ -39,9 +67,9 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-      docker-image-type: nightly
+      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
-      git-sha: ${{ github.sha }}
+      git-sha: ${{ inputs.git_ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
@@ -55,7 +83,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
@@ -63,10 +91,10 @@ jobs:
       docker-build-args: |
         CHAINLINK_USER=chainlink
         COMMIT_SHA=${{ github.sha }}
-      docker-image-type: nightly
+      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ github.sha }}
+      git-sha: ${{ inputs.git_ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-token: ${{ needs.init.outputs.github-token }}
@@ -77,10 +105,11 @@ jobs:
       AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
 
   docker-ccip:
+    needs: [init]
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86b566e52d9e1799d6fc729bb7c45465e1a09154 # 2025-03-26
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-tag-sha # TODO
     with:
       aws-ecr-name: ccip
       dockerfile: core/chainlink.Dockerfile
@@ -89,9 +118,9 @@ jobs:
         CHAINLINK_USER=chainlink
         CL_CHAIN_DEFAULTS=/ccip-config
         COMMIT_SHA=${{ github.sha }}
-      docker-image-type: nightly
+      docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
-      git-sha: ${{ github.sha }}
+      git-sha: ${{ inputs.git_ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
