@@ -32,4 +32,9 @@ func TestAdd(t *testing.T) {
 	err = m.Add(addresses...)
 	require.NoError(t, err)
 	assert.Len(t, m.InMemoryStoreMap, 3)
+
+	// Remove an address
+	err = m.Remove(fromAddress1)
+	require.NoError(t, err)
+	assert.Len(t, m.InMemoryStoreMap, 2)
 }

@@ -338,7 +338,7 @@ func TestReset(t *testing.T) {
 		assert.NotEqual(t, address1, address2)
 		addresses := []common.Address{address1, address2}
 		config := Config{BlockTime: 2 * time.Minute}
-		ab := newMockAttemptBuilder(t) 
+		ab := newMockAttemptBuilder(t)
 		client := newMockClient(t)
 		keystore := keystest.Addresses{address1, address2}
 
@@ -374,9 +374,12 @@ func TestReset(t *testing.T) {
 		require.NotNil(t, tx1)
 		require.NoError(t, err)
 		assert.Equal(t, nonce, *tx1.Nonce)
+		nextNonce, err := txStore.FindNextNonce(ctx, address1, testutils.FixtureChainID)
+		require.NoError(t, err)
+		assert.Equal(t, nonce+1, nextNonce)
 
 		// Reset
-		client.On("PendingNonceAt", mock.Anything, address1).Return(nonce, nil).Once() // Unconfirmed tx was abandoned so pending nonce is back to 4
+		client.On("PendingNonceAt", mock.Anything, address1).Return(nonce, nil).Once() // Unconfirmed tx will be abandoned so pending nonce is back to 4
 		client.On("PendingNonceAt", mock.Anything, address2).Return(nonce, nil).Once()
 		require.NoError(t, txm.Reset(ctx, &address1))
 		_, count, err = txStore.FetchUnconfirmedTransactionAtNonceWithCount(ctx, 0, address1)

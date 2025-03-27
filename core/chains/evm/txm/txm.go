@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"strings"
 	"sync"
 	"time"
 
@@ -187,6 +188,7 @@ func (t *Txm) Reset(ctx context.Context, address *common.Address) (err error) {
 		for _, address := range addresses {
 			t.startAddress(address)
 		}
+		t.lggr.Info("Restarted the following addresses: ", addresses)
 	}) {
 		return errors.New("Txm unstarted")
 	}
@@ -340,6 +342,9 @@ func (t *Txm) broadcastTransaction(ctx context.Context, address common.Address) 
 		nonce := t.getNonce(address)
 		tx, err := t.txStore.UpdateUnstartedTransactionWithNonce(ctx, address, nonce)
 		if err != nil {
+			if strings.Contains(err.Error(), "already exists") {
+				t.setNonce(address, nonce+1)
+			}
 			return false, err
 		}
 		if tx == nil {

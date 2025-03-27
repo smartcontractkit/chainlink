@@ -42,6 +42,7 @@ func (m *InMemoryStoreManager) Add(addresses ...common.Address) (err error) {
 			err = errors.Join(err, fmt.Errorf("address %v already exists in store manager", address))
 		}
 		m.InMemoryStoreMap[address] = NewInMemoryStore(m.lggr, address, m.chainID)
+		m.lggr.Infof("Added the following address to InMemoryStoreManager: %s", address)
 	}
 	return
 }
@@ -52,6 +53,7 @@ func (m *InMemoryStoreManager) Remove(addresses ...common.Address) (err error) {
 			err = errors.Join(err, fmt.Errorf("address %v doesn't exist in store manager", address))
 		}
 		delete(m.InMemoryStoreMap, address)
+		m.lggr.Infof("Removed the following address from InMemoryStoreManager: %s", address)
 	}
 	return
 }

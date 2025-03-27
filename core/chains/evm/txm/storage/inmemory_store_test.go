@@ -207,6 +207,30 @@ func TestFetchUnconfirmedTransactionAtNonceWithCount(t *testing.T) {
 	assert.Equal(t, 1, count)
 }
 
+func TestFindNextNonce(t *testing.T) {
+	t.Parallel()
+
+	fromAddress := testutils.NewAddress()
+	m := NewInMemoryStore(logger.Test(t), fromAddress, testutils.FixtureChainID)
+
+	var nonce uint64
+	// Initial next nonce should be 0
+	nextNonce := m.FindNextNonce()
+	assert.Equal(t, nonce, nextNonce)
+
+	// Nonce 0 is confirmed
+	_, err := insertConfirmedTransaction(m, 0)
+	require.NoError(t, err)
+	nextNonce = m.FindNextNonce()
+	assert.Equal(t, nonce+1, nextNonce)
+
+	// Nonce 0 confirmed, nonce 1 has a gap, nonce 2 unconfirmed
+	_, err = insertUnconfirmedTransaction(m, 2)
+	require.NoError(t, err)
+	nextNonce = m.FindNextNonce()
+	assert.Equal(t, nonce+3, nextNonce)
+}
+
 func TestMarkConfirmedAndReorgedTransactions(t *testing.T) {
 	t.Parallel()
 

@@ -51,14 +51,14 @@ type Orchestrator[
 	HEAD chains.Head[BLOCK_HASH],
 ] struct {
 	services.StateMachine
-	lggr           logger.SugaredLogger
-	chainID        *big.Int
-	txm            *Txm
-	txStore        OrchestratorTxStore
-	fwdMgr         *forwarders.FwdMgr
-	keystore       keys.Addresses
-	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD]
-	resumeCallback txmgr.ResumeCallback
+	lggr             logger.SugaredLogger
+	chainID          *big.Int
+	txm              *Txm
+	txStore          OrchestratorTxStore
+	fwdMgr           *forwarders.FwdMgr
+	keystore         keys.Addresses
+	attemptBuilder   OrchestratorAttemptBuilder[BLOCK_HASH, HEAD]
+	resumeCallback   txmgr.ResumeCallback
 	enabledAddresses map[common.Address]bool
 	chReset          chan *common.Address
 	chStop           services.StopChan
@@ -75,13 +75,13 @@ func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]
 	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD],
 ) *Orchestrator[BLOCK_HASH, HEAD] {
 	return &Orchestrator[BLOCK_HASH, HEAD]{
-		lggr:           logger.Sugared(logger.Named(lggr, "Orchestrator")),
-		chainID:        chainID,
-		txm:            txm,
-		txStore:        txStore,
-		keystore:       keystore,
-		attemptBuilder: attemptBuilder,
-		fwdMgr:         fwdMgr,
+		lggr:             logger.Sugared(logger.Named(lggr, "Orchestrator")),
+		chainID:          chainID,
+		txm:              txm,
+		txStore:          txStore,
+		keystore:         keystore,
+		attemptBuilder:   attemptBuilder,
+		fwdMgr:           fwdMgr,
 		enabledAddresses: make(map[common.Address]bool),
 		chReset:          make(chan *common.Address),
 		chStop:           make(chan struct{}),
@@ -125,9 +125,8 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 
 func (o *Orchestrator[BLOCK_HASH, HEAD]) Close() (merr error) {
 	return o.StopOnce("Orchestrator", func() error {
-		close(o.chReset)
 		close(o.chStop)
-		o.wg.Done()
+		o.wg.Wait()
 
 		if o.fwdMgr != nil {
 			if err := o.fwdMgr.Close(); err != nil {
@@ -152,21 +151,22 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) runLoop() {
 	ctx, cancel := o.chStop.NewCtx()
 	defer cancel()
 
-	pollEnabledAddresses := services.NewTicker(time.Minute)
-	defer pollEnabledAddresses.Stop()
+	// Backoff improves testing times and allows for more frequent checks after restarts.
+	pollEnabledAddresses := newBackoff(10 * time.Second)
+	pollEnabledCh := time.After(utils.WithJitter(5 * time.Second))
 
 	for {
 		select {
 		case <-o.chStop:
 			return
-		case <-pollEnabledAddresses.C:
+		case <-pollEnabledCh:
 			updatedEnabledAddresses, err := o.keystore.EnabledAddresses(ctx)
 			if err != nil {
 				o.lggr.Critical("Failed to reload key states after key change")
 				o.SvcErrBuffer.Append(err)
 				continue
 			}
-			o.lggr.Debugw("Keys changed, reloading", "enabledAddresses", updatedEnabledAddresses)
+			o.lggr.Debugw("Polling for updated keys.", "enabledAddresses", updatedEnabledAddresses)
 
 			// this will help with lookup
 			updatedEnabledAddressesMap := make(map[common.Address]bool)
@@ -191,12 +191,13 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) runLoop() {
 					updated = true
 				}
 			}
-			o.enabledAddresses = updatedEnabledAddressesMap
 			if updated {
+				o.enabledAddresses = updatedEnabledAddressesMap
 				if err := o.txm.Reset(ctx, nil); err != nil {
 					o.lggr.Errorw("Failed to Reset TXM", "err", err)
 				}
 			}
+			pollEnabledCh = time.After(pollEnabledAddresses.Duration())
 		case abandonAddress := <-o.chReset:
 			if err := o.txm.Reset(ctx, abandonAddress); err != nil {
 				o.lggr.Errorw("Failed to Reset TXM", "err", err)

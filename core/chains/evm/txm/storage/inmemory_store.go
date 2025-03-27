@@ -51,7 +51,6 @@ func NewInMemoryStore(lggr logger.Logger, address common.Address, chainID *big.I
 }
 
 func (m *InMemoryStore) AbandonPendingTransactions() {
-	// TODO: append existing fatal transactions and cap the size
 	m.Lock()
 	defer m.Unlock()
 
