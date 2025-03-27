@@ -45,7 +45,6 @@ type CCIPHomeOCR3Config struct {
 	OfframpAddress                          string                              `json:",omitempty"`
 	RmnHomeAddress                          string                              `json:",omitempty"`
 	Nodes                                   []CCIPHomeOCR3Node                  `json:",omitempty"`
-	OffchainConfig                          []byte                              `json:",omitempty"`
 	DeltaProgress                           string                              `json:"omitempty"`
 	DeltaResend                             string                              `json:"omitempty"`
 	DeltaInitial                            string                              `json:",omitempty"`
@@ -215,7 +214,6 @@ func toCCIPHomeVersionedConfig(cfg ccip_home.CCIPHomeVersionedConfig, pluginType
 			OfframpAddress:        offRampAddr,
 			RmnHomeAddress:        rmnAddr,
 			Nodes:                 nodes,
-			OffchainConfig:        cfg.Config.OffchainConfig,
 		},
 	}
 	if err := populateDecodedOCRParams(&c.Config, cfg, pluginType); err != nil {
@@ -241,7 +239,7 @@ func populateDecodedOCRParams(config *CCIPHomeOCR3Config, ccipHomeCfg ccip_home.
 		F:                     config.FRoleDON,
 		OnchainConfig:         []byte{}, // empty OnChainConfig
 		OffchainConfigVersion: config.OffchainConfigVersion,
-		OffchainConfig:        config.OffchainConfig,
+		OffchainConfig:        ccipHomeCfg.Config.OffchainConfig,
 	})
 	if err != nil {
 		return fmt.Errorf("failed to decode offchain config: %w", err)
