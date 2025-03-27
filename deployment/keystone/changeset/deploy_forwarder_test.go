@@ -199,6 +199,8 @@ func TestConfigureForwarders(t *testing.T) {
 				if testCase.ExcludeChain {
 					expectedProposals--
 				}
+
+				//nolint:staticcheck // migration will be done in a separate PR
 				require.Len(t, csOut.Proposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 
