@@ -6,16 +6,17 @@ import (
 	"math/big"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
+	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
 	"github.com/smartcontractkit/chainlink-ccip/chainconfig"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 	"github.com/smartcontractkit/chainlink-ccip/pluginconfig"
-	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
-	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
 	cciptypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -45,8 +46,8 @@ type CCIPHomeOCR3Config struct {
 	OfframpAddress                          string                              `json:",omitempty"`
 	RmnHomeAddress                          string                              `json:",omitempty"`
 	Nodes                                   []CCIPHomeOCR3Node                  `json:",omitempty"`
-	DeltaProgress                           string                              `json:"omitempty"`
-	DeltaResend                             string                              `json:"omitempty"`
+	DeltaProgress                           string                              `json:",omitempty"`
+	DeltaResend                             string                              `json:",omitempty"`
 	DeltaInitial                            string                              `json:",omitempty"`
 	DeltaRound                              string                              `json:",omitempty"`
 	DeltaGrace                              string                              `json:",omitempty"`
