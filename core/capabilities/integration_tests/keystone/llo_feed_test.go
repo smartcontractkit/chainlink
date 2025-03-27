@@ -54,7 +54,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the test trigger event in the same format as the llo asset don
-	ts := uint64(time.Now().UnixNano())
+	ts := uint64(time.Now().UnixNano()) //nolint:gosec // G115
 	e := newLLoTriggerEvent(t, ts, updates)
 	ocrTrigger, eventID, err := MakeOCRTriggerEvent(lggr, e, triggerDonConfiguration.KeyBundles)
 	require.NoError(t, err)
@@ -69,7 +69,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 
 type streamUpdate struct {
 	id         uint32
-	remappedID string //hex starting with 0x
+	remappedID string // hex starting with 0x
 	price      decimal.Decimal
 }
 
@@ -83,9 +83,9 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 	for i, payload := range reports.Payload {
 		// Create decimal stream value
 		dec := &datastreamsllo.Decimal{}
-		err := dec.UnmarshalBinary(payload.Decimal)
-		if err != nil {
-			return nil, "", fmt.Errorf("failed to unmarshal decimal: %w", err)
+		err2 := dec.UnmarshalBinary(payload.Decimal)
+		if err2 != nil {
+			return nil, "", fmt.Errorf("failed to unmarshal decimal: %w", err2)
 		}
 		values[i] = dec
 	}
@@ -130,7 +130,7 @@ func MakeOCRTriggerEvent(lggr logger.Logger, reports *datastreams.LLOStreamsTrig
 			return nil, "", fmt.Errorf("failed to sign report with key %s: %w", key, err)
 		}
 		event.Sigs = append(event.Sigs, commoncap.OCRAttributedOnchainSignature{
-			Signer:    uint32(i),
+			Signer:    uint32(i), //nolint:gosec // G115
 			Signature: sig,
 		})
 	}
@@ -142,7 +142,7 @@ func generateSteamUpdates(t *testing.T, count int) []streamUpdate {
 	var result []streamUpdate
 	for i := 1; i <= count; i++ {
 		result = append(result, streamUpdate{
-			id:         uint32(i),
+			id:         uint32(i), //nolint:gosec // G115
 			remappedID: newFeedID(t),
 			price:      decimal.NewFromFloat(float64(i)),
 		})
@@ -176,7 +176,7 @@ func newStreamsV2Handler(expected []streamUpdate, ts uint64) *streamsV2Handler {
 	}
 }
 
-// Implement the feedRecievedHandler interface
+// Implement the feedReceivedHandler interface
 // to handle the received feeds
 func (h *streamsV2Handler) handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool) {
 	h.mu.Lock()
@@ -197,7 +197,7 @@ func (h *streamsV2Handler) handleFeedReceived(t *testing.T, feed *feeds_consumer
 
 	// TODO cleanup api
 	assert.Equal(t, updated.price.Shift(18).BigInt(), feed.Price)
-	assert.Equal(t, uint32(h.ts), feed.Timestamp)
+	assert.Equal(t, uint32(h.ts), feed.Timestamp) //nolint:gosec // G115
 	h.found[updated.id] = struct{}{}
 	return len(h.found) == len(h.expected)
 }
@@ -205,8 +205,9 @@ func (h *streamsV2Handler) handleFeedReceived(t *testing.T, feed *feeds_consumer
 func (h *streamsV2Handler) handleDone(t *testing.T) {
 	t.Logf("found (%v) %d of %d", h.found, len(h.found), len(h.expected))
 }
+
 func toPayload(m []streamUpdate) []*datastreams.LLOStreamDecimal {
-	var result []*datastreams.LLOStreamDecimal
+	result := make([]*datastreams.LLOStreamDecimal, 0, len(m))
 	for _, v := range m {
 		b, err := v.price.MarshalBinary()
 		if err != nil {
@@ -227,41 +228,4 @@ func newLLoTriggerEvent(t *testing.T, observationTimestamp uint64,
 		Payload:                         toPayload(expected),
 	}
 	return event
-}
-
-// Print handler for example output
-type feedsPrintHandler struct {
-	expected []streamUpdate
-	ts       uint64
-	found    map[uint32]struct{}
-	mu       sync.Mutex
-}
-
-func (h *feedsPrintHandler) handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) bool {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	got := "0x" + hex.EncodeToString(feed.FeedId[:])
-	var updated streamUpdate
-	for _, s := range h.expected {
-		if got == s.remappedID {
-			updated = s
-			break
-		}
-	}
-
-	fmt.Printf("Received feed: ID=%d, Price=%s\n", updated.id, feed.Price.String())
-	h.found[updated.id] = struct{}{}
-
-	if len(h.found) == len(h.expected) {
-		fmt.Printf("Successfully processed all %d feed updates\n", len(h.expected))
-		return true
-	}
-	return false
-}
-
-func (h *feedsPrintHandler) handleDone(t *testing.T) {
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	fmt.Printf("found %v\n", h.found)
 }

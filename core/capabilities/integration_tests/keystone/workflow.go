@@ -118,7 +118,7 @@ func createLLOStreamWorkflowJob(t *testing.T,
 	// keys of the map are stream IDs
 	streamIDs := make([]uint32, 0, len(streamIDremapped))
 	for streamID := range streamIDremapped {
-		streamIDs = append(streamIDs, uint32(streamID))
+		streamIDs = append(streamIDs, streamID)
 	}
 	slices.Sort(streamIDs)
 	for _, streamID := range streamIDs {

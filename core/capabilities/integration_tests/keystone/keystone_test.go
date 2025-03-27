@@ -36,48 +36,46 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
 
-	workflowDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Workflow", NumNodes: 4, F: 1, AcceptsWorkflows: true})
+	workflowDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Workflow", NumNodes: 7, F: 2, AcceptsWorkflows: true})
 	require.NoError(t, err)
-	triggerDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Trigger", NumNodes: 4, F: 1})
+	triggerDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Trigger", NumNodes: 7, F: 2})
 	require.NoError(t, err)
 	targetDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Target", NumNodes: 4, F: 1})
 	require.NoError(t, err)
 
 	// mercury-style reports
-	t.Run("Feeds v1.0.0", func(t *testing.T) {
-		triggerSink := framework.NewTriggerSink(t, "streams-trigger", "1.0.0")
-		workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
-			targetDonConfiguration, triggerSink)
+	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "1.0.0")
+	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
+		targetDonConfiguration, triggerSink)
 
-		feedCount := 3
-		var feedIDs []string
-		for i := 0; i < feedCount; i++ {
-			feedIDs = append(feedIDs, newFeedID(t))
-		}
+	feedCount := 3
+	var feedIDs []string
+	for i := 0; i < feedCount; i++ {
+		feedIDs = append(feedIDs, newFeedID(t))
+	}
 
-		job := createKeystoneWorkflowJob(t, workflowName, workflowOwnerID, feedIDs, consumer.Address(), deltaStage, schedule)
-		err = workflowDon.AddJob(ctx, &job)
-		require.NoError(t, err)
+	job := createKeystoneWorkflowJob(t, workflowName, workflowOwnerID, feedIDs, consumer.Address(), deltaStage, schedule)
+	err = workflowDon.AddJob(ctx, &job)
+	require.NoError(t, err)
 
-		reports := []*datastreams.FeedReport{
-			createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonConfiguration.KeyBundles),
-			createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonConfiguration.KeyBundles),
-			createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonConfiguration.KeyBundles),
-		}
+	reports := []*datastreams.FeedReport{
+		createFeedReport(t, big.NewInt(1), 5, feedIDs[0], triggerDonConfiguration.KeyBundles),
+		createFeedReport(t, big.NewInt(3), 7, feedIDs[1], triggerDonConfiguration.KeyBundles),
+		createFeedReport(t, big.NewInt(2), 6, feedIDs[2], triggerDonConfiguration.KeyBundles),
+	}
 
-		wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
-		require.NoError(t, err)
+	wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
+	require.NoError(t, err)
 
-		triggerSink.SendOutput(wrappedReports, uuid.New().String())
-		h := newStreamsV1Handler(reports)
+	triggerSink.SendOutput(wrappedReports, uuid.New().String())
+	h := newStreamsV1Handler(reports)
 
-		waitForConsumerReports(ctx, t, consumer, h)
-	})
+	waitForConsumerReports(ctx, t, consumer, h)
 }
 
 func wrapReports(reportList []*datastreams.FeedReport,
 	timestamp int64, meta datastreams.Metadata) (*values.Map, error) {
-	var rl []datastreams.FeedReport
+	rl := make([]datastreams.FeedReport, 0, len(reportList))
 	for _, r := range reportList {
 		rl = append(rl, *r)
 	}
@@ -96,12 +94,12 @@ func newFeedID(t *testing.T) string {
 	return "0x" + hex.EncodeToString(buf[:])
 }
 
-type feedRecievedHandler interface {
+type feedReceivedHandler interface {
 	handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool)
 	handleDone(t *testing.T)
 }
 
-func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, h feedRecievedHandler) {
+func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, h feedReceivedHandler) {
 	feedsReceived := make(chan *feeds_consumer.KeystoneFeedsConsumerFeedReceived, 1000)
 	feedsSub, err := consumer.WatchFeedReceived(&bind.WatchOpts{}, feedsReceived, nil)
 	require.NoError(t, err)
