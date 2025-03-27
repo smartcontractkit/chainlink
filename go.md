@@ -196,8 +196,6 @@ flowchart LR
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
-	chainlink/system-tests/tests/cmd --> chainlink/system-tests/lib
-	click chainlink/system-tests/tests/cmd href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
 	chainlink/v2 --> chainlink-feeds
@@ -229,7 +227,6 @@ flowchart LR
 		 chainlink/load-tests
 		 chainlink/system-tests/lib
 		 chainlink/system-tests/tests
-		 chainlink/system-tests/tests/cmd
 		 chainlink/v2
 	end
 	click chainlink-repo href "https://github.com/smartcontractkit/chainlink"
