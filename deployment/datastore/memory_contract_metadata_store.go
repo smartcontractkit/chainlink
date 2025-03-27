@@ -1,5 +1,9 @@
 package datastore
 
+import (
+	"sync"
+)
+
 type ContractMetadataStore interface {
 	Store[ContractMetadataKey, ContractMetadataRecord]
 }
@@ -12,6 +16,7 @@ var _ ContractMetadataStore = &InMemoryContractMetadataStore{}
 var _ MutableContractMetadataStore = &InMemoryContractMetadataStore{}
 
 type InMemoryContractMetadataStore struct {
+	mu      sync.RWMutex
 	records []ContractMetadataRecord
 }
 
@@ -29,6 +34,9 @@ func (s *InMemoryContractMetadataStore) indexOf(key ContractMetadataKey) int {
 }
 
 func (s *InMemoryContractMetadataStore) Get(key ContractMetadataKey) (ContractMetadataRecord, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	idx := s.indexOf(key)
 	if idx == -1 {
 		return ContractMetadataRecord{}, ErrContractMetadataRecordNotFound
@@ -37,6 +45,9 @@ func (s *InMemoryContractMetadataStore) Get(key ContractMetadataKey) (ContractMe
 }
 
 func (s *InMemoryContractMetadataStore) Fetch() ([]ContractMetadataRecord, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	records := []ContractMetadataRecord{}
 	for _, record := range s.records {
 		records = append(records, record.Clone())
@@ -45,6 +56,9 @@ func (s *InMemoryContractMetadataStore) Fetch() ([]ContractMetadataRecord, error
 }
 
 func (s *InMemoryContractMetadataStore) Filter(filters ...FilterFunc[ContractMetadataKey, ContractMetadataRecord]) []ContractMetadataRecord {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	records := append([]ContractMetadataRecord{}, s.records...)
 	for _, filter := range filters {
 		records = filter(records)
@@ -53,6 +67,9 @@ func (s *InMemoryContractMetadataStore) Filter(filters ...FilterFunc[ContractMet
 }
 
 func (s *InMemoryContractMetadataStore) Add(record ContractMetadataRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	idx := s.indexOf(record.Key())
 	if idx != -1 {
 		return ErrContractMetadataRecordExists
@@ -62,6 +79,9 @@ func (s *InMemoryContractMetadataStore) Add(record ContractMetadataRecord) error
 }
 
 func (s *InMemoryContractMetadataStore) AddOrUpdate(record ContractMetadataRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	idx := s.indexOf(record.Key())
 	if idx == -1 {
 		s.records = append(s.records, record)
@@ -72,6 +92,9 @@ func (s *InMemoryContractMetadataStore) AddOrUpdate(record ContractMetadataRecor
 }
 
 func (s *InMemoryContractMetadataStore) Update(record ContractMetadataRecord) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	idx := s.indexOf(record.Key())
 	if idx == -1 {
 		return ErrContractMetadataRecordNotFound
@@ -81,6 +104,9 @@ func (s *InMemoryContractMetadataStore) Update(record ContractMetadataRecord) er
 }
 
 func (s *InMemoryContractMetadataStore) Delete(key ContractMetadataKey) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	idx := s.indexOf(key)
 	if idx == -1 {
 		return ErrContractMetadataRecordNotFound
