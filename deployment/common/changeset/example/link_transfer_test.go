@@ -109,7 +109,7 @@ func TestLinkTransferMCMS(t *testing.T) {
 						},
 					},
 				},
-				McmsConfig: &example.MCMSConfig{
+				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay:     0,
 					OverrideRoot: true,
 				},
@@ -234,7 +234,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &example.MCMSConfig{
+				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -258,7 +258,7 @@ func TestValidate(t *testing.T) {
 					},
 				},
 				From: mcmsState.Timelock.Address(),
-				McmsConfig: &example.MCMSConfig{
+				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Hour,
 				},
 			},
@@ -342,7 +342,7 @@ func TestValidate(t *testing.T) {
 				Transfers: map[uint64][]example.TransferConfig{
 					chainSelector: {{To: mcmsState.Timelock.Address(), Value: big.NewInt(100)}}},
 				From: chain.DeployerKey.From,
-				McmsConfig: &example.MCMSConfig{
+				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay: time.Hour * 24 * 10,
 				},
 			},
@@ -422,7 +422,7 @@ func TestLinkTransferMCMSV2(t *testing.T) {
 						},
 					},
 				},
-				McmsConfig: &example.MCMSConfig{
+				McmsConfig: &proposalutils.TimelockConfig{
 					MinDelay:     0,
 					OverrideRoot: true,
 				},

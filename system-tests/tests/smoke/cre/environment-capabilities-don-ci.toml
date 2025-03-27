@@ -18,8 +18,8 @@
   should_compile_new_workflow = false
 
   [workflow_config.dependencies]
-  cron_capability_binary_path = "injected-at-runtime"
-  cre_cli_binary_path = "injected-at-runtime"
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"

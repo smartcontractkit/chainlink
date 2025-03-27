@@ -17,14 +17,13 @@ import (
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type DeployerGroup struct {
 	e                 deployment.Environment
 	state             CCIPOnChainState
-	mcmConfig         *commonchangeset.TimelockConfig
+	mcmConfig         *proposalutils.TimelockConfig
 	deploymentContext *DeploymentContext
 	txDecoder         *proposalutils.TxCallDecoder
 	describeContext   *proposalutils.ArgumentContext
@@ -64,7 +63,7 @@ type DeployerGroupWithContext interface {
 type deployerGroupBuilder struct {
 	e               deployment.Environment
 	state           CCIPOnChainState
-	mcmConfig       *commonchangeset.TimelockConfig
+	mcmConfig       *proposalutils.TimelockConfig
 	txDecoder       *proposalutils.TxCallDecoder
 	describeContext *proposalutils.ArgumentContext
 }
@@ -92,7 +91,7 @@ func (d *deployerGroupBuilder) WithDeploymentContext(description string) *Deploy
 //	state.Chains[selector].RMNRemote.Curse()
 //	# Execute the transaction or create the proposal
 //	deployerGroup.Enact("Curse RMNRemote")
-func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *commonchangeset.TimelockConfig) DeployerGroupWithContext {
+func NewDeployerGroup(e deployment.Environment, state CCIPOnChainState, mcmConfig *proposalutils.TimelockConfig) DeployerGroupWithContext {
 	addresses, _ := e.ExistingAddresses.Addresses()
 	return &deployerGroupBuilder{
 		e:               e,
@@ -269,7 +268,7 @@ func (d *DeployerGroup) enactMcms() (deployment.ChangesetOutput, error) {
 			inspectors,
 			batches,
 			dc.description,
-			d.mcmConfig.MinDelay,
+			*d.mcmConfig,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal %w", err)

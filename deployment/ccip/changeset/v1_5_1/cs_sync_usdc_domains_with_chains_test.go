@@ -91,7 +91,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 						selector: deployment.Version1_5_1,
 					},
 					ChainSelectorToUSDCDomain: map[uint64]uint32{},
-					MCMS:                      &commonchangeset.TimelockConfig{MinDelay: 0 * time.Second},
+					MCMS:                      &proposalutils.TimelockConfig{MinDelay: 0 * time.Second},
 				}
 			},
 			DeployUSDC: true,
@@ -180,7 +180,7 @@ func TestValidateSyncUSDCDomainsWithChainsConfig(t *testing.T) {
 func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 	t.Parallel()
 
-	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Sync domains without MCMS"
 		if mcmsConfig != nil {
 			msg = "Sync domains with MCMS"
@@ -220,7 +220,7 @@ func TestSyncUSDCDomainsWithChainsChangeset(t *testing.T) {
 						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: timelockOwnedContractsByChain,
-							MinDelay:         0,
+							MCMSConfig:       *mcmsConfig,
 						},
 					),
 				)

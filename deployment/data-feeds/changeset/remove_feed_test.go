@@ -10,6 +10,7 @@ import (
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
@@ -116,7 +117,7 @@ func TestRemoveFeed(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)

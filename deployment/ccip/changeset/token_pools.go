@@ -12,6 +12,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
@@ -200,7 +201,7 @@ func GetTokenPoolAddressFromSymbolTypeAndVersion(
 // TokenAdminRegistryChangesetConfig defines a config for all token admin registry actions.
 type TokenAdminRegistryChangesetConfig struct {
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *commoncs.TimelockConfig
+	MCMS *proposalutils.TimelockConfig
 	// Pools defines the pools corresponding to the tokens we want to accept admin role for.
 	Pools map[uint64]map[TokenSymbol]TokenPoolInfo
 }

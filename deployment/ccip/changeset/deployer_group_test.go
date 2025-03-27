@@ -15,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type mintConfig struct {
@@ -25,18 +26,18 @@ type mintConfig struct {
 type dummyMultiChainDeployerGroupChangesetConfig struct {
 	address common.Address
 	mints   []mintConfig
-	MCMS    *commonchangeset.TimelockConfig
+	MCMS    *proposalutils.TimelockConfig
 }
 
 type dummyDeployerGroupChangesetConfig struct {
 	selector uint64
 	address  common.Address
 	mints    []*big.Int
-	MCMS     *commonchangeset.TimelockConfig
+	MCMS     *proposalutils.TimelockConfig
 }
 
 type dummyEmptyBatchChangesetConfig struct {
-	MCMS *commonchangeset.TimelockConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func dummyEmptyBatchChangeset(e deployment.Environment, cfg dummyEmptyBatchChangesetConfig) (deployment.ChangesetOutput, error) {
@@ -222,7 +223,7 @@ func TestDeployerGroupMCMS(t *testing.T) {
 			e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 			tc.cfg.selector = e.HomeChainSel
-			tc.cfg.MCMS = &commonchangeset.TimelockConfig{
+			tc.cfg.MCMS = &proposalutils.TimelockConfig{
 				MinDelay: 0,
 			}
 			state, err := changeset.LoadOnchainState(e.Env)
@@ -238,7 +239,9 @@ func TestDeployerGroupMCMS(t *testing.T) {
 					deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 					commonchangeset.TransferToMCMSWithTimelockConfig{
 						ContractsByChain: contractsByChain,
-						MinDelay:         0,
+						MCMSConfig: proposalutils.TimelockConfig{
+							MinDelay: 0,
+						},
 					},
 				),
 			)
@@ -295,7 +298,7 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 				amount:        big.NewInt(4),
 			},
 		},
-		MCMS: &commonchangeset.TimelockConfig{
+		MCMS: &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}
@@ -315,7 +318,9 @@ func TestDeployerGroupGenerateMultipleProposals(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)
@@ -357,7 +362,7 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 				amount:        big.NewInt(2),
 			},
 		},
-		MCMS: &commonchangeset.TimelockConfig{
+		MCMS: &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}
@@ -379,7 +384,9 @@ func TestDeployerGroupMultipleProposalsMCMS(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0,
+				},
 			},
 		),
 	)
@@ -421,7 +428,7 @@ func TestEmptyBatch(t *testing.T) {
 	e, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(2))
 
 	cfg := dummyEmptyBatchChangesetConfig{
-		MCMS: &commonchangeset.TimelockConfig{
+		MCMS: &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		},
 	}
