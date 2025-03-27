@@ -231,16 +231,6 @@ jobs:
         run: |
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
 
-      - name: Setup NodeJS
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
         if: ${{ matrix.type.should-run == 'true' }}
         uses: ./.github/actions/setup-go
@@ -569,10 +559,6 @@ jobs:
           only-modules: "true"
       - name: Install protoc-gen-go-wsrpc
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
       - name: make generate
         run: |
           make rm-mocked
