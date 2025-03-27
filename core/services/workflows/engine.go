@@ -840,7 +840,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
-	inputs, outputs, metadata, sErr := e.executeStep(ctx, l, msg)
+	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	curStepID := "UNSET"
@@ -866,15 +866,15 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		stepStatus = store.StatusErrored
 	default:
 		lmsg := "step executed successfully"
-		l.With("outputs", outputs).Info(lmsg)
+		l.With("outputs", response.Value).Info(lmsg)
 		// TODO ks-462 emit custom message with outputs
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
 
-	meteringSteps := make([]MeteringReportStep, len(metadata.Metering))
+	meteringSteps := make([]MeteringReportStep, len(response.Metadata.Metering))
 
-	for idx, detail := range metadata.Metering {
+	for idx, detail := range response.Metadata.Metering {
 		unit := MeteringSpendUnit(detail.SpendUnit)
 		value, err := unit.StringToSpendValue(detail.SpendValue)
 		if err != nil {
@@ -897,7 +897,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	}
 
 	stepState.Status = stepStatus
-	stepState.Outputs.Value = outputs
+	stepState.Outputs.Value = response.Value
 	stepState.Outputs.Err = sErr
 	stepState.Inputs = inputs
 
@@ -1012,10 +1012,10 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, capabilities.ResponseMetadata, error) {
+func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
-		return nil, nil, capabilities.ResponseMetadata{}, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	var inputs any
@@ -1027,17 +1027,17 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 
 	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
-		return nil, nil, capabilities.ResponseMetadata{}, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
-		return nil, nil, capabilities.ResponseMetadata{}, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	config, err := e.configForStep(ctx, lggr, curStep)
 	if err != nil {
-		return nil, nil, capabilities.ResponseMetadata{}, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
@@ -1076,10 +1076,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	output, err := curStep.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
-		return inputsMap, nil, capabilities.ResponseMetadata{}, err
+		return inputsMap, capabilities.CapabilityResponse{}, err
 	}
 
-	return inputsMap, output.Value, output.Metadata, err
+	return inputsMap, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -1107,7 +1107,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	return nil
 }
 
-func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.WorkflowExecution) (bool, string, error) {
+func (e *Engine) isWorkflowFullyProcessed(_ context.Context, state store.WorkflowExecution) (bool, string, error) {
 	statuses := map[string]string{}
 	// we need to first propagate the status of the errored status if it exists...
 	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
