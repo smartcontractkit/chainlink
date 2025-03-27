@@ -238,14 +238,18 @@ func CCIPSendRequest(
 // retryCcipSendUntilNativeFeeIsSufficient sends a CCIP message with a native fee,
 // and retries until the fee is sufficient. This is due to the fact that the fee is not known in advance,
 // and the message will be rejected if the fee is insufficient.
+// The function will retry based on the config's MaxRetries setting for errors other than insufficient fee.
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e deployment.Environment,
 	r *router.Router,
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
+	const cannotDecodeErrorReason = "could not decode error reason"
+
 	defer func() { cfg.Sender.Value = nil }()
 
+	var retryCount int
 	for {
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, cfg.Evm2AnyMessage)
 		if err != nil {
@@ -262,8 +266,20 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 		if err != nil {
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
+				// Don't count insufficient fee as part of the retry count
+				// because this is expected and we need to adjust the fee
+				continue
+			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) {
+				// If the error reason cannot be decoded, we retry to avoid transient issues. The retry behavior is disabled by default
+				// It is configured in the CCIPSendReqConfig.
+				// This retry was originally added to solve transient failure in end to end tests
+				if retryCount >= cfg.MaxRetries {
+					return nil, 0, fmt.Errorf("failed to confirm CCIP message after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
+				}
+				retryCount++
 				continue
 			}
+
 			return nil, 0, fmt.Errorf("failed to confirm CCIP message: %w", deployment.MaybeDataErr(err))
 		}
 
@@ -297,13 +313,19 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	evm2AnyMessage router.ClientEVM2AnyMessage,
+	opts ...SendReqOpts,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	msgSentEvent, err := DoSendRequest(t, e, state,
+	baseOpts := []SendReqOpts{
 		WithSender(e.Chains[src].DeployerKey),
 		WithSourceChain(src),
 		WithDestChain(dest),
 		WithTestRouter(testRouter),
-		WithEvm2AnyMessage(evm2AnyMessage))
+		WithEvm2AnyMessage(evm2AnyMessage),
+	}
+
+	baseOpts = append(baseOpts, opts...)
+
+	msgSentEvent, err := DoSendRequest(t, e, state, baseOpts...)
 	require.NoError(t, err)
 	return msgSentEvent
 }
@@ -314,9 +336,17 @@ type CCIPSendReqConfig struct {
 	IsTestRouter   bool
 	Sender         *bind.TransactOpts
 	Evm2AnyMessage router.ClientEVM2AnyMessage
+	MaxRetries     int // Number of retries for errors (excluding insufficient fee errors)
 }
 
 type SendReqOpts func(*CCIPSendReqConfig)
+
+// WithMaxRetries sets the maximum number of retries for the CCIP send request.
+func WithMaxRetries(maxRetries int) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.MaxRetries = maxRetries
+	}
+}
 
 func WithSender(sender *bind.TransactOpts) SendReqOpts {
 	return func(c *CCIPSendReqConfig) {

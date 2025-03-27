@@ -41,10 +41,6 @@
 /core/services/ccip @smartcontractkit/ccip
 /core/services/ocr2/plugins/ccip @smartcontractkit/ccip
 
-# CCIP
-/core/services/ccip @smartcontractkit/ccip
-/core/services/ocr2/plugins/ccip @smartcontractkit/ccip
-
 # VRF-related services
 /core/services/vrf @smartcontractkit/dev-services @smartcontractkit/core
 /core/services/blockhashstore @smartcontractkit/dev-services @smartcontractkit/core
@@ -63,7 +59,6 @@ core/services/ocr2/plugins/functions @smartcontractkit/dev-services
 core/services/s4 @smartcontractkit/dev-services
 core/service/ocr2/plugins/s4 @smartcontractkit/dev-services
 core/services/ocr2/plugins/threshold @smartcontractkit/dev-services
-core/services/relay/evm/functions @smartcontractkit/dev-services
 core/services/relay/evm/functions @smartcontractkit/dev-services
 core/scripts/functions @smartcontractkit/dev-services
 core/scripts/gateway @smartcontractkit/dev-services
@@ -144,14 +139,14 @@ core/scripts/gateway @smartcontractkit/dev-services
 /integration-tests/**/*ccip* @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/ccip
 
 # Deployment tooling
-/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip @smartcontractkit/ccip-tooling @smartcontractkit/ccip-offchain @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
 /deployment/ccip/changeset/globals @smartcontractkit/ccip-offchain
-/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
-deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
-/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation
+/deployment/keystone @smartcontractkit/keystone @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/changeset/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/ccip/view/solana @smartcontractkit/solana-tooling @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/data-feeds @smartcontractkit/data-feeds-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
+/deployment/data-streams @smartcontractkit/data-streams-engineers @smartcontractkit/core @smartcontractkit/deployment-automation @smartcontractkit/cld-team
 # TODO: As more products add their deployment logic here, add the team as an owner
 
 # CI/CD

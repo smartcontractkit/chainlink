@@ -2,10 +2,15 @@ package syncer
 
 import (
 	"errors"
+	"fmt"
+	"maps"
+	"slices"
 	"sync"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 )
+
+var errNotFound = errors.New("engine not found")
 
 type EngineRegistry struct {
 	engines map[string]services.Service
@@ -35,21 +40,17 @@ func (r *EngineRegistry) Get(id string) (services.Service, error) {
 	defer r.mu.RUnlock()
 	engine, found := r.engines[id]
 	if !found {
-		return nil, errors.New("engine not found")
+		return nil, errNotFound
 	}
 	return engine, nil
 }
 
-// IsRunning is true if the engine exists and is ready.
-func (r *EngineRegistry) IsRunning(id string) bool {
+// Contains is true if the engine exists.
+func (r *EngineRegistry) Contains(id string) bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	engine, found := r.engines[id]
-	if !found {
-		return false
-	}
-
-	return engine.Ready() == nil
+	_, found := r.engines[id]
+	return found
 }
 
 // Pop removes an engine from the registry and returns the engine if found.
@@ -58,23 +59,17 @@ func (r *EngineRegistry) Pop(id string) (services.Service, error) {
 	defer r.mu.Unlock()
 	engine, ok := r.engines[id]
 	if !ok {
-		return nil, errors.New("remove failed: engine not found")
+		return nil, fmt.Errorf("pop failed: %w", errNotFound)
 	}
 	delete(r.engines, id)
 	return engine, nil
 }
 
-// Close closes all engines in the registry.
-func (r *EngineRegistry) Close() error {
+// PopAll removes and returns all engines.
+func (r *EngineRegistry) PopAll() []services.Service {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	var err error
-	for id, engine := range r.engines {
-		closeErr := engine.Close()
-		if closeErr != nil {
-			err = errors.Join(err, closeErr)
-		}
-		delete(r.engines, id)
-	}
-	return err
+	all := slices.Collect(maps.Values(r.engines))
+	r.engines = make(map[string]services.Service)
+	return all
 }

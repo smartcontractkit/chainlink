@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -739,7 +740,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ExtraAllowedPorts:     extraAllowedPorts,
 			ExtraAllowedIPs:       extraAllowedIPs,
 			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
-			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
+			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
 	)
@@ -793,6 +794,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	_, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
 	require.NoError(t, err, "failed to configure feeds consumer")
 
+	// make sure that path is indeed absolute
+	creCLIAbsPath, pathErr := filepath.Abs(in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath)
+	require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
+
 	registerInput := registerPoRWorkflowInput{
 		WorkflowConfig:              in.WorkflowConfig,
 		chainSelector:               blockchainsOutput.chainSelector,
@@ -805,7 +810,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		sethClient:                  blockchainsOutput.sethClient,
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
-		creCLIAbsPath:               in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath,
+		creCLIAbsPath:               creCLIAbsPath,
 	}
 
 	err = registerPoRWorkflow(registerInput)
