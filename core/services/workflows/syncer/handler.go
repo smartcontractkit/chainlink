@@ -259,6 +259,10 @@ func NewEventHandler(
 	return eh
 }
 
+func (h *eventHandler) Close() error {
+	return services.MultiCloser(h.engineRegistry.PopAll()).Close()
+}
+
 func (h *eventHandler) refreshSecrets(ctx context.Context, workflowOwner, workflowName, workflowID, secretsURLHash string) (string, error) {
 	owner, err := hex.DecodeString(workflowOwner)
 	if err != nil {
@@ -522,7 +526,7 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Ensure that there is no running workflow engine for the given workflow ID.
-	if h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
+	if h.engineRegistry.Contains(hex.EncodeToString(payload.WorkflowID[:])) {
 		return fmt.Errorf("workflow is already running, so not starting it : %s", hex.EncodeToString(payload.WorkflowID[:]))
 	}
 
@@ -580,8 +584,8 @@ func (h *eventHandler) workflowRegisteredEvent(
 		return fmt.Errorf("failed to start workflow engine: %w", err)
 	}
 
-	// This shouldn't happen because we call the handler serially and
-	// check for running engines above, see the call to engineRegistry.IsRunning.
+	// This shouldn't fail because we call the handler serially and
+	// check for running engines above, see the call to engineRegistry.Contains.
 	if err := h.engineRegistry.Add(wfID, engine); err != nil {
 		return fmt.Errorf("invariant violation: %w", err)
 	}
@@ -729,7 +733,7 @@ func (h *eventHandler) workflowActivatedEvent(
 	}
 
 	// Do nothing if the workflow is already active
-	if spec.Status == job.WorkflowSpecStatusActive && h.engineRegistry.IsRunning(hex.EncodeToString(payload.WorkflowID[:])) {
+	if spec.Status == job.WorkflowSpecStatusActive && h.engineRegistry.Contains(hex.EncodeToString(payload.WorkflowID[:])) {
 		return nil
 	}
 
@@ -822,7 +826,7 @@ func (h *eventHandler) forceUpdateSecretsEvent(
 // tryEngineCleanup attempts to stop the workflow engine for the given workflow ID.  Does nothing if the
 // workflow engine is not running.
 func (h *eventHandler) tryEngineCleanup(wfID string) error {
-	if h.engineRegistry.IsRunning(wfID) {
+	if h.engineRegistry.Contains(wfID) {
 		// Remove the engine from the registry
 		e, err := h.engineRegistry.Pop(wfID)
 		if err != nil {
