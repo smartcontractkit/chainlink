@@ -127,7 +127,7 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 		v.Add("evmChainID", c.String("evm-chain-id"))
 	}
 
-	resp, err := s.HTTP.Get(s.ctx(), "/v2/find_lca?%s"+v.Encode())
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/find_lca?"+v.Encode())
 	if err != nil {
 		return s.errorOut(err)
 	}
