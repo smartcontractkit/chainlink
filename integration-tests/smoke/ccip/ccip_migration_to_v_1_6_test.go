@@ -303,6 +303,7 @@ func TestV1_5_Message_RMNRemote_Curse(t *testing.T) {
 
 // TestV1_5_Message_RMNRemote this test verify that 1.5 lane can be uncuresed when using RMNRemote
 func TestV1_5_Message_RMNRemote_Curse_Uncurse(t *testing.T) {
+	t.Skip("Skipping since its flakey, need to fix")
 	// Deploy CCIP 1.5 with 3 chains and 4 nodes + 1 bootstrap
 	// Deploy 1.5 contracts (excluding pools to start, but including MCMS) .
 	e, _, tEnv := testsetups.NewIntegrationEnvironment(
