@@ -4,7 +4,7 @@ import (
 	"errors"
 	"maps"
 
-	"github.com/blang/semver/v4"
+	"github.com/Masterminds/semver/v3"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 )
@@ -22,7 +22,7 @@ type AddressReferenceRecord struct {
 	Labels    deployment.LabelSet
 	Qualifier string
 	Type      deployment.ContractType
-	Version   semver.Version
+	Version   *semver.Version
 }
 
 func (r AddressReferenceRecord) Clone() AddressReferenceRecord {
