@@ -893,7 +893,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
 	} else {
-		l.Warn(fmt.Sprintf("no metering report found for %s", msg.state.ExecutionID))
+		l.Warn("no metering report found for " + msg.state.ExecutionID)
 	}
 
 	stepState.Status = stepStatus
