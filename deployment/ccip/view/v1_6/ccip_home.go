@@ -38,32 +38,32 @@ type OracleIdentity struct {
 }
 
 type CCIPHomeOCR3Config struct {
-	PluginType                              uint8              `json:",omitempty"`
-	ChainSelector                           uint64             `json:",omitempty"`
-	FRoleDON                                uint8              `json:",omitempty"`
-	OffchainConfigVersion                   uint64             `json:",omitempty"`
-	OfframpAddress                          string             `json:",omitempty"`
-	RmnHomeAddress                          string             `json:",omitempty"`
-	Nodes                                   []CCIPHomeOCR3Node `json:",omitempty"`
-	OffchainConfig                          []byte             `json:",omitempty"`
-	DeltaProgress                           string             `json:"omitempty"`
-	DeltaResend                             string             `json:"omitempty"`
-	DeltaInitial                            string
-	DeltaRound                              string
-	DeltaGrace                              string
-	DeltaCertifiedCommitRequest             string
-	DeltaStage                              string
-	RMax                                    uint64
-	MaxDurationInitialization               string `json:",omitempty"` // optional, can be nil
-	MaxDurationQuery                        string
-	MaxDurationObservation                  string
-	MaxDurationShouldAcceptAttestedReport   string
-	MaxDurationShouldTransmitAcceptedReport string
-	F                                       int
-	CommitOffChainConfig                    pluginconfig.CommitOffchainConfig
-	ExecuteOffChainConfig                   pluginconfig.ExecuteOffchainConfig
-	S                                       []int
-	OracleIdentities                        []OracleIdentity
+	PluginType                              uint8                              `json:",omitempty"`
+	ChainSelector                           uint64                             `json:",omitempty"`
+	FRoleDON                                uint8                              `json:",omitempty"`
+	OffchainConfigVersion                   uint64                             `json:",omitempty"`
+	OfframpAddress                          string                             `json:",omitempty"`
+	RmnHomeAddress                          string                             `json:",omitempty"`
+	Nodes                                   []CCIPHomeOCR3Node                 `json:",omitempty"`
+	OffchainConfig                          []byte                             `json:",omitempty"`
+	DeltaProgress                           string                             `json:"omitempty"`
+	DeltaResend                             string                             `json:"omitempty"`
+	DeltaInitial                            string                             `json:",omitempty"`
+	DeltaRound                              string                             `json:",omitempty"`
+	DeltaGrace                              string                             `json:",omitempty"`
+	DeltaCertifiedCommitRequest             string                             `json:",omitempty"`
+	DeltaStage                              string                             `json:",omitempty"`
+	RMax                                    uint64                             `json:",omitempty"`
+	MaxDurationInitialization               string                             `json:",omitempty"`
+	MaxDurationQuery                        string                             `json:",omitempty"`
+	MaxDurationObservation                  string                             `json:",omitempty"`
+	MaxDurationShouldAcceptAttestedReport   string                             `json:",omitempty"`
+	MaxDurationShouldTransmitAcceptedReport string                             `json:",omitempty"`
+	F                                       int                                `json:",omitempty"`
+	CommitOffChainConfig                    pluginconfig.CommitOffchainConfig  `json:",omitempty"`
+	ExecuteOffChainConfig                   pluginconfig.ExecuteOffchainConfig `json:",omitempty"`
+	S                                       []int                              `json:",omitempty"`
+	OracleIdentities                        []OracleIdentity                   `json:",omitempty"`
 }
 
 type CCIPHomeOCR3Node struct {
