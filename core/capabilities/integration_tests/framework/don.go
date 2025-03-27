@@ -560,7 +560,3 @@ func addOCR3Capability(ctx context.Context, t *testing.T, lggr logger.Logger, ca
 
 	libocr.AddNode(plugin, transmitter, ocr2KeyBundle)
 }
-
-func Context(tb testing.TB) (ctx context.Context, cancel func()) {
-	return context.WithCancel(testutils.Context(tb))
-}

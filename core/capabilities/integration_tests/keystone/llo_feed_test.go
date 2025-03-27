@@ -26,8 +26,7 @@ import (
 )
 
 func Test_runLLOWorkflow(t *testing.T) {
-	ctx, cancel := framework.Context(t)
-	defer cancel()
+	ctx := t.Context()
 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
@@ -64,7 +63,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	// send the trigger event to the trigger sink and wait for the consumer to receive the feeds
 	triggerSink.SendOutput(triggerOutput, eventID)
 	h := newStreamsV2Handler(updates, ts)
-	waitForConsumerReports(ctx, t, consumer, h)
+	waitForConsumerReports(t, consumer, h)
 }
 
 type streamUpdate struct {

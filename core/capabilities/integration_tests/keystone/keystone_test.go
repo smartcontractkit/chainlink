@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/google/uuid"
@@ -70,7 +71,7 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 	triggerSink.SendOutput(wrappedReports, uuid.New().String())
 	h := newStreamsV1Handler(reports)
 
-	waitForConsumerReports(ctx, t, consumer, h)
+	waitForConsumerReports(t, consumer, h)
 }
 
 func wrapReports(reportList []*datastreams.FeedReport,
@@ -99,14 +100,16 @@ type feedReceivedHandler interface {
 	handleDone(t *testing.T)
 }
 
-func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, h feedReceivedHandler) {
+func waitForConsumerReports(t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, h feedReceivedHandler) {
 	feedsReceived := make(chan *feeds_consumer.KeystoneFeedsConsumerFeedReceived, 1000)
 	feedsSub, err := consumer.WatchFeedReceived(&bind.WatchOpts{}, feedsReceived, nil)
 	require.NoError(t, err)
-
+	ctx := t.Context()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	defer cancel()
 	for {
 		select {
-		case <-t.Context().Done():
+		case <-ctx.Done():
 			h.handleDone(t)
 			t.Fatalf("timed out waiting for feeds reports")
 		case err := <-feedsSub.Err():
