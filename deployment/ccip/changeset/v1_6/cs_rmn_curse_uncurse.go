@@ -8,6 +8,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 var (
@@ -27,7 +28,7 @@ type RMNCurseAction struct {
 type CurseAction func(e deployment.Environment) []RMNCurseAction
 
 type RMNCurseConfig struct {
-	MCMS         *commoncs.TimelockConfig
+	MCMS         *proposalutils.TimelockConfig
 	CurseActions []CurseAction
 	Reason       string
 }

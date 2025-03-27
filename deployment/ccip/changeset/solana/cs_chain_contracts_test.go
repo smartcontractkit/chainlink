@@ -25,6 +25,7 @@ import (
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -77,7 +78,7 @@ func doTestAddRemoteChain(t *testing.T, e deployment.Environment, evmChain uint6
 				OffRamp:   true,
 			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &commonchangeset.TimelockConfig{
+			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 1 * time.Second,
 			},
 			RouterOwnedByTimelock:    true,
@@ -301,7 +302,7 @@ func TestSetOcr3(t *testing.T) {
 				HomeChainSel:       homeChainSel,
 				RemoteChainSels:    solChainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
-				MCMS:               &commonchangeset.TimelockConfig{MinDelay: 1 * time.Second},
+				MCMS:               &proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 			},
 		),
 	})
@@ -350,7 +351,7 @@ func TestBilling(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &commonchangeset.TimelockConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -633,7 +634,7 @@ func TestTokenAdminRegistry(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &commonchangeset.TimelockConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -781,7 +782,7 @@ func TestPoolLookupTable(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &commonchangeset.TimelockConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,

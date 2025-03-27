@@ -100,6 +100,61 @@ targets:
       cre_step_timeout: 610
 `
 
+const multipleTriggersWorkflow = `
+triggers:
+  - id: "mercury-trigger@1.0.0"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+  - id: "other-trigger@1.0.0"
+    config:
+      feedIds:
+        - "0x1111111111111111111100000000000000000000000000000000000000000000"
+        - "0x2222222222222222222200000000000000000000000000000000000000000000"
+        - "0x3333333333333333333300000000000000000000000000000000000000000000"
+
+consensus:
+  - id: "offchain_reporting@1.0.0"
+    ref: "evm_median"
+    inputs:
+      observations:
+        - "$(trigger.outputs)"
+    config:
+      aggregation_method: "data_feeds_2_0"
+      aggregation_config:
+        "0x1111111111111111111100000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x2222222222222222222200000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+        "0x3333333333333333333300000000000000000000000000000000000000000000":
+          deviation: "0.001"
+          heartbeat: 3600
+      encoder: "EVM"
+      encoder_config:
+        abi: "mercury_reports bytes[]"
+
+targets:
+  - id: "write_polygon-testnet-mumbai@1.0.0"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x3F3554832c636721F1fD1822Ccca0354576741Ef"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+  - id: "write_ethereum-testnet-sepolia@1.0.0"
+    inputs:
+      report: "$(evm_median.outputs.report)"
+    config:
+      address: "0x54e220867af6683aE6DcBF535B4f952cB5116510"
+      params: ["$(report)"]
+      abi: "receive(report bytes)"
+      cre_step_timeout: 610
+`
+
 type testHooks struct {
 	initFailed        chan struct{}
 	initSuccessful    chan struct{}
@@ -222,10 +277,12 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 		clock:          clock,
 		RateLimiter:    rl,
 		WorkflowLimits: sl,
-		sendMeteringReport: func(report *MeteringReport) {
+		sendMeteringReport: func(report *MeteringReport, name string, ID string, execID string) {
 			detail := report.Description()
 			bClient := beholder.GetClient()
-			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity}
+			// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
+			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity,
+				platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
 
 			data, mErr := proto.Marshal(report.Message())
 			require.NoError(t, mErr)
@@ -409,10 +466,10 @@ targets:
 `
 )
 
-func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
+func mockTriggerWithName(t *testing.T, name string) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
 	mt := &mockTriggerCapability{
 		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger@1.0.0",
+			name,
 			capabilities.CapabilityTypeTrigger,
 			"issues a trigger when a mercury report is received.",
 		),
@@ -428,12 +485,16 @@ func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.Tri
 	tr := capabilities.TriggerResponse{
 		Event: capabilities.TriggerEvent{
 			TriggerType: mt.ID,
-			ID:          time.Now().UTC().Format(time.RFC3339),
+			ID:          fmt.Sprintf("%v:%v", name, time.Now().UTC().Format(time.RFC3339)),
 			Outputs:     resp,
 		},
 	}
 	mt.triggerEvent = &tr
 	return mt, tr
+}
+
+func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
+	return mockTriggerWithName(t, "mercury-trigger@1.0.0")
 }
 
 func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
@@ -1725,7 +1786,6 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	}
 
 	connector := gcmocks.NewGatewayConnector(t)
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
@@ -1801,7 +1861,6 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 		},
 	}
 	connector := gcmocks.NewGatewayConnector(t)
-	connector.EXPECT().GatewayIDs().Return([]string{"gateway1"})
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
@@ -2234,4 +2293,62 @@ func Test_stepUpdateManager(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+func TestEngine_ConcurrentExecutions(t *testing.T) {
+	ctx := testutils.Context(t)
+	reg := coreCap.NewRegistry(logger.TestLogger(t))
+	beholderTester := tests.Beholder(t)
+
+	trigger1, cr1 := mockTrigger(t)
+	require.NoError(t, reg.Add(ctx, trigger1))
+
+	trigger2, cr2 := mockTriggerWithName(t, "other-trigger@1.0.0")
+	require.NoError(t, reg.Add(ctx, trigger2))
+
+	require.NoError(t, reg.Add(ctx, mockConsensus("")))
+	target1 := mockTarget("")
+	require.NoError(t, reg.Add(ctx, target1))
+
+	target2 := newMockCapability(
+		capabilities.MustNewCapabilityInfo(
+			"write_ethereum-testnet-sepolia@1.0.0",
+			capabilities.CapabilityTypeTarget,
+			"a write capability targeting ethereum sepolia testnet",
+		),
+		func(req capabilities.CapabilityRequest) (capabilities.CapabilityResponse, error) {
+			m := req.Inputs.Underlying["report"].(*values.Map)
+			return capabilities.CapabilityResponse{
+				Value: m,
+			}, nil
+		},
+	)
+	require.NoError(t, reg.Add(ctx, target2))
+
+	eng, testHooks := newTestEngineWithYAMLSpec(
+		t,
+		reg,
+		multipleTriggersWorkflow,
+	)
+
+	servicetest.Run(t, eng)
+
+	// gets the execution ID of the first execution
+	eid := getExecutionID(t, eng, testHooks)
+	resp1 := <-target1.response
+	assert.Equal(t, cr1.Event.Outputs, resp1.Value)
+
+	resp2 := <-target2.response
+	assert.Equal(t, cr2.Event.Outputs, resp2.Value)
+
+	state, err := eng.executionStates.Get(ctx, eid)
+	require.NoError(t, err)
+
+	// gets the execution ID of the second execution
+	eid2 := getExecutionID(t, eng, testHooks)
+
+	assert.Equal(t, store.StatusCompleted, state.Status)
+	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
+	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
+	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
 }

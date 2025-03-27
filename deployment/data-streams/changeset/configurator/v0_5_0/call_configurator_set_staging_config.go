@@ -128,7 +128,10 @@ func callSetConfigCommon[T Config](
 			inspectorPerChain,
 			allBatches,
 			proposalName,
-			mcmsConfig.MinDelay,
+			proposalutils.TimelockConfig{
+				MinDelay:     mcmsConfig.MinDelay,
+				OverrideRoot: mcmsConfig.OverrideRoot,
+			},
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

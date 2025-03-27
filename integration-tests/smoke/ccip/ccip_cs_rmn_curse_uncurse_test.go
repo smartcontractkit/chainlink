@@ -2,6 +2,7 @@ package ccip
 
 import (
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -195,7 +196,9 @@ func transferRMNContractToMCMS(t *testing.T, e *testhelpers.DeployedEnv, state c
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second,
+				},
 			},
 		),
 	)
@@ -212,7 +215,7 @@ func runRmnUncurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &commonchangeset.TimelockConfig{MinDelay: 0},
+		MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)
@@ -342,7 +345,7 @@ func runRmnCurseMCMSTest(t *testing.T, tc CurseTestCase) {
 	config := v1_6.RMNCurseConfig{
 		CurseActions: tc.curseActionsBuilder(mapIDToSelector),
 		Reason:       "test curse",
-		MCMS:         &commonchangeset.TimelockConfig{MinDelay: 0},
+		MCMS:         &proposalutils.TimelockConfig{MinDelay: 0},
 	}
 
 	state, err := changeset.LoadOnchainState(e.Env)

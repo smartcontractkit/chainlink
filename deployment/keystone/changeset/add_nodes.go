@@ -260,7 +260,7 @@ func AddNodes(env deployment.Environment, req *AddNodesRequest) (deployment.Chan
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to add nodes",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)
