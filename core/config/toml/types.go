@@ -16,6 +16,8 @@ import (
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	ocrcommontypes "github.com/smartcontractkit/libocr/commontypes"
 
+	"maps"
+
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/build"
@@ -1623,8 +1625,9 @@ type Workflows struct {
 }
 
 type Limits struct {
-	Global   *int32
-	PerOwner *int32
+	Global    *int32
+	PerOwner  *int32
+	Overrides map[string]int32
 }
 
 func (r *Workflows) setFrom(f *Workflows) {
@@ -1638,6 +1641,11 @@ func (r *Limits) setFrom(f *Limits) {
 
 	if f.PerOwner != nil {
 		r.PerOwner = f.PerOwner
+	}
+
+	if f.Overrides != nil {
+		r.Overrides = make(map[string]int32)
+		maps.Copy(r.Overrides, f.Overrides)
 	}
 }
 
