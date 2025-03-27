@@ -10,7 +10,7 @@ on:
       - develop
   workflow_dispatch:
     inputs:
-      git_ref:
+      git-ref:
         description: "The git ref to check out"
         required: true
 
@@ -69,7 +69,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
-      git-sha: ${{ inputs.git_ref || github.sha }}
+      git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
@@ -94,7 +94,7 @@ jobs:
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
       docker-tag-custom-suffix: "-plugins"
-      git-sha: ${{ inputs.git_ref || github.sha }}
+      git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-token: ${{ needs.init.outputs.github-token }}
@@ -120,7 +120,7 @@ jobs:
         COMMIT_SHA=${{ github.sha }}
       docker-image-type: ${{ needs.init.outputs.build-type }}
       docker-manifest-sign: true
-      git-sha: ${{ inputs.git_ref || github.sha }}
+      git-sha: ${{ inputs.git-ref || github.sha }}
       github-event-name: ${{ github.event_name }}
       github-ref-name: ${{ github.ref_name }}
       github-workflow-repository: ${{ github.repository }}
