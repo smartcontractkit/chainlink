@@ -111,7 +111,7 @@ func DeployMCMS(
 				deployment.CreateLegacyChangeSet(commonChangesets.TransferToMCMSWithTimelockV2),
 				commonChangesets.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: addressesToTransfer[0],
-					MinDelay:         0,
+					MCMSConfig:       proposalutils.TimelockConfig{MinDelay: 0},
 				},
 			),
 		)
