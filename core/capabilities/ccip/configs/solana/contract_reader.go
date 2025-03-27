@@ -361,6 +361,14 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.HardCodeModifierConfig{
+								OnChainValues: map[string]any{"RmnRemoteAddress": ""},
+							},
+							&codec.PropertyExtractorConfig{
+								FieldName: "RmnRemoteAddress",
+							},
+						},
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
 							// type doesn't matter it will be overridden with address internally
 							OffChainValues: map[string]any{"RmnRemoteAddress": ""},
