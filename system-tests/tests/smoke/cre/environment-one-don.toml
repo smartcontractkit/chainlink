@@ -29,10 +29,6 @@
   cron_capability_binary_path = "./cron"
   cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
 
-  [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/ca04d5bd02f431ad68a8c13a05da5b39/raw/a1f5b68c523f0795cf3123e266e01736e86580a1/config.json763939347"
-
 [[nodesets]]
   nodes = 5
   override_mode = "each"

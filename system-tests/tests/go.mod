@@ -28,6 +28,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.52.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
 	github.com/smartcontractkit/chainlink/system-tests/lib v0.0.0-00010101000000-000000000000
+	github.com/spf13/cobra v1.8.1
 	github.com/stretchr/testify v1.10.0
 	google.golang.org/grpc v1.70.0
 )
@@ -362,7 +363,6 @@ require (
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de // indirect
 	github.com/smartcontractkit/wsrpc v0.8.5-0.20250318131857-4568a0f8d12d // indirect
 	github.com/spf13/cast v1.7.1 // indirect
-	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/streamingfast/logging v0.0.0-20230608130331-f22c91403091 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
