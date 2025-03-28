@@ -2,7 +2,6 @@ package ccip
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -290,7 +289,7 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		)
 	})
 
-	fmt.Printf("out: %v\n", out)
+	_ = out
 }
 
 func Test_CCIPMessaging_Solana2EVM(t *testing.T) {

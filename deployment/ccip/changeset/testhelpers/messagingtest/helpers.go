@@ -1,7 +1,6 @@
 package messagingtest
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -127,7 +126,7 @@ func getLatestNonce(tc TestCase) uint64 {
 		}, tc.SourceChain, tc.Sender)
 		require.NoError(tc.T, err)
 	case chain_selectors.FamilySolana:
-		ctx := context.Background()
+		ctx := tc.T.Context()
 		client := tc.Env.SolChains[tc.DestChain].Client
 		// TODO: solcommon.FindNoncePDA expected the sender to be a solana pubkey
 		chainSelectorLE := solcommon.Uint64ToLE(tc.DestChain)
