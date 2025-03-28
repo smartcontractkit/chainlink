@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/pkg/errors"
@@ -30,6 +31,9 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 				defer cancel()
 				_, err := offChainClient.ProposeJob(ctx, jobReq)
 				if err != nil {
+					if strings.Contains(err.Error(), "cannot approve an approved spec") {
+						return nil
+					}
 					return errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
 				}
 				if ctx.Err() != nil {

@@ -80,7 +80,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			_, id := NewFeedID(t)
 			feedsAddresses[i] = append(feedsAddresses[i], por.FeedWithStreamID{
 				Feed:     id,
-				StreamID: uint32((in.WorkflowLoad.Feeds * i) + streamID),
+				StreamID: uint32((in.WorkflowLoad.Feeds * i) + streamID + 1),
 			})
 		}
 	}
@@ -273,14 +273,14 @@ func TestReconnectMock(t *testing.T) {
 		"commit":       "profile-check",
 	}
 
-	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 50, 2)
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
 	time.Sleep(time.Second * 5) //Time to precompute
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5,
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
-				wasp.Plain(4, 120*time.Minute),
+				wasp.Plain(4, 15*time.Minute),
 			),
 			Gun:                   sg,
 			Labels:                labels,
@@ -298,7 +298,7 @@ type StreamsGun struct {
 	keyBundles  []ocr2key.KeyBundle
 	feeds       [][]por.FeedWithStreamID
 	triggerID   string
-	waitChans   map[uint64]chan interface{}
+	waitChans   map[uint32]chan interface{}
 	recieveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
@@ -382,7 +382,7 @@ func (s *StreamsGun) waitHOOKloop() error {
 
 			s.mu.Lock()
 			//Check if exist
-			if ch, exist := s.waitChans[uint64(timestamp)]; exist {
+			if ch, exist := s.waitChans[uint32(timestamp)]; exist {
 				s.mu.Unlock()
 				ch <- m //This is blocking
 			} else {
@@ -398,25 +398,25 @@ func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waitChans == nil {
-		s.waitChans = make(map[uint64]chan interface{})
+		s.waitChans = make(map[uint32]chan interface{})
 	}
-	if _, exists := s.waitChans[reportTimestamp]; exists {
+	if _, exists := s.waitChans[uint32(reportTimestamp)]; exists {
 		return fmt.Errorf("cannot prepare for HOOK, timestamp  %d already exits", reportTimestamp)
 	}
-	s.waitChans[reportTimestamp] = make(chan interface{})
+	s.waitChans[uint32(reportTimestamp)] = make(chan interface{})
 	return nil
 }
 
 func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
 	s.mu.Lock()
 
-	if ch, exists := s.waitChans[timestamp]; !exists {
+	if ch, exists := s.waitChans[uint32(timestamp)]; !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("cannot wait for HOOK, timestamp  %q does not exist", timestamp)
 	} else {
 		s.mu.Unlock()
 		<-ch
-		delete(s.waitChans, timestamp)
+		delete(s.waitChans, uint32(timestamp))
 		return nil
 	}
 
@@ -430,12 +430,12 @@ func (s *StreamsGun) precomputeReports() {
 
 	feeds := make([]por.FeedWithStreamID, 0)
 	for jobNr, _ := range s.feeds {
-		if jobNr > s.jobLimit {
+		if jobNr >= s.jobLimit {
 			break
 		}
 
 		for feedNr, feed := range s.feeds[jobNr] {
-			if feedNr > s.feedLimit {
+			if feedNr >= s.feedLimit {
 				break
 			}
 			feeds = append(feeds, feed)
@@ -469,9 +469,9 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	for _, f := range feeds {
 		dec := &datastreamsllo.Decimal{}
 		dec.UnmarshalBinary(priceBytes)
-		values = append(values)
+		values = append(values, dec)
 		streams = append(streams, llotypes.Stream{
-			StreamID: llotypes.StreamID(f.StreamID),
+			StreamID: f.StreamID,
 		})
 	}
 

@@ -266,10 +266,9 @@ triggers:
  - id: streams-trigger@2.0.0
    config:
      feedIds:
-{{- range .FeedIDsIndex }}
-       - '{{ . }}'
-{{- end }}
-
+       {{ range $index, $feed := .Feeds }}
+       - "{{ $feed.FeedIDsIndex }}":
+       {{- end }}
 consensus:
   - id: "offchain_reporting@1.0.0"
     ref: "evm_median"
@@ -282,19 +281,18 @@ consensus:
       aggregation_method: "llo_streams"
       aggregation_config:
         streams:
-       {{ range $index, $feed := .Feeds }}
-		  "{{ $index }}":
-			deviation: "{{ $feed.Deviation }}"
-			heartbeat: {{ $feed.Heartbeat }}
-			remappedID: {{ $feed.RemappedID }}
-		{{- end }}
-
+          {{ range $index, $feed := .Feeds }}
+          "{{ $feed.FeedIDsIndex }}":
+            deviation: "{{ $feed.Deviation }}"
+            heartbeat: {{ $feed.Heartbeat }}
+            remappedID: {{ $feed.RemappedID }}
+          {{- end }}
       encoder: "EVM"
       encoder_config:
         abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
 
 targets:
-  -  id: write_ethereum@1.0.0
+  - id: write_ethereum@1.0.0
     inputs:
       signed_report: "$(evm_median.outputs)"
     config:
@@ -314,7 +312,7 @@ targets:
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
 		"WorkflowName": workflowName,
-		"FeedIDs":      feeds,
+		"Feeds":        feeds,
 		"JobID":        uuid.NewString(),
 	})
 	if err != nil {

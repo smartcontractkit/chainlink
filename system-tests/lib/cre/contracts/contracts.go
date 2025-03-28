@@ -75,6 +75,26 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 		})
 	}
 
+	if flags.HasFlag(donFlags, types.MockCapability) {
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "streams-trigger",
+				Version:        "2.0.0",
+				CapabilityType: 0, // TARGET
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+			Capability: kcr.CapabilitiesRegistryCapability{
+				LabelledName:   "write_ethereum",
+				Version:        "1.0.0",
+				CapabilityType: 3, // TARGET
+				ResponseType:   1, // OBSERVATION_IDENTICAL
+			},
+			Config: &capabilitiespb.CapabilityConfig{},
+		})
+	}
+
 	return capabilities
 }
 
@@ -130,26 +150,6 @@ var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(do
 					Version:        "1.0.0",
 					CapabilityType: 0, // TRIGGER
 					ResponseType:   0, // REPORT
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-		}
-
-		if flags.HasFlag(donFlags, types.MockCapability) {
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "streams-trigger",
-					Version:        "2.0.0",
-					CapabilityType: 0, // TARGET
-				},
-				Config: &capabilitiespb.CapabilityConfig{},
-			})
-			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-				Capability: kcr.CapabilitiesRegistryCapability{
-					LabelledName:   "write_ethereum",
-					Version:        "1.0.0",
-					CapabilityType: 3, // TARGET
-					ResponseType:   1, // OBSERVATION_IDENTICAL
 				},
 				Config: &capabilitiespb.CapabilityConfig{},
 			})
