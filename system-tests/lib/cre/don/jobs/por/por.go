@@ -235,13 +235,13 @@ func WaitForRPCEndpoint(lggr zerolog.Logger, url string, timeout time.Duration) 
 			if err != nil {
 				continue
 			}
-			defer client.Close()
 
 			var blockNumber string
 			if err := client.CallContext(ctx, &blockNumber, "eth_blockNumber"); err != nil {
 				continue
 			}
 
+			client.Close()
 			// If we get here, the endpoint is responding
 			return nil
 		}

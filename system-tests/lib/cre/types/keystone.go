@@ -300,6 +300,7 @@ type GeneratePoRConfigsInput struct {
 	WorkflowRegistryAddress     common.Address
 	ForwarderAddress            common.Address
 	GatewayConnectorOutput      *GatewayConnectorOutput
+	SkipGateway                 bool // Skip gateway config for workflow yaml test
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
@@ -328,11 +329,12 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 		return errors.New("forwarder address not set")
 	}
 
-	// TODO: Make gatewayDON not required
 	if slices.Contains(g.DonMetadata.Flags, GatewayDON) {
 		if g.GatewayConnectorOutput == nil {
 			return errors.New("gateway connector output not set")
 		}
+	} else {
+		g.SkipGateway = true // If not gateway is present then skip configuration
 	}
 
 	return nil
