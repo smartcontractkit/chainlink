@@ -335,7 +335,10 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 
 }
 
-func TestReconnectMock(t *testing.T) {
+// TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
+// mock addresses to be cached from a previous test run. This is useful for tweaking load patterns or debugging
+// workflow execution without redeploying the entire test environment.
+func TestWithReconnect(t *testing.T) {
 	testLogger := framework.L
 	ctx := tests.Context(t)
 
@@ -432,7 +435,7 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		})
 	}
 
-	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, s.eventID, payload)
+	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payload)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}
