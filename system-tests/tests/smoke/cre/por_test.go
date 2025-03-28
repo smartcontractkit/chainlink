@@ -43,6 +43,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	lidcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -467,6 +468,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		startNixShellInput := &keystonetypes.StartNixShellInput{
 			InfraInput:     in.Infra,
 			CribConfigsDir: cribConfigsDir,
+			PurgeNamespace: true,
 		}
 
 		var nixErr error
@@ -731,6 +733,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
+	capDir, capDirErr := lidcap.DefaultDirectory(in.Infra.InfraType)
+	require.NoError(t, capDirErr, "failed to get default capabilities directory")
+
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
@@ -739,7 +744,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
 			ExtraAllowedPorts:      extraAllowedPorts,
 			ExtraAllowedIPs:        extraAllowedIPs,
-			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+			CronCapBinPath:         filepath.Join(capDir, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
 	)

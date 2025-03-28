@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strconv"
 	"strings"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
+	crecaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/infra"
@@ -219,6 +221,58 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 			return nil, errors.Wrap(err, "failed to run devspace run deploy-don")
 		}
 
+		podNamePattern := input.NodeSetInputs[j].Name + `-\\d+`
+		_, regErr := regexp.Compile(podNamePattern)
+		if regErr != nil {
+			return nil, errors.Wrapf(regErr, "failed to compile regex for pod name pattern %s", podNamePattern)
+		}
+		capabilities := []string{}
+		capabilitiesFound := map[string]int{}
+		capabilitiesDirs := []string{}
+		capabilitiesDirsFound := map[string]int{}
+
+		for _, nodeSpec := range input.NodeSetInputs[j].NodeSpecs {
+			for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
+				capabilities = append(capabilities, capabilityBinaryPath)
+				capabilitiesFound[capabilityBinaryPath]++
+			}
+
+			if nodeSpec.Node.CapabilityContainerDir != "" {
+				capabilitiesDirs = append(capabilitiesDirs, nodeSpec.Node.CapabilityContainerDir)
+				capabilitiesDirsFound[nodeSpec.Node.CapabilityContainerDir]++
+			}
+		}
+
+		for capability, count := range capabilitiesFound {
+			if count != len(workerNodes) {
+				return nil, fmt.Errorf("capability %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capabilities", capability, input.NodeSetInputs[j].Name)
+			}
+		}
+
+		destinationDir, err := crecaps.DefaultDirectory(libtypes.CRIB)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
+		}
+
+		if len(capabilitiesDirs) > 1 {
+			for capabilityDir, count := range capabilitiesDirsFound {
+				if count != len(workerNodes) {
+					return nil, fmt.Errorf("the same capability container dir %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capability container dir", capabilityDir, input.NodeSetInputs[j].Name)
+				}
+			}
+			destinationDir = capabilitiesDirs[0]
+		}
+
+		for capability := range capabilitiesFound {
+			absSource, err := filepath.Abs(capability)
+			if err != nil {
+				return nil, errors.Wrapf(err, "failed to get absolute path to capability %s", capability)
+			}
+
+			destination := filepath.Join(destinationDir, filepath.Base(capability))
+			_, err = input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
+		}
+
 		nsOutput, err := infra.ReadNodeSetURL(filepath.Join(".", input.CribConfigsDir), donMetadata)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to read node set URLs from file")
@@ -271,12 +325,12 @@ func nodesetDockerImage(nodeSet *types.CapabilitiesAwareNodeSet) (string, error)
 		}
 
 		// TODO use kubectl cp to copy them?
-		if len(nodeSpec.Node.CapabilitiesBinaryPaths) > 0 {
-			return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capabilities_binary_paths from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
-		}
-		if nodeSpec.Node.CapabilityContainerDir != "" {
-			return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capability_container_dir from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
-		}
+		// if len(nodeSpec.Node.CapabilitiesBinaryPaths) > 0 {
+		// 	return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capabilities_binary_paths from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
+		// }
+		// if nodeSpec.Node.CapabilityContainerDir != "" {
+		// 	return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capability_container_dir from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
+		// }
 
 		if slices.Contains(dockerImages, nodeSpec.Node.Image) {
 			continue
@@ -285,7 +339,7 @@ func nodesetDockerImage(nodeSet *types.CapabilitiesAwareNodeSet) (string, error)
 	}
 
 	if len(dockerImages) != 1 {
-		return "", fmt.Errorf("all nodes in each nodeSet %s must use the same Docker image, but %d different images were found", nodeSet.Name, len(dockerImages))
+		return "", fmt.Errorf("all nodes in each nodeSet %s must use the same Docker image, but %d different images were found: %s", nodeSet.Name, len(dockerImages), strings.Join(dockerImages, ", "))
 	}
 
 	return dockerImages[0], nil
