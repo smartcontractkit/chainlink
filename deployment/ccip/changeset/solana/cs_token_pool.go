@@ -125,6 +125,10 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 	instructions := []solana.Instruction{createI}
 
 	var poolInitI solana.Instruction
+	programData, err := solProgramData(e, chain, tokenPool)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get solana token pool program data: %w", err)
+	}
 	switch cfg.PoolType {
 	case solTestTokenPool.BurnAndMint_PoolType:
 		// initialize token pool for token
@@ -135,6 +139,8 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 			solana.SystemProgramID,
+			tokenPool,
+			programData.Address,
 		).ValidateAndBuild()
 	case solTestTokenPool.LockAndRelease_PoolType:
 		// initialize token pool for token
@@ -145,6 +151,8 @@ func AddTokenPool(e deployment.Environment, cfg TokenPoolConfig) (deployment.Cha
 			tokenPubKey,
 			chain.DeployerKey.PublicKey(), // a token pool will only ever be added by the deployer key.
 			solana.SystemProgramID,
+			tokenPool,
+			programData.Address,
 		).ValidateAndBuild()
 	default:
 		return deployment.ChangesetOutput{}, fmt.Errorf("invalid pool type: %s", cfg.PoolType)

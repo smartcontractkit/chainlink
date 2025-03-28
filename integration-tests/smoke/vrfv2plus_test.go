@@ -10,14 +10,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/onsi/gomega"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+	"golang.org/x/sync/errgroup"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
@@ -25,6 +24,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/testreporters"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 
@@ -176,7 +176,6 @@ func TestVRFv2Plus(t *testing.T) {
 			//todo - need to refactor the test so that when running on live testnet and deploying a new environment,
 			// we would load real Link Token and Link/ETH feed addresses from the config
 		})
-
 	})
 	t.Run("Native Billing", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -213,14 +212,14 @@ func TestVRFv2Plus(t *testing.T) {
 			l,
 			0,
 		)
-		require.NoError(t, err, "error requesting randomness and waiting for fulfilment")
+		require.NoError(t, err, "error requesting randomness and waiting for fulfillment")
 		require.False(t, randomWordsFulfilledEvent.OnlyPremium)
 		require.Equal(t, isNativeBilling, randomWordsFulfilledEvent.NativePayment)
 		require.True(t, randomWordsFulfilledEvent.Success)
 		status, err := consumers[0].GetRequestStatus(testcontext.Get(t), randomWordsFulfilledEvent.RequestId)
 		require.NoError(t, err, "error getting rand request status")
 		require.True(t, status.Fulfilled)
-		l.Info().Bool("Fulfilment Status", status.Fulfilled).Msg("Random Words Request Fulfilment Status")
+		l.Info().Bool("Fulfillment Status", status.Fulfilled).Msg("Random Words Request Fulfillment Status")
 
 		require.Equal(t, int(*testConfig.NumberOfWords), len(status.RandomWords))
 		for _, w := range status.RandomWords {
@@ -270,7 +269,7 @@ func TestVRFv2Plus(t *testing.T) {
 
 			tolerance := *testConfig.SubBillingTolerance
 			isWithinTolerance, diff := actions.WithinTolerance(actualSubPaymentWeiFloat, expectedSubPaymentWeiFloat, tolerance)
-			require.True(t, isWithinTolerance, fmt.Sprintf("Expected the actual sub payment to be within %f tolerance of the expected sub payment. Diff: %f", tolerance, diff))
+			require.True(t, isWithinTolerance, "Expected the actual sub payment to be within %f tolerance of the expected sub payment. Diff: %f", tolerance, diff)
 		})
 	})
 	t.Run("Direct Funding", func(t *testing.T) {
@@ -568,7 +567,6 @@ func TestVRFv2Plus(t *testing.T) {
 		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
 		require.Equal(t, 1, testWalletBalanceNativeAfterSubCancelling.Cmp(testWalletBalanceNativeBeforeSubCancelling), "Native funds were not returned after sub cancellation")
 		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
-
 	})
 	t.Run("Owner Canceling Sub And Returning Funds While Having Pending Requests", func(t *testing.T) {
 		configCopy := config.MustCopy().(tc.TestConfig)
@@ -594,10 +592,12 @@ func TestVRFv2Plus(t *testing.T) {
 		require.NoError(t, err, "error getting subscription information")
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
-		activeSubscriptionIdsBeforeSubCancellation, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubscriptionIDsBeforeSubCancellation, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(
+			testcontext.Get(t), big.NewInt(0), big.NewInt(0),
+		)
 		require.NoError(t, err)
 
-		require.True(t, it_utils.BigIntSliceContains(activeSubscriptionIdsBeforeSubCancellation, subID))
+		require.True(t, it_utils.BigIntSliceContains(activeSubscriptionIDsBeforeSubCancellation, subID))
 
 		pendingRequestsExist, err := vrfContracts.CoordinatorV2Plus.PendingRequestsExist(testcontext.Get(t), subID)
 		require.NoError(t, err)
@@ -713,12 +713,14 @@ func TestVRFv2Plus(t *testing.T) {
 		//require.Equal(t, subFundsReturnedNativeExpected, subFundsReturnedNativeActual, "Returned funds are not equal to sub balance that was cancelled")
 		require.Equal(t, 0, subBalanceLink.Cmp(subFundsReturnedLinkActual), "Returned LINK funds are not equal to sub balance that was cancelled")
 
-		activeSubscriptionIdsAfterSubCancellation, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubscriptionIDsAfterSubCancellation, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(
+			testcontext.Get(t), big.NewInt(0), big.NewInt(0),
+		)
 		require.NoError(t, err, "error getting active subscription ids")
 
 		require.False(
 			t,
-			it_utils.BigIntSliceContains(activeSubscriptionIdsAfterSubCancellation, subID),
+			it_utils.BigIntSliceContains(activeSubscriptionIDsAfterSubCancellation, subID),
 			"Active subscription ids should not contain sub id after sub cancellation",
 		)
 	})
@@ -949,10 +951,12 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 		subIDsForCancellingAfterTest = append(subIDsForCancellingAfterTest, subIDs...)
 
-		activeSubIdsOldCoordinatorBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubIDsOldCoordinatorBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(
+			testcontext.Get(t), big.NewInt(0), big.NewInt(0),
+		)
 		require.NoError(t, err, "error occurred getting active sub ids")
-		require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
-		require.Equal(t, subID, activeSubIdsOldCoordinatorBeforeMigration[0])
+		require.Len(t, activeSubIDsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
+		require.Equal(t, subID, activeSubIDsOldCoordinatorBeforeMigration[0])
 
 		oldSubscriptionBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
 		require.NoError(t, err, "error getting subscription information")
@@ -962,7 +966,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error deploying VRF CoordinatorV2PlusUpgradedVersion")
 
 		_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfKey.VRFKey, newCoordinator, assets.GWei(*configCopy.VRFv2Plus.General.CLNodeMaxGasPriceGWei).ToInt().Uint64())
-		require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfcommon.ErrRegisteringProvingKey, err))
+		require.NoError(t, err, "error registering key %s", vrfcommon.ErrRegisteringProvingKey)
 
 		err = newCoordinator.SetConfig(
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
@@ -1051,10 +1055,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		// If (subscription billing), numActiveSub should be 0 after migration in oldCoordinator
 		require.Error(t, err, "error not occurred getting active sub ids. Should occur since it should revert when sub id array is empty")
 
-		activeSubIdsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubIDsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 		require.NoError(t, err, "error occurred getting active sub ids")
-		require.Len(t, activeSubIdsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
-		require.Equal(t, subID, activeSubIdsMigratedCoordinator[0])
+		require.Len(t, activeSubIDsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
+		require.Equal(t, subID, activeSubIDsMigratedCoordinator[0])
 
 		//Verify that total balances changed for Link and Eth for new and old coordinator
 		expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
@@ -1117,10 +1121,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 
 		vrfcommon.LogSubDetails(l, subscription, subID.String(), vrfContracts.CoordinatorV2Plus)
 
-		activeSubIdsOldCoordinatorBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubIDsOldCoordinatorBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 		require.NoError(t, err, "error occurred getting active sub ids")
-		require.Len(t, activeSubIdsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
-		activeSubID := activeSubIdsOldCoordinatorBeforeMigration[0]
+		require.Len(t, activeSubIDsOldCoordinatorBeforeMigration, 1, "Active Sub Ids length is not equal to 1")
+		activeSubID := activeSubIDsOldCoordinatorBeforeMigration[0]
 		require.Equal(t, subID, activeSubID)
 
 		oldSubscriptionBeforeMigration, err := vrfContracts.CoordinatorV2Plus.GetSubscription(testcontext.Get(t), subID)
@@ -1131,7 +1135,7 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		require.NoError(t, err, "error deploying VRF CoordinatorV2PlusUpgradedVersion")
 
 		_, err = vrfv2plus.VRFV2PlusUpgradedVersionRegisterProvingKey(vrfKey.VRFKey, newCoordinator, assets.GWei(*configCopy.VRFv2Plus.General.CLNodeMaxGasPriceGWei).ToInt().Uint64())
-		require.NoError(t, err, fmt.Errorf("%s, err: %w", vrfcommon.ErrRegisteringProvingKey, err))
+		require.NoError(t, err, "error registering key %s", vrfcommon.ErrRegisteringProvingKey)
 
 		err = newCoordinator.SetConfig(
 			*configCopy.VRFv2Plus.General.MinimumConfirmations,
@@ -1219,10 +1223,10 @@ func TestVRFv2PlusMigration(t *testing.T) {
 		// If (subscription billing) or (direct billing and numActiveSubs is 0 before this test) -> numActiveSub should be 0 after migration in oldCoordinator
 		require.Error(t, err, "error not occurred getting active sub ids. Should occur since it should revert when sub id array is empty")
 
-		activeSubIdsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
+		activeSubIDsMigratedCoordinator, err := newCoordinator.GetActiveSubscriptionIds(testcontext.Get(t), big.NewInt(0), big.NewInt(0))
 		require.NoError(t, err, "error occurred getting active sub ids")
-		require.Len(t, activeSubIdsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
-		require.Equal(t, subID, activeSubIdsMigratedCoordinator[0])
+		require.Len(t, activeSubIDsMigratedCoordinator, 1, "Active Sub Ids length is not equal to 1 for Migrated Coordinator after migration")
+		require.Equal(t, subID, activeSubIDsMigratedCoordinator[0])
 
 		//Verify that total balances changed for Link and Eth for new and old coordinator
 		expectedLinkTotalBalanceForMigratedCoordinator := new(big.Int).Add(oldSubscriptionBeforeMigration.Balance, migratedCoordinatorLinkTotalBalanceBeforeMigration)
@@ -1350,7 +1354,8 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 
 		const waitForNumberOfBlocks = 257
 		desiredBlockNumberReached := make(chan bool)
-		go func() {
+		var errGroup errgroup.Group
+		errGroup.Go(func() error {
 			//Wait at least 256 blocks
 			_, err = actions.WaitForBlockNumberToBe(
 				testcontext.Get(t),
@@ -1361,17 +1366,17 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 				configCopy.VRFv2Plus.General.WaitFor256BlocksTimeout.Duration,
 				l,
 			)
-			require.NoError(t, err)
-		}()
+			return err
+		})
 
 		if *configCopy.VRFv2Plus.General.GenerateTXsOnChain {
-			wg.Add(1)
-			go func() {
+			errGroup.Go(func() error {
 				_, err := actions.ContinuouslyGenerateTXsOnChain(sethClient, desiredBlockNumberReached, &wg, l)
-				require.NoError(t, err)
-			}()
+				return err
+			})
 		}
 		wg.Wait()
+		require.NoError(t, errGroup.Wait(), "error waiting for blocknumber to be")
 
 		err = vrfv2plus.FundSubscriptions(
 			big.NewFloat(*configCopy.VRFv2Plus.General.SubscriptionRefundingAmountNative),
@@ -1478,7 +1483,7 @@ func TestVRFV2PlusWithBHS(t *testing.T) {
 			gom.Eventually(func(g gomega.Gomega) {
 				clNodeTxs, _, err = nodeTypeToNodeMap[vrfcommon.BHS].CLNode.API.ReadTransactions()
 				g.Expect(err).ShouldNot(gomega.HaveOccurred(), "error getting CL Node transactions")
-				g.Expect(len(clNodeTxs.Data)).Should(gomega.BeNumerically("==", 1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
+				g.Expect(clNodeTxs.Data).Should(gomega.HaveLen(1), "Expected 1 tx posted by BHS Node, but found %d", len(clNodeTxs.Data))
 				txHash = clNodeTxs.Data[0].Attributes.Hash
 				l.Info().
 					Str("TX Hash", txHash).
@@ -1757,7 +1762,7 @@ func TestVRFv2PlusReplayAfterTimeout(t *testing.T) {
 		require.True(t, exists, "VRF Node does not exist")
 		resp, err := vrfNode.CLNode.API.DeleteJob(vrfNode.Job.Data.ID)
 		require.NoError(t, err, "error deleting job after timeout")
-		require.Equal(t, resp.StatusCode, 204)
+		require.Equal(t, 204, resp.StatusCode)
 
 		configCopy.VRFv2Plus.General.VRFJobRequestTimeout = ptr.Ptr(blockchain.StrDuration{Duration: time.Duration(time.Hour * 1)})
 		vrfJobSpecConfig := vrfcommon.VRFJobSpecConfig{
@@ -1978,12 +1983,12 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		// rewind chain to block number after the request was made, but before the request was fulfilled
 		rewindChainToBlock := randomWordsRequestedEvent.Raw.BlockNumber + 1
 
-		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
+		rpcURL, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
 		//2. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlock, l)
-		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlock))
+		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcURL, rewindChainToBlock, l)
+		require.NoError(t, err, "error rewinding chain to block number %d", rewindChainToBlock)
 
 		//3.1 ensure that chain is reorged and latest block number is greater than the block number when request was made
 		require.Greater(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
@@ -2026,12 +2031,12 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		// rewind chain to block number before the randomness request was made
 		rewindChainToBlockNumber := randomWordsRequestedEvent.Raw.BlockNumber - 3
 
-		rpcUrl, err := vrfcommon.GetRPCUrl(env, chainID)
+		rpcURL, err := vrfcommon.GetRPCUrl(env, chainID)
 		require.NoError(t, err, "error getting rpc url")
 
 		//3. rewind chain by n number of blocks - basically, mimicking reorg scenario
-		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcUrl, rewindChainToBlockNumber, l)
-		require.NoError(t, err, fmt.Sprintf("error rewinding chain to block number %d", rewindChainToBlockNumber))
+		latestBlockNumberAfterReorg, err := vrfcommon.RewindSimulatedChainToBlockNumber(testcontext.Get(t), sethClient, rpcURL, rewindChainToBlockNumber, l)
+		require.NoError(t, err, "error rewinding chain to block number %d", rewindChainToBlockNumber)
 
 		//4. ensure that chain is reorged and latest block number is less than the block number when request was made
 		require.Less(t, latestBlockNumberAfterReorg, randomWordsRequestedEvent.Raw.BlockNumber)
@@ -2052,7 +2057,6 @@ func TestVRFv2PlusNodeReorg(t *testing.T) {
 		)
 		require.Error(t, err, "fulfillment should not be generated for the request which was made on reorged fork on Simulated Chain")
 	})
-
 }
 
 func TestVRFv2PlusBatchFulfillmentEnabledDisabled(t *testing.T) {

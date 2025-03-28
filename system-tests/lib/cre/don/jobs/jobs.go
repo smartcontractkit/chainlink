@@ -22,24 +22,22 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 	eg := &errgroup.Group{}
 	jobRateLimit := ratelimit.New(5)
 
-	for jobDesc, jobReqs := range jobSpecs {
-		for _, jobReq := range jobReqs {
-			eg.Go(func() error {
-				jobRateLimit.Take()
-				timeout := time.Second * 60
-				ctx, cancel := context.WithTimeout(context.Background(), timeout)
-				defer cancel()
-				_, err := offChainClient.ProposeJob(ctx, jobReq)
-				if err != nil {
-					return errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
-				}
-				if ctx.Err() != nil {
-					return errors.Wrapf(err, "timed out after %s proposing job %s for node %s", timeout.String(), jobDesc.Flag, jobReq.NodeId)
-				}
+	for _, jobReq := range jobSpecs {
+		eg.Go(func() error {
+			jobRateLimit.Take()
+			timeout := time.Second * 60
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+			_, err := offChainClient.ProposeJob(ctx, jobReq)
+			if err != nil {
+				return errors.Wrapf(err, "failed to propose job for node %s", jobReq.NodeId)
+			}
+			if ctx.Err() != nil {
+				return errors.Wrapf(err, "timed out after %s proposing job for node %s", timeout.String(), jobReq.NodeId)
+			}
 
-				return nil
-			})
-		}
+			return nil
+		})
 	}
 
 	if err := eg.Wait(); err != nil {

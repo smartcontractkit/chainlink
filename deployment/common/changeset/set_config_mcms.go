@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
-	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -40,19 +39,14 @@ type ConfigPerRoleV2 struct {
 	Bypasser  mcmstypes.Config
 }
 
-type TimelockConfig struct {
-	MinDelay   time.Duration // delay for timelock worker to execute the transfers.
-	MCMSAction timelock.TimelockOperation
-}
-
 type MCMSConfig struct {
 	ConfigsPerChain map[uint64]ConfigPerRole
-	ProposalConfig  *TimelockConfig
+	ProposalConfig  *proposalutils.TimelockConfig
 }
 
 type MCMSConfigV2 struct {
 	ConfigsPerChain map[uint64]ConfigPerRoleV2
-	ProposalConfig  *TimelockConfig
+	ProposalConfig  *proposalutils.TimelockConfig
 }
 
 var _ deployment.ChangeSet[MCMSConfig] = SetConfigMCMS
@@ -391,7 +385,7 @@ func SetConfigMCMSV2(e deployment.Environment, cfg MCMSConfigV2) (deployment.Cha
 
 	if useMCMS {
 		proposal, err := proposalutils.BuildProposalFromBatchesV2(e, timelockAddressesPerChain,
-			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", cfg.ProposalConfig.MinDelay)
+			proposerMcmsPerChain, inspectorPerChain, batches, "Set config proposal", *cfg.ProposalConfig)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
 		}

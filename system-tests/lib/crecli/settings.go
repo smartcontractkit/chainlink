@@ -58,6 +58,7 @@ type PoRWorkflowConfig struct {
 	FeedID          string `json:"feed_id"`
 	URL             string `json:"url"`
 	ConsumerAddress string `json:"consumer_address"`
+	WriteTargetName string `json:"write_target_name"`
 }
 
 func PrepareCRECLISettingsFile(workflowOwner, capRegAddr, workflowRegistryAddr common.Address, donID uint32, chainSelector uint64, rpcHTTPURL string) (*os.File, error) {

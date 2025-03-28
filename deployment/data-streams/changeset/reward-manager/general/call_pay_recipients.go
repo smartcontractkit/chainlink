@@ -9,7 +9,6 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -20,7 +19,7 @@ var PayRecipientsChangeset = deployment.CreateChangeSet(PayRecipientsLogic, PayR
 
 type PayRecipientsConfig struct {
 	ConfigsByChain map[uint64][]PayRecipients
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type PayRecipients struct {

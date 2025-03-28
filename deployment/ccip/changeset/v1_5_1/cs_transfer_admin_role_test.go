@@ -13,6 +13,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -29,7 +30,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 		},
 	}, true)
 
-	mcmsConfig := &commonchangeset.TimelockConfig{
+	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay: 0 * time.Second,
 	}
 
@@ -134,7 +135,7 @@ func TestTransferAdminRoleChangeset_Validations(t *testing.T) {
 }
 
 func TestTransferAdminRoleChangeset_Execution(t *testing.T) {
-	for _, mcmsConfig := range []*commonchangeset.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
+	for _, mcmsConfig := range []*proposalutils.TimelockConfig{nil, {MinDelay: 0 * time.Second}} {
 		msg := "Transfer admin role with MCMS"
 		if mcmsConfig == nil {
 			msg = "Transfer admin role without MCMS"
