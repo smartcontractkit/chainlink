@@ -42,9 +42,10 @@ type OutgoingConnectorHandler struct {
 	incomingRateLimiter *common.RateLimiter
 	outgoingRateLimiter *common.RateLimiter
 	responses           *responses
+	selectorOpts        []func(*RoundRobinSelector)
 }
 
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
 	outgoingRLCfg := outgoingRateLimiterConfigDefaults(config.OutgoingRateLimiter)
 	outgoingRateLimiter, err := common.NewRateLimiter(outgoingRLCfg)
 	if err != nil {
@@ -67,6 +68,7 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 		outgoingRateLimiter: outgoingRateLimiter,
 		incomingRateLimiter: incomingRateLimiter,
 		lggr:                lgger,
+		selectorOpts:        opts,
 	}, nil
 }
 
@@ -147,7 +149,7 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 // using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
 // cancellation or timeout.
 func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
-	selector := NewRoundRobinSelector(c.gc.GatewayIDs())
+	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
 	attempts := make(map[string]int)
 	wait := 10 * time.Millisecond
 	for {

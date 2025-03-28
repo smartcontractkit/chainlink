@@ -55,7 +55,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr, webapi.WithRandomStart())
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}

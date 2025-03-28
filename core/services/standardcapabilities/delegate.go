@@ -220,7 +220,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 			return nil, err
 		}
 		lggr := d.logger.Named("WebAPITarget")
-		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr)
+		handler, err := webapi.NewOutgoingConnectorHandler(connector, targetCfg, capabilities.MethodWebAPITarget, lggr, webapi.WithRandomStart())
 		if err != nil {
 			return nil, err
 		}
@@ -250,7 +250,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) ([]job.Ser
 
 			lggr := d.logger.Named("ComputeAction")
 
-			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr)
+			handler, err := webapi.NewOutgoingConnectorHandler(d.gatewayConnectorWrapper.GetGatewayConnector(), cfg.ServiceConfig, capabilities.MethodComputeAction, lggr, webapi.WithRandomStart())
 			if err != nil {
 				return nil, err
 			}
