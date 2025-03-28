@@ -639,9 +639,9 @@ runner-test-matrix:
       TEST_SUITE: reorg
     triggers:
       - Automation On Demand Tests
-    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
+    test_cmd: DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_0 -test.parallel=1 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
-    test_dir: integration-tests
+    test_dir: integration-tests/reorg
 
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_1
     path: integration-tests/reorg/automation_reorg_test.go
@@ -651,9 +651,9 @@ runner-test-matrix:
       TEST_SUITE: reorg
     triggers:
       - Automation On Demand Tests
-    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_1 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
-    test_dir: integration-tests
+    test_dir: integration-tests/reorg
 
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_2
     path: integration-tests/reorg/automation_reorg_test.go
@@ -663,9 +663,9 @@ runner-test-matrix:
       TEST_SUITE: reorg
     triggers:
       - Automation On Demand Tests
-    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_2 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
-    test_dir: integration-tests
+    test_dir: integration-tests/reorg
 
   - id: reorg/automation_reorg_test.go^TestAutomationReorg/registry_2_3
     path: integration-tests/reorg/automation_reorg_test.go
@@ -675,9 +675,9 @@ runner-test-matrix:
       TEST_SUITE: reorg
     triggers:
       - Automation On Demand Tests
-    test_cmd: cd integration-tests/reorg && DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
+    test_cmd: DETACH_RUNNER=false go test -v -test.run ^TestAutomationReorg/registry_2_3 -test.parallel=2 -timeout 30m -count=1 -json
     pyroscope_env: ci-automation-on-demand-reorg
-    test_dir: integration-tests
+    test_dir: integration-tests/reorg
 
   - id: chaos/automation_chaos_test.go
     path: integration-tests/chaos/automation_chaos_test.go
