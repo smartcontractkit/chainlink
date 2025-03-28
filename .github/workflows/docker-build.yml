@@ -36,6 +36,10 @@ jobs:
           aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
           aws-region: ${{ secrets.AWS_REGION }}
           aws-role-duration-seconds: "1800"
+      - name: Debug token output
+        if: always()
+        run: |
+          echo "Token exists: ${{ steps.token.outputs.access-token != '' }}"
       - name: Set Build Type
         id: build-type
         shell: bash
