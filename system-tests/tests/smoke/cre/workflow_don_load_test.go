@@ -194,7 +194,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 
 	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapanilitiesFactoryFn)
 
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
