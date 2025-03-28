@@ -74,7 +74,7 @@ COPY ./plugins/amd64_mock /home/capabilities
 
 RUN if [ ${CHAINLINK_USER} != root ]; then \
   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
-fi
+  fi
 
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_mock
