@@ -84,7 +84,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@78235751bcff8f3a7bc298de8ba4706ef9423d80 # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@5a29cf4d53316eaf3e25aee3d74c768c4e8a01cd # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
