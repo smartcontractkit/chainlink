@@ -35,7 +35,7 @@ func DownloadCapabilityFromRelease(ghToken, version, assetFileName string) (stri
 	return absPath, nil
 }
 
-func DefaultDirectory(infraType types.InfraType) (string, error) {
+func DefaultContainerDirectory(infraType types.InfraType) (string, error) {
 	switch infraType {
 	case types.CRIB:
 		// chainlink user will always have access to this directory

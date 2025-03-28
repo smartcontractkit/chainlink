@@ -49,7 +49,6 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # image = "localhost:5001/chainlink:latest"
       image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
@@ -67,9 +66,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # image = "localhost:5001/chainlink:latest"
       image = "localhost:5001/chainlink:e530f1c"
-      capabilities = ['./cron']
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -86,9 +85,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # image = "localhost:5001/chainlink:latest"
       image = "localhost:5001/chainlink:e530f1c"
-      capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -105,9 +102,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # image = "localhost:5001/chainlink:latest"
       image = "localhost:5001/chainlink:e530f1c"
-      capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -124,9 +119,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # image = "localhost:5001/chainlink:latest"
       image = "localhost:5001/chainlink:e530f1c"
-      capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true

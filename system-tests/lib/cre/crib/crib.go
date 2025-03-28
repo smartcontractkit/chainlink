@@ -213,14 +213,15 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 
 		deployDonEnvVars["DON_BOOT_NODE_COUNT"] = strconv.Itoa(len(bootstrapNodes))
 		deployDonEnvVars["DON_NODE_COUNT"] = strconv.Itoa(len(workerNodes))
-		// IMPORTANT: CRIB will deploy gateway only if don_type == "gateway", in other cases the value don type has no impact apart from being used in release/service/etc names
+		// IMPORTANT: CRIB will deploy gateway only if don_type == "gateway", in other cases the DON_TYPE value has no other impact than being uses in release/service/etc names
 		deployDonEnvVars["DON_TYPE"] = donMetadata.Name
 
-		_, err = input.NixShell.RunCommandWithEnvVars("devspace run deploy-don --no-warn", deployDonEnvVars)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to run devspace run deploy-don")
+		_, deployErr := input.NixShell.RunCommandWithEnvVars("devspace run deploy-don --no-warn", deployDonEnvVars)
+		if deployErr != nil {
+			return nil, errors.Wrap(deployErr, "failed to run devspace run deploy-don")
 		}
 
+		// validate capabilities-related configuration and copy capabilities to pods
 		podNamePattern := input.NodeSetInputs[j].Name + `-\\d+`
 		_, regErr := regexp.Compile(podNamePattern)
 		if regErr != nil {
@@ -231,6 +232,9 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		capabilitiesDirs := []string{}
 		capabilitiesDirsFound := map[string]int{}
 
+		// make sure all worker nodes in DON have the same set of capabilities
+		// in the future we might want to allow different capabilities for different nodes
+		// but for now we require all worker nodes in the same DON to have the same capabilities
 		for _, nodeSpec := range input.NodeSetInputs[j].NodeSpecs {
 			for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
 				capabilities = append(capabilities, capabilityBinaryPath)
@@ -244,16 +248,18 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		}
 
 		for capability, count := range capabilitiesFound {
+			// we only care about worker nodes, because bootstrap nodes cannot execute any workflows, so they don't need capabilities
 			if count != len(workerNodes) {
 				return nil, fmt.Errorf("capability %s wasn't defined for all worker nodes in nodeset %s. All worker nodes in the same nodeset must have the same capabilities", capability, input.NodeSetInputs[j].Name)
 			}
 		}
 
-		destinationDir, err := crecaps.DefaultDirectory(libtypes.CRIB)
+		destinationDir, err := crecaps.DefaultContainerDirectory(libtypes.CRIB)
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get default directory for capabilities in CRIB")
 		}
 
+		// all of them need to use the same capabilities directory inside the container
 		if len(capabilitiesDirs) > 1 {
 			for capabilityDir, count := range capabilitiesDirsFound {
 				if count != len(workerNodes) {
@@ -264,13 +270,16 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		}
 
 		for capability := range capabilitiesFound {
-			absSource, err := filepath.Abs(capability)
+			absSource, pathErr := filepath.Abs(capability)
 			if err != nil {
-				return nil, errors.Wrapf(err, "failed to get absolute path to capability %s", capability)
+				return nil, errors.Wrapf(pathErr, "failed to get absolute path to capability %s", capability)
 			}
 
 			destination := filepath.Join(destinationDir, filepath.Base(capability))
-			_, err = input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
+			_, copyErr := input.NixShell.RunCommand(fmt.Sprintf("devspace run copy-to-pods --no-warn --var POD_NAME_PATTERN=%s --var SOURCE=%s --var DESTINATION=%s", podNamePattern, absSource, destination))
+			if copyErr != nil {
+				return nil, errors.Wrap(copyErr, "failed to copy capability to pods")
+			}
 		}
 
 		nsOutput, err := infra.ReadNodeSetURL(filepath.Join(".", input.CribConfigsDir), donMetadata)

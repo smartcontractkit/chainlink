@@ -620,9 +620,17 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
 		}
 
-		// instruct Docker which capabilities to copy to the container
-		// TODO: add similar support for CRIB
-		if in.Infra.InfraType == libtypes.Docker {
+		// if no capabilities are defined in TOML, but DON has ones that we know require custom binaries
+		// append them to the node specification
+		hasCapabilitiesBinaries := false
+		for _, nodeInput := range nodeSetInput[i].NodeSpecs {
+			if len(nodeInput.Node.CapabilitiesBinaryPaths) > 0 {
+				hasCapabilitiesBinaries = true
+				break
+			}
+		}
+
+		if !hasCapabilitiesBinaries {
 			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
 				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
 					Key:   libnode.NodeTypeKey,
@@ -733,7 +741,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
-	capDir, capDirErr := lidcap.DefaultDirectory(in.Infra.InfraType)
+	capDir, capDirErr := lidcap.DefaultContainerDirectory(in.Infra.InfraType)
 	require.NoError(t, capDirErr, "failed to get default capabilities directory")
 
 	// Generate and propose jobs (they will auto-accepted)
