@@ -33,7 +33,7 @@ on:
         required: false
         type: string
         default: '{ "flakeguard_enable": "false", "flakeguard_run_count": "3" }'
-        description: 'JSON of extra arguments for the workflow.'        
+        description: 'JSON of extra arguments for the workflow.'
 
 run-name: ${{ inputs.workflow_run_name }}
 
@@ -73,3 +73,5 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
+      OPTIONAL_GATI_AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
