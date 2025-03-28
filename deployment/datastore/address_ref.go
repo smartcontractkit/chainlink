@@ -1,0 +1,50 @@
+package datastore
+
+import (
+	"errors"
+	"maps"
+
+	"github.com/Masterminds/semver/v3"
+
+	"github.com/smartcontractkit/chainlink/deployment"
+)
+
+var (
+	ErrAddressRefNotFound = errors.New("no such address ref can be found for the provided key")
+	ErrAddressRefExists   = errors.New("a address ref with the supplied key already exists")
+)
+
+// AddressRef implements the Record interface
+var _ Record[AddressRefKey, AddressRef] = AddressRef{}
+
+type AddressRef struct {
+	// Address is the address of the contract on the chain.
+	Address string
+	// ChainSelector is the chain-selector of the chain where the contract is deployed.
+	ChainSelector uint64
+	// Labels are the labels associated with the contract.
+	Labels deployment.LabelSet
+	// Qualifier is an optional qualifier for the contract.
+	Qualifier string
+	// ContractType is a simple string type for identifying contract types.
+	Type deployment.ContractType
+	// Version is the version of the contract.
+	Version *semver.Version
+}
+
+// Clone creates a copy of the AddressRefRecord.
+func (r AddressRef) Clone() AddressRef {
+	return AddressRef{
+		ChainSelector: r.ChainSelector,
+		Type:          r.Type,
+		Version:       r.Version,
+		Qualifier:     r.Qualifier,
+		Address:       r.Address,
+		Labels:        maps.Clone(r.Labels),
+	}
+}
+
+// Key returns the AddressRefKey for the AddressRefRecord.
+func (r AddressRef) Key() AddressRefKey {
+	return NewAddressRefKey(r.ChainSelector, r.Type, r.Version, r.Qualifier)
+}
