@@ -317,7 +317,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			RateLimitUnitDuration: time.Minute,
 		})).
 		Run(true)
-	require.NoError(t, err, "wasp error")
+	require.NoError(t, err, "wasp load test did not finish successfully")
 
 }
 
@@ -334,7 +334,7 @@ func TestWithReconnect(t *testing.T) {
 	feedAddresses, err := loadFeedAddressesFromCache()
 	require.NoError(t, err, "could not load feed addresses")
 	testLogger.Info().Msg("Connecting to mock capabilities...")
-	var mocksClient *mock_capability.MockCapabilityController
+	var mocksClient *mock_capability.Controller
 
 	mocksClient, err = mock_capability.NewMockCapabilityControllerFromCache(testLogger, false)
 	require.NoError(t, err, "could not create mock controller")
@@ -365,13 +365,13 @@ func TestWithReconnect(t *testing.T) {
 			RateLimitUnitDuration: time.Minute,
 		})).
 		Run(true)
-	require.NoError(t, err, "wasp error")
+	require.NoError(t, err, "wasp load test did not finish successfully")
 }
 
 var _ wasp.Gun = (*StreamsGun)(nil)
 
 type StreamsGun struct {
-	capProxy    *mock_capability.MockCapabilityController
+	capProxy    *mock_capability.Controller
 	keyBundles  []ocr2key.KeyBundle
 	feeds       [][]FeedWithStreamID
 	triggerID   string
@@ -385,7 +385,7 @@ type StreamsGun struct {
 	timestamp   uint64
 }
 
-func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
+func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
 	sg := &StreamsGun{
 		capProxy:    capProxy,
 		keyBundles:  keyBundles,
@@ -407,21 +407,17 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 		return &wasp.Response{Error: err.Error()}
 	}
 
-	event := &mock_capability.OCRTriggerEvent{
-		ConfigDigest: s.event.ConfigDigest,
-		SeqNr:        s.event.SeqNr,
-		Report:       s.event.Report,
-		Sigs:         make([]mock_capability.OCRTriggerEventSig, 0),
+	payload, err := s.event.ToMap()
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
 	}
 
-	for _, sig := range s.event.Sigs {
-		event.Sigs = append(event.Sigs, mock_capability.OCRTriggerEventSig{
-			Signature: sig.Signature,
-			Signer:    sig.Signer,
-		})
+	payloadBytes, err := mock_capability.MapToBytes(payload)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
 	}
 
-	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payload)
+	err = s.capProxy.SendTrigger(l.ResponsesCtx, s.triggerID, s.eventID, payloadBytes)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
 	}

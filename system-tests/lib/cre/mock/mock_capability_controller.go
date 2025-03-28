@@ -20,7 +20,7 @@ import (
 	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 )
 
-type MockCapabilityController struct {
+type Controller struct {
 	lggr  zerolog.Logger
 	Nodes []MockClient
 }
@@ -42,11 +42,11 @@ type OCRTriggerEventSig struct {
 	Signer    uint32
 }
 
-func NewMockCapabilityController(lggr zerolog.Logger) *MockCapabilityController {
-	return &MockCapabilityController{Nodes: make([]MockClient, 0), lggr: lggr}
+func NewMockCapabilityController(lggr zerolog.Logger) *Controller {
+	return &Controller{Nodes: make([]MockClient, 0), lggr: lggr}
 }
 
-func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool) (*MockCapabilityController, error) {
+func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool) (*Controller, error) {
 	bytes, err := os.ReadFile("cache/mock-clients.txt")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read URLs from cache: %w", err)
@@ -66,7 +66,7 @@ func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool)
 }
 
 // ConnectAll connects to all addresses, for CTFv2 test useInsecure should be true, for CRIB useInsecure should be false
-func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bool, cacheClients bool) error {
+func (c *Controller) ConnectAll(addresses []string, useInsecure bool, cacheClients bool) error {
 	if cacheClients {
 		cacheDir := "cache"
 		if err := os.MkdirAll(cacheDir, 0755); err != nil {
@@ -84,13 +84,12 @@ func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bo
 			return err
 		}
 		c.Nodes = append(c.Nodes, client)
-
 	}
 
 	return nil
 }
 
-func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info *pb2.RegisterToWorkflowRequest) error {
+func (c *Controller) RegisterToWorkflow(ctx context.Context, info *pb2.RegisterToWorkflowRequest) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.RegisterToWorkflow(ctx, info)
 		if err != nil {
@@ -100,7 +99,7 @@ func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info 
 	return nil
 }
 
-func (c *MockCapabilityController) Execute(ctx context.Context, info *pb2.ExecutableRequest) error {
+func (c *Controller) Execute(ctx context.Context, info *pb2.ExecutableRequest) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.Execute(ctx, info)
 		if err != nil {
@@ -110,7 +109,7 @@ func (c *MockCapabilityController) Execute(ctx context.Context, info *pb2.Execut
 	return nil
 }
 
-func (c *MockCapabilityController) CreateCapability(ctx context.Context, info *pb2.CapabilityInfo) error {
+func (c *Controller) CreateCapability(ctx context.Context, info *pb2.CapabilityInfo) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.CreateCapability(ctx, info)
 		if err != nil {
@@ -120,7 +119,7 @@ func (c *MockCapabilityController) CreateCapability(ctx context.Context, info *p
 	return nil
 }
 
-func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
+func (c *Controller) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
 	for _, client := range c.Nodes {
 		data := pb2.SendTriggerEventRequest{
 			ID:      id,
@@ -138,7 +137,7 @@ func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, e
 	return nil
 }
 
-func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan capabilities.CapabilityRequest) error {
+func (c *Controller) HookExecutables(ctx context.Context, ch chan capabilities.CapabilityRequest) error {
 	for _, client := range c.Nodes {
 		hook, errC := client.API.HookExecutables(context.TODO())
 		if errC != nil {
@@ -150,7 +149,7 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 				c.lggr.Info().Msg("Waiting for hook event")
 				resp, err := hook.Recv()
 				if errors.Is(err, io.EOF) {
-					c.lggr.Error().Msgf("Recieved EOF from hook %s", err)
+					c.lggr.Error().Msgf("Received EOF from hook %s", err)
 					return
 				}
 				if err != nil {
@@ -210,5 +209,4 @@ func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
 	}
 	client := pb2.NewMockCapabilityClient(conn)
 	return MockClient{API: client, URL: address}, nil
-
 }
