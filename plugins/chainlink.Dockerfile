@@ -78,7 +78,7 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
 
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities
 RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_mock
-RUN chmod +x /home/capabilities/amd64_mock \
+RUN chmod +x /home/capabilities/amd64_mock
 
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
