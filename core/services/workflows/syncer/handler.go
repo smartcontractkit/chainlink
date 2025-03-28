@@ -340,7 +340,7 @@ func (h *eventHandler) Handle(ctx context.Context, event Event) error {
 		)
 
 		if _, err := h.forceUpdateSecretsEvent(ctx, payload); err != nil {
-			logCustMsg(ctx, cma, fmt.Sprintf("failed to handle force update secrets event: %v", err), h.lggr)
+			logCustMsg(ctx, cma, fmt.Sprintf("failed  to handle force update secrets event: %v", err), h.lggr)
 			return err
 		}
 
