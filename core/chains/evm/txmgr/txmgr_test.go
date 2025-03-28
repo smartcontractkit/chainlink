@@ -332,6 +332,9 @@ func TestTxm_CreateTransaction(t *testing.T) {
 
 		m, err := etx.GetMeta()
 		require.NoError(t, err)
+
+		require.NotEqual(t, etx.ToAddress, *m.FwdrDestAddress)
+		require.Equal(t, toAddress, *m.FwdrDestAddress)
 		require.NotNil(t, m.FwdrDestAddress)
 		require.Equal(t, etx.ToAddress.String(), fwdrAddr.String())
 	})

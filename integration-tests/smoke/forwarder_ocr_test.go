@@ -1,8 +1,8 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
+	"strconv"
 	"testing"
 	"time"
 
@@ -44,7 +44,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	bootstrapNode, workerNodes := nodeClients[0], nodeClients[1:]
 
 	workerNodeAddresses, err := actions.ChainlinkNodeAddressesLocal(workerNodes)
-	require.NoError(t, err, "Retreiving on-chain wallet addresses for chainlink nodes shouldn't fail")
+	require.NoError(t, err, "Retrieving on-chain wallet addresses for chainlink nodes shouldn't fail")
 
 	evmNetwork, err := env.GetFirstEvmNetwork()
 	require.NoError(t, err, "Error getting first evm network")
@@ -92,7 +92,7 @@ func TestForwarderOCRBasic(t *testing.T) {
 	)
 	require.NoError(t, err, "Error deploying OCR contracts")
 
-	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, fmt.Sprint(sethClient.ChainID))
+	err = actions.CreateOCRJobsWithForwarderLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, strconv.FormatInt(sethClient.ChainID, 10))
 	require.NoError(t, err, "failed to setup forwarder jobs")
 	err = actions.WatchNewOCRRound(l, sethClient, 1, contracts.V1OffChainAgrregatorToOffChainAggregatorWithRounds(ocrInstances), time.Duration(10*time.Minute))
 	require.NoError(t, err, "error watching for new OCR round")

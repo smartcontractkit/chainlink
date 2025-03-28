@@ -194,11 +194,12 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) CreateTransaction(ctx context.Context, 
 			fwdPayload, fwdErr := o.fwdMgr.ConvertPayload(request.ToAddress, request.EncodedPayload)
 			if fwdErr == nil {
 				// Handling meta not set at caller.
+				toAddressCopy := request.ToAddress
 				if request.Meta != nil {
-					request.Meta.FwdrDestAddress = &request.ToAddress
+					request.Meta.FwdrDestAddress = &toAddressCopy
 				} else {
 					request.Meta = &txmgrtypes.TxMeta[common.Address, common.Hash]{
-						FwdrDestAddress: &request.ToAddress,
+						FwdrDestAddress: &toAddressCopy,
 					}
 				}
 				request.ToAddress = request.ForwarderAddress

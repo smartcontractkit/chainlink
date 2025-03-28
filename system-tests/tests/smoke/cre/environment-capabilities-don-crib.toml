@@ -1,7 +1,7 @@
 
 [blockchain_a]
   type = "anvil"
-  chain_id = "1337"
+  chain_id = "2337"
   docker_cmd_params = ["-b", "5"]
 
 [jd]
@@ -29,12 +29,10 @@
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
   [workflow_config.dependencies]
-  cron_capability_binary_path = "not-supported-currently"
+  # for CRIB this unfortunately works in a convoluted way, this should be the name of cron binary file
+  # which will be appended to `/home/capabilities` path when creating job spec
+  cron_capability_binary_path = "cron"
   cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
-
-  [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
-    config_url = "https://gist.githubusercontent.com/Tofel/9af85e8e704f8b8e3946ad265075e18a/raw/2e28ee10feacf4e451a38fdfbdff8a38cf2628d8/config.json702797677"
 
 [[nodesets]]
   nodes = 5
@@ -49,7 +47,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -66,7 +64,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -83,7 +81,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -100,7 +98,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -117,7 +115,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -144,7 +142,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -161,7 +159,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -178,7 +176,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
@@ -205,7 +203,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:112b9323-plugins-cron"
+      image = "localhost:5001/chainlink:e530f1c"
       user_config_overrides = """
       [Feature]
 			LogPoller = true

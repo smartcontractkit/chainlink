@@ -6,9 +6,9 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -45,7 +45,7 @@ func TestGenericOps(t *testing.T) {
 						OffRamp:   true,
 					})
 				mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,

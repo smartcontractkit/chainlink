@@ -42,7 +42,7 @@ func TestLifecycle(t *testing.T) {
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, nil, txStore, nil, config, keystore)
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(0), errors.New("error")).Once()
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(100), nil).Once()
-		require.NoError(t, txm.Start(tests.Context(t)))
+		servicetest.Run(t, txm)
 		tests.AssertLogEventually(t, observedLogs, "Error when fetching initial nonce")
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Set initial nonce for address: %v to %d", address1, 100))
 	})
