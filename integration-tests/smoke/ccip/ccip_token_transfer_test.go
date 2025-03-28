@@ -514,7 +514,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		// },
 	}
 
-	startBlocks, expectedSeqNums, _, expectedTokenBalances :=
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -527,15 +527,14 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_ = testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e,
 		state,
 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
-	// NOTE: can't validate this since there will be more execution states due to price updates being separate
-	// require.Equal(t, expectedExecutionStates, execStates)
+	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
 }
