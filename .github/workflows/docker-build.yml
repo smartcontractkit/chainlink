@@ -103,7 +103,7 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      GITHUB_TOKEN: ${{ needs.init.outputs.github-token }}
+      GITHUB_TOKEN_GATI: ${{ needs.init.outputs.github-token }}
 
   docker-ccip:
     needs: [init]
