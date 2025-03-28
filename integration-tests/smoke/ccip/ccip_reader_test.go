@@ -635,6 +635,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 				chainS2: {
 					cciptypes.NewSeqNumRange(15, 15),
 				},
+				chainS3: {}, // empty, should not affect query
 			},
 			primitives.Unconfirmed,
 		)
