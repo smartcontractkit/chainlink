@@ -5,6 +5,8 @@ VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
 GOFLAGS = -ldflags "$(GO_LDFLAGS)"
 GCFLAGS = -gcflags "$(GO_GCFLAGS)"
+# Set to true to install private plugins (will require GitHub auth).
+CL_INSTALL_PRIVATE_PLUGINS ?= false
 
 # LOOP Plugin version defaults
 ifndef COSMOS_SHA
@@ -92,9 +94,14 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 	go install $(GOFLAGS) ./pkg/solana/cmd/chainlink-solana
 	cd $(shell go mod download -json github.com/smartcontractkit/chainlink-starknet/relayer@$(STARKNET_SHA) | jq -r .Dir) && \
 	go install $(GOFLAGS) ./pkg/chainlink/cmd/chainlink-starknet
-	# Set GOPRIVATE to ensure go installs from our repository instead of the public proxy since we're using lightweight git tags.
-	cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
-	go install $(GOFLAGS) ./cmd/chainlink-aptos
+	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ]; then \
+		echo "Installing private plugins..."; \
+		cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
+		go install $(GOFLAGS) ./cmd/chainlink-aptos; \
+		echo "Installed private plugins"; \
+	else \
+		echo "Skipping private plugin installation (set CL_INSTALL_PRIVATE_PLUGINS=true to install)"; \
+	fi
 
 .PHONY: docker ## Build the chainlink docker image
 docker:
@@ -114,18 +121,22 @@ docker-ccip:
 
 .PHONY: docker-plugins ## Build the chainlink-plugins docker image
 docker-plugins:
-	@if [ -z "$(GITHUB_TOKEN)" ]; then \
-		echo "Error: GITHUB_TOKEN environment variable is required for fetching plugins from private repositories."; \
-		echo "Usage: GITHUB_TOKEN=$(gh auth token) make docker-plugins"; \
+	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] && [ -z "$(GITHUB_TOKEN)" ]; then \
+		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true"; \
 		exit 1; \
 	fi
+	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN --target final-private-plugins,))
 	docker buildx build \
 	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
 	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
 	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
 	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
-	--secret id=GIT_AUTH_TOKEN,env=GITHUB_TOKEN \
+	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
+	$(PRIVATE_PLUGIN_ARGS) \
 	-f plugins/chainlink.Dockerfile .
+
+# Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
+comma := ,
 
 .PHONY: operator-ui
 operator-ui: ## Fetch the frontend

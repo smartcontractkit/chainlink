@@ -14,6 +14,8 @@ ARG COMMIT_SHA
 ARG APTOS_RELAYER_GIT_REF
 ARG COSMOS_SHA
 ARG STARKNET_SHA
+# Flag to control installation of private plugins (default: false)
+ARG CL_INSTALL_PRIVATE_PLUGINS=false
 
 # Flags for Go Delve debugger
 ARG GO_GCFLAGS
@@ -41,10 +43,12 @@ RUN make install-ocr3-capability
 RUN make install-plugins \
   APTOS_RELAYER_GIT_REF=${APTOS_RELAYER_GIT_REF} \
   COSMOS_SHA=${COSMOS_SHA} \
-  STARKNET_SHA=${STARKNET_SHA}
+  STARKNET_SHA=${STARKNET_SHA} \
+  CL_INSTALL_PRIVATE_PLUGINS=${CL_INSTALL_PRIVATE_PLUGINS}
 
-# Final image: ubuntu with chainlink binary
-FROM ubuntu:24.04
+# -----------------------------------------------------------------------------
+# Final image: common base stage for the final images
+FROM ubuntu:24.04 as final-base
 
 ARG CHAINLINK_USER=root
 ENV DEBIAN_FRONTEND noninteractive
@@ -70,8 +74,6 @@ COPY --from=buildgo /go/bin/chainlink-cosmos /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
 ENV CL_SOLANA_CMD chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
-COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
-ENV CL_APTOS_CMD chainlink-aptos
 
 # Dependency of CosmWasm/wasmd
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
@@ -88,8 +90,19 @@ ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
+
+# -----------------------------------------------------------------------------
+# Final image with private plugins (placed earlier so it's not the default target/stage)
+FROM final-base as final-private-plugins
+COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
+ENV CL_APTOS_CMD=chainlink-aptos
 ENTRYPOINT ["chainlink"]
-
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
+CMD ["local", "node"]
 
+# -----------------------------------------------------------------------------
+# Final image without private plugins (this is the last stage, so it will be built by default)
+FROM final-base as final
+ENTRYPOINT ["chainlink"]
+HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]
