@@ -68,9 +68,17 @@ COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
 COPY --from=buildgo /go/pkg/mod/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.*.so /usr/lib/
 RUN chmod 755 /usr/lib/libwasmvm.*.so
 
-RUN if [ ${CHAINLINK_USER} != root ]; then \
-  useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
-  fi
++ # For testing in CRIB
++ RUN mkdir /home/capabilities
++ COPY ./plugins/amd64_mock /home/capabilities
+
+ RUN if [ ${CHAINLINK_USER} != root ]; then \
+   useradd --uid 14933 --create-home ${CHAINLINK_USER}; \
+   fi
+
++ RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities
++ RUN chown ${CHAINLINK_USER}:${CHAINLINK_USER} /home/capabilities/amd64_mock
++ RUN chmod +x /home/capabilities/amd64_mock \
 
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
