@@ -26,16 +26,7 @@ jobs:
       contents: read
     outputs:
       build-type: ${{ steps.build-type.outputs.build-type }}
-      github-token: ${{ steps.token.outputs.access-token }}
     steps:
-      - name: Setup GitHub token using GATI
-        id: token
-        uses: smartcontractkit/.github/actions/setup-github-token@9fc306ac63d8997c9ca0da283e56caaf71589f83 # setup-github-token/1.0.0
-        with:
-          aws-role-arn: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
-          aws-lambda-url: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
-          aws-region: ${{ secrets.AWS_REGION }}
-          aws-role-duration-seconds: "1800"
       - name: Set Build Type
         id: build-type
         shell: bash
@@ -77,14 +68,14 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
 
   docker-core-plugins:
     needs: [init]
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@5a29cf4d53316eaf3e25aee3d74c768c4e8a01cd # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4a0b21b3d07d1cc31c11de7c76f491b02cfac4e2 # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
@@ -102,8 +93,9 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
-      GITHUB_TOKEN_GATI: ${{ needs.init.outputs.github-token }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   docker-ccip:
     needs: [init]
@@ -128,4 +120,4 @@ jobs:
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
-      AWS_ROLE_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
