@@ -9,7 +9,6 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -23,7 +22,7 @@ type withdraw struct{}
 
 type FeeManagerWithdrawConfig struct {
 	ConfigPerChain map[uint64][]Withdraw
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type Withdraw struct {

@@ -721,7 +721,7 @@ func (tc rmnTestCase) sendMessages(t *testing.T, onChainState changeset.CCIPOnCh
 				TokenAmounts: nil,
 				FeeToken:     common.HexToAddress("0x0"),
 				ExtraArgs:    nil,
-			})
+			}, testhelpers.WithMaxRetries(5))
 			seqNumCommit[testhelpers.SourceDestPair{
 				SourceChainSelector: fromChain,
 				DestChainSelector:   toChain,

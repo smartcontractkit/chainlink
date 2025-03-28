@@ -243,7 +243,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			c.sendResponse(clientResponse{Result: msg.Payload})
 		}
 	} else {
-		c.lggr.Debug("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
+		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
 		c.errorCount[msg.ErrorMsg]++
 
 		if len(c.errorCount) > 1 {

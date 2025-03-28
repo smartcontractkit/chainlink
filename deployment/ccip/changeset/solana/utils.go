@@ -15,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
@@ -68,7 +67,7 @@ func ValidateMCMSConfigSolana(
 	return nil
 }
 
-func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *commoncs.TimelockConfig) error {
+func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *proposalutils.TimelockConfig) error {
 	if mcms != nil {
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
@@ -123,7 +122,7 @@ func BuildProposalsForTxns(
 		inspectors,
 		batches,
 		description,
-		minDelay)
+		proposalutils.TimelockConfig{MinDelay: minDelay})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}

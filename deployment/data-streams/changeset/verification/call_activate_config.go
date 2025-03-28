@@ -8,7 +8,6 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -19,7 +18,7 @@ var ActivateConfigChangeset = deployment.CreateChangeSet(activateConfigLogic, ac
 
 type ActivateConfigConfig struct {
 	ConfigsByChain map[uint64][]ActivateConfig
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type ActivateConfig struct {

@@ -143,10 +143,10 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
-	meterReport    *MeteringReport
+	meterReports   *MeterReports
 
-	// sendMeteringReport is a hook for now to prevent this being sent in production
-	sendMeteringReport func(*MeteringReport)
+	// sendMeteringReport is a test hook to send a metering report
+	sendMeteringReport func(report *MeteringReport, name string, ID string, execID string)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -568,7 +568,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
-	e.meterReport = NewMeteringReport()
+	e.meterReports.Add(executionID, NewMeteringReport())
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
@@ -661,11 +661,12 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		logCustMsg(ctx, cma, "execution status: "+status, l)
 
 		// this case is only for resuming executions and should be updated when metering is added to save execution state
-		if e.meterReport == nil {
-			e.meterReport = NewMeteringReport()
+		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
+			e.meterReports.Add(stepUpdate.ExecutionID, NewMeteringReport())
 		}
 
-		e.sendMeteringReport(e.meterReport)
+		report, _ := e.meterReports.Get(stepUpdate.ExecutionID)
+		e.sendMeteringReport(report, e.workflow.name.String(), e.workflow.id, stepUpdate.ExecutionID)
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
@@ -729,7 +730,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return err
 	}
 
+	// clean all per execution state trackers
 	e.stepUpdatesChMap.remove(executionID)
+	e.meterReports.Delete(executionID)
 
 	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
 	switch status {
@@ -1302,7 +1305,7 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
-	sendMeteringReport  func(*MeteringReport)
+	sendMeteringReport  func(report *MeteringReport, name string, ID string, execID string)
 }
 
 const (
@@ -1368,7 +1371,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	}
 
 	if cfg.sendMeteringReport == nil {
-		cfg.sendMeteringReport = func(*MeteringReport) {}
+		cfg.sendMeteringReport = func(*MeteringReport, string, string, string) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1441,6 +1444,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
+		meterReports:         NewMeterReports(),
 		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 

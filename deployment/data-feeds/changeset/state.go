@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
@@ -122,7 +123,6 @@ func (c DataFeedsChainState) GenerateView() (view.ChainView, error) {
 	chainView := view.NewChain()
 	if c.DataFeedsCache != nil {
 		for _, cache := range c.DataFeedsCache {
-			fmt.Println(cache.Address().Hex())
 			cacheView, err := v1_0.GenerateDataFeedsCacheView(cache)
 			if err != nil {
 				return chainView, errors.Wrapf(err, "failed to generate cache view %s", cache.Address().String())

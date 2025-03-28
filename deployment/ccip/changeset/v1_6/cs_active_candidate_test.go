@@ -17,6 +17,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
@@ -201,7 +202,7 @@ func Test_ActiveCandidate(t *testing.T) {
 				SetCandidateConfigBase: v1_6.SetCandidateConfigBase{
 					HomeChainSelector: tenv.HomeChainSel,
 					FeedChainSelector: tenv.FeedChainSel,
-					MCMS: &commonchangeset.TimelockConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 0,
 					},
 				},

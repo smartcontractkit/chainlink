@@ -17,11 +17,7 @@ import (
 
 func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain, gasLimitDefault uint64, lggr logger.Logger) (*targets.WriteTarget, error) {
 	// generate ID based on chain selector
-	id := fmt.Sprintf("write_%v@1.0.0", chain.ID())
-	chainName, err := chainselectors.NameFromChainId(chain.ID().Uint64())
-	if err == nil {
-		id = fmt.Sprintf("write_%v@1.0.0", chainName)
-	}
+	id := GenerateWriteTargetName(chain.ID().Uint64())
 
 	// EVM-specific init
 	config := chain.Config().EVM().Workflow()
@@ -74,4 +70,14 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 	}
 
 	return targets.NewWriteTarget(logger.Named(lggr, "WriteTarget"), id, cr, cw, config.ForwarderAddress().String(), gasLimitDefault), nil
+}
+
+func GenerateWriteTargetName(chainID uint64) string {
+	id := fmt.Sprintf("write_%v@1.0.0", chainID)
+	chainName, err := chainselectors.NameFromChainId(chainID)
+	if err == nil {
+		id = fmt.Sprintf("write_%v@1.0.0", chainName)
+	}
+
+	return id
 }
