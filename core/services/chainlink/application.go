@@ -907,18 +907,11 @@ func newCREServices(
 					fetcherFunc = opts.FetcherFunc
 				}
 
-				keys, err := keyStore.Workflow().GetAll()
-				if err != nil {
-					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
-				}
-
-				if len(keys) != 1 {
-					return nil, fmt.Errorf("expected 1 key, got %d", len(keys))
-				}
+				key, err := keystore.GetDefault(ctx, keyStore.Workflow())
 
 				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
-					clockwork.NewRealClock(), keys[0], custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+					clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
 						artifacts.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
@@ -1211,7 +1204,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
