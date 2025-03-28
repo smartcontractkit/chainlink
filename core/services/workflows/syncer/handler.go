@@ -339,9 +339,12 @@ func (h *eventHandler) workflowRegisteredEvent(
 	}
 
 	// Always fetch secrets from the SecretsURL
-	secrets, err := h.workflowArtifactsStore.GetSecrets(ctx, payload.SecretsURL, payload.WorkflowID, payload.WorkflowOwner)
-	if err != nil {
-		return fmt.Errorf("failed to get secrets: %w", err)
+	var secrets []byte
+	if payload.SecretsURL != "" {
+		secrets, err = h.workflowArtifactsStore.GetSecrets(ctx, payload.SecretsURL, payload.WorkflowID, payload.WorkflowOwner)
+		if err != nil {
+			return fmt.Errorf("failed to get secrets: %w", err)
+		}
 	}
 
 	// Calculate the hash of the binary and config files
