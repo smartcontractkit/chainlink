@@ -1,4 +1,4 @@
-package capabilities_test
+package cre
 
 import (
 	"context"
@@ -33,6 +33,7 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
@@ -436,7 +437,7 @@ type setupOutput struct {
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, customJobsFn func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error), capabilityFactoryFns func([]string) []keystone_changeset.DONCapabilityWithConfig) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -726,6 +727,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
+		customJobsFn,
 	)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
@@ -755,7 +757,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		Topology:      topology,
 	}
 
-	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	capFunc := libcontracts.DefaultCapabilityFactoryFn
+	if capabilityFactoryFns != nil {
+		capFunc = capabilityFactoryFns
+	}
+	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{capFunc, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Universal setup -- END
@@ -843,7 +849,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -951,7 +957,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1062,7 +1068,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, nil)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {

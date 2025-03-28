@@ -17,7 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpecs, error) {
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
+	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error)) (types.DonsToJobSpecs, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -63,6 +64,7 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpe
 			input.ExtraAllowedIPs,
 			input.ExtraAllowedIPsCIDR,
 			gatewayConnectorData,
+			customJobsFn,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate job specs for don %d", donWithMetadata.DonMetadata.ID)
@@ -86,6 +88,7 @@ func generateDonJobSpecs(
 	extraAllowedIPs []string,
 	extraAllowedIPsCIDR []string,
 	gatewayConnectorOutput types.GatewayConnectorOutput,
+	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error),
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs)
 
@@ -210,6 +213,15 @@ func generateDonJobSpecs(
 			} else {
 				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
 			}
+
+		}
+	}
+
+	// Insert custom jobs, test specific
+	if customJobsFn != nil {
+		jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
+		if err != nil {
+			return nil, err
 		}
 	}
 

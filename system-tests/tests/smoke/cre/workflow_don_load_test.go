@@ -1,0 +1,915 @@
+package cre
+
+import (
+	"bytes"
+	"context"
+	crand "crypto/rand"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"math/rand/v2"
+	"os"
+	"strconv"
+	"strings"
+	"sync"
+	"testing"
+	"text/template"
+	"time"
+
+	"github.com/ethereum/go-ethereum/accounts/abi"
+	"github.com/google/uuid"
+	"github.com/pkg/errors"
+	"github.com/shopspring/decimal"
+	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
+	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
+	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-common/pkg/values"
+	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
+	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/mock"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
+	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
+	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
+)
+
+type TestConfigLoadTest struct {
+	TestConfig
+	WorkflowDONLoad  *WorkflowLoad       `toml:"workflow_load"`
+	MockCapabilities []*MockCapabilities `toml:"mock_capabilities"`
+}
+
+type MockCapabilities struct {
+	Name        string `toml:"name"`
+	Version     string `toml:"version"`
+	Type        string `toml:"type"`
+	Description string `toml:"description"`
+}
+
+type WorkflowLoad struct {
+	Streams       int `toml:"feeds" validate:"required"`
+	Jobs          int `toml:"jobs" validate:"required"`
+	FeedAddresses [][]string
+}
+
+type FeedWithStreamID struct {
+	Feed     string `json:"feed"`
+	StreamID uint32 `json:"streamID"`
+}
+
+func validateEnvVarsLoad(t *testing.T, in *TestConfigLoadTest) {
+	validateEnvVars(t, &in.TestConfig)
+
+	require.Greater(t, 1, in.WorkflowDONLoad.Jobs, "Workflow load, jobs must be greater than 1")
+	require.Greater(t, 1, in.WorkflowDONLoad.Streams, "Workflow load, streams must be greater than 1")
+}
+
+func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
+	testLogger := framework.L
+
+	// Load and validate test configuration
+	in, err := framework.Load[TestConfigLoadTest](t)
+	require.NoError(t, err, "couldn't load test config")
+	validateEnvVarsLoad(t, in)
+	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config") // Nr of DONs + gateway
+
+	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
+		return []*keystonetypes.CapabilitiesAwareNodeSet{
+			{
+				Input:              input[0],
+				Capabilities:       []string{keystonetypes.OCR3Capability},
+				DONTypes:           []string{keystonetypes.WorkflowDON},
+				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              input[1],
+				Capabilities:       []string{keystonetypes.MockCapability},
+				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: 0,
+			},
+		}
+	}
+
+	feedsAddresses := make([][]FeedWithStreamID, in.WorkflowDONLoad.Jobs)
+	for i := range in.WorkflowDONLoad.Jobs {
+		feedsAddresses[i] = make([]FeedWithStreamID, 0)
+		for streamID := range in.WorkflowDONLoad.Streams {
+			_, id := NewFeedID(t)
+			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
+				Feed:     id,
+				StreamID: uint32((in.WorkflowDONLoad.Streams * i) + streamID + 1),
+			})
+		}
+	}
+
+	// Create function that will append test specific jobs
+	createCustomJobsFunc := func(jobSpecs keystonetypes.DonJobs, donWithMetadata *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error) {
+		workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
+		if err != nil {
+			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+			return nil, errors.Wrap(err, "failed to find worker nodes")
+		}
+		for _, workerNode := range workflowNodeSet {
+			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+			if nodeIDErr != nil {
+				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+			}
+			if flags.HasFlag(donWithMetadata.Flags, keystonetypes.OCR3Capability) {
+				for i := range feedsAddresses {
+					feedConfig := make([]FeedConfig, 0)
+
+					for _, feed := range feedsAddresses[i] {
+						feedID, err2 := datastreams.NewFeedID(feed.Feed)
+						if err2 != nil {
+							return nil, err2
+						}
+						feedBytes := feedID.Bytes()
+						feedConfig = append(feedConfig, FeedConfig{
+							FeedIDsIndex: int(feed.StreamID),
+							Deviation:    "0.001",
+							Heartbeat:    3600,
+							RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
+						})
+					}
+
+					jobSpec := TextWorkflow(nodeID, fmt.Sprintf("load_%d", i), feedConfig)
+					jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.OCR3Capability, NodeType: keystonetypes.WorkerNode}
+
+					if _, ok := jobSpecs[jobDesc]; !ok {
+						jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
+					} else {
+						jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+					}
+				}
+			}
+
+			if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
+				jobSpec := MockCapabilitiesJob(nodeID, in.MockCapabilities)
+				jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.MockCapability, NodeType: keystonetypes.WorkerNode}
+
+				if _, ok := jobSpecs[jobDesc]; !ok {
+					jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
+				} else {
+					jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
+				}
+			}
+		}
+		return jobSpecs, nil
+	}
+
+	WorkflowDONLoadTestCapanilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+		var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+		if flags.HasFlag(donFlags, keystonetypes.MockCapability) {
+			for _, m := range in.MockCapabilities {
+				capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+					Capability: kcr.CapabilitiesRegistryCapability{
+						LabelledName:   m.Name,
+						Version:        m.Version,
+						CapabilityType: capTypeToInt(m.Type),
+					},
+					Config: &capabilitiespb.CapabilityConfig{},
+				})
+			}
+		}
+
+		if flags.HasFlag(donFlags, keystonetypes.CustomComputeCapability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "custom-compute",
+					Version:        "1.0.0",
+					CapabilityType: 1, // ACTION
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
+
+		if flags.HasFlag(donFlags, keystonetypes.OCR3Capability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   "offchain_reporting",
+					Version:        "1.0.0",
+					CapabilityType: 2, // CONSENSUS
+					ResponseType:   0, // REPORT
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
+
+		return capabilities
+	}
+
+	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapanilitiesFactoryFn)
+
+	ctx := tests.Context(t)
+	// Log extra information that might help debugging
+	t.Cleanup(func() {
+		if t.Failed() {
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+
+			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
+
+			removeErr := os.RemoveAll(logDir)
+			if removeErr != nil {
+				testLogger.Error().Err(removeErr).Msg("failed to remove log directory")
+				return
+			}
+
+			_, saveErr := framework.SaveContainerLogs(logDir)
+			if saveErr != nil {
+				testLogger.Error().Err(saveErr).Msg("failed to save container logs")
+				return
+			}
+
+			debugDons := make([]*keystonetypes.DebugDon, 0, len(setupOutput.donTopology.DonsWithMetadata))
+			for i, donWithMetadata := range setupOutput.donTopology.DonsWithMetadata {
+				containerNames := make([]string, 0, len(donWithMetadata.NodesMetadata))
+				for _, output := range setupOutput.nodeOutput[i].Output.CLNodes {
+					containerNames = append(containerNames, output.Node.ContainerName)
+				}
+				debugDons = append(debugDons, &keystonetypes.DebugDon{
+					NodesMetadata:  donWithMetadata.NodesMetadata,
+					Flags:          donWithMetadata.Flags,
+					ContainerNames: containerNames,
+				})
+			}
+
+			debugInput := keystonetypes.DebugInput{
+				DebugDons:        debugDons,
+				BlockchainOutput: setupOutput.blockchainOutput,
+			}
+			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
+		}
+	})
+
+	require.NoError(t, saveFeedAddresses(feedsAddresses))
+
+	//Get ocr key
+	kb := make([]ocr2key.KeyBundle, 0)
+	for _, don := range setupOutput.donTopology.DonsWithMetadata {
+		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
+			for i, n := range don.DON.Nodes {
+				if i == 0 {
+					continue // Skip bootstrap nodeker
+				}
+
+				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID) //TODO: @george-dorin FIX ME!!!
+				if err == nil {
+					b, err2 := json.Marshal(key)
+					require.NoError(t, err2)
+					kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+					require.NoError(t, err2)
+					kb = append(kb, kk)
+				} else {
+					testLogger.Error().Msgf("Could not export OCR2 key: %s", err)
+				}
+
+			}
+		}
+	}
+
+	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
+	require.NoError(t, saveKeyBundles(kb))
+
+	testLogger.Info().Msg("Connecting to mock capabilities...")
+
+	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
+	mockClientsAddress := make([]string, 0)
+	if in.Infra.InfraType == "docker" {
+		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
+	} else {
+		for i, _ := range setupOutput.nodeOutput[1].CLNodes {
+			if i == 0 { // Skip bootstrap node
+				continue
+			}
+			mockClientsAddress = append(mockClientsAddress, fmt.Sprintf("%s-%s-%d-mock.main.stage.cldev.sh:443", in.Infra.CRIB.Namespace, setupOutput.nodeOutput[1].NodeSetName, i-1))
+		}
+	}
+
+	useInsecure := false
+	if in.Infra.InfraType == "docker" {
+		useInsecure = true
+	}
+
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true)) //Capability don ports
+
+	testLogger.Info().Msg("Hooking into mock executable capabilities")
+
+	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
+	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
+
+	labels := map[string]string{
+		"go_test_name": "test1",
+		"branch":       "profile-check",
+		"commit":       "profile-check",
+	}
+
+	_, err = wasp.NewProfile().
+		Add(wasp.NewGenerator(&wasp.Config{
+			CallTimeout: time.Minute * 10,
+			LoadType:    wasp.RPS,
+			Schedule: wasp.Combine(
+				wasp.Plain(4, 120*time.Minute),
+			),
+			Gun:                   NewStreamsGun(mocksClient, kb, feedsAddresses, "streams-trigger@2.0.0", receiveChannel, 500, 1),
+			Labels:                labels,
+			LokiConfig:            wasp.NewEnvLokiConfig(),
+			RateLimitUnitDuration: time.Minute,
+		})).
+		Run(true)
+	require.NoError(t, err)
+
+	//go sendReports(t.Context(), t, mocksClient, testLogger, kb)
+	//time.Sleep(time.Minute * 30)
+
+}
+
+func TestReconnectMock(t *testing.T) {
+	testLogger := framework.L
+	ctx := tests.Context(t)
+
+	kb, err := loadKeyBundlesFromCache()
+	require.NoError(t, err)
+
+	feedAddresses, err := loadFeedAddressesFromCache()
+	require.NoError(t, err)
+	testLogger.Info().Msg("Connecting to mock capabilities...")
+	var mocksClient *mock_capability.MockCapabilityController
+
+	mocksClient, err = mock_capability.NewMockCapabilityControllerFromCache(testLogger, false)
+	require.NoError(t, err)
+
+	testLogger.Info().Msg("Hooking into mock executable capabilities")
+
+	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
+	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
+
+	labels := map[string]string{
+		"go_test_name": "Workflow DON Load Test",
+		"branch":       "profile-check",
+		"commit":       "profile-check",
+	}
+
+	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
+	time.Sleep(time.Second * 5) //Time to precompute
+	_, err = wasp.NewProfile().
+		Add(wasp.NewGenerator(&wasp.Config{
+			CallTimeout: time.Minute * 5,
+			LoadType:    wasp.RPS,
+			Schedule: wasp.Combine(
+				wasp.Plain(4, 15*time.Minute),
+			),
+			Gun:                   sg,
+			Labels:                labels,
+			LokiConfig:            wasp.NewEnvLokiConfig(),
+			RateLimitUnitDuration: time.Minute,
+		})).
+		Run(true)
+	require.NoError(t, err)
+}
+
+var _ wasp.Gun = (*StreamsGun)(nil)
+
+type StreamsGun struct {
+	capProxy    *mock_capability.MockCapabilityController
+	keyBundles  []ocr2key.KeyBundle
+	feeds       [][]FeedWithStreamID
+	triggerID   string
+	waitChans   map[uint32]chan interface{}
+	recieveChan <-chan capabilities.CapabilityRequest
+	mu          sync.Mutex
+	feedLimit   int
+	jobLimit    int
+	event       *capabilities.OCRTriggerEvent
+	eventID     string
+	timestamp   uint64
+}
+
+func NewStreamsGun(capProxy *mock_capability.MockCapabilityController, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
+	sg := &StreamsGun{
+		capProxy:    capProxy,
+		keyBundles:  keyBundles,
+		feeds:       feeds,
+		triggerID:   triggerID,
+		recieveChan: ch,
+		feedLimit:   feedLimit,
+		jobLimit:    jobLimit,
+	}
+	go sg.precomputeReports()
+	go sg.waitHOOKloop()
+	return sg
+}
+
+func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
+	workingTimestamp := s.timestamp
+	err := s.prepareWaitHOOK(workingTimestamp)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	event := &mock_capability.OCRTriggerEvent{
+		ConfigDigest: s.event.ConfigDigest,
+		SeqNr:        s.event.SeqNr,
+		Report:       s.event.Report,
+		Sigs:         make([]mock_capability.OCRTriggerEventSig, 0),
+	}
+
+	for _, sig := range s.event.Sigs {
+		event.Sigs = append(event.Sigs, mock_capability.OCRTriggerEventSig{
+			Signature: sig.Signature,
+			Signer:    sig.Signer,
+		})
+	}
+
+	err = s.capProxy.SendTrigger(context.TODO(), s.triggerID, s.eventID, payload)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+
+	go s.precomputeReports()
+	//Wait for hook back with the same eventID
+	err = s.waitForHOOK(workingTimestamp)
+	if err != nil {
+		return &wasp.Response{Error: err.Error()}
+	}
+	return &wasp.Response{}
+}
+
+func (s *StreamsGun) waitHOOKloop() error {
+	for {
+		select {
+		case m, ok := <-s.recieveChan:
+			if !ok {
+
+				return fmt.Errorf("channel closed")
+			}
+
+			inputs, err := decodeTargetInput(m.Inputs)
+			if err != nil {
+				fmt.Println("error decoding inputs")
+			}
+
+			//To get the timestamp we look at the last 64 chars of the hex encoded report
+			hexReport := hex.EncodeToString(inputs.Inputs.SignedReport.Report)
+			timestampInHex := hexReport[len(hexReport)-64:]
+			timestamp, err := strconv.ParseInt(timestampInHex, 16, 64)
+			if err != nil {
+				fmt.Println("error parsing timestamp")
+			}
+
+			s.mu.Lock()
+			//Check if exist
+			if ch, exist := s.waitChans[uint32(timestamp)]; exist {
+				s.mu.Unlock()
+				ch <- m //This is blocking
+			} else {
+				s.mu.Unlock()
+			}
+		}
+	}
+
+	return nil
+}
+
+func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.waitChans == nil {
+		s.waitChans = make(map[uint32]chan interface{})
+	}
+	if _, exists := s.waitChans[uint32(reportTimestamp)]; exists {
+		return fmt.Errorf("cannot prepare for HOOK, timestamp  %d already exits", reportTimestamp)
+	}
+	s.waitChans[uint32(reportTimestamp)] = make(chan interface{})
+	return nil
+}
+
+func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
+	s.mu.Lock()
+
+	if ch, exists := s.waitChans[uint32(timestamp)]; !exists {
+		s.mu.Unlock()
+		return fmt.Errorf("cannot wait for HOOK, timestamp  %q does not exist", timestamp)
+	} else {
+		s.mu.Unlock()
+		<-ch
+		delete(s.waitChans, uint32(timestamp))
+		return nil
+	}
+
+}
+
+func (s *StreamsGun) precomputeReports() {
+	timestamp := uint64(time.Now().UnixNano())
+	start := time.Now()
+
+	price := decimal.NewFromInt(int64(rand.IntN(100)))
+
+	feeds := make([]FeedWithStreamID, 0)
+	for jobNr, _ := range s.feeds {
+		if jobNr >= s.jobLimit {
+			break
+		}
+
+		for feedNr, feed := range s.feeds[jobNr] {
+			if feedNr >= s.feedLimit {
+				break
+			}
+			feeds = append(feeds, feed)
+		}
+	}
+
+	event, eventID, err := createFeedReport(logger.NullLogger, price, timestamp, feeds, s.keyBundles)
+	if err != nil {
+		panic(err)
+	}
+
+	s.event = event
+	s.eventID = eventID
+	s.timestamp = timestamp
+
+	framework.L.Info().Msgf("precomputeReports took %s", time.Since(start))
+	return
+}
+
+func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
+	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
+
+	values := make([]datastreamsllo.StreamValue, 0)
+
+	priceBytes, err := price.MarshalBinary()
+	if err != nil {
+		return nil, "", err
+	}
+	streams := make([]llotypes.Stream, 0)
+
+	for _, f := range feeds {
+		dec := &datastreamsllo.Decimal{}
+		dec.UnmarshalBinary(priceBytes)
+		values = append(values, dec)
+		streams = append(streams, llotypes.Stream{
+			StreamID: f.StreamID,
+		})
+	}
+
+	reportCodec := cre.NewReportCodecCapabilityTrigger(lggr, 1)
+
+	report := datastreamsllo.Report{
+		ObservationTimestampNanoseconds: timestamp,
+		Values:                          values,
+	}
+
+	reportBytes, err := reportCodec.Encode(report, llotypes.ChannelDefinition{
+		Streams: streams,
+	})
+	if err != nil {
+		return nil, "", err
+	}
+	//eventID := reportCodec.EventID(report)
+	eventID := uuid.NewString()
+
+	event := &capabilities.OCRTriggerEvent{
+		ConfigDigest: []byte{0: 1, 31: 2},
+		SeqNr:        0,
+		Report:       reportBytes,
+		Sigs:         make([]capabilities.OCRAttributedOnchainSignature, 0, len(keyBundles)),
+	}
+
+	for i, key := range keyBundles {
+		sig, err2 := key.Sign3(ocrTypes.ConfigDigest(event.ConfigDigest), event.SeqNr, reportBytes)
+		if err2 != nil {
+			return nil, "", err
+		}
+		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
+			Signer:    uint32(i),
+			Signature: sig,
+		})
+	}
+
+	return event, eventID, nil
+}
+
+func decodeTargetInput(inputs *values.Map) (targets.Request, error) {
+	var r targets.Request
+	const signedReportField = "signed_report"
+	signedReport, ok := inputs.Underlying[signedReportField]
+	if !ok {
+		return r, fmt.Errorf("missing required field %s", signedReportField)
+	}
+
+	if err := signedReport.UnwrapTo(&r.Inputs.SignedReport); err != nil {
+		return r, err
+	}
+
+	return r, nil
+}
+
+func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
+	cacheDir := "cache/keys"
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	for i, kb := range keyBundles {
+		bytes, err := kb.Marshal()
+		if err != nil {
+			return fmt.Errorf("failed to marshal key bundle %d: %w", i, err)
+		}
+
+		filename := fmt.Sprintf("%s/key_bundle_%d.json", cacheDir, i)
+		if err := os.WriteFile(filename, bytes, 0644); err != nil {
+			return fmt.Errorf("failed to write key bundle %d to file: %w", i, err)
+		}
+	}
+	return nil
+}
+
+func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
+	cacheDir := "cache/keys"
+	files, err := os.ReadDir(cacheDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read cache directory: %w", err)
+	}
+
+	var keyBundles []ocr2key.KeyBundle
+	for _, file := range files {
+		if !file.IsDir() && strings.HasPrefix(file.Name(), "key_bundle_") {
+			bytes, err := os.ReadFile(fmt.Sprintf("%s/%s", cacheDir, file.Name()))
+			if err != nil {
+				return nil, fmt.Errorf("failed to read key bundle file %s: %w", file.Name(), err)
+			}
+
+			kb, err := ocr2key.New(chaintype.EVM)
+			if err != nil {
+				return nil, fmt.Errorf("cannot create new key bundle from %s: %w", file.Name(), err)
+			}
+			if err := kb.Unmarshal(bytes); err != nil {
+				return nil, fmt.Errorf("failed to unmarshal key bundle from %s: %w", file.Name(), err)
+			}
+			keyBundles = append(keyBundles, kb)
+		}
+	}
+
+	if len(keyBundles) == 0 {
+		return nil, fmt.Errorf("no key bundles found in cache directory")
+	}
+	return keyBundles, nil
+}
+
+func Decode(report []byte) (uint32, error) {
+	//(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+	framework.L.Info().Msgf("Attemptiong to decode %s", hex.EncodeToString(report))
+	config := map[string]any{
+		"abi": "(bytes32,uint224,uint32)[]",
+	}
+	wrapped, err := values.NewMap(config)
+	if err != nil {
+		return 0, err
+	}
+	c, err := NewEVMDecoder(wrapped)
+	if err != nil {
+		return 0, err
+	}
+
+	var r []struct{}
+
+	err = c.Decode(context.TODO(), report, &r, "user")
+	if err != nil {
+		return 0, err
+	}
+	return 0, nil
+}
+
+func NewEVMDecoder(config *values.Map) (types2.Decoder, error) {
+	// parse the "inner" encoder config - user-defined fields
+	wrappedSelector, err := config.Underlying["abi"].Unwrap()
+	if err != nil {
+		return nil, err
+	}
+	selectorStr, ok := wrappedSelector.(string)
+	if !ok {
+		return nil, fmt.Errorf("expected %s to be a string", "abi")
+	}
+	selector, err := abi.ParseSelector("inner(" + selectorStr + ")")
+	if err != nil {
+		return nil, err
+	}
+	jsonSelector, err := json.Marshal(selector.Inputs)
+	if err != nil {
+		return nil, err
+	}
+
+	chainCodecConfig := types.ChainCodecConfig{
+		TypeABI: string(jsonSelector),
+	}
+
+	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
+		"user": chainCodecConfig,
+	}}
+
+	c, err := codec.NewCodec(codecConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
+}
+func NewFeedID(t *testing.T) ([32]byte, string) {
+	buf := [32]byte{}
+	_, err := crand.Read(buf[:])
+	require.NoError(t, err)
+	return buf, "0x" + hex.EncodeToString(buf[:])
+}
+
+func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
+	cacheDir := "cache/feeds"
+	if err := os.MkdirAll(cacheDir, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directory: %w", err)
+	}
+
+	filename := fmt.Sprintf("%s/feed_addresses.json", cacheDir)
+	bytes, err := json.Marshal(feedsAddresses)
+	if err != nil {
+		return fmt.Errorf("failed to marshal feed addresses: %w", err)
+	}
+
+	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		return fmt.Errorf("failed to write feed addresses to file: %w", err)
+	}
+
+	return nil
+}
+
+func loadFeedAddressesFromCache() ([][]FeedWithStreamID, error) {
+	cacheDir := "cache/feeds"
+	filename := fmt.Sprintf("%s/feed_addresses.json", cacheDir)
+
+	bytes, err := os.ReadFile(filename)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read feed addresses file: %w", err)
+	}
+
+	var feedsAddresses [][]FeedWithStreamID
+	if err := json.Unmarshal(bytes, &feedsAddresses); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal feed addresses: %w", err)
+	}
+
+	return feedsAddresses, nil
+}
+
+type FeedConfig struct {
+	FeedIDsIndex int    `json:"feedIDsIndex"`
+	Deviation    string `json:"deviation"`
+	Heartbeat    int    `json:"heartbeat"`
+	RemappedID   string `json:"remappedID"`
+}
+
+func TextWorkflow(nodeID string, workflowName string, feeds []FeedConfig) *jobv1.ProposeJobRequest {
+	const workflowTemplateLoad = `
+ type = "workflow"
+ schemaVersion = 1
+ name = "{{ .WorkflowName }}"
+ externalJobID = "{{ .JobID }}"
+ workflow = """
+ name: "{{ .WorkflowName }}"
+ owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+ triggers:
+  - id: streams-trigger@2.0.0
+    config:
+      feedIds:
+ {{- range .FeedIDsIndex }}
+        - '{{ . }}'
+ {{- end }}
+ consensus:
+   - id: "offchain_reporting@1.0.0"
+     ref: "evm_median"
+     inputs:
+       observations:
+         - "$(trigger.outputs)"
+     config:
+       report_id: "0001"
+       key_id: "evm"	
+       aggregation_method: "llo_streams"
+       aggregation_config:
+         streams:
+        {{ range $index, $feed := .Feeds }}
+ 		  "{{ $index }}":
+ 			deviation: "{{ $feed.Deviation }}"
+ 			heartbeat: {{ $feed.Heartbeat }}
+ 			remappedID: {{ $feed.RemappedID }}
+ 		{{- end }}
+       encoder: "EVM"
+       encoder_config:
+         abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
+ targets:
+   -  id: write_ethereum@1.0.0
+     inputs:
+       signed_report: "$(evm_median.outputs)"
+     config:
+       address: "0xEB739A9641938934D21A325A0C6b26126D48926A"
+       params: ["$(report)"]
+       abi: "receive(report bytes)"
+       deltaStage: 2s
+       schedule: allAtOnce
+ """
+ `
+
+	tmpl, err := template.New("workflow").Parse(workflowTemplateLoad)
+
+	if err != nil {
+		panic(err)
+	}
+	var renderedTemplate bytes.Buffer
+	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
+		"WorkflowName": workflowName,
+		"FeedIDs":      feeds,
+		"JobID":        uuid.NewString(),
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   renderedTemplate.String()}
+}
+
+func MockCapabilitiesJob(nodeID string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+
+	jobTemplate := `type = "standardcapabilities"
+			schemaVersion = 1
+			externalJobID = "{{ .JobID }}"
+			name = "mock-capabilities"
+			forwardingAllowed = false
+			command = "/home/capabilities/amd64_mock"
+			config = """
+				port=7777
+		{{ range $index, $m := .Mocks }}
+ 		  [[DefaultMocks]]
+				id="{{ $m.ID }}"
+				description="{{ $m.Description }}"
+				type="{{ $m.Type }}"
+ 		{{- end }}
+			"""`
+	tmpl, err := template.New("mock-job").Parse(jobTemplate)
+
+	if err != nil {
+		panic(err)
+	}
+	mockJobsData := make([]map[string]string, 0)
+	for _, m := range mocks {
+		mockJobsData = append(mockJobsData, map[string]string{
+			"ID":          fmt.Sprintf("%s@%s", m.Name, m.Version),
+			"Description": m.Description,
+			"Type":        m.Type,
+		})
+	}
+
+	var renderedTemplate bytes.Buffer
+	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
+		"JobID": uuid.NewString(),
+		"Mocks": mockJobsData,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return &jobv1.ProposeJobRequest{
+		NodeId: nodeID,
+		Spec:   renderedTemplate.String(),
+	}
+}
+
+func capTypeToInt(capType string) uint8 {
+	switch capType {
+	case "trigger":
+		return 0
+	case "action":
+		return 1
+	case "consensus":
+		return 2
+	case "target":
+		return 3
+	default:
+		panic(fmt.Sprintf("unknown capability type %s", capType))
+	}
+}
