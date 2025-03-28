@@ -54,7 +54,7 @@ func NewMockCapabilityControllerFromCache(lggr zerolog.Logger, useInsecure bool)
 
 	addresses := strings.Split(strings.TrimSpace(string(bytes)), "\n")
 	if len(addresses) == 0 {
-		return nil, fmt.Errorf("no URLs found in cache file")
+		return nil, errors.New("no URLs found in cache file")
 	}
 
 	controller := NewMockCapabilityController(lggr)

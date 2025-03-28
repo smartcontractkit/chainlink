@@ -25,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
@@ -61,8 +60,8 @@ type MockCapabilities struct {
 }
 
 type WorkflowLoad struct {
-	Streams       int `toml:"streams" validate:"required"`
-	Jobs          int `toml:"jobs" validate:"required"`
+	Streams       int32 `toml:"streams" validate:"required"`
+	Jobs          int32 `toml:"jobs" validate:"required"`
 	FeedAddresses [][]string
 }
 
@@ -118,10 +117,10 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 
 	// Create function that will append test specific jobs
 	createCustomJobsFunc := func(jobSpecs keystonetypes.DonJobs, donWithMetadata *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error) {
-		workflowNodeSet, err := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
-		if err != nil {
+		workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
+		if err2 != nil {
 			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-			return nil, errors.Wrap(err, "failed to find worker nodes")
+			return nil, errors.Wrap(err2, "failed to find worker nodes")
 		}
 		for _, workerNode := range workflowNodeSet {
 			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
@@ -139,7 +138,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 						}
 						feedBytes := feedID.Bytes()
 						feedConfig = append(feedConfig, FeedConfig{
-							FeedIDsIndex: int(feed.StreamID),
+							FeedIDsIndex: int32(feed.StreamID),
 							Deviation:    "0.001",
 							Heartbeat:    3600,
 							RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
@@ -157,7 +156,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return jobSpecs, nil
 	}
 
-	WorkflowDONLoadTestCapanilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
 		var capabilities []keystone_changeset.DONCapabilityWithConfig
 
 		if flags.HasFlag(donFlags, keystonetypes.MockCapability) {
@@ -200,7 +199,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	}
 
 	// TODO: remove createCustomJobsFunc from setupTestEnvironment and figure out a way to push custom jobs in a sane way
-	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapanilitiesFactoryFn)
+	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapabilitiesFactoryFn)
 
 	ctx := t.Context()
 	// Log extra information that might help debugging
@@ -255,17 +254,16 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 					continue // Skip bootstrap nodes
 				}
 
-				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID) // TODO: Figure out why sometimes n.Ocr2KeyBundleID is empty
-				if err == nil {
-					b, err2 := json.Marshal(key)
-					require.NoError(t, err2, "could not marshal OCR2 key")
-					kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
-					require.NoError(t, err2, "could not decrypt OCR2 key json")
+				key, err2 := n.ExportOCR2Keys(n.Ocr2KeyBundleID) // TODO: Figure out why sometimes n.Ocr2KeyBundleID is empty
+				if err2 == nil {
+					b, err3 := json.Marshal(key)
+					require.NoError(t, err3, "could not marshal OCR2 key")
+					kk, err3 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
+					require.NoError(t, err3, "could not decrypt OCR2 key json")
 					kb = append(kb, kk)
 				} else {
-					testLogger.Error().Msgf("Could not export OCR2 key: %s", err)
+					testLogger.Error().Msgf("Could not export OCR2 key: %s", err2)
 				}
-
 			}
 		}
 	}
@@ -325,7 +323,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		})).
 		Run(true)
 	require.NoError(t, err, "wasp load test did not finish successfully")
-
 }
 
 // TestWithReconnect Re-runs the load test against an existing DON deployment. It expects feeds, OCR2 keys, and
@@ -333,7 +330,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 // workflow execution without redeploying the entire test environment.
 func TestWithReconnect(t *testing.T) {
 	testLogger := framework.L
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	kb, err := loadKeyBundlesFromCache()
 	require.NoError(t, err, "could not load OCR2 keys")
@@ -383,7 +380,7 @@ type StreamsGun struct {
 	feeds       [][]FeedWithStreamID
 	triggerID   string
 	waitChans   map[uint32]chan interface{}
-	recieveChan <-chan capabilities.CapabilityRequest
+	receiveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
 	jobLimit    int
@@ -398,7 +395,7 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 		keyBundles:  keyBundles,
 		feeds:       feeds,
 		triggerID:   triggerID,
-		recieveChan: ch,
+		receiveChan: ch,
 		feedLimit:   feedLimit,
 		jobLimit:    jobLimit,
 	}
@@ -441,7 +438,7 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 func (s *StreamsGun) waitHOOKloop() {
 	for {
 		select {
-		case m, ok := <-s.recieveChan:
+		case m, ok := <-s.receiveChan:
 			if !ok {
 				framework.L.Error().Msg("channel closed")
 				return
@@ -472,8 +469,6 @@ func (s *StreamsGun) waitHOOKloop() {
 			}
 		}
 	}
-
-	return
 }
 
 func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
@@ -500,7 +495,6 @@ func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
 	<-ch
 	delete(s.waitChans, uint32(timestamp))
 	return nil
-
 }
 
 func (s *StreamsGun) precomputeReports() {
@@ -533,7 +527,6 @@ func (s *StreamsGun) precomputeReports() {
 	s.timestamp = timestamp
 
 	framework.L.Info().Msgf("precomputeReports took %s", time.Since(start))
-	return
 }
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
@@ -657,7 +650,7 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	}
 
 	if len(keyBundles) == 0 {
-		return nil, fmt.Errorf("no key bundles found in cache directory")
+		return nil, errors.New("no key bundles found in cache directory")
 	}
 	return keyBundles, nil
 }
@@ -675,7 +668,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 		return fmt.Errorf("failed to create cache directory: %w", err)
 	}
 
-	filename := fmt.Sprintf("%s/feed_addresses.json", cacheDir)
+	filename := cacheDir + "/feed_addresses.json"
 	bytes, err := json.Marshal(feedsAddresses)
 	if err != nil {
 		return fmt.Errorf("failed to marshal feed addresses: %w", err)
@@ -689,8 +682,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 }
 
 func loadFeedAddressesFromCache() ([][]FeedWithStreamID, error) {
-	cacheDir := "cache/feeds"
-	filename := fmt.Sprintf("%s/feed_addresses.json", cacheDir)
+	filename := "cache/feeds/feed_addresses.json"
 
 	bytes, err := os.ReadFile(filename)
 	if err != nil {
@@ -706,9 +698,9 @@ func loadFeedAddressesFromCache() ([][]FeedWithStreamID, error) {
 }
 
 type FeedConfig struct {
-	FeedIDsIndex int    `json:"feedIDsIndex"`
+	FeedIDsIndex int32  `json:"feedIDsIndex"`
 	Deviation    string `json:"deviation"`
-	Heartbeat    int    `json:"heartbeat"`
+	Heartbeat    int32  `json:"heartbeat"`
 	RemappedID   string `json:"remappedID"`
 }
 
@@ -807,7 +799,7 @@ func MockCapabilitiesJob(nodeID string, mocks []*MockCapabilities) *jobv1.Propos
 	mockJobsData := make([]map[string]string, 0)
 	for _, m := range mocks {
 		mockJobsData = append(mockJobsData, map[string]string{
-			"ID":          fmt.Sprintf("%s@%s", m.Name, m.Version),
+			"ID":          m.Name + "@" + m.Version,
 			"Description": m.Description,
 			"Type":        m.Type,
 		})
