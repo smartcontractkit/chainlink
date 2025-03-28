@@ -5,8 +5,6 @@ import (
 
 	"github.com/pkg/errors"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -37,17 +35,12 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 				}
 
 				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("log-event-trigger-capability-%d", chainID), logEventTriggerBinaryPath, fmt.Sprintf(`'{"chainId":"%d","network":"%s","lookbackBlocks":1000,"pollPeriod":1000}'`, chainID, networkFamily))
-				jobDesc := types.JobDescription{Flag: types.LogTriggerCapability, NodeType: types.WorkerNode}
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
+					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
 
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.ReadContractCapability) {
@@ -56,17 +49,12 @@ func GenerateJobSpecs(donTopology *types.DonTopology, chainID int, networkFamily
 				}
 
 				jobSpec := libjobs.WorkerStandardCapability(nodeID, fmt.Sprintf("read-contract-capability-%d", chainID), readContractBinaryPath, fmt.Sprintf(`'{"chainId":%d,"network":"%s"}'`, chainID, networkFamily))
-				jobDesc := types.JobDescription{Flag: types.LogTriggerCapability, NodeType: types.WorkerNode}
 
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
+					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
 
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], jobSpec)
 			}
 		}
 	}

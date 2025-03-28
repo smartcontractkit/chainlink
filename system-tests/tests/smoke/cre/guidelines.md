@@ -14,6 +14,9 @@
    - [Workflow Configuration](#workflow-configuration)
    - [Workflow Secrets](#workflow-secrets)
    - [Manual Upload of the Binary](#manual-upload-of-the-binary)
+   - [YAML workflows](#yaml-workflows)
+      - [Workfow definition](#workfow-definition)
+      - [Proposing the workflow using JD](#proposing-the-workflow-using-jd)
 4. [Deployer Address or Deployment Sequence Changes](#deployer-address-or-deployment-sequence-changes)
 5. [Multiple DONs](#multiple-dons)
    - [DON Type](#don-type)
@@ -527,6 +530,134 @@ If you compiled and uploaded the binary yourself, set the following in your conf
 ```
 
 Both URLs must be accessible by the bootstrap node.
+
+### YAML workflows
+
+When using workflows expressed in YAML you do not need to compile, upload and register them anywhere, manually or using `CRE CLI`. So all the above-mentioned parts of the test can be left out. All you need to do is:
+1. Define the workflow as `string`
+2. Use JD to propose is it in the same way that jobs are proposed
+
+#### Workfow definition
+Here's an example of a workflow:
+```toml
+type = "workflow"
+schemaVersion = 1
+name = "my-df-workflow"
+externalJobID = "my-df-workflow-f712hdf"
+workflow = """
+name: "my-df-workflow"
+owner: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
+triggers:
+ - id: streams-trigger@1.0.0
+   config:
+     maxFrequencyMs: 5000
+     feedIds:
+       - '0x018bfe88407000400000000000000000'
+consensus:
+ - id: offchain_reporting@1.0.0
+   ref: ccip_feeds
+   inputs:
+     observations:
+       - $(trigger.outputs)
+   config:
+     report_id: '0001'
+     key_id: 'evm'
+     aggregation_method: data_feeds
+     aggregation_config:
+       allowedPartialStaleness: '0.5'
+       feeds:
+        '0x018bfe88407000400000000000000000':
+          deviation: '0.01'
+          heartbeat: 600
+     encoder: EVM
+     encoder_config:
+       abi: (bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
+targets:
+  - id: write_geth-testnet@1.0.0
+    inputs:
+      signed_report: $(ccip_feeds.outputs)
+    config:
+      address: '0x24309990d635A6C5FF711503BfCb942dd25F96A0'
+      deltaStage: 10s
+      schedule: oneAtATime
+```
+
+It will be triggered by streams update, take the trigger data as input for consensus and once it's reached upload the report on EVM chain.
+
+Things to keep in mind:
+- job type must be `workflow`
+- actual workflow code is passed in the `workflow` field
+
+#### Proposing the workflow using JD
+
+You start by creating a job proposal:
+```go
+// assume it contains above-mentioned workflow spec
+var workflowSpec string
+
+job := &jobv1.ProposeJobRequest{
+		NodeId: nodeID, // nodeID with which it registered itself in JD
+    Spec: workflowSpec}
+```
+
+Then you either call JD directly:
+```go
+timeout := time.Second * 60
+ctx, cancel := context.WithTimeout(context.Background(), timeout)
+defer cancel()
+_, err := offChainClient.ProposeJob(ctx, jobReq)
+if err != nil {
+  return errors.Wrapf(err, "failed to propose job %s for node %s", jobDesc.Flag, jobReq.NodeId)
+}
+```
+
+Or if you are using our wrappers:
+```go
+import (
+  libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+  keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+)
+
+// assuming you have devenv.Environment and keystonetypes.DonTopology references already
+var env *devenv.Environment
+var donTopology *keystonetypes.DonTopology
+donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
+
+createJobsInput := keystonetypes.CreateJobsInput{
+  CldEnv:        env,
+  DonTopology:   donTopology,
+  DonToJobSpecs: donToJobSpecs,
+}
+
+// assuming there's only 1 DON in topology and that its ID is 1
+// we want to create that workflow for all worker nodes, bootstrap doesn't need it
+workflowNodeSet, err := node.FindManyWithLabel(donTopology[0].NodesMetadata, &keystonetypes.Label{Key: libnode.NodeTypeKey, Value: keystonetypes.WorkerNode}, libnode.EqualLabels)
+if err != nil {
+  // there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+  return nil, errors.Wrap(err, "failed to find worker nodes")
+}
+
+donToJobSpecs[donTopology.WorkflowDonID] = make(keystonetypes.DonJobs)
+
+jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.OCR3Capability, NodeType: keystonetypes.WorkerNode}
+
+for idx, workerNode := range workflowNodeSet {
+    nodeID, nodeIDErr := workerNode.FindLabelValue(workerNode, libnode.NodeIDKey)
+		if nodeIDErr != nil {
+			return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+		}
+
+  donToJobSpecs[donTopology.WorkflowDonID][jobDesc] = append(donToJobSpecs[donTopology.WorkflowDonID][jobDesc], &jobv1.ProposeJobRequest{
+		NodeId: nodeID, // nodeID with which it registered itself in JD
+    Spec: workflowSpec} // spec we previously created
+  )
+}
+
+createJobsErr := libdon.CreateJobs(testLogger, createJobsInput)
+if createJobsErr != nil {
+  panic(createJobsErr)
+}
+```
 
 ---
 

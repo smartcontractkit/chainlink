@@ -101,7 +101,6 @@ func (a *signedReportRemoteAggregator) Aggregate(triggerEventID string, response
 			continue
 		}
 		triggerResp.Event.Outputs = outputsMap
-		//	triggerResp.Event.OCREvent = nil
 		return triggerResp, nil
 	}
 	return capabilities.TriggerResponse{}, fmt.Errorf("%w: %s", ErrMissingResponse, triggerEventID)

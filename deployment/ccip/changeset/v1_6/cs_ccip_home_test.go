@@ -146,9 +146,9 @@ func Test_PromoteCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEqual(t, [32]byte{}, ActiveDigestExecBefore)
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -243,9 +243,9 @@ func Test_SetCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -402,9 +402,9 @@ func Test_RevokeCandidate(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, [32]byte{}, candidateDigestExecBefore)
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -571,9 +571,9 @@ func Test_UpdateChainConfigs(t *testing.T) {
 			require.NoError(t, err)
 			assert.NotZero(t, otherChainConfig.FChain)
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

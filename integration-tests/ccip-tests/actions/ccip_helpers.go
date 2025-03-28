@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/big"
 	"net/http"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"sync"
@@ -32,17 +33,17 @@ import (
 	"golang.org/x/exp/rand"
 	"golang.org/x/sync/errgroup"
 
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/sentinel"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
+	parrot_helm "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/ptr"
@@ -2966,8 +2967,9 @@ func (lane *CCIPLane) UpdateLaneConfig() {
 	lane.DstNetworkLaneCfg.DestContractsMu.Unlock()
 }
 
+// RecordStateBeforeTransfer records all balances before a CCIP transfer happens,
+// allowing for balance validation after the transfer is complete.
 func (lane *CCIPLane) RecordStateBeforeTransfer() {
-	// collect the balance assert.ment to verify balances after transfer
 	bal, err := testhelpers.GetBalances(lane.Test, lane.Source.CollectBalanceRequirements())
 	require.NoError(lane.Test, err, "fetching source balance")
 	lane.Balance.RecordBalance(bal)
@@ -4081,21 +4083,29 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		return fmt.Errorf("getting current block should be successful in destination chain %w", err)
 	}
 
-	var killgrave *ctftestenv.Killgrave
-	if env.LocalCluster != nil {
-		killgrave = env.LocalCluster.MockAdapter
+	var mockAdapterURL string
+	if env.LocalCluster != nil && env.LocalCluster.MockAdapter != nil {
+		mockAdapterURL = env.LocalCluster.MockAdapter.InternalEndpoint
+	} else if env.MockServer != nil {
+		mockAdapterURL = env.MockServer.InternalEndpoint
 	}
+
 	var tokenAddresses []string
 	for _, token := range lane.Dest.Common.BridgeTokens {
 		tokenAddresses = append(tokenAddresses, token.Address())
 	}
-	tokenAddresses = append(tokenAddresses, lane.Dest.Common.FeeToken.Address(), lane.Source.Common.WrappedNative.Hex(), lane.Dest.Common.WrappedNative.Hex())
+	tokenAddresses = append(
+		tokenAddresses,
+		lane.Dest.Common.FeeToken.Address(),
+		lane.Source.Common.WrappedNative.Hex(),
+		lane.Dest.Common.WrappedNative.Hex(),
+	)
 
 	// Only one off pipeline or price getter to be set.
 	tokenPricesUSDPipeline := ""
 	tokenPricesConfigJson := ""
 	if withPipeline {
-		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, killgrave, env.MockServer)
+		tokensUSDUrl := TokenPricePipelineURLs(tokenAddresses, mockAdapterURL)
 		tokenPricesUSDPipeline = TokenFeeForMultipleTokenAddr(tokensUSDUrl)
 	} else {
 		tokenPricesConfigJson, err = lane.TokenPricesConfig()
@@ -4117,13 +4127,6 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		DestStartBlock:         currentBlockOnDest,
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsUSDCDeployment() {
-		api := ""
-		if killgrave != nil {
-			api = killgrave.InternalEndpoint
-		}
-		if env.MockServer != nil {
-			api = env.MockServer.Config.ClusterURL
-		}
 		if lane.Source.Common.TokenTransmitter == nil {
 			return fmt.Errorf("token transmitter address not set")
 		}
@@ -4131,22 +4134,15 @@ func (lane *CCIPLane) DeployNewCCIPLane(
 		jobParams.USDCConfig = &config.USDCConfig{
 			SourceTokenAddress:              common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
 			SourceMessageTransmitterAddress: lane.Source.Common.TokenTransmitter.ContractAddress,
-			AttestationAPI:                  api,
+			AttestationAPI:                  mockAdapterURL,
 			AttestationAPITimeoutSeconds:    5,
 		}
 	}
 	if !lane.Source.Common.ExistingDeployment && lane.Source.Common.IsLBTCDeployment() {
-		api := ""
-		if killgrave != nil {
-			api = killgrave.InternalEndpoint
-		}
-		if env.MockServer != nil {
-			api = env.MockServer.Config.ClusterURL
-		}
 		// Only one LBTC allowed per chain
 		jobParams.LBTCConfig = &config.LBTCConfig{
 			SourceTokenAddress:           common.HexToAddress(lane.Source.Common.BridgeTokens[0].Address()),
-			AttestationAPI:               api,
+			AttestationAPI:               mockAdapterURL,
 			AttestationAPITimeoutSeconds: 5,
 		}
 	}
@@ -4262,7 +4258,8 @@ func SetOCR2Config(
 		return fmt.Errorf("failed to create commit onchain config: %w", err)
 	}
 	signers, transmitters, f, onchainConfig, offchainConfigVersion, offchainConfig, err := contracts.NewOffChainAggregatorV2ConfigForCCIPPlugin(
-		commitNodes, commitOffchainCfg, commitOnchainCfg, OCR2ParamsForCommit, 3*time.Minute)
+		commitNodes, commitOffchainCfg, commitOnchainCfg, OCR2ParamsForCommit, 3*time.Minute,
+	)
 	if err != nil {
 		return fmt.Errorf("failed to create ocr2 config params for commit: %w", err)
 	}
@@ -4443,8 +4440,9 @@ merge [type=merge left="{}" right="{%s}"];`, source, right)
 	return source
 }
 
+// CCIPTestEnv contains the environment for running a CCIP E2E test
 type CCIPTestEnv struct {
-	MockServer               *ctfClient.MockserverClient
+	MockServer               *ctftestenv.Parrot
 	LocalCluster             *test_env.CLClusterTestEnv
 	CLNodesWithKeys          map[string][]*nodeclient.CLNodesWithKeys // key - network chain-id
 	CLNodes                  []*nodeclient.ChainlinkK8sClient
@@ -4553,6 +4551,7 @@ func (c *CCIPTestEnv) ConnectToExistingNodes(envConfig *testconfig.Common) error
 	return nil
 }
 
+// ConnectToDeployedNodes connects a CCIPTestEnv to already deployed chainlink nodes
 func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 	if c.LocalCluster != nil {
 		// for local cluster, fetch the values from the local cluster
@@ -4577,8 +4576,8 @@ func (c *CCIPTestEnv) ConnectToDeployedNodes() error {
 			c.nodeMutexes = append(c.nodeMutexes, &sync.Mutex{})
 		}
 		c.CLNodes = chainlinkK8sNodes
-		if _, exists := c.K8Env.URLs[mockserver.InternalURLsKey]; exists {
-			c.MockServer = ctfClient.ConnectMockServer(c.K8Env)
+		if _, exists := c.K8Env.URLs[parrot_helm.InternalURLsKey]; exists {
+			c.MockServer = ctftestenv.ConnectParrotTestEnv(c.K8Env)
 		}
 	}
 	return nil
@@ -4811,13 +4810,12 @@ type attestationStatusResponse struct {
 }
 
 // SetMockServerWithUSDCAttestation responds with a mock attestation for any msgHash
-// The path is set with regex to match any path that starts with /v1/attestations
-func SetMockServerWithUSDCAttestation(
-	killGrave *ctftestenv.Killgrave,
-	mockserver *ctfClient.MockserverClient,
-	isFaulty bool,
-) error {
-	path := "/v1/attestations"
+// The path is a wildcard to match any path that starts with /v1/attestations/
+func SetMockServerWithUSDCAttestation(mockServer *ctftestenv.Parrot, isFaulty bool) error {
+	if mockServer == nil {
+		return errors.New("mockserver nil")
+	}
+	rootPath := "/v1/attestations"
 	response := attestationStatusResponse{
 		Status:      "complete",
 		Attestation: "0x9049623e91719ef2aa63c55f357be2529b0e7122ae552c18aff8db58b4633c4d3920ff03d3a6d1ddf11f06bf64d7fd60d45447ac81f527ba628877dc5ca759651b08ffae25a6d3b1411749765244f0a1c131cbfe04430d687a2e12fd9d2e6dc08e118ad95d94ad832332cf3c4f7a4f3da0baa803b7be024b02db81951c0f0714de1b",
@@ -4828,32 +4826,22 @@ func SetMockServerWithUSDCAttestation(
 			Error:  "internal error",
 		}
 	}
-	if killGrave == nil && mockserver == nil {
-		return fmt.Errorf("both killgrave and mockserver are nil")
+	route := &parrot.Route{
+		Method:             http.MethodGet,
+		Path:               filepath.Join(rootPath, "*"),
+		ResponseBody:       response,
+		ResponseStatusCode: http.StatusOK,
 	}
-	log.Info().Str("path", path).Msg("setting attestation-api response for any msgHash")
-	if killGrave != nil {
-		err := killGrave.SetAnyValueResponse(fmt.Sprintf("%s/{_hash:.*}", path), []string{http.MethodGet}, response)
-		if err != nil {
-			return fmt.Errorf("failed to set killgrave server value: %w", err)
-		}
-	}
-	if mockserver != nil {
-		err := mockserver.SetAnyValueResponse(fmt.Sprintf("%s/.*", path), response)
-		if err != nil {
-			return fmt.Errorf("failed to set mockserver value: %w URL = %s", err, fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path))
-		}
-	}
-	return nil
+	return mockServer.Client.RegisterRoute(route)
 }
 
-// SetMockServerWithLBTCAttestation responds with a mock attestation for any msgHash
+// SetMockAdapterWithLBTCAttestation responds with a mock attestation for any msgHash
 // The path is set with regex to match any path that starts with /v1/attestations
-func SetMockServerWithLBTCAttestation(
-	killGrave *ctftestenv.Killgrave,
-	mockserver *ctfClient.MockserverClient,
-) error {
-	path := "/bridge/v1/deposits/getByHash"
+func SetMockAdapterWithLBTCAttestation(mockAdapter *ctftestenv.Parrot) error {
+	if mockAdapter == nil {
+		return errors.New("mockAdapter is nil")
+	}
+
 	type attestation struct {
 		Status      string `json:"status"`
 		Attestation string `json:"attestation"`
@@ -4870,21 +4858,15 @@ func SetMockServerWithLBTCAttestation(
 			},
 		},
 	}
-	if killGrave == nil && mockserver == nil {
-		return errors.New("both killgrave and mockserver are nil")
+	route := &parrot.Route{
+		Method:             http.MethodPost,
+		Path:               "/bridge/v1/deposits/getByHash",
+		ResponseBody:       response,
+		ResponseStatusCode: http.StatusOK,
 	}
-	log.Info().Str("path", path).Msg("setting attestation-api response for any msgHash")
-	if killGrave != nil {
-		err := killGrave.SetAnyValueResponse(path, []string{http.MethodPost}, response)
-		if err != nil {
-			return fmt.Errorf("failed to set killgrave server value: %w", err)
-		}
-	}
-	if mockserver != nil {
-		err := mockserver.SetAnyValueResponse(path, response)
-		if err != nil {
-			return fmt.Errorf("failed to set mockserver value: %w URL = %s", err, fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path))
-		}
+	err := mockAdapter.Client.RegisterRoute(route)
+	if err != nil {
+		return fmt.Errorf("failed to set mock adapter route: %w", err)
 	}
 	return nil
 }
@@ -4892,10 +4874,7 @@ func SetMockServerWithLBTCAttestation(
 // SetMockserverWithTokenPriceValue sets the mock responses in mockserver that are read by chainlink nodes
 // to simulate different price feed value.
 // it keeps updating the response every 15 seconds to simulate price feed updates
-func SetMockserverWithTokenPriceValue(
-	killGrave *ctftestenv.Killgrave,
-	mockserver *ctfClient.MockserverClient,
-) {
+func SetMockserverWithTokenPriceValue(mockServer *ctftestenv.Parrot) {
 	wg := &sync.WaitGroup{}
 	path := "token_contract_"
 	wg.Add(1)
@@ -4903,24 +4882,17 @@ func SetMockserverWithTokenPriceValue(
 		set := true
 		// keep updating token value every 15 second
 		for {
-			if killGrave == nil && mockserver == nil {
-				log.Fatal().Msg("both killgrave and mockserver are nil")
-				return
-			}
 			tokenValue := big.NewInt(time.Now().UnixNano()).String()
-			if killGrave != nil {
-				err := killGrave.SetAdapterBasedAnyValuePath(fmt.Sprintf("%s{.*}", path), []string{http.MethodGet}, tokenValue)
-				if err != nil {
-					log.Fatal().Err(err).Msg("failed to set killgrave server value")
-					return
-				}
+			route := &parrot.Route{
+				Method:             http.MethodGet,
+				Path:               path + "/*",
+				ResponseBody:       tokenValue,
+				ResponseStatusCode: http.StatusOK,
 			}
-			if mockserver != nil {
-				err := mockserver.SetAnyValuePath(fmt.Sprintf("/%s.*", path), tokenValue)
-				if err != nil {
-					log.Fatal().Err(err).Str("URL", fmt.Sprintf("%s/%s/.*", mockserver.LocalURL(), path)).Msg("failed to set mockserver value")
-					return
-				}
+			err := mockServer.SetAdapterRoute(route)
+			if err != nil {
+				log.Fatal().Err(err).Msg("failed to set mockserver route")
+				return
 			}
 			if set {
 				set = false
@@ -4934,21 +4906,12 @@ func SetMockserverWithTokenPriceValue(
 }
 
 // TokenPricePipelineURLs returns the mockserver urls for the token price pipeline
-func TokenPricePipelineURLs(
-	tokenAddresses []string,
-	killGrave *ctftestenv.Killgrave,
-	mockserver *ctfClient.MockserverClient,
-) map[string]string {
+func TokenPricePipelineURLs(tokenAddresses []string, mockServerURL string) map[string]string {
 	mapTokenURL := make(map[string]string)
 
 	for _, tokenAddr := range tokenAddresses {
 		path := fmt.Sprintf("token_contract_%s", tokenAddr[2:12])
-		if mockserver != nil {
-			mapTokenURL[tokenAddr] = fmt.Sprintf("%s/%s", mockserver.Config.ClusterURL, path)
-		}
-		if killGrave != nil {
-			mapTokenURL[tokenAddr] = fmt.Sprintf("%s/%s", killGrave.InternalEndpoint, path)
-		}
+		mapTokenURL[tokenAddr] = fmt.Sprintf("%s/%s", mockServerURL, path)
 	}
 
 	return mapTokenURL

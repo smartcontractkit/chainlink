@@ -169,7 +169,9 @@ func TestValidate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			cfg := solanachangesets.TransferCCIPToMCMSWithTimelockSolanaConfig{
 				ContractsByChain: tt.contractsByChain,
-				MinDelay:         10 * time.Second,
+				MCMSCfg: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second,
+				},
 			}
 
 			err := cfg.Validate(tt.env)

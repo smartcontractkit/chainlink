@@ -57,7 +57,7 @@ type PermaBlessCommitStoreConfigPerDest struct {
 
 type PermaBlessCommitStoreConfig struct {
 	Configs    map[uint64]PermaBlessCommitStoreConfigPerDest
-	MCMSConfig *commoncs.TimelockConfig
+	MCMSConfig *proposalutils.TimelockConfig
 }
 
 func (c PermaBlessCommitStoreConfig) Validate(env deployment.Environment) error {
@@ -173,7 +173,7 @@ func PermaBlessCommitStoreChangeset(env deployment.Environment, c PermaBlessComm
 		inspectors,
 		ops,
 		"PermaBless commit stores on RMN",
-		c.MCMSConfig.MinDelay,
+		*c.MCMSConfig,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

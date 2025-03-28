@@ -24,6 +24,37 @@ const (
 	DefaultValidUntil = 72 * time.Hour
 )
 
+type TimelockConfig struct {
+	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
+	MCMSAction   types.TimelockAction
+	OverrideRoot bool // if true, override the previous root with the new one
+}
+
+func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimelockState) error {
+	// if MCMSAction is not set, default to timelock.Schedule
+	if tc.MCMSAction == "" {
+		tc.MCMSAction = types.TimelockActionSchedule
+	}
+	if tc.MCMSAction != types.TimelockActionSchedule &&
+		tc.MCMSAction != types.TimelockActionCancel &&
+		tc.MCMSAction != types.TimelockActionBypass {
+		return fmt.Errorf("invalid MCMS type %s", tc.MCMSAction)
+	}
+	if s.Timelock == nil {
+		return fmt.Errorf("missing timelock on %s", chain)
+	}
+	if tc.MCMSAction == types.TimelockActionSchedule && s.ProposerMcm == nil {
+		return fmt.Errorf("missing proposerMcm on %s", chain)
+	}
+	if tc.MCMSAction == types.TimelockActionCancel && s.CancellerMcm == nil {
+		return fmt.Errorf("missing cancellerMcm on %s", chain)
+	}
+	if tc.MCMSAction == types.TimelockActionBypass && s.BypasserMcm == nil {
+		return fmt.Errorf("missing bypasserMcm on %s", chain)
+	}
+	return nil
+}
+
 func BuildProposalMetadata(
 	chainSelectors []uint64,
 	proposerMcmsesPerChain map[uint64]*gethwrappers.ManyChainMultiSig,
@@ -100,13 +131,16 @@ func BuildProposalFromBatches(
 func BuildProposalFromBatchesV2(
 	e deployment.Environment,
 	timelockAddressPerChain map[uint64]string,
-	proposerAddressPerChain map[uint64]string,
-	inspectorPerChain map[uint64]mcmssdk.Inspector,
-
+	mcmsAddressPerChain map[uint64]string, inspectorPerChain map[uint64]mcmssdk.Inspector,
 	batches []types.BatchOperation,
 	description string,
-	minDelay time.Duration,
+	mcmsCfg TimelockConfig,
 ) (*mcmslib.TimelockProposal, error) {
+	// default to schedule if not set, this is to be consistent with the old implementation
+	// and to avoid breaking changes
+	if mcmsCfg.MCMSAction == "" {
+		mcmsCfg.MCMSAction = types.TimelockActionSchedule
+	}
 	if len(batches) == 0 {
 		return nil, errors.New("no operations in batch")
 	}
@@ -119,7 +153,7 @@ func BuildProposalFromBatchesV2(
 	for chainID, tl := range timelockAddressPerChain {
 		tlsPerChainID[types.ChainSelector(chainID)] = tl
 	}
-	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, proposerAddressPerChain)
+	mcmsMd, err := buildProposalMetadataV2(e, chains.ToSlice(), inspectorPerChain, mcmsAddressPerChain)
 	if err != nil {
 		return nil, err
 	}
@@ -129,12 +163,12 @@ func BuildProposalFromBatchesV2(
 	builder := mcmslib.NewTimelockProposalBuilder()
 	builder.
 		SetVersion("v1").
-		SetAction(types.TimelockActionSchedule).
+		SetAction(mcmsCfg.MCMSAction).
 		//nolint:gosec // G115
 		SetValidUntil(uint32(validUntil)).
 		SetDescription(description).
-		SetDelay(types.NewDuration(minDelay)).
-		SetOverridePreviousRoot(false).
+		SetDelay(types.NewDuration(mcmsCfg.MinDelay)).
+		SetOverridePreviousRoot(mcmsCfg.OverrideRoot).
 		SetChainMetadata(mcmsMd).
 		SetTimelockAddresses(tlsPerChainID).
 		SetOperations(batches)
@@ -150,11 +184,11 @@ func buildProposalMetadataV2(
 	env deployment.Environment,
 	chainSelectors []uint64,
 	inspectorPerChain map[uint64]mcmssdk.Inspector,
-	proposerMcmsesPerChain map[uint64]string,
+	mcmsPerChain map[uint64]string, // can be proposer, canceller or bypasser
 ) (map[types.ChainSelector]types.ChainMetadata, error) {
 	metaDataPerChain := make(map[types.ChainSelector]types.ChainMetadata)
 	for _, selector := range chainSelectors {
-		proposerMcms, ok := proposerMcmsesPerChain[selector]
+		proposerMcms, ok := mcmsPerChain[selector]
 		if !ok {
 			return nil, fmt.Errorf("missing proposer mcm for chain %d", selector)
 		}

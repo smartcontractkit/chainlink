@@ -77,10 +77,10 @@ func (n Node) MultiAddr() string {
 	return a
 }
 
-func (n Node) ReplayLogs(chains map[uint64]uint64) error {
+func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
 		chainID, _ := chainsel.ChainIdFromSelector(sel)
-		if err := n.App.ReplayFromBlock(big.NewInt(int64(chainID)), block, false); err != nil {
+		if err := n.App.ReplayFromBlock(ctx, "evm", strconv.FormatUint(chainID, 10), block, false); err != nil {
 			return err
 		}
 	}
