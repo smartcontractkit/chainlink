@@ -78,7 +78,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, &in.TestConfig)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
+	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -93,6 +93,13 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				Capabilities:       []string{keystonetypes.MockCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: 0,
+			},
+			{
+				Input:              input[2],
+				Capabilities:       []string{},
+				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				GatewayNodeIndex:   0,
+				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 			},
 		}
 	}
@@ -275,7 +282,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		// Need to add addresses manually
 		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
 	} else {
-		for i, _ := range setupOutput.nodeOutput[1].CLNodes {
+		for i := range setupOutput.nodeOutput[1].CLNodes {
 			// TODO: This is brittle, switch to checking the node label
 			if i == 0 { // Skip bootstrap node
 				continue
@@ -431,17 +438,19 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 	return &wasp.Response{}
 }
 
-func (s *StreamsGun) waitHOOKloop() error {
+func (s *StreamsGun) waitHOOKloop() {
 	for {
 		select {
 		case m, ok := <-s.recieveChan:
 			if !ok {
-				return fmt.Errorf("channel closed")
+				framework.L.Error().Msg("channel closed")
+				return
 			}
 
 			inputs, err := decodeTargetInput(m.Inputs)
 			if err != nil {
-				fmt.Println("error decoding inputs")
+				framework.L.Error().Msg("error decoding inputs")
+				return
 			}
 
 			// To get the timestamp we look at the last 64 chars of the hex encoded report
@@ -449,7 +458,8 @@ func (s *StreamsGun) waitHOOKloop() error {
 			timestampInHex := hexReport[len(hexReport)-64:]
 			timestamp, err := strconv.ParseInt(timestampInHex, 16, 64)
 			if err != nil {
-				fmt.Println("error parsing timestamp")
+				framework.L.Error().Msg("error parsing timestamp")
+				return
 			}
 
 			s.mu.Lock()
@@ -463,7 +473,7 @@ func (s *StreamsGun) waitHOOKloop() error {
 		}
 	}
 
-	return nil
+	return
 }
 
 func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
@@ -481,16 +491,15 @@ func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
 
 func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
 	s.mu.Lock()
-
-	if ch, exists := s.waitChans[uint32(timestamp)]; !exists {
+	ch, exists := s.waitChans[uint32(timestamp)]
+	if !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("cannot wait for HOOK, timestamp  %q does not exist", timestamp)
-	} else {
-		s.mu.Unlock()
-		<-ch
-		delete(s.waitChans, uint32(timestamp))
-		return nil
 	}
+	s.mu.Unlock()
+	<-ch
+	delete(s.waitChans, uint32(timestamp))
+	return nil
 
 }
 
@@ -501,7 +510,7 @@ func (s *StreamsGun) precomputeReports() {
 	price := decimal.NewFromInt(int64(rand.IntN(100)))
 
 	feeds := make([]FeedWithStreamID, 0)
-	for jobNr, _ := range s.feeds {
+	for jobNr := range s.feeds {
 		if jobNr >= s.jobLimit {
 			break
 		}
@@ -540,7 +549,10 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 
 	for _, f := range feeds {
 		dec := &datastreamsllo.Decimal{}
-		dec.UnmarshalBinary(priceBytes)
+		err2 := dec.UnmarshalBinary(priceBytes)
+		if err2 != nil {
+			return nil, "", err2
+		}
 		values = append(values, dec)
 		streams = append(streams, llotypes.Stream{
 			StreamID: f.StreamID,
@@ -560,8 +572,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	if err != nil {
 		return nil, "", err
 	}
-	//eventID := reportCodec.EventID(report) // TODO: Wait for the llo trigger to be merged and switch to the new format
-	eventID := uuid.NewString()
+	eventID := reportCodec.EventID(report)
 
 	event := &capabilities.OCRTriggerEvent{
 		ConfigDigest: []byte{0: 1, 31: 2},
