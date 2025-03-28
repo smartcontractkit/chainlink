@@ -205,7 +205,7 @@ func allGatewaysAttempted(attempts map[string]int) bool {
 
 // attemptGatewayConnection waits to connect to a gateway with a new child context
 func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
-	timeout := (defaultFetchTimeoutMs / 4) * time.Millisecond
+	timeout := 1_000 * time.Millisecond
 
 	c.lggr.Debugw("awaiting connection", "selectedGateway", gateway, "timeout", timeout)
 

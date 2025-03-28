@@ -28,8 +28,9 @@ type gatewayConnector interface {
 
 func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*webapi.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
-		lggr:    lggr.Named("FetcherService"),
-		wrapper: wrapper,
+		lggr:         lggr.Named("FetcherService"),
+		wrapper:      wrapper,
+		selectorOpts: selectorOpts,
 	}
 }
 
