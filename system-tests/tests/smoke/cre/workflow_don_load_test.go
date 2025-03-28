@@ -192,6 +192,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
+	// TODO: remove createCustomJobsFunc from setupTestEnvironment and figure out a way to push custom jobs in a sane way
 	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapanilitiesFactoryFn)
 
 	ctx := t.Context()
