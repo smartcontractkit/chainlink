@@ -53,6 +53,11 @@ abstract contract BaseValidator is SimpleWriteAccessController, AggregatorValida
     emit ConfigUpdated(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit);
   }
 
+  /// @notice validate method uses _validate to send an xDomain L2 tx to update Uptime Feed contract on L2.
+  /// @param previousRoundId previous aggregator OCR round id
+  /// @param previousAnswer previous aggregator answer
+  /// @param currentRoundId current aggregator OCR round id
+  /// @param currentAnswer new aggregator answer - value of 1 considers the service offline.
   function validate(
     uint256 previousRoundId,
     int256 previousAnswer,

@@ -3,7 +3,10 @@ pragma solidity ^0.8.24;
 
 import {BaseValidator} from "../../../base/BaseValidator.sol";
 import {MockBaseValidator} from "../../mocks/MockBaseValidator.sol";
+import {MockRevertingValidator} from "../../mocks/MockRevertingValidator.sol";
 import {L2EPTest} from "../L2EPTest.t.sol";
+import "forge-std/Vm.sol";
+import "forge-std/console.sol";
 
 contract BaseValidator_Setup is L2EPTest {
   address internal immutable L2_SEQ_STATUS_RECORDER_ADDRESS = makeAddr("L2_SEQ_STATUS_RECORDER_ADDRESS");
@@ -12,10 +15,6 @@ contract BaseValidator_Setup is L2EPTest {
   uint32 internal constant INIT_GAS_LIMIT = 1900000;
 
   BaseValidator internal s_baseValidator;
-
-  /// Fake event that will get emitted when `requestL2TransactionDirect` is called
-  /// Definition is taken from MockZKSyncL1Bridge
-  event SentMessage(address indexed sender, bytes message);
 
   /// Setup
   function setUp() public {
@@ -28,6 +27,12 @@ contract BaseValidator_Setup is L2EPTest {
 }
 
 contract BaseValidator_Constructor is BaseValidator_Setup {
+  function test_Constructor_EmitsWhen_ConstructorIsSuccessfull() public {
+    vm.expectEmit(true, true, true, true);
+    emit BaseValidator.ConfigUpdated(DUMMY_L1_XDOMAIN_MSNGR_ADDR, L2_SEQ_STATUS_RECORDER_ADDRESS, INIT_GAS_LIMIT);
+    new MockBaseValidator(DUMMY_L1_XDOMAIN_MSNGR_ADDR, L2_SEQ_STATUS_RECORDER_ADDRESS, INIT_GAS_LIMIT);
+  }
+
   /// @notice Reverts when L1 bridge address is zero
   function test_Constructor_RevertWhen_L1BridgeAddressIsZero() public {
     vm.expectRevert(BaseValidator.L1CrossDomainMessengerAddressZero.selector);
@@ -53,5 +58,41 @@ contract BaseValidator_GetAndSetGasLimit is BaseValidator_Setup {
     s_baseValidator.setGasLimit(newGasLimit);
 
     assertEq(s_baseValidator.getGasLimit(), newGasLimit);
+  }
+}
+
+contract BaseValidator_Validate is BaseValidator_Setup {
+  function test_Validate_EmitsEventAndReturnsTrue() public {
+    s_baseValidator.addAccess(s_eoaValidator);
+    vm.startPrank(s_eoaValidator);
+    uint256 previousRoundId = 1;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 2;
+    int256 currentAnswer = 1;
+
+    vm.expectEmit(true, true, true, true, address(s_baseValidator));
+    emit BaseValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+
+    bool result = s_baseValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
+    assertTrue(result, "Expected validation to return true");
+    vm.stopPrank();
+  }
+
+  function test_Validate_RevertsAndDoesnotEmit() public {
+    s_baseValidator = new MockRevertingValidator(
+      DUMMY_L1_XDOMAIN_MSNGR_ADDR,
+      L2_SEQ_STATUS_RECORDER_ADDRESS,
+      INIT_GAS_LIMIT
+    );
+    s_baseValidator.addAccess(s_eoaValidator);
+    vm.startPrank(s_eoaValidator);
+    vm.recordLogs();
+
+    vm.expectRevert("Mock revert");
+
+    bool result = s_baseValidator.validate(1, 0, 2, 1);
+    Vm.Log[] memory logs = vm.getRecordedLogs();
+    assertEq(logs.length, 0, "No logs were recorded");
+    vm.stopPrank();
   }
 }

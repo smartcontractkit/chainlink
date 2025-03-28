@@ -12,21 +12,12 @@ contract MockBaseValidator is BaseValidator {
     uint32 gasLimit
   ) BaseValidator(l1CrossDomainMessengerAddress, l2UptimeFeedAddr, gasLimit) {}
 
-  function validate(
-    uint256 /* previousRoundId */,
-    int256 /* previousAnswer */,
-    uint256 /* currentRoundId */,
-    int256 /* currentAnswer */
-  ) external view override checkAccess returns (bool) {
-    return true;
-  }
-
   function _validate(
     uint256 /* previousRoundId */,
     int256 /* previousAnswer */,
     uint256 /* currentRoundId */,
     int256 /* currentAnswer */
-  ) internal override returns (bool) {
+  ) internal virtual override returns (bool) {
     return true;
   }
 }

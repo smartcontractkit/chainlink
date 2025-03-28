@@ -81,7 +81,14 @@ contract ArbitrumValidator_Validate is ArbitrumValidatorTest {
       abi.encodeWithSelector(ArbitrumSequencerUptimeFeed.updateStatus.selector, true, futureTimestampInSeconds) // data
     );
 
+    uint256 previousRoundId = 0;
+    int256 previousAnswer = 0;
+    uint256 currentRoundId = 1;
+    int256 currentAnswer = 1;
+
+    vm.expectEmit(true, true, true, true, address(s_arbitrumValidator));
+    emit ArbitrumValidator.ValidatedStatus(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
     // Runs the function (which produces the event to test)
-    s_arbitrumValidator.validate(0, 0, 1, 1);
+    s_arbitrumValidator.validate(previousRoundId, previousAnswer, currentRoundId, currentAnswer);
   }
 }
