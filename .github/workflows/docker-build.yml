@@ -52,6 +52,7 @@ jobs:
             echo "build-type=sha" | tee -a "$GITHUB_OUTPUT"
           else
             echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
+            exit 1
           fi
 
   docker-core:
