@@ -43,10 +43,9 @@ import (
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	lidcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
-	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -705,11 +704,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       blockchainsOutput.blockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      extraAllowedPorts,
-			ExtraAllowedIPs:        extraAllowedIPs,
+			BlockchainOutput:      blockchainsOutput.blockchainOutput,
+			DonsWithMetadata:      fullCldOutput.DonTopology.DonsWithMetadata,
+			OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
+			ExtraAllowedPorts:     extraAllowedPorts,
+			ExtraAllowedIPs:       extraAllowedIPs,
 			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
 			CronCapBinPath:         filepath.Join(capDir, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
