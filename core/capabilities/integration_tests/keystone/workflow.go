@@ -95,7 +95,7 @@ consensus:
 %s
       encoder: "EVM"
       encoder_config:
-        abi: "(bytes32 RemappedID, uint224 Price)[] Reports"
+        abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
 
 targets:
   - id: "write_geth-testnet@1.0.0"

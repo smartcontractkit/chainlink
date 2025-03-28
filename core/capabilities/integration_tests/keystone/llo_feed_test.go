@@ -53,8 +53,9 @@ func Test_runLLOWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	// create the test trigger event in the same format as the llo asset don
-	ts := uint64(time.Now().UnixNano()) //nolint:gosec // G115
-	e := newLLoTriggerEvent(t, ts, updates)
+	ts := time.Now()
+	tsUnixNano := uint64(ts.UnixNano()) //nolint: gosec // G115
+	e := newLLoTriggerEvent(t, tsUnixNano, updates)
 	ocrTrigger, eventID, err := MakeOCRTriggerEvent(lggr, e, triggerDonConfiguration.KeyBundles)
 	require.NoError(t, err)
 	triggerOutput, err := ocrTrigger.ToMap()
@@ -62,7 +63,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 
 	// send the trigger event to the trigger sink and wait for the consumer to receive the feeds
 	triggerSink.SendOutput(triggerOutput, eventID)
-	h := newStreamsV2Handler(updates, ts)
+	h := newStreamsV2Handler(updates, uint32(ts.Unix())) //nolint: gosec // G115 use the timestamp in seconds for the feed received events
 	waitForConsumerReports(t, consumer, h)
 }
 
@@ -162,12 +163,12 @@ func streamIDToRemappedID(updates []streamUpdate) map[uint32]string {
 type streamsV2Handler struct {
 	mu       sync.Mutex
 	expected []streamUpdate
-	ts       uint64
+	ts       uint32 // unix timestamp in seconds
 
 	found map[uint32]struct{}
 }
 
-func newStreamsV2Handler(expected []streamUpdate, ts uint64) *streamsV2Handler {
+func newStreamsV2Handler(expected []streamUpdate, ts uint32) *streamsV2Handler {
 	return &streamsV2Handler{
 		expected: expected,
 		ts:       ts,
@@ -194,9 +195,9 @@ func (h *streamsV2Handler) handleFeedReceived(t *testing.T, feed *feeds_consumer
 	}
 	require.True(t, found, "streamID not found for feedID %s in %v", got, h.expected)
 
-	// TODO cleanup api
+	// TODO cleanup api: we happen to know here that the LLO conversion from decimal to big.Int is 18 decimal places
 	assert.Equal(t, updated.price.Shift(18).BigInt(), feed.Price)
-	assert.Equal(t, uint32(h.ts), feed.Timestamp) //nolint:gosec // G115
+	assert.Equal(t, h.ts, feed.Timestamp)
 	h.found[updated.id] = struct{}{}
 	return len(h.found) == len(h.expected)
 }
