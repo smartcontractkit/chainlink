@@ -5,10 +5,11 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
-	"go.uber.org/atomic"
 	"math/big"
 	mathrand "math/rand"
 	"time"
+
+	"go.uber.org/atomic"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
