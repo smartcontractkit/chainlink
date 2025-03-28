@@ -15,7 +15,7 @@ on:
         required: true
 
 concurrency:
-  group: "docker-build-${{ github.ref_name }}-${{ github.sha }}"
+  group: "docker-build-${{ github.ref_name }}"
   cancel-in-progress: true
 
 jobs:
@@ -84,7 +84,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-reusable-workflow-github-token-secret # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@78235751bcff8f3a7bc298de8ba4706ef9423d80 # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
