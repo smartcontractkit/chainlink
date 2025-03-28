@@ -13,7 +13,6 @@ jobs:
     name: "Checks"
     runs-on: ubuntu-24.04
     permissions:
-      id-token: write
       contents: read
     outputs:
       git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
