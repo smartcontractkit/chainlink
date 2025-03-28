@@ -40,8 +40,8 @@ import (
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
+	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
-	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/mock"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -66,8 +66,8 @@ type MockCapabilities struct {
 }
 
 type WorkflowLoad struct {
-	Streams       int `toml:"feeds" validate:"required"`
-	Jobs          int `toml:"jobs" validate:"required"`
+	Streams       int `toml:"streams" validate:"required, gte=1"`
+	Jobs          int `toml:"jobs" validate:"required, gte=1"`
 	FeedAddresses [][]string
 }
 
@@ -76,21 +76,14 @@ type FeedWithStreamID struct {
 	StreamID uint32 `json:"streamID"`
 }
 
-func validateEnvVarsLoad(t *testing.T, in *TestConfigLoadTest) {
-	validateEnvVars(t, &in.TestConfig)
-
-	require.Greater(t, 1, in.WorkflowDONLoad.Jobs, "Workflow load, jobs must be greater than 1")
-	require.Greater(t, 1, in.WorkflowDONLoad.Streams, "Workflow load, streams must be greater than 1")
-}
-
 func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
-	validateEnvVarsLoad(t, in)
-	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config") // Nr of DONs + gateway
+	validateEnvVars(t, &in.TestConfig)
+	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -151,7 +144,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 						})
 					}
 
-					jobSpec := TextWorkflow(nodeID, fmt.Sprintf("load_%d", i), feedConfig)
+					jobSpec := WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig)
 					jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.OCR3Capability, NodeType: keystonetypes.WorkerNode}
 
 					if _, ok := jobSpecs[jobDesc]; !ok {
@@ -261,23 +254,23 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	})
 
-	require.NoError(t, saveFeedAddresses(feedsAddresses))
+	require.NoError(t, saveFeedAddresses(feedsAddresses), "could not save feeds")
 
-	//Get ocr key
+	// Get OCR2 keys needed to sign the reports
 	kb := make([]ocr2key.KeyBundle, 0)
 	for _, don := range setupOutput.donTopology.DonsWithMetadata {
 		if flags.HasFlag(don.Flags, keystonetypes.MockCapability) {
 			for i, n := range don.DON.Nodes {
 				if i == 0 {
-					continue // Skip bootstrap nodeker
+					continue // Skip bootstrap nodes
 				}
 
-				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID) //TODO: @george-dorin FIX ME!!!
+				key, err := n.ExportOCR2Keys(n.Ocr2KeyBundleID) // TODO: Figure out why sometimes n.Ocr2KeyBundleID is empty
 				if err == nil {
 					b, err2 := json.Marshal(key)
-					require.NoError(t, err2)
+					require.NoError(t, err2, "could not marshal OCR2 key")
 					kk, err2 := ocr2key.FromEncryptedJSON(b, nodeclient.ChainlinkKeyPassword)
-					require.NoError(t, err2)
+					require.NoError(t, err2, "could not decrypt OCR2 key json")
 					kb = append(kb, kk)
 				} else {
 					testLogger.Error().Msgf("Could not export OCR2 key: %s", err)
@@ -288,13 +281,14 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	}
 
 	// Export key bundles so we can import them later in another test, used when crib cluster is already setup and we just want to connect to mocks for a different test
-	require.NoError(t, saveKeyBundles(kb))
+	require.NoError(t, saveKeyBundles(kb), "could not save OCR2 Keys")
 
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 
 	mocksClient := mock_capability.NewMockCapabilityController(testLogger)
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
+		// TODO: For CTFv2 we should get the ports from the .toml
 		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
 	} else {
 		for i, _ := range setupOutput.nodeOutput[1].CLNodes {
@@ -305,17 +299,19 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		}
 	}
 
+	// Use insecure gRPC connection for local Docker containers. For AWS, use TLS credentials
+	// due to ingress requirements, as grpc.insecure.NewCredentials() doesn't work properly with AWS ingress
 	useInsecure := false
 	if in.Infra.InfraType == "docker" {
 		useInsecure = true
 	}
 
-	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true)) //Capability don ports
+	require.NoError(t, mocksClient.ConnectAll(mockClientsAddress, useInsecure, true), "could not connect to mock capabilities")
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
-	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
+	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into mock executable")
 
 	labels := map[string]string{
 		"go_test_name": "test1",
@@ -336,10 +332,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			RateLimitUnitDuration: time.Minute,
 		})).
 		Run(true)
-	require.NoError(t, err)
-
-	//go sendReports(t.Context(), t, mocksClient, testLogger, kb)
-	//time.Sleep(time.Minute * 30)
+	require.NoError(t, err, "wasp error")
 
 }
 
@@ -348,20 +341,20 @@ func TestReconnectMock(t *testing.T) {
 	ctx := tests.Context(t)
 
 	kb, err := loadKeyBundlesFromCache()
-	require.NoError(t, err)
+	require.NoError(t, err, "could not load OCR2 keys")
 
 	feedAddresses, err := loadFeedAddressesFromCache()
-	require.NoError(t, err)
+	require.NoError(t, err, "could not load feed addresses")
 	testLogger.Info().Msg("Connecting to mock capabilities...")
 	var mocksClient *mock_capability.MockCapabilityController
 
 	mocksClient, err = mock_capability.NewMockCapabilityControllerFromCache(testLogger, false)
-	require.NoError(t, err)
+	require.NoError(t, err, "could not create mock controller")
 
 	testLogger.Info().Msg("Hooking into mock executable capabilities")
 
 	receiveChannel := make(chan capabilities.CapabilityRequest, 1000)
-	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel))
+	require.NoError(t, mocksClient.HookExecutables(ctx, receiveChannel), "could not hook into executable")
 
 	labels := map[string]string{
 		"go_test_name": "Workflow DON Load Test",
@@ -370,7 +363,7 @@ func TestReconnectMock(t *testing.T) {
 	}
 
 	sg := NewStreamsGun(mocksClient, kb, feedAddresses, "streams-trigger@2.0.0", receiveChannel, 600, 2)
-	time.Sleep(time.Second * 5) //Time to precompute
+	time.Sleep(time.Second * 5) // Give time for the report to be generated
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
 			CallTimeout: time.Minute * 5,
@@ -384,7 +377,7 @@ func TestReconnectMock(t *testing.T) {
 			RateLimitUnitDuration: time.Minute,
 		})).
 		Run(true)
-	require.NoError(t, err)
+	require.NoError(t, err, "wasp error")
 }
 
 var _ wasp.Gun = (*StreamsGun)(nil)
@@ -446,7 +439,7 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 	}
 
 	go s.precomputeReports()
-	//Wait for hook back with the same eventID
+	// Wait for the DON to execute on the write target
 	err = s.waitForHOOK(workingTimestamp)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
@@ -468,7 +461,7 @@ func (s *StreamsGun) waitHOOKloop() error {
 				fmt.Println("error decoding inputs")
 			}
 
-			//To get the timestamp we look at the last 64 chars of the hex encoded report
+			// To get the timestamp we look at the last 64 chars of the hex encoded report
 			hexReport := hex.EncodeToString(inputs.Inputs.SignedReport.Report)
 			timestampInHex := hexReport[len(hexReport)-64:]
 			timestamp, err := strconv.ParseInt(timestampInHex, 16, 64)
@@ -477,10 +470,10 @@ func (s *StreamsGun) waitHOOKloop() error {
 			}
 
 			s.mu.Lock()
-			//Check if exist
+			// Check if exist
 			if ch, exist := s.waitChans[uint32(timestamp)]; exist {
 				s.mu.Unlock()
-				ch <- m //This is blocking
+				ch <- m // This is blocking
 			} else {
 				s.mu.Unlock()
 			}
@@ -584,7 +577,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 	if err != nil {
 		return nil, "", err
 	}
-	//eventID := reportCodec.EventID(report)
+	//eventID := reportCodec.EventID(report) // TODO: Wait for the llo trigger to be merged and switch to the new format
 	eventID := uuid.NewString()
 
 	event := &capabilities.OCRTriggerEvent{
@@ -675,68 +668,10 @@ func loadKeyBundlesFromCache() ([]ocr2key.KeyBundle, error) {
 	return keyBundles, nil
 }
 
-func Decode(report []byte) (uint32, error) {
-	//(bytes32 FeedID, uint224 Price, uint32 Timestamp)[] Reports
-	framework.L.Info().Msgf("Attemptiong to decode %s", hex.EncodeToString(report))
-	config := map[string]any{
-		"abi": "(bytes32,uint224,uint32)[]",
-	}
-	wrapped, err := values.NewMap(config)
-	if err != nil {
-		return 0, err
-	}
-	c, err := NewEVMDecoder(wrapped)
-	if err != nil {
-		return 0, err
-	}
-
-	var r []struct{}
-
-	err = c.Decode(context.TODO(), report, &r, "user")
-	if err != nil {
-		return 0, err
-	}
-	return 0, nil
-}
-
-func NewEVMDecoder(config *values.Map) (types2.Decoder, error) {
-	// parse the "inner" encoder config - user-defined fields
-	wrappedSelector, err := config.Underlying["abi"].Unwrap()
-	if err != nil {
-		return nil, err
-	}
-	selectorStr, ok := wrappedSelector.(string)
-	if !ok {
-		return nil, fmt.Errorf("expected %s to be a string", "abi")
-	}
-	selector, err := abi.ParseSelector("inner(" + selectorStr + ")")
-	if err != nil {
-		return nil, err
-	}
-	jsonSelector, err := json.Marshal(selector.Inputs)
-	if err != nil {
-		return nil, err
-	}
-
-	chainCodecConfig := types.ChainCodecConfig{
-		TypeABI: string(jsonSelector),
-	}
-
-	codecConfig := types.CodecConfig{Configs: map[string]types.ChainCodecConfig{
-		"user": chainCodecConfig,
-	}}
-
-	c, err := codec.NewCodec(codecConfig)
-	if err != nil {
-		return nil, err
-	}
-
-	return c, nil
-}
 func NewFeedID(t *testing.T) ([32]byte, string) {
 	buf := [32]byte{}
 	_, err := crand.Read(buf[:])
-	require.NoError(t, err)
+	require.NoError(t, err, "cannot create feedID")
 	return buf, "0x" + hex.EncodeToString(buf[:])
 }
 
@@ -783,7 +718,7 @@ type FeedConfig struct {
 	RemappedID   string `json:"remappedID"`
 }
 
-func TextWorkflow(nodeID string, workflowName string, feeds []FeedConfig) *jobv1.ProposeJobRequest {
+func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1.ProposeJobRequest {
 	const workflowTemplateLoad = `
  type = "workflow"
  schemaVersion = 1

@@ -1,14 +1,10 @@
 package mock_capability
 
 import (
-	"fmt"
-
-	"github.com/google/uuid"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	pb2 "github.com/smartcontractkit/chainlink-common/pkg/values/pb"
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 )
 
 func MapToBytes(m *values.Map) ([]byte, error) {
@@ -26,6 +22,7 @@ func MapToBytes(m *values.Map) ([]byte, error) {
 	}
 	return bytes, nil
 }
+
 func BytesToMap(b []byte) (*values.Map, error) {
 	var o pb2.Value
 	if err := proto.Unmarshal(b, &o); err != nil {
@@ -47,33 +44,4 @@ func BytesToMap(b []byte) (*values.Map, error) {
 	}
 
 	return &vm, nil
-}
-
-func MockCapabilities(nodeID string) *jobv1.ProposeJobRequest {
-	return &jobv1.ProposeJobRequest{
-		NodeId: nodeID,
-		Spec: fmt.Sprintf(`
- 			type = "standardcapabilities"
- 			schemaVersion = 1
-
-
- 			externalJobID = "%s"
- 			name = "mock-capabilitie"
- 			forwardingAllowed = false
- 			command = "/home/capabilities/amd64_mock"
- 			config = """
- 				port=7777
- 				[[DefaultMocks]]
- 				id="streams-trigger@2.0.0"
- 				description="stream trigger mock"
- 				type="trigger"
- 				[[DefaultMocks]]
- 				id="write_ethereum@1.0.0"
- 				description="write trigger mock"
- 				type="target"
- """
- `,
-			uuid.NewString(),
-		),
-	}
 }

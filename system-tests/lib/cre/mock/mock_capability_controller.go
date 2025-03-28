@@ -16,7 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/mock/pb"
+	pb2 "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock/pb"
 )
 
 type MockCapabilityController struct {
@@ -25,7 +25,7 @@ type MockCapabilityController struct {
 }
 
 type MockClient struct {
-	API pb.MockCapabilityClient
+	API pb2.MockCapabilityClient
 	URL string
 }
 
@@ -89,7 +89,7 @@ func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bo
 	return nil
 }
 
-func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info pb.RegisterToWorkflowRequest) error {
+func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info pb2.RegisterToWorkflowRequest) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.RegisterToWorkflow(ctx, &info)
 		if err != nil {
@@ -99,7 +99,7 @@ func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info 
 	return nil
 }
 
-func (c *MockCapabilityController) Execute(ctx context.Context, info pb.ExecutableRequest) error {
+func (c *MockCapabilityController) Execute(ctx context.Context, info pb2.ExecutableRequest) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.Execute(ctx, &info)
 		if err != nil {
@@ -109,7 +109,7 @@ func (c *MockCapabilityController) Execute(ctx context.Context, info pb.Executab
 	return nil
 }
 
-func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb.CapabilityInfo) error {
+func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb2.CapabilityInfo) error {
 	for _, client := range c.Nodes {
 		_, err := client.API.CreateCapability(ctx, &info)
 		if err != nil {
@@ -121,7 +121,7 @@ func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb
 
 func (c *MockCapabilityController) SendTrigger(ctx context.Context, id string, eventID string, payload []byte) error {
 	for _, client := range c.Nodes {
-		data := pb.SendTriggerEventRequest{
+		data := pb2.SendTriggerEventRequest{
 			ID:      id,
 			EventID: eventID,
 			Payload: payload,
@@ -181,10 +181,9 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 					Inputs: input,
 				}
 				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
-				//c.lggr.Info().Msgf("Got hook event %v+", resp)
 
 				//Process request
-				r := pb.ExecutableResponse{
+				r := pb2.ExecutableResponse{
 					ID:             resp.ID,
 					CapabilityType: resp.CapabilityType,
 					Value:          resp.Inputs,
@@ -193,8 +192,6 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 				if err != nil {
 					panic(err.Error())
 				}
-				//c.lggr.Info().Msgf("Sent hook response %v+", r)
-
 			}
 		}()
 	}
@@ -210,7 +207,7 @@ func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
 	if err != nil {
 		return MockClient{}, err
 	}
-	client := pb.NewMockCapabilityClient(conn)
+	client := pb2.NewMockCapabilityClient(conn)
 	return MockClient{API: client, URL: address}, nil
 
 }
