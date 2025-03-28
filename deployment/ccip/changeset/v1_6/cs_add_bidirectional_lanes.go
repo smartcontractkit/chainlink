@@ -89,7 +89,7 @@ func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChanges
 			if routerUpdatesByChain[laneDef.Source.Selector].OnRampUpdates == nil {
 				routerUpdatesOnSource.OnRampUpdates = make(map[uint64]bool)
 			}
-			routerUpdatesOnSource.OnRampUpdates[laneDef.Source.Selector] = true
+			routerUpdatesOnSource.OnRampUpdates[laneDef.Dest.Selector] = true
 			routerUpdatesByChain[laneDef.Source.Selector] = routerUpdatesOnSource
 
 			// Setting the off ramp on the dest router
@@ -97,7 +97,7 @@ func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChanges
 			if routerUpdatesByChain[laneDef.Dest.Selector].OffRampUpdates == nil {
 				routerUpdatesOnDest.OffRampUpdates = make(map[uint64]bool)
 			}
-			routerUpdatesOnDest.OffRampUpdates[laneDef.Dest.Selector] = true
+			routerUpdatesOnDest.OffRampUpdates[laneDef.Source.Selector] = true
 			routerUpdatesByChain[laneDef.Dest.Selector] = routerUpdatesOnDest
 
 			// Setting the fee quoter destination on the source chain
@@ -106,7 +106,7 @@ func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChanges
 			}
 			feeQuoterDestUpdatesByChain[laneDef.Source.Selector][laneDef.Dest.Selector] = laneDef.Dest.FeeQuoterDestChainConfig
 
-			// setting the destination gas prices on the source chain
+			// Setting the destination gas prices on the source chain
 			feeQuoterPriceUpdatesOnSource := feeQuoterPriceUpdatesByChain[laneDef.Source.Selector]
 			if feeQuoterPriceUpdatesOnSource.GasPrices == nil {
 				feeQuoterPriceUpdatesOnSource.GasPrices = make(map[uint64]*big.Int)
@@ -114,6 +114,11 @@ func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChanges
 			feeQuoterPriceUpdatesOnSource.GasPrices[laneDef.Dest.Selector] = laneDef.Dest.GasPrice
 			feeQuoterPriceUpdatesByChain[laneDef.Source.Selector] = feeQuoterPriceUpdatesOnSource
 		}
+	}
+
+	routerMCMSConfig := c.MCMSConfig
+	if c.TestRouter {
+		routerMCMSConfig = nil // Test router is never owned by MCMS
 	}
 
 	return addBidirectionalLanesChangesetConfigs{
@@ -135,7 +140,7 @@ func (c AddBidirectionalLanesConfig) buildConfigs() addBidirectionalLanesChanges
 		},
 		UpdateRouterRampsConfig: UpdateRouterRampsConfig{
 			TestRouter:     c.TestRouter,
-			MCMS:           c.MCMSConfig,
+			MCMS:           routerMCMSConfig,
 			UpdatesByChain: routerUpdatesByChain,
 		},
 	}
