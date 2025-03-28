@@ -290,6 +290,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
 	} else {
 		for i, _ := range setupOutput.nodeOutput[1].CLNodes {
+			// TODO: This is brittle, switch to checking the node label
 			if i == 0 { // Skip bootstrap node
 				continue
 			}
