@@ -673,7 +673,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	var ownershipTransferProposals []timelock.MCMSWithTimelockProposal
+	var ownershipTransferProposals []mcmslib.TimelockProposal
 	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
 		allContracts := []commoncs.Ownable{
@@ -699,7 +699,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
-		out, err := commoncs.TransferToMCMSWithTimelock(env, commoncs.TransferToMCMSWithTimelockConfig{
+		out, err := commoncs.TransferToMCMSWithTimelockV2(env, commoncs.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},
@@ -708,7 +708,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
-		ownershipTransferProposals = out.Proposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
+		ownershipTransferProposals = out.MCMSTimelockProposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
 
 		// Also, renounce the admin role on the Timelock (if not already done).
 		adminRole, err := state.Chains[c.NewChainSelector].Timelock.ADMINROLE(readOpts)
@@ -749,8 +749,8 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	proposal, err := aggregateProposals(
 		env,
 		state,
-		allEnablementProposals,
-		ownershipTransferProposals,
+		append(allEnablementProposals, ownershipTransferProposals...),
+		nil,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),
 		c.MCMSConfig,
 	)

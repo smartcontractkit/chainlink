@@ -52,6 +52,12 @@ func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimel
 	if tc.MCMSAction == types.TimelockActionBypass && s.BypasserMcm == nil {
 		return fmt.Errorf("missing bypasserMcm on %s", chain)
 	}
+	if s.Timelock == nil {
+		return fmt.Errorf("missing timelock on %s", chain)
+	}
+	if s.CallProxy == nil {
+		return fmt.Errorf("missing callProxy on %s", chain)
+	}
 	return nil
 }
 
