@@ -64,7 +64,7 @@ volume_name = "workflow_volume"
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -81,7 +81,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -98,7 +98,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -115,7 +115,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -132,7 +132,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -149,7 +149,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -166,7 +166,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -183,7 +183,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -200,7 +200,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -217,7 +217,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -234,7 +234,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -251,7 +251,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -268,7 +268,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -285,7 +285,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -302,7 +302,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -319,7 +319,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -336,7 +336,7 @@ user_config_overrides = """
       """
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
         [Feature]
@@ -364,7 +364,7 @@ port = 13200
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 user_config_overrides = """
       [Feature]
@@ -381,7 +381,7 @@ user_config_overrides = """
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13401:3456']
 user_config_overrides = """
@@ -398,7 +398,7 @@ user_config_overrides = """
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13402:3456']
 user_config_overrides = """
@@ -415,7 +415,7 @@ user_config_overrides = """
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13403:3456']
 user_config_overrides = """
@@ -432,7 +432,7 @@ user_config_overrides = """
 
 [[nodesets.node_specs]]
 [nodesets.node_specs.node]
-image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:39ecc82f8429d8e96d099312ccad3470f3f2fc78-plugins"
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:f2addca86d976ffe0e11f36e60d3b91afcc0b44f-plugins"
 #image = "localhost:5001/chainlink:develop"
 custom_ports = ['13403:3456']
 user_config_overrides = """
