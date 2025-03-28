@@ -49,7 +49,7 @@ func Test_ReplayFromBlock(t *testing.T) {
 		// Incorrect chain family
 		require.NoError(t, set.Set("chain-id", "5"))
 		require.NoError(t, set.Set("family", "xxxx"))
-		require.ErrorContains(t, client.ReplayFromBlock(c), "Replay not implemented for chain family")
+		require.ErrorContains(t, client.ReplayFromBlock(c), "relayer does not exist")
 	})
 
 	t.Run("evm replay", func(t *testing.T) {
