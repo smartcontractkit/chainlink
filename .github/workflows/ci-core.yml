@@ -284,7 +284,7 @@ jobs:
           ./tools/bin/${{ matrix.type.cmd }} ./...
 
       - name: Generate Flakeguard Test Reports
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         env:
           MATRIX_TYPE_CMD: ${{ matrix.type.cmd }}
           GITHUB_WORKSPACE: ${{ github.workspace }}
@@ -298,7 +298,7 @@ jobs:
         run: ./.github/scripts/flakeguard-generate-reports.sh   
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
@@ -307,7 +307,7 @@ jobs:
           if-no-files-found: ignore 
           
       - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
@@ -316,7 +316,7 @@ jobs:
           if-no-files-found: ignore           
 
       - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_failed_tests.json
@@ -325,7 +325,7 @@ jobs:
           if-no-files-found: ignore
           
       - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
-        if: ${{ always() && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
@@ -334,7 +334,7 @@ jobs:
           if-no-files-found: ignore          
 
       - name: Send Flakeguard Reports to Splunk
-        if: ${{ always() && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
+        if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
