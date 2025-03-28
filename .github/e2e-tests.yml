@@ -794,6 +794,8 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     test_dir: integration-tests
     test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke -v -run "TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD" -timeout 30m -count=1 -test.parallel=2 -json
+    triggers:
+      - PR E2E Core Tests
     pyroscope_env: ci-smoke-vrf-evm-simulated
 
   - id: smoke/vrf_test.go:*
