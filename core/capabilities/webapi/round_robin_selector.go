@@ -15,18 +15,20 @@ type RoundRobinSelector struct {
 	mu    sync.Mutex
 }
 
-// WithRandomStart starts selection at a random index.
-func WithRandomStart() func(*RoundRobinSelector) {
+func WithFixedStart() func(*RoundRobinSelector) {
 	return func(rrs *RoundRobinSelector) {
-		start := rand.Intn(len(rrs.items)) //nolint:gosec // No need for crpto secure randomness to select an index.
-		rrs.index = start
+		rrs.index = 0
 	}
 }
 
 func NewRoundRobinSelector(items []string, opts ...func(*RoundRobinSelector)) *RoundRobinSelector {
+	var index int
+	if len(items) > 0 {
+		index = rand.Intn(len(items)) //nolint:gosec // No need for crpto secure randomness to select an index
+	}
 	rrs := &RoundRobinSelector{
 		items: items,
-		index: 0,
+		index: index,
 	}
 
 	for _, opt := range opts {

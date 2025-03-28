@@ -186,6 +186,8 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 				c.lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
 				continue
 			}
+
+			c.lggr.Debugw("connected successfully", "selectedGateway", gateway)
 			return gateway, nil
 		}
 	}

@@ -47,7 +47,6 @@ import (
 	gatewayconnector "github.com/smartcontractkit/chainlink/v2/core/capabilities/gateway_connector"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
@@ -598,7 +597,6 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		peerWrapper,
 		opts.NewOracleFactoryFn,
 		opts.FetcherFactoryFn,
-		webapi.WithRandomStart(),
 	)
 
 	if cfg.OCR().Enabled() {
@@ -910,7 +908,7 @@ func newCREServices(
 					if gatewayConnectorWrapper == nil {
 						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
 					}
-					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper, webapi.WithRandomStart())
+					fetcher := syncer.NewFetcherService(lggr, gatewayConnectorWrapper)
 					fetcherFunc = fetcher.Fetch
 					srvcs = append(srvcs, fetcher)
 				} else {

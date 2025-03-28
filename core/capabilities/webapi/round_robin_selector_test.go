@@ -10,7 +10,7 @@ import (
 
 func TestRoundRobinSelector(t *testing.T) {
 	gateways := []string{"gateway1", "gateway2", "gateway3"}
-	rr := NewRoundRobinSelector(gateways)
+	rr := NewRoundRobinSelector(gateways, WithFixedStart())
 
 	expectedOrder := []string{"gateway1", "gateway2", "gateway3", "gateway1", "gateway2", "gateway3"}
 
@@ -22,7 +22,7 @@ func TestRoundRobinSelector(t *testing.T) {
 }
 
 func TestRoundRobinSelector_Empty(t *testing.T) {
-	rr := NewRoundRobinSelector([]string{})
+	rr := NewRoundRobinSelector([]string{}, WithFixedStart())
 
 	_, err := rr.NextGateway()
 	assert.ErrorIs(t, err, ErrNoGateways, "expected ErrNoGateways when no gateways are available")
@@ -30,7 +30,7 @@ func TestRoundRobinSelector_Empty(t *testing.T) {
 
 func TestRoundRobinSelector_Concurrency(t *testing.T) {
 	gateways := []string{"gateway1", "gateway2", "gateway3"}
-	rr := NewRoundRobinSelector(gateways)
+	rr := NewRoundRobinSelector(gateways, WithFixedStart())
 
 	var wg sync.WaitGroup
 	numRequests := 100
