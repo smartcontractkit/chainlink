@@ -61,8 +61,8 @@ type MockCapabilities struct {
 }
 
 type WorkflowLoad struct {
-	Streams       int `toml:"streams" validate:"required, gte=1"`
-	Jobs          int `toml:"jobs" validate:"required, gte=1"`
+	Streams       int `toml:"streams" validate:"required"`
+	Jobs          int `toml:"jobs" validate:"required"`
 	FeedAddresses [][]string
 }
 
@@ -71,7 +71,7 @@ type FeedWithStreamID struct {
 	StreamID uint32 `json:"streamID"`
 }
 
-func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
+func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
