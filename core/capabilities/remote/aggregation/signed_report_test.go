@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -21,26 +21,29 @@ import (
 
 	// "github.com/smartcontractkit/chainlink/common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/aggregation"
+	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 )
 
 func TestSignedReportAggregator_Aggregate(t *testing.T) {
-	t.Skip("chainlink-common v0.6.0")
 	t.Parallel()
 
 	// Setup test keys
-	key1, err := crypto.GenerateKey()
+	kb1, err := ocr2key.New(chaintype.EVM)
 	require.NoError(t, err)
-	key2, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	key3, err := crypto.GenerateKey()
-	require.NoError(t, err)
-	key4, err := crypto.GenerateKey() // Unauthorized key
-	require.NoError(t, err)
+	addr1 := common.BytesToAddress(kb1.PublicKey())
 
-	addr1 := crypto.PubkeyToAddress(key1.PublicKey)
-	addr2 := crypto.PubkeyToAddress(key2.PublicKey)
-	addr3 := crypto.PubkeyToAddress(key3.PublicKey)
+	kb2, err := ocr2key.New(chaintype.EVM)
+	require.NoError(t, err)
+	addr2 := common.BytesToAddress(kb2.PublicKey())
+
+	kb3, err := ocr2key.New(chaintype.EVM)
+	require.NoError(t, err)
+	addr3 := common.BytesToAddress(kb3.PublicKey())
+
+	// kb4 is an unauthorized signer
+	kb4, err := ocr2key.New(chaintype.EVM)
+	require.NoError(t, err)
 
 	// Setup test data
 	eventID := "test-event-123"
@@ -69,14 +72,11 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 	reportBytes, err := proto.Marshal(validReport)
 	require.NoError(t, err)
 
-	// Create signature for the report
-	reportHash := ocr2key.ReportToSigData3(configDigest, seqNr, reportBytes)
-
-	sig1, err := crypto.Sign(reportHash, key1)
+	sig1, err := kb1.Sign3(configDigest, seqNr, reportBytes)
 	require.NoError(t, err)
-	sig2, err := crypto.Sign(reportHash, key2)
+	sig2, err := kb2.Sign3(configDigest, seqNr, reportBytes)
 	require.NoError(t, err)
-	unauthorizedSig, err := crypto.Sign(reportHash, key4) // Unauthorized signature
+	unauthorizedSig, err := kb4.Sign3(configDigest, seqNr, reportBytes) // Unauthorized signature
 	require.NoError(t, err)
 
 	// Setup logger
@@ -113,11 +113,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				{Signature: sig2},
 			},
 		}
-
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 		// Create trigger event with OCR report
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		// Create TriggerResponse
@@ -144,7 +145,6 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 
 		// Verify response is flattened correctly
 		assert.Equal(t, expectedResp.Event.ID, result.Event.ID)
-		assert.Nil(t, result.Event.OCREvent)
 		assert.Equal(t, expectedResp.Event.Outputs, result.Event.Outputs)
 	})
 
@@ -182,6 +182,32 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		assert.Equal(t, 1, gotLog.Len())
 	})
 
+	t.Run("error - response with malformed Output map", func(t *testing.T) {
+		// Create event with malformed Output map
+		o, err := values.NewMap(map[string]any{
+			"UnexpectedKey": "unexpected value",
+		})
+		require.NoError(t, err)
+		triggerEvent := capabilities.TriggerEvent{
+			ID:      eventID,
+			Outputs: o,
+		}
+
+		triggerResp := capabilities.TriggerResponse{
+			Event: triggerEvent,
+		}
+
+		respBytes, err := capabilitiespb.MarshalTriggerResponse(triggerResp)
+		require.NoError(t, err)
+
+		// Call Aggregate with response without OCR event
+		clearLogger(t, observedLogs)
+		_, err = aggregator.Aggregate(eventID, [][]byte{respBytes})
+		require.Error(t, err)
+		gotLog := observedLogs.FilterMessage("trigger response does not contain an OCR report")
+		assert.Equal(t, 1, gotLog.Len())
+	})
+
 	t.Run("error - unparsable OCR report", func(t *testing.T) {
 		// Create an OCR event with invalid report bytes
 		ocrEvent := &capabilities.OCRTriggerEvent{
@@ -193,10 +219,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				{Signature: sig2},
 			},
 		}
-
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID: eventID,
+
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -234,10 +262,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				{Signature: sig2},
 			},
 		}
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -277,10 +307,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				{Signature: sig2},
 			},
 		}
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -309,10 +341,11 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				// Missing second valid signature
 			},
 		}
-
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -342,9 +375,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 			},
 		}
 
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
+
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -374,9 +410,11 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 			},
 		}
 
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -408,10 +446,12 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 				{Signature: sig2},
 			},
 		}
+		m, err := ocrEvent.ToMap()
+		require.NoError(t, err)
 
 		triggerEvent := capabilities.TriggerEvent{
-			ID:       eventID,
-			OCREvent: ocrEvent,
+			ID:      eventID,
+			Outputs: m,
 		}
 
 		triggerResp := capabilities.TriggerResponse{
@@ -430,6 +470,7 @@ func TestSignedReportAggregator_Aggregate(t *testing.T) {
 		gotLogLine := gotLog.All()[0]
 		assert.True(t, logContainErr(t, gotLogLine, aggregation.ErrMalformedSigner), "expected error to be contained in log")
 	})
+
 }
 
 // TODO this seems useful in our common logging package
