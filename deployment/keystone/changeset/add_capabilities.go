@@ -79,7 +79,7 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 			inspectorPerChain,
 			[]mcmstypes.BatchOperation{*ops},
 			"proposal to add capabilities",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

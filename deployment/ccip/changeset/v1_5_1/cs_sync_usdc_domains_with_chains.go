@@ -11,6 +11,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 )
 
@@ -23,7 +24,7 @@ type SyncUSDCDomainsWithChainsConfig struct {
 	// ChainSelectorToUSDCDomain maps chains selectors to their USDC domain identifiers.
 	ChainSelectorToUSDCDomain map[uint64]uint32
 	// MCMS defines the delay to use for Timelock (if absent, the changeset will attempt to use the deployer key).
-	MCMS *commoncs.TimelockConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (c SyncUSDCDomainsWithChainsConfig) Validate(env deployment.Environment, state changeset.CCIPOnChainState) error {

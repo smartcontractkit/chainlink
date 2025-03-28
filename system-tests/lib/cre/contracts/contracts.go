@@ -17,6 +17,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
+
 	workflow_registry_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
 
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -63,18 +65,6 @@ var DefaultCapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DO
 		})
 	}
 
-	if flags.HasFlag(donFlags, types.WriteEVMCapability) {
-		capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
-			Capability: kcr.CapabilitiesRegistryCapability{
-				LabelledName:   "write_geth-testnet",
-				Version:        "1.0.0",
-				CapabilityType: 3, // TARGET
-				ResponseType:   1, // OBSERVATION_IDENTICAL
-			},
-			Config: &capabilitiespb.CapabilityConfig{},
-		})
-	}
-
 	return capabilities
 }
 
@@ -105,6 +95,29 @@ var WebAPICapabilityFactoryFn = func(donFlags []string) []keystone_changeset.DON
 	}
 
 	return capabilities
+}
+
+var ChainWriterCapabilityFactory = func(chainID uint64) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+	return func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
+		var capabilities []keystone_changeset.DONCapabilityWithConfig
+
+		fullName := corevm.GenerateWriteTargetName(chainID)
+		splitName := strings.Split(fullName, "@")
+
+		if flags.HasFlag(donFlags, types.WriteEVMCapability) {
+			capabilities = append(capabilities, keystone_changeset.DONCapabilityWithConfig{
+				Capability: kcr.CapabilitiesRegistryCapability{
+					LabelledName:   splitName[0],
+					Version:        splitName[1],
+					CapabilityType: 3, // TARGET
+					ResponseType:   1, // OBSERVATION_IDENTICAL
+				},
+				Config: &capabilitiespb.CapabilityConfig{},
+			})
+		}
+
+		return capabilities
+	}
 }
 
 var ChainReaderCapabilityFactory = func(chainID int, chainFamily string) func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {

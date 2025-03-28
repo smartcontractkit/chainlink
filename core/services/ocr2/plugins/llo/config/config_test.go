@@ -138,7 +138,7 @@ func Test_Config(t *testing.T) {
 			err = mc.Validate()
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), `DonID must be specified and not zero`)
-			assert.Contains(t, err.Error(), `At least one Mercury server must be specified`)
+			assert.Contains(t, err.Error(), `At least one Mercury server or Transmitter must be specified`)
 			assert.Contains(t, err.Error(), `ChannelDefinitionsContractAddress is required if ChannelDefinitions is not specified`)
 		})
 	})

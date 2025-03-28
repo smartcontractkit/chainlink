@@ -31,20 +31,15 @@ type TransferConfig struct {
 	Value *big.Int
 }
 
-type MCMSConfig struct {
-	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
-	OverrideRoot bool
-}
-
 type LinkTransferConfig struct {
 	Transfers  map[uint64][]TransferConfig
 	From       common.Address
-	McmsConfig *MCMSConfig
+	McmsConfig *proposalutils.TimelockConfig
 }
 
 var _ deployment.ChangeSet[*LinkTransferConfig] = LinkTransfer
 
-func getDeployer(e deployment.Environment, chain uint64, mcmConfig *MCMSConfig) *bind.TransactOpts {
+func getDeployer(e deployment.Environment, chain uint64, mcmConfig *proposalutils.TimelockConfig) *bind.TransactOpts {
 	if mcmConfig == nil {
 		return e.Chains[chain].DeployerKey
 	}
@@ -152,7 +147,7 @@ func transferOrBuildTx(
 	transfer TransferConfig,
 	opts *bind.TransactOpts,
 	chain deployment.Chain,
-	mcmsConfig *MCMSConfig) (*ethTypes.Transaction, error) {
+	mcmsConfig *proposalutils.TimelockConfig) (*ethTypes.Transaction, error) {
 	tx, err := linkState.LinkToken.Transfer(opts, transfer.To, transfer.Value)
 	if err != nil {
 		return nil, fmt.Errorf("error packing transfer tx data: %w", err)
@@ -297,7 +292,7 @@ func LinkTransferV2(e deployment.Environment, cfg *LinkTransferConfig) (deployme
 			inspectorPerChain,
 			allBatches,
 			"LINK Value transfer proposal",
-			cfg.McmsConfig.MinDelay,
+			*cfg.McmsConfig,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

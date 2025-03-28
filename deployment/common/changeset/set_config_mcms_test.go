@@ -103,7 +103,7 @@ func TestSetConfigMCMSVariants(t *testing.T) {
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMS),
 						commonchangeset.MCMSConfig{
-							ProposalConfig: &commonchangeset.TimelockConfig{
+							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: 0,
 							},
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -213,7 +213,7 @@ func TestSetConfigMCMSV2EVM(t *testing.T) {
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
-							ProposalConfig: &commonchangeset.TimelockConfig{
+							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: 0,
 							},
 							ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -306,13 +306,13 @@ func TestSetConfigMCMSV2Solana(t *testing.T) {
 			changeSets: func(chainSel uint64, cfgs map[uint64]commonchangeset.ConfigPerRoleV2) []commonchangeset.ConfiguredChangeSet {
 				return []commonchangeset.ConfiguredChangeSet{
 					commonchangeset.Configure(&commonchangesetsolana.TransferMCMSToTimelockSolana{}, commonchangesetsolana.TransferMCMSToTimelockSolanaConfig{
-						Chains:   []uint64{chainSel},
-						MinDelay: time.Second * 1,
+						Chains:  []uint64{chainSel},
+						MCMSCfg: proposalutils.TimelockConfig{MinDelay: time.Second * 1},
 					}),
 					commonchangeset.Configure(
 						deployment.CreateLegacyChangeSet(commonchangeset.SetConfigMCMSV2),
 						commonchangeset.MCMSConfigV2{
-							ProposalConfig: &commonchangeset.TimelockConfig{
+							ProposalConfig: &proposalutils.TimelockConfig{
 								MinDelay: time.Second * 1,
 							},
 							ConfigsPerChain: cfgs,
@@ -411,7 +411,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: commonchangeset.MCMSConfig{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -471,7 +471,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid proposer config",
 			cfg: commonchangeset.MCMSConfig{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -487,7 +487,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid canceller config",
 			cfg: commonchangeset.MCMSConfig{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -503,7 +503,7 @@ func TestValidate(t *testing.T) {
 		{
 			name: "invalid bypasser config",
 			cfg: commonchangeset.MCMSConfig{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRole{
@@ -552,7 +552,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "valid config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -609,7 +609,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid proposer config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -630,7 +630,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid canceller config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{
@@ -651,7 +651,7 @@ func TestValidateV2(t *testing.T) {
 		{
 			name: "invalid bypasser config",
 			cfg: commonchangeset.MCMSConfigV2{
-				ProposalConfig: &commonchangeset.TimelockConfig{
+				ProposalConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 				ConfigsPerChain: map[uint64]commonchangeset.ConfigPerRoleV2{

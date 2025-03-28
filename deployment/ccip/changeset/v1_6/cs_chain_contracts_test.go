@@ -21,6 +21,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/globals"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/v1_5"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
@@ -63,9 +64,9 @@ func TestUpdateOnRampsDests(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -139,9 +140,9 @@ func TestUpdateOnRampDynamicConfig(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -207,9 +208,9 @@ func TestUpdateOnRampAllowList(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -286,9 +287,9 @@ func TestWithdrawOnRampFeeTokens(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -397,9 +398,9 @@ func TestUpdateOffRampsSources(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -473,9 +474,9 @@ func TestUpdateFQDests(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -541,9 +542,9 @@ func TestUpdateRouterRamps(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -617,9 +618,9 @@ func TestUpdateDynamicConfigOffRampChangeset(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -677,9 +678,9 @@ func TestUpdateNonceManagersCS(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -956,9 +957,9 @@ func TestApplyFeeTokensUpdatesFeeQuoterChangeset(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1015,9 +1016,9 @@ func TestApplyPremiumMultiplierWeiPerEthUpdatesFeeQuoterChangeset(t *testing.T) 
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1151,9 +1152,9 @@ func TestUpdateTokenPriceFeedsFeeQuoterChangeset(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}
@@ -1244,9 +1245,9 @@ func TestApplyTokenTransferFeeConfigUpdatesFeeQuoterChangeset(t *testing.T) {
 				transferToTimelock(t, tenv, state, source, dest)
 			}
 
-			var mcmsConfig *commonchangeset.TimelockConfig
+			var mcmsConfig *proposalutils.TimelockConfig
 			if tc.mcmsEnabled {
-				mcmsConfig = &commonchangeset.TimelockConfig{
+				mcmsConfig = &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				}
 			}

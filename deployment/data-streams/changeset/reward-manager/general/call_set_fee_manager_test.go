@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
@@ -14,9 +16,10 @@ import (
 	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
-func TestCallSetFeeManager(t *testing.T) {
+func runSetFeeManagerTest(t *testing.T, useMCMS bool) {
 	e := testutil.NewMemoryEnv(t, true)
-	chain := e.Chains[testutil.TestChain.Selector]
+	chainSelector := testutil.TestChain.Selector
+	chain := e.Chains[chainSelector]
 
 	e, rewardManagerAddr, linkState := DeployRewardManagerAndLink(t, e)
 
@@ -44,13 +47,25 @@ func TestCallSetFeeManager(t *testing.T) {
 	feeManagerAddr := common.HexToAddress(feeManagerAddrHex)
 	require.NotEqual(t, common.Address{}, feeManagerAddr, "fee manager should not be zero address")
 
-	e, err = commonChangesets.Apply(t, e, nil,
+	var timelocks map[uint64]*proposalutils.TimelockExecutionContracts
+	if useMCMS {
+		e, _, timelocks = testutil.DeployMCMS(t, e, map[uint64][]common.Address{
+			chainSelector: {rewardManagerAddr},
+		})
+	}
+
+	e, err = commonChangesets.Apply(
+		t, e, timelocks,
 		commonChangesets.Configure(
 			SetFeeManagerChangeset,
 			SetFeeManagerConfig{
 				ConfigsByChain: map[uint64][]SetFeeManager{
-					testutil.TestChain.Selector: {SetFeeManager{FeeManagerAddress: feeManagerAddr, RewardManagerAddress: rewardManagerAddr}},
+					chainSelector: {{
+						RewardManagerAddress: rewardManagerAddr,
+						FeeManagerAddress:    feeManagerAddr,
+					}},
 				},
+				MCMSConfig: testutil.GetMCMSConfig(useMCMS),
 			},
 		),
 	)
@@ -73,4 +88,26 @@ func TestCallSetFeeManager(t *testing.T) {
 		}
 	}
 	require.True(t, foundExpected)
+}
+
+func TestSetFeeManager(t *testing.T) {
+	testCases := []struct {
+		name    string
+		useMCMS bool
+	}{
+		{
+			name:    "Without MCMS",
+			useMCMS: false,
+		},
+		{
+			name:    "With MCMS",
+			useMCMS: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			runSetFeeManagerTest(t, tc.useMCMS)
+		})
+	}
 }

@@ -207,7 +207,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd system-tests/tests && pushd smoke/cre/cmd && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha && popd && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-cre-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -226,7 +226,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd system-tests/tests && pushd smoke/cre/cmd && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha && popd && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -245,7 +245,7 @@ runner-test-matrix:
     triggers:
       - PR CRE E2E Core Tests
       - Nightly E2E Tests
-    test_cmd: cd system-tests/tests && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
+    test_cmd: cd system-tests/tests && pushd smoke/cre/cmd && go run main.go all --output-dir ../ --gh-token-env-var-name GITHUB_API_TOKEN --cre-cli-version v0.1.5 --capability-name cron --capability-version v1.0.2-alpha && popd && { go test github.com/smartcontractkit/chainlink/system-tests/tests/smoke/cre -v -run "^(TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice)$" -timeout 30m -count=1 -test.parallel=1 -json; exit_code=$?; ../../tools/ci/wait-for-containers-to-stop.sh 30; exit $exit_code; } # Sleep to allow testcontainers to stop
     pyroscope_env: ci-smoke-capabilities-evm-simulated
     test_env_vars:
       E2E_TEST_CHAINLINK_VERSION: "{{ env.DEFAULT_CHAINLINK_PLUGINS_VERSION }}" # This is the chainlink version that has the plugins
@@ -1074,27 +1074,14 @@ runner-test-matrix:
       CCIP_V16_TEST_ENV: docker
     test_dir: integration-tests
 
-  - id: smoke/ccip/ccip_migration_to_v_1_6_test.go:^TestV1_5_Message_RMNRemote_Curse_Uncurse$
-    path: integration-tests/smoke/ccip/ccip_migration_to_v_1_6_test.go
-    test_env_type: docker
-    runs_on: ubuntu24.04-8cores-32GB
-    triggers:
-      - Nightly E2E Tests
-    test_cmd: go test github.com/smartcontractkit/chainlink/integration-tests/smoke/ccip -v -run ^TestV1_5_Message_RMNRemote_Curse_Uncurse$ -timeout 30m -count=1 -test.parallel=1 -json
-    pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
-    test_env_vars:
-      E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
-      E2E_JD_VERSION: 0.9.0
-      CCIP_V16_TEST_ENV: docker
-    test_dir: integration-tests
-
   - id: smoke/ccip/ccip_rmn_test.go:^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$
     path: integration-tests/smoke/ccip/ccip_rmn_test.go
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_dir: integration-tests
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1110,7 +1097,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_MultipleMessagesOnOneLaneNoWaitForExec$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1126,7 +1113,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughObservers$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_NotEnoughObservers$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1142,7 +1129,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentSigners$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_DifferentSigners$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1158,7 +1145,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_NotEnoughSigners$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_NotEnoughSigners$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1174,7 +1161,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_DifferentRmnNodesForDifferentChains$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_DifferentRmnNodesForDifferentChains$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1190,7 +1177,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOneSourceChainCursed$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_TwoMessagesOneSourceChainCursed$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1206,7 +1193,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1222,7 +1209,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_IncorrectSig$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_IncorrectSig$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1238,7 +1225,7 @@ runner-test-matrix:
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$ -timeout 30m -test.parallel=1 -count=1 -json
+    test_cmd: go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatchingWithTemporaryPause$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
@@ -1289,11 +1276,11 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-smoke-usdc
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1303,12 +1290,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/usdc_mock_deployment.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-smoke-lbtc-32bytes-destination-pool-data
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1318,12 +1305,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/lbtc_mock_deployment_with_32bytes_data.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-smoke-lbtc-non32bytes-destination-pool-data
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1333,12 +1320,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/lbtc_mock_deployment_with_non32bytes_data.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-smoke-db-compatibility
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1348,12 +1335,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/db-compatibility.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-smoke-leader-lane
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1363,12 +1350,12 @@ runner-test-matrix:
     triggers:
     # - PR E2E CCIP Tests
     # - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPForBidirectionalLane$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/leader-lane.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPTokenPoolRateLimits$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1378,11 +1365,11 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPTokenPoolRateLimits$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPTokenPoolRateLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPMulticall$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1392,11 +1379,11 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPMulticall$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPMulticall$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1406,11 +1393,11 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPManuallyExecuteAfterExecutionFailingDueToInsufficientGas$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOnRampLimits$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1420,11 +1407,11 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOnRampLimits$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPOnRampLimits$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampCapacityLimit$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1432,11 +1419,11 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPOffRampCapacityLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPOffRampAggRateLimit$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1444,11 +1431,11 @@ runner-test-matrix:
     runs_on: ubuntu-latest
     triggers:
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPOffRampAggRateLimit$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgBelowFinality$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1458,12 +1445,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPReorgBelowFinality$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtDestination$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1473,12 +1460,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtDestination$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/smoke/ccip_test.go:^TestSmokeCCIPReorgAboveFinalityAtSource$
     path: integration-tests/ccip-tests/smoke/ccip_test.go
@@ -1488,12 +1475,12 @@ runner-test-matrix:
       - PR E2E CCIP Tests
       - Merge Queue E2E CCIP Tests
       - Nightly E2E Tests
-    test_cmd: cd integration-tests/ccip-tests/smoke && go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
+    test_cmd: go test -test.run ^TestSmokeCCIPReorgAboveFinalityAtSource$ -timeout 30m -count=1 -test.parallel=1 -json
     test_env_vars:
       E2E_TEST_SELECTED_NETWORK: SIMULATED_1,SIMULATED_2
       CHAINLINK_USER_TEAM: CCIP
     test_config_override_path: integration-tests/ccip-tests/testconfig/tomls/ccip-reorg.toml
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 
   - id: ccip-tests/chaos/ccip_test.go
     path: integration-tests/ccip-tests/chaos/ccip_test.go
@@ -1507,5 +1494,5 @@ runner-test-matrix:
       TEST_TRIGGERED_BY: ccip-cron-chaos-eth
       TEST_LOG_LEVEL: debug
       CHAINLINK_USER_TEAM: CCIP
-    test_dir: integration-tests
+    test_dir: integration-tests/ccip-tests/smoke
 # END: CCIP tests

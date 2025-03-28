@@ -35,9 +35,9 @@ var (
 		DeltaResend:   30 * time.Second,
 		DeltaInitial:  20 * time.Second,
 		// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
-		// If we want to produce a report every 20 seconds we would set DeltaRound to 10s
-		// At a ~2s block time, this gives us a commit report every ~10 blocks.
-		DeltaRound:                  10 * time.Second,
+		// If we want to produce a report every 4 seconds we would set DeltaRound to 2s.
+		// At a ~2s block time, this gives us a commit report every ~2 blocks.
+		DeltaRound:                  2 * time.Second,
 		DeltaGrace:                  5 * time.Second,
 		DeltaCertifiedCommitRequest: 10 * time.Second,
 		// TransmissionDelayMultiplier overrides DeltaStage
@@ -56,9 +56,9 @@ var (
 		CommitOCRParams,
 		types.OCRParameters{
 			// Since a report produced every 2 rounds, whatever cadence we want to produce a report at we should divide by 2.
-			// If we want to produce a report every 120 seconds we would set DeltaRound to 60s.
-			// At a ~12s block time, this gives us a commit report every ~10 blocks.
-			DeltaRound: 60 * time.Second,
+			// If we want to produce a report every 12 seconds we would set DeltaRound to 6s.
+			// At a ~12s block time, this gives us a commit report every block.
+			DeltaRound: 6 * time.Second,
 		},
 	)
 )

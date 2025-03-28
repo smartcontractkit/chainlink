@@ -1,6 +1,7 @@
 package workflows
 
 import (
+	"errors"
 	"sort"
 	"sync"
 
@@ -130,10 +131,15 @@ func (r *MeteringReport) MedianSpend() map[MeteringSpendUnit]MeteringSpendValue 
 	return medians
 }
 
+// SetStep sets the recorded spends for a given capability invocation in the engine.
+// We expect to only set this value once - an error is returned if a step would be overwritten
 func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringReportStep) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
+	if _, ok := r.steps[ref]; ok {
+		return errors.New("step already exists")
+	}
 	r.steps[ref] = steps
 
 	return nil
@@ -174,4 +180,49 @@ func (r *MeteringReport) Description() MessageDescription {
 		Domain: MeteringReportDomain,
 		Entity: MeteringReportEntity,
 	}
+}
+
+// MeterReports is a concurrency-safe wrapper around map[string]*MeteringReport.
+type MeterReports struct {
+	mu           sync.RWMutex
+	meterReports map[string]*MeteringReport
+}
+
+// NewMeterReports initializes and returns a new MeterReports.
+func NewMeterReports() *MeterReports {
+	return &MeterReports{
+		meterReports: make(map[string]*MeteringReport),
+	}
+}
+
+// Get retrieves a MeteringReport for a given key (if it exists).
+func (s *MeterReports) Get(key string) (*MeteringReport, bool) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	val, ok := s.meterReports[key]
+	return val, ok
+}
+
+// Add inserts or updates a MeteringReport under the specified key.
+func (s *MeterReports) Add(key string, report *MeteringReport) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	s.meterReports[key] = report
+}
+
+// Delete removes the MeteringReport with the specified key.
+func (s *MeterReports) Delete(key string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	delete(s.meterReports, key)
+}
+
+func (s *MeterReports) Len() int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return len(s.meterReports)
 }

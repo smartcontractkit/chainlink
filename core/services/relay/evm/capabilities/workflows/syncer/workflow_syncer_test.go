@@ -62,6 +62,8 @@ type testEvtHandler struct {
 	mux    sync.Mutex
 }
 
+func (m *testEvtHandler) Close() error { return nil }
+
 func (m *testEvtHandler) Handle(ctx context.Context, event syncer.Event) error {
 	m.mux.Lock()
 	defer m.mux.Unlock()
@@ -839,6 +841,8 @@ type testSecretsWorkEventHandler struct {
 	wrappedHandler evtHandler
 	registeredCh   chan syncer.Event
 }
+
+func (m *testSecretsWorkEventHandler) Close() error { return nil }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {

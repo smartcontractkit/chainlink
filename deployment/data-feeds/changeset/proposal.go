@@ -58,7 +58,7 @@ func BuildMultiChainProposals(env deployment.Environment, description string, pr
 		inspectorPerChain,
 		batches,
 		description,
-		minDelay,
+		proposalutils.TimelockConfig{MinDelay: minDelay},
 	)
 	if err != nil {
 		return nil, err

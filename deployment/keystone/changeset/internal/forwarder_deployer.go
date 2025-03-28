@@ -75,6 +75,7 @@ func (c *KeystoneForwarderDeployer) deploy(ctx context.Context, req DeployReques
 type ConfigureForwarderContractsRequest struct {
 	Dons []RegisteredDon
 
+	Chains  map[uint64]struct{} // list of chains for which request will be executed. If empty, request is applied to all chains
 	UseMCMS bool
 }
 type ConfigureForwarderContractsResponse struct {
@@ -96,6 +97,9 @@ func ConfigureForwardContracts(env *deployment.Environment, req ConfigureForward
 	opPerChain := make(map[uint64]timelock.BatchChainOperation)
 	// configure forwarders on all chains
 	for _, chain := range env.Chains {
+		if _, shouldInclude := req.Chains[chain.Selector]; len(req.Chains) > 0 && !shouldInclude {
+			continue
+		}
 		// get the forwarder contract for the chain
 		contracts, ok := contractSetsResp.ContractSets[chain.Selector]
 		if !ok {
