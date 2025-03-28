@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -326,8 +327,12 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.ForwarderAddress == (common.Address{}) {
 		return errors.New("forwarder address not set")
 	}
-	if g.GatewayConnectorOutput == nil {
-		return errors.New("gateway connector output not set")
+
+	// TODO: Make gatewayDON not required
+	if slices.Contains(g.DonMetadata.Flags, GatewayDON) {
+		if g.GatewayConnectorOutput == nil {
+			return errors.New("gateway connector output not set")
+		}
 	}
 
 	return nil

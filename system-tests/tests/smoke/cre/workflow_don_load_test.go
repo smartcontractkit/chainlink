@@ -77,7 +77,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
 	validateEnvVars(t, &in.TestConfig)
-	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
+	require.Len(t, in.NodeSets, 2, "expected 3 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -92,13 +92,6 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 				Capabilities:       []string{keystonetypes.MockCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
 				BootstrapNodeIndex: 0,
-			},
-			{
-				Input:              input[2],
-				Capabilities:       []string{},
-				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
-				GatewayNodeIndex:   0,
-				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 			},
 		}
 	}
@@ -379,14 +372,14 @@ type StreamsGun struct {
 	keyBundles  []ocr2key.KeyBundle
 	feeds       [][]FeedWithStreamID
 	triggerID   string
-	waitChans   map[uint32]chan interface{}
+	waitChans   map[int64]chan interface{}
 	receiveChan <-chan capabilities.CapabilityRequest
 	mu          sync.Mutex
 	feedLimit   int
 	jobLimit    int
 	event       *capabilities.OCRTriggerEvent
 	eventID     string
-	timestamp   uint64
+	timestamp   time.Time
 }
 
 func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.KeyBundle, feeds [][]FeedWithStreamID, triggerID string, ch <-chan capabilities.CapabilityRequest, feedLimit int, jobLimit int) *StreamsGun {
@@ -405,7 +398,7 @@ func NewStreamsGun(capProxy *mock_capability.Controller, keyBundles []ocr2key.Ke
 }
 
 func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
-	workingTimestamp := s.timestamp
+	workingTimestamp := s.timestamp.Unix()
 	err := s.prepareWaitHOOK(workingTimestamp)
 	if err != nil {
 		return &wasp.Response{Error: err.Error()}
@@ -461,7 +454,7 @@ func (s *StreamsGun) waitHOOKloop() {
 
 			s.mu.Lock()
 			// Check if exist
-			if ch, exist := s.waitChans[uint32(timestamp)]; exist {
+			if ch, exist := s.waitChans[timestamp]; exist {
 				s.mu.Unlock()
 				ch <- m // This is blocking
 			} else {
@@ -471,34 +464,34 @@ func (s *StreamsGun) waitHOOKloop() {
 	}
 }
 
-func (s *StreamsGun) prepareWaitHOOK(reportTimestamp uint64) error {
+func (s *StreamsGun) prepareWaitHOOK(reportTimestamp int64) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.waitChans == nil {
-		s.waitChans = make(map[uint32]chan interface{})
+		s.waitChans = make(map[int64]chan interface{})
 	}
-	if _, exists := s.waitChans[uint32(reportTimestamp)]; exists {
+	if _, exists := s.waitChans[reportTimestamp]; exists {
 		return fmt.Errorf("cannot prepare for HOOK, timestamp  %d already exits", reportTimestamp)
 	}
-	s.waitChans[uint32(reportTimestamp)] = make(chan interface{})
+	s.waitChans[reportTimestamp] = make(chan interface{})
 	return nil
 }
 
-func (s *StreamsGun) waitForHOOK(timestamp uint64) error {
+func (s *StreamsGun) waitForHOOK(timestamp int64) error {
 	s.mu.Lock()
-	ch, exists := s.waitChans[uint32(timestamp)]
+	ch, exists := s.waitChans[timestamp]
 	if !exists {
 		s.mu.Unlock()
 		return fmt.Errorf("cannot wait for HOOK, timestamp  %q does not exist", timestamp)
 	}
 	s.mu.Unlock()
 	<-ch
-	delete(s.waitChans, uint32(timestamp))
+	delete(s.waitChans, timestamp)
 	return nil
 }
 
 func (s *StreamsGun) precomputeReports() {
-	timestamp := uint64(time.Now().UnixNano())
+	timestamp := time.Now()
 	start := time.Now()
 
 	price := decimal.NewFromInt(int64(rand.IntN(100)))
@@ -517,7 +510,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.NullLogger, price, timestamp, feeds, s.keyBundles)
+	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles)
 	if err != nil {
 		panic(err)
 	}
@@ -531,7 +524,6 @@ func (s *StreamsGun) precomputeReports() {
 
 func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint64,
 	feeds []FeedWithStreamID, keyBundles []ocr2key.KeyBundle) (*capabilities.OCRTriggerEvent, string, error) {
-
 	values := make([]datastreamsllo.StreamValue, 0)
 
 	priceBytes, err := price.MarshalBinary()
