@@ -3,8 +3,6 @@ package webapi
 import (
 	"github.com/pkg/errors"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	libjobs "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -30,18 +28,10 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, "web-api-trigger-capability", "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig)
-				jobDesc := types.JobDescription{Flag: types.WebAPITargetCapability, NodeType: types.WorkerNode}
-
 				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
+					donToJobSpecs[donWithMetadata.ID] = make(types.DonJobs, 0)
 				}
-
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, "web-api-trigger-capability", "__builtin_web-api-trigger", libjobs.EmptyStdCapConfig))
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, types.WebAPITargetCapability) {
@@ -53,18 +43,7 @@ func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, err
 						PerSenderBurst = 1000
 						"""`
 
-				jobSpec := libjobs.WorkerStandardCapability(nodeID, "web-api-target-capability", "__builtin_web-api-target", config)
-				jobDesc := types.JobDescription{Flag: types.WebAPITargetCapability, NodeType: types.WorkerNode}
-
-				if _, ok := donToJobSpecs[donWithMetadata.ID]; !ok {
-					donToJobSpecs[donWithMetadata.ID] = make(map[types.JobDescription][]*jobv1.ProposeJobRequest)
-				}
-
-				if _, ok := donToJobSpecs[donWithMetadata.ID][jobDesc]; !ok {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					donToJobSpecs[donWithMetadata.ID][jobDesc] = append(donToJobSpecs[donWithMetadata.ID][jobDesc], jobSpec)
-				}
+				donToJobSpecs[donWithMetadata.ID] = append(donToJobSpecs[donWithMetadata.ID], libjobs.WorkerStandardCapability(nodeID, "web-api-target-capability", "__builtin_web-api-target", config))
 			}
 		}
 	}
