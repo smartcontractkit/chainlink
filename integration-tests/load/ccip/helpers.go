@@ -23,6 +23,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 
+	gethtypes "github.com/ethereum/go-ethereum/core/types"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment/environment/crib"
 
@@ -529,4 +530,74 @@ func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains
 		return nil, err
 	}
 	return deployerMap, nil
+}
+func reclaimFunds(lggr logger.Logger, e deployment.Environment, addressesByChain map[uint64][]*bind.TransactOpts, returnAddress common.Address) error {
+	removeFundsFromAccounts := func(ctx context.Context, lggr logger.Logger, chain deployment.Chain, addresses []*bind.TransactOpts, returnAddress common.Address, sel uint64) error {
+		for _, deployer := range addresses {
+			balance, err := chain.Client.BalanceAt(ctx, deployer.From, nil)
+			if err != nil {
+				lggr.Warnw("could not get balance for deployer key",
+					"err", err,
+					"chain", sel,
+					"account", deployer.From)
+				continue
+			}
+			nonce, err := chain.Client.NonceAt(ctx, deployer.From, nil)
+			if err != nil {
+				lggr.Warnw("could not get latest nonce for deployer key",
+					"err", err,
+					"chain", sel,
+					"account", deployer.From)
+				continue
+			}
+
+			// Get the current gas price
+			gasPrice, err := chain.Client.SuggestGasPrice(ctx)
+			if err != nil {
+				lggr.Warnw("could not get gas price",
+					"err", err,
+					"chain", sel)
+			}
+
+			tx := gethtypes.NewTx(&gethtypes.LegacyTx{
+				Nonce:    nonce,
+				To:       &returnAddress,
+				Value:    balance.Sub(balance, big.NewInt(1e16)), // leave a little bit for gas
+				GasPrice: gasPrice,
+				Gas:      21000,
+			})
+
+			signedTx, err := deployer.Signer(deployer.From, tx)
+			if err != nil {
+				lggr.Errorw("could not sign transaction for sending funds to ",
+					"chain", sel,
+					"account", deployer.From,
+					"err", err)
+				return err
+			}
+
+			lggr.Infow("sending transaction for ", "account", deployer.From.String(), "chain", sel)
+			err = chain.Client.SendTransaction(ctx, signedTx)
+			if err != nil {
+				lggr.Errorw("could not send transaction to address on ",
+					"chain", sel,
+					"address", deployer.From,
+					"err", err)
+				return err
+			}
+		}
+		return nil
+	}
+	g := new(errgroup.Group)
+	for sel, addresses := range addressesByChain {
+		sel, addresses := sel, addresses
+		g.Go(func() error {
+			return removeFundsFromAccounts(e.GetContext(), lggr, e.Chains[sel], addresses, returnAddress, sel)
+		})
+	}
+
+	if err := g.Wait(); err != nil {
+		return err
+	}
+	return nil
 }
