@@ -67,7 +67,7 @@ type WorkflowLoad struct {
 
 type FeedWithStreamID struct {
 	Feed     string `json:"feed"`
-	StreamID uint32 `json:"streamID"`
+	StreamID int32  `json:"streamID"`
 }
 
 func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
@@ -110,7 +110,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 			_, id := NewFeedID(t)
 			feedsAddresses[i] = append(feedsAddresses[i], FeedWithStreamID{
 				Feed:     id,
-				StreamID: uint32((in.WorkflowDONLoad.Streams * i) + streamID + 1),
+				StreamID: (in.WorkflowDONLoad.Streams * i) + streamID + 1,
 			})
 		}
 	}
@@ -138,7 +138,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 						}
 						feedBytes := feedID.Bytes()
 						feedConfig = append(feedConfig, FeedConfig{
-							FeedIDsIndex: int32(feed.StreamID),
+							FeedIDsIndex: feed.StreamID,
 							Deviation:    "0.001",
 							Heartbeat:    3600,
 							RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
@@ -548,7 +548,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 		}
 		values = append(values, dec)
 		streams = append(streams, llotypes.Stream{
-			StreamID: f.StreamID,
+			StreamID: llotypes.StreamID(f.StreamID),
 		})
 	}
 
@@ -616,7 +616,7 @@ func saveKeyBundles(keyBundles []ocr2key.KeyBundle) error {
 		}
 
 		filename := fmt.Sprintf("%s/key_bundle_%d.json", cacheDir, i)
-		if err := os.WriteFile(filename, bytes, 0644); err != nil {
+		if err := os.WriteFile(filename, bytes, 0600); err != nil {
 			return fmt.Errorf("failed to write key bundle %d to file: %w", i, err)
 		}
 	}
@@ -674,7 +674,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 		return fmt.Errorf("failed to marshal feed addresses: %w", err)
 	}
 
-	if err := os.WriteFile(filename, bytes, 0644); err != nil {
+	if err := os.WriteFile(filename, bytes, 0600); err != nil {
 		return fmt.Errorf("failed to write feed addresses to file: %w", err)
 	}
 
@@ -831,6 +831,6 @@ func capTypeToInt(capType string) uint8 {
 	case "target":
 		return 3
 	default:
-		panic(fmt.Sprintf("unknown capability type %s", capType))
+		panic("unknown capability type " + capType)
 	}
 }
