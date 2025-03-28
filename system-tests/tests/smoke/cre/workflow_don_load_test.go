@@ -508,7 +508,7 @@ func (s *StreamsGun) precomputeReports() {
 		}
 	}
 
-	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles)
+	event, eventID, err := createFeedReport(logger.NullLogger, price, uint64(timestamp.UnixNano()), feeds, s.keyBundles) //nolint:gosec // G115 don't care in test code
 	if err != nil {
 		panic(err)
 	}
@@ -538,7 +538,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 		}
 		values = append(values, dec)
 		streams = append(streams, llotypes.Stream{
-			StreamID: llotypes.StreamID(f.StreamID),
+			StreamID: llotypes.StreamID(f.StreamID), //nolint:gosec // G115 don't care in test code
 		})
 	}
 
@@ -570,7 +570,7 @@ func createFeedReport(lggr logger.Logger, price decimal.Decimal, timestamp uint6
 			return nil, "", err
 		}
 		event.Sigs = append(event.Sigs, capabilities.OCRAttributedOnchainSignature{
-			Signer:    uint32(i),
+			Signer:    uint32(i), //nolint:gosec // G115 don't care in test code
 			Signature: sig,
 		})
 	}
@@ -672,9 +672,7 @@ func saveFeedAddresses(feedsAddresses [][]FeedWithStreamID) error {
 }
 
 func loadFeedAddressesFromCache() ([][]FeedWithStreamID, error) {
-	filename := "cache/feeds/feed_addresses.json"
-
-	bytes, err := os.ReadFile(filename)
+	bytes, err := os.ReadFile("cache/feeds/feed_addresses.json")
 	if err != nil {
 		return nil, fmt.Errorf("failed to read feed addresses file: %w", err)
 	}
@@ -765,7 +763,6 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 }
 
 func MockCapabilitiesJob(nodeID string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
-
 	jobTemplate := `type = "standardcapabilities"
 			schemaVersion = 1
 			externalJobID = "{{ .JobID }}"
