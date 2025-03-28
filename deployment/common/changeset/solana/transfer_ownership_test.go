@@ -39,8 +39,8 @@ func TestTransferToMCMSToTimelockSolana(t *testing.T) {
 	configuredChangeset := commonchangeset.Configure(
 		&solanachangesets.TransferMCMSToTimelockSolana{},
 		solanachangesets.TransferMCMSToTimelockSolanaConfig{
-			Chains:   []uint64{solanaSelector},
-			MinDelay: 1 * time.Second,
+			Chains:  []uint64{solanaSelector},
+			MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 		},
 	)
 	// validate initial owner

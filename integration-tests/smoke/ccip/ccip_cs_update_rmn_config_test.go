@@ -3,6 +3,7 @@ package ccip
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
@@ -198,7 +199,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 				deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)
@@ -212,10 +215,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *commonchangeset.TimelockConfig
+	var mcmsConfig *proposalutils.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &commonchangeset.TimelockConfig{
+		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -391,7 +394,9 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second,
+				},
 			},
 		),
 		commonchangeset.Configure(
@@ -417,7 +422,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
-				MCMSConfig: &commonchangeset.TimelockConfig{
+				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 			},

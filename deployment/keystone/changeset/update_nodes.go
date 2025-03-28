@@ -111,7 +111,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to set update nodes",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

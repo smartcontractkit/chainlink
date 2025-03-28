@@ -54,7 +54,7 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cc DeployConfig
 		if !ok {
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
-		_, err := changeset.DeployContract[*configurator.Configurator](e, ab, chain, DeployFn())
+		_, err := changeset.DeployContract(e, ab, chain, DeployFn())
 		if err != nil {
 			return err
 		}

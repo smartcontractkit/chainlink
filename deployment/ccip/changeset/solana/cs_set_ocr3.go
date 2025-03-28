@@ -166,7 +166,7 @@ func SetOCR3ConfigSolana(e deployment.Environment, cfg v1_6.SetOCR3OffRampConfig
 			inspectors,
 			batches,
 			"set ocr3 config for Solana",
-			cfg.MCMS.MinDelay,
+			*cfg.MCMS,
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)

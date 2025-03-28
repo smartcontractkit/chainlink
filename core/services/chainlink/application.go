@@ -810,8 +810,9 @@ func newCREServices(
 	}
 
 	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
-		Global:   wCfg.Limits().Global(),
-		PerOwner: wCfg.Limits().PerOwner(),
+		Global:            wCfg.Limits().Global(),
+		PerOwner:          wCfg.Limits().PerOwner(),
+		PerOwnerOverrides: wCfg.Limits().PerOwnerOverrides(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("could not instantiate workflow syncer limiter: %w", err)
