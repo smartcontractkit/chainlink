@@ -218,7 +218,7 @@ func TestTransferFromTimelockConfig_Apply(t *testing.T) {
 		amountsPerChain[chainSelector] = cfgAmounts
 	}
 	config := example.TransferFromTimelockConfig{
-		TimelockDelay:   1 * time.Second,
+		TimelockCfg:     proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 		AmountsPerChain: amountsPerChain,
 	}
 	addresses, err := env.ExistingAddresses.AddressesForChain(env.AllChainSelectorsSolana()[0])

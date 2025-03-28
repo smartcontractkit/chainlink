@@ -4,11 +4,10 @@ import (
 	"fmt"
 	"maps"
 	"slices"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/mr-tron/base58"
-	mcms "github.com/smartcontractkit/mcms"
+	"github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -17,7 +16,7 @@ import (
 	mcmBindings "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/mcm"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	state "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
@@ -27,7 +26,7 @@ const maxAcceptInstructionsPerBatch = 5
 // TransferToTimelockSolanaConfig holds the configuration for an ownership transfer changeset
 type TransferToTimelockSolanaConfig struct {
 	ContractsByChain map[uint64][]OwnableContract
-	MinDelay         time.Duration
+	MCMSCfg          proposalutils.TimelockConfig
 }
 
 type OwnableContract struct {
@@ -168,7 +167,7 @@ func (t *TransferToTimelockSolana) Apply(
 
 	// create timelock proposal with accept transactions
 	proposal, err := proposalutils.BuildProposalFromBatchesV2(env, timelocks, proposers, inspectors,
-		batches, "proposal to transfer ownership of contracts to timelock", cfg.MinDelay)
+		batches, "proposal to transfer ownership of contracts to timelock", cfg.MCMSCfg)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 	}
@@ -178,8 +177,8 @@ func (t *TransferToTimelockSolana) Apply(
 }
 
 type TransferMCMSToTimelockSolanaConfig struct {
-	Chains   []uint64
-	MinDelay time.Duration
+	Chains  []uint64
+	MCMSCfg proposalutils.TimelockConfig
 }
 
 // TransferMCMSToTimelockSolana transfers set MCMS "contracts" to the timelock
@@ -267,7 +266,7 @@ func (t *TransferMCMSToTimelockSolana) Apply(
 
 	return new(TransferToTimelockSolana).Apply(env, TransferToTimelockSolanaConfig{
 		ContractsByChain: contracts,
-		MinDelay:         cfg.MinDelay,
+		MCMSCfg:          cfg.MCMSCfg,
 	})
 }
 

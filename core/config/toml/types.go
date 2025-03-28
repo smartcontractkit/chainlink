@@ -3,6 +3,7 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
@@ -1623,8 +1624,9 @@ type Workflows struct {
 }
 
 type Limits struct {
-	Global   *int32
-	PerOwner *int32
+	Global    *int32
+	PerOwner  *int32
+	Overrides map[string]int32
 }
 
 func (r *Workflows) setFrom(f *Workflows) {
@@ -1638,6 +1640,11 @@ func (r *Limits) setFrom(f *Limits) {
 
 	if f.PerOwner != nil {
 		r.PerOwner = f.PerOwner
+	}
+
+	if f.Overrides != nil {
+		r.Overrides = make(map[string]int32)
+		maps.Copy(r.Overrides, f.Overrides)
 	}
 }
 

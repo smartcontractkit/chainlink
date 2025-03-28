@@ -64,7 +64,7 @@ func deployFeeManager(e deployment.Environment, ab deployment.AddressBook, cc De
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
 		conf := cc.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract[*fee_manager_v0_5_0.FeeManager](e, ab, chain, FeeManagerDeployFn(conf))
+		_, err := changeset.DeployContract(e, ab, chain, FeeManagerDeployFn(conf))
 		if err != nil {
 			return err
 		}
