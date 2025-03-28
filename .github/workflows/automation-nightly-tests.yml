@@ -10,7 +10,7 @@ on:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@3f881c41965743bc3af7f2223242f66f21931322
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@e817bd4cd7265e2e6c0cf9b65e66de51369378bf
     with:
       test_path: .github/e2e-tests.yml
       test_trigger: Automation Nightly Tests
