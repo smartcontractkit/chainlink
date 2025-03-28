@@ -2,7 +2,6 @@ package cre
 
 import (
 	"bytes"
-	"context"
 	crand "crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -140,26 +139,12 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 						})
 					}
 
-					jobSpec := WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig)
-					jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.OCR3Capability, NodeType: keystonetypes.WorkerNode}
-
-					if _, ok := jobSpecs[jobDesc]; !ok {
-						jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-					} else {
-						jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
-					}
+					jobSpecs = append(jobSpecs, WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig))
 				}
 			}
 
 			if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-				jobSpec := MockCapabilitiesJob(nodeID, in.MockCapabilities)
-				jobDesc := keystonetypes.JobDescription{Flag: keystonetypes.MockCapability, NodeType: keystonetypes.WorkerNode}
-
-				if _, ok := jobSpecs[jobDesc]; !ok {
-					jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-				} else {
-					jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
-				}
+				jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, in.MockCapabilities))
 			}
 		}
 		return jobSpecs, nil

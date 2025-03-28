@@ -189,6 +189,7 @@ func generateDonJobSpecs(
 			}
 			jobSpecs = append(jobSpecs, jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64))
 		}
+
 		// Insert custom jobs, test specific
 		if customJobsFn != nil {
 			jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
