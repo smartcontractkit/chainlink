@@ -16,7 +16,6 @@ import (
 	"text/template"
 	"time"
 
-	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
 	"github.com/shopspring/decimal"
@@ -26,7 +25,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	types2 "github.com/smartcontractkit/chainlink-common/pkg/types"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
@@ -48,8 +46,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/cre"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/codec"
-	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 )
 
 type TestConfigLoadTest struct {
@@ -249,6 +245,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
+				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
@@ -289,6 +286,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 	mockClientsAddress := make([]string, 0)
 	if in.Infra.InfraType == "docker" {
 		// TODO: For CTFv2 we should get the ports from the .toml
+		// Need to add addresses manually
 		mockClientsAddress = []string{"127.0.0.1:13401", "127.0.0.1:13402", "127.0.0.1:13403", "127.0.0.1:13404"}
 	} else {
 		for i, _ := range setupOutput.nodeOutput[1].CLNodes {
@@ -321,7 +319,7 @@ func TestKeystoneWithOCR3Workflow_TwoDons_MockCapabilities(t *testing.T) {
 
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 10,
+			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 120*time.Minute),
@@ -366,7 +364,7 @@ func TestReconnectMock(t *testing.T) {
 	time.Sleep(time.Second * 5) // Give time for the report to be generated
 	_, err = wasp.NewProfile().
 		Add(wasp.NewGenerator(&wasp.Config{
-			CallTimeout: time.Minute * 5,
+			CallTimeout: time.Minute * 5, // Give enough time for the workflow to execute
 			LoadType:    wasp.RPS,
 			Schedule: wasp.Combine(
 				wasp.Plain(4, 15*time.Minute),
@@ -452,7 +450,6 @@ func (s *StreamsGun) waitHOOKloop() error {
 		select {
 		case m, ok := <-s.recieveChan:
 			if !ok {
-
 				return fmt.Errorf("channel closed")
 			}
 

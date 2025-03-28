@@ -33,6 +33,7 @@ func Create(offChainClient deployment.OffchainClient, don *devenv.DON, flags []s
 				_, err := offChainClient.ProposeJob(ctx, jobReq)
 				if err != nil {
 					// Workflow specs get auto approved
+					// TODO: Narrow down scope by checking type == workflow
 					if strings.Contains(err.Error(), "cannot approve an approved spec") {
 						return nil
 					}
