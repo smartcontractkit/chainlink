@@ -1714,7 +1714,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log)
+		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
@@ -1789,7 +1789,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log)
+		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
