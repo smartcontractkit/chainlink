@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
+	"github.com/smartcontractkit/mcms/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -136,12 +136,12 @@ func TestAddBidirectionalLanesChangeset(t *testing.T) {
 	type test struct {
 		Msg        string
 		TestRouter bool
-		MCMS       *changeset.MCMSConfig
+		MCMS       *proposalutils.TimelockConfig
 	}
 
-	mcmsConfig := &changeset.MCMSConfig{
+	mcmsConfig := &proposalutils.TimelockConfig{
 		MinDelay:   0 * time.Second,
-		MCMSAction: timelock.Schedule,
+		MCMSAction: types.TimelockActionSchedule,
 	}
 
 	tests := []test{
@@ -198,7 +198,10 @@ func TestAddBidirectionalLanesChangeset(t *testing.T) {
 						deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 						commoncs.TransferToMCMSWithTimelockConfig{
 							ContractsByChain: contractsToTransfer,
-							MinDelay:         0 * time.Second,
+							MCMSConfig: proposalutils.TimelockConfig{
+								MinDelay:   0 * time.Second,
+								MCMSAction: types.TimelockActionSchedule,
+							},
 						},
 					),
 				)

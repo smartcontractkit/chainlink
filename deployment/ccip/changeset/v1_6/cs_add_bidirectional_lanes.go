@@ -6,6 +6,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/mcms"
 )
@@ -28,7 +29,7 @@ type laneDefinition struct {
 // AddBidirectionalLanesConfig is a configuration struct for AddBidirectionalLanesChangeset.
 type AddBidirectionalLanesConfig struct {
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *changeset.MCMSConfig
+	MCMSConfig *proposalutils.TimelockConfig
 	// Lanes describes the lanes that we want to create.
 	Lanes []BidirectionalLaneDefinition
 	// TestRouter indicates if we want to enable these lanes on the test router.
