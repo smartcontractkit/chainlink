@@ -908,6 +908,9 @@ func newCREServices(
 				}
 
 				key, err := keystore.GetDefault(ctx, keyStore.Workflow())
+				if err != nil {
+					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
+				}
 
 				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
