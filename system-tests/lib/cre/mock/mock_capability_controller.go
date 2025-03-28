@@ -1,8 +1,9 @@
-package mock_capability
+package mockcapability
 
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -73,7 +74,7 @@ func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bo
 		}
 
 		urlsBytes := []byte(strings.Join(addresses, "\n"))
-		if err := os.WriteFile("cache/mock-clients.txt", urlsBytes, 0644); err != nil {
+		if err := os.WriteFile("cache/mock-clients.txt", urlsBytes, 0600); err != nil {
 			return fmt.Errorf("failed to save URLs to cache: %w", err)
 		}
 	}
@@ -89,9 +90,9 @@ func (c *MockCapabilityController) ConnectAll(addresses []string, useInsecure bo
 	return nil
 }
 
-func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info pb2.RegisterToWorkflowRequest) error {
+func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info *pb2.RegisterToWorkflowRequest) error {
 	for _, client := range c.Nodes {
-		_, err := client.API.RegisterToWorkflow(ctx, &info)
+		_, err := client.API.RegisterToWorkflow(ctx, info)
 		if err != nil {
 			return err
 		}
@@ -99,9 +100,9 @@ func (c *MockCapabilityController) RegisterToWorkflow(ctx context.Context, info 
 	return nil
 }
 
-func (c *MockCapabilityController) Execute(ctx context.Context, info pb2.ExecutableRequest) error {
+func (c *MockCapabilityController) Execute(ctx context.Context, info *pb2.ExecutableRequest) error {
 	for _, client := range c.Nodes {
-		_, err := client.API.Execute(ctx, &info)
+		_, err := client.API.Execute(ctx, info)
 		if err != nil {
 			return err
 		}
@@ -109,9 +110,9 @@ func (c *MockCapabilityController) Execute(ctx context.Context, info pb2.Executa
 	return nil
 }
 
-func (c *MockCapabilityController) CreateCapability(ctx context.Context, info pb2.CapabilityInfo) error {
+func (c *MockCapabilityController) CreateCapability(ctx context.Context, info *pb2.CapabilityInfo) error {
 	for _, client := range c.Nodes {
-		_, err := client.API.CreateCapability(ctx, &info)
+		_, err := client.API.CreateCapability(ctx, info)
 		if err != nil {
 			return err
 		}
@@ -141,14 +142,14 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 	for _, client := range c.Nodes {
 		hook, errC := client.API.HookExecutables(context.TODO())
 		if errC != nil {
-			return fmt.Errorf("cannot hook into executable at %s: %s", client.URL, errC)
+			return fmt.Errorf("cannot hook into executable at %s: %w", client.URL, errC)
 		}
 
 		go func() {
 			for {
 				c.lggr.Info().Msg("Waiting for hook event")
 				resp, err := hook.Recv()
-				if err == io.EOF {
+				if errors.Is(err, io.EOF) {
 					c.lggr.Error().Msgf("Recieved EOF from hook %s", err)
 					return
 				}
@@ -182,7 +183,6 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 				}
 				c.lggr.Info().Msgf("Got hook event %s", resp.ID)
 
-				//Process request
 				r := pb2.ExecutableResponse{
 					ID:             resp.ID,
 					CapabilityType: resp.CapabilityType,
@@ -199,6 +199,7 @@ func (c *MockCapabilityController) HookExecutables(ctx context.Context, ch chan 
 }
 
 func proxyConnectToOne(address string, useInsecure bool) (MockClient, error) {
+	//nolint:gosec // disable G402
 	creds := credentials.NewTLS(&tls.Config{InsecureSkipVerify: true})
 	if useInsecure {
 		creds = insecure.NewCredentials()

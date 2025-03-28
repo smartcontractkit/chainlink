@@ -1,4 +1,4 @@
-package mock_capability
+package mockcapability
 
 import (
 	"google.golang.org/protobuf/proto"
