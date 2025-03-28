@@ -43,6 +43,7 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	lidcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
@@ -50,10 +51,8 @@ import (
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	libenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
@@ -620,35 +619,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
 		}
 
-		// if no capabilities are defined in TOML, but DON has ones that we know require custom binaries
-		// append them to the node specification
-		hasCapabilitiesBinaries := false
-		for _, nodeInput := range nodeSetInput[i].NodeSpecs {
-			if len(nodeInput.Node.CapabilitiesBinaryPaths) > 0 {
-				hasCapabilitiesBinaries = true
-				break
-			}
-		}
-
-		if !hasCapabilitiesBinaries {
-			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
-					Key:   libnode.NodeTypeKey,
-					Value: keystonetypes.WorkerNode,
-				}, libnode.EqualLabels)
-				require.NoError(t, wErr, "failed to find worker nodes")
-
-				for _, node := range workerNodes {
-					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-					require.NoError(t, nErr, "failed to find index label")
-
-					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-					require.NoError(t, nIErr, "failed to convert index to int")
-
-					nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)
-				}
-			}
-		}
+		var appendErr error
+		nodeSetInput[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(nodeSetInput[i], donMetadata, []keystonetypes.CapabilitiesBinaryPathFactoryFn{
+			libcaps.DefaultBinariesPathsFactory(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+		})
+		require.NoError(t, appendErr, "failed to append binaries to node spec for DON %d", donMetadata.ID)
 	}
 
 	// Deploy the DONs
