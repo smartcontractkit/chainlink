@@ -51,7 +51,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-reusable-workflow-github-token-secret # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c1e5964d51b19bfbb59f10cffb631f25e7a62b2d # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: core/chainlink.Dockerfile
@@ -75,7 +75,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@4a0b21b3d07d1cc31c11de7c76f491b02cfac4e2 # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c1e5964d51b19bfbb59f10cffb631f25e7a62b2d # TODO
     with:
       aws-ecr-name: chainlink
       dockerfile: plugins/chainlink.Dockerfile
@@ -102,7 +102,7 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@re-3577/docker-reusable-workflow-github-token-secret # TODO
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c1e5964d51b19bfbb59f10cffb631f25e7a62b2d # TODO
     with:
       aws-ecr-name: ccip
       dockerfile: core/chainlink.Dockerfile
@@ -121,3 +121,31 @@ jobs:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+
+  docker-ccip-plugins:
+    needs: [init]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@c1e5964d51b19bfbb59f10cffb631f25e7a62b2d # TODO
+    with:
+      aws-ecr-name: ccip
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        CL_CHAIN_DEFAULTS=/ccip-config
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: ${{ needs.init.outputs.build-type }}
+      docker-manifest-sign: true
+      docker-tag-custom-suffix: "-plugins"
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
