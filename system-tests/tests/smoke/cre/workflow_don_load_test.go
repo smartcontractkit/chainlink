@@ -430,36 +430,34 @@ func (s *StreamsGun) Call(l *wasp.Generator) *wasp.Response {
 
 func (s *StreamsGun) waitHOOKloop() {
 	for {
-		select {
-		case m, ok := <-s.receiveChan:
-			if !ok {
-				framework.L.Error().Msg("channel closed")
-				return
-			}
+		m, ok := <-s.receiveChan
+		if !ok {
+			framework.L.Error().Msg("channel closed")
+			return
+		}
 
-			inputs, err := decodeTargetInput(m.Inputs)
-			if err != nil {
-				framework.L.Error().Msg("error decoding inputs")
-				return
-			}
+		inputs, err := decodeTargetInput(m.Inputs)
+		if err != nil {
+			framework.L.Error().Msg("error decoding inputs")
+			return
+		}
 
-			// To get the timestamp we look at the last 64 chars of the hex encoded report
-			hexReport := hex.EncodeToString(inputs.Inputs.SignedReport.Report)
-			timestampInHex := hexReport[len(hexReport)-64:]
-			timestamp, err := strconv.ParseInt(timestampInHex, 16, 64)
-			if err != nil {
-				framework.L.Error().Msg("error parsing timestamp")
-				return
-			}
+		// To get the timestamp we look at the last 64 chars of the hex encoded report
+		hexReport := hex.EncodeToString(inputs.Inputs.SignedReport.Report)
+		timestampInHex := hexReport[len(hexReport)-64:]
+		timestamp, err := strconv.ParseInt(timestampInHex, 16, 64)
+		if err != nil {
+			framework.L.Error().Msg("error parsing timestamp")
+			return
+		}
 
-			s.mu.Lock()
-			// Check if exist
-			if ch, exist := s.waitChans[timestamp]; exist {
-				s.mu.Unlock()
-				ch <- m // This is blocking
-			} else {
-				s.mu.Unlock()
-			}
+		s.mu.Lock()
+		// Check if exist
+		if ch, exist := s.waitChans[timestamp]; exist {
+			s.mu.Unlock()
+			ch <- m // This is blocking
+		} else {
+			s.mu.Unlock()
 		}
 	}
 }
