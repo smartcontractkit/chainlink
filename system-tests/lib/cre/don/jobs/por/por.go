@@ -8,8 +8,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 
-	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
-
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
@@ -90,7 +88,7 @@ func generateDonJobSpecs(
 	gatewayConnectorOutput types.GatewayConnectorOutput,
 	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error),
 ) (types.DonJobs, error) {
-	jobSpecs := make(types.DonJobs)
+	jobSpecs := make(types.DonJobs, 0)
 
 	chainIDInt, err := strconv.Atoi(blockchainOutput.ChainID)
 	if err != nil {
@@ -110,7 +108,7 @@ func generateDonJobSpecs(
 			return nil, errors.Wrap(gatewayErr, "failed to get gateway node id from labels")
 		}
 
-		jobSpecs[types.JobDescription{Flag: types.GatewayDON, NodeType: types.GatewayNode}] = []*jobv1.ProposeJobRequest{jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput)}
+		jobSpecs = append(jobSpecs, jobs.AnyGateway(gatewayNodeID, chainIDUint64, donWithMetadata.ID, extraAllowedPorts, extraAllowedIPs, extraAllowedIPsCIDR, gatewayConnectorOutput))
 	}
 
 	// if it's only a gateway node, we don't need to create any other job specs
@@ -141,7 +139,7 @@ func generateDonJobSpecs(
 
 	// create job specs for the bootstrap node
 	if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
-		jobSpecs[types.JobDescription{Flag: types.OCR3Capability, NodeType: types.BootstrapNode}] = []*jobv1.ProposeJobRequest{jobs.BootstrapOCR3(bootstrapNodeID, oCR3CapabilityAddress, chainIDUint64)}
+		jobSpecs = append(jobSpecs, jobs.BootstrapOCR3(bootstrapNodeID, oCR3CapabilityAddress, chainIDUint64))
 	}
 
 	ocrPeeringData := types.OCRPeeringData{
@@ -164,14 +162,7 @@ func generateDonJobSpecs(
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.CronCapability) {
-			jobSpec := jobs.WorkerStandardCapability(nodeID, "cron-capability", cronCapBinPath, jobs.EmptyStdCapConfig)
-			jobDesc := types.JobDescription{Flag: types.CronCapability, NodeType: types.WorkerNode}
-
-			if _, ok := jobSpecs[jobDesc]; !ok {
-				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-			} else {
-				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
-			}
+			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, "cron-capability", cronCapBinPath, jobs.EmptyStdCapConfig))
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.CustomComputeCapability) {
@@ -183,15 +174,7 @@ func generateDonJobSpecs(
 				perSenderRPS = 1.0
 				perSenderBurst = 5
 				"""`
-
-			jobSpec := jobs.WorkerStandardCapability(nodeID, "custom-compute", "__builtin_custom-compute-action", config)
-			jobDesc := types.JobDescription{Flag: types.CustomComputeCapability, NodeType: types.WorkerNode}
-
-			if _, ok := jobSpecs[jobDesc]; !ok {
-				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-			} else {
-				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
-			}
+			jobSpecs = append(jobSpecs, jobs.WorkerStandardCapability(nodeID, "custom-compute", "__builtin_custom-compute-action", config))
 		}
 
 		if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
@@ -204,24 +187,14 @@ func generateDonJobSpecs(
 			if ocr2Err != nil {
 				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 			}
-
-			jobSpec := jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64)
-			jobDesc := types.JobDescription{Flag: types.OCR3Capability, NodeType: types.WorkerNode}
-
-			if _, ok := jobSpecs[jobDesc]; !ok {
-				jobSpecs[jobDesc] = []*jobv1.ProposeJobRequest{jobSpec}
-			} else {
-				jobSpecs[jobDesc] = append(jobSpecs[jobDesc], jobSpec)
-			}
-
+			jobSpecs = append(jobSpecs, jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64))
 		}
-	}
-
-	// Insert custom jobs, test specific
-	if customJobsFn != nil {
-		jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
-		if err != nil {
-			return nil, err
+		// Insert custom jobs, test specific
+		if customJobsFn != nil {
+			jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 

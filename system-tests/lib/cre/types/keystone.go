@@ -26,17 +26,12 @@ const (
 	GatewayNode   NodeType = "gateway"
 )
 
-type JobDescription struct {
-	Flag     CapabilityFlag
-	NodeType string
-}
-
 type ConfigDescription struct {
 	Flag     CapabilityFlag
 	NodeType string
 }
 
-type DonJobs = map[JobDescription][]*jobv1.ProposeJobRequest
+type DonJobs = []*jobv1.ProposeJobRequest
 type DonsToJobSpecs = map[uint32]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string

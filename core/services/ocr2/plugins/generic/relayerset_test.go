@@ -174,6 +174,10 @@ func (t *TestRelayer) Transact(ctx context.Context, from, to string, amount *big
 	panic("implement me")
 }
 
+func (t *TestRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	panic("implement me")
+}
+
 func (t *TestRelayer) NewConfigProvider(ctx context.Context, args types.RelayArgs) (types.ConfigProvider, error) {
 	panic("implement me")
 }

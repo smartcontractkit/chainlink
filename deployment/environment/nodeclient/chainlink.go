@@ -1256,7 +1256,8 @@ func (c *ChainlinkClient) ReplayLogPollerFromBlock(fromBlock, evmChainID int64) 
 	resp, err := c.APIClient.R().
 		SetResult(&specObj).
 		SetQueryParams(map[string]string{
-			"evmChainID": strconv.FormatInt(evmChainID, 10),
+			"family":  "evm",
+			"ChainID": strconv.FormatInt(evmChainID, 10),
 		}).
 		SetPathParams(map[string]string{
 			"fromBlock": strconv.FormatInt(fromBlock, 10),
