@@ -18,7 +18,7 @@ type RoundRobinSelector struct {
 // WithRandomStart starts selection at a random index.
 func WithRandomStart() func(*RoundRobinSelector) {
 	return func(rrs *RoundRobinSelector) {
-		start := rand.Intn(len(rrs.items))
+		start := rand.Intn(len(rrs.items)) //nolint:gosec // No need for crpto secure randomness to select an index.
 		rrs.index = start
 	}
 }

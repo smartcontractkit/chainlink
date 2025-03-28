@@ -151,7 +151,8 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
 	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
 	attempts := make(map[string]int)
-	wait := 10 * time.Millisecond
+	backoff := 10 * time.Millisecond
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -162,20 +163,19 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 				return "", fmt.Errorf("failed to select gateway: %w", err)
 			}
 
-			// Cycling through gateways via round robin, if we have attempted this connection before, then we have
-			// seen them all, backoff before starting over.
 			if attempts[gateway] > 0 {
-				c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", wait)
-				attempts = make(map[string]int)
+				if allGatewaysAttempted(attempts) {
+					c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", backoff)
 
-				// hold until wait or context expires
-				select {
-				case <-ctx.Done():
-					return "", ctx.Err()
-				case <-time.After(wait):
+					select {
+					case <-ctx.Done():
+						return "", ctx.Err()
+					case <-time.After(backoff):
+						// backoff completed, update state and continue with next iteration
+						attempts = make(map[string]int)
+						backoff *= 2
+					}
 				}
-
-				wait *= 2
 			}
 
 			attempts[gateway]++
@@ -189,6 +189,16 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 			return gateway, nil
 		}
 	}
+}
+
+// allGatewaysAttempted checks if all available gateways have been attempted.
+func allGatewaysAttempted(attempts map[string]int) bool {
+	for _, count := range attempts {
+		if count == 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // attemptGatewayConnection waits to connect to a gateway with a new child context
