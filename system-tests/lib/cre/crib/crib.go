@@ -227,7 +227,6 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		if regErr != nil {
 			return nil, errors.Wrapf(regErr, "failed to compile regex for pod name pattern %s", podNamePattern)
 		}
-		capabilities := []string{}
 		capabilitiesFound := map[string]int{}
 		capabilitiesDirs := []string{}
 		capabilitiesDirsFound := map[string]int{}
@@ -237,7 +236,6 @@ func DeployDons(input *types.DeployCribDonsInput) ([]*types.CapabilitiesAwareNod
 		// but for now we require all worker nodes in the same DON to have the same capabilities
 		for _, nodeSpec := range input.NodeSetInputs[j].NodeSpecs {
 			for _, capabilityBinaryPath := range nodeSpec.Node.CapabilitiesBinaryPaths {
-				capabilities = append(capabilities, capabilityBinaryPath)
 				capabilitiesFound[capabilityBinaryPath]++
 			}
 
