@@ -16,5 +16,5 @@ func TestRandomFlaky_JUST_FOR_TESTING_FLAKEGUARD(t *testing.T) {
 	// If the number is < 6, the test will fail (60% failure rate)
 	randomValue := rand.Intn(10)
 
-	require.True(t, randomValue >= 6, "This test is designed to fail 60%% of the time. Got value: %d", randomValue)
+	require.True(t, randomValue >= 3, "This test is designed to fail 30%% of the time. Got value: %d", randomValue)
 }
