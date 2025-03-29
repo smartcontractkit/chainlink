@@ -39,7 +39,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 			}
 			extraData, err := cciptypes.NewBytesFromString("0x1234")
 			require.NoError(t, err)
-
+			tokenReceiver := solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF")
 			destGasAmount := uint32(10)
 			destExecData := make([]byte, 4)
 			binary.LittleEndian.PutUint32(destExecData, destGasAmount)
@@ -77,7 +77,7 @@ var randomExecuteReport = func(t *testing.T, sourceChainSelector uint64) cciptyp
 				},
 				Sender:         cciptypes.UnknownAddress(key.PublicKey().String()),
 				Data:           extraData,
-				Receiver:       key.PublicKey().Bytes(),
+				Receiver:       tokenReceiver.Bytes(),
 				ExtraArgs:      buf.Bytes(),
 				FeeToken:       cciptypes.UnknownAddress(key.PublicKey().String()),
 				FeeTokenAmount: cciptypes.NewBigInt(big.NewInt(rand.Int63())),
@@ -175,6 +175,7 @@ func TestExecutePluginCodecV1(t *testing.T) {
 	mockExtraDataCodec.On("DecodeExtraArgs", mock.Anything, mock.Anything).Return(map[string]any{
 		"ComputeUnits":            uint32(1000),
 		"accountIsWritableBitmap": uint64(2),
+		"TokenReceiver":           [32]byte(solanago.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF").Bytes()),
 	}, nil).Maybe()
 
 	for _, tc := range testCases {
