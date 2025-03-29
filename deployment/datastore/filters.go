@@ -78,12 +78,12 @@ func AddressRefByQualifier(qualifier string) FilterFunc[AddressRefKey, AddressRe
 	}
 }
 
-// ContractMetadataByChain returns a filter that only includes records with the provided chain.
-func ContractMetadataByChain(chain uint64) FilterFunc[ContractMetadataKey, ContractMetadataRecord] {
-	return func(records []ContractMetadataRecord) []ContractMetadataRecord {
-		var filtered []ContractMetadataRecord
+// ContractMetadataByChainSelector returns a filter that only includes records with the provided chain.
+func ContractMetadataByChainSelector(chainSelector uint64) FilterFunc[ContractMetadataKey, ContractMetadata] {
+	return func(records []ContractMetadata) []ContractMetadata {
+		var filtered []ContractMetadata
 		for _, record := range records {
-			if record.Chain == chain {
+			if record.ChainSelector == chainSelector {
 				filtered = append(filtered, record)
 			}
 		}

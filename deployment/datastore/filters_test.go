@@ -255,3 +255,53 @@ func TestAddressRefByQualifier(t *testing.T) {
 		})
 	}
 }
+
+func TestContractMetadataByChainSelector(t *testing.T) {
+	var (
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
+		}
+
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
+		}
+	)
+
+	tests := []struct {
+		name           string
+		givenState     []ContractMetadata
+		giveChain      uint64
+		expectedResult []ContractMetadata
+	}{
+		{
+			name: "success: returns record with given chain",
+			givenState: []ContractMetadata{
+				recordOne,
+				recordTwo,
+			},
+			giveChain:      2,
+			expectedResult: []ContractMetadata{recordTwo},
+		},
+		{
+			name: "success: returns no record with given chain",
+			givenState: []ContractMetadata{
+				recordOne,
+				recordTwo,
+			},
+			giveChain:      5,
+			expectedResult: []ContractMetadata(nil),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := ContractMetadataByChainSelector(tt.giveChain)
+			filteredRecords := filter(tt.givenState)
+			assert.Equal(t, tt.expectedResult, filteredRecords)
+		})
+	}
+}

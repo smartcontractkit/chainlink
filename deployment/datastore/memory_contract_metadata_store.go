@@ -5,26 +5,26 @@ import (
 )
 
 type ContractMetadataStore interface {
-	Store[ContractMetadataKey, ContractMetadataRecord]
+	Store[ContractMetadataKey, ContractMetadata]
 }
 
 type MutableContractMetadataStore interface {
-	MutableStore[ContractMetadataKey, ContractMetadataRecord]
+	MutableStore[ContractMetadataKey, ContractMetadata]
 }
 
-var _ ContractMetadataStore = &InMemoryContractMetadataStore{}
-var _ MutableContractMetadataStore = &InMemoryContractMetadataStore{}
+var _ ContractMetadataStore = &MemoryContractMetadataStore{}
+var _ MutableContractMetadataStore = &MemoryContractMetadataStore{}
 
-type InMemoryContractMetadataStore struct {
+type MemoryContractMetadataStore struct {
 	mu      sync.RWMutex
-	records []ContractMetadataRecord
+	records []ContractMetadata
 }
 
-func NewInMemoryContractMetadataStore() InMemoryContractMetadataStore {
-	return InMemoryContractMetadataStore{records: []ContractMetadataRecord{}}
+func NewInMemoryContractMetadataStore() MemoryContractMetadataStore {
+	return MemoryContractMetadataStore{records: []ContractMetadata{}}
 }
 
-func (s *InMemoryContractMetadataStore) indexOf(key ContractMetadataKey) int {
+func (s *MemoryContractMetadataStore) indexOf(key ContractMetadataKey) int {
 	for i, record := range s.records {
 		if record.Key().Equals(key) {
 			return i
@@ -33,52 +33,52 @@ func (s *InMemoryContractMetadataStore) indexOf(key ContractMetadataKey) int {
 	return -1
 }
 
-func (s *InMemoryContractMetadataStore) Get(key ContractMetadataKey) (ContractMetadataRecord, error) {
+func (s *MemoryContractMetadataStore) Get(key ContractMetadataKey) (ContractMetadata, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	idx := s.indexOf(key)
 	if idx == -1 {
-		return ContractMetadataRecord{}, ErrContractMetadataRecordNotFound
+		return ContractMetadata{}, ErrContractMetadataNotFound
 	}
 	return s.records[idx].Clone(), nil
 }
 
-func (s *InMemoryContractMetadataStore) Fetch() ([]ContractMetadataRecord, error) {
+func (s *MemoryContractMetadataStore) Fetch() ([]ContractMetadata, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	records := []ContractMetadataRecord{}
+	records := []ContractMetadata{}
 	for _, record := range s.records {
 		records = append(records, record.Clone())
 	}
 	return records, nil
 }
 
-func (s *InMemoryContractMetadataStore) Filter(filters ...FilterFunc[ContractMetadataKey, ContractMetadataRecord]) []ContractMetadataRecord {
+func (s *MemoryContractMetadataStore) Filter(filters ...FilterFunc[ContractMetadataKey, ContractMetadata]) []ContractMetadata {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	records := append([]ContractMetadataRecord{}, s.records...)
+	records := append([]ContractMetadata{}, s.records...)
 	for _, filter := range filters {
 		records = filter(records)
 	}
 	return records
 }
 
-func (s *InMemoryContractMetadataStore) Add(record ContractMetadataRecord) error {
+func (s *MemoryContractMetadataStore) Add(record ContractMetadata) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	idx := s.indexOf(record.Key())
 	if idx != -1 {
-		return ErrContractMetadataRecordExists
+		return ErrContractMetadataExists
 	}
 	s.records = append(s.records, record)
 	return nil
 }
 
-func (s *InMemoryContractMetadataStore) AddOrUpdate(record ContractMetadataRecord) error {
+func (s *MemoryContractMetadataStore) AddOrUpdate(record ContractMetadata) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
@@ -91,25 +91,25 @@ func (s *InMemoryContractMetadataStore) AddOrUpdate(record ContractMetadataRecor
 	return nil
 }
 
-func (s *InMemoryContractMetadataStore) Update(record ContractMetadataRecord) error {
+func (s *MemoryContractMetadataStore) Update(record ContractMetadata) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	idx := s.indexOf(record.Key())
 	if idx == -1 {
-		return ErrContractMetadataRecordNotFound
+		return ErrContractMetadataNotFound
 	}
 	s.records[idx] = record
 	return nil
 }
 
-func (s *InMemoryContractMetadataStore) Delete(key ContractMetadataKey) error {
+func (s *MemoryContractMetadataStore) Delete(key ContractMetadataKey) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
 	idx := s.indexOf(key)
 	if idx == -1 {
-		return ErrContractMetadataRecordNotFound
+		return ErrContractMetadataNotFound
 	}
 	s.records = append(s.records[:idx], s.records[idx+1:]...)
 	return nil

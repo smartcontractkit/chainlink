@@ -10,28 +10,28 @@ import (
 // MutableStore interface methods tests
 func TestInMemoryContractMetadataStore_indexOf(t *testing.T) {
 	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 	)
 
 	tests := []struct {
 		name          string
-		givenState    []ContractMetadataRecord
+		givenState    []ContractMetadata
 		giveKey       ContractMetadataKey
 		expectedIndex int
 	}{
 		{
 			name: "success: returns index of record",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 			},
@@ -40,7 +40,7 @@ func TestInMemoryContractMetadataStore_indexOf(t *testing.T) {
 		},
 		{
 			name: "success: returns -1 if record not found",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 			},
 			giveKey:       recordTwo.Key(),
@@ -50,7 +50,7 @@ func TestInMemoryContractMetadataStore_indexOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			idx := store.indexOf(tt.giveKey)
 			assert.Equal(t, tt.expectedIndex, idx)
 		})
@@ -59,41 +59,41 @@ func TestInMemoryContractMetadataStore_indexOf(t *testing.T) {
 
 func TestInMemoryContractMetadataStore_Add(t *testing.T) {
 	var (
-		record = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		record = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 	)
 
 	tests := []struct {
 		name          string
-		givenState    []ContractMetadataRecord
-		giveRecord    ContractMetadataRecord
-		expectedState []ContractMetadataRecord
+		givenState    []ContractMetadata
+		giveRecord    ContractMetadata
+		expectedState []ContractMetadata
 		expectedError error
 	}{
 		{
 			name:       "success: adds new record",
-			givenState: []ContractMetadataRecord{},
+			givenState: []ContractMetadata{},
 			giveRecord: record,
-			expectedState: []ContractMetadataRecord{
+			expectedState: []ContractMetadata{
 				record,
 			},
 		},
 		{
 			name: "error: already existing record",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				record,
 			},
 			giveRecord:    record,
-			expectedError: ErrContractMetadataRecordExists,
+			expectedError: ErrContractMetadataExists,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			err := store.Add(tt.giveRecord)
 
 			if tt.expectedError != nil {
@@ -109,40 +109,40 @@ func TestInMemoryContractMetadataStore_Add(t *testing.T) {
 
 func TestInMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 	var (
-		oldRecord = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		oldRecord = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		newRecord = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		newRecord = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 	)
 
 	tests := []struct {
 		name          string
-		givenState    []ContractMetadataRecord
-		expectedState []ContractMetadataRecord
-		giveRecord    ContractMetadataRecord
+		givenState    []ContractMetadata
+		expectedState []ContractMetadata
+		giveRecord    ContractMetadata
 	}{
 		{
 			name:       "success: adds new record",
-			givenState: []ContractMetadataRecord{},
+			givenState: []ContractMetadata{},
 			giveRecord: oldRecord,
-			expectedState: []ContractMetadataRecord{
+			expectedState: []ContractMetadata{
 				oldRecord,
 			},
 		},
 		{
 			name: "success: updates existing record",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				oldRecord,
 			},
 			giveRecord: newRecord,
-			expectedState: []ContractMetadataRecord{
+			expectedState: []ContractMetadata{
 				newRecord,
 			},
 		},
@@ -150,7 +150,7 @@ func TestInMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			// Check the error for the in-memory store, which will always be nil for the
 			// in memory implementation, to satisfy the linter
 			err := store.AddOrUpdate(tt.giveRecord)
@@ -162,47 +162,47 @@ func TestInMemoryContractMetadataStore_AddOrUpdate(t *testing.T) {
 
 func TestInMemoryContractMetadataStore_Update(t *testing.T) {
 	var (
-		oldRecord = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		oldRecord = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		newRecord = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		newRecord = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 	)
 
 	tests := []struct {
 		name          string
-		givenState    []ContractMetadataRecord
-		expectedState []ContractMetadataRecord
-		giveRecord    ContractMetadataRecord
+		givenState    []ContractMetadata
+		expectedState []ContractMetadata
+		giveRecord    ContractMetadata
 		expectedError error
 	}{
 		{
 			name: "success: updates existing record",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				oldRecord,
 			},
 			giveRecord: newRecord,
-			expectedState: []ContractMetadataRecord{
+			expectedState: []ContractMetadata{
 				newRecord,
 			},
 		},
 		{
 			name:          "error: record not found",
-			givenState:    []ContractMetadataRecord{},
+			givenState:    []ContractMetadata{},
 			giveRecord:    newRecord,
-			expectedError: ErrContractMetadataRecordNotFound,
+			expectedError: ErrContractMetadataNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			err := store.Update(tt.giveRecord)
 
 			if tt.expectedError != nil {
@@ -218,59 +218,59 @@ func TestInMemoryContractMetadataStore_Update(t *testing.T) {
 
 func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 
-		recordThree = ContractMetadataRecord{
-			Chain:    3,
-			Address:  "0x2324224",
-			Metadata: "metadata3",
+		recordThree = ContractMetadata{
+			ChainSelector: 3,
+			Address:       "0x2324224",
+			Metadata:      "metadata3",
 		}
 	)
 
 	tests := []struct {
 		name          string
-		givenState    []ContractMetadataRecord
-		expectedState []ContractMetadataRecord
+		givenState    []ContractMetadata
+		expectedState []ContractMetadata
 		giveKey       ContractMetadataKey
 		expectedError error
 	}{
 		{
 			name: "success: deletes given record",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 				recordThree,
 			},
 			giveKey: recordTwo.Key(),
-			expectedState: []ContractMetadataRecord{
+			expectedState: []ContractMetadata{
 				recordOne,
 				recordThree,
 			},
 		},
 		{
 			name: "error: record not found",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordThree,
 			},
 			giveKey:       recordTwo.Key(),
-			expectedError: ErrContractMetadataRecordNotFound,
+			expectedError: ErrContractMetadataNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			err := store.Delete(tt.giveKey)
 
 			if tt.expectedError != nil {
@@ -287,32 +287,32 @@ func TestInMemoryMemoryContractMetadataStore_Delete(t *testing.T) {
 // Store interface methods tests
 func TestInMemoryContractMetadataStore_Fetch(t *testing.T) {
 	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 	)
 
 	tests := []struct {
 		name            string
-		givenState      []ContractMetadataRecord
-		expectedRecords []ContractMetadataRecord
+		givenState      []ContractMetadata
+		expectedRecords []ContractMetadata
 		expectedError   error
 	}{
 		{
 			name: "success: fetches all records",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 			},
-			expectedRecords: []ContractMetadataRecord{
+			expectedRecords: []ContractMetadata{
 				recordOne,
 				recordTwo,
 			},
@@ -320,15 +320,15 @@ func TestInMemoryContractMetadataStore_Fetch(t *testing.T) {
 		},
 		{
 			name:            "success: fetches no records",
-			givenState:      []ContractMetadataRecord{},
-			expectedRecords: []ContractMetadataRecord{},
+			givenState:      []ContractMetadata{},
+			expectedRecords: []ContractMetadata{},
 			expectedError:   nil,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			records, err := store.Fetch()
 
 			if tt.expectedError != nil {
@@ -344,29 +344,29 @@ func TestInMemoryContractMetadataStore_Fetch(t *testing.T) {
 
 func TestInMemoryContractMetadataStore_Get(t *testing.T) {
 	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 	)
 
 	tests := []struct {
 		name           string
-		givenState     []ContractMetadataRecord
+		givenState     []ContractMetadata
 		giveKey        ContractMetadataKey
-		expectedRecord ContractMetadataRecord
+		expectedRecord ContractMetadata
 		expectedError  error
 	}{
 		{
 			name: "success: record exists",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 			},
@@ -375,16 +375,16 @@ func TestInMemoryContractMetadataStore_Get(t *testing.T) {
 		},
 		{
 			name:           "error: record not found",
-			givenState:     []ContractMetadataRecord{},
+			givenState:     []ContractMetadata{},
 			giveKey:        recordTwo.Key(),
-			expectedRecord: ContractMetadataRecord{},
-			expectedError:  ErrContractMetadataRecordNotFound,
+			expectedRecord: ContractMetadata{},
+			expectedError:  ErrContractMetadataNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			record, err := store.Get(tt.giveKey)
 
 			if tt.expectedError != nil {
@@ -400,121 +400,70 @@ func TestInMemoryContractMetadataStore_Get(t *testing.T) {
 
 func TestInMemoryContractMetadataStore_Filter(t *testing.T) {
 	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
+		recordOne = ContractMetadata{
+			ChainSelector: 1,
+			Address:       "0x2324224",
+			Metadata:      "metadata1",
 		}
 
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
+		recordTwo = ContractMetadata{
+			ChainSelector: 2,
+			Address:       "0x2324224",
+			Metadata:      "metadata2",
 		}
 
-		recordThree = ContractMetadataRecord{
-			Chain:    3,
-			Address:  "0x2324224",
-			Metadata: "metadata3",
+		recordThree = ContractMetadata{
+			ChainSelector: 3,
+			Address:       "0x2324224",
+			Metadata:      "metadata3",
 		}
 	)
 
 	tests := []struct {
 		name           string
-		givenState     []ContractMetadataRecord
-		giveFilters    []FilterFunc[ContractMetadataKey, ContractMetadataRecord]
-		expectedResult []ContractMetadataRecord
+		givenState     []ContractMetadata
+		giveFilters    []FilterFunc[ContractMetadataKey, ContractMetadata]
+		expectedResult []ContractMetadata
 	}{{
 		name: "success: no filters returns all records",
-		givenState: []ContractMetadataRecord{
+		givenState: []ContractMetadata{
 			recordOne,
 			recordTwo,
 			recordThree,
 		},
-		giveFilters:    []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{},
-		expectedResult: []ContractMetadataRecord{recordOne, recordTwo, recordThree},
+		giveFilters:    []FilterFunc[ContractMetadataKey, ContractMetadata]{},
+		expectedResult: []ContractMetadata{recordOne, recordTwo, recordThree},
 	},
 		{
 			name: "success: returns record with given chain and type",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{
-				ContractMetadataByChain(2),
+			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadata]{
+				ContractMetadataByChainSelector(2),
 			},
-			expectedResult: []ContractMetadataRecord{recordTwo},
+			expectedResult: []ContractMetadata{recordTwo},
 		},
 		{
 			name: "success: returns no record with given chain and type",
-			givenState: []ContractMetadataRecord{
+			givenState: []ContractMetadata{
 				recordOne,
 				recordTwo,
 				recordThree,
 			},
-			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadataRecord]{
-				ContractMetadataByChain(4),
+			giveFilters: []FilterFunc[ContractMetadataKey, ContractMetadata]{
+				ContractMetadataByChainSelector(4),
 			},
-			expectedResult: []ContractMetadataRecord(nil),
+			expectedResult: []ContractMetadata(nil),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := InMemoryContractMetadataStore{records: tt.givenState}
+			store := MemoryContractMetadataStore{records: tt.givenState}
 			filteredRecords := store.Filter(tt.giveFilters...)
-			assert.Equal(t, tt.expectedResult, filteredRecords)
-		})
-	}
-}
-
-// // Default Filters tests
-func TestMetaByChain(t *testing.T) {
-	var (
-		recordOne = ContractMetadataRecord{
-			Chain:    1,
-			Address:  "0x2324224",
-			Metadata: "metadata1",
-		}
-
-		recordTwo = ContractMetadataRecord{
-			Chain:    2,
-			Address:  "0x2324224",
-			Metadata: "metadata2",
-		}
-	)
-
-	tests := []struct {
-		name           string
-		givenState     []ContractMetadataRecord
-		giveChain      uint64
-		expectedResult []ContractMetadataRecord
-	}{
-		{
-			name: "success: returns record with given chain",
-			givenState: []ContractMetadataRecord{
-				recordOne,
-				recordTwo,
-			},
-			giveChain:      2,
-			expectedResult: []ContractMetadataRecord{recordTwo},
-		},
-		{
-			name: "success: returns no record with given chain",
-			givenState: []ContractMetadataRecord{
-				recordOne,
-				recordTwo,
-			},
-			giveChain:      5,
-			expectedResult: []ContractMetadataRecord(nil),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filter := ContractMetadataByChain(tt.giveChain)
-			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})
 	}
