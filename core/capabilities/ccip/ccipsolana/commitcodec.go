@@ -58,7 +58,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		}
 		tpu = append(tpu, ccip_offramp.TokenPriceUpdate{
 			SourceToken: token,
-			UsdPerToken: [28]uint8(encodeBigIntToFixedLengthLE(update.Price.Int, 28)),
+			UsdPerToken: [28]uint8(encodeBigIntToFixedLengthBE(update.Price.Int, 28)),
 		})
 	}
 
@@ -70,7 +70,7 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 
 		gpu = append(gpu, ccip_offramp.GasPriceUpdate{
 			DestChainSelector: uint64(update.ChainSel),
-			UsdPerUnitGas:     [28]uint8(encodeBigIntToFixedLengthLE(update.GasPrice.Int, 28)),
+			UsdPerUnitGas:     [28]uint8(encodeBigIntToFixedLengthBE(update.GasPrice.Int, 28)),
 		})
 	}
 
@@ -131,18 +131,20 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 		}
 	}
 
+	// tokenPrice and gasPrice data is big endian encoded, following EVM
+
 	tokenPriceUpdates := make([]cciptypes.TokenPrice, 0, len(commitReport.PriceUpdates.TokenPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.TokenPriceUpdates {
 		tokenPriceUpdates = append(tokenPriceUpdates, cciptypes.TokenPrice{
 			TokenID: cciptypes.UnknownEncodedAddress(update.SourceToken.String()),
-			Price:   decodeLEToBigInt(update.UsdPerToken[:]),
+			Price:   decodeBEToBigInt(update.UsdPerToken[:]),
 		})
 	}
 
 	gasPriceUpdates := make([]cciptypes.GasPriceChain, 0, len(commitReport.PriceUpdates.GasPriceUpdates))
 	for _, update := range commitReport.PriceUpdates.GasPriceUpdates {
 		gasPriceUpdates = append(gasPriceUpdates, cciptypes.GasPriceChain{
-			GasPrice: decodeLEToBigInt(update.UsdPerUnitGas[:]),
+			GasPrice: decodeBEToBigInt(update.UsdPerUnitGas[:]),
 			ChainSel: cciptypes.ChainSelector(update.DestChainSelector),
 		})
 	}
@@ -176,33 +178,19 @@ func (c *CommitPluginCodecV1) Decode(ctx context.Context, bytes []byte) (cciptyp
 	return commitPluginReport, nil
 }
 
-func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
+func encodeBigIntToFixedLengthBE(bi *big.Int, length int) []byte {
 	// Create a fixed-length byte array
 	paddedBytes := make([]byte, length)
 
 	// Use FillBytes to fill the array with big-endian data, zero-padded
 	bi.FillBytes(paddedBytes)
 
-	// Reverse the array for little-endian encoding
-	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
-		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
-	}
-
 	return paddedBytes
 }
 
-func decodeLEToBigInt(data []byte) cciptypes.BigInt {
-	// Avoid modifying original data
-	buf := make([]byte, len(data))
-	copy(buf, data)
-
-	// Reverse the byte array to convert it from little-endian to big-endian
-	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
-		buf[i], buf[j] = buf[j], buf[i]
-	}
-
+func decodeBEToBigInt(data []byte) cciptypes.BigInt {
 	// Use big.Int.SetBytes to construct the big.Int
-	bi := new(big.Int).SetBytes(buf)
+	bi := new(big.Int).SetBytes(data)
 	if bi.Cmp(big.NewInt(0)) == 0 {
 		return cciptypes.NewBigInt(big.NewInt(0))
 	}
