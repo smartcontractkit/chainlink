@@ -7,25 +7,31 @@ import (
 )
 
 // The following functions are a default set of filters that can be used with the Filter method of the
-// AddressReferenceStore AddressReferenceStore interface. These filters are composable and can be combined
-// to create more complex filters.
+// AddressRefStore interface. These filters are composable and can be combined to create more complex filters.
 // For example, to filter records by chain and contract type, you can use the following:
 //	```
 //		records := store.Filter(
-//			AddressReferenceRecordByChain(1),
-//			AddressReferenceRecordByType(deployment.ContractType("type1")),
-//			AddressReferenceRecordByQualifier("my-qualifier"),
+//			AddressRefByChainSelector(1),
+//			AddressRefByType(deployment.ContractType("type1")),
+//			AddressRefByVersion("my-qualifier"),
 //		)
 //	```
 // This allows for a more flexible and reusable way to filter records. And opens the possibility for any user
 // to create their own custom filters by implementing the FilterFunc type.
 
-// AddressReferenceRecordByChain returns a filter that only includes records with the provided chain.
-func AddressReferenceRecordByChain(chain uint64) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
+// All the filters below are used to filter AddressRef records in the AddressRefStore.
+// They all implement the FilterFunc type.
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByChainSelector(0)
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByType(deployment.ContractType(""))
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByVersion(nil)
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByQualifier("")
+
+// AddressRefByChainSelector returns a filter that only includes records with the provided chain.
+func AddressRefByChainSelector(chainSelector uint64) FilterFunc[AddressRefKey, AddressRef] {
+	return func(records []AddressRef) []AddressRef {
+		filtered := []AddressRef{}
 		for _, record := range records {
-			if record.Chain == chain {
+			if record.ChainSelector == chainSelector {
 				filtered = append(filtered, record)
 			}
 		}
@@ -33,10 +39,10 @@ func AddressReferenceRecordByChain(chain uint64) FilterFunc[AddressReferenceKey,
 	}
 }
 
-// AddressReferenceRecordByType returns a filter that only includes records with the provided contract type.
-func AddressReferenceRecordByType(contractType deployment.ContractType) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
+// AddressRefByType returns a filter that only includes records with the provided contract type.
+func AddressRefByType(contractType deployment.ContractType) FilterFunc[AddressRefKey, AddressRef] {
+	return func(records []AddressRef) []AddressRef {
+		filtered := []AddressRef{}
 		for _, record := range records {
 			if record.Type == contractType {
 				filtered = append(filtered, record)
@@ -46,10 +52,10 @@ func AddressReferenceRecordByType(contractType deployment.ContractType) FilterFu
 	}
 }
 
-// AddressReferenceRecordByVersion returns a filter that only includes records with the provided version.
-func AddressReferenceRecordByVersion(version *semver.Version) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
+// AddressRefByVersion returns a filter that only includes records with the provided version.
+func AddressRefByVersion(version *semver.Version) FilterFunc[AddressRefKey, AddressRef] {
+	return func(records []AddressRef) []AddressRef {
+		filtered := []AddressRef{}
 		for _, record := range records {
 			if record.Version.Equal(version) {
 				filtered = append(filtered, record)
@@ -59,10 +65,10 @@ func AddressReferenceRecordByVersion(version *semver.Version) FilterFunc[Address
 	}
 }
 
-// AddressReferenceRecordByQualifier returns a filter that only includes records with the provided qualifier.
-func AddressReferenceRecordByQualifier(qualifier string) FilterFunc[AddressReferenceKey, AddressReferenceRecord] {
-	return func(records []AddressReferenceRecord) []AddressReferenceRecord {
-		var filtered []AddressReferenceRecord
+// AddressRefByQualifier returns a filter that only includes records with the provided qualifier.
+func AddressRefByQualifier(qualifier string) FilterFunc[AddressRefKey, AddressRef] {
+	return func(records []AddressRef) []AddressRef {
+		filtered := []AddressRef{}
 		for _, record := range records {
 			if record.Qualifier == qualifier {
 				filtered = append(filtered, record)
