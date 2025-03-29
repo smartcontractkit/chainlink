@@ -136,12 +136,11 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 			}
 		case "tokenreceiver":
 			// Expect [32]byte
-			if v, ok := fieldValue.([32]byte); ok {
-				tokenReceiver = solana.PublicKeyFromBytes(v[:])
-			} else {
+			v, ok := fieldValue.([32]byte)
+			if !ok {
 				return out, errors.New("invalid type for TokenReceiver, expected [32]byte")
 			}
-
+			tokenReceiver = solana.PublicKeyFromBytes(v[:])
 		default:
 			// no error here, unneeded keys can be skipped without return errors
 		}
