@@ -9,7 +9,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 )
 
-func TestAddressRefByChain(t *testing.T) {
+func TestAddressRefByChainSelector(t *testing.T) {
 	var (
 		recordOne = AddressRef{
 			Address:       "0x2324224",
