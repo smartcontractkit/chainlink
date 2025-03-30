@@ -12,8 +12,8 @@ importers:
   .:
     dependencies:
       '@arbitrum/nitro-contracts':
-        specifier: 1.1.1
-        version: 1.1.1
+        specifier: 3.0.0
+        version: 3.0.0
       '@changesets/cli':
         specifier: ~2.27.12
         version: 2.27.12
@@ -162,8 +162,8 @@ importers:
 
 packages:
 
-  '@arbitrum/nitro-contracts@1.1.1':
-    resolution: {integrity: sha512-4Tyk3XVHz+bm8UujUC78LYSw3xAxyYvBCxfEX4z3qE4/ww7Qck/rmce5gbHMzQjArEAzAP2YSfYIFuIFuRXtfg==}
+  '@arbitrum/nitro-contracts@3.0.0':
+    resolution: {integrity: sha512-7VzNW9TxvrX9iONDDsi7AZlEUPa6z+cjBkB4Mxlnog9VQZAapRC3CdRXyUzHnBYmUhRzyNJdyxkWPw59QGcLmA==}
 
   '@babel/code-frame@7.26.2':
     resolution: {integrity: sha512-RJlIHRueQgwWitWgF8OdFYGZX328Ax5BCemNGlqHfplnRT9ESi8JkFlvaVYbS+UubVY6dpv87Fs2u5M29iNFVQ==}
@@ -606,17 +606,11 @@ packages:
   '@offchainlabs/upgrade-executor@1.1.0-beta.0':
     resolution: {integrity: sha512-mpn6PHjH/KDDjNX0pXHEKdyv8m6DVGQiI2nGzQn0JbM1nOSHJpWx6fvfjtH7YxHJ6zBZTcsKkqGkFKDtCfoSLw==}
 
-  '@openzeppelin/contracts-upgradeable@4.5.2':
-    resolution: {integrity: sha512-xgWZYaPlrEOQo3cBj97Ufiuv79SPd8Brh4GcFYhPgb6WvAq4ppz8dWKL6h+jLAK01rUqMRp/TS9AdXgAeNvCLA==}
-
   '@openzeppelin/contracts-upgradeable@4.7.3':
     resolution: {integrity: sha512-+wuegAMaLcZnLCJIvrVUDzA9z/Wp93f0Dla/4jJvIhijRrPabjQbZe6fWiECLaJyfn5ci9fqf9vTw3xpQOad2A==}
 
   '@openzeppelin/contracts-upgradeable@4.9.6':
     resolution: {integrity: sha512-m4iHazOsOCv1DgM7eD7GupTJ+NFVujRZt1wzddDPSVGpWdKq1SKkla5htKG7+IS4d2XOCtzkUNwRZ7Vq5aEUMA==}
-
-  '@openzeppelin/contracts@4.5.0':
-    resolution: {integrity: sha512-fdkzKPYMjrRiPK6K4y64e6GzULR7R7RwxSigHS8DDp7aWDeoReqsQI+cxHV1UuhAqX69L1lAaWDxenfP+xiqzA==}
 
   '@openzeppelin/contracts@4.7.3':
     resolution: {integrity: sha512-dGRS0agJzu8ybo44pCIf3xBaPQN/65AIXNgK8+4gzKd5kbvlqyxryUYVLJv7fK98Seyd2hDZzVEHSWAh0Bt1Yw==}
@@ -2378,6 +2372,9 @@ packages:
   snake-case@2.1.0:
     resolution: {integrity: sha512-FMR5YoPFwOLuh4rRz92dywJjyKYZNLpMn1R5ujVpIYkbA9p01fq8RMg0FkO4M+Yobt4MjHeLTJVm5xFFBHSV2Q==}
 
+  solady@0.0.182:
+    resolution: {integrity: sha512-FW6xo1akJoYpkXMzu58/56FcNU3HYYNamEbnFO3iSibXk0nSHo0DV2Gu/zI3FPg3So5CCX6IYli1TT1IWATnvg==}
+
   solc@0.7.3:
     resolution: {integrity: sha512-GAsWNAjGzIDg7VxzP6mPjdurby3IkGCjQcM8GFYZT6RyaoUZKmMU6Y7YwG+tFGhv7dwZ8rmR4iwFDrrD99JwqA==}
     engines: {node: '>=8.0.0'}
@@ -2782,12 +2779,13 @@ packages:
 
 snapshots:
 
-  '@arbitrum/nitro-contracts@1.1.1':
+  '@arbitrum/nitro-contracts@3.0.0':
     dependencies:
       '@offchainlabs/upgrade-executor': 1.1.0-beta.0
-      '@openzeppelin/contracts': 4.5.0
-      '@openzeppelin/contracts-upgradeable': 4.5.2
+      '@openzeppelin/contracts': 4.7.3
+      '@openzeppelin/contracts-upgradeable': 4.7.3
       patch-package: 6.5.1
+      solady: 0.0.182
 
   '@babel/code-frame@7.26.2':
     dependencies:
@@ -3672,13 +3670,9 @@ snapshots:
       '@openzeppelin/contracts': 4.7.3
       '@openzeppelin/contracts-upgradeable': 4.7.3
 
-  '@openzeppelin/contracts-upgradeable@4.5.2': {}
-
   '@openzeppelin/contracts-upgradeable@4.7.3': {}
 
   '@openzeppelin/contracts-upgradeable@4.9.6': {}
-
-  '@openzeppelin/contracts@4.5.0': {}
 
   '@openzeppelin/contracts@4.7.3': {}
 
@@ -5633,6 +5627,8 @@ snapshots:
   snake-case@2.1.0:
     dependencies:
       no-case: 2.3.2
+
+  solady@0.0.182: {}
 
   solc@0.7.3(debug@4.4.0):
     dependencies:

@@ -91,7 +91,7 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@arbitrum/nitro-contracts": "1.1.1",
+    "@arbitrum/nitro-contracts": "3.0.0",
     "@changesets/cli": "~2.27.12",
     "@changesets/get-github-info": "^0.6.0",
     "@eth-optimism/contracts": "0.6.0",
