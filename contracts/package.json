@@ -76,7 +76,7 @@
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.5",
-    "ethers": "~5.7.2",
+    "ethers": "~5.8.0",
     "hardhat": "~2.20.1",
     "hardhat-abi-exporter": "^2.10.1",
     "hardhat-ignore-warnings": "^0.2.12",
