@@ -5,8 +5,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestAddressRefByChainSelector(t *testing.T) {
@@ -17,7 +15,7 @@ func TestAddressRefByChainSelector(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -28,7 +26,7 @@ func TestAddressRefByChainSelector(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -77,7 +75,7 @@ func TestAddressRefByType(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -88,7 +86,7 @@ func TestAddressRefByType(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -97,7 +95,7 @@ func TestAddressRefByType(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressRef
-		giveType       deployment.ContractType
+		giveType       ContractType
 		expectedResult []AddressRef
 	}{
 		{
@@ -139,7 +137,7 @@ func TestAddressRefByVersion(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -150,7 +148,7 @@ func TestAddressRefByVersion(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -202,7 +200,7 @@ func TestAddressRefByQualifier(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -213,7 +211,7 @@ func TestAddressRefByQualifier(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual2",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}

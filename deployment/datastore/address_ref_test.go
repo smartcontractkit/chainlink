@@ -5,15 +5,13 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestAddressRef_Clone(t *testing.T) {
 	original := AddressRef{
 		Address:       "0x123",
 		ChainSelector: 1,
-		Labels:        deployment.NewLabelSet("label1", "label2"),
+		Labels:        NewLabelSet("label1", "label2"),
 		Qualifier:     "qualifier",
 		Type:          "contractType",
 		Version:       semver.MustParse("1.0.0"),
@@ -29,7 +27,7 @@ func TestAddressRef_Key(t *testing.T) {
 	ref := AddressRef{
 		Address:       "0x123",
 		ChainSelector: 1,
-		Labels:        deployment.NewLabelSet("label1", "label2"),
+		Labels:        NewLabelSet("label1", "label2"),
 		Qualifier:     "qualifier",
 		Type:          "contractType",
 		Version:       semver.MustParse("1.0.0"),

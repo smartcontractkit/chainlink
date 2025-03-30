@@ -6,8 +6,6 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestMemoryAddressRefStore_indexOf(t *testing.T) {
@@ -18,7 +16,7 @@ func TestMemoryAddressRefStore_indexOf(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -29,7 +27,7 @@ func TestMemoryAddressRefStore_indexOf(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -77,7 +75,7 @@ func TestMemoryAddressRefStore_Add(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -132,7 +130,7 @@ func TestMemoryAddressRefStore_AddOrUpdate(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -142,7 +140,7 @@ func TestMemoryAddressRefStore_AddOrUpdate(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -194,7 +192,7 @@ func TestMemoryAddressRefStore_Update(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -204,7 +202,7 @@ func TestMemoryAddressRefStore_Update(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -259,7 +257,7 @@ func TestMemoryAddressRefStore_Delete(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -270,7 +268,7 @@ func TestMemoryAddressRefStore_Delete(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -281,7 +279,7 @@ func TestMemoryAddressRefStore_Delete(t *testing.T) {
 			Type:          "typeZ",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -342,7 +340,7 @@ func TestMemoryAddressRefStore_Fetch(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -353,7 +351,7 @@ func TestMemoryAddressRefStore_Fetch(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -402,7 +400,7 @@ func TestMemoryAddressRefStore_Get(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -413,7 +411,7 @@ func TestMemoryAddressRefStore_Get(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -469,7 +467,7 @@ func TestMemoryAddressRefStore_Filter(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -480,7 +478,7 @@ func TestMemoryAddressRefStore_Filter(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -491,7 +489,7 @@ func TestMemoryAddressRefStore_Filter(t *testing.T) {
 			Type:          "typeZ",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}

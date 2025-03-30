@@ -2,8 +2,6 @@ package datastore
 
 import (
 	"github.com/Masterminds/semver/v3"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // The following functions are a default set of filters that can be used with the Filter method of the
@@ -12,7 +10,7 @@ import (
 //	```
 //		records := store.Filter(
 //			AddressRefByChainSelector(1),
-//			AddressRefByType(deployment.ContractType("type1")),
+//			AddressRefByType(ContractType("type1")),
 //			AddressRefByVersion("my-qualifier"),
 //		)
 //	```
@@ -22,7 +20,7 @@ import (
 // All the filters below are used to filter AddressRef records in the AddressRefStore.
 // They all implement the FilterFunc type.
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByChainSelector(0)
-var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByType(deployment.ContractType(""))
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByType(ContractType(""))
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByVersion(nil)
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByQualifier("")
 
@@ -40,7 +38,7 @@ func AddressRefByChainSelector(chainSelector uint64) FilterFunc[AddressRefKey, A
 }
 
 // AddressRefByType returns a filter that only includes records with the provided contract type.
-func AddressRefByType(contractType deployment.ContractType) FilterFunc[AddressRefKey, AddressRef] {
+func AddressRefByType(contractType ContractType) FilterFunc[AddressRefKey, AddressRef] {
 	return func(records []AddressRef) []AddressRef {
 		filtered := []AddressRef{}
 		for _, record := range records {
