@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/gin-gonic/gin"
 	"github.com/smartcontractkit/chainlink/v2/core/auth"
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 )
@@ -59,8 +60,8 @@ type AuthenticationProvider interface {
 	Sessions(ctx context.Context, offset, limit int) ([]Session, error)
 	GetUserWebAuthn(ctx context.Context, email string) ([]WebAuthn, error)
 	SaveWebAuthn(ctx context.Context, token *WebAuthn) error
+	ExtendRouter(engine *gin.Engine) error
 
 	FindExternalInitiator(ctx context.Context, eia *auth.Token) (initiator *bridges.ExternalInitiator, err error)
 }
 
-// TODO: new function: extendRouter which will add routes to router object IF OIDC 

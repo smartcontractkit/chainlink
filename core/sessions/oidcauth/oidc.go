@@ -17,7 +17,6 @@ import (
 	"context"
 	"crypto/subtle"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -124,15 +123,15 @@ func NewOIDCAuthenticator(
 
 	// Create a new, separate gin engine to register and listen for the OIDC callback request containing
 	// the user claims and groups, set up ratelimitter
-	go func() {
-		oidcCallbackEngine := gin.New()
-		api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
-		api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
-		api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
-
-		lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-		oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
-	}()
+	// go func() {
+		// oidcCallbackEngine := gin.New()
+		// api := oidcCallbackEngine.Group("/", rateLimiter(RouterRateLimitterPeriod, RouterRateLimitterLimit))
+		// api.GET("/auth/oidc-login", ginHandlerFromHTTP(oidcAuth.handleLoginProviderRedirect))
+		// api.GET(oidcCfg.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidcAuth.handleOIDCCallback))
+		//
+		// lggr.Infof("Initialized OIDC HTTP router and routes on %d", fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+		// oidcCallbackEngine.Run(":" + fmt.Sprintf("%d", oidcCfg.HTTPPort()))
+	// }()
 
 	return &oidcAuth, nil
 }
@@ -142,6 +141,10 @@ func (oi *oidcAuthenticator) handleLoginProviderRedirect(w http.ResponseWriter, 
 }
 
 func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.Request) {
+	// TODO: harry, does this even get called?
+	w.Write([]byte{})
+	return 
+	oi.lggr.Info("hit oidc callback")
 	// Verify initial error or required query params
 	if errMsg := r.URL.Query().Get("error"); errMsg != "" {
 		oi.lggr.Warnf("Recieved error in OIDC response: %s", errMsg)
@@ -227,15 +230,17 @@ func (oi *oidcAuthenticator) handleOIDCCallback(w http.ResponseWriter, r *http.R
 
 	// Redirect to operator UI
 	// Set authenticated response and session cookie
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	jsonData, _ := json.Marshal(map[string]interface{}{
-		"Authenticated": true,
-		"Session":       session.ID,
-	})
+	// w.Header().Set("Content-Type", "application/json")
+	// w.WriteHeader(http.StatusOK)
+
+	cookie := &http.Cookie{
+		Name: "clsession",
+		Value: session.ID,
+	}
+	http.SetCookie(w, cookie)
 	// TODO: here we need to set cookie and redirect to login
 	// SET cookie then redirect instead of printing
-	w.Write(jsonData)
+	// http.Redirect(w, r, "/signin", http.StatusSeeOther)
 }
 
 // FindUser in the context of the OIDC driver only supports local admin users
@@ -615,4 +620,13 @@ func rateLimiter(period time.Duration, limit int64) gin.HandlerFunc {
 		Limit:  limit,
 	}
 	return mgin.NewMiddleware(limiter.New(store, rate))
+}
+
+func (oidc *oidcAuthenticator) ExtendRouter(engine *gin.Engine) error {
+	auth := engine.Group("/auth");
+	auth.GET("/oidc-login", ginHandlerFromHTTP(oidc.handleLoginProviderRedirect))
+	auth.GET(oidc.config.OIDCCallbackURLSuffix(), ginHandlerFromHTTP(oidc.handleOIDCCallback))
+	oidc.lggr.Infof("OIDC Authenticator added HTTP routes")
+
+	return nil
 }
