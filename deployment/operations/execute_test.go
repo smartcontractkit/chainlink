@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"math"
-	"sync"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -405,122 +404,6 @@ func Test_ExecuteSequence_ErrorReporter(t *testing.T) {
 			_, err := ExecuteSequence(e, sequence, OpDeps{}, 1)
 			require.Error(t, err)
 			require.ErrorContains(t, err, tt.wantErr)
-		})
-	}
-}
-
-func Test_constructUniqueHashFrom(t *testing.T) {
-	t.Parallel()
-
-	type Input struct {
-		A int
-		B int
-	}
-
-	definition := Definition{
-		ID:          "plus1",
-		Version:     semver.MustParse("1.0.0"),
-		Description: "plus 1",
-	}
-	tests := []struct {
-		name    string
-		def     Definition
-		input   any
-		want    string
-		wantErr string
-	}{
-		{
-			name: "Same def and input should always have the same hash (struct input)",
-			def:  definition,
-			input: Input{
-				A: 1,
-				B: 2,
-			},
-			want: "e6148d004b97353d8361d8cbcfbefe77da97dec220bd04449667f6ba6180d46c",
-		},
-		{
-			name: "Same def and same input (different map order) should always have the same hash (struct input)",
-			def:  definition,
-			input: Input{
-				B: 2,
-				A: 1,
-			},
-			want: "e6148d004b97353d8361d8cbcfbefe77da97dec220bd04449667f6ba6180d46c",
-		},
-		{
-			name:  "Same def and input should always have the same hash (literal input)",
-			def:   definition,
-			input: 1,
-			want:  "3f409a93e9fe5507c0d4a902ba5cb6e80a3740c74dc6a4a9bca13e71f2d46ca5",
-		},
-		{
-			name: "Different def, same input should have different hash",
-			def: Definition{
-				ID:          "plus2",
-				Version:     semver.MustParse("1.0.0"),
-				Description: "plus 2",
-			},
-			input: 1,
-			want:  "9f9d42fb8ced1129a0071a30a301cc03e94f12f225f7649ab34df16e6891d37c",
-		},
-		{
-			name: "Different input, same def should have different hash (struct input)",
-			def:  definition,
-			input: Input{
-				B: 1,
-				A: 2,
-			},
-			want: "6c8b5986bd08e115df5cbbd77c23fcd28ea31055d0cf6de8ec29ddd7fd056bca",
-		},
-		{
-			name:  "Different input, same def should have different hash (literal input)",
-			def:   definition,
-			input: 2,
-			want:  "468cd7f2b432fa59559c69a2db32fc0d44d829328a6db5c7d745889c53f4fff0",
-		},
-		{
-			name:    "invalid input",
-			def:     definition,
-			input:   math.NaN(),
-			wantErr: "json: unsupported value: NaN",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-
-			cache := &sync.Map{}
-			hash, err := constructUniqueHashFrom(cache, tt.def, tt.input)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr)
-
-				// should not store anything in cache on failure
-				key := struct {
-					Def   Definition
-					Input any
-				}{tt.def, tt.input}
-				_, ok := cache.Load(key)
-				require.False(t, ok)
-			} else {
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, hash)
-
-				// check cache
-				key := struct {
-					Def   Definition
-					Input any
-				}{tt.def, tt.input}
-				cached, ok := cache.Load(key)
-				require.True(t, ok)
-				assert.Equal(t, tt.want, cached)
-
-				// this call should use the cache
-				hash2, err := constructUniqueHashFrom(cache, tt.def, tt.input)
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, hash2)
-			}
 		})
 	}
 }

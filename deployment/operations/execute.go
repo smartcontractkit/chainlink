@@ -1,11 +1,7 @@
 package operations
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"sync"
 
 	"github.com/avast/retry-go/v4"
 )
@@ -162,34 +158,6 @@ func ExecuteSequence[IN, OUT, DEP any](
 // This allows the operation to fail fast if it encounters an unrecoverable error.
 func NewUnrecoverableError(err error) error {
 	return retry.Unrecoverable(err)
-}
-
-func constructUniqueHashFrom(hashCache *sync.Map, def Definition, input any) (string, error) {
-	// Create cache key by combining def and input
-	key := struct {
-		Def   Definition
-		Input any
-	}{def, input}
-
-	if cached, ok := hashCache.Load(key); ok {
-		return cached.(string), nil
-	}
-
-	// Calculate hash if not in cache
-	defBytes, err := json.Marshal(def)
-	if err != nil {
-		return "", err
-	}
-	inputBytes, err := json.Marshal(input)
-	if err != nil {
-		return "", err
-	}
-
-	hash := sha256.Sum256(append(defBytes, inputBytes...))
-	result := hex.EncodeToString(hash[:])
-
-	hashCache.Store(key, result)
-	return result, nil
 }
 
 func loadPreviousSuccessfulReport[IN, OUT any](
