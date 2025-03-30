@@ -538,9 +538,9 @@ func Test_loadPreviousSuccessfulReport(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupReporter func() Reporter
-		input         any
+		input         float64
 		wantDef       Definition
-		wantInput     int
+		wantInput     float64
 		wantFound     bool
 	}{
 		{
@@ -618,12 +618,12 @@ func Test_loadPreviousSuccessfulReport(t *testing.T) {
 				bundle.reporter = tt.setupReporter()
 			}
 
-			report, found := loadPreviousSuccessfulReport[any, int](bundle, definition, tt.input)
+			report, found := loadPreviousSuccessfulReport[float64, int](bundle, definition, tt.input)
 			assert.Equal(t, tt.wantFound, found)
 
 			if tt.wantFound {
 				assert.Equal(t, tt.wantDef, report.Def)
-				assert.Equal(t, tt.wantInput, report.Input)
+				assert.InDelta(t, tt.wantInput, report.Input, 0)
 			}
 		})
 	}

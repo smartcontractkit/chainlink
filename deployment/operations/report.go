@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -198,18 +199,33 @@ func genericReport[IN, OUT any](r Report[IN, OUT]) Report[any, any] {
 	}
 }
 
-func typeReport[Input, Output any](r Report[any, any]) (Report[Input, Output], bool) {
-	input, ok := r.Input.(Input)
-	if !ok {
-		return Report[Input, Output]{}, false
+// typeReport attempts to convert Report[any,any] type into Report[IN,OUT].
+// This is needed when loading Report from disk and need to convert the type during execution
+// once the type is known.
+func typeReport[IN, OUT any](r Report[any, any]) (Report[IN, OUT], bool) {
+	// When marshalling and unmarshalling, the type information is lost.
+	// eg int becomes float64, struct becomes map[string]interface{}. So we need to unmarshal it
+	// back to the original type as specified by the generic type to avoid data lost.
+	inputBytes, err := json.Marshal(r.Input)
+	if err != nil {
+		return Report[IN, OUT]{}, false
+	}
+	var input IN
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		return Report[IN, OUT]{}, false
 	}
 
-	output, ok := r.Output.(Output)
-	if !ok {
-		return Report[Input, Output]{}, false
+	outputBytes, err := json.Marshal(r.Output)
+	if err != nil {
+		return Report[IN, OUT]{}, false
 	}
 
-	return Report[Input, Output]{
+	var output OUT
+	if err := json.Unmarshal(outputBytes, &output); err != nil {
+		return Report[IN, OUT]{}, false
+	}
+
+	return Report[IN, OUT]{
 		ID:        r.ID,
 		Def:       r.Def,
 		Output:    output,

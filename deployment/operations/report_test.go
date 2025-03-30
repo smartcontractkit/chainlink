@@ -117,17 +117,26 @@ func Test_typeReport(t *testing.T) {
 	t.Parallel()
 
 	now := time.Now()
+
+	type Input struct {
+		A int
+	}
+
 	report := Report[any, any]{
 		ID:                    "1",
 		Def:                   Definition{},
-		Output:                2,
-		Input:                 1,
+		Output:                float64(2),
+		Input:                 map[string]interface{}{"a": 1},
 		Timestamp:             &now,
 		Err:                   nil,
 		ChildOperationReports: []string{uuid.New().String()},
 	}
 
-	_, ok := typeReport[int, int](report)
+	_, ok := typeReport[map[string]interface{}, float64](report)
+	assert.True(t, ok)
+
+	// supports unmarshalling into a different type as long it is compatible
+	_, ok = typeReport[Input, int](report)
 	assert.True(t, ok)
 
 	// incorrect input type
