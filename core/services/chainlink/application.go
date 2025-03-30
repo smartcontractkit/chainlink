@@ -83,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -206,6 +207,8 @@ type ApplicationOpts struct {
 	LLOTransmissionReaper    services.ServiceCtx
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
+	FetcherFunc              artifacts.FetcherFunc
+	FetcherFactoryFn         compute.FetcherFactory
 }
 
 type Heartbeat struct {
@@ -760,7 +763,7 @@ type CREOpts struct {
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
-	FetcherFunc      syncer.FetcherFunc
+	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
 }
 
@@ -896,7 +899,7 @@ func newCREServices(
 
 			if capCfg.WorkflowRegistry().Address() != "" {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				var fetcherFunc syncer.FetcherFunc
+				var fetcherFunc artifacts.FetcherFunc
 				if opts.FetcherFunc == nil {
 					if gatewayConnectorWrapper == nil {
 						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
@@ -913,24 +916,24 @@ func newCREServices(
 					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
 				}
 
-				eventHandler := syncer.NewEventHandler(
-					lggr,
-					syncer.NewWorkflowRegistryDS(ds, globalLogger),
+				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
-					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
-					opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(),
-					clockwork.NewRealClock(),
-					key,
-					workflowRateLimiter,
-					workflowLimits,
-					syncer.WithMaxArtifactSize(
-						syncer.ArtifactConfig{
+					clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+						artifacts.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 							MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 						},
-					),
+					))
+
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					workflowRateLimiter,
+					workflowLimits,
+					artifactsStore,
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
@@ -1208,7 +1211,7 @@ func (app *ChainlinkApplication) RunJobV2(
 					common.BigToHash(big.NewInt(42)).Bytes(), // seed
 					evmutils.NewHash().Bytes(),               // sender
 					evmutils.NewHash().Bytes(),               // fee
-					evmutils.NewHash().Bytes()},              // requestID
+					evmutils.NewHash().Bytes()}, // requestID
 					[]byte{}),
 				Topics:      []common.Hash{{}, jb.ExternalIDEncodeBytesToTopic()}, // jobID BYTES
 				TxHash:      evmutils.NewHash(),
