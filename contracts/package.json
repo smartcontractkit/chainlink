@@ -50,10 +50,6 @@
   },
   "devDependencies": {
     "@ethereum-waffle/mock-contract": "^3.4.4",
-    "@ethersproject/abi": "~5.7.0",
-    "@ethersproject/bignumber": "~5.7.0",
-    "@ethersproject/contracts": "~5.7.0",
-    "@ethersproject/providers": "~5.7.2",
     "@nomicfoundation/hardhat-chai-matchers": "^1.0.6",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",

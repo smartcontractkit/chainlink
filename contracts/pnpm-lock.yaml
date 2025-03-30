@@ -42,18 +42,6 @@ importers:
       '@ethereum-waffle/mock-contract':
         specifier: ^3.4.4
         version: 3.4.4
-      '@ethersproject/abi':
-        specifier: ~5.7.0
-        version: 5.7.0
-      '@ethersproject/bignumber':
-        specifier: ~5.7.0
-        version: 5.7.0
-      '@ethersproject/contracts':
-        specifier: ~5.7.0
-        version: 5.7.0
-      '@ethersproject/providers':
-        specifier: ~5.7.2
-        version: 5.7.2
       '@nomicfoundation/hardhat-chai-matchers':
         specifier: ^1.0.6
         version: 1.0.6(@nomiclabs/hardhat-ethers@2.2.3(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2)))(chai@4.5.0)(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))
@@ -68,10 +56,10 @@ importers:
         version: 2.0.13(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))
       '@typechain/ethers-v5':
         specifier: ^7.2.0
-        version: 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.7.2)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)
+        version: 7.2.0(@ethersproject/abi@5.8.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.8.0)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)
       '@typechain/hardhat':
         specifier: ^7.0.0
-        version: 7.0.0(@ethersproject/abi@5.7.0)(@ethersproject/providers@5.7.2)(@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.7.2)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2))(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))(typechain@8.3.2(typescript@5.8.2))
+        version: 7.0.0(@ethersproject/abi@5.8.0)(@ethersproject/providers@5.8.0)(@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.8.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.8.0)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2))(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))(typechain@8.3.2(typescript@5.8.2))
       '@types/cbor':
         specifier: ~5.0.1
         version: 5.0.1
@@ -3687,22 +3675,22 @@ snapshots:
 
   '@tsconfig/node16@1.0.4': {}
 
-  '@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.7.2)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)':
+  '@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.8.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.8.0)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)':
     dependencies:
-      '@ethersproject/abi': 5.7.0
+      '@ethersproject/abi': 5.8.0
       '@ethersproject/bytes': 5.8.0
-      '@ethersproject/providers': 5.7.2
+      '@ethersproject/providers': 5.8.0
       ethers: 5.8.0
       lodash: 4.17.21
       ts-essentials: 7.0.3(typescript@5.8.2)
       typechain: 8.3.2(typescript@5.8.2)
       typescript: 5.8.2
 
-  '@typechain/hardhat@7.0.0(@ethersproject/abi@5.7.0)(@ethersproject/providers@5.7.2)(@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.7.2)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2))(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))(typechain@8.3.2(typescript@5.8.2))':
+  '@typechain/hardhat@7.0.0(@ethersproject/abi@5.8.0)(@ethersproject/providers@5.8.0)(@typechain/ethers-v5@7.2.0(@ethersproject/abi@5.8.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.8.0)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2))(ethers@5.8.0)(hardhat@2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2))(typechain@8.3.2(typescript@5.8.2))':
     dependencies:
-      '@ethersproject/abi': 5.7.0
-      '@ethersproject/providers': 5.7.2
-      '@typechain/ethers-v5': 7.2.0(@ethersproject/abi@5.7.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.7.2)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)
+      '@ethersproject/abi': 5.8.0
+      '@ethersproject/providers': 5.8.0
+      '@typechain/ethers-v5': 7.2.0(@ethersproject/abi@5.8.0)(@ethersproject/bytes@5.8.0)(@ethersproject/providers@5.8.0)(ethers@5.8.0)(typechain@8.3.2(typescript@5.8.2))(typescript@5.8.2)
       ethers: 5.8.0
       fs-extra: 9.1.0
       hardhat: 2.20.1(ts-node@10.9.2(@types/node@20.17.27)(typescript@5.8.2))(typescript@5.8.2)
