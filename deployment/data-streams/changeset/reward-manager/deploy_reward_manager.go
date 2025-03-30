@@ -1,4 +1,4 @@
-package general
+package reward_manager
 
 import (
 	"errors"
@@ -15,7 +15,7 @@ import (
 var DeployRewardManagerChangeset = deployment.CreateChangeSet(deployRewardManagerLogic, deployRewardManagerPrecondition)
 
 type DeployRewardManager struct {
-	LinkAddress common.Address
+	LinkTokenAddress common.Address
 }
 
 type DeployRewardManagerConfig struct {
@@ -65,7 +65,7 @@ func deployRewardManager(e deployment.Environment, ab deployment.AddressBook, cc
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
 		deployRewardManager := cc.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract(e, ab, chain, RewardManagerDeployFn(deployRewardManager.LinkAddress))
+		_, err := changeset.DeployContract(e, ab, chain, RewardManagerDeployFn(deployRewardManager.LinkTokenAddress))
 		if err != nil {
 			return err
 		}
