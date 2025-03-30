@@ -29,6 +29,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay"
 
@@ -89,9 +90,6 @@ const (
 var (
 	// bytes4 public constant EVM_EXTRA_ARGS_V2_TAG = 0x181dcf10;
 	evmExtraArgsV2Tag = hexutil.MustDecode("0x181dcf10")
-
-	// bytes4 public constant SVM_EXTRA_ARGS_V1_TAG = 0x1f3b3aba;
-	svmExtraArgsV1Tag = hexutil.MustDecode("0x1f3b3aba")
 
 	routerABI = abihelpers.MustParseABI(router.RouterABI)
 
@@ -441,7 +439,7 @@ func SendRequestEVM(
 		return nil, fmt.Errorf("no CCIP message sent event found")
 	}
 
-	fmt.Printf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
+	fmt.Printf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t\n",
 		it.Event.Message.Header.MessageId[:],
 		cfg.SourceChain,
 		cfg.DestChain,
@@ -472,7 +470,7 @@ func SendRequestSol(
 		message.FeeToken = s.WSOL
 	}
 
-	fmt.Printf("Sending CCIP request from chain selector %d to chain selector %d from sender %s",
+	fmt.Printf("Sending CCIP request from chain selector %d to chain selector %d from sender %s\n",
 		cfg.SourceChain, cfg.DestChain, sender.String())
 
 	client := e.SolChains[cfg.SourceChain].Client
@@ -556,6 +554,7 @@ func SendRequestSol(
 		s.RMNRemoteConfigPDA,
 		externalTokenPoolsSignerPDA,
 	)
+
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 
 	addressTables := map[solana.PublicKey]solana.PublicKeySlice{}
@@ -614,6 +613,7 @@ func SendRequestSol(
 		base.AccountMetaSlice = append(base.AccountMetaSlice, tokenMetas...)
 		maps.Copy(addressTables, tokenAddressTables)
 	}
+
 	base.SetTokenIndexes(tokenIndexes)
 
 	ix, err := base.ValidateAndBuild()
@@ -622,6 +622,12 @@ func SendRequestSol(
 	}
 
 	// for some reason onchain doesn't see extraAccounts
+
+	if data, err := json.MarshalIndent(*ix, "", " "); err != nil {
+		return nil, err
+	} else {
+		fmt.Println(string(data))
+	}
 
 	ixs := []solana.Instruction{ix}
 	result, err := solcommon.SendAndConfirmWithLookupTables(ctx, client, ixs, *sender, solconfig.DefaultCommitment, addressTables, solcommon.AddComputeUnitLimit(300_000))
@@ -645,7 +651,7 @@ func SendRequestSol(
 
 	// ---
 
-	// t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t",
+	// t.Logf("CCIP message (id %x) sent from chain selector %d to chain selector %d tx %s seqNum %d nonce %d sender %s testRouterEnabled %t\n",
 	// 	it.Event.Message.Header.MessageId[:],
 	// 	cfg.SourceChain,
 	// 	cfg.DestChain,
@@ -689,55 +695,17 @@ func MakeEVMExtraArgsV2(gasLimit uint64, allowOOO bool) []byte {
 	return extraArgs
 }
 
-func MakeSVMExtraArgsV1(
-	computeUnits uint32,
-	accountIsWritableBitmap uint64,
-	allowOOO bool,
-	tokenReceiver solana.PublicKey,
-	accounts []solana.PublicKey,
-) []byte {
-	// extra args is the SVM tag followed by the abi-encoded struct fields.
-	var extraArgs []byte
-	extraArgs = append(extraArgs, svmExtraArgsV1Tag...)
+// NOTE: this is EVM specific (EVM->SVM)
+const SVMExtraArgsV1Tag = "0x1f3b3aba"
 
-	// abi-encode computeUnits
-	computeUnitsBytes := new(big.Int).SetUint64(uint64(computeUnits)).Bytes()
-	computeUnitsBytes = common.LeftPadBytes(computeUnitsBytes, 32)
-
-	// abi-encode accountIsWritableBitmap
-	accountIsWritableBitmapBytes := new(big.Int).SetUint64(accountIsWritableBitmap).Bytes()
-	accountIsWritableBitmapBytes = common.LeftPadBytes(accountIsWritableBitmapBytes, 32)
-
-	// abi-encode allowOOO
-	var allowOOOBytes []byte
-	if allowOOO {
-		allowOOOBytes = append(allowOOOBytes, 1)
-	} else {
-		allowOOOBytes = append(allowOOOBytes, 0)
+func SerializeSVMExtraArgs(data message_hasher.ClientSVMExtraArgsV1) ([]byte, error) {
+	tagBytes := hexutil.MustDecode(string(SVMExtraArgsV1Tag))
+	abi, err := message_hasher.MessageHasherMetaData.GetAbi()
+	if err != nil {
+		return nil, err
 	}
-	allowOOOBytes = common.LeftPadBytes(allowOOOBytes, 32)
-
-	// abi-encode tokenReceiver
-	tokenReceiverBytes := common.LeftPadBytes(tokenReceiver.Bytes(), 32)
-
-	// abi-encode accounts length
-	accountsLengthBytes := new(big.Int).SetUint64(uint64(len(accounts))).Bytes()
-	accountsLengthBytes = common.LeftPadBytes(accountsLengthBytes, 32)
-
-	// abi-encode accounts
-	var accountsBytes []byte
-	for _, account := range accounts {
-		accountsBytes = append(accountsBytes, account.Bytes()...)
-	}
-
-	// concatenate everything
-	extraArgs = append(extraArgs, computeUnitsBytes...)
-	extraArgs = append(extraArgs, accountIsWritableBitmapBytes...)
-	extraArgs = append(extraArgs, allowOOOBytes...)
-	extraArgs = append(extraArgs, tokenReceiverBytes...)
-	extraArgs = append(extraArgs, accountsLengthBytes...)
-	extraArgs = append(extraArgs, accountsBytes...)
-	return extraArgs
+	v, err := abi.Methods["encodeSVMExtraArgsV1"].Inputs.Pack(data)
+	return append(tagBytes, v...), err
 }
 
 func AddLane(
