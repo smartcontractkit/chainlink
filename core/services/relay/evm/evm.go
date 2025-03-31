@@ -293,6 +293,10 @@ func (r *Relayer) Transact(ctx context.Context, from, to string, amount *big.Int
 	return r.chain.Transact(ctx, from, to, amount, balanceCheck)
 }
 
+func (r *Relayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	return r.chain.Replay(ctx, fromBlock, args)
+}
+
 func (r *Relayer) ID() string {
 	return r.chain.ID().String()
 }

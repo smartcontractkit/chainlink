@@ -166,10 +166,13 @@ flowchart LR
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/lib --> chainlink-testing-framework/parrot
 	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
 	click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/parrot
+	click chainlink-testing-framework/parrot href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/sentinel --> chainlink-testing-framework/lib
 	click chainlink-testing-framework/sentinel href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/seth
@@ -256,6 +259,7 @@ flowchart LR
 		 chainlink-testing-framework/havoc
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana
+		 chainlink-testing-framework/parrot
 		 chainlink-testing-framework/sentinel
 		 chainlink-testing-framework/seth
 		 chainlink-testing-framework/wasp

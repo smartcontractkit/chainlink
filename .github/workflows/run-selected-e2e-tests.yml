@@ -41,7 +41,7 @@ on:
         required: false
         type: string
         default: '{ "flakeguard_enable": "false", "flakeguard_run_count": "3" }'
-        description: 'JSON of extra arguments for the workflow.'        
+        description: 'JSON of extra arguments for the workflow.'
 
 run-name: ${{ inputs.workflow_run_name }}
 

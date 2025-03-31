@@ -1,9 +1,9 @@
 package smoke
 
 import (
-	"fmt"
 	"math/big"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -16,6 +16,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/logging"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
+	"github.com/smartcontractkit/chainlink-testing-framework/parrot"
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
@@ -54,9 +55,15 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Error getting seth client")
 
 	adapterUUID := uuid.NewString()
-	adapterPath := fmt.Sprintf("/variable-%s", adapterUUID)
-	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e5)
-	require.NoError(t, err, "Setting mock adapter value path shouldn't fail")
+	adapterPath := "/variable-" + adapterUUID
+	route := &parrot.Route{
+		Method:             http.MethodPost,
+		Path:               adapterPath,
+		ResponseBody:       1e5,
+		ResponseStatusCode: http.StatusOK,
+	}
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
 
 	lt, err := contracts.DeployLinkTokenContract(l, sethClient)
 	require.NoError(t, err, "Deploying Link Token Contract shouldn't fail")
@@ -93,10 +100,10 @@ func TestFluxBasic(t *testing.T) {
 	require.NoError(t, err, "Getting oracle details from the Flux aggregator contract shouldn't fail")
 	l.Info().Str("Oracles", strings.Join(oracles, ",")).Msg("Oracles set")
 
-	adapterFullURL := fmt.Sprintf("%s%s", env.MockAdapter.InternalEndpoint, adapterPath)
+	adapterFullURL := env.MockAdapter.InternalEndpoint + adapterPath
 	l.Info().Str("AdapterFullURL", adapterFullURL).Send()
 	bta := &nodeclient.BridgeTypeAttributes{
-		Name: fmt.Sprintf("variable-%s", adapterUUID),
+		Name: "variable-" + adapterUUID,
 		URL:  adapterFullURL,
 	}
 	for i, n := range env.ClCluster.Nodes {
@@ -104,9 +111,9 @@ func TestFluxBasic(t *testing.T) {
 		require.NoError(t, err, "Creating bridge shouldn't fail for node %d", i+1)
 
 		fluxSpec := &nodeclient.FluxMonitorJobSpec{
-			Name:              fmt.Sprintf("flux-monitor-%s", adapterUUID),
+			Name:              "flux-monitor-" + adapterUUID,
 			ContractAddress:   fluxInstance.Address(),
-			EVMChainID:        fmt.Sprint(sethClient.ChainID),
+			EVMChainID:        strconv.FormatInt(sethClient.ChainID, 10),
 			Threshold:         0,
 			AbsoluteThreshold: 0,
 			PollTimerPeriod:   15 * time.Second, // min 15s
@@ -134,8 +141,10 @@ func TestFluxBasic(t *testing.T) {
 	require.Equal(t, int64(3), data.AllocatedFunds.Int64(),
 		"Expected allocated funds to be %d, but found %d", int64(3), data.AllocatedFunds.Int64())
 
-	err = env.MockAdapter.SetAdapterBasedIntValuePath(adapterPath, []string{http.MethodPost}, 1e10)
-	require.NoError(t, err, "Setting value path in mock server shouldn't fail")
+	route.ResponseBody = 1e10
+	err = env.MockAdapter.SetAdapterRoute(route)
+	require.NoError(t, err, "Failed to set route in mock adapter")
+
 	err = actions.WatchNewFluxRound(l, sethClient, 2, fluxInstance, fluxRoundTimeout)
 	require.NoError(t, err, "Waiting for event subscriptions in nodes shouldn't fail")
 	data, err = fluxInstance.GetContractData(testcontext.Get(t))

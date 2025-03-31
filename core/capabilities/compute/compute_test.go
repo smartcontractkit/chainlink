@@ -247,9 +247,12 @@ func TestComputeFetch(t *testing.T) {
 				},
 			},
 		},
+		Metadata: cappkg.ResponseMetadata{
+			Metering: []cappkg.MeteringNodeDetail{},
+		},
 	}
 
-	actual, err := th.compute.Execute(tests.Context(t), req)
+	actual, err := th.compute.Execute(t.Context(), req)
 	require.NoError(t, err)
 	assert.EqualValues(t, expected, actual)
 }
