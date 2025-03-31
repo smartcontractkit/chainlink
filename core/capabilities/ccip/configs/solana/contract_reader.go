@@ -362,16 +362,17 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
+							// create a field to extract it
 							&codec.HardCodeModifierConfig{
-								OnChainValues: map[string]any{"RmnRemoteAddress": ""},
+								OffChainValues: map[string]any{"RmnRemoteAddress": ""},
 							},
 							&codec.PropertyExtractorConfig{
 								FieldName: "RmnRemoteAddress",
 							},
 						},
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
-							// type doesn't matter it will be overridden with address internally
-							OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							// type doesn't matter it will be overridden with address internally, key is "" because it's a primitive value and not a field
+							OffChainValues: map[string]any{"": ""},
 						},
 					},
 				},
