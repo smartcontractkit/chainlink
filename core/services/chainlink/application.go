@@ -1274,9 +1274,9 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if app.Config.Feature().LogPoller() {
 			chain.LogPoller().ReplayAsync(fromBlock)
 		}
-	case relay.NetworkSolana:
+	default:
 		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
-			Network: relay.NetworkSolana,
+			Network: chainFamily,
 			ChainID: chainID,
 		})
 		if err != nil {
@@ -1286,8 +1286,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if err != nil {
 			return err
 		}
-	default:
-		return errors.Errorf("Replay not implemented for chain family: %s", chainFamily)
 	}
 	return nil
 }
