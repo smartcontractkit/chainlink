@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/fs"
+
+	workflowUtils "github.com/smartcontractkit/chainlink-common/pkg/workflows"
 )
 
 func FeedIDsToBytes16(feedIDs []string) ([][16]byte, error) {
@@ -38,9 +40,11 @@ func ConvertHexToBytes16(hexStr string) ([16]byte, error) {
 	return result, nil
 }
 
+// HashedWorkflowName returns first 10 bytes of the sha256(workflow_name)
 func HashedWorkflowName(name string) [10]byte {
+	nameHash := workflowUtils.HashTruncateName(name)
 	var result [10]byte
-	copy(result[:], name)
+	copy(result[:], nameHash)
 	return result
 }
 
