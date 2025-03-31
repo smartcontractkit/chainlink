@@ -313,15 +313,14 @@ func getKeys[K keystore.Key](ks Keystore[K]) ([]string, error) {
 func (d *Delegate) getTransmitterKeys(ctx context.Context, relayIDs []types.RelayID) (map[types.RelayID][]string, error) {
 	transmitterKeys := make(map[types.RelayID][]string)
 	for _, relayID := range relayIDs {
-		chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
-		if !ok {
-			return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
-		}
-
 		var keys []string
 		var err error
 		switch relayID.Network {
 		case relay.NetworkEVM:
+			chainID, ok := new(big.Int).SetString(relayID.ChainID, 10)
+			if !ok {
+				return nil, fmt.Errorf("error parsing chain ID, expected big int: %s", relayID.ChainID)
+			}
 			keys, err = d.getEVMKeys(ctx, chainID)
 		case relay.NetworkSolana:
 			keys, err = getKeys(d.keystore.Solana())

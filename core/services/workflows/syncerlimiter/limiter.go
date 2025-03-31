@@ -10,40 +10,59 @@ const (
 )
 
 type Limits struct {
-	global   *int32
-	perOwner map[string]*int32
-	config   Config
-	mu       sync.Mutex
+	global            *int32
+	perOwner          map[string]*int32
+	perOwnerOverrides map[string]int32
+	config            Config
+	mu                sync.Mutex
 }
 
 type Config struct {
-	Global   int32 `json:"global"`
+	// Global defines the maximum global number of workflows that can run on the node
+	// across all owners.
+	Global int32 `json:"global"`
+
+	// PerOwner defines the maximum number of workflows that an owner may run.
 	PerOwner int32 `json:"perOwner"`
+
+	// PerOwnerOverrides is a map of owner address to a workflow limit.  If the map does
+	// not exist, or an address is not found, then the PerOwner limit is used.
+	PerOwnerOverrides map[string]int32 `json:"overrides"`
 }
 
 func NewWorkflowLimits(config Config) (*Limits, error) {
-	if config.Global <= 0 || config.PerOwner <= 0 {
-		config.Global = defaultGlobal
-		config.PerOwner = defaultPerOwner
+	cfg := Config{
+		Global:            config.Global,
+		PerOwner:          config.PerOwner,
+		PerOwnerOverrides: config.PerOwnerOverrides,
+	}
+
+	if cfg.Global == 0 {
+		cfg.Global = defaultGlobal
+	}
+
+	if cfg.PerOwner == 0 {
+		cfg.PerOwner = defaultPerOwner
 	}
 
 	return &Limits{
-		global:   new(int32),
-		perOwner: make(map[string]*int32),
-		config:   config,
+		global:            new(int32),
+		perOwner:          make(map[string]*int32),
+		perOwnerOverrides: cfg.PerOwnerOverrides,
+		config:            cfg,
 	}, nil
 }
 
 func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	ownerLimiter, ok := l.perOwner[owner]
+	countForOwner, ok := l.perOwner[owner]
 	if !ok {
 		l.perOwner[owner] = new(int32)
-		ownerLimiter = l.perOwner[owner]
+		countForOwner = l.perOwner[owner]
 	}
 
-	if *ownerLimiter < l.config.PerOwner {
+	if *countForOwner < l.getPerOwnerLimit(owner) {
 		ownerAllow = true
 	}
 
@@ -52,7 +71,7 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 	}
 
 	if ownerAllow && globalAllow {
-		*ownerLimiter++
+		*countForOwner++
 		*l.global++
 	}
 
@@ -69,4 +88,17 @@ func (l *Limits) Decrement(owner string) {
 
 	*ownerLimiter--
 	*l.global--
+}
+
+// getPerOwnerLimit returns the default limit per owner if there are no overrides found
+// for the given owner.
+func (l *Limits) getPerOwnerLimit(owner string) int32 {
+	if l.perOwnerOverrides == nil {
+		return l.config.PerOwner
+	}
+	limit, found := l.perOwnerOverrides[owner]
+	if found {
+		return limit
+	}
+	return l.config.PerOwner
 }

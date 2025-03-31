@@ -50,7 +50,6 @@ dockers:
       - --pull
       - --build-arg=CHAINLINK_USER=chainlink
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
-      - --build-arg=CL_SOLANA_CMD=chainlink-solana
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
       - --label=org.opencontainers.image.licenses=MIT
@@ -104,7 +103,6 @@ dockers:
       - --pull
       - --build-arg=CHAINLINK_USER=chainlink
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
-      - --build-arg=CL_SOLANA_CMD=chainlink-solana
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
       - --label=org.opencontainers.image.licenses=MIT
@@ -159,7 +157,6 @@ dockers:
       - --pull
       - --build-arg=CHAINLINK_USER=chainlink
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
-      - --build-arg=CL_SOLANA_CMD=chainlink-solana
       - --build-arg=CL_CHAIN_DEFAULTS=/ccip-config
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"
@@ -217,7 +214,6 @@ dockers:
       - --pull
       - --build-arg=CHAINLINK_USER=chainlink
       - --build-arg=COMMIT_SHA={{ .FullCommit }}
-      - --build-arg=CL_SOLANA_CMD=chainlink-solana
       - --build-arg=CL_CHAIN_DEFAULTS=/ccip-config
       - --label=org.opencontainers.image.created={{ .Date }}
       - --label=org.opencontainers.image.description="node of the decentralized oracle network, bridging on and off-chain computation"

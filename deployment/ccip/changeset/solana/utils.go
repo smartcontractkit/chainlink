@@ -67,7 +67,7 @@ func ValidateMCMSConfigSolana(
 	return nil
 }
 
-func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *cs.MCMSConfig) error {
+func ValidateMCMSConfig(e deployment.Environment, chainSelector uint64, mcms *proposalutils.TimelockConfig) error {
 	if mcms != nil {
 		// If there is no timelock and mcms proposer on the chain, the transfer will fail.
 		timelockID, err := deployment.SearchAddressBook(e.ExistingAddresses, chainSelector, types.RBACTimelock)
@@ -122,7 +122,7 @@ func BuildProposalsForTxns(
 		inspectors,
 		batches,
 		description,
-		minDelay)
+		proposalutils.TimelockConfig{MinDelay: minDelay})
 	if err != nil {
 		return nil, fmt.Errorf("failed to build proposal: %w", err)
 	}

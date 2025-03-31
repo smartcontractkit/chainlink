@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/test"
+	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
 
 func TestDeployForwarder(t *testing.T) {
@@ -63,8 +65,66 @@ func TestDeployForwarder(t *testing.T) {
 func TestConfigureForwarders(t *testing.T) {
 	t.Parallel()
 
+	testCases := []struct {
+		nChains      int
+		ExcludeChain bool // if true, configuration should be applied to all except one chain
+	}{
+		{
+			nChains: 1,
+		},
+		{
+			nChains:      3,
+			ExcludeChain: true,
+		},
+	}
+
+	excludeChainsIfNeeded := func(excludeChains bool, env deployment.Environment) (uint64, map[uint64]struct{}) {
+		if !excludeChains {
+			return 0, nil
+		}
+
+		var chainToExclude uint64
+		filteredChains := make(map[uint64]struct{})
+		for chainID := range env.Chains {
+			// we do not really care which chain to exclude, so pick the first one
+			if chainToExclude == 0 {
+				chainToExclude = chainID
+				continue
+			}
+			filteredChains[chainID] = struct{}{}
+		}
+
+		return chainToExclude, filteredChains
+	}
+
+	iteratorToSlice := func(iterator *forwarder.KeystoneForwarderConfigSetIterator) (result []*forwarder.KeystoneForwarderConfigSet, err error) {
+		defer func(iterator *forwarder.KeystoneForwarderConfigSetIterator) {
+			_ = iterator.Close()
+		}(iterator)
+		for iterator.Next() {
+			result = append(result, iterator.Event)
+			if iterator.Error() != nil {
+				return nil, iterator.Error()
+			}
+		}
+		return
+	}
+
+	requireConfigUpdate := func(t *testing.T, forwarder *forwarder.KeystoneForwarder, skippedConfigSet bool) {
+		configsIterator, err := forwarder.FilterConfigSet(&bind.FilterOpts{}, nil, nil)
+		require.NoError(t, err)
+		configs, err := iteratorToSlice(configsIterator)
+		require.NoError(t, err)
+		if skippedConfigSet {
+			require.Len(t, configs, 1) // once configuration is applied during initial setup
+		} else {
+			require.Len(t, configs, 2)
+		}
+	}
+
 	t.Run("no mcms ", func(t *testing.T) {
-		for _, nChains := range []int{1, 3} {
+		for _, testCase := range testCases {
+			nChains := testCase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
 				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
@@ -84,6 +144,10 @@ func TestConfigureForwarders(t *testing.T) {
 					WFNodeIDs:        wfNodes,
 					RegistryChainSel: te.RegistrySelector,
 				}
+
+				var chainToExclude uint64
+				chainToExclude, cfg.Chains = excludeChainsIfNeeded(testCase.ExcludeChain, te.Env)
+
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
 				require.Nil(t, csOut.AddressBook)
@@ -95,13 +159,15 @@ func TestConfigureForwarders(t *testing.T) {
 					cs, ok := contractSet[selector]
 					require.True(t, ok)
 					require.NotNil(t, cs.Forwarder)
+					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
 				}
 			})
 		}
 	})
 
 	t.Run("with mcms", func(t *testing.T) {
-		for _, nChains := range []int{1, 3} {
+		for _, testCase := range testCases {
+			nChains := testCase.nChains
 			name := fmt.Sprintf("nChains=%d", nChains)
 			t.Run(name, func(t *testing.T) {
 				te := test.SetupContractTestEnv(t, test.EnvWrapperConfig{
@@ -123,9 +189,19 @@ func TestConfigureForwarders(t *testing.T) {
 					RegistryChainSel: te.RegistrySelector,
 					MCMSConfig:       &changeset.MCMSConfig{MinDuration: 0},
 				}
+
+				var chainToExclude uint64
+				chainToExclude, cfg.Chains = excludeChainsIfNeeded(testCase.ExcludeChain, te.Env)
+
 				csOut, err := changeset.ConfigureForwardContracts(te.Env, cfg)
 				require.NoError(t, err)
-				require.Len(t, csOut.Proposals, nChains)
+				expectedProposals := nChains
+				if testCase.ExcludeChain {
+					expectedProposals--
+				}
+
+				//nolint:staticcheck // migration will be done in a separate PR
+				require.Len(t, csOut.Proposals, expectedProposals)
 				require.Nil(t, csOut.AddressBook)
 
 				timelockContracts := make(map[uint64]*proposalutils.TimelockExecutionContracts)
@@ -144,6 +220,10 @@ func TestConfigureForwarders(t *testing.T) {
 					),
 				)
 				require.NoError(t, err)
+
+				for selector, cs := range te.ContractSets() {
+					requireConfigUpdate(t, cs.Forwarder, chainToExclude == selector)
+				}
 			})
 		}
 	})

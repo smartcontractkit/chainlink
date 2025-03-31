@@ -43,3 +43,4 @@ compileContract v0.5.0 RewardManager
 compileContract v0.3.0 test/mocks/ErroredVerifier
 compileContract v0.3.0 test/mocks/ExposedVerifier
 compileContract v0.5.0 configuration/test/mocks/ExposedConfigurator
+compileContract v0.5.0 test/mocks/MockFeeManager

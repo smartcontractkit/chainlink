@@ -10,12 +10,11 @@ import (
 	cache "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
+	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commonTypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/deployment/data-feeds/shared"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
@@ -52,7 +51,7 @@ func TestRemoveFeed(t *testing.T) {
 	cacheAddress, err := deployment.SearchAddressBook(newEnv.ExistingAddresses, chainSelector, "DataFeedsCache")
 	require.NoError(t, err)
 
-	dataid, _ := shared.ConvertHexToBytes16("01bb0467f50003040000000000000000")
+	dataid := "0x01bb0467f50003040000000000000000"
 
 	// without MCMS
 	newEnv, err = commonChangesets.Apply(t, newEnv, nil,
@@ -72,13 +71,13 @@ func TestRemoveFeed(t *testing.T) {
 			types.SetFeedDecimalConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				DataIDs:       [][16]byte{dataid},
+				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 			},
@@ -89,7 +88,7 @@ func TestRemoveFeed(t *testing.T) {
 			types.RemoveFeedConfig{
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
-				DataIDs:        [][16]byte{dataid},
+				DataIDs:        []string{dataid},
 				ProxyAddresses: []common.Address{common.HexToAddress("0x123")},
 			},
 		),
@@ -118,7 +117,7 @@ func TestRemoveFeed(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)
@@ -131,13 +130,13 @@ func TestRemoveFeed(t *testing.T) {
 			types.SetFeedDecimalConfig{
 				ChainSelector: chainSelector,
 				CacheAddress:  common.HexToAddress(cacheAddress),
-				DataIDs:       [][16]byte{dataid},
+				DataIDs:       []string{dataid},
 				Descriptions:  []string{"test2"},
 				WorkflowMetadata: []cache.DataFeedsCacheWorkflowMetadata{
 					cache.DataFeedsCacheWorkflowMetadata{
 						AllowedSender:        common.HexToAddress("0x22"),
 						AllowedWorkflowOwner: common.HexToAddress("0x33"),
-						AllowedWorkflowName:  shared.HashedWorkflowName("test"),
+						AllowedWorkflowName:  changeset.HashedWorkflowName("test"),
 					},
 				},
 				McmsConfig: &types.MCMSConfig{
@@ -150,7 +149,7 @@ func TestRemoveFeed(t *testing.T) {
 			types.RemoveFeedConfig{
 				ChainSelector:  chainSelector,
 				CacheAddress:   common.HexToAddress(cacheAddress),
-				DataIDs:        [][16]byte{dataid},
+				DataIDs:        []string{dataid},
 				ProxyAddresses: []common.Address{common.HexToAddress("0x123")},
 				McmsConfig: &types.MCMSConfig{
 					MinDelay: 0,

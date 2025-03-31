@@ -140,7 +140,7 @@ func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map
 }
 
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
+	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }

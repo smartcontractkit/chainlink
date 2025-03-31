@@ -229,7 +229,7 @@ func TestTokenTransfer(t *testing.T) {
 
 func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
@@ -365,7 +365,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 
 func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
@@ -514,7 +514,7 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 		// },
 	}
 
-	startBlocks, expectedSeqNums, _, expectedTokenBalances :=
+	startBlocks, expectedSeqNums, expectedExecutionStates, expectedTokenBalances :=
 		testhelpers.TransferMultiple(ctx, t, e, state, tcs)
 
 	err = testhelpers.ConfirmMultipleCommits(
@@ -527,15 +527,14 @@ func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	_ = testhelpers.ConfirmExecWithSeqNrsForAll(
+	execStates := testhelpers.ConfirmExecWithSeqNrsForAll(
 		t,
 		e,
 		state,
 		testhelpers.SeqNumberRangeToSlice(expectedSeqNums),
 		startBlocks,
 	)
-	// NOTE: can't validate this since there will be more execution states due to price updates being separate
-	// require.Equal(t, expectedExecutionStates, execStates)
+	require.Equal(t, expectedExecutionStates, execStates)
 
 	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
 }

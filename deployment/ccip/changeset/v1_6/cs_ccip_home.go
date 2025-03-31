@@ -229,7 +229,7 @@ type PromoteCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
@@ -237,13 +237,10 @@ func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map
 	if err != nil {
 		return nil, err
 	}
-	if err := deployment.IsValidChainSelector(p.HomeChainSelector); err != nil {
-		return nil, fmt.Errorf("home chain selector invalid: %w", err)
+	if err := changeset.ValidateChain(e, state, p.HomeChainSelector, p.MCMS); err != nil {
+		return nil, fmt.Errorf("home chain invalid: %w", err)
 	}
-	homeChainState, exists := state.Chains[p.HomeChainSelector]
-	if !exists {
-		return nil, fmt.Errorf("home chain %d does not exist", p.HomeChainSelector)
-	}
+	homeChainState := state.Chains[p.HomeChainSelector]
 	if err := commoncs.ValidateOwnership(e.GetContext(), p.MCMS != nil, e.Chains[p.HomeChainSelector].DeployerKey.From, homeChainState.Timelock.Address(), homeChainState.CapabilityRegistry); err != nil {
 		return nil, err
 	}
@@ -378,7 +375,7 @@ func PromoteCandidateChangeset(
 		inspectors,
 		batches,
 		"promoteCandidate",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -464,7 +461,7 @@ type SetCandidateConfigBase struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -636,7 +633,7 @@ func AddDonAndSetCandidateChangeset(
 		inspectors,
 		batches,
 		"addDON on new Chain && setCandidate for plugin "+cfg.PluginInfo.PluginType.String(),
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal from batch: %w", err)
@@ -833,7 +830,7 @@ func SetCandidateChangeset(
 		inspectors,
 		batches,
 		fmt.Sprintf("SetCandidate for plugin details %v", pluginInfos),
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1019,7 +1016,7 @@ type RevokeCandidateChangesetConfig struct {
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *changeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (donID uint32, err error) {
@@ -1122,7 +1119,7 @@ func RevokeCandidateChangeset(e deployment.Environment, cfg RevokeCandidateChang
 		inspectors,
 		batches,
 		fmt.Sprintf("revokeCandidate for don %d", cfg.RemoteChainSelector),
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -1208,7 +1205,7 @@ type UpdateChainConfigConfig struct {
 	HomeChainSelector  uint64
 	RemoteChainRemoves []uint64
 	RemoteChainAdds    map[uint64]ChainConfig
-	MCMS               *changeset.MCMSConfig
+	MCMS               *proposalutils.TimelockConfig
 }
 
 func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {
@@ -1328,7 +1325,7 @@ func UpdateChainConfigChangeset(e deployment.Environment, cfg UpdateChainConfigC
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOp},
 		"Update chain config",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

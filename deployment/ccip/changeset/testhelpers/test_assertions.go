@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 
@@ -505,8 +506,7 @@ func SolEventEmitter[T any](
 						return
 					}
 
-					var event T
-					err = solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents)
+					events, err := solcommon.ParseMultipleEvents[T](tx.Meta.LogMessages, eventType, solconfig.PrintEvents)
 					if err != nil && strings.Contains(err.Error(), "event not found") {
 						continue
 					}
@@ -515,10 +515,12 @@ func SolEventEmitter[T any](
 						return
 					}
 
-					select {
-					case ch <- event:
-					case <-done:
-						return
+					for _, event := range events {
+						select {
+						case ch <- event:
+						case <-done:
+							return
+						}
 					}
 				}
 				// next scan should stop at the newest signature we've received
@@ -772,6 +774,10 @@ func ConfirmExecWithSeqNrsSol(
 			if found && execEvent.SourceChainSelector == srcSelector {
 				t.Logf("Received ExecutionStateChanged (state %s) on chain %d (offramp %s) from chain %d with expected sequence number %d",
 					execEvent.State.String(), dest.Selector, offrampAddress.String(), srcSelector, execEvent.SequenceNumber)
+				if execEvent.State == ccip_offramp.InProgress_MessageExecutionState {
+					// skip the in progress state, executed event should follow
+					continue
+				}
 				executionStates[execEvent.SequenceNumber] = int(execEvent.State)
 				delete(seqNrsToWatch, execEvent.SequenceNumber)
 				if len(seqNrsToWatch) == 0 {

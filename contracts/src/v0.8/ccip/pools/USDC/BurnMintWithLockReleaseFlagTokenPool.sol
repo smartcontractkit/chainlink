@@ -11,7 +11,7 @@ import {LOCK_RELEASE_FLAG} from "./HybridLockReleaseUSDCTokenPool.sol";
 /// instead of minting. This enables interoperability with HybridLockReleaseUSDCTokenPool which uses
 // the destPoolData to determine whether to mint or release tokens.
 /// @dev The only difference between this contract and BurnMintTokenPool is the destPoolData returns the
-/// abi-encoded LOCK_RELEASE_FLAG instead of an empty string.
+/// abi-encoded LOCK_RELEASE_FLAG instead of the local token decimals.
 contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
   constructor(
     IBurnMintERC20 token,
@@ -20,6 +20,24 @@ contract BurnMintWithLockReleaseFlagTokenPool is BurnMintTokenPool {
     address rmnProxy,
     address router
   ) BurnMintTokenPool(token, localTokenDecimals, allowlist, rmnProxy, router) {}
+
+  /// @notice Mint tokens from the pool to the recipient
+  /// @dev The _validateReleaseOrMint check is an essential security check
+  function releaseOrMint(
+    Pool.ReleaseOrMintInV1 calldata releaseOrMintIn
+  ) public virtual override returns (Pool.ReleaseOrMintOutV1 memory) {
+    _validateReleaseOrMint(releaseOrMintIn);
+
+    // Since the remote token is always canonical USDC, the decimals should always be 6 for remote tokens,
+    // which enables potentially local non-canonical USDC with different decimals to be minted.
+    uint256 localAmount = _calculateLocalAmount(releaseOrMintIn.amount, 6);
+
+    IBurnMintERC20(address(i_token)).mint(releaseOrMintIn.receiver, localAmount);
+
+    emit Minted(msg.sender, releaseOrMintIn.receiver, localAmount);
+
+    return Pool.ReleaseOrMintOutV1({destinationAmount: localAmount});
+  }
 
   /// @notice Burn the token in the pool
   /// @dev The _validateLockOrBurn check is an essential security check

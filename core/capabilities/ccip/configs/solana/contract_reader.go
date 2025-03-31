@@ -62,7 +62,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
 	}
 
-	locationFirst := codec.ElementExtractorLocationFirst
+	trueVal := true
+
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}, {consts.ContractNameRMNRemote, consts.ContractNameRMNProxy}},
 		Namespaces: map[string]config.ChainContractReader{
@@ -73,7 +74,9 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: consts.EventNameExecutionStateChanged,
 						ReadType:          config.Event,
 						EventDefinitions: &config.EventDefinitions{
-							PollingFilter: &config.PollingFilter{},
+							PollingFilter: &config.PollingFilter{
+								IncludeReverted: &trueVal,
+							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,
 								OnChainPath:  "SourceChainSelector",
@@ -96,7 +99,6 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"MerkleRoot": "UnblessedMerkleRoots"}},
-							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"UnblessedMerkleRoots": &locationFirst}},
 						},
 					},
 					consts.MethodNameOffRampLatestConfigDetails: {

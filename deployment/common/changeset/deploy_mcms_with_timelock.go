@@ -69,6 +69,9 @@ func DeployMCMSWithTimelockV2(
 			}
 
 		case chain_selectors.FamilySolana:
+			// this is not used in CLD as we need to dynamically resolve the artifacts to deploy these contracts
+			// we did not want to add the artifact resolution logic here, so we instead deploy using ccip/changeset/solana/cs_deploy_chain.go
+			// for in memory tests, programs and state are pre-loaded, so we use this function via testhelpers.TransferOwnershipSolana
 			_, err := solanaMCMS.DeployMCMSWithTimelockProgramsSolana(env, env.SolChains[chainSel], newAddresses, cfg)
 			if err != nil {
 				return deployment.ChangesetOutput{AddressBook: newAddresses}, err
@@ -85,7 +88,7 @@ func DeployMCMSWithTimelockV2(
 
 type GrantRoleInput struct {
 	ExistingProposerByChain map[uint64]common.Address // if needed in the future, need to add bypasser and canceller here
-	MCMS                    *TimelockConfig
+	MCMS                    *proposalutils.TimelockConfig
 }
 
 func grantRolePreconditions(e deployment.Environment, cfg GrantRoleInput) error {
@@ -173,7 +176,7 @@ func grantRoleLogic(e deployment.Environment, cfg GrantRoleInput) (deployment.Ch
 		inspectors,
 		batches,
 		"Grant roles to timelock contracts",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	return deployment.ChangesetOutput{
 		MCMSTimelockProposals: []mcmslib.TimelockProposal{*prop},

@@ -705,7 +705,7 @@ func (o *OCRSoakTest) testLoop(testDuration time.Duration, newValue int) {
 	n := o.Config.GetNetworkConfig()
 
 	// Schedule blockchain re-org if needed
-	// Reorg only avaible for Simulated Geth
+	// Reorg only available for Simulated Geth
 	if n.IsSimulatedGethSelected() && n.GethReorgConfig.Enabled {
 		var reorgDelay time.Duration
 		if n.GethReorgConfig.DelayCreate.Duration > testDuration {

@@ -17,7 +17,7 @@ func SetupForwarderContract(t *testing.T, reportCreator *framework.DON,
 	require.NoError(t, err)
 	backend.Commit()
 
-	var signers []common.Address
+	signers := make([]common.Address, 0, len(reportCreator.GetPeerIDs()))
 	for _, p := range reportCreator.GetPeerIDs() {
 		signers = append(signers, common.HexToAddress(p.Signer))
 	}

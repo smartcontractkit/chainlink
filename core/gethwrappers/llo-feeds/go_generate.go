@@ -25,3 +25,4 @@ package gethwrappers
 //go:generate go run ../generation/wrap.go llo-feeds/v0.5.0 ChannelConfigStore channel_config_store
 //go:generate go run ../generation/wrap.go llo-feeds/v0.5.0 Configurator configurator
 //go:generate go run ../generation/wrap.go llo-feeds/v0.5.0 ExposedConfigurator exposed_configurator
+//go:generate go run ../generation/wrap.go llo-feeds/v0.5.0 MockFeeManager mock_fee_manager_v0_5_0

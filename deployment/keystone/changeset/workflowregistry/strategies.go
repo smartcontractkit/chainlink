@@ -76,7 +76,7 @@ func (m *mcmsTransaction) Apply(callFn func(opts *bind.TransactOpts) (*types.Tra
 		inspectorPerChain,
 		[]mcmstypes.BatchOperation{op},
 		m.Description,
-		m.Config.MinDuration,
+		proposalutils.TimelockConfig{MinDelay: m.Config.MinDuration},
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

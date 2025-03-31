@@ -77,3 +77,61 @@ func Test_NewReport(t *testing.T) {
 	assert.Len(t, report.ChildOperationReports, 1)
 	assert.Equal(t, childOperationID, report.ChildOperationReports[0])
 }
+
+func Test_RecentReporter(t *testing.T) {
+	t.Parallel()
+
+	existingReport := Report[any, any]{
+		ID:                    "1",
+		Def:                   Definition{},
+		Output:                "2",
+		Input:                 1,
+		Timestamp:             time.Now(),
+		ChildOperationReports: []string{uuid.New().String()},
+	}
+
+	reporter := NewMemoryReporter(WithReports([]Report[any, any]{existingReport}))
+	recentReporter := NewRecentMemoryReporter(reporter)
+
+	// no new reports added since creation of recentReporter
+	reports := recentReporter.GetRecentReports()
+	assert.Empty(t, reports)
+
+	newReport := Report[any, any]{
+		ID:        "2",
+		Def:       Definition{},
+		Output:    "3",
+		Input:     2,
+		Timestamp: time.Now(),
+	}
+	err := recentReporter.AddReport(newReport)
+	require.NoError(t, err)
+	reports = recentReporter.GetRecentReports()
+	assert.Len(t, reports, 1)
+	assert.Equal(t, newReport, reports[0])
+}
+
+func Test_typeReport(t *testing.T) {
+	t.Parallel()
+
+	report := Report[any, any]{
+		ID:                    "1",
+		Def:                   Definition{},
+		Output:                2,
+		Input:                 1,
+		Timestamp:             time.Now(),
+		Err:                   nil,
+		ChildOperationReports: []string{uuid.New().String()},
+	}
+
+	_, ok := typeReport[int, int](report)
+	assert.True(t, ok)
+
+	// incorrect input type
+	_, ok = typeReport[string, int](report)
+	assert.False(t, ok)
+
+	// incorrect output type
+	_, ok = typeReport[int, string](report)
+	assert.False(t, ok)
+}

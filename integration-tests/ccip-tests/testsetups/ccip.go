@@ -29,10 +29,9 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/blockchain"
-	ctfClient "github.com/smartcontractkit/chainlink-testing-framework/lib/client"
 	ctf_config "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 	ctf_config_types "github.com/smartcontractkit/chainlink-testing-framework/lib/config/types"
-	ctftestenv "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
+	ctf_env "github.com/smartcontractkit/chainlink-testing-framework/lib/docker/test_env"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/config"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
@@ -1001,7 +1000,7 @@ func (o *CCIPTestSetUpOutputs) CheckGasUpdateTransaction(lggr *zerolog.Logger) e
 			Int("Tx hashes received", len(transactionsBySource)).
 			Int("Leader lanes count", len(o.Cfg.LeaderLanes)).
 			Msg("Checked Gas Update transactions count doesn't match")
-		return fmt.Errorf("checked Gas Update transactions count doesn't match")
+		return errors.New("checked Gas Update transactions count doesn't match")
 	}
 	lggr.Debug().
 		Int("Tx hashes by source", len(transactionsBySource)).
@@ -1126,7 +1125,10 @@ func CCIPDefaultTestSetUp(
 			tokenDeployerWallet := chainClient.GetWallets()[1]
 			// TODO: This is a total guess at how much funds we need to deploy the tokens. This could be way off, especially on live chains.
 			// There aren't a lot of good ways to estimate this though. See CCIP-2471.
-			recommendedTokenBalance := new(big.Int).Mul(big.NewInt(5e18), big.NewInt(int64(pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain))))
+			recommendedTokenBalance := new(big.Int).Mul(
+				big.NewInt(5e18),
+				big.NewInt(int64(pointer.GetInt(testConfig.TestGroupInput.TokenConfig.NoOfTokensPerChain))),
+			)
 			currentTokenBalance, err := chainClient.BalanceAt(context.Background(), common.HexToAddress(tokenDeployerWallet.Address()))
 			require.NoError(t, err)
 			if currentTokenBalance.Cmp(recommendedTokenBalance) < 0 {
@@ -1156,27 +1158,23 @@ func CCIPDefaultTestSetUp(
 
 	// set up mock server for price pipeline and usdc attestation if not using existing deployment
 	if !pointer.GetBool(setUpArgs.Cfg.TestGroupInput.ExistingDeployment) {
-		var killgrave *ctftestenv.Killgrave
-		if setUpArgs.Env.LocalCluster != nil {
-			killgrave = setUpArgs.Env.LocalCluster.MockAdapter
-		}
 		if setUpArgs.Cfg.TestGroupInput.TokenConfig.IsPipelineSpec() {
 			// set up mock server for price pipeline. need to set it once for all the lanes as the price pipeline path uses
 			// regex to match the path for all tokens across all lanes
-			actions.SetMockserverWithTokenPriceValue(killgrave, setUpArgs.Env.MockServer)
+			actions.SetMockserverWithTokenPriceValue(setUpArgs.Env.LocalCluster.MockAdapter)
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.USDCMockDeployment) {
 			// if it's a new USDC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithUSDCAttestation(killgrave, setUpArgs.Env.MockServer, false)
+			err = actions.SetMockServerWithUSDCAttestation(setUpArgs.Env.LocalCluster.MockAdapter, false)
 			require.NoError(t, err, "failed to set up mock server for USDC attestation")
 		}
 		if pointer.GetBool(setUpArgs.Cfg.TestGroupInput.LBTCMockDeployment) {
 			// if it's a new LBTC deployment, set up mock server for attestation,
 			// we need to set it only once for all the lanes as the attestation path uses regex to match the path for
 			// all messages across all lanes
-			err = actions.SetMockServerWithLBTCAttestation(killgrave, setUpArgs.Env.MockServer)
+			err = actions.SetMockAdapterWithLBTCAttestation(setUpArgs.Env.LocalCluster.MockAdapter)
 			require.NoError(t, err, "failed to set up mock server for LBTC attestation")
 		}
 	}
@@ -1362,10 +1360,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			ccipEnv = &actions.CCIPTestEnv{}
 			mockserverURL := pointer.GetString(testConfig.EnvInput.Mockserver)
 			require.NotEmpty(t, mockserverURL, "mockserver URL cannot be nil")
-			ccipEnv.MockServer = ctfClient.NewMockserverClient(&ctfClient.MockserverConfig{
-				LocalURL:   mockserverURL,
-				ClusterURL: mockserverURL,
-			})
+			ccipEnv.MockServer = ctf_env.ConnectParrot(mockserverURL)
 		}
 		ccipEnv.CLNodeWithKeyReady, _ = errgroup.WithContext(o.SetUpContext)
 		o.Env = ccipEnv
@@ -1449,17 +1444,17 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			ccipEnv.NumOfExecNodes = ccipEnv.NumOfCommitNodes
 			if !pointer.GetBool(testConfig.TestGroupInput.CommitAndExecuteOnSameDON) {
 				if len(ccipEnv.CLNodesWithKeys) < 11 {
-					return fmt.Errorf("not enough CL nodes for separate commit and execution nodes")
+					return errors.New("not enough CL nodes for separate commit and execution nodes")
 				}
 				if testConfig.TestGroupInput.NoOfCommitNodes >= totalNodes {
-					return fmt.Errorf("number of commit nodes can not be greater than total number of nodes in DON")
+					return errors.New("number of commit nodes can not be greater than total number of nodes in DON")
 				}
 				// first two nodes are reserved for bootstrap commit and bootstrap exec
 				ccipEnv.CommitNodeStartIndex = 2
 				ccipEnv.ExecNodeStartIndex = 2 + testConfig.TestGroupInput.NoOfCommitNodes
 				ccipEnv.NumOfExecNodes = totalNodes - (2 + testConfig.TestGroupInput.NoOfCommitNodes)
 				if ccipEnv.NumOfExecNodes < 4 {
-					return fmt.Errorf("insufficient number of exec nodes")
+					return errors.New("insufficient number of exec nodes")
 				}
 			}
 			ccipEnv.NumOfAllowedFaultyExec = (ccipEnv.NumOfExecNodes - 1) / 3
@@ -1484,7 +1479,7 @@ func (o *CCIPTestSetUpOutputs) CreateEnvironment(
 			err = integrationactions.TeardownSuite(t, nil, ccipEnv.K8Env, ccipEnv.CLNodes, o.Reporter, zapcore.DPanicLevel, o.Cfg.EnvInput)
 			require.NoError(t, err, "Environment teardown shouldn't fail")
 		} else {
-			//just send the report
+			// just send the report
 			require.NoError(t, o.Reporter.SendReport(t, namespace, true), "Aggregating and sending report shouldn't fail")
 		}
 	})
