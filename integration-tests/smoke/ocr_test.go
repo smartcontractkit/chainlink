@@ -29,8 +29,6 @@ func TestOCRBasic(t *testing.T) {
 	t.Parallel()
 	l := logging.GetTestLogger(t)
 
-	t.Fatal("This test is intentionally failing for testing purposes")
-
 	env, ocrInstances, sethClient := prepareORCv1SmokeTestEnv(t, l, 5)
 	nodeClients := env.ClCluster.NodeAPIs()
 	workerNodes := nodeClients[1:]
