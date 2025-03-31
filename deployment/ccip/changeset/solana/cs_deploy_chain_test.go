@@ -167,7 +167,9 @@ func TestUpgrade(t *testing.T) {
 			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
-				CleanDestinationDir: true},
+				CleanDestinationDir: true,
+				GenerateVanityKeys:  true,
+			},
 		},
 	))
 	require.NoError(t, err)

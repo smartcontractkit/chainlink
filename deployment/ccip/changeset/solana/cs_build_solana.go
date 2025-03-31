@@ -1,12 +1,14 @@
 package solana
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -36,13 +38,22 @@ var programToFileMap = map[deployment.ContractType]string{
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
+var programToVanityKey = map[deployment.ContractType]string{
+	cs.Router:    "Ccip",
+	cs.FeeQuoter: "FeeQ",
+	cs.OffRamp:   "off",
+	cs.RMNRemote: "Rmn",
+}
+
 type LocalBuildConfig struct {
 	BuildLocally         bool
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
-	UpgradeKeys map[deployment.ContractType]string
+	// When building locally, this will be used to replace the keys in the Rust files
+	GenerateVanityKeys bool
+	UpgradeKeys        map[deployment.ContractType]string
 }
 
 type BuildSolanaConfig struct {
@@ -144,6 +155,62 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 	return nil
 }
 
+func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
+	e.Logger.Debug("Generating vanity keys...")
+	for program, prefix := range programToVanityKey {
+		_, exists := keys[program]
+		if exists {
+			fmt.Printf("Vanity key for program %s already exists, skipping generation.", program)
+			continue
+		}
+
+		// Construct command arguments
+		args := []string{"grind", "--starts-with", fmt.Sprintf("%s:1", prefix)}
+
+		// Run command using helper function
+		output, err := runCommand("solana-keygen", args, "./")
+		if err != nil {
+			return fmt.Errorf("failed to generate vanity key for program %s: %w", program, err)
+		}
+
+		// Parse output for JSON filename
+		scanner := bufio.NewScanner(strings.NewReader(output))
+		jsonFilePattern := regexp.MustCompile(`Wrote keypair to (.*\.json)`) // Regex to match output
+		var jsonFilePath string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			matches := jsonFilePattern.FindStringSubmatch(line)
+			if len(matches) > 1 {
+				jsonFilePath = matches[1]
+				break
+			}
+		}
+
+		if jsonFilePath == "" {
+			return fmt.Errorf("failed to parse output for JSON file path when generating vanity key for program %s", program)
+		}
+
+		// Get absolute path
+		absPath, err := filepath.Abs(jsonFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
+		}
+
+		// Extract file name
+		fileName := filepath.Base(absPath)
+		keys[program] = strings.TrimSuffix(fileName, ".json")
+
+		destination := filepath.Join(cloneDir, deployDir, getTypeToProgramDeployName()[program]+"-keypair.json")
+		if err := os.Rename(absPath, destination); err != nil {
+			fmt.Println("Error moving file:", err)
+		} else {
+			fmt.Println("File copied to:", destination)
+		}
+	}
+	return nil
+}
+
 func copyFile(srcFile string, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
@@ -174,6 +241,15 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 	// Replace keys in Rust files using anchor keys sync
 	if err := replaceKeys(e); err != nil {
 		return fmt.Errorf("error replacing keys: %w", err)
+	}
+
+	if config.LocalBuild.GenerateVanityKeys {
+		if len(config.LocalBuild.UpgradeKeys) == 0 {
+			config.LocalBuild.UpgradeKeys = make(map[deployment.ContractType]string)
+		}
+		if err := generateVanityKeys(e, config.LocalBuild.UpgradeKeys); err != nil {
+			return fmt.Errorf("error generating vanity keys: %w", err)
+		}
 	}
 
 	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
