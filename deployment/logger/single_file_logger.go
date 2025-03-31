@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	// The Chainlink logger interface we're implementing:
+	"github.com/google/uuid"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -31,8 +32,14 @@ func NewSingleFileLogger(tb testing.TB) *SingleFileLogger {
 	// Our logs will go here so GH can upload them:
 	baseDir := "logs"
 
-	// For uniqueness, include test name + timestamp
-	filename := fmt.Sprintf("%s_%d.log", tb.Name(), time.Now().UnixNano())
+	var filename string
+	if tb == nil {
+		filename = fmt.Sprintf("%s_%d.log", uuid.NewString(), time.Now().UnixNano())
+	} else {
+		// For uniqueness, include test name + timestamp
+		filename = fmt.Sprintf("%s_%d.log", tb.Name(), time.Now().UnixNano())
+	}
+
 	dirOfFilename := filepath.Dir(filename)
 
 	dir, err := filepath.Abs(filepath.Join(baseDir, dirOfFilename))

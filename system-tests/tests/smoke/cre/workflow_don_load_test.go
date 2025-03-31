@@ -33,6 +33,8 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -191,8 +193,11 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
+	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	require.NoError(t, chainErr, "failed to convert chain ID to int")
+
 	// TODO: remove createCustomJobsFunc from setupTestEnvironment and figure out a way to push custom jobs in a sane way
-	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapabilitiesFactoryFn)
+	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, []func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 
 	ctx := t.Context()
 	// Log extra information that might help debugging
@@ -716,7 +721,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
          - "$(trigger.outputs)"
      config:
        report_id: "0001"
-       key_id: "evm"	
+       key_id: "evm"
        aggregation_method: "llo_streams"
        aggregation_config:
          streams:

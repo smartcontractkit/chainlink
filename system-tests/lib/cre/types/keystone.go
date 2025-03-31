@@ -39,9 +39,9 @@ type NodeIndexToConfigOverride = map[int]string
 type NodeIndexToSecretsOverride = map[int]string
 
 type KeystoneContractsInput struct {
-	ChainSelector uint64                  `toml:"-"`
-	CldEnv        *deployment.Environment `toml:"-"`
-	Out           *KeystoneContractOutput `toml:"out"`
+	ChainSelector uint64                   `toml:"-"`
+	CldEnv        *deployment.Environment  `toml:"-"`
+	Out           *KeystoneContractsOutput `toml:"out"`
 }
 
 func (k *KeystoneContractsInput) Validate() error {
@@ -54,7 +54,7 @@ func (k *KeystoneContractsInput) Validate() error {
 	return nil
 }
 
-type KeystoneContractOutput struct {
+type KeystoneContractsOutput struct {
 	UseCache                    bool           `toml:"use_cache"`
 	CapabilitiesRegistryAddress common.Address `toml:"capabilities_registry_address"`
 	ForwarderAddress            common.Address `toml:"forwarder_address"`
