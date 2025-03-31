@@ -3,11 +3,13 @@ package syncerlimiter
 import (
 	"testing"
 
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/stretchr/testify/require"
 )
 
 func TestWorkflowLimits(t *testing.T) {
 	t.Parallel()
+	lggr := logger.TestLogger(t)
 
 	config := Config{
 		Global:   3,
@@ -16,7 +18,7 @@ func TestWorkflowLimits(t *testing.T) {
 			"ext-owner": 2,
 		},
 	}
-	wsl, err := NewWorkflowLimits(config)
+	wsl, err := NewWorkflowLimits(lggr, config)
 	require.Equal(t, int32(3), wsl.config.Global)
 	require.Equal(t, int32(1), wsl.config.PerOwner)
 	require.NoError(t, err)
@@ -84,6 +86,7 @@ func TestWorkflowLimits(t *testing.T) {
 
 func TestLimits_getPerOwnerLimit(t *testing.T) {
 	config := Config{PerOwner: defaultPerOwner}
+	lggr := logger.TestLogger(t)
 
 	tests := []struct {
 		name      string
@@ -94,7 +97,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 		{
 			name: "no overrides",
 			limits: func() *Limits {
-				l, err := NewWorkflowLimits(config)
+				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
 				return l
 			}(),
@@ -107,7 +110,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 				config.PerOwnerOverrides = map[string]int32{
 					"owner2": 20,
 				}
-				l, err := NewWorkflowLimits(config)
+				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
 				return l
 			}(),
@@ -120,7 +123,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 				config.PerOwnerOverrides = map[string]int32{
 					"owner2": 20,
 				}
-				l, err := NewWorkflowLimits(config)
+				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
 				return l
 			}(),

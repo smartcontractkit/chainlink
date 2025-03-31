@@ -376,7 +376,7 @@ func Test_SecretsWorker(t *testing.T) {
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
 
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), encryptionKey, emitter)
@@ -543,7 +543,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyPaused(t *testing.T) {
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
 
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
 
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)
@@ -648,7 +648,7 @@ func Test_RegistrySyncer_WorkflowRegistered_InitiallyActivated(t *testing.T) {
 	er := syncer.NewEngineRegistry()
 	rl, err := ratelimiter.NewRateLimiter(rlConfig)
 	require.NoError(t, err)
-	wl, err := syncerlimiter.NewWorkflowLimits(wlConfig)
+	wl, err := syncerlimiter.NewWorkflowLimits(lggr, wlConfig)
 	require.NoError(t, err)
 
 	store := artifacts.NewStore(lggr, orm, fetcherFn, clockwork.NewFakeClock(), workflowkey.Key{}, emitter)

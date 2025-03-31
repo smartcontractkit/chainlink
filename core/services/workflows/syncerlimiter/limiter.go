@@ -2,6 +2,8 @@ package syncerlimiter
 
 import (
 	"sync"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
 const (
@@ -14,6 +16,7 @@ type Limits struct {
 	perOwner          map[string]*int32
 	perOwnerOverrides map[string]int32
 	config            Config
+	lggr              logger.Logger
 	mu                sync.Mutex
 }
 
@@ -30,7 +33,8 @@ type Config struct {
 	PerOwnerOverrides map[string]int32 `json:"overrides"`
 }
 
-func NewWorkflowLimits(config Config) (*Limits, error) {
+func NewWorkflowLimits(lggr logger.Logger, config Config) (*Limits, error) {
+	lggr = lggr.Named("WorkflowLimiter")
 	cfg := Config{
 		Global:            config.Global,
 		PerOwner:          config.PerOwner,
@@ -45,11 +49,14 @@ func NewWorkflowLimits(config Config) (*Limits, error) {
 		cfg.PerOwner = defaultPerOwner
 	}
 
+	lggr.Debugw("workflow limits set", "perOwner", cfg.PerOwner, "global", cfg.Global, "overrides", cfg.PerOwnerOverrides)
+
 	return &Limits{
 		global:            new(int32),
 		perOwner:          make(map[string]*int32),
 		perOwnerOverrides: cfg.PerOwnerOverrides,
 		config:            cfg,
+		lggr:              lggr,
 	}, nil
 }
 
@@ -62,7 +69,11 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 		countForOwner = l.perOwner[owner]
 	}
 
-	if *countForOwner < l.getPerOwnerLimit(owner) {
+	limit := l.getPerOwnerLimit(owner)
+
+	l.lggr.Debugw("determined owner limit", "owner", owner, "limit", limit, "countForOwner", countForOwner)
+
+	if *countForOwner < limit {
 		ownerAllow = true
 	}
 
@@ -74,6 +85,8 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 		*countForOwner++
 		*l.global++
 	}
+
+	l.lggr.Debugw("assesed if owner is allowed", "owner", owner, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
 
 	return ownerAllow, globalAllow
 }
@@ -98,7 +111,10 @@ func (l *Limits) getPerOwnerLimit(owner string) int32 {
 	}
 	limit, found := l.perOwnerOverrides[owner]
 	if found {
+		l.lggr.Debugw("overriding limit for owner", "owner", owner, "limit", limit)
 		return limit
 	}
+
+	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", owner, "limit", l.config.PerOwner)
 	return l.config.PerOwner
 }
