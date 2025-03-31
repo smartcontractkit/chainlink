@@ -39,7 +39,7 @@ type WorkflowJobCfg struct {
 	WorkflowOwner string
 }
 
-func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName string) (string, string, error) {
+func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName string) (wfSpec string, wfName string, err error) {
 	wfYaml, err := inputFs.ReadFile(inputFileName)
 	if err != nil {
 		return "", "", fmt.Errorf("failed to read workflow file: %w", err)
