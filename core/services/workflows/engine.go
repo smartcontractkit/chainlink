@@ -110,7 +110,7 @@ type Engine struct {
 	secretsFetcher       SecretsFor
 	env                  exec.Env
 	localNode            capabilities.Node
-	actionExecutionsStore      store.Store
+	executionsStore      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdatesChMap     stepUpdateManager
@@ -523,7 +523,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		Status:      store.StatusStarted,
 	}
 
-	dbWex, err := e.actionExecutionsStore.Add(ctx, ec)
+	dbWex, err := e.executionsStore.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -566,7 +566,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		stepUpdate.Status = store.StatusTimeout
 	}
 
-	state, err := e.actionExecutionsStore.UpsertStep(ctx, &stepUpdate)
+	state, err := e.executionsStore.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
@@ -655,7 +655,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	l.Info("finishing execution")
 
-	execState, err := e.actionExecutionsStore.FinishedExecution(ctx, executionID, status)
+	execState, err := e.executionsStore.FinishedExecution(ctx, executionID, status)
 	if err != nil {
 		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
@@ -1356,26 +1356,26 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		actionExecutionsStore: cfg.Store,
-		pendingStepRequests:   make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:      stepUpdateManager{m: map[string]stepUpdateChannel{}},
-		triggerEvents:         make(chan capabilities.TriggerResponse),
-		stopCh:                make(chan struct{}),
-		newWorkerTimeout:      cfg.NewWorkerTimeout,
-		stepTimeoutDuration:   cfg.StepTimeout,
-		maxExecutionDuration:  cfg.MaxExecutionDuration,
-		heartbeatCadence:      cfg.HeartbeatCadence,
-		onExecutionFinished:   cfg.onExecutionFinished,
-		onRateLimit:           cfg.onRateLimit,
-		afterInit:             cfg.afterInit,
-		maxRetries:            cfg.maxRetries,
-		retryMs:               cfg.retryMs,
-		maxWorkerLimit:        cfg.MaxWorkerLimit,
-		clock:                 cfg.clock,
-		ratelimiter:           cfg.RateLimiter,
-		workflowLimits:        cfg.WorkflowLimits,
-		meterReports:          NewMeterReports(),
-		sendMeteringReport:    cfg.sendMeteringReport,
+		executionsStore:      cfg.Store,
+		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
+		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
+		triggerEvents:        make(chan capabilities.TriggerResponse),
+		stopCh:               make(chan struct{}),
+		newWorkerTimeout:     cfg.NewWorkerTimeout,
+		stepTimeoutDuration:  cfg.StepTimeout,
+		maxExecutionDuration: cfg.MaxExecutionDuration,
+		heartbeatCadence:     cfg.HeartbeatCadence,
+		onExecutionFinished:  cfg.onExecutionFinished,
+		onRateLimit:          cfg.onRateLimit,
+		afterInit:            cfg.afterInit,
+		maxRetries:           cfg.maxRetries,
+		retryMs:              cfg.retryMs,
+		maxWorkerLimit:       cfg.MaxWorkerLimit,
+		clock:                cfg.clock,
+		ratelimiter:          cfg.RateLimiter,
+		workflowLimits:       cfg.WorkflowLimits,
+		meterReports:         NewMeterReports(),
+		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
 	return engine, nil

@@ -392,7 +392,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	resp2 := <-target2.response
 	assert.Equal(t, cr.Event.Outputs, resp2.Value)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -856,7 +856,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusErrored, state.Status)
@@ -879,7 +879,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
@@ -972,7 +972,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1213,7 +1213,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1360,7 +1360,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1501,7 +1501,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1555,7 +1555,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1651,7 +1651,7 @@ targets:
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
@@ -1750,7 +1750,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1825,7 +1825,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
@@ -1940,7 +1940,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 
 		eid := getExecutionID(t, eng, testHooks)
 
-		state, err := eng.actionExecutionsStore.Get(ctx, eid)
+		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 
 		assert.Equal(t, store.StatusCompleted, state.Status)
@@ -2264,7 +2264,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	resp2 := <-target2.response
 	assert.Equal(t, cr2.Event.Outputs, resp2.Value)
 
-	state, err := eng.actionExecutionsStore.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	// gets the execution ID of the second execution
