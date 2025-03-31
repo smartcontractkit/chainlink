@@ -64,8 +64,8 @@ jobs:
       core_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.core_changes }}
       ccip_changes: ${{ steps.ignore-filter.outputs.changes || steps.changes.outputs.ccip_changes }}
 
-  run-ccip-integration-tests-for-pr:
-    name: Run CCIP integration Tests For PR
+  run-ccip-integration-in-memory--tests-for-pr:
+    name: Run CCIP integration In Memory Tests For PR
     permissions:
       actions: read
       checks: write
@@ -92,8 +92,8 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
 
 
-  run-ccip-integration-tests-for-merge-queue:
-    name: Run CCIP Integration Tests For Merge Queue
+  run-ccip-integration-in-memory-tests-for-merge-queue:
+    name: Run CCIP Integration In Memory Tests For Merge Queue
     permissions:
       actions: read
       checks: write
