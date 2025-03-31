@@ -79,6 +79,8 @@ jobs:
       workflow_name: Run CCIP Integration Tests For PR
       test_path: .github/integration-in-memory-tests.yml
       test_trigger: PR Integration CCIP Tests
+      # TODO: remove it. it's just for testing flakeguard rerun
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
@@ -108,6 +110,7 @@ jobs:
       slack_notification_after_tests: on_failure
       slack_notification_after_tests_channel_id: "#ccip-testing"
       slack_notification_after_tests_name: CCIP Integration Tests In Merge Queue
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
     secrets:
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       SLACK_BOT_TOKEN: ${{ secrets.QA_SLACK_API_KEY }}
