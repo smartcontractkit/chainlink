@@ -104,9 +104,11 @@ jobs:
     permissions:
       contents: read
       id-token: write
-    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@16a9ca3a2352bcb47539ebbb6f6153d657f9f8d0 # 2025-03-31
     with:
       aws-ecr-name: chainlink
+      aws-region-ecr: us-east-1
+      aws-region-gati: us-west-2
       dockerfile: plugins/chainlink.Dockerfile
       docker-build-context: .
       docker-build-args: |
@@ -124,7 +126,6 @@ jobs:
       github-workflow-repository: ${{ github.repository }}
     secrets:
       AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
-      AWS_REGION: ${{ secrets.AWS_REGION }}
       AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
       AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
       AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
