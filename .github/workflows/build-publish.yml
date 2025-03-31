@@ -12,6 +12,8 @@ jobs:
   checks:
     name: "Checks"
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
     outputs:
       git-tag-type: ${{ steps.check-git-tag-type.outputs.git-tag-type }}
       ecr-image-name: ${{ steps.check-git-tag-type.outputs.ecr-image-name }}
@@ -94,6 +96,38 @@ jobs:
           subject-digest: ${{ steps.build-sign-publish.outputs.docker-image-digest }}
           subject-name: ${{ env.ECR_HOSTNAME }}/${{ needs.checks.outputs.ecr-image-name }}
           push-to-registry: true
+
+  # XXX: This is using a new way to build images. Other jobs should be updated to use this in the future.
+  build-sign-publish-chainlink-plugins:
+    needs: [checks]
+    if: needs.checks.outputs.git-tag-type == 'core'
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    with:
+      aws-ecr-name: chainlink
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=true
+      docker-image-type: tag
+      docker-manifest-sign: true
+      docker-registry-url-override: public.ecr.aws/chainlink
+      docker-tag-custom-suffix: "-plugins"
+      docker-target: final-private-plugins
+      git-sha: ${{ github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
 
   # Notify Slack channel for new git tags.
   slack-notify:

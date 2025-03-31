@@ -98,7 +98,6 @@ schemaVersion = 1
 		},
 	}
 	for _, tc := range tt {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			_, err := workflows.ValidatedWorkflowJobSpec(testutils.Context(t), tc.workflowTomlFn())
 			if tc.valid {

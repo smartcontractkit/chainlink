@@ -1,0 +1,152 @@
+name: Docker Build
+description: Docker build and publish non-releases to AWS ECR.
+
+on:
+  schedule:
+    - cron: "0 3 * * *" # daily at 03:00 UTC
+  pull_request:
+  push:
+    branches:
+      - develop
+  workflow_dispatch:
+    inputs:
+      git-ref:
+        description: "The git ref to check out"
+        required: true
+
+concurrency:
+  group: "docker-build-${{ github.ref_name }}"
+  cancel-in-progress: true
+
+jobs:
+  init:
+    runs-on: ubuntu-24.04
+    outputs:
+      build-type: ${{ steps.build-type.outputs.build-type }}
+    steps:
+      - name: Set Build Type
+        id: build-type
+        shell: bash
+        env:
+          BUILD_TRIGGER: ${{ github.event_name }}
+        run: |
+          if [[ "${BUILD_TRIGGER}" == "schedule" ]]; then
+            echo "build-type=nightly" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'push' ]]; then
+            echo "build-type=branch" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'pull_request' ]]; then
+            echo "build-type=pr" | tee -a "$GITHUB_OUTPUT"
+          elif [[ "${BUILD_TRIGGER}" == 'workflow_dispatch' ]]; then
+            echo "build-type=sha" | tee -a "$GITHUB_OUTPUT"
+          else
+            echo "::error::Unsupported build trigger: ${BUILD_TRIGGER}"
+            exit 1
+          fi
+
+  docker-core:
+    needs: [init]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    with:
+      aws-ecr-name: chainlink
+      dockerfile: core/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: ${{ needs.init.outputs.build-type }}
+      docker-manifest-sign: true
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+
+  docker-core-plugins:
+    needs: [init]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    with:
+      aws-ecr-name: chainlink
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=true
+      docker-image-type: ${{ needs.init.outputs.build-type }}
+      docker-manifest-sign: true
+      docker-tag-custom-suffix: "-plugins"
+      docker-target: final-private-plugins
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
+
+  docker-ccip:
+    needs: [init]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    with:
+      aws-ecr-name: ccip
+      dockerfile: core/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        CL_CHAIN_DEFAULTS=/ccip-config
+        COMMIT_SHA=${{ github.sha }}
+      docker-image-type: ${{ needs.init.outputs.build-type }}
+      docker-manifest-sign: true
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+
+  docker-ccip-plugins:
+    needs: [init]
+    permissions:
+      contents: read
+      id-token: write
+    uses: smartcontractkit/.github/.github/workflows/reusable-docker-build-publish.yml@86250a243934401117c92a137579d4cd7a253572 # 2025-03-28
+    with:
+      aws-ecr-name: ccip
+      dockerfile: plugins/chainlink.Dockerfile
+      docker-build-context: .
+      docker-build-args: |
+        CHAINLINK_USER=chainlink
+        CL_CHAIN_DEFAULTS=/ccip-config
+        COMMIT_SHA=${{ github.sha }}
+        CL_INSTALL_PRIVATE_PLUGINS=true
+      docker-image-type: ${{ needs.init.outputs.build-type }}
+      docker-manifest-sign: true
+      docker-tag-custom-suffix: "-plugins"
+      docker-target: final-private-plugins
+      git-sha: ${{ inputs.git-ref || github.sha }}
+      github-event-name: ${{ github.event_name }}
+      github-ref-name: ${{ github.ref_name }}
+      github-workflow-repository: ${{ github.repository }}
+    secrets:
+      AWS_ACCOUNT_ID: ${{ secrets.AWS_ACCOUNT_ID_SDLC }}
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      AWS_ROLE_PUBLISH_ARN: ${{ secrets.AWS_OIDC_IAM_ROLE_BUILD_PUBLISH_DEVELOP_PR }}
+      AWS_ROLE_GATI_ARN: ${{ secrets.AWS_OIDC_GLOBAL_READ_ONLY_TOKEN_ISSUER_ROLE_ARN }}
+      AWS_LAMBDA_GATI_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}

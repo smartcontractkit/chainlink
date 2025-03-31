@@ -177,3 +177,7 @@ flake.lock @smartcontractkit/core
 # Config
 ./docs/CONFIG.md @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
 ./internal/config/docs.toml @smartcontractkit/foundations @smartcontractkit/core @smartcontractkit/devrel
+
+
+# Runs-On
+./github/runs-on.yml @smartcontractkit/prodsec-public
