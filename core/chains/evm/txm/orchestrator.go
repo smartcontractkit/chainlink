@@ -162,7 +162,7 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) runLoop() {
 		case <-pollEnabledCh:
 			updatedEnabledAddresses, err := o.keystore.EnabledAddresses(ctx)
 			if err != nil {
-				o.lggr.Critical("Failed to reload key states after key change")
+				o.lggr.Critical("Failed to reload key states", err)
 				o.SvcErrBuffer.Append(err)
 				continue
 			}
