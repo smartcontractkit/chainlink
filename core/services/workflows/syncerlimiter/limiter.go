@@ -14,8 +14,13 @@ const (
 )
 
 type Limits struct {
-	global            *int32
-	perOwner          map[string]*int32
+	// global tracks the count of all running workflows
+	global *int32
+
+	// perOwner tracks the count of all running workflows for an address
+	perOwner map[string]*int32
+
+	// perOwnerOverrides maps an address to a running workflow limit
 	perOwnerOverrides map[string]int32
 	config            Config
 	lggr              logger.Logger
@@ -40,7 +45,7 @@ func NewWorkflowLimits(lggr logger.Logger, config Config) (*Limits, error) {
 	cfg := Config{
 		Global:            config.Global,
 		PerOwner:          config.PerOwner,
-		PerOwnerOverrides: config.PerOwnerOverrides,
+		PerOwnerOverrides: normalizeOverrides(config.PerOwnerOverrides),
 	}
 
 	if cfg.Global == 0 {
@@ -65,15 +70,17 @@ func NewWorkflowLimits(lggr logger.Logger, config Config) (*Limits, error) {
 func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	countForOwner, ok := l.perOwner[owner]
+
+	addr := common.HexToAddress(owner).String()
+	countForOwner, ok := l.perOwner[addr]
 	if !ok {
-		l.perOwner[owner] = new(int32)
-		countForOwner = l.perOwner[owner]
+		l.perOwner[addr] = new(int32)
+		countForOwner = l.perOwner[addr]
 	}
 
-	limit := l.getPerOwnerLimit(owner)
+	limit := l.getPerOwnerLimit(addr)
 
-	l.lggr.Debugw("determined owner limit", "owner", owner, "limit", limit, "countForOwner", countForOwner)
+	l.lggr.Debugw("determined owner limit", "owner", addr, "limit", limit, "countForOwner", countForOwner)
 
 	if *countForOwner < limit {
 		ownerAllow = true
@@ -88,7 +95,7 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 		*l.global++
 	}
 
-	l.lggr.Debugw("assesed if owner is allowed", "owner", owner, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
+	l.lggr.Debugw("assesed if owner is allowed", "owner", addr, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
 
 	return ownerAllow, globalAllow
 }
@@ -96,7 +103,9 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 func (l *Limits) Decrement(owner string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	ownerLimiter, ok := l.perOwner[owner]
+
+	addr := common.HexToAddress(owner).String()
+	ownerLimiter, ok := l.perOwner[addr]
 	if !ok || *ownerLimiter <= 0 {
 		return
 	}
@@ -120,4 +129,14 @@ func (l *Limits) getPerOwnerLimit(owner string) int32 {
 
 	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", addr, "limit", l.config.PerOwner)
 	return l.config.PerOwner
+}
+
+// normalizeOverrides ensures all incoming keys are common address strings
+func normalizeOverrides(in map[string]int32) map[string]int32 {
+	out := make(map[string]int32)
+	for k, v := range in {
+		addr := common.HexToAddress(k).String()
+		out[addr] = v
+	}
+	return out
 }

@@ -10,13 +10,11 @@ import (
 )
 
 var (
-	user1String    = "119BFD3D78fbb740c614432975CBE829E26C490e"
-	user2String    = "219BFD3D78fbb740c614432975CBE829E26C490e"
-	user3String    = "319BFD3D78fbb740c614432975CBE829E26C490e"
-	user4String    = "419BFD3D78fbb740c614432975CBE829E26C490e"
-	user5String    = "519BFD3D78fbb740c614432975CBE829E26C490e"
-	workflowOwner2 = common.HexToAddress(user2String)
-	workflowOwner5 = common.HexToAddress(user5String)
+	user1String = "119BFD3D78fbb740c614432975CBE829E26C490e"
+	user2String = "219BFD3D78fbb740c614432975CBE829E26C490e"
+	user3String = "319BFD3D78fbb740c614432975CBE829E26C490e"
+	user4String = "419BFD3D78fbb740c614432975CBE829E26C490e"
+	user5String = "519BFD3D78fbb740c614432975CBE829E26C490e"
 )
 
 func TestWorkflowLimits(t *testing.T) {
@@ -27,7 +25,7 @@ func TestWorkflowLimits(t *testing.T) {
 		Global:   3,
 		PerOwner: 1,
 		PerOwnerOverrides: map[string]int32{
-			workflowOwner5.String(): 2,
+			"0x519BFD3D78fbb740c614432975CBE829E26C490e": 2,
 		},
 	}
 	wsl, err := NewWorkflowLimits(lggr, config)
@@ -120,7 +118,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 			name: "override exists",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					workflowOwner2.String(): 20,
+					common.HexToAddress(user2String).String(): 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
@@ -133,7 +131,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 			name: "override does not exist",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					workflowOwner2.String(): 20,
+					common.HexToAddress(user2String).String(): 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
