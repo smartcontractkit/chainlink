@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"math"
 	"math/big"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -31,10 +32,10 @@ import (
 )
 
 type OrchestratorTxStore interface {
-	Add(addresses ...common.Address) error
+	Add(addresses ...common.Address)
 	FetchUnconfirmedTransactionAtNonceWithCount(context.Context, uint64, common.Address) (*txmtypes.Transaction, int, error)
 	FindTxWithIdempotencyKey(context.Context, string) (*txmtypes.Transaction, error)
-	Remove(addresses ...common.Address) error
+	Remove(addresses ...common.Address)
 }
 
 type OrchestratorAttemptBuilder[
@@ -59,7 +60,7 @@ type Orchestrator[
 	keystore         keys.Addresses
 	attemptBuilder   OrchestratorAttemptBuilder[BLOCK_HASH, HEAD]
 	resumeCallback   txmgr.ResumeCallback
-	enabledAddresses map[common.Address]bool
+	enabledAddresses []common.Address
 	chReset          chan *common.Address
 	chStop           services.StopChan
 	wg               *sync.WaitGroup
@@ -75,17 +76,16 @@ func NewTxmOrchestrator[BLOCK_HASH chains.Hashable, HEAD chains.Head[BLOCK_HASH]
 	attemptBuilder OrchestratorAttemptBuilder[BLOCK_HASH, HEAD],
 ) *Orchestrator[BLOCK_HASH, HEAD] {
 	return &Orchestrator[BLOCK_HASH, HEAD]{
-		lggr:             logger.Sugared(logger.Named(lggr, "Orchestrator")),
-		chainID:          chainID,
-		txm:              txm,
-		txStore:          txStore,
-		keystore:         keystore,
-		attemptBuilder:   attemptBuilder,
-		fwdMgr:           fwdMgr,
-		enabledAddresses: make(map[common.Address]bool),
-		chReset:          make(chan *common.Address),
-		chStop:           make(chan struct{}),
-		wg:               new(sync.WaitGroup),
+		lggr:           logger.Sugared(logger.Named(lggr, "Orchestrator")),
+		chainID:        chainID,
+		txm:            txm,
+		txStore:        txStore,
+		keystore:       keystore,
+		attemptBuilder: attemptBuilder,
+		fwdMgr:         fwdMgr,
+		chReset:        make(chan *common.Address),
+		chStop:         make(chan struct{}),
+		wg:             new(sync.WaitGroup),
 	}
 }
 
@@ -102,13 +102,10 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) Start(ctx context.Context) error {
 		if err != nil {
 			return err
 		}
-		for _, address := range addresses {
-			o.enabledAddresses[address] = true
-			err := o.txStore.Add(address)
-			if err != nil {
-				return err
-			}
-		}
+		slices.SortFunc(addresses, func(a, b common.Address) int { return strings.Compare(a.String(), b.String()) })
+		o.enabledAddresses = addresses
+		o.txStore.Add(o.enabledAddresses...)
+
 		if err := ms.Start(ctx, o.txm); err != nil {
 			return fmt.Errorf("Orchestrator: Txm failed to start: %w", err)
 		}
@@ -166,36 +163,25 @@ func (o *Orchestrator[BLOCK_HASH, HEAD]) runLoop() {
 				o.SvcErrBuffer.Append(err)
 				continue
 			}
-			o.lggr.Debugw("Polling for updated keys.", "enabledAddresses", updatedEnabledAddresses)
+			slices.SortFunc(updatedEnabledAddresses, func(a, b common.Address) int { return strings.Compare(a.String(), b.String()) })
+			if slices.Equal(o.enabledAddresses, updatedEnabledAddresses) {
+				continue
+			}
 
-			// this will help with lookup
-			updatedEnabledAddressesMap := make(map[common.Address]bool)
-			updated := false
-			for _, updatedAddress := range updatedEnabledAddresses {
-				updatedEnabledAddressesMap[updatedAddress] = true
-				if _, exists := o.enabledAddresses[updatedAddress]; !exists {
-					if err := o.txStore.Add(updatedAddress); err != nil {
-						o.lggr.Errorw("Failed to add address to InMemoryStore", "address", updatedAddress, "err", err)
-						continue
-					}
-					updated = true
+			o.lggr.Debugw("Keys changed, reloading", "updatedEnabledAddresses", updatedEnabledAddresses)
+
+			// Only adds new addresses
+			o.txStore.Add(updatedEnabledAddresses...)
+
+			for _, oldAddress := range o.enabledAddresses {
+				if !slices.Contains(updatedEnabledAddresses, oldAddress) {
+					o.txStore.Remove(oldAddress)
 				}
 			}
 
-			for oldEnabledAddress := range o.enabledAddresses {
-				if !updatedEnabledAddressesMap[oldEnabledAddress] {
-					if err := o.txStore.Remove(oldEnabledAddress); err != nil {
-						o.lggr.Errorw("Failed to remove address from InMemoryStore", "address", oldEnabledAddress, "err", err)
-						continue
-					}
-					updated = true
-				}
-			}
-			if updated {
-				o.enabledAddresses = updatedEnabledAddressesMap
-				if err := o.txm.Reset(ctx, nil); err != nil {
-					o.lggr.Errorw("Failed to Reset TXM", "err", err)
-				}
+			o.enabledAddresses = updatedEnabledAddresses
+			if err := o.txm.Reset(ctx, nil); err != nil {
+				o.lggr.Errorw("Failed to Reset TXM", "err", err)
 			}
 			pollEnabledCh = time.After(pollEnabledAddresses.Duration())
 		case abandonAddress := <-o.chReset:

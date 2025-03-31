@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
@@ -17,24 +16,25 @@ func TestAdd(t *testing.T) {
 	fromAddress := testutils.NewAddress()
 	m := NewInMemoryStoreManager(logger.Test(t), testutils.FixtureChainID)
 	// Adds a new address
-	err := m.Add(fromAddress)
-	require.NoError(t, err)
+	m.Add(fromAddress)
 	assert.Len(t, m.InMemoryStoreMap, 1)
 
-	// Fails if address exists
-	err = m.Add(fromAddress)
-	require.Error(t, err)
+	// Noops if address exists
+	m.Add(fromAddress)
+	assert.Len(t, m.InMemoryStoreMap, 1)
 
 	// Adds multiple addresses
 	fromAddress1 := testutils.NewAddress()
 	fromAddress2 := testutils.NewAddress()
 	addresses := []common.Address{fromAddress1, fromAddress2}
-	err = m.Add(addresses...)
-	require.NoError(t, err)
+	m.Add(addresses...)
 	assert.Len(t, m.InMemoryStoreMap, 3)
 
 	// Remove an address
-	err = m.Remove(fromAddress1)
-	require.NoError(t, err)
+	m.Remove(fromAddress1)
+	assert.Len(t, m.InMemoryStoreMap, 2)
+
+	// Noops if address doesn't exist
+	m.Remove(testutils.NewAddress())
 	assert.Len(t, m.InMemoryStoreMap, 2)
 }

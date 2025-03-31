@@ -2,7 +2,6 @@ package storage
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"math/big"
 
@@ -36,26 +35,24 @@ func (m *InMemoryStoreManager) AbandonPendingTransactions(_ context.Context, fro
 	return fmt.Errorf(StoreNotFoundForAddress, fromAddress)
 }
 
-func (m *InMemoryStoreManager) Add(addresses ...common.Address) (err error) {
+func (m *InMemoryStoreManager) Add(addresses ...common.Address) {
 	for _, address := range addresses {
 		if _, exists := m.InMemoryStoreMap[address]; exists {
-			err = errors.Join(err, fmt.Errorf("address %v already exists in store manager", address))
+			m.lggr.Debugf("address %v already exists in store manager", address)
 		}
 		m.InMemoryStoreMap[address] = NewInMemoryStore(m.lggr, address, m.chainID)
 		m.lggr.Infof("Added the following address to InMemoryStoreManager: %s", address)
 	}
-	return
 }
 
-func (m *InMemoryStoreManager) Remove(addresses ...common.Address) (err error) {
+func (m *InMemoryStoreManager) Remove(addresses ...common.Address) {
 	for _, address := range addresses {
 		if _, exists := m.InMemoryStoreMap[address]; !exists {
-			err = errors.Join(err, fmt.Errorf("address %v doesn't exist in store manager", address))
+			m.lggr.Debugf("address %v doesn't exist in store manager", address)
 		}
 		delete(m.InMemoryStoreMap, address)
 		m.lggr.Infof("Removed the following address from InMemoryStoreManager: %s", address)
 	}
-	return
 }
 
 func (m *InMemoryStoreManager) AppendAttemptToTransaction(_ context.Context, txNonce uint64, fromAddress common.Address, attempt *types.Attempt) error {

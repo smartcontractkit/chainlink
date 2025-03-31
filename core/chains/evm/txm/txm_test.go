@@ -37,13 +37,13 @@ func TestLifecycle(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		config := Config{BlockTime: 1 * time.Minute}
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address1))
+		txStore.Add(address1)
 		keystore := keystest.Addresses{address1}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, nil, txStore, nil, config, keystore)
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(0), errors.New("error")).Once()
 		client.On("PendingNonceAt", mock.Anything, address1).Return(uint64(100), nil).Once()
 		servicetest.Run(t, txm)
-		tests.AssertLogEventually(t, observedLogs, "Error when fetching initial nonce")
+		tests.AssertLogEventually(t, observedLogs, "Error while fetching initial nonce")
 		tests.AssertLogEventually(t, observedLogs, fmt.Sprintf("Set initial nonce for address: %v to %d", address1, 100))
 	})
 
@@ -52,7 +52,7 @@ func TestLifecycle(t *testing.T) {
 		keystore := keystest.Addresses(addresses)
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(addresses...))
+		txStore.Add(addresses...)
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		var nonce uint64
 		// Start
@@ -82,7 +82,7 @@ func TestTrigger(t *testing.T) {
 	t.Run("executes Trigger", func(t *testing.T) {
 		lggr := logger.Test(t)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address))
+		txStore.Add(address)
 		client := newMockClient(t)
 		ab := newMockAttemptBuilder(t)
 		config := Config{BlockTime: 1 * time.Minute, RetryBlockThreshold: 10}
@@ -161,7 +161,7 @@ func TestBroadcastTransaction(t *testing.T) {
 	t.Run("returns if there are no unstarted transactions", func(t *testing.T) {
 		lggr := logger.Test(t)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address))
+		txStore.Add(address)
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		bo, err := txm.broadcastTransaction(ctx, address)
 		require.NoError(t, err)
@@ -172,7 +172,7 @@ func TestBroadcastTransaction(t *testing.T) {
 	t.Run("picks a new tx and creates a new attempt then sends it and updates the broadcast time", func(t *testing.T) {
 		lggr := logger.Test(t)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address))
+		txStore.Add(address)
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		txm.setNonce(address, 8)
 		metrics, err := NewTxmMetrics(testutils.FixtureChainID)
@@ -245,7 +245,7 @@ func TestBackfillTransactions(t *testing.T) {
 	t.Run("fills nonce gap", func(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address))
+		txStore.Add(address)
 		ab := newMockAttemptBuilder(t)
 		c := Config{EIP1559: false, BlockTime: 10 * time.Minute, RetryBlockThreshold: 10, EmptyTxLimitDefault: 22000}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
@@ -287,7 +287,7 @@ func TestBackfillTransactions(t *testing.T) {
 	t.Run("retries attempt after threshold", func(t *testing.T) {
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(address))
+		txStore.Add(address)
 		ab := newMockAttemptBuilder(t)
 		c := Config{EIP1559: false, BlockTime: 1 * time.Second, RetryBlockThreshold: 1, EmptyTxLimitDefault: 22000}
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, c, keystore)
@@ -344,7 +344,7 @@ func TestReset(t *testing.T) {
 
 		lggr, observedLogs := logger.TestObserved(t, zap.DebugLevel)
 		txStore := storage.NewInMemoryStoreManager(lggr, testutils.FixtureChainID)
-		require.NoError(t, txStore.Add(addresses...))
+		txStore.Add(addresses...)
 		txm := NewTxm(lggr, testutils.FixtureChainID, client, ab, txStore, nil, config, keystore)
 		var nonce uint64 = 4
 		// Start
