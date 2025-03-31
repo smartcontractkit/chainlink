@@ -39,6 +39,7 @@ message MessageBody {
 
   uint32 capability_don_id = 15;
   uint32 caller_don_id = 16;
+  string trace_id = 17;
 }
 
 message TriggerRegistrationMetadata {

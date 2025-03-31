@@ -10,6 +10,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
@@ -151,12 +152,17 @@ func (d *dispatcher) RemoveReceiver(capabilityID string, donID uint32) {
 	}
 }
 
-func (d *dispatcher) Send(peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
+func (d *dispatcher) Send(ctx context.Context, peerID p2ptypes.PeerID, msgBody *types.MessageBody) error {
 	//nolint:gosec // disable G115
 	msgBody.Version = uint32(d.cfg.SupportedVersion())
 	msgBody.Sender = d.peerID[:]
 	msgBody.Receiver = peerID[:]
 	msgBody.Timestamp = time.Now().UnixMilli()
+
+	sc := trace.SpanContextFromContext(ctx)
+	traceID := sc.TraceID()
+
+	msgBody.TraceId = traceID.String()
 	rawBody, err := proto.Marshal(msgBody)
 	if err != nil {
 		return err
@@ -188,7 +194,7 @@ func (d *dispatcher) receive() {
 			body, err := ValidateMessage(msg, d.peerID)
 			if err != nil {
 				d.lggr.Debugw("received invalid message", "error", err)
-				d.tryRespondWithError(msg.Sender, body, types.Error_VALIDATION_FAILED)
+				d.tryRespondWithError(context.TODO(), msg.Sender, body, types.Error_VALIDATION_FAILED)
 				continue
 			}
 			k := key{body.CapabilityId, body.CapabilityDonId}
@@ -197,7 +203,9 @@ func (d *dispatcher) receive() {
 			d.mu.RUnlock()
 			if !ok {
 				d.lggr.Debugw("received message for unregistered capability", "capabilityId", SanitizeLogString(k.capID), "donId", k.donID)
-				d.tryRespondWithError(msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
+				// TODO: re-architect to not re-construct a context here
+				ctx := context.TODO()
+				d.tryRespondWithError(ctx, msg.Sender, body, types.Error_CAPABILITY_NOT_FOUND)
 				continue
 			}
 
@@ -212,7 +220,7 @@ func (d *dispatcher) receive() {
 	}
 }
 
-func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *types.MessageBody, errType types.Error) {
+func (d *dispatcher) tryRespondWithError(ctx context.Context, peerID p2ptypes.PeerID, body *types.MessageBody, errType types.Error) {
 	if body == nil {
 		return
 	}
@@ -223,7 +231,7 @@ func (d *dispatcher) tryRespondWithError(peerID p2ptypes.PeerID, body *types.Mes
 	body.Error = errType
 	// clear payload to reduce message size
 	body.Payload = nil
-	err := d.Send(peerID, body)
+	err := d.Send(ctx, peerID, body)
 	if err != nil {
 		d.lggr.Debugw("failed to send error response", "error", err)
 	}
