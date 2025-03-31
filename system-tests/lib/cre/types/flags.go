@@ -21,4 +21,5 @@ const (
 	WebAPITargetCapability  CapabilityFlag = "web_api_target"
 	WebAPITriggerCapability CapabilityFlag = "web_api_trigger"
 	// Add more capabilities as needed
+	MockCapability CapabilityFlag = "mock"
 )
