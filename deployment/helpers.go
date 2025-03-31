@@ -100,6 +100,10 @@ func parseErrorFromABI(errorString string, contractABI string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "error decoding error string")
 	}
+	v, err := abi.UnpackRevert(data)
+	if err == nil {
+		return fmt.Sprintf("error - `%s`", v), nil
+	}
 	for errorName, abiError := range parsedAbi.Errors {
 		if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
 			// Found a matching error
