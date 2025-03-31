@@ -8,21 +8,49 @@ import (
 )
 
 func TestAddressRefKey_Equals(t *testing.T) {
-	version1 := semver.MustParse("1.0.0")
-	version2 := semver.MustParse("2.0.0")
+	tests := []struct {
+		name     string
+		key1     AddressRefKey
+		key2     AddressRefKey
+		expected bool
+	}{
+		{
+			name:     "Identical keys",
+			key1:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			key2:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			expected: true,
+		},
+		{
+			name:     "Different chainSelector",
+			key1:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			key2:     NewAddressRefKey(2, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			expected: false,
+		},
+		{
+			name:     "Different contractType",
+			key1:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			key2:     NewAddressRefKey(1, ContractType("typeB"), semver.MustParse("1.0.0"), "qualifier1"),
+			expected: false,
+		},
+		{
+			name:     "Different version",
+			key1:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			key2:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("2.0.0"), "qualifier1"),
+			expected: false,
+		},
+		{
+			name:     "Different qualifier",
+			key1:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier1"),
+			key2:     NewAddressRefKey(1, ContractType("typeA"), semver.MustParse("1.0.0"), "qualifier2"),
+			expected: false,
+		},
+	}
 
-	key1 := NewAddressRefKey(1, ContractType("typeA"), version1, "qualifier1")
-	key2 := NewAddressRefKey(1, ContractType("typeA"), version1, "qualifier1")
-	key3 := NewAddressRefKey(2, ContractType("typeA"), version1, "qualifier1")
-	key4 := NewAddressRefKey(1, ContractType("typeB"), version1, "qualifier1")
-	key5 := NewAddressRefKey(1, ContractType("typeA"), version2, "qualifier1")
-	key6 := NewAddressRefKey(1, ContractType("typeA"), version1, "qualifier2")
-
-	assert.True(t, key1.Equals(key2), "Keys with identical fields should be equal")
-	assert.False(t, key1.Equals(key3), "Keys with different chainSelector should not be equal")
-	assert.False(t, key1.Equals(key4), "Keys with different contractType should not be equal")
-	assert.False(t, key1.Equals(key5), "Keys with different version should not be equal")
-	assert.False(t, key1.Equals(key6), "Keys with different qualifier should not be equal")
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, tt.key1.Equals(tt.key2))
+		})
+	}
 }
 
 func TestNewAddressRefKey(t *testing.T) {
