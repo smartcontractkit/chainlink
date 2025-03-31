@@ -74,7 +74,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'pull_request' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@2c069c22521107ed7fbc04c57ecd86baec293220
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7524f2d2c8e6b9520a838e4f7ea733aa65506757
     with:
       workflow_name: Run CCIP Integration Tests For PR
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -104,7 +104,7 @@ jobs:
       contents: read
     needs: changes
     if: github.event_name == 'merge_group' && ( needs.changes.outputs.ccip_changes == 'true' || needs.changes.outputs.core_changes == 'true' || needs.changes.outputs.github_ci_changes == 'true')
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@2c069c22521107ed7fbc04c57ecd86baec293220
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@7524f2d2c8e6b9520a838e4f7ea733aa65506757
     with:
       workflow_name: Run CCIP Integration Tests For Merge Queue
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
@@ -125,7 +125,7 @@ jobs:
       AWS_K8S_CLUSTER_NAME_SDLC: ${{ secrets.AWS_K8S_CLUSTER_NAME_SDLC }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-      
+
   check-integration-test-results:
     if: always()
     name: Integration Tests
