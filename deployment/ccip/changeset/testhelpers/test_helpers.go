@@ -150,7 +150,7 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 	case *devenv.JobDistributor:
 		err = oc.ReplayLogs(replayBlocks)
 	default:
-		t.Fatalf("unsupported offchain client type %T", oc)
+		panic(fmt.Sprintf("unsupported offchain client type %T", oc)) // This should not happen in tests, as we should only be using supported types.
 	}
 
 	if err != nil {

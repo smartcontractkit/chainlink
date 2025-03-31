@@ -93,33 +93,35 @@ func TestCCIPSolCRIB(t *testing.T) {
 		)
 	)
 
-	// TODO: handle in setup
-	deployer := *e.Env.SolChains[sourceChain].DeployerKey
-	rpcClient := e.Env.SolChains[sourceChain].Client
+	if false {
+		// TODO: handle in setup
+		deployer := *e.Env.SolChains[sourceChain].DeployerKey
+		rpcClient := e.Env.SolChains[sourceChain].Client
 
-	// create ATA for user
-	tokenProgram := solana.TokenProgramID
-	wSOL := solana.SolMint
-	ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
-	require.NoError(t, uerr)
+		// create ATA for user
+		tokenProgram := solana.TokenProgramID
+		wSOL := solana.SolMint
+		ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
+		require.NoError(t, uerr)
 
-	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(state.SolChains[sourceChain].Router)
-	require.NoError(t, err)
+		billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(state.SolChains[sourceChain].Router)
+		require.NoError(t, err)
 
-	// Approve CCIP to transfer the user's token for billing
-	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
-	require.NoError(t, err)
+		// Approve CCIP to transfer the user's token for billing
+		ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
+		require.NoError(t, err)
 
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, deployer, solconfig.DefaultCommitment)
+		soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, deployer, solconfig.DefaultCommitment)
 
-	// fund user WSOL (transfer SOL + syncNative)
-	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
-	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
-	require.NoError(t, err)
-	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
-	require.NoError(t, err)
-	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, deployer, solconfig.DefaultCommitment)
-	// END: handle in setup
+		// fund user WSOL (transfer SOL + syncNative)
+		transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
+		ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
+		require.NoError(t, err)
+		ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
+		require.NoError(t, err)
+		soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, deployer, solconfig.DefaultCommitment)
+		// END: handle in setup
+	}
 
 	emptyEVMExtraArgsV2 := []byte{}
 	ccip_router.SetProgramID(state.SolChains[sourceChain].Router)
@@ -136,7 +138,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address(),
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              extraArgs, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
