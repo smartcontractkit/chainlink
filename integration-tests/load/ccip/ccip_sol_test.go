@@ -12,6 +12,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
 	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
@@ -119,6 +122,9 @@ func TestCCIPSolCRIB(t *testing.T) {
 	// END: handle in setup
 
 	emptyEVMExtraArgsV2 := []byte{}
+	ccip_router.SetProgramID(state.SolChains[sourceChain].Router)
+	fee_quoter.SetProgramID(state.SolChains[sourceChain].FeeQuoter)
+	ccip_offramp.SetProgramID(state.SolChains[sourceChain].OffRamp)
 
 	t.Logf("Dest chain %v", state.Chains[destChain].Receiver.Address())
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
