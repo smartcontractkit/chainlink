@@ -229,7 +229,7 @@ func TestTokenTransfer(t *testing.T) {
 
 func TestTokenTransfer_EVM2Solana(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
@@ -365,7 +365,7 @@ func TestTokenTransfer_EVM2Solana(t *testing.T) {
 
 func TestTokenTransfer_Solana2EVM(t *testing.T) {
 	lggr := logger.TestLogger(t)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 
 	tenv, _, _ := testsetups.NewIntegrationEnvironment(t,
 		testhelpers.WithNumOfUsersPerChain(3),
