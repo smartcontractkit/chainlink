@@ -311,9 +311,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -365,9 +362,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -412,9 +406,6 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
 	})
 	_, err = svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 	assert.Equal(t, "orm error", err.Error())
 }
@@ -451,9 +442,6 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 
 	_, err = svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 
 	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
