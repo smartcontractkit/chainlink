@@ -14,7 +14,7 @@ runner-test-matrix:
     triggers:
       - PR Integration CCIP Tests
       - Nightly Integration CCIP Tests
-    test_cmd: cd smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run "^TestMigrateFromV1_5ToV1_6$"
+    test_cmd: cd smoke/ccip && go test ccip_migration_to_v_1_6_test.go -timeout 12m -test.parallel=1 -count=1 -json -run ^TestMigrateFromV1_5ToV1_6$
     test_go_project_path: integration-tests
 
   - id: smoke/ccip/ccip_fees_test.go:*
