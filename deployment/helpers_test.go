@@ -18,7 +18,7 @@ func TestParseErrorFromABI(t *testing.T) {
 		{
 			Name:               "Generic error with string msg",
 			RevertReason:       "0x08c379a0000000000000000000000000000000000000000000000000000000000000002000000000000000000000000000000000000000000000000000000000000000164f6e6c792063616c6c61626c65206279206f776e657200000000000000000000",
-			ABI:                forwarder.KeystoneForwarderABI,
+			ABI:                "", // ABI is not required for this case
 			ParsedRevertReason: "error - `Only callable by owner`",
 		},
 		{
