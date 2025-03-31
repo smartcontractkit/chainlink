@@ -23,12 +23,38 @@ on:
     branches:
       - develop
   pull_request:
+  workflow_dispatch:
 
 jobs:
   go-cache:
     name: Go Cache
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout the repo
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Setup Go
+        uses: ./.github/actions/setup-go
+        with:
+          only-modules: "true"
+          restore-module-cache-only: "false"
+
+      - name: Install Dependencies
+        shell: bash
+        run:  go mod download all
+
+  go-cache-self-hosted:
+    name: Go Cache
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on:
+      - runs-on=${{ github.run_id }}
+      - runner=4core-8gb-large-ubuntu-s3
+    steps:
+      # enable runs-on magic cache
+      - uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:

@@ -15,6 +15,8 @@ on:
   pull_request:
   schedule:
     - cron: "0 0,6,12,18 * * *"
+  workflow_dispatch:
+
 
 jobs:
   filter:
@@ -175,23 +177,35 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
+            os-self-hosted:
+              - runs-on=${{ github.run_id }}
+              - runner=32core-256gb-large-ubuntu-r7iz-s3
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
+            os-self-hosted:
+              - runs-on=${{ github.run_id }}
+              - runner=32core-256gb-large-ubuntu-r7iz-s3
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
-            os: ubuntu22.04-8cores-32GB
+            os: ubuntu22.04-8cores-32GB # don't use self-hosted runners for fuzz tests
+            os-self-hosted: ubuntu22.04-8cores-32GB # don't use self-hosted runners for fuzz tests
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_race_tests
-            # use 64cores for certain scheduled runs only
-            os: ${{ needs.run-frequency.outputs.two-per-day-frequency == 'true' && 'ubuntu-latest-64cores-256GB' || 'ubuntu-latest-32cores-128GB' }}
+            os: 'ubuntu-latest-32cores-128GB'
+            os-self-hosted:
+              - runs-on=${{ github.run_id }}
+              - runner=64core-128gb-large-ubuntu-c7i-flex-s3
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
+            os-self-hosted:
+              - runs-on=${{ github.run_id }}
+              - runner=32core-256gb-large-ubuntu-r7iz-s3
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -199,12 +213,17 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency]
-    runs-on: ${{ matrix.type.os }}
+    # runs-on rollout - use self-hosted runners 10% of the time
+    runs-on: ${{needs.run-frequency.outputs.should-use-self-hosted == 'true' && matrix.type.os-self-hosted || matrix.type.os }}
     permissions:
       id-token: write
       contents: read
       actions: read
     steps:
+      - name: Enable S3 Cache for Self-Hosted Runners
+        if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
+        uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
+
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
@@ -277,7 +296,7 @@ jobs:
         env:
           OUTPUT_FILE: ./output.txt
           CL_DATABASE_URL: ${{ env.DB_URL }}
-          USE_FLAKEGUARD: true 
+          USE_FLAKEGUARD: true
         run: |
           # See: https://github.com/golang/go/issues/69179
           GODEBUG=goindex=0
@@ -295,7 +314,7 @@ jobs:
           GITHUB_RUN_ID: ${{ github.run_id }}
           GITHUB_HEAD_REF: ${{ github.head_ref }}
           GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: ./.github/scripts/flakeguard-generate-reports.sh   
+        run: ./.github/scripts/flakeguard-generate-reports.sh
 
       - name: Upload Flakeguard Main Test Report as Artifact (All Tests)
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -304,8 +323,8 @@ jobs:
           name: ${{ matrix.type.cmd }}_flakeguard_report_main_all_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/main/all-test-report.json
           retention-days: 7
-          if-no-files-found: ignore 
-          
+          if-no-files-found: ignore
+
       - name: Upload Flakeguard Rerun Test Report as Artifact (All Tests)
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
@@ -313,7 +332,7 @@ jobs:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_all_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/all-test-report.json
           retention-days: 7
-          if-no-files-found: ignore           
+          if-no-files-found: ignore
 
       - name: Upload Flakeguard Main Test Report as Artifact (Failed Tests)
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -323,7 +342,7 @@ jobs:
           path: ${{ matrix.type.cmd }}_flakeguard_report/main/failed-test-report-with-logs.json
           retention-days: 7
           if-no-files-found: ignore
-          
+
       - name: Upload Flakeguard Rerun Test Report as Artifact (Failed Tests)
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
         uses: actions/upload-artifact@v4
@@ -331,7 +350,7 @@ jobs:
           name: ${{ matrix.type.cmd }}_flakeguard_report_rerun_failed_tests.json
           path: ${{ matrix.type.cmd }}_flakeguard_report/rerun/failed-test-report-with-logs.json
           retention-days: 7
-          if-no-files-found: ignore          
+          if-no-files-found: ignore
 
       - name: Send Flakeguard Reports to Splunk
         if: ${{ always() && steps.run-tests.outcome != 'skipped' && matrix.type.should-run == 'true' && github.event_name == 'merge_group' && (matrix.type.cmd == 'go_core_tests' || matrix.type.cmd == 'go_core_ccip_deployment_tests') }}
@@ -346,7 +365,7 @@ jobs:
           FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
           FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
         run: ./.github/scripts/flakeguard-send-report-to-splunk.sh
-        
+
       - name: Print Races
         id: print-races
         if: ${{ failure() && matrix.type.cmd == 'go_core_race_tests' && matrix.type.should-run == 'true' }}
@@ -571,12 +590,15 @@ jobs:
           git diff --minimal --cached --exit-code
 
   run-frequency:
-    name: Scheduled Run Frequency
+    name: Run Frequency
     outputs:
+      # frequencies for scheduled events
       one-per-day-frequency: ${{ steps.check-time.outputs.one-per-day-frequency || 'false' }}
       two-per-day-frequency: ${{ steps.check-time.outputs.two-per-day-frequency || 'false' }}
       four-per-day-frequency: ${{ steps.check-time.outputs.four-per-day-frequency || 'false' }}
       six-per-day-frequency: ${{ steps.check-time.outputs.six-per-day-frequency || 'false' }}
+      # frequencies for self-hosted runners
+      should-use-self-hosted: ${{ steps.check-branch.outputs.self-hosted-runners || 'false' }}
     runs-on: ubuntu-latest
     steps:
       - name: Check time and set frequencies
@@ -584,32 +606,64 @@ jobs:
         shell: bash
         run: |
           if [ "$GITHUB_EVENT_NAME" != "schedule" ]; then
-            # Not a scheduled event, set all frequencies to false
-            echo "one-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "two-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "four-per-day-frequency=false" >> $GITHUB_OUTPUT
-            echo "six-per-day-frequency=false" >> $GITHUB_OUTPUT
-          else
-            # Scheduled event, check current time for frequencies
-            current_hour=$(date +"%H")
+            # Not a scheduled event - no frequencies to set. They default to false.
+            exit 0
+          fi
 
-            # Check if the current hour is 00 (one per day)
-            if [ "$current_hour" -eq "00" ]; then
-              echo "one-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
+          # Scheduled event, check current time for frequencies
+          current_hour=$(date +"%H")
 
-            # Check if the current hour is 00 or 12 (twice per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "12" ]; then
-              echo "two-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
+          # Check if the current hour is 00 (one per day)
+          if [ "$current_hour" -eq "00" ]; then
+            echo "one-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+          fi
 
-            # Check if the current hour is 00, 06, 12, or 18 (four times per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "06" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "18" ]; then
-              echo "four-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
+          # Check if the current hour is 00 or 12 (twice per day)
+          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "12" ]; then
+            echo "two-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+          fi
 
-            # Check if the current hour is one of 00, 04, 08, 12, 16, or 20 (six times per day)
-            if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "04" ] || [ "$current_hour" -eq "08" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "16" ] || [ "$current_hour" -eq "20" ]; then
-              echo "six-per-day-frequency=true" >> $GITHUB_OUTPUT
-            fi
+          # Check if the current hour is 00, 06, 12, or 18 (four times per day)
+          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "06" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "18" ]; then
+            echo "four-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+          fi
+
+          # Check if the current hour is one of 00, 04, 08, 12, 16, or 20 (six times per day)
+          if [ "$current_hour" -eq "00" ] || [ "$current_hour" -eq "04" ] || [ "$current_hour" -eq "08" ] || [ "$current_hour" -eq "12" ] || [ "$current_hour" -eq "16" ] || [ "$current_hour" -eq "20" ]; then
+            echo "six-per-day-frequency=true" | tee -a $GITHUB_OUTPUT
+          fi
+
+      - name: Self-hosted Runner Frequencies
+        id: check-branch
+        run: |
+          if ["$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          exit 0
+          # Only enable for workflow dispatch events for now
+          # Following logic will be used once we've validated the reliability
+
+          if [ "$GITHUB_EVENT_NAME" == "merge_group" ]; then
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # generate a deterministic random number based on the branch name
+          branch_name="${GITHUB_HEAD_REF:-$(echo $GITHUB_REF | sed 's/refs\/heads\///')}"
+          hash=$(echo -n "$branch" | sha256sum | cut -d' ' -f1)
+          deterministic_number=$((16#${hash:0:8} % 100))
+
+          if [ "branch_name" == "develop" ]; then
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Branch name: $branch_name"
+          echo "Deterministic number: $deterministic_number"
+
+          # 10% of the time, use self-hosted runners
+          if [ "$deterministic_number" -lt 10 ]; then
+            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
           fi

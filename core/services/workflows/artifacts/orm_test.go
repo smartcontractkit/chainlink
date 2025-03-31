@@ -1,4 +1,4 @@
-package syncer
+package artifacts
 
 import (
 	"database/sql"
