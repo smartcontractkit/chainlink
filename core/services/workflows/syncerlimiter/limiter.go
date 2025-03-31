@@ -1,9 +1,8 @@
 package syncerlimiter
 
 import (
+	"strings"
 	"sync"
-
-	"github.com/ethereum/go-ethereum/common"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
@@ -71,16 +70,16 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	addr := common.HexToAddress(owner).String()
-	countForOwner, ok := l.perOwner[addr]
+	owner = normalizeOwner(owner)
+	countForOwner, ok := l.perOwner[owner]
 	if !ok {
-		l.perOwner[addr] = new(int32)
-		countForOwner = l.perOwner[addr]
+		l.perOwner[owner] = new(int32)
+		countForOwner = l.perOwner[owner]
 	}
 
-	limit := l.getPerOwnerLimit(addr)
+	limit := l.getPerOwnerLimit(owner)
 
-	l.lggr.Debugw("determined owner limit", "owner", addr, "limit", limit, "countForOwner", countForOwner)
+	l.lggr.Debugw("determined owner limit", "owner", owner, "limit", limit, "countForOwner", countForOwner)
 
 	if *countForOwner < limit {
 		ownerAllow = true
@@ -95,7 +94,7 @@ func (l *Limits) Allow(owner string) (ownerAllow bool, globalAllow bool) {
 		*l.global++
 	}
 
-	l.lggr.Debugw("assesed if owner is allowed", "owner", addr, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
+	l.lggr.Debugw("assesed if owner is allowed", "owner", owner, "ownerAllow", ownerAllow, "globalAllow", globalAllow)
 
 	return ownerAllow, globalAllow
 }
@@ -104,8 +103,7 @@ func (l *Limits) Decrement(owner string) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
-	addr := common.HexToAddress(owner).String()
-	ownerLimiter, ok := l.perOwner[addr]
+	ownerLimiter, ok := l.perOwner[normalizeOwner(owner)]
 	if !ok || *ownerLimiter <= 0 {
 		return
 	}
@@ -117,26 +115,34 @@ func (l *Limits) Decrement(owner string) {
 // getPerOwnerLimit returns the default limit per owner if there are no overrides found
 // for the given owner.
 func (l *Limits) getPerOwnerLimit(owner string) int32 {
-	addr := common.HexToAddress(owner).String()
 	if l.perOwnerOverrides == nil {
 		return l.config.PerOwner
 	}
-	limit, found := l.perOwnerOverrides[addr]
+	limit, found := l.perOwnerOverrides[normalizeOwner(owner)]
 	if found {
-		l.lggr.Debugw("overriding limit for owner", "owner", addr, "limit", limit)
+		l.lggr.Debugw("overriding limit for owner", "owner", owner, "limit", limit)
 		return limit
 	}
 
-	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", addr, "limit", l.config.PerOwner)
+	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", owner, "limit", l.config.PerOwner)
 	return l.config.PerOwner
 }
 
-// normalizeOverrides ensures all incoming keys are common address strings
+// normalizeOverrides ensures all incoming keys are normalized
 func normalizeOverrides(in map[string]int32) map[string]int32 {
 	out := make(map[string]int32)
 	for k, v := range in {
-		addr := common.HexToAddress(k).String()
-		out[addr] = v
+		norm := normalizeOwner(k)
+		out[norm] = v
 	}
 	return out
+}
+
+// normalizeOwner removes any 0x prefix
+func normalizeOwner(k string) string {
+	norm := k
+	if strings.HasPrefix(k, "0x") {
+		norm = norm[2:]
+	}
+	return strings.ToLower(norm)
 }

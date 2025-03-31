@@ -3,7 +3,6 @@ package syncerlimiter
 import (
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -118,7 +117,7 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 			name: "override exists",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					common.HexToAddress(user2String).String(): 20,
+					"0x" + user2String: 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
@@ -128,10 +127,24 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 			wantLimit: 20,
 		},
 		{
+			name: "ignores checksum",
+			limits: func() *Limits {
+				config.PerOwnerOverrides = map[string]int32{
+					"0x1b5B31d3AB780cd192DE677707EA5A3Cb53c6d67": 8,
+					"0xcec984E1dA8Ad5C012bEE7C4abc334F07Ee61A6e": 0,
+				}
+				l, err := NewWorkflowLimits(lggr, config)
+				require.NoError(t, err)
+				return l
+			}(),
+			owner:     "1b5b31d3ab780cd192de677707ea5a3cb53c6d67",
+			wantLimit: 8,
+		},
+		{
 			name: "override does not exist",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					common.HexToAddress(user2String).String(): 20,
+					"0x" + user2String: 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
