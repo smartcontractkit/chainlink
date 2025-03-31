@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/big"
 	rand2 "math/rand/v2"
 	"strings"
@@ -830,6 +831,7 @@ func updateWorkflow(
 }
 
 type evtHandler interface {
+	io.Closer
 	Handle(ctx context.Context, event syncer.Event) error
 }
 
@@ -838,7 +840,7 @@ type testSecretsWorkEventHandler struct {
 	registeredCh   chan syncer.Event
 }
 
-func (m *testSecretsWorkEventHandler) Close() error { return nil }
+func (m *testSecretsWorkEventHandler) Close() error { return m.wrappedHandler.Close() }
 
 func (m *testSecretsWorkEventHandler) Handle(ctx context.Context, event syncer.Event) error {
 	switch {
