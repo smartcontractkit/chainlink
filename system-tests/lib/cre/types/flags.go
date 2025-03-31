@@ -16,10 +16,9 @@ const (
 	CustomComputeCapability CapabilityFlag = "custom-compute"
 	WriteEVMCapability      CapabilityFlag = "write-evm"
 
+	ReadContractCapability  CapabilityFlag = "read-contract"
+	LogTriggerCapability    CapabilityFlag = "log_trigger"
+	WebAPITargetCapability  CapabilityFlag = "web_api_target"
+	WebAPITriggerCapability CapabilityFlag = "web_api_trigger"
 	// Add more capabilities as needed
-)
-
-var (
-	// Add new capabilities here as well, if single DON should have them by default
-	SingleDonFlags = []string{"capabilities", "ocr3", "cron", "custom-compute", "write-evm"}
 )

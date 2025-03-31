@@ -32,6 +32,7 @@ import (
 	solTestReceiver "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/test_ccip_receiver"
 	solCommonUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+
 	solanaMCMS "github.com/smartcontractkit/chainlink/deployment/common/changeset/solana/mcms"
 )
 
@@ -59,7 +60,7 @@ type DeployChainContractsConfig struct {
 	UpgradeConfig          UpgradeConfig
 	BuildConfig            *BuildSolanaConfig
 	// TODO: add validation for this
-	MCMSWithTimelockConfig types.MCMSWithTimelockConfigV2
+	MCMSWithTimelockConfig *types.MCMSWithTimelockConfigV2
 }
 
 type ChainContractParams struct {
@@ -90,7 +91,7 @@ type UpgradeConfig struct {
 	SpillAddress     solana.PublicKey
 	UpgradeAuthority solana.PublicKey
 	// MCMS config must be set for upgrades and offramp redploys (to configure the fee quoter after redeploy)
-	MCMS *ccipChangeset.MCMSConfig
+	MCMS *proposalutils.TimelockConfig
 }
 
 func (cfg UpgradeConfig) Validate(e deployment.Environment, chainSelector uint64) error {
@@ -129,6 +130,20 @@ func (c DeployChainContractsConfig) Validate(e deployment.Environment) error {
 	}
 	if _, exists := existingState.SupportedChains()[c.ChainSelector]; !exists {
 		return fmt.Errorf("chain %d not supported", c.ChainSelector)
+	}
+	chainState := existingState.SolChains[c.ChainSelector]
+
+	// CLD:
+	// the below check expects the user to pass in a mcms config when calling the changeset for the first time via CLD
+
+	// In memory tests:
+	// programs and state are pre-loaded, so we pass nil mcms config as router will be present in state
+	// take a look at test_helpers.go/deployChainContractsToSolChainCS
+	// initialisation of the mcms contracts then happens via testhelpers.TransferOwnershipSolana
+	if chainState.Router.IsZero() {
+		if c.MCMSWithTimelockConfig == nil {
+			return fmt.Errorf("Router is not deployed. This looks like an initial deploy.MCMS config must be set for chain %d", c.ChainSelector)
+		}
 	}
 	return nil
 }
@@ -200,7 +215,7 @@ func DeployChainContractsChangeset(e deployment.Environment, c DeployChainContra
 			inspectors,
 			batches,
 			"proposal to upgrade CCIP contracts",
-			c.UpgradeConfig.MCMS.MinDelay)
+			*c.UpgradeConfig.MCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)
 		}
@@ -690,14 +705,14 @@ func deployChainContractsSolana(
 	}
 
 	// MCMS
-	// this should selectively deploy anything if required
-	// TODO: bad check
-	if config.MCMSWithTimelockConfig.TimelockMinDelay != nil {
-		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, config.MCMSWithTimelockConfig)
+	// this should selectively deploy and initialise anything if required
+	if config.MCMSWithTimelockConfig != nil {
+		_, err = solanaMCMS.DeployMCMSWithTimelockProgramsSolana(e, chain, ab, *config.MCMSWithTimelockConfig)
 		if err != nil {
 			return txns, fmt.Errorf("failed to deploy MCMS with timelock programs: %w", err)
 		}
 	}
+	// MCMS Upgrade
 	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
 	if err != nil {
 		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
@@ -740,6 +755,7 @@ func deployChainContractsSolana(
 		}
 	}
 
+	// LOOKUP TABLE
 	if createLookupTable {
 		// fee quoter enteries
 		linkFqBillingConfigPDA, _, _ := solState.FindFqBillingTokenConfigPDA(chainState.LinkToken, feeQuoterAddress)

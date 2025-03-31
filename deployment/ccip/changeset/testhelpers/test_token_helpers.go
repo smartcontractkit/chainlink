@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -132,7 +133,9 @@ func SetupTwoChainEnvironmentWithTokens(
 				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)
@@ -210,7 +213,9 @@ func DeployTestTokenPools(
 				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)

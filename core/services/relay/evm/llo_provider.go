@@ -26,8 +26,10 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/bm"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/channeldefinitions"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/mercurytransmitter"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	lloconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/llo/config"
 	evmllo "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/llo"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/mercury"
@@ -78,12 +80,12 @@ func NewLLOProvider(
 	cc evmllo.ConfigCache,
 	chain legacyevm.Chain,
 	configuratorAddress common.Address,
-	cdcFactory llo.ChannelDefinitionCacheFactory,
+	cdcFactory channeldefinitions.ChannelDefinitionCacheFactory,
 	relayConfig types.RelayConfig,
 	relayOpts *types.RelayOpts,
 	csaKeystore coretypes.Keystore,
 	mercuryCfg MercuryConfig,
-	retirementReportCache llo.RetirementReportCache,
+	retirementReportCache retirement.RetirementReportCache,
 	ds sqlutil.DataSource,
 	mercuryPool wsrpc.Pool,
 	capabilitiesRegistry coretypes.CapabilitiesRegistry,
@@ -119,7 +121,10 @@ func NewLLOProvider(
 		transmitter = bm.NewTransmitter(lggr, csaPub)
 	} else {
 		clients := make(map[string]grpc.Client)
-		for _, server := range lloCfg.GetServers() {
+
+		mercuryServers := lloCfg.GetServers()
+
+		for _, server := range mercuryServers {
 			var client grpc.Client
 			switch mercuryCfg.Transmitter().Protocol() {
 			case config.MercuryTransmitterProtocolGRPC:
@@ -142,15 +147,11 @@ func NewLLOProvider(
 			}
 			clients[server.URL] = client
 		}
-		// FIXME: The transmitter instantiation really ought to be moved out of
-		// the evm relay into llo package
-		// https://smartcontract-it.atlassian.net/browse/MERC-6847
-		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
-			Lggr:           lggr,
-			DonID:          lloCfg.DonID,
-			FromAccount:    csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
-			VerboseLogging: mercuryCfg.VerboseLogging(),
-			MercuryTransmitterOpts: mercurytransmitter.Opts{
+
+		var mercuryTransmitterOpts *mercurytransmitter.Opts = nil
+
+		if len(mercuryServers) > 0 {
+			mercuryTransmitterOpts = &mercurytransmitter.Opts{
 				Lggr:                 lggr,
 				VerboseLogging:       mercuryCfg.VerboseLogging(),
 				Cfg:                  mercuryCfg.Transmitter(),
@@ -159,9 +160,20 @@ func NewLLOProvider(
 				DonID:                lloCfg.DonID,
 				ORM:                  mercurytransmitter.NewORM(ds, relayConfig.LLODONID),
 				CapabilitiesRegistry: capabilitiesRegistry,
-			},
-			Subtransmitters:       lloCfg.Transmitters,
-			RetirementReportCache: retirementReportCache,
+			}
+		}
+
+		// FIXME: The transmitter instantiation really ought to be moved out of
+		// the evm relay into llo package
+		// https://smartcontract-it.atlassian.net/browse/MERC-6847
+		transmitter, err = llo.NewTransmitter(llo.TransmitterOpts{
+			Lggr:                   lggr,
+			DonID:                  lloCfg.DonID,
+			FromAccount:            csaPub, // NOTE: This may need to change if we support e.g. multiple tranmsmitters, to be a composite of all keys
+			VerboseLogging:         mercuryCfg.VerboseLogging(),
+			MercuryTransmitterOpts: mercuryTransmitterOpts,
+			Subtransmitters:        lloCfg.Transmitters,
+			RetirementReportCache:  retirementReportCache,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)

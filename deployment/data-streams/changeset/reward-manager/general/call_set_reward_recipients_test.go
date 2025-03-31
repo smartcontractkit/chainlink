@@ -7,16 +7,21 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
-func TestCallSetRewardRecipients(t *testing.T) {
+func runSetRewardRecipientsTest(t *testing.T, useMCMS bool) {
 	e := testutil.NewMemoryEnv(t, true)
-	chain := e.Chains[testutil.TestChain.Selector]
-
+	chainSelector := testutil.TestChain.Selector
+	chain := e.Chains[chainSelector]
 	e, rewardManagerAddr, _ := DeployRewardManagerAndLink(t, e)
+
+	var poolID [32]byte
+	copy(poolID[:], []byte("poolId"))
 
 	recipients := []rewardManager.CommonAddressAndWeight{
 		{
@@ -28,20 +33,27 @@ func TestCallSetRewardRecipients(t *testing.T) {
 			Weight: 500000000000000000,
 		},
 	}
-	var poolID [32]byte
-	copy(poolID[:], []byte("poolId"))
 
-	e, err := commonChangesets.Apply(t, e, nil,
+	var timelocks map[uint64]*proposalutils.TimelockExecutionContracts
+	if useMCMS {
+		e, _, timelocks = testutil.DeployMCMS(t, e, map[uint64][]common.Address{
+			chainSelector: {rewardManagerAddr},
+		})
+	}
+
+	_, err := commonChangesets.Apply(
+		t, e, timelocks,
 		commonChangesets.Configure(
 			SetRewardRecipientsChangeset,
 			SetRewardRecipientsConfig{
 				ConfigsByChain: map[uint64][]SetRewardRecipients{
-					testutil.TestChain.Selector: {SetRewardRecipients{
+					chainSelector: {{
 						RewardManagerAddress:      rewardManagerAddr,
 						PoolID:                    poolID,
 						RewardRecipientAndWeights: recipients,
 					}},
 				},
+				MCMSConfig: testutil.GetMCMSConfig(useMCMS),
 			},
 		),
 	)
@@ -49,18 +61,39 @@ func TestCallSetRewardRecipients(t *testing.T) {
 
 	rm, err := rewardManager.NewRewardManager(rewardManagerAddr, chain.Client)
 	require.NoError(t, err)
-	recipientsUpdatedIterator, err := rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolID})
+	it, err := rm.FilterRewardRecipientsUpdated(nil, [][32]byte{poolID})
 	require.NoError(t, err)
-	defer recipientsUpdatedIterator.Close()
-	require.NoError(t, err)
-	foundExpected := false
+	defer it.Close()
 
-	for recipientsUpdatedIterator.Next() {
-		event := recipientsUpdatedIterator.Event
+	foundExpected := false
+	for it.Next() {
+		event := it.Event
 		if poolID == event.PoolId && reflect.DeepEqual(recipients, event.NewRewardRecipients) {
 			foundExpected = true
 			break
 		}
 	}
 	require.True(t, foundExpected)
+}
+
+func TestSetRewardRecipients(t *testing.T) {
+	testCases := []struct {
+		name    string
+		useMCMS bool
+	}{
+		{
+			name:    "Without MCMS",
+			useMCMS: false,
+		},
+		{
+			name:    "With MCMS",
+			useMCMS: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			runSetRewardRecipientsTest(t, tc.useMCMS)
+		})
+	}
 }

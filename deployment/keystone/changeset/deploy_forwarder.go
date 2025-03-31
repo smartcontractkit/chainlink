@@ -57,6 +57,8 @@ type ConfigureForwardContractsRequest struct {
 
 	// MCMSConfig is optional. If non-nil, the changes will be proposed using MCMS.
 	MCMSConfig *MCMSConfig
+	// Chains is optional. Defines chains for which request will be executed. If empty, runs for all available chains.
+	Chains map[uint64]struct{}
 }
 
 func (r ConfigureForwardContractsRequest) Validate() error {
@@ -82,6 +84,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 	r, err := internal.ConfigureForwardContracts(&env, internal.ConfigureForwarderContractsRequest{
 		Dons:    []internal.RegisteredDon{*wfDon},
 		UseMCMS: req.UseMCMS(),
+		Chains:  req.Chains,
 	})
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
@@ -119,6 +122,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
+			//nolint:staticcheck // migration will be done in a separate PR
 			out.Proposals = append(out.Proposals, *proposal)
 		}
 	}

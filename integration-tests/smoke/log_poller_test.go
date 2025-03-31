@@ -105,7 +105,7 @@ func executeBasicLogPollerTest(t *testing.T, logScannerSettings test_env.Chainli
 	cfg.General.EventsToEmit = eventsToEmit
 
 	l := logging.GetTestLogger(t)
-	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
+	coreLogger := core_logger.TestLogger(t) // needed by ORM ¯\_(ツ)_/¯
 
 	lpTestEnv := prepareEnvironment(l, t, &testConfig, logScannerSettings)
 	testEnv := lpTestEnv.testEnv
@@ -194,7 +194,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	cfg.General.EventsToEmit = eventsToEmit
 
 	l := logging.GetTestLogger(t)
-	coreLogger := core_logger.TestLogger(t) //needed by ORM ¯\_(ツ)_/¯
+	coreLogger := core_logger.TestLogger(t) // needed by ORM ¯\_(ツ)_/¯
 
 	lpTestEnv := prepareEnvironment(l, t, &testConfig, test_env.DefaultChainlinkNodeLogScannerSettings)
 	testEnv := lpTestEnv.testEnv
@@ -272,7 +272,7 @@ func executeLogPollerReplay(t *testing.T, consistencyTimeout string) {
 	}
 
 	// so that we don't have to look for block number of the last block in which logs were emitted as that's not trivial to do
-	endBlock = endBlock + 10000
+	endBlock += 10000
 	l.Warn().Str("Duration", consistencyTimeout).Msg("Waiting for replay logs to be processed by all nodes")
 
 	// logCountWaitDuration, err := time.ParseDuration("5m")
@@ -396,7 +396,7 @@ func conditionallyWaitUntilNodesHaveTheSameLogsAsEvm(l zerolog.Logger, coreLogge
 		}
 	}
 
-	require.True(t, allNodesLogCountMatches, "Not all CL nodes had expected log count afer %s", logCountWaitDuration)
+	require.True(t, allNodesLogCountMatches, "Not all CL nodes had expected log count after %s", logCountWaitDuration)
 
 	// Wait until all CL nodes have exactly the same logs emitted by test contracts as the EVM node has
 	// but only in the rare case that first attempt to do it failed (basically here want to know not only

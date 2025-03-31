@@ -2,9 +2,9 @@ package changeset
 
 import (
 	"encoding/json"
-	"fmt"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	commonview "github.com/smartcontractkit/chainlink/deployment/common/view"
 	dfView "github.com/smartcontractkit/chainlink/deployment/data-feeds/view"
 )
 
@@ -12,7 +12,6 @@ var _ deployment.ViewState = ViewDataFeeds
 
 func ViewDataFeeds(e deployment.Environment) (json.Marshaler, error) {
 	state, err := LoadOnchainState(e)
-	fmt.Println(state)
 	if err != nil {
 		return nil, err
 	}
@@ -20,7 +19,12 @@ func ViewDataFeeds(e deployment.Environment) (json.Marshaler, error) {
 	if err != nil {
 		return nil, err
 	}
+	nopsView, err := commonview.GenerateNopsView(e.NodeIDs, e.Offchain)
+	if err != nil {
+		return nil, err
+	}
 	return dfView.DataFeedsView{
 		Chains: chainView,
+		Nops:   nopsView,
 	}, nil
 }

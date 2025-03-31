@@ -98,7 +98,8 @@ var (
 	DefaultWethPrice = deployment.E18Mult(4000)
 	DefaultGasPrice  = ToPackedFee(big.NewInt(8e14), big.NewInt(0))
 
-	OneCoin = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	OneCoin     = new(big.Int).Mul(big.NewInt(1e18), big.NewInt(1))
+	TinyOneCoin = new(big.Int).SetUint64(1)
 )
 
 // Context returns a context with the test's deadline, if available.
@@ -121,7 +122,7 @@ func Context(tb testing.TB) context.Context {
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
 	switch oc := oc.(type) {
 	case *memory.JobClient:
-		require.NoError(t, oc.ReplayLogs(replayBlocks))
+		require.NoError(t, oc.ReplayLogs(t.Context(), replayBlocks))
 	case *devenv.JobDistributor:
 		require.NoError(t, oc.ReplayLogs(replayBlocks))
 	default:
@@ -262,15 +263,19 @@ func CCIPSendRequest(
 // retryCcipSendUntilNativeFeeIsSufficient sends a CCIP message with a native fee,
 // and retries until the fee is sufficient. This is due to the fact that the fee is not known in advance,
 // and the message will be rejected if the fee is insufficient.
+// The function will retry based on the config's MaxRetries setting for errors other than insufficient fee.
 func retryCcipSendUntilNativeFeeIsSufficient(
 	e deployment.Environment,
 	r *router.Router,
 	cfg *CCIPSendReqConfig,
 ) (*types.Transaction, uint64, error) {
 	const errCodeInsufficientFee = "0x07da6ee6"
+	const cannotDecodeErrorReason = "could not decode error reason"
+
 	defer func() { cfg.Sender.Value = nil }()
 
 	msg := cfg.Message.(router.ClientEVM2AnyMessage)
+	var retryCount int
 	for {
 		fee, err := r.GetFee(&bind.CallOpts{Context: context.Background()}, cfg.DestChain, msg)
 		if err != nil {
@@ -287,8 +292,20 @@ func retryCcipSendUntilNativeFeeIsSufficient(
 		blockNum, err := e.Chains[cfg.SourceChain].Confirm(tx)
 		if err != nil {
 			if strings.Contains(err.Error(), errCodeInsufficientFee) {
+				// Don't count insufficient fee as part of the retry count
+				// because this is expected and we need to adjust the fee
+				continue
+			} else if strings.Contains(err.Error(), cannotDecodeErrorReason) {
+				// If the error reason cannot be decoded, we retry to avoid transient issues. The retry behavior is disabled by default
+				// It is configured in the CCIPSendReqConfig.
+				// This retry was originally added to solve transient failure in end to end tests
+				if retryCount >= cfg.MaxRetries {
+					return nil, 0, fmt.Errorf("failed to confirm CCIP message after %d retries: %w", retryCount, deployment.MaybeDataErr(err))
+				}
+				retryCount++
 				continue
 			}
+
 			return nil, 0, fmt.Errorf("failed to confirm CCIP message: %w", deployment.MaybeDataErr(err))
 		}
 
@@ -327,12 +344,17 @@ func TestSendRequest(
 	src, dest uint64,
 	testRouter bool,
 	msg any,
+	opts ...SendReqOpts,
 ) (msgSentEvent *onramp.OnRampCCIPMessageSent) {
-	msgSentEvent, err := SendRequest(t, e, state,
+	baseOpts := []SendReqOpts{
 		WithSourceChain(src),
 		WithDestChain(dest),
 		WithTestRouter(testRouter),
-		WithMessage(msg))
+		WithMessage(msg),
+	}
+	baseOpts = append(baseOpts, opts...)
+
+	msgSentEvent, err := SendRequest(t, e, state, baseOpts...)
 	require.NoError(t, err)
 	return msgSentEvent
 }
@@ -343,9 +365,17 @@ type CCIPSendReqConfig struct {
 	IsTestRouter bool
 	Sender       *bind.TransactOpts
 	Message      any
+	MaxRetries   int // Number of retries for errors (excluding insufficient fee errors)
 }
 
 type SendReqOpts func(*CCIPSendReqConfig)
+
+// WithMaxRetries sets the maximum number of retries for the CCIP send request.
+func WithMaxRetries(maxRetries int) SendReqOpts {
+	return func(c *CCIPSendReqConfig) {
+		c.MaxRetries = maxRetries
+	}
+}
 
 func WithSender(sender *bind.TransactOpts) SendReqOpts {
 	return func(c *CCIPSendReqConfig) {
@@ -1581,6 +1611,7 @@ func Transfer(
 	sourceChain, destChain uint64,
 	tokens any,
 	receiver []byte,
+	useTestRouter bool,
 	data, extraArgs []byte,
 ) (*onramp.OnRampCCIPMessageSent, map[uint64]*uint64) {
 	startBlocks := make(map[uint64]*uint64)
@@ -1613,7 +1644,7 @@ func Transfer(
 		t.Errorf("unsupported source chain: %v", family)
 	}
 
-	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, false, msg)
+	msgSentEvent := TestSendRequest(t, env, state, sourceChain, destChain, useTestRouter, msg)
 	return msgSentEvent, startBlocks
 }
 
@@ -1628,6 +1659,8 @@ type TestTransferRequest struct {
 	Data                  []byte
 	ExtraArgs             []byte
 	ExpectedTokenBalances []ExpectedBalance
+	RouterAddress         common.Address // Expected for long-living environments
+	UseTestRouter         bool
 }
 
 // TransferMultiple sends multiple CCIPMessages (represented as TestTransferRequest) sequentially.
@@ -1670,6 +1703,16 @@ func TransferMultiple(
 			switch family {
 			case chainsel.FamilyEVM:
 				tokens = tt.Tokens
+
+				// TODO: handle this for all chains
+
+				// Approve router to spend tokens
+				if tt.RouterAddress != (common.Address{}) {
+					for _, ta := range tt.Tokens {
+						err := ApproveToken(env, tt.SourceChain, ta.Token, tt.RouterAddress, new(big.Int).Mul(ta.Amount, big.NewInt(10)))
+						require.NoError(t, err)
+					}
+				}
 			case chainsel.FamilySolana:
 				tokens = tt.SolTokens
 			default:
@@ -1677,7 +1720,7 @@ func TransferMultiple(
 			}
 
 			msg, blocks := Transfer(
-				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.Data, tt.ExtraArgs)
+				ctx, t, env, state, tt.SourceChain, tt.DestChain, tokens, tt.Receiver, tt.UseTestRouter, tt.Data, tt.ExtraArgs)
 			if _, ok := expectedExecutionStates[pairId]; !ok {
 				expectedExecutionStates[pairId] = make(map[uint64]int)
 			}
@@ -2010,7 +2053,7 @@ func TransferOwnershipSolana(
 		commoncs.Configure(
 			deployment.CreateLegacyChangeSet(ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolana),
 			ccipChangeSetSolana.TransferCCIPToMCMSWithTimelockSolanaConfig{
-				MinDelay: 1 * time.Second,
+				MCMSCfg: proposalutils.TimelockConfig{MinDelay: 1 * time.Second},
 				ContractsByChain: map[uint64]ccipChangeSetSolana.CCIPContractsToTransfer{
 					solChain: contractsToTransfer,
 				},
@@ -2064,7 +2107,8 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Deploy all the CCIP contracts.
 	state, err := changeset.LoadOnchainState(e.Env)
 	require.NoError(t, err)
-	snap, err := state.View(e.Env.AllChainSelectors())
+	allChains := append(e.Env.AllChainSelectors(), e.Env.AllChainSelectorsSolana()...)
+	snap, solana, err := state.View(&e.Env, allChains)
 	require.NoError(t, err)
 	if solChains > 0 {
 		DeploySolanaCcipReceiver(t, e.Env)
@@ -2073,6 +2117,9 @@ func DeployCCIPContractsTest(t *testing.T, solChains int) {
 	// Assert expect every deployed address to be in the address book.
 	// TODO (CCIP-3047): Add the rest of CCIPv2 representation
 	b, err := json.MarshalIndent(snap, "", "	")
+	require.NoError(t, err)
+	fmt.Println(string(b))
+	b, err = json.MarshalIndent(solana, "", "	")
 	require.NoError(t, err)
 	fmt.Println(string(b))
 }

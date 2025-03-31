@@ -18,7 +18,7 @@ func TestSmokeState(t *testing.T) {
 	tenv, _ := testhelpers.NewMemoryEnvironment(t, testhelpers.WithNumOfChains(3))
 	state, err := changeset.LoadOnchainState(tenv.Env)
 	require.NoError(t, err)
-	_, err = state.View(tenv.Env.AllChainSelectors())
+	_, _, err = state.View(&tenv.Env, tenv.Env.AllChainSelectors())
 	require.NoError(t, err)
 }
 

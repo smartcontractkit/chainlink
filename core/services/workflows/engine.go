@@ -97,9 +97,7 @@ func (sucm *stepUpdateManager) len() int64 {
 	return int64(len(sucm.m))
 }
 
-type secretsFetcher interface {
-	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
-}
+type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
@@ -109,7 +107,7 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	secretsFetcher       secretsFetcher
+	secretsFetcher       SecretsFor
 	env                  exec.Env
 	localNode            capabilities.Node
 	executionStates      store.Store
@@ -143,10 +141,10 @@ type Engine struct {
 	clock          clockwork.Clock
 	ratelimiter    *ratelimiter.RateLimiter
 	workflowLimits *syncerlimiter.Limits
-	meterReport    *MeteringReport
+	meterReports   *MeterReports
 
-	// sendMeteringReport is a hook for now to prevent this being sent in production
-	sendMeteringReport func(*MeteringReport)
+	// sendMeteringReport is a test hook to send a metering report
+	sendMeteringReport func(report *MeteringReport, name string, ID string, execID string)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -568,7 +566,7 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
 func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
-	e.meterReport = NewMeteringReport()
+	e.meterReports.Add(executionID, NewMeteringReport())
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
@@ -661,11 +659,12 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		logCustMsg(ctx, cma, "execution status: "+status, l)
 
 		// this case is only for resuming executions and should be updated when metering is added to save execution state
-		if e.meterReport == nil {
-			e.meterReport = NewMeteringReport()
+		if _, ok := e.meterReports.Get(stepUpdate.ExecutionID); !ok {
+			e.meterReports.Add(stepUpdate.ExecutionID, NewMeteringReport())
 		}
 
-		e.sendMeteringReport(e.meterReport)
+		report, _ := e.meterReports.Get(stepUpdate.ExecutionID)
+		e.sendMeteringReport(report, e.workflow.name.String(), e.workflow.id, stepUpdate.ExecutionID)
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
@@ -729,7 +728,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 		return err
 	}
 
+	// clean all per execution state trackers
 	e.stepUpdatesChMap.remove(executionID)
+	e.meterReports.Delete(executionID)
 
 	executionDuration := int64(execState.FinishedAt.Sub(*execState.CreatedAt).Seconds())
 	switch status {
@@ -945,7 +946,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
+	secrets, err := e.secretsFetcher(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -1283,7 +1284,7 @@ type Config struct {
 	Store                store.Store
 	Config               []byte
 	Binary               []byte
-	SecretsFetcher       secretsFetcher
+	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
 
@@ -1302,7 +1303,7 @@ type Config struct {
 	onExecutionFinished func(weid string)
 	onRateLimit         func(weid string)
 	clock               clockwork.Clock
-	sendMeteringReport  func(*MeteringReport)
+	sendMeteringReport  func(report *MeteringReport, name string, ID string, execID string)
 }
 
 const (
@@ -1368,7 +1369,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 	}
 
 	if cfg.sendMeteringReport == nil {
-		cfg.sendMeteringReport = func(*MeteringReport) {}
+		cfg.sendMeteringReport = func(*MeteringReport, string, string, string) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1441,6 +1442,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		clock:                cfg.clock,
 		ratelimiter:          cfg.RateLimiter,
 		workflowLimits:       cfg.WorkflowLimits,
+		meterReports:         NewMeterReports(),
 		sendMeteringReport:   cfg.sendMeteringReport,
 	}
 
