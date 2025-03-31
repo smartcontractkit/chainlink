@@ -60,7 +60,7 @@ func TestMemoryAddressRefStore_indexOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			idx := store.indexOf(tt.giveKey)
 			assert.Equal(t, tt.expectedIndex, idx)
 		})
@@ -108,7 +108,7 @@ func TestMemoryAddressRefStore_Add(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			err := store.Add(tt.giveRecord)
 
 			if tt.expectedError != nil {
@@ -116,7 +116,7 @@ func TestMemoryAddressRefStore_Add(t *testing.T) {
 				assert.Equal(t, tt.expectedError, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedState, store.records)
+				assert.Equal(t, tt.expectedState, store.Records)
 			}
 		})
 	}
@@ -174,12 +174,12 @@ func TestMemoryAddressRefStore_AddOrUpdate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			// Check the error, which will always be nil for the
 			// in memory implementation, to satisfy the linter
 			err := store.AddOrUpdate(tt.giveRecord)
 			require.NoError(t, err)
-			assert.Equal(t, tt.expectedState, store.records)
+			assert.Equal(t, tt.expectedState, store.Records)
 		})
 	}
 }
@@ -235,7 +235,7 @@ func TestMemoryAddressRefStore_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			err := store.Update(tt.giveRecord)
 
 			if tt.expectedError != nil {
@@ -243,7 +243,7 @@ func TestMemoryAddressRefStore_Update(t *testing.T) {
 				assert.Equal(t, tt.expectedError, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedState, store.records)
+				assert.Equal(t, tt.expectedState, store.Records)
 			}
 		})
 	}
@@ -318,7 +318,7 @@ func TestMemoryAddressRefStore_Delete(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			err := store.Delete(tt.giveKey)
 
 			if tt.expectedError != nil {
@@ -326,7 +326,7 @@ func TestMemoryAddressRefStore_Delete(t *testing.T) {
 				assert.Equal(t, tt.expectedError, err)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedState, store.records)
+				assert.Equal(t, tt.expectedState, store.Records)
 			}
 		})
 	}
@@ -382,7 +382,7 @@ func TestMemoryAddressRefStore_Fetch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			// Check the error, which will always be nil for the
 			// in memory implementation, to satisfy the linter
 			records, err := store.Fetch()
@@ -445,7 +445,7 @@ func TestMemoryAddressRefStore_Get(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			record, err := store.Get(tt.giveKey)
 
 			if tt.expectedError != nil {
@@ -541,7 +541,7 @@ func TestMemoryAddressRefStore_Filter(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := MemoryAddressRefStore{records: tt.givenState}
+			store := MemoryAddressRefStore{Records: tt.givenState}
 			filteredRecords := store.Filter(tt.giveFilters...)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})

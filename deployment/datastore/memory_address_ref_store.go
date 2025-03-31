@@ -19,7 +19,7 @@ type MutableAddressRefStore interface {
 // MemoryAddressRefStore is an in-memory implementation of the AddressRefStore and
 // MutableAddressRefStore interfaces.
 type MemoryAddressRefStore struct {
-	records []AddressRef
+	Records []AddressRef `json:"records"`
 	mu      sync.RWMutex
 }
 
@@ -30,8 +30,8 @@ var _ AddressRefStore = &MemoryAddressRefStore{}
 var _ MutableAddressRefStore = &MemoryAddressRefStore{}
 
 // NewMemoryAddressRefStore creates a new MemoryAddressRefStore instance.
-func NewMemoryAddressRefStore() MemoryAddressRefStore {
-	return MemoryAddressRefStore{records: []AddressRef{}}
+func NewMemoryAddressRefStore() *MemoryAddressRefStore {
+	return &MemoryAddressRefStore{Records: []AddressRef{}}
 }
 
 // Get returns the AddressRef for the provided key, or an error if no such record exists.
@@ -43,7 +43,7 @@ func (s *MemoryAddressRefStore) Get(key AddressRefKey) (AddressRef, error) {
 	if idx == -1 {
 		return AddressRef{}, ErrAddressRefNotFound
 	}
-	return s.records[idx].Clone(), nil
+	return s.Records[idx].Clone(), nil
 }
 
 // Fetch returns a copy of all AddressRef in the store.
@@ -52,7 +52,7 @@ func (s *MemoryAddressRefStore) Fetch() ([]AddressRef, error) {
 	defer s.mu.RUnlock()
 
 	records := []AddressRef{}
-	for _, record := range s.records {
+	for _, record := range s.Records {
 		records = append(records, record.Clone())
 	}
 	return records, nil
@@ -65,7 +65,7 @@ func (s *MemoryAddressRefStore) Filter(filters ...FilterFunc[AddressRefKey, Addr
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	records := append([]AddressRef{}, s.records...)
+	records := append([]AddressRef{}, s.Records...)
 	for _, filter := range filters {
 		records = filter(records)
 	}
@@ -75,7 +75,7 @@ func (s *MemoryAddressRefStore) Filter(filters ...FilterFunc[AddressRefKey, Addr
 
 // indexOf returns the index of the record with the provided key, or -1 if no such record exists.
 func (s *MemoryAddressRefStore) indexOf(key AddressRefKey) int {
-	for idx, record := range s.records {
+	for idx, record := range s.Records {
 		if record.Key().Equals(key) {
 			return idx
 		}
@@ -93,7 +93,7 @@ func (s *MemoryAddressRefStore) Add(record AddressRef) error {
 	if idx != -1 {
 		return ErrAddressRefExists
 	}
-	s.records = append(s.records, record)
+	s.Records = append(s.Records, record)
 	return nil
 }
 
@@ -105,10 +105,10 @@ func (s *MemoryAddressRefStore) AddOrUpdate(record AddressRef) error {
 
 	idx := s.indexOf(record.Key())
 	if idx != -1 {
-		s.records[idx] = record
+		s.Records[idx] = record
 		return nil
 	}
-	s.records = append(s.records, record)
+	s.Records = append(s.Records, record)
 	return nil
 }
 
@@ -123,7 +123,7 @@ func (s *MemoryAddressRefStore) Update(record AddressRef) error {
 	if idx == -1 {
 		return ErrAddressRefNotFound
 	}
-	s.records[idx] = record
+	s.Records[idx] = record
 	return nil
 }
 
@@ -137,6 +137,6 @@ func (s *MemoryAddressRefStore) Delete(key AddressRefKey) error {
 	if idx == -1 {
 		return ErrAddressRefNotFound
 	}
-	s.records = append(s.records[:idx], s.records[idx+1:]...)
+	s.Records = append(s.Records[:idx], s.Records[idx+1:]...)
 	return nil
 }
