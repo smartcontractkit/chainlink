@@ -149,8 +149,6 @@ func parseExtraDataMap(input map[string]any) (extraData, error) {
 	out.extraArgs = extraArgs
 	out.accounts = accounts
 	out.tokenReceiver = tokenReceiver
-	output := out.tokenReceiver.String()
-	fmt.Printf("%v", output)
 	return out, nil
 }
 
