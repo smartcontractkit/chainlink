@@ -165,7 +165,7 @@ func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractTy
 		}
 
 		// Construct command arguments
-		args := []string{"grind", "--starts-with", prefix+":1"}
+		args := []string{"grind", "--starts-with", prefix + ":1"}
 
 		// Run command using helper function
 		output, err := runCommand("solana-keygen", args, "./")
