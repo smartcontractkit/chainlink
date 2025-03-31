@@ -3,6 +3,8 @@ package syncerlimiter
 import (
 	"sync"
 
+	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -106,15 +108,16 @@ func (l *Limits) Decrement(owner string) {
 // getPerOwnerLimit returns the default limit per owner if there are no overrides found
 // for the given owner.
 func (l *Limits) getPerOwnerLimit(owner string) int32 {
+	addr := common.HexToAddress(owner).String()
 	if l.perOwnerOverrides == nil {
 		return l.config.PerOwner
 	}
-	limit, found := l.perOwnerOverrides[owner]
+	limit, found := l.perOwnerOverrides[addr]
 	if found {
-		l.lggr.Debugw("overriding limit for owner", "owner", owner, "limit", limit)
+		l.lggr.Debugw("overriding limit for owner", "owner", addr, "limit", limit)
 		return limit
 	}
 
-	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", owner, "limit", l.config.PerOwner)
+	l.lggr.Debugw("did not find owner in overrides, returning default", "owner", addr, "limit", l.config.PerOwner)
 	return l.config.PerOwner
 }

@@ -3,8 +3,20 @@ package syncerlimiter
 import (
 	"testing"
 
-	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/logger"
+)
+
+var (
+	user1String    = "119BFD3D78fbb740c614432975CBE829E26C490e"
+	user2String    = "219BFD3D78fbb740c614432975CBE829E26C490e"
+	user3String    = "319BFD3D78fbb740c614432975CBE829E26C490e"
+	user4String    = "419BFD3D78fbb740c614432975CBE829E26C490e"
+	user5String    = "519BFD3D78fbb740c614432975CBE829E26C490e"
+	workflowOwner2 = common.HexToAddress(user2String)
+	workflowOwner5 = common.HexToAddress(user5String)
 )
 
 func TestWorkflowLimits(t *testing.T) {
@@ -15,7 +27,7 @@ func TestWorkflowLimits(t *testing.T) {
 		Global:   3,
 		PerOwner: 1,
 		PerOwnerOverrides: map[string]int32{
-			"ext-owner": 2,
+			workflowOwner5.String(): 2,
 		},
 	}
 	wsl, err := NewWorkflowLimits(lggr, config)
@@ -23,62 +35,62 @@ func TestWorkflowLimits(t *testing.T) {
 	require.Equal(t, int32(1), wsl.config.PerOwner)
 	require.NoError(t, err)
 
-	allowOwner, allowGlobal := wsl.Allow("user1")
+	allowOwner, allowGlobal := wsl.Allow(user1String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 1/3, PerOwner 1/1
 
-	allowOwner, allowGlobal = wsl.Allow("user2")
+	allowOwner, allowGlobal = wsl.Allow(user2String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 2/3, PerOwner 1/1
 
-	allowOwner, allowGlobal = wsl.Allow("user1")
+	allowOwner, allowGlobal = wsl.Allow(user1String)
 	require.True(t, allowGlobal)
 	require.False(t, allowOwner)
 	// Global 2/3, PerOwner 1/1 exceeded
 
-	allowOwner, allowGlobal = wsl.Allow("user3")
+	allowOwner, allowGlobal = wsl.Allow(user3String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 3/3, PerOwner 1/1 (one each user)
 
-	allowOwner, allowGlobal = wsl.Allow("user2")
+	allowOwner, allowGlobal = wsl.Allow(user2String)
 	require.False(t, allowOwner)
 	require.False(t, allowGlobal)
 	// Global 3/3, PerOwner 1/1 Global and PerOwner exceeded
 
-	wsl.Decrement("user2")
+	wsl.Decrement(user2String)
 	// Global 2/3, User2 PerOwner 0/1
 
-	allowOwner, allowGlobal = wsl.Allow("user2")
+	allowOwner, allowGlobal = wsl.Allow(user2String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 3/3, PerOwner 1/1 (one each user)
 
-	wsl.Decrement("non-existent-user")
-	allowOwner, allowGlobal = wsl.Allow("non-existent-user")
+	wsl.Decrement(user4String)
+	allowOwner, allowGlobal = wsl.Allow(user4String)
 	require.True(t, allowOwner)
 	require.False(t, allowGlobal)
 	// Global 3/3, PerOwner 0/1 Global exceeded
 
-	allowOwner, allowGlobal = wsl.Allow("ext-owner")
+	allowOwner, allowGlobal = wsl.Allow(user5String)
 	require.True(t, allowOwner)
 	require.False(t, allowGlobal)
 	// Global 3/3, PerOwner 0/1 Global exceeded
 
 	// Drop global limit
-	wsl.Decrement("user1")
-	wsl.Decrement("user2")
-	wsl.Decrement("user3")
+	wsl.Decrement(user1String)
+	wsl.Decrement(user2String)
+	wsl.Decrement(user3String)
 	// Global 0/3
 
 	// add external owner
-	allowOwner, allowGlobal = wsl.Allow("ext-owner")
+	allowOwner, allowGlobal = wsl.Allow(user5String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 1/3, PerOwner 1/2
 
-	allowOwner, allowGlobal = wsl.Allow("ext-owner")
+	allowOwner, allowGlobal = wsl.Allow(user5String)
 	require.True(t, allowOwner && allowGlobal)
 	// Global 2/3, PerOwner 2/2 Override allows 2
 
-	allowOwner, allowGlobal = wsl.Allow("ext-owner")
+	allowOwner, allowGlobal = wsl.Allow(user5String)
 	require.False(t, allowOwner)
 	require.True(t, allowGlobal)
 	// Global 2/3, PerOwner 2/2 Override exceeded
@@ -101,33 +113,33 @@ func TestLimits_getPerOwnerLimit(t *testing.T) {
 				require.NoError(t, err)
 				return l
 			}(),
-			owner:     "owner1",
+			owner:     user1String,
 			wantLimit: defaultPerOwner,
 		},
 		{
 			name: "override exists",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					"owner2": 20,
+					workflowOwner2.String(): 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
 				return l
 			}(),
-			owner:     "owner2",
+			owner:     user2String,
 			wantLimit: 20,
 		},
 		{
 			name: "override does not exist",
 			limits: func() *Limits {
 				config.PerOwnerOverrides = map[string]int32{
-					"owner2": 20,
+					workflowOwner2.String(): 20,
 				}
 				l, err := NewWorkflowLimits(lggr, config)
 				require.NoError(t, err)
 				return l
 			}(),
-			owner:     "owner3",
+			owner:     user3String,
 			wantLimit: defaultPerOwner,
 		},
 	}
