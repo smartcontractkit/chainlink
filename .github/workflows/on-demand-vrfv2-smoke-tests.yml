@@ -74,7 +74,7 @@ jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
     needs: set-tests-to-run
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@6d7f453f8b116327971496ed294304721ac8a61e
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@121f2604acc973f8a380a16c233b58cc187b2e63
     with:
       custom_test_list_json: ${{ needs.set-tests-to-run.outputs.test_list }}
       chainlink_version: ${{ inputs.chainlink_version }}

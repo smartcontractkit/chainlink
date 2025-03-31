@@ -37,7 +37,7 @@ concurrency:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@6d7f453f8b116327971496ed294304721ac8a61e
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@121f2604acc973f8a380a16c233b58cc187b2e63
     with:
       test_path: .github/e2e-tests.yml
       test_trigger: E2E CCIP Load Tests
