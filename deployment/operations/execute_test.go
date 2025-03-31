@@ -84,7 +84,7 @@ func Test_ExecuteOperation(t *testing.T) {
 				require.ErrorContains(t, res.Err, tt.wantErr)
 				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				require.NoError(t, res.Err)
+				require.Nil(t, res.Err)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantOutput, res.Output)
 			}
@@ -113,7 +113,7 @@ func Test_ExecuteOperation_ErrorReporter(t *testing.T) {
 	res, err := ExecuteOperation(e, op, nil, 1)
 	require.Error(t, err)
 	require.ErrorContains(t, err, reportErr.Error())
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 }
 
 func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
@@ -137,21 +137,21 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	// first run
 	res, err := ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 1, handlerCalledTimes)
 
 	// rerun should return previous report
 	res, err = ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 1, handlerCalledTimes)
 
 	// new run with different input, should perform execution
 	res, err = ExecuteOperation(bundle, op, nil, 3)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 4, res.Output)
 	assert.Equal(t, 2, handlerCalledTimes)
 
@@ -159,7 +159,7 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	op = NewOperation("plus1-v2", semver.MustParse("2.0.0"), "test operation", handler)
 	res, err = ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 3, handlerCalledTimes)
 
@@ -235,7 +235,7 @@ func Test_ExecuteSequence(t *testing.T) {
 				require.ErrorContains(t, seqReport.Err, tt.wantErr)
 				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				require.NoError(t, seqReport.Err)
+				require.Nil(t, seqReport.Err)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantOutput, seqReport.Output)
 			}
@@ -286,7 +286,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	// first run
 	res, err := ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 1, handlerCalledTimes)
@@ -297,7 +297,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	// rerun should return previous report
 	res, err = ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 1, handlerCalledTimes)
@@ -305,7 +305,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	// new run with different input, should perform execution
 	res, err = ExecuteSequence(bundle, sequence, nil, 3)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 4, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 2, handlerCalledTimes)
@@ -314,7 +314,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	sequence = NewSequence("seq-plus1-v2", semver.MustParse("2.0.0"), "plus 1", handler)
 	res, err = ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	// only 1 because the op was not executed due to previous execution found
 	assert.Len(t, res.ExecutionReports, 1)

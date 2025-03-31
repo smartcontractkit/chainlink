@@ -11,12 +11,12 @@ import (
 // Report is the result of an operation.
 // It contains the inputs and other metadata that was used to execute the operation.
 type Report[IN, OUT any] struct {
-	ID        string     `json:"ID"`
-	Def       Definition `json:"Definition"`
-	Output    OUT        `json:"Output"`
-	Input     IN         `json:"Input"`
-	Timestamp time.Time  `json:"Timestamp"`
-	Err       error      `json:"Error"`
+	ID        string       `json:"ID"`
+	Def       Definition   `json:"Definition"`
+	Output    OUT          `json:"Output"`
+	Input     IN           `json:"Input"`
+	Timestamp *time.Time   `json:"Timestamp"`
+	Err       *ReportError `json:"Error"`
 	// stores a list of report ID for an operation that was executed as part of a sequence.
 	ChildOperationReports []string `json:"ChildOperationReports"`
 }
@@ -38,15 +38,32 @@ type SequenceReport[IN, OUT any] struct {
 func NewReport[IN, OUT any](
 	def Definition, input IN, output OUT, err error, childReportsID ...string,
 ) Report[IN, OUT] {
-	return Report[IN, OUT]{
+	now := time.Now()
+	r := Report[IN, OUT]{
 		ID:                    uuid.New().String(),
 		Def:                   def,
 		Output:                output,
 		Input:                 input,
-		Timestamp:             time.Now(),
-		Err:                   err,
+		Timestamp:             &now,
 		ChildOperationReports: childReportsID,
 	}
+	if err != nil {
+		r.Err = &ReportError{Message: err.Error()}
+	}
+
+	return r
+}
+
+// ReportError represents an error in the Report.
+// Its purpose is to have an exported field `Message` for marshalling as the
+// native error cant be marshaled to JSON.
+type ReportError struct {
+	Message string
+}
+
+// Error implements the error interface.
+func (o ReportError) Error() string {
+	return o.Message
 }
 
 var ErrReportNotFound = errors.New("report not found")
