@@ -1916,12 +1916,11 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(multinode.Successful, nil).Once()
-		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
-		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
-		nonceTracker.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
 
 		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
-
+		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
+		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
 		eb := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), dbListenerCfg, ethKeyStore, txBuilder, nonceTracker, lggr, checkerFactory, false, string(chaintype.ChainHedera))
 		// Mark instance as test
 		eb.XXXTestDisableUnstartedTxAutoProcessing()
@@ -1938,12 +1937,12 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(multinode.Successful, nil).Twice()
-		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
-		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
-		nonceTracker.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
-		nonceTracker.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Once()
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(1), nil).Once()
 
 		mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
+		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
+		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
 		eb := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), dbListenerCfg, ethKeyStore, txBuilder, nonceTracker, lggr, checkerFactory, false, string(chaintype.ChainHedera))
 		// Mark instance as test
 		eb.XXXTestDisableUnstartedTxAutoProcessing()
@@ -1961,11 +1960,11 @@ func TestEthBroadcaster_HederaBroadcastValidation(t *testing.T) {
 		ethClient.On("SendTransactionReturnCode", mock.Anything, mock.MatchedBy(func(tx *gethTypes.Transaction) bool {
 			return tx.Nonce() == localNonce
 		}), fromAddress).Return(multinode.Successful, nil).Times(4)
-		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
-		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
-		nonceTracker.On("SequenceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Times(4)
+		ethClient.On("NonceAt", mock.Anything, fromAddress, mock.Anything).Return(uint64(0), nil).Times(4)
 
 		etx := mustInsertInProgressEthTxWithAttempt(t, txStore, evmtypes.Nonce(localNonce), fromAddress)
+		nonceTracker := mocks.NewNonceTracker[common.Address, evmtypes.Nonce](t)
+		nonceTracker.On("LoadNextSequences", mock.Anything, mock.Anything).Maybe()
 		eb := txmgrcommon.NewBroadcaster(txStore, txmgr.NewEvmTxmClient(ethClient, nil), txmgr.NewEvmTxmConfig(evmcfg.EVM()), txmgr.NewEvmTxmFeeConfig(evmcfg.EVM().GasEstimator()), evmcfg.EVM().Transactions(), dbListenerCfg, ethKeyStore, txBuilder, nonceTracker, lggr, checkerFactory, false, string(chaintype.ChainHedera))
 		// Mark instance as test
 		eb.XXXTestDisableUnstartedTxAutoProcessing()
