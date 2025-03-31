@@ -1,0 +1,448 @@
+[blockchain_a]
+chain_id = "1337"
+type = "anvil"
+docker_cmd_params = ["-b", "5"]
+
+[jd]
+image = "job-distributor:0.9.0"
+
+[[mock_capabilities]]
+name="streams-triggeer"
+version= "2.0.0"
+type="trigger"
+description="streams trigger mock"
+
+[[mock_capabilities]]
+name="write_ethereum"
+version= "1.0.0"
+type="target"
+description="write trigger mock"
+
+[workflow_load]
+streams = 1000
+jobs = 2
+
+[infra]
+type = "crib"
+
+[infra.crib]
+namespace = "crib-workflow-don-load-test"
+folder_location = "/Users/ionita/crib/deployments/cre"
+provider = "aws"
+
+[infra.crib.team_input]
+team="cre"
+product="workflow-don"
+component="workflow-don"
+cost_center="capabilities-df-migration-performance-tests"
+
+
+[workflow_config]
+workflow_name = "abcdefgasd"
+feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+
+should_compile_new_workflow = false
+[workflow_config.compiled_config] #Needs to be here, should be optional
+binary_url = "xxx"  #Needs to be here, should be optional
+config_url = "xxx"  #Needs to be here, should be optional
+
+[workflow_config.dependencies]
+cron_capability_binary_path="xxx"
+cre_cli_binary_path = "xxx"
+
+
+[[nodesets]]
+nodes = 17
+override_mode = "each"
+http_port_range_start = 10100
+name = "workflow"
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13000
+volume_name = "workflow_volume"
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+        [Feature]
+        LogPoller = true
+        FeedsManager = true
+        [OCR2]
+        Enabled = true
+        DatabaseTimeout = '1s'
+        [P2P.V2]
+        Enabled = true
+        ListenAddresses = ['0.0.0.0:5001']
+			[LOG]
+			Level='debug'
+      """
+
+[[nodesets]]
+nodes = 5
+override_mode = "each"
+http_port_range_start = 10200
+name = "capabilities"
+
+[nodesets.db]
+image = "postgres:12.0"
+port = 13200
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ['13401:3456']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+            FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ['13402:3456']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ['13403:3456']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+[[nodesets.node_specs]]
+[nodesets.node_specs.node]
+image = "795953128386.dkr.ecr.us-west-2.amazonaws.com/chainlink:8ead5fcb3e5d44c6f68bcaec500b3543a708d3e1-plugins"
+#image = "localhost:5001/chainlink:develop"
+custom_ports = ['13403:3456']
+user_config_overrides = """
+      [Feature]
+			LogPoller = true
+        FeedsManager = true
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """

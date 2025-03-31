@@ -19,6 +19,8 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/jsonserializable"
 	pkgworkflows "github.com/smartcontractkit/chainlink-common/pkg/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
+
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	configtoml "github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
@@ -49,7 +51,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/streams"
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf/vrfcommon"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
-	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
 	"github.com/smartcontractkit/chainlink/v2/core/testdata/testspecs"
 	"github.com/smartcontractkit/chainlink/v2/core/utils/testutils/heavyweight"
 )
@@ -1998,7 +1999,7 @@ func Test_ORM_FindJobByWorkflow(t *testing.T) {
 			ctx := testutils.Context(t)
 			ks := cltest.NewKeyStore(t, tt.fields.ds)
 
-			secretsORM := syncer.NewWorkflowRegistryDS(tt.fields.ds, logger.TestLogger(t))
+			secretsORM := artifacts.NewWorkflowRegistryDS(tt.fields.ds, logger.TestLogger(t))
 
 			sid, err := secretsORM.Create(ctx, "some-url.com", fmt.Sprintf("some-hash-%d", i), "some-contentz")
 			require.NoError(t, err)
@@ -2040,7 +2041,7 @@ func Test_ORM_FindJobByWorkflow_Multiple(t *testing.T) {
 			bridges.NewORM(db),
 			cltest.NewKeyStore(t, db))
 		ctx := testutils.Context(t)
-		secretsORM := syncer.NewWorkflowRegistryDS(db, logger.TestLogger(t))
+		secretsORM := artifacts.NewWorkflowRegistryDS(db, logger.TestLogger(t))
 
 		var sids []int64
 		for i := 0; i < 3; i++ {

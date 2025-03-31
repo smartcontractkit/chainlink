@@ -9,6 +9,9 @@ import {LOCK_RELEASE_FLAG} from "../../../../pools/USDC/HybridLockReleaseUSDCTok
 import {USDCBridgeMigrator} from "../../../../pools/USDC/USDCBridgeMigrator.sol";
 import {USDCTokenPool} from "../../../../pools/USDC/USDCTokenPool.sol";
 import {MockE2EUSDCTransmitter} from "../../../mocks/MockE2EUSDCTransmitter.sol";
+
+import {BurnMintWithLockReleaseFlagTokenPoolSetup} from
+  "../../BurnMintWithLockReleaseFlagTokenPool/BurnMintWithLockReleaseFlagTokenPoolSetup.t.sol";
 import {HybridLockReleaseUSDCTokenPoolSetup} from "./HybridLockReleaseUSDCTokenPoolSetup.t.sol";
 
 contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTokenPoolSetup {
@@ -172,5 +175,103 @@ contract HybridLockReleaseUSDCTokenPool_releaseOrMint is HybridLockReleaseUSDCTo
         offchainTokenData: ""
       })
     );
+  }
+}
+
+contract HybridLockReleaseUSDCTokenPool_releaseOrMint_E2ETest is
+  HybridLockReleaseUSDCTokenPoolSetup,
+  BurnMintWithLockReleaseFlagTokenPoolSetup
+{
+  function setUp() public override(HybridLockReleaseUSDCTokenPoolSetup, BurnMintWithLockReleaseFlagTokenPoolSetup) {
+    HybridLockReleaseUSDCTokenPoolSetup.setUp();
+    BurnMintWithLockReleaseFlagTokenPoolSetup.setUp();
+
+    // Designate the SOURCE_CHAIN as not using native-USDC, and so the L/R mechanism must be used instead
+    uint64[] memory destChainAdds = new uint64[](1);
+    destChainAdds[0] = SOURCE_CHAIN_SELECTOR;
+    s_usdcTokenPool.updateChainSelectorMechanisms(new uint64[](0), destChainAdds);
+  }
+
+  function test_releaseOrMint_E2E() public {
+    uint256 burnAmount = 20_000e18;
+
+    deal(address(s_burnMintERC20), address(s_pool), burnAmount);
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), burnAmount);
+
+    vm.startPrank(s_burnMintOnRamp);
+
+    // Burn on the source chain and use the Lock-Release Flag
+    Pool.LockOrBurnOutV1 memory lockOrBurnOut = s_pool.lockOrBurn(
+      Pool.LockOrBurnInV1({
+        originalSender: OWNER,
+        receiver: bytes(""),
+        amount: burnAmount,
+        remoteChainSelector: DEST_CHAIN_SELECTOR,
+        localToken: address(s_burnMintERC20)
+      })
+    );
+
+    assertEq(
+      bytes4(lockOrBurnOut.destPoolData), LOCK_RELEASE_FLAG, "Incorrect destPoolData, should be the LOCK_RELEASE_FLAG"
+    );
+
+    // Assert Burning
+    assertEq(s_burnMintERC20.balanceOf(address(s_pool)), 0);
+    assertEq(bytes4(lockOrBurnOut.destPoolData), LOCK_RELEASE_FLAG);
+
+    address recipient = address(1234);
+
+    // Assert the chain configuration is correct
+    assertTrue(
+      s_usdcTokenPool.shouldUseLockRelease(SOURCE_CHAIN_SELECTOR),
+      "Lock/Release mech not configured for incoming message from SOURCE_CHAIN_SELECTOR"
+    );
+
+    // Set the liquidity provider
+    vm.startPrank(OWNER);
+    s_usdcTokenPool.setLiquidityProvider(SOURCE_CHAIN_SELECTOR, OWNER);
+
+    // Add 1e12 liquidity so that there's enough to release
+    vm.startPrank(s_usdcTokenPool.getLiquidityProvider(SOURCE_CHAIN_SELECTOR));
+    s_token.approve(address(s_usdcTokenPool), type(uint256).max);
+    uint256 liquidityAmount = 1e12;
+    s_usdcTokenPool.provideLiquidity(SOURCE_CHAIN_SELECTOR, liquidityAmount);
+
+    Internal.SourceTokenData memory sourceTokenData = Internal.SourceTokenData({
+      sourcePoolAddress: abi.encode(SOURCE_CHAIN_USDC_POOL),
+      destTokenAddress: abi.encode(address(s_usdcTokenPool)),
+      extraData: abi.encode(USDCTokenPool.SourceTokenDataPayload({nonce: 1, sourceDomain: SOURCE_DOMAIN_IDENTIFIER})),
+      destGasAmount: USDC_DEST_TOKEN_GAS
+    });
+
+    uint256 amount = 1e6;
+
+    vm.startPrank(s_routerAllowedOffRamp);
+
+    vm.expectEmit();
+    emit TokenPool.Released(s_routerAllowedOffRamp, recipient, amount);
+
+    // Release the tokens that were previously locked on mainnet
+    Pool.ReleaseOrMintOutV1 memory poolReturnDataV1 = s_usdcTokenPool.releaseOrMint(
+      Pool.ReleaseOrMintInV1({
+        originalSender: abi.encode(OWNER),
+        receiver: recipient,
+        amount: amount,
+        localToken: address(s_token),
+        remoteChainSelector: SOURCE_CHAIN_SELECTOR,
+        sourcePoolAddress: sourceTokenData.sourcePoolAddress,
+        sourcePoolData: lockOrBurnOut.destPoolData,
+        offchainTokenData: ""
+      })
+    );
+
+    // Assert the tokens were delivered to the recipient
+    assertEq(poolReturnDataV1.destinationAmount, amount, "destinationAmount and actual amount transferred differ");
+    assertEq(
+      s_token.balanceOf(address(s_usdcTokenPool)),
+      liquidityAmount - amount,
+      "Incorrect remaining liquidity in TokenPool"
+    );
+    assertEq(s_token.balanceOf(recipient), amount, "Tokens not transferred to recipient");
   }
 }

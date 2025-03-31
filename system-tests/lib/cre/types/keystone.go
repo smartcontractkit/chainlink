@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -26,17 +27,12 @@ const (
 	GatewayNode   NodeType = "gateway"
 )
 
-type JobDescription struct {
-	Flag     CapabilityFlag
-	NodeType string
-}
-
 type ConfigDescription struct {
 	Flag     CapabilityFlag
 	NodeType string
 }
 
-type DonJobs = map[JobDescription][]*jobv1.ProposeJobRequest
+type DonJobs = []*jobv1.ProposeJobRequest
 type DonsToJobSpecs = map[uint32]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string
@@ -266,6 +262,7 @@ type GeneratePoRJobSpecsInput struct {
 	OCR3CapabilityAddress  common.Address
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
+	ExtraAllowedIPsCIDR    []string
 	CronCapBinPath         string
 	GatewayConnectorOutput GatewayConnectorOutput
 }
@@ -303,6 +300,7 @@ type GeneratePoRConfigsInput struct {
 	WorkflowRegistryAddress     common.Address
 	ForwarderAddress            common.Address
 	GatewayConnectorOutput      *GatewayConnectorOutput
+	SkipGateway                 bool // Skip gateway config for workflow yaml test
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
@@ -330,8 +328,13 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.ForwarderAddress == (common.Address{}) {
 		return errors.New("forwarder address not set")
 	}
-	if g.GatewayConnectorOutput == nil {
-		return errors.New("gateway connector output not set")
+
+	if slices.Contains(g.DonMetadata.Flags, GatewayDON) {
+		if g.GatewayConnectorOutput == nil {
+			return errors.New("gateway connector output not set")
+		}
+	} else {
+		g.SkipGateway = true // If not gateway is present then skip configuration
 	}
 
 	return nil

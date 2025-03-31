@@ -18,11 +18,11 @@
   should_compile_new_workflow = false
 
   [workflow_config.dependencies]
-  cron_capability_binary_path = "injected-at-runtime"
-  cre_cli_binary_path = "injected-at-runtime"
+  cron_capability_binary_path = "./cron"
+  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
 
   [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/73d703157bafe65ab51f7e619c589091/raw/cb7b2a56b37e333fe0bdce07b79538c4ce332f5f/binary.wasm.br"
+    binary_url = "https://gist.githubusercontent.com/Tofel/6b07d51e519cc48b829790567542992d/raw/943952cbff46333007fe4c6173da9db75390cf23/binary.wasm.br.b64"
     config_url = "https://gist.githubusercontent.com/Tofel/c334703c75bd457c6dcf260f1492616f/raw/cca378bb173fc79e524a7c7add12bb06dd39ba87/capabilities-don-config.json_17_03_2025"
 
 [[nodesets]]
@@ -44,22 +44,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -78,22 +65,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -111,6 +85,52 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -140,22 +160,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -173,6 +180,31 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -200,6 +232,10 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true

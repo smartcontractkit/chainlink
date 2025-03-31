@@ -238,6 +238,7 @@ func TestConfig_Marshal(t *testing.T) {
 	global := Config{
 		Core: toml.Core{
 			InsecureFastScrypt:  ptr(true),
+			InsecurePPROFHeap:   ptr(true),
 			RootDir:             ptr("test/root/dir"),
 			ShutdownGracePeriod: commoncfg.MustNewDuration(10 * time.Second),
 			Insecure: toml.Insecure{
@@ -815,6 +816,7 @@ func TestConfig_Marshal(t *testing.T) {
 	}{
 		{"empty", Config{}, ``},
 		{"global", global, `InsecureFastScrypt = true
+InsecurePPROFHeap = true
 RootDir = 'test/root/dir'
 ShutdownGracePeriod = '10s'
 

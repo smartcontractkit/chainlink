@@ -154,5 +154,6 @@ type ProposeBtJobsConfig struct {
 }
 
 type DeleteJobsConfig struct {
-	JobIDs []string
+	JobIDs       []string
+	WorkflowName string
 }

@@ -113,7 +113,7 @@ func Context(tb testing.TB) context.Context {
 func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
 	switch oc := oc.(type) {
 	case *memory.JobClient:
-		require.NoError(t, oc.ReplayLogs(replayBlocks))
+		require.NoError(t, oc.ReplayLogs(t.Context(), replayBlocks))
 	case *devenv.JobDistributor:
 		require.NoError(t, oc.ReplayLogs(replayBlocks))
 	default:

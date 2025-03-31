@@ -23,12 +23,12 @@ func proposeWfJobsToJDLogic(env deployment.Environment, c types.ProposeWfJobsCon
 	ctx, cancel := context.WithTimeout(env.GetContext(), timeout)
 	defer cancel()
 
-	workflowJobSpec, err := offchain.JobSpecFromWorkflow(c.InputFS, c.InputFileName, c.WorkflowJobName)
+	workflowJobSpec, workflowName, err := offchain.JobSpecFromWorkflow(c.InputFS, c.InputFileName, c.WorkflowJobName)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from workflow: %w", err)
 	}
 
-	return offchain.ProposeJobs(ctx, env, workflowJobSpec, c.NodeFilter)
+	return offchain.ProposeJobs(ctx, env, workflowJobSpec, &workflowName, c.NodeFilter)
 }
 
 func proposeWfJobsToJDPrecondition(_ deployment.Environment, c types.ProposeWfJobsConfig) error {
