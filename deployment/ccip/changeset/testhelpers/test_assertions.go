@@ -506,8 +506,7 @@ func SolEventEmitter[T any](
 						return
 					}
 
-					var event T
-					err = solcommon.ParseEvent(tx.Meta.LogMessages, eventType, &event, solconfig.PrintEvents)
+					events, err := solcommon.ParseMultipleEvents[T](tx.Meta.LogMessages, eventType, solconfig.PrintEvents)
 					if err != nil && strings.Contains(err.Error(), "event not found") {
 						continue
 					}
@@ -516,10 +515,12 @@ func SolEventEmitter[T any](
 						return
 					}
 
-					select {
-					case ch <- event:
-					case <-done:
-						return
+					for _, event := range events {
+						select {
+						case ch <- event:
+						case <-done:
+							return
+						}
 					}
 				}
 				// next scan should stop at the newest signature we've received
