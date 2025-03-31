@@ -264,7 +264,7 @@ runner-test-matrix:
     triggers:
       - Automation On Demand Tests
       - E2E Chaos Tests
-    test_cmd: cd integration-tests/chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
+    test_cmd: cd chaos && DETACH_RUNNER=false go test -test.run "^TestOCRChaos$" -v -test.parallel=10 -timeout 60m -count=1 -json
     test_env_vars:
       TEST_SUITE: chaos
       CHAINLINK_USER_TEAM: Foundations
@@ -577,7 +577,7 @@ runner-test-matrix:
     path: integration-tests/load/automationv2_1/automationv2_1_test.go
     runs_on: ubuntu-latest
     test_env_type: k8s-remote-runner
-    test_cmd: cd integration-tests/load/automationv2_1 && go test -test.run TestLogTrigger -test.parallel=1 -timeout 60m -count=1 -json
+    test_cmd: cd load/automationv2_1 && go test -test.run TestLogTrigger -test.parallel=1 -timeout 60m -count=1 -json
     remote_runner_memory: 4Gi
     test_secrets_required: true
     test_env_vars:
@@ -766,7 +766,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: cd load/vrfv2 && go test -v -test.run ^TestVRFV2Performance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
@@ -779,7 +779,7 @@ runner-test-matrix:
     path: integration-tests/load/vrfv2/vrfv2_test.go
     runs_on: ubuntu22.04-8cores-32GB
     test_env_type: docker
-    test_cmd: cd integration-tests/load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
+    test_cmd: cd load/vrfv2 && go test -v -test.run ^TestVRFV2PlusBHSPerformance$ -test.parallel=1 -timeout 24h -count=1 -json
     test_config_override_required: true
     test_secrets_required: true
     test_env_vars:
