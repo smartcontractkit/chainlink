@@ -655,7 +655,7 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	l.Info("finishing execution")
 
-	execState, err := e.executionsStore.FinishedExecution(ctx, executionID, status)
+	execState, err := e.executionsStore.FinishExecution(ctx, executionID, status)
 	if err != nil {
 		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}

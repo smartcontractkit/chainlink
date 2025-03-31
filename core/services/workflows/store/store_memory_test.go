@@ -66,7 +66,7 @@ func TestInMemoryStore_FinishedExecution(t *testing.T) {
 	_, err := store.Add(context.Background(), state)
 	require.NoError(t, err)
 
-	updatedState, err := store.FinishedExecution(context.Background(), "test-id", "completed")
+	updatedState, err := store.FinishExecution(context.Background(), "test-id", "completed")
 	require.NoError(t, err)
 
 	assert.Equal(t, "completed", updatedState.Status)

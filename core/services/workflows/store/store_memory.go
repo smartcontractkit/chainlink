@@ -83,8 +83,8 @@ func (s *InMemoryStore) UpsertStep(ctx context.Context, step *WorkflowExecutionS
 	return *execution, nil
 }
 
-// UpdateStatus updates the status for the given executionID
-func (s *InMemoryStore) FinishedExecution(ctx context.Context, executionID string, status string) (WorkflowExecution, error) {
+// FinishExecution marks the execution as finished with the given status
+func (s *InMemoryStore) FinishExecution(ctx context.Context, executionID string, status string) (WorkflowExecution, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	execution, ok := s.idToState[executionID]
