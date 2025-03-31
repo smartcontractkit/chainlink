@@ -38,7 +38,8 @@ func (m *InMemoryStoreManager) AbandonPendingTransactions(_ context.Context, fro
 func (m *InMemoryStoreManager) Add(addresses ...common.Address) {
 	for _, address := range addresses {
 		if _, exists := m.InMemoryStoreMap[address]; exists {
-			m.lggr.Debugf("address %v already exists in store manager", address)
+			m.lggr.Debugf("Address %v already exists in store manager", address)
+			continue
 		}
 		m.InMemoryStoreMap[address] = NewInMemoryStore(m.lggr, address, m.chainID)
 		m.lggr.Infof("Added the following address to InMemoryStoreManager: %s", address)
@@ -48,7 +49,8 @@ func (m *InMemoryStoreManager) Add(addresses ...common.Address) {
 func (m *InMemoryStoreManager) Remove(addresses ...common.Address) {
 	for _, address := range addresses {
 		if _, exists := m.InMemoryStoreMap[address]; !exists {
-			m.lggr.Debugf("address %v doesn't exist in store manager", address)
+			m.lggr.Debugf("Address %v doesn't exist in store manager", address)
+			continue
 		}
 		delete(m.InMemoryStoreMap, address)
 		m.lggr.Infof("Removed the following address from InMemoryStoreManager: %s", address)

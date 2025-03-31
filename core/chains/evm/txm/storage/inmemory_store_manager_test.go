@@ -10,7 +10,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 )
 
-func TestAdd(t *testing.T) {
+func TestAddAndRemove(t *testing.T) {
 	t.Parallel()
 
 	fromAddress := testutils.NewAddress()
