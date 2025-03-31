@@ -10,7 +10,6 @@ import (
 	"text/template"
 
 	gethcommon "github.com/ethereum/go-ethereum/common"
-	"github.com/go-viper/mapstructure/v2"
 	"github.com/google/uuid"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
@@ -23,12 +22,6 @@ const (
 )
 
 type WorkflowSpecAlias sdk.WorkflowSpec
-
-type FeedSpec struct {
-	Deviation  string `json:"deviation"`
-	Heartbeat  int    `json:"heartbeat"`
-	RemappedID string `json:"remappedID"`
-}
 
 type WorkflowJobCfg struct {
 	JobName       string
@@ -84,21 +77,24 @@ func (wf WorkflowSpecAlias) validate() error {
 		return fmt.Errorf("feeds not found in aggregation_config for workflow %s", wf.Name)
 	}
 	for streamsID, feed := range feeds.(map[string]interface{}) {
-		_, feedMapExists := feed.(map[string]interface{})
-		if !feedMapExists {
+		feedMap, feedExists := feed.(map[string]interface{})
+		if !feedExists {
 			return fmt.Errorf("invalid feed type %s", streamsID)
 		}
-		var f FeedSpec
-		if err := mapstructure.Decode(feed, &f); err != nil {
-			return fmt.Errorf("failed to decode feed %s: %w", streamsID, err)
+		_, hasDeviation := feedMap["deviation"].(string)
+		if !hasDeviation {
+			return fmt.Errorf("deviation not found in feed %s", streamsID)
 		}
-		if f.Deviation == "" {
-			return fmt.Errorf("invalid deviation for feed %s", streamsID)
+
+		_, hasHeartbeat := feedMap["heartbeat"].(int64)
+		if !hasHeartbeat {
+			return fmt.Errorf("heartbeat not found in feed %s", streamsID)
 		}
-		if f.Heartbeat == 0 {
-			return fmt.Errorf("invalid heartbeat for feed %s", streamsID)
+		remmapedID, hasRemmapedID := feedMap["remappedID"].(string)
+		if !hasRemmapedID {
+			return fmt.Errorf("remappedID not found in feed %s", streamsID)
 		}
-		if len(f.RemappedID) != 66 {
+		if len(remmapedID) != 66 {
 			return fmt.Errorf("invalid remappedID for feed %s", streamsID)
 		}
 	}

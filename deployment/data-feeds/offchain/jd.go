@@ -74,7 +74,7 @@ func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilte
 	return resp.Nodes, nil
 }
 
-func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
+func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
 	out := deployment.ChangesetOutput{
 		Jobs: []deployment.ProposedJob{},
 	}
@@ -90,10 +90,10 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 			Value: pointer.To(strconv.FormatUint(nodeFilters.DONID, 10)),
 		},
 	}
-	if workflowName != "" {
+	if workflowName != nil {
 		jobLabels = append(jobLabels, &ptypes.Label{
 			Key:   "workflow_name",
-			Value: &workflowName,
+			Value: workflowName,
 		})
 	}
 
