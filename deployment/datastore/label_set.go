@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// LabelSet represents a set of labels on an AddressRef record.
+// LabelSet represents a set of labels on an address book entry.
 type LabelSet map[string]struct{}
 
 // NewLabelSet initializes a new LabelSet with any number of labels.
@@ -17,19 +17,19 @@ func NewLabelSet(labels ...string) LabelSet {
 	return set
 }
 
-// Add inserts a labels into the set.
-func (ls LabelSet) Add(labels string) {
-	ls[labels] = struct{}{}
+// Add inserts a label into the set.
+func (ls LabelSet) Add(label string) {
+	ls[label] = struct{}{}
 }
 
-// Remove deletes a labels from the set, if it exists.
-func (ls LabelSet) Remove(labels string) {
-	delete(ls, labels)
+// Remove deletes a label from the set, if it exists.
+func (ls LabelSet) Remove(label string) {
+	delete(ls, label)
 }
 
-// Contains checks if the set contains the given labels.
-func (ls LabelSet) Contains(labels string) bool {
-	_, ok := ls[labels]
+// Contains checks if the set contains the given label.
+func (ls LabelSet) Contains(label string) bool {
+	_, ok := ls[label]
 	return ok
 }
 
@@ -76,6 +76,7 @@ func (ls LabelSet) Equal(other LabelSet) bool {
 	return true
 }
 
+// IsEmpty checks if the LabelSet is empty.
 func (ls LabelSet) IsEmpty() bool {
 	return len(ls) == 0
 }
