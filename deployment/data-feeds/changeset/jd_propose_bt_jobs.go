@@ -27,7 +27,7 @@ func proposeBtJobsToJDLogic(env deployment.Environment, c types.ProposeBtJobsCon
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to create job spec from bootstrap: %w", err)
 	}
 
-	return offchain.ProposeJobs(ctx, env, bootstrapJobSpec, c.NodeFilter)
+	return offchain.ProposeJobs(ctx, env, bootstrapJobSpec, nil, c.NodeFilter)
 }
 
 func proposeBtJobsToJDPrecondition(env deployment.Environment, c types.ProposeBtJobsConfig) error {

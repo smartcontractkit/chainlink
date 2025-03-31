@@ -427,8 +427,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string) {
 				me := &mockEngine{}
-				h.engineRegistry.Add(wfID, me)
-				err := h.workflowRegisteredEvent(ctx, event)
+				err := h.engineRegistry.Add(wfID, me)
+				require.NoError(t, err)
+				err = h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
 				require.ErrorContains(t, err, "workflow is already running")
 			},
@@ -575,7 +576,7 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
 
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -632,7 +633,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -704,7 +705,7 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
@@ -780,7 +781,7 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)

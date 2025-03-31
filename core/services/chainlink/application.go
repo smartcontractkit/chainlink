@@ -469,7 +469,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
-		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
+		workflowORM    = workflowstore.NewInMemoryStore(globalLogger, clockwork.NewRealClock())
 	)
 	srvcs = append(srvcs, workflowORM)
 
@@ -928,7 +928,7 @@ func newCREServices(
 
 				eventHandler := syncer.NewEventHandler(
 					lggr,
-					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
+					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
 					opts.CapabilitiesRegistry,
 					custmsg.NewLabeler(),
 					workflowRateLimiter,

@@ -84,7 +84,7 @@ ok Solana.Bar.Chain.BalanceMonitor
 ok Solana.Bar.Chain.Txm
 ok Solana.Bar.Relayer
 ok TelemetryManager
-ok WorkflowDBStore
+ok WorkflowStore
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
@@ -356,9 +356,9 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "WorkflowDBStore",
+      "id": "WorkflowStore",
       "attributes": {
-        "name": "WorkflowDBStore",
+        "name": "WorkflowStore",
         "status": "passing",
         "output": ""
       }
