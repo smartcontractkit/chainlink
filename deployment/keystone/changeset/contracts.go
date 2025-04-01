@@ -26,7 +26,7 @@ type Ownable interface {
 // OwnedContract represents a contract and its owned MCMS contracts.
 type OwnedContract[T Ownable] struct {
 	// The MCMS contracts that the contract might own
-	McmsContracts commonchangeset.MCMSWithTimelockState
+	McmsContracts *commonchangeset.MCMSWithTimelockState
 	// The actual contract instance
 	Contract T
 }
@@ -56,13 +56,14 @@ func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployme
 		}
 
 		return &OwnedContract[T]{
-			McmsContracts: *stateMCMS,
+			McmsContracts: stateMCMS,
 			Contract:      contract,
 		}, nil
 	}
 
 	return &OwnedContract[T]{
-		Contract: contract,
+		McmsContracts: nil,
+		Contract:      contract,
 	}, nil
 }
 

@@ -9,6 +9,7 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -183,5 +184,137 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "not found in address book")
+	})
+}
+
+func TestNewOwnable(t *testing.T) {
+	t.Parallel()
+
+	lggr := logger.Test(t)
+	cfg := memory.MemoryEnvironmentConfig{
+		Nodes:  1,
+		Chains: 3,
+	}
+
+	t.Run("creates OwnedContract for non-MCMS owner", func(t *testing.T) {
+		t.Parallel()
+
+		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+		chain := env.Chains[env.AllChainSelectors()[0]]
+		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		err = env.ExistingAddresses.Merge(resp.AddressBook)
+		require.NoError(t, err)
+
+		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		require.NoError(t, err)
+		require.Len(t, addrs, 1)
+
+		// Get the first address from the map
+		var targetAddrStr string
+		for addr := range addrs {
+			targetAddrStr = addr
+			break
+		}
+
+		addrBook := env.ExistingAddresses
+
+		contract, err := changeset.GetOwnableContract[*capabilities_registry.CapabilitiesRegistry](addrBook, chain, &targetAddrStr)
+		require.NoError(t, err)
+		owner, err := (*contract).Owner(nil)
+		require.NoError(t, err)
+
+		// Setup owner as non-MCMS contract
+		mockAddresses := map[string]deployment.TypeAndVersion{
+			owner.Hex(): {Type: changeset.CapabilitiesRegistry, Version: deployment.Version1_0_0},
+		}
+		err = addrBook.Save(chain.Selector, owner.Hex(), mockAddresses[owner.Hex()])
+		require.NoError(t, err)
+
+		ownedContract, err := changeset.NewOwnable(*contract, addrBook, chain)
+		require.NoError(t, err)
+
+		// Verify the owned contract contains the contract but no MCMS contracts
+		assert.Equal(t, (*contract).Address(), ownedContract.Contract.Address())
+		assert.Nil(t, ownedContract.McmsContracts)
+	})
+
+	t.Run("creates OwnedContract for MCMS owner", func(t *testing.T) {
+		t.Parallel()
+
+		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+		chain := env.Chains[env.AllChainSelectors()[0]]
+		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		err = env.ExistingAddresses.Merge(resp.AddressBook)
+		require.NoError(t, err)
+
+		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		require.NoError(t, err)
+		require.Len(t, addrs, 1)
+
+		// Get the first address from the map
+		var targetAddrStr string
+		for addr := range addrs {
+			targetAddrStr = addr
+			break
+		}
+
+		addrBook := env.ExistingAddresses
+
+		contract, err := changeset.GetOwnableContract[*capabilities_registry.CapabilitiesRegistry](addrBook, chain, &targetAddrStr)
+		require.NoError(t, err)
+		owner, err := (*contract).Owner(nil)
+		require.NoError(t, err)
+
+		// Setup owner as timelock contract
+		mockAddresses := map[string]deployment.TypeAndVersion{
+			owner.Hex(): {Type: types.RBACTimelock, Version: deployment.Version1_0_0},
+		}
+		err = addrBook.Save(chain.Selector, owner.Hex(), mockAddresses[owner.Hex()])
+		require.NoError(t, err)
+
+		ownedContract, err := changeset.NewOwnable(*contract, addrBook, chain)
+
+		require.NoError(t, err)
+		assert.Equal(t, (*contract).Address(), ownedContract.Contract.Address())
+		assert.NotNil(t, ownedContract.McmsContracts)
+	})
+
+	t.Run("handles error when owner type lookup fails", func(t *testing.T) {
+		t.Parallel()
+
+		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+		chain := env.Chains[env.AllChainSelectors()[0]]
+		resp, err := changeset.DeployCapabilityRegistry(env, chain.Selector)
+		require.NoError(t, err)
+		require.NotNil(t, resp)
+		err = env.ExistingAddresses.Merge(resp.AddressBook)
+		require.NoError(t, err)
+
+		addrs, err := resp.AddressBook.AddressesForChain(chain.Selector)
+		require.NoError(t, err)
+		require.Len(t, addrs, 1)
+
+		// Get the first address from the map
+		var targetAddrStr string
+		for addr := range addrs {
+			targetAddrStr = addr
+			break
+		}
+
+		addrBook := env.ExistingAddresses
+
+		contract, err := changeset.GetOwnableContract[*capabilities_registry.CapabilitiesRegistry](addrBook, chain, &targetAddrStr)
+		require.NoError(t, err)
+
+		// Don't add owner to address book, so lookup will fail
+
+		// Call NewOwnable, should fail because owner is not in address book
+		_, err = changeset.NewOwnable(*contract, addrBook, chain)
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "failed to get owner type and version")
 	})
 }
