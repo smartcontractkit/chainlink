@@ -108,7 +108,7 @@ func TestInMemoryStore_ExpiresNonCompletedExecutions(t *testing.T) {
 	// Now repeat the test but with a longer expiration duration and check that the state is not expired
 	store = NewInMemoryStoreWithPruneConfiguration(logger.TestLogger(t), clockwork.NewRealClock(),
 		10*time.Millisecond, 30*time.Second)
-	
+
 	_, err = store.Add(context.Background(), map[string]*WorkflowExecutionStep{
 		"step-1": {Ref: "step-1"},
 	}, "test-id", "w1", StatusStarted)
