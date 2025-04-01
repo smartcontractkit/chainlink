@@ -507,23 +507,15 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
-	ec := &store.WorkflowExecution{
-		Steps: map[string]*store.WorkflowExecutionStep{
-			workflows.KeywordTrigger: {
-				Outputs: store.StepOutput{
-					Value: event,
-				},
-				Status:      store.StatusCompleted,
-				ExecutionID: executionID,
-				Ref:         workflows.KeywordTrigger,
+	workflowExecution, err := e.executionsStore.Add(ctx, map[string]*store.WorkflowExecutionStep{
+		workflows.KeywordTrigger: {
+			Outputs: store.StepOutput{
+				Value: event,
 			},
-		},
-		WorkflowID:  e.workflow.id,
-		ExecutionID: executionID,
-		Status:      store.StatusStarted,
-	}
-
-	dbWex, err := e.executionsStore.Add(ctx, ec)
+			Status:      store.StatusCompleted,
+			ExecutionID: executionID,
+			Ref:         workflows.KeywordTrigger,
+		}}, executionID, e.workflow.id, store.StatusStarted)
 	if err != nil {
 		return err
 	}
@@ -547,10 +539,10 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return nil
 	}
 	e.wg.Add(1)
-	go e.stepUpdateLoop(ctx, executionID, ch, dbWex.CreatedAt)
+	go e.stepUpdateLoop(ctx, executionID, ch, workflowExecution.CreatedAt)
 
 	for _, td := range triggerDependents {
-		e.queueIfReady(*ec, td)
+		e.queueIfReady(workflowExecution, td)
 	}
 
 	return nil
@@ -641,10 +633,10 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", copyState(state)).
+		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", state.DeepCopy()).
 			Debug("step request enqueued")
 		e.pendingStepRequests <- stepRequest{
-			state:   copyState(state),
+			state:   state.DeepCopy(),
 			stepRef: step.Ref,
 		}
 	}
@@ -770,7 +762,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
-	inputs, outputs, err := e.executeStep(ctx, l, msg)
+	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	curStepID := "UNSET"
@@ -784,27 +776,53 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case err != nil && capabilities.ErrStopExecution.Is(err):
+	case sErr != nil && capabilities.ErrStopExecution.Is(sErr):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompletedEarlyExit
-	case err != nil:
-		lmsg := fmt.Sprintf("error executing step request: %s", err)
+	case sErr != nil:
+		lmsg := fmt.Sprintf("error executing step request: %s", sErr)
 		l.Error(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusErrored
 	default:
 		lmsg := "step executed successfully"
-		l.With("outputs", outputs).Info(lmsg)
+		l.With("outputs", response.Value).Info(lmsg)
 		// TODO ks-462 emit custom message with outputs
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
 
+	meteringSteps := make([]MeteringReportStep, len(response.Metadata.Metering))
+
+	for idx, detail := range response.Metadata.Metering {
+		unit := MeteringSpendUnit(detail.SpendUnit)
+		value, err := unit.StringToSpendValue(detail.SpendValue)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		}
+
+		meteringSteps[idx] = MeteringReportStep{
+			Peer2PeerID: detail.Peer2PeerID,
+			SpendUnit:   unit,
+			SpendValue:  value,
+		}
+	}
+
+	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
+		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
+			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
+		}
+	} else {
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
+		// TODO: to be bumped to error if all capabilities must implement metering
+		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
+	}
+
 	stepState.Status = stepStatus
-	stepState.Outputs.Value = outputs
-	stepState.Outputs.Err = err
+	stepState.Outputs.Value = response.Value
+	stepState.Outputs.Err = sErr
 	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
@@ -814,8 +832,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
 	l.Debugf("trying to send step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
-	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
-	if err != nil {
+	if err := e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState); err != nil {
 		l.Errorf("failed to issue step state update; error %v", err)
 		return
 	}
@@ -919,10 +936,10 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
+func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	var inputs any
@@ -934,17 +951,17 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 
 	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	config, err := e.configForStep(ctx, lggr, curStep)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
@@ -983,10 +1000,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	output, err := curStep.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
-		return inputsMap, nil, err
+		return inputsMap, capabilities.CapabilityResponse{}, err
 	}
 
-	return inputsMap, output.Value, err
+	return inputsMap, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -1014,7 +1031,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	return nil
 }
 
-func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.WorkflowExecution) (bool, string, error) {
+func (e *Engine) isWorkflowFullyProcessed(_ context.Context, state store.WorkflowExecution) (bool, string, error) {
 	statuses := map[string]string{}
 	// we need to first propagate the status of the errored status if it exists...
 	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
@@ -1169,15 +1186,15 @@ func (e *Engine) Close() error {
 				Config: stepConfig,
 			}
 
-			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
-			if innerErr != nil {
-				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
-					labels: map[string]string{
-						platform.KeyWorkflowID: e.workflow.id,
-						platform.KeyStepID:     s.ID,
-						platform.KeyStepRef:    s.Ref,
-					}}
+			unregisterError := s.capability.UnregisterFromWorkflow(ctx, reg)
+			if unregisterError != nil {
+				// As a capability may be closing/closed down during shutdown it possible that unregistering the
+				// workflow will fail but this is not necessarily indicative of an error so log it as a warning
+				e.logger.Warn("failed to unregister capability from workflow",
+					"workflowID", e.workflow.id,
+					"stepID", s.ID,
+					"stepRef", s.Ref,
+					"error", unregisterError)
 			}
 
 			return nil
@@ -1195,7 +1212,7 @@ func (e *Engine) Close() error {
 }
 
 func (e *Engine) HealthReport() map[string]error {
-	return map[string]error{e.Name(): nil}
+	return map[string]error{e.Name(): e.Healthy()}
 }
 
 func (e *Engine) Name() string {
