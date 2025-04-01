@@ -25,14 +25,19 @@ func initBlocksSubCmds(s *Shell) []cli.Command {
 					Usage:    "Block number to replay from",
 					Required: true,
 				},
+				cli.StringFlag{
+					Name:     "family",
+					Usage:    "Chain family for specified chain-id such as evm or solana",
+					Required: true,
+				},
+				cli.StringFlag{
+					Name:     "chain-id",
+					Usage:    "Chain ID of the blockchain",
+					Required: true,
+				},
 				cli.BoolFlag{
 					Name:  "force",
-					Usage: "Whether to force broadcasting logs which were already consumed and that would otherwise be skipped",
-				},
-				cli.Int64Flag{
-					Name:     "evm-chain-id",
-					Usage:    "Chain ID of the EVM-based blockchain",
-					Required: false,
+					Usage: "Whether to force broadcasting logs which were already consumed and that would otherwise be skipped (only for EVM chain family)",
 				},
 			},
 		},
@@ -61,9 +66,15 @@ func (s *Shell) ReplayFromBlock(c *cli.Context) (err error) {
 	v := url.Values{}
 	v.Add("force", strconv.FormatBool(c.Bool("force")))
 
-	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", strconv.FormatInt(c.Int64("evm-chain-id"), 10))
+	if !c.IsSet("family") {
+		return s.errorOut(errors.New("Must set '--family' parameter to specify chain family type"))
 	}
+	v.Add("family", c.String("family"))
+
+	if !c.IsSet("chain-id") {
+		return s.errorOut(errors.New("Must set '--chain-id' parameter"))
+	}
+	v.Add("ChainID", c.String("chain-id"))
 
 	buf := bytes.NewBufferString("{}")
 	resp, err := s.HTTP.Post(s.ctx(),
@@ -113,11 +124,10 @@ func (s *Shell) FindLCA(c *cli.Context) (err error) {
 	v := url.Values{}
 
 	if c.IsSet("evm-chain-id") {
-		v.Add("evmChainID", strconv.FormatInt(c.Int64("evm-chain-id"), 10))
+		v.Add("evmChainID", c.String("evm-chain-id"))
 	}
 
-	resp, err := s.HTTP.Get(s.ctx(),
-		"/v2/find_lca?"+v.Encode())
+	resp, err := s.HTTP.Get(s.ctx(), "/v2/find_lca?"+v.Encode())
 	if err != nil {
 		return s.errorOut(err)
 	}

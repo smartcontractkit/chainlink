@@ -118,7 +118,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
 		// it's also required by custom compute, which can only run on workflow DON nodes
-		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) {
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) && !input.SkipGateway {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				chainIDUint64,

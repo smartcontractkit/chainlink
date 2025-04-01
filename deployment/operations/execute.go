@@ -88,7 +88,10 @@ func ExecuteOperation[IN, OUT, DEP any](
 	if err != nil {
 		return Report[IN, OUT]{}, err
 	}
-	return report, report.Err
+	if report.Err != nil {
+		return report, report.Err
+	}
+	return report, nil
 }
 
 // ExecuteSequence executes a Sequence and returns a SequenceReport.
@@ -148,7 +151,10 @@ func ExecuteSequence[IN, OUT, DEP any](
 	if err != nil {
 		return SequenceReport[IN, OUT]{}, err
 	}
-	return SequenceReport[IN, OUT]{report, executionReports}, report.Err
+	if report.Err != nil {
+		return SequenceReport[IN, OUT]{report, executionReports}, report.Err
+	}
+	return SequenceReport[IN, OUT]{report, executionReports}, nil
 }
 
 // NewUnrecoverableError creates an error that indicates an unrecoverable error.

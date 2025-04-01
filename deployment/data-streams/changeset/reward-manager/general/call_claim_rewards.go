@@ -9,7 +9,6 @@ import (
 	goEthTypes "github.com/ethereum/go-ethereum/core/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
@@ -20,7 +19,7 @@ var ClaimRewardsChangeset = deployment.CreateChangeSet(claimRewardsLogic, claimR
 
 type ClaimRewardsConfig struct {
 	ConfigsByChain map[uint64][]ClaimRewards
-	MCMSConfig     *changeset.MCMSConfig
+	MCMSConfig     *types.MCMSConfig
 }
 
 type ClaimRewards struct {

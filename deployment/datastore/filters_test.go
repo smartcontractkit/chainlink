@@ -5,8 +5,6 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/stretchr/testify/assert"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 func TestAddressRefByChainSelector(t *testing.T) {
@@ -17,7 +15,7 @@ func TestAddressRefByChainSelector(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -28,7 +26,7 @@ func TestAddressRefByChainSelector(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -77,7 +75,7 @@ func TestAddressRefByType(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -88,7 +86,7 @@ func TestAddressRefByType(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -97,7 +95,7 @@ func TestAddressRefByType(t *testing.T) {
 	tests := []struct {
 		name           string
 		givenState     []AddressRef
-		giveType       deployment.ContractType
+		giveType       ContractType
 		expectedResult []AddressRef
 	}{
 		{
@@ -139,7 +137,7 @@ func TestAddressRefByVersion(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -150,7 +148,7 @@ func TestAddressRefByVersion(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -202,7 +200,7 @@ func TestAddressRefByQualifier(t *testing.T) {
 			Type:          "type1",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual1",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label1", "label2", "label3",
 			),
 		}
@@ -213,7 +211,7 @@ func TestAddressRefByQualifier(t *testing.T) {
 			Type:          "typeX",
 			Version:       semver.MustParse("0.5.0"),
 			Qualifier:     "qual2",
-			Labels: deployment.NewLabelSet(
+			Labels: NewLabelSet(
 				"label13", "label23", "label33",
 			),
 		}
@@ -250,56 +248,6 @@ func TestAddressRefByQualifier(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			filter := AddressRefByQualifier(tt.giveQualifier)
-			filteredRecords := filter(tt.givenState)
-			assert.Equal(t, tt.expectedResult, filteredRecords)
-		})
-	}
-}
-
-func TestContractMetadataByChainSelector(t *testing.T) {
-	var (
-		recordOne = ContractMetadata{
-			ChainSelector: 1,
-			Address:       "0x2324224",
-			Metadata:      "metadata1",
-		}
-
-		recordTwo = ContractMetadata{
-			ChainSelector: 2,
-			Address:       "0x2324224",
-			Metadata:      "metadata2",
-		}
-	)
-
-	tests := []struct {
-		name           string
-		givenState     []ContractMetadata
-		giveChain      uint64
-		expectedResult []ContractMetadata
-	}{
-		{
-			name: "success: returns record with given chain",
-			givenState: []ContractMetadata{
-				recordOne,
-				recordTwo,
-			},
-			giveChain:      2,
-			expectedResult: []ContractMetadata{recordTwo},
-		},
-		{
-			name: "success: returns no record with given chain",
-			givenState: []ContractMetadata{
-				recordOne,
-				recordTwo,
-			},
-			giveChain:      5,
-			expectedResult: []ContractMetadata(nil),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filter := ContractMetadataByChainSelector(tt.giveChain)
 			filteredRecords := filter(tt.givenState)
 			assert.Equal(t, tt.expectedResult, filteredRecords)
 		})

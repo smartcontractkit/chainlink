@@ -2,8 +2,6 @@ package datastore
 
 import (
 	"github.com/Masterminds/semver/v3"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // AddressRefKey is an interface that represents a key for AddressRef records.
@@ -14,8 +12,8 @@ type AddressRefKey interface {
 	// ChainSelector returns the chain-selector selector of the chain where the contract is deployed.
 	ChainSelector() uint64
 	// Type returns the contract type of the contract.
-	// This is a simple string type for identifying contract types.
-	Type() deployment.ContractType
+	// This is a simple string type for identifying contract
+	Type() ContractType
 	// Version returns the semantic version of the contract.
 	Version() *semver.Version
 	// Qualifier returns the optional qualifier for the contract.
@@ -30,7 +28,7 @@ var _ AddressRefKey = addressRefKey{}
 // It is used to uniquely identify a record in the AddressRefStore.
 type addressRefKey struct {
 	chainSelector uint64
-	contractType  deployment.ContractType
+	contractType  ContractType
 	version       *semver.Version
 	qualifier     string
 }
@@ -39,8 +37,8 @@ type addressRefKey struct {
 func (a addressRefKey) ChainSelector() uint64 { return a.chainSelector }
 
 // Type returns the contract type of the contract.
-// This is a simple string type for identifying contract types.
-func (a addressRefKey) Type() deployment.ContractType { return a.contractType }
+// This is a simple string type for identifying contract
+func (a addressRefKey) Type() ContractType { return a.contractType }
 
 // Version returns the semantic version of the contract.
 func (a addressRefKey) Version() *semver.Version { return a.version }
@@ -57,7 +55,7 @@ func (a addressRefKey) Equals(other AddressRefKey) bool {
 }
 
 // NewAddressRefKey creates a new AddressRefKey instance.
-func NewAddressRefKey(chainSelector uint64, contractType deployment.ContractType, version *semver.Version, qualifier string) AddressRefKey {
+func NewAddressRefKey(chainSelector uint64, contractType ContractType, version *semver.Version, qualifier string) AddressRefKey {
 	return addressRefKey{
 		chainSelector: chainSelector,
 		contractType:  contractType,

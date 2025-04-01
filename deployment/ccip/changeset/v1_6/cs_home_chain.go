@@ -20,7 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -458,7 +457,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *commonchangeset.TimelockConfig
+	MCMS         *proposalutils.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
@@ -532,7 +531,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove DONs",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -545,7 +544,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *commonchangeset.TimelockConfig
+	MCMSCfg        *proposalutils.TimelockConfig
 }
 
 func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) error {
@@ -659,7 +658,7 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove Nodes from CapabilitiesRegistry",
-		c.MCMSCfg.MinDelay,
+		*c.MCMSCfg,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

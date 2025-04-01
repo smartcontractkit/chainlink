@@ -14,12 +14,13 @@ import (
 func Test_MemoryReporter(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now()
 	existingReport := Report[any, any]{
 		ID:                    "1",
 		Def:                   Definition{},
 		Output:                "2",
 		Input:                 1,
-		Timestamp:             time.Now(),
+		Timestamp:             &now,
 		ChildOperationReports: []string{uuid.New().String()},
 	}
 
@@ -39,7 +40,7 @@ func Test_MemoryReporter(t *testing.T) {
 		Def:       Definition{},
 		Output:    "3",
 		Input:     2,
-		Timestamp: time.Now(),
+		Timestamp: &now,
 	}
 	err = reporter.AddReport(newReport)
 	require.NoError(t, err)
@@ -73,7 +74,7 @@ func Test_NewReport(t *testing.T) {
 	assert.Equal(t, 1, report.Input)
 	assert.Equal(t, 2, report.Output)
 	assert.NotEmpty(t, report.Timestamp)
-	assert.Equal(t, testErr, report.Err)
+	require.ErrorContains(t, report.Err, testErr.Error())
 	assert.Len(t, report.ChildOperationReports, 1)
 	assert.Equal(t, childOperationID, report.ChildOperationReports[0])
 }
@@ -81,12 +82,13 @@ func Test_NewReport(t *testing.T) {
 func Test_RecentReporter(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now()
 	existingReport := Report[any, any]{
 		ID:                    "1",
 		Def:                   Definition{},
 		Output:                "2",
 		Input:                 1,
-		Timestamp:             time.Now(),
+		Timestamp:             &now,
 		ChildOperationReports: []string{uuid.New().String()},
 	}
 
@@ -102,7 +104,7 @@ func Test_RecentReporter(t *testing.T) {
 		Def:       Definition{},
 		Output:    "3",
 		Input:     2,
-		Timestamp: time.Now(),
+		Timestamp: &now,
 	}
 	err := recentReporter.AddReport(newReport)
 	require.NoError(t, err)
@@ -114,12 +116,13 @@ func Test_RecentReporter(t *testing.T) {
 func Test_typeReport(t *testing.T) {
 	t.Parallel()
 
+	now := time.Now()
 	report := Report[any, any]{
 		ID:                    "1",
 		Def:                   Definition{},
 		Output:                2,
 		Input:                 1,
-		Timestamp:             time.Now(),
+		Timestamp:             &now,
 		Err:                   nil,
 		ChildOperationReports: []string{uuid.New().String()},
 	}

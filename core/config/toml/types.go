@@ -3,6 +3,7 @@ package toml
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"net"
 	"net/url"
 	"reflect"
@@ -35,6 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -65,6 +67,9 @@ type Core struct {
 func (c *Core) SetFrom(f *Core) {
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
+	}
+	if v := f.InsecurePPROFHeap; v != nil {
+		c.InsecurePPROFHeap = v
 	}
 	if v := f.RootDir; v != nil {
 		c.RootDir = v
@@ -1623,8 +1628,9 @@ type Workflows struct {
 }
 
 type Limits struct {
-	Global   *int32
-	PerOwner *int32
+	Global    *int32
+	PerOwner  *int32
+	Overrides map[string]int32
 }
 
 func (r *Workflows) setFrom(f *Workflows) {
@@ -1638,6 +1644,11 @@ func (r *Limits) setFrom(f *Limits) {
 
 	if f.PerOwner != nil {
 		r.PerOwner = f.PerOwner
+	}
+
+	if f.Overrides != nil {
+		r.Overrides = make(map[string]int32)
+		maps.Copy(r.Overrides, f.Overrides)
 	}
 }
 

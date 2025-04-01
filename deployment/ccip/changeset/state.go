@@ -8,12 +8,13 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
+	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -1156,7 +1157,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *commoncs.TimelockConfig) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -1170,26 +1171,15 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
 	if mcmsCfg != nil {
-		// if MCMSAction is not set, default to timelock.Schedule
-		if mcmsCfg.MCMSAction == "" {
-			mcmsCfg.MCMSAction = timelock.Schedule
-		}
-		if mcmsCfg.MCMSAction != timelock.Schedule &&
-			mcmsCfg.MCMSAction != timelock.Cancel &&
-			mcmsCfg.MCMSAction != timelock.Bypass {
-			return fmt.Errorf("invalid MCMS type %s", mcmsCfg.MCMSAction)
-		}
-		if chainState.Timelock == nil {
-			return fmt.Errorf("missing timelock on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Schedule && chainState.ProposerMcm == nil {
-			return fmt.Errorf("missing proposerMcm on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Cancel && chainState.CancellerMcm == nil {
-			return fmt.Errorf("missing cancellerMcm on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Bypass && chainState.BypasserMcm == nil {
-			return fmt.Errorf("missing bypasserMcm on %s", chain)
+		err = mcmsCfg.Validate(chain, commonState.MCMSWithTimelockState{
+			CancellerMcm: chainState.CancellerMcm,
+			ProposerMcm:  chainState.ProposerMcm,
+			BypasserMcm:  chainState.BypasserMcm,
+			Timelock:     chainState.Timelock,
+			CallProxy:    chainState.CallProxy,
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil

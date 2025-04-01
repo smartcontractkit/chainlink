@@ -2,8 +2,6 @@ package datastore
 
 import (
 	"github.com/Masterminds/semver/v3"
-
-	"github.com/smartcontractkit/chainlink/deployment"
 )
 
 // The following functions are a default set of filters that can be used with the Filter method of the
@@ -12,7 +10,7 @@ import (
 //	```
 //		records := store.Filter(
 //			AddressRefByChainSelector(1),
-//			AddressRefByType(deployment.ContractType("type1")),
+//			AddressRefByType(ContractType("type1")),
 //			AddressRefByVersion("my-qualifier"),
 //		)
 //	```
@@ -22,16 +20,17 @@ import (
 // All the filters below are used to filter AddressRef records in the AddressRefStore.
 // They all implement the FilterFunc type.
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByChainSelector(0)
-var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByType(deployment.ContractType(""))
+var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByType(ContractType(""))
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByVersion(nil)
 var _ FilterFunc[AddressRefKey, AddressRef] = AddressRefByQualifier("")
 
-// AddressRefByChainSelector returns a filter that only includes records with the provided chain.
-func AddressRefByChainSelector(chainSelector uint64) FilterFunc[AddressRefKey, AddressRef] {
+// addressRefFilter returns a filter that includes records for which the predicate returns true.
+// This is a generalized filter function that can be used to create custom filters.
+func addressRefFilter(predicate func(record AddressRef) bool) FilterFunc[AddressRefKey, AddressRef] {
 	return func(records []AddressRef) []AddressRef {
-		filtered := []AddressRef{}
+		filtered := make([]AddressRef, 0, len(records)) // Pre-allocate capacity
 		for _, record := range records {
-			if record.ChainSelector == chainSelector {
+			if predicate(record) {
 				filtered = append(filtered, record)
 			}
 		}
@@ -39,54 +38,30 @@ func AddressRefByChainSelector(chainSelector uint64) FilterFunc[AddressRefKey, A
 	}
 }
 
+// AddressRefByChainSelector returns a filter that only includes records with the provided chain.
+func AddressRefByChainSelector(chainSelector uint64) FilterFunc[AddressRefKey, AddressRef] {
+	return addressRefFilter(func(record AddressRef) bool {
+		return record.ChainSelector == chainSelector
+	})
+}
+
 // AddressRefByType returns a filter that only includes records with the provided contract type.
-func AddressRefByType(contractType deployment.ContractType) FilterFunc[AddressRefKey, AddressRef] {
-	return func(records []AddressRef) []AddressRef {
-		filtered := []AddressRef{}
-		for _, record := range records {
-			if record.Type == contractType {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
+func AddressRefByType(contractType ContractType) FilterFunc[AddressRefKey, AddressRef] {
+	return addressRefFilter(func(record AddressRef) bool {
+		return record.Type == contractType
+	})
 }
 
 // AddressRefByVersion returns a filter that only includes records with the provided version.
 func AddressRefByVersion(version *semver.Version) FilterFunc[AddressRefKey, AddressRef] {
-	return func(records []AddressRef) []AddressRef {
-		filtered := []AddressRef{}
-		for _, record := range records {
-			if record.Version.Equal(version) {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
+	return addressRefFilter(func(record AddressRef) bool {
+		return record.Version.Equal(version)
+	})
 }
 
 // AddressRefByQualifier returns a filter that only includes records with the provided qualifier.
 func AddressRefByQualifier(qualifier string) FilterFunc[AddressRefKey, AddressRef] {
-	return func(records []AddressRef) []AddressRef {
-		filtered := []AddressRef{}
-		for _, record := range records {
-			if record.Qualifier == qualifier {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
-}
-
-// ContractMetadataByChainSelector returns a filter that only includes records with the provided chain.
-func ContractMetadataByChainSelector(chainSelector uint64) FilterFunc[ContractMetadataKey, ContractMetadata] {
-	return func(records []ContractMetadata) []ContractMetadata {
-		var filtered []ContractMetadata
-		for _, record := range records {
-			if record.ChainSelector == chainSelector {
-				filtered = append(filtered, record)
-			}
-		}
-		return filtered
-	}
+	return addressRefFilter(func(record AddressRef) bool {
+		return record.Qualifier == qualifier
+	})
 }

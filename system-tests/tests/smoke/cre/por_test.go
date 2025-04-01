@@ -1,4 +1,4 @@
-package capabilities_test
+package cre
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"math/big"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
 	"strconv"
 	"strings"
@@ -32,16 +33,18 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
-	keystonecapabilities "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
@@ -153,7 +156,8 @@ func init() {
 }
 
 // Defines the location of the binary files that are required to run the test
-// When test runs in CI hardcoded versions will be downloaded instead
+// When test runs in CI hardcoded versions will be downloaded before the test starts
+// Command that downloads them is part of "test_cmd" in .github/e2e-tests.yml file
 type DependenciesConfig struct {
 	CronCapabilityBinaryPath string `toml:"cron_capability_binary_path" validate:"required"`
 	CRECLIBinaryPath         string `toml:"cre_cli_binary_path" validate:"required"`
@@ -215,29 +219,10 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 	}
 }
 
-// this is a small hack to avoid changing the reusable workflow, which doesn't allow to run any pre-execution hooks
-func downloadBinaryFiles(in *TestConfig) error {
-	ghReadToken := ctfconfig.MustReadEnvVar_String(ghReadTokenEnvVarName)
-
-	var err error
-	in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath, err = keystonecapabilities.DownloadCapabilityFromRelease(ghReadToken, CronBinaryVersion, cronCapabilityAssetFile)
-	if err != nil {
-		return errors.Wrap(err, "failed to download cron capability. Make sure token has content:read permissions to the capabilities repo")
-	}
-
-	if in.WorkflowConfig.UseCRECLI {
-		in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath, err = libcrecli.DownloadAndInstallChainlinkCLI(ghReadToken, CRECLIBinaryVersion)
-		if err != nil {
-			return errors.Wrap(err, "failed to download and install CRE CLI. Make sure token has content:read permissions to the dev-platform repo")
-		}
-	}
-
-	return nil
-}
-
 type registerPoRWorkflowInput struct {
 	*WorkflowConfig
 	chainSelector               uint64
+	writeTargetName             string
 	workflowDonID               uint32
 	feedID                      string
 	workflowRegistryAddress     common.Address
@@ -278,7 +263,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	var workflowURL string
 	var workflowConfigURL string
 
-	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.feedConsumerAddress, input.feedID, input.priceProvider.URL())
+	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.feedConsumerAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
 	}
@@ -404,6 +389,11 @@ func CreateBlockchains(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
+	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "RPC endpoint not available")
+	}
+
 	sethClient, err := seth.NewClientBuilder().
 		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
 		WithPrivateKeys([]string{pkey}).
@@ -452,7 +442,7 @@ type setupOutput struct {
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, customJobsFn func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error), capabilityFactoryFns func([]string) []keystone_changeset.DONCapabilityWithConfig) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -466,6 +456,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		startNixShellInput := &keystonetypes.StartNixShellInput{
 			InfraInput:     in.Infra,
 			CribConfigsDir: cribConfigsDir,
+			PurgeNamespace: true,
 		}
 
 		var nixErr error
@@ -522,7 +513,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		ChainSelector: blockchainsOutput.chainSelector,
 		CldEnv:        chainsOnlyCld,
 	}
-
 	keystoneContractsOutput, err := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
 	require.NoError(t, err, "failed to deploy keystone contracts")
 
@@ -733,14 +723,16 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       blockchainsOutput.blockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      extraAllowedPorts,
-			ExtraAllowedIPs:        extraAllowedIPs,
-			CronCapBinPath:         "/home/capabilities/" + cronCapabilityAssetFile,
+			BlockchainOutput:      blockchainsOutput.blockchainOutput,
+			DonsWithMetadata:      fullCldOutput.DonTopology.DonsWithMetadata,
+			OCR3CapabilityAddress: keystoneContractsOutput.OCR3CapabilityAddress,
+			ExtraAllowedPorts:     extraAllowedPorts,
+			ExtraAllowedIPs:       extraAllowedIPs,
+			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
+			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
+		customJobsFn,
 	)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
@@ -770,7 +762,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		Topology:      topology,
 	}
 
-	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn})
+	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{capabilityFactoryFns, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Universal setup -- END
@@ -792,6 +784,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	_, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
 	require.NoError(t, err, "failed to configure feeds consumer")
 
+	// make sure that path is indeed absolute
+	creCLIAbsPath, pathErr := filepath.Abs(in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath)
+	require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
+
 	registerInput := registerPoRWorkflowInput{
 		WorkflowConfig:              in.WorkflowConfig,
 		chainSelector:               blockchainsOutput.chainSelector,
@@ -804,7 +800,8 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		sethClient:                  blockchainsOutput.sethClient,
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
-		creCLIAbsPath:               in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath,
+		creCLIAbsPath:               creCLIAbsPath,
+		writeTargetName:             corevm.GenerateWriteTargetName(libc.MustSafeUint64(int64(chainIDInt))),
 	}
 
 	err = registerPoRWorkflow(registerInput)
@@ -837,11 +834,6 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 1, "expected 1 node set in the test config")
 
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
-
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -858,7 +850,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -944,11 +936,6 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
-
 	// Assign all capabilities to the single node set
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -971,7 +958,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1057,11 +1044,6 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	validateEnvVars(t, in)
 	require.Len(t, in.NodeSets, 3, "expected 3 node sets in the test config")
 
-	if os.Getenv("CI") == "true" {
-		downloadErr := downloadBinaryFiles(in)
-		require.NoError(t, downloadErr, "failed to download binary files")
-	}
-
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
 			{
@@ -1087,7 +1069,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
