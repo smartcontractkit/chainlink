@@ -77,7 +77,6 @@ func TestCCIPSolCRIB(t *testing.T) {
 	t.Logf("Deployer pub key %v", e.Env.SolChains[sourceChain].DeployerKey.PublicKey())
 
 	var (
-		replayed bool
 		nonce    uint64
 		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
 		out      mt.TestCaseOutput
@@ -136,7 +135,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 		out = mt.Run(
 			mt.TestCase{
 				TestSetup:              setup,
-				Replayed:               replayed,
+				Replayed:               true,
 				Nonce:                  nonce,
 				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
