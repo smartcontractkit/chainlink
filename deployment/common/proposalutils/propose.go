@@ -3,6 +3,7 @@ package proposalutils
 import (
 	"errors"
 	"fmt"
+	"math/big"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -28,6 +29,28 @@ type TimelockConfig struct {
 	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
 	MCMSAction   types.TimelockAction
 	OverrideRoot bool // if true, override the previous root with the new one
+}
+
+func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {
+	switch tc.MCMSAction {
+	case types.TimelockActionSchedule:
+		if s.ProposerMcm == nil {
+			return nil, fmt.Errorf("missing proposerMcm")
+		}
+		return s.ProposerMcm, nil
+	case types.TimelockActionCancel:
+		if s.CancellerMcm == nil {
+			return nil, fmt.Errorf("missing cancellerMcm")
+		}
+		return s.CancellerMcm, nil
+	case types.TimelockActionBypass:
+		if s.BypasserMcm == nil {
+			return nil, fmt.Errorf("missing bypasserMcm")
+		}
+		return s.BypasserMcm, nil
+	default:
+		return nil, errors.New("invalid MCMS action")
+	}
 }
 
 func (tc *TimelockConfig) Validate(chain deployment.Chain, s state.MCMSWithTimelockState) error {
@@ -236,4 +259,77 @@ func buildProposalMetadataV2(
 	}
 
 	return metaDataPerChain, nil
+}
+
+// AggregateProposals aggregates proposals from the legacy and new formats into a single proposal.
+// Required if you are merging multiple changesets that have different proposal formats.
+func AggregateProposals(
+	env deployment.Environment,
+	mcmsState map[uint64]state.MCMSWithTimelockState,
+	proposals []mcmslib.TimelockProposal,
+	legacyProposals []timelock.MCMSWithTimelockProposal,
+	description string,
+	mcmsConfig *TimelockConfig,
+) (*mcmslib.TimelockProposal, error) {
+	if mcmsConfig == nil {
+		return nil, nil
+	}
+
+	var batches []types.BatchOperation
+	// Add proposals that follow the legacy format to the aggregate.
+	for _, proposal := range legacyProposals {
+		for _, batchTransaction := range proposal.Transactions {
+			for _, transaction := range batchTransaction.Batch {
+				batchOperation, err := BatchOperationForChain(
+					uint64(batchTransaction.ChainIdentifier),
+					transaction.To.Hex(),
+					transaction.Data,
+					big.NewInt(0),
+					transaction.ContractType,
+					transaction.Tags,
+				)
+				if err != nil {
+					return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", batchTransaction.ChainIdentifier, err)
+				}
+				batches = append(batches, batchOperation)
+			}
+		}
+	}
+	// Add proposals that follow the new format to the aggregate.
+	for _, proposal := range proposals {
+		batches = append(batches, proposal.Operations...)
+	}
+
+	// Return early if there are no operations.
+	if len(batches) == 0 {
+		return nil, nil
+	}
+
+	// Store the timelocks, proposers, and inspectors for each chain.
+	timelocks := make(map[uint64]string)
+	mcmsPerChain := make(map[uint64]string)
+	inspectors := make(map[uint64]mcmssdk.Inspector)
+	for _, op := range batches {
+		chainSel := uint64(op.ChainSelector)
+		mcmsContract, err := mcmsConfig.MCMBasedOnAction(mcmsState[chainSel])
+		if err != nil {
+			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS contract for chain with selector %d: %w", chainSel, err)
+		}
+		timelocks[chainSel] = mcmsState[chainSel].Timelock.Address().Hex()
+		mcmsPerChain[chainSel] = mcmsContract.Address().Hex()
+		inspectors[chainSel], err = McmsInspectorForChain(env, chainSel)
+		if err != nil {
+			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
+		}
+	}
+
+	return BuildProposalFromBatchesV2(
+		env,
+		timelocks,
+		mcmsPerChain,
+		inspectors,
+		batches,
+		description,
+		*mcmsConfig,
+	)
 }
