@@ -28,6 +28,7 @@ const (
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
+	cs.CCIPCommon:                  "programs/ccip-common/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
 	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
 	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
@@ -155,6 +156,43 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 	return nil
 }
 
+func syncRouterAndCommon() error {
+	routerFileName := programToFileMap[cs.Router]
+	commonFileName := programToFileMap[cs.CCIPCommon]
+	routerFile := filepath.Join(cloneDir, anchorDir, routerFileName)
+	commonFile := filepath.Join(cloneDir, anchorDir, commonFileName)
+	file, err := os.Open(routerFile)
+	if err != nil {
+		return fmt.Errorf("error opening router file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	declareRegex := regexp.MustCompile(`declare_id!\(\"(.+?)\"\);`)
+	var declareID string
+
+	for scanner.Scan() {
+		match := declareRegex.FindStringSubmatch(scanner.Text())
+		if match != nil {
+			declareID = match[0]
+			break
+		}
+	}
+
+	if declareID == "" {
+		return fmt.Errorf("declare_id not found in router file")
+	}
+
+	commonContent, err := os.ReadFile(commonFile)
+	if err != nil {
+		return fmt.Errorf("error reading common file: %w", err)
+	}
+
+	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
+
+	return os.WriteFile(commonFile, []byte(updatedContent), 0644)
+}
+
 func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
 	e.Logger.Debug("Generating vanity keys...")
 	for program, prefix := range programToVanityKey {
@@ -255,6 +293,11 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 	// We need to do this so the keys will match the existing deployed program
 	if err := replaceKeysForUpgrade(e, config.LocalBuild.UpgradeKeys); err != nil {
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
+	}
+
+	// Sync the router and common program files
+	if err := syncRouterAndCommon(); err != nil {
+		return fmt.Errorf("error syncing router and common program files: %w", err)
 	}
 
 	// Build the project with Anchor
