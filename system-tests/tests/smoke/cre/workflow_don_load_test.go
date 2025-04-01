@@ -197,7 +197,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	// TODO: remove createCustomJobsFunc from setupTestEnvironment and figure out a way to push custom jobs in a sane way
-	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, []func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	setupOutput := setupPoRTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, []func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 
 	ctx := t.Context()
 	// Log extra information that might help debugging

@@ -65,7 +65,7 @@ var startCmd = &cobra.Command{
 }
 
 type EnvironmentConfig struct {
-	BlockchainA       *blockchain.Input       `toml:"blockchain_a" validate:"required"`
+	BlockchainA       *blockchain.Input       `toml:"blockchain" validate:"required"`
 	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
@@ -75,6 +75,7 @@ type EnvironmentConfig struct {
 type ExtraCapabilitiesConfig struct {
 	CronCapabilityBinaryPath  string `toml:"cron_capability_binary_path"`
 	LogEventTriggerBinaryPath string `toml:"log_event_trigger_binary_path"`
+	ReadContractBinaryPath    string `toml:"read_contract_capability_binary_path"`
 }
 
 func startCLIEnvironment() (*creenv.SetupOutput, error) {
@@ -102,6 +103,11 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 	if in.ExtraCapabilities.LogEventTriggerBinaryPath != "" {
 		capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.LogTriggerCapability)
 		capabilitiesBinaryPaths[cretypes.LogTriggerCapability] = in.ExtraCapabilities.LogEventTriggerBinaryPath
+	}
+
+	if in.ExtraCapabilities.ReadContractBinaryPath != "" {
+		capabiliitesDONCapabilities = append(capabiliitesDONCapabilities, cretypes.ReadContractCapability)
+		capabilitiesBinaryPaths[cretypes.ReadContractCapability] = in.ExtraCapabilities.ReadContractBinaryPath
 	}
 
 	capabilitiesAwareNodeSets := []*cretypes.CapabilitiesAwareNodeSet{

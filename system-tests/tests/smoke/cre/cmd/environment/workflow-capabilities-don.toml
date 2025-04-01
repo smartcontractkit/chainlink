@@ -1,5 +1,5 @@
 
-[blockchain_a]
+[blockchain]
   type = "anvil"
   chain_id = "1337" # required
   docker_cmd_params = ["-b", "5"]

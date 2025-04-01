@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"math/big"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -18,6 +17,7 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -69,6 +69,7 @@ type SetupInput struct {
 	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
 	CustomJobsFn               func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error)
 	CapabilityFactoryFunctions []func([]string) []keystone_changeset.DONCapabilityWithConfig
+	JobSpecFactoryFunctions    []cretypes.JobSpecFactoryFn
 	BlockchainsInput           blockchain.Input
 	JdInput                    jd.Input
 	InfraInput                 libtypes.InfraInput
@@ -390,26 +391,41 @@ func SetupTestEnvironment(
 		}
 	}
 
-	cronBinaryPath := input.CustomBinariesPaths["cron"]
-	if cronBinaryPath == "" {
-		return nil, errors.New("cron capability binary path is empty")
-	}
+	// cronBinaryPath := input.CustomBinariesPaths["cron"]
+	// if cronBinaryPath == "" {
+	// 	return nil, errors.New("cron capability binary path is empty")
+	// }
 
 	// Generate and propose jobs (they will auto-accepted)
-	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
-		&keystonetypes.GeneratePoRJobSpecsInput{
-			BlockchainOutput:       blockchainsOutput.BlockchainOutput,
-			DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
-			OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
-			ExtraAllowedPorts:      input.ExtraAllowedPorts,
-			ExtraAllowedIPsCIDR:    []string{"0.0.0.0/0"}, //allow all IPs
-			CronCapBinPath:         "/home/capabilities/" + filepath.Base(cronBinaryPath),
-			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
-		},
-		input.CustomJobsFn,
-	)
-	if jobSpecsErr != nil {
-		return nil, errors.Wrap(jobSpecsErr, "failed to generate job specs")
+	// donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
+	// 	&keystonetypes.GeneratePoRJobSpecsInput{
+	// 		BlockchainOutput:       blockchainsOutput.BlockchainOutput,
+	// 		DonsWithMetadata:       fullCldOutput.DonTopology.DonsWithMetadata,
+	// 		OCR3CapabilityAddress:  keystoneContractsOutput.OCR3CapabilityAddress,
+	// 		ExtraAllowedPorts:      input.ExtraAllowedPorts,
+	// 		ExtraAllowedIPsCIDR:    []string{"0.0.0.0/0"}, //allow all IPs
+	// 		CronCapBinPath:         "/home/capabilities/" + filepath.Base(cronBinaryPath),
+	// 		GatewayConnectorOutput: *topology.GatewayConnectorOutput,
+	// 	},
+	// 	input.CustomJobsFn,
+	// )
+	// if jobSpecsErr != nil {
+	// 	return nil, errors.Wrap(jobSpecsErr, "failed to generate job specs")
+	// }
+
+	donToJobSpecs := make(keystonetypes.DonsToJobSpecs)
+
+	for _, jobSpecGeneratingFn := range input.JobSpecFactoryFunctions {
+		singleDonToJobSpecs, jobSpecsErr := jobSpecGeneratingFn(&cretypes.JobSpecFactoryInput{
+			CldEnvironment:          fullCldOutput.Environment,
+			BlockchainOutput:        blockchainsOutput.BlockchainOutput,
+			DonTopology:             fullCldOutput.DonTopology,
+			KeystoneContractsOutput: keystoneContractsOutput,
+		})
+		if jobSpecsErr != nil {
+			return nil, errors.Wrap(jobSpecsErr, "failed to generate job specs")
+		}
+		mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 	}
 
 	createJobsInput := keystonetypes.CreateJobsInput{
@@ -547,4 +563,13 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 	}
 
 	return jdOutput, nil
+}
+
+func mergeJobSpecSlices(from, to keystonetypes.DonsToJobSpecs) {
+	for fromDonID, fromJobSpecs := range from {
+		if _, ok := to[fromDonID]; !ok {
+			to[fromDonID] = make([]*jobv1.ProposeJobRequest, 0)
+		}
+		to[fromDonID] = append(to[fromDonID], fromJobSpecs...)
+	}
 }

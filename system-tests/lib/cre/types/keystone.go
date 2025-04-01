@@ -383,8 +383,9 @@ type Topology struct {
 }
 
 type DonTopology struct {
-	WorkflowDonID    uint32
-	DonsWithMetadata []*DonWithMetadata
+	WorkflowDonID          uint32
+	DonsWithMetadata       []*DonWithMetadata
+	GatewayConnectorOutput *GatewayConnectorOutput
 }
 
 type CapabilitiesAwareNodeSet struct {
@@ -583,3 +584,12 @@ func (s *StartNixShellInput) Validate() error {
 }
 
 type DONCapabilityWithConfigFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig
+
+type JobSpecFactoryInput struct {
+	CldEnvironment          *deployment.Environment
+	BlockchainOutput        *blockchain.Output
+	DonTopology             *DonTopology
+	KeystoneContractsOutput *KeystoneContractsOutput
+}
+
+type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)

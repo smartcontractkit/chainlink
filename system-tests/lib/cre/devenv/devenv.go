@@ -150,6 +150,7 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 	}
 
 	output.DonTopology = donTopology
+	output.DonTopology.GatewayConnectorOutput = input.Topology.GatewayConnectorOutput
 
 	return output, nil
 }
