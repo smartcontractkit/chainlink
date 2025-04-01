@@ -50,6 +50,7 @@ func getTypeToProgramDeployName() map[deployment.ContractType]string {
 		types.ManyChainMultisigProgram:     deployment.McmProgramName,
 		types.RBACTimelockProgram:          deployment.TimelockProgramName,
 		ccipChangeset.Receiver:             deployment.ReceiverProgramName,
+		ccipChangeset.PingPongDemo:         deployment.PingPongDemoProgramName,
 	}
 }
 

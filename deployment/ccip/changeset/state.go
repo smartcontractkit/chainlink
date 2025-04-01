@@ -105,6 +105,7 @@ var (
 	CCIPReceiver           deployment.ContractType = "CCIPReceiver"
 	LogMessageDataReceiver deployment.ContractType = "LogMessageDataReceiver"
 	USDCMockTransmitter    deployment.ContractType = "USDCMockTransmitter"
+	PingPongDemo           deployment.ContractType = "PingPongDemo"
 
 	// Pools
 	BurnMintToken                  deployment.ContractType = "BurnMintToken"
