@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+option go_package = "github.com/smartcontractkit/chainlink/core/services/workflows/pb/";
+
+package pb;
+
+message WorkflowMetadata {
+  string workflowName = 1;
+  string workflowID = 2;
+  string version = 3;
+  string workflowExecutionID = 4;
+}
+
+message WorkflowExecutionStarted {
+  WorkflowMetadata m = 1;
+  string TriggerID = 2;
+}
+
+message WorkflowExecutionFinished {
+  WorkflowMetadata m = 1;
+  string status = 2;
+}
+
+message CapabilityExecutionStarted {
+  WorkflowMetadata m = 1;
+  string capabilityID = 2;
+}
+
+message CapabilityExecutionFinished {
+  WorkflowMetadata m = 1;
+  string capabilityID = 2;
+  string status = 3;
+}
