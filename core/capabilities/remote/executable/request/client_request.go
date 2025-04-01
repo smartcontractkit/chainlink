@@ -3,6 +3,7 @@ package request
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"sync"
@@ -237,6 +238,8 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 			return fmt.Errorf("failed to get message hash: %w", err)
 		}
 
+		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+
 		nodeReports, exists := c.meteringResponses[responseID]
 		if !exists {
 			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
@@ -248,14 +251,14 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 			nodeReports = append(nodeReports, rpt)
 		} else {
-			c.lggr.Warnf("node metering detail contained %d records; expected exactly 1", len(metadata.Metering))
+			lggr.Errorw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
 		}
 
 		c.responseIDCount[responseID]++
 		c.meteringResponses[responseID] = nodeReports
 
 		if len(c.responseIDCount) > 1 {
-			c.lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
+			lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
 		}
 
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {

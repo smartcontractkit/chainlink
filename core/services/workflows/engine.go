@@ -822,9 +822,9 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
 			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
 		}
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 1)
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
 	} else {
-		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 0)
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
 		l.Warn("no metering report found for " + msg.state.ExecutionID)
 	}
 

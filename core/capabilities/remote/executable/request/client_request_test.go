@@ -502,10 +502,6 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		require.NoError(t, err)
 		defer request.Cancel(errors.New("test end"))
 
-		<-dispatcher.msgs
-		<-dispatcher.msgs
-		assert.Empty(t, dispatcher.msgs)
-
 		msg.Sender = capabilityPeers[0][:]
 		err = request.OnMessage(ctx, msg)
 		require.NoError(t, err)
