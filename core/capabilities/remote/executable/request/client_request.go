@@ -248,7 +248,7 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 
 			nodeReports = append(nodeReports, rpt)
 		} else {
-			c.lggr.Warn("node metering detail contained %d records; expected exactly 1", len(metadata.Metering))
+			c.lggr.Warnf("node metering detail contained %d records; expected exactly 1", len(metadata.Metering))
 		}
 
 		c.responseIDCount[responseID]++
