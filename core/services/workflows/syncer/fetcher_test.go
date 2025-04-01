@@ -3,9 +3,12 @@ package syncer
 import (
 	"context"
 	"crypto/ecdsa"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"math"
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -317,4 +320,15 @@ type signer struct {
 
 func (s *signer) Sign(data ...[]byte) ([]byte, error) {
 	return common.SignData(s.pk, data...)
+}
+
+func messageID(url string, parts ...string) string {
+	h := sha256.New()
+	h.Write([]byte(url))
+	for _, p := range parts {
+		h.Write([]byte(p))
+	}
+	hash := hex.EncodeToString(h.Sum(nil))
+	p := []string{ghcapabilities.MethodWorkflowSyncer, hash}
+	return strings.Join(p, "/")
 }

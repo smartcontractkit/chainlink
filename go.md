@@ -193,10 +193,9 @@ flowchart LR
 	chainlink/integration-tests --> chainlink-testing-framework/wasp
 	chainlink/integration-tests --> chainlink/deployment
 	click chainlink/integration-tests href "https://github.com/smartcontractkit/chainlink"
-	chainlink/load-tests --> chainlink/integration-tests
-	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
@@ -227,7 +226,6 @@ flowchart LR
 		 chainlink/core/scripts
 		 chainlink/deployment
 		 chainlink/integration-tests
-		 chainlink/load-tests
 		 chainlink/system-tests/lib
 		 chainlink/system-tests/tests
 		 chainlink/v2

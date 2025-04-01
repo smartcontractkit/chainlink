@@ -1,4 +1,4 @@
-package capabilities_test
+package cre
 
 import (
 	"encoding/json"

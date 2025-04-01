@@ -221,7 +221,7 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 		mc.lggr.Debugf("dialing endpoint '%s' for RPC %s for chain %s", endpoint, rpc.Name, mc.chainName)
 		client, err2 = ethclient.Dial(endpoint)
 		if err2 != nil {
-			lggr.Warnf("retryable error for RPC %s:%s for chain %s  %v", rpc.Name, endpoint, mc.chainName, err)
+			lggr.Warnf("retryable error for RPC %s:%s for chain %s  %v", rpc.Name, endpoint, mc.chainName, err2)
 			return err2
 		}
 		return nil

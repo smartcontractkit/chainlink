@@ -57,6 +57,10 @@ func (m MockRelayer) Transact(ctx context.Context, from, to string, amount *big.
 	panic("not implemented")
 }
 
+func (m MockRelayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	panic("not implemented")
+}
+
 func (m MockRelayer) NewConfigProvider(ctx context.Context, args commontypes.RelayArgs) (commontypes.ConfigProvider, error) {
 	panic("not implemented")
 }

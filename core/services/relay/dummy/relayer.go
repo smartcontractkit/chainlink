@@ -78,6 +78,9 @@ func (r *relayer) ListNodeStatuses(ctx context.Context, pageSize int32, pageToke
 func (r *relayer) Transact(ctx context.Context, from, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }
+func (r *relayer) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	return nil
+}
 func (r *relayer) Name() string                { return r.lggr.Name() }
 func (r *relayer) Start(context.Context) error { return nil }
 func (r *relayer) Close() error                { return nil }

@@ -884,6 +884,54 @@ func (_c *Chain_Ready_Call) RunAndReturn(run func() error) *Chain_Ready_Call {
 	return _c
 }
 
+// Replay provides a mock function with given fields: ctx, fromBlock, args
+func (_m *Chain) Replay(ctx context.Context, fromBlock string, args map[string]interface{}) error {
+	ret := _m.Called(ctx, fromBlock, args)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Replay")
+	}
+
+	var r0 error
+	if rf, ok := ret.Get(0).(func(context.Context, string, map[string]interface{}) error); ok {
+		r0 = rf(ctx, fromBlock, args)
+	} else {
+		r0 = ret.Error(0)
+	}
+
+	return r0
+}
+
+// Chain_Replay_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Replay'
+type Chain_Replay_Call struct {
+	*mock.Call
+}
+
+// Replay is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fromBlock string
+//   - args map[string]interface{}
+func (_e *Chain_Expecter) Replay(ctx interface{}, fromBlock interface{}, args interface{}) *Chain_Replay_Call {
+	return &Chain_Replay_Call{Call: _e.mock.On("Replay", ctx, fromBlock, args)}
+}
+
+func (_c *Chain_Replay_Call) Run(run func(ctx context.Context, fromBlock string, args map[string]interface{})) *Chain_Replay_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string), args[2].(map[string]interface{}))
+	})
+	return _c
+}
+
+func (_c *Chain_Replay_Call) Return(_a0 error) *Chain_Replay_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *Chain_Replay_Call) RunAndReturn(run func(context.Context, string, map[string]interface{}) error) *Chain_Replay_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Start provides a mock function with given fields: _a0
 func (_m *Chain) Start(_a0 context.Context) error {
 	ret := _m.Called(_a0)
