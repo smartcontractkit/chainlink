@@ -21,9 +21,14 @@
     "node": ">=18",
     "pnpm": ">=10"
   },
+  "pnpm": {
+    "overrides": {
+      "@babel/runtime": "^7.26.10"
+    }
+  },
   "devDependencies": {
-    "@changesets/cli": "~2.26.2",
+    "@changesets/cli": "~2.28.1",
     "@changesets/get-github-info": "^0.6.0",
-    "semver": "^7.6.3"
+    "semver": "^7.7.1"
   }
 }
