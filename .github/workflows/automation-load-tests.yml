@@ -23,7 +23,7 @@ on:
 jobs:
   run-e2e-tests-workflow:
     name: Run E2E Tests
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@5a20aa8380f8ab0f8889745a57a07d1be056b567
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@05f147e8448dc6e090ff6de87e8131837e7cedb0
     with:
       test_path: .github/e2e-tests.yml
       test_ids: 'load/automationv2_1/automationv2_1_test.go:TestLogTrigger'
