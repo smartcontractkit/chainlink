@@ -2,6 +2,8 @@ module github.com/smartcontractkit/chainlink/integration-tests
 
 go 1.24.0
 
+toolchain go1.24.1
+
 // Make sure we're working with the latest chainlink libs
 replace github.com/smartcontractkit/chainlink/v2 => ../
 
@@ -101,14 +103,14 @@ require (
 	github.com/Azure/go-ntlmssp v0.0.0-20221128193559-754e69321358 // indirect
 	github.com/AzureAD/microsoft-authentication-library-for-go v1.3.2 // indirect
 	github.com/BurntSushi/toml v1.4.0 // indirect
-	github.com/DataDog/zstd v1.5.5 // indirect
+	github.com/DataDog/zstd v1.5.6-0.20230824185856-869dae002e5e // indirect
 	github.com/K-Phoen/sdk v0.12.4 // indirect
 	github.com/Khan/genqlient v0.7.0 // indirect
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/sprig/v3 v3.3.0 // indirect
 	github.com/Microsoft/go-winio v0.6.2 // indirect
-	github.com/NethermindEth/juno v0.3.1 // indirect
+	github.com/NethermindEth/juno v0.12.5 // indirect
 	github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb // indirect
 	github.com/VictoriaMetrics/fastcache v1.12.2 // indirect
 	github.com/XSAM/otelsql v0.29.0 // indirect
@@ -414,10 +416,10 @@ require (
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
 	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7 // indirect
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
-	github.com/pion/dtls/v2 v2.2.7 // indirect
+	github.com/pion/dtls/v2 v2.2.12 // indirect
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/stun/v2 v2.0.0 // indirect
-	github.com/pion/transport/v2 v2.2.1 // indirect
+	github.com/pion/transport/v2 v2.2.10 // indirect
 	github.com/pion/transport/v3 v3.0.1 // indirect
 	github.com/pires/go-proxyproto v0.7.0 // indirect
 	github.com/pkg/browser v0.0.0-20240102092130-5ac0b6a4141c // indirect
