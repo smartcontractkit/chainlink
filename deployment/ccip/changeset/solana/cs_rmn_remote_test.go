@@ -7,10 +7,12 @@ import (
 	"github.com/stretchr/testify/require"
 
 	solRouter "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangesetSolana "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 )
@@ -42,7 +44,7 @@ func doTestRMNRemoteCurse(t *testing.T, mcms bool) {
 				RMNRemote: true,
 			})
 		mcmsConfig = &ccipChangesetSolana.MCMSConfigSolana{
-			MCMS: &ccipChangeset.MCMSConfig{
+			MCMS: &proposalutils.TimelockConfig{
 				MinDelay: 1 * time.Second,
 			},
 			RouterOwnedByTimelock:    true,

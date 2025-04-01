@@ -97,7 +97,7 @@ func TestUpdateDataIDProxyMap(t *testing.T) {
 				ContractsByChain: map[uint64][]common.Address{
 					chainSelector: {common.HexToAddress(cacheAddress)},
 				},
-				MinDelay: 0,
+				MCMSConfig: proposalutils.TimelockConfig{MinDelay: 0},
 			},
 		),
 	)

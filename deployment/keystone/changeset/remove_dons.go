@@ -105,7 +105,7 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 			inspectorPerChain,
 			[]types.BatchOperation{*resp.Ops},
 			"proposal to remove dons",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

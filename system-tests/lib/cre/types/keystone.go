@@ -2,6 +2,7 @@ package types
 
 import (
 	"errors"
+	"slices"
 
 	"github.com/ethereum/go-ethereum/common"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/nix"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/types"
 )
@@ -25,17 +27,12 @@ const (
 	GatewayNode   NodeType = "gateway"
 )
 
-type JobDescription struct {
-	Flag     CapabilityFlag
-	NodeType string
-}
-
 type ConfigDescription struct {
 	Flag     CapabilityFlag
 	NodeType string
 }
 
-type DonJobs = map[JobDescription][]*jobv1.ProposeJobRequest
+type DonJobs = []*jobv1.ProposeJobRequest
 type DonsToJobSpecs = map[uint32]DonJobs
 
 type NodeIndexToConfigOverride = map[int]string
@@ -265,7 +262,8 @@ type GeneratePoRJobSpecsInput struct {
 	OCR3CapabilityAddress  common.Address
 	ExtraAllowedPorts      []int
 	ExtraAllowedIPs        []string
-	CronCapBinName         string
+	ExtraAllowedIPsCIDR    []string
+	CronCapBinPath         string
 	GatewayConnectorOutput GatewayConnectorOutput
 }
 
@@ -279,8 +277,8 @@ func (g *GeneratePoRJobSpecsInput) Validate() error {
 	if g.OCR3CapabilityAddress == (common.Address{}) {
 		return errors.New("ocr3 capability address not set")
 	}
-	if g.CronCapBinName == "" {
-		return errors.New("cron cap bin name not set")
+	if g.CronCapBinPath == "" {
+		return errors.New("cron cap bin path not set")
 	}
 	if g.GatewayConnectorOutput.Path == "" {
 		return errors.New("gateway connector path is not set")
@@ -302,6 +300,7 @@ type GeneratePoRConfigsInput struct {
 	WorkflowRegistryAddress     common.Address
 	ForwarderAddress            common.Address
 	GatewayConnectorOutput      *GatewayConnectorOutput
+	SkipGateway                 bool // Skip gateway config for workflow yaml test
 }
 
 func (g *GeneratePoRConfigsInput) Validate() error {
@@ -329,8 +328,13 @@ func (g *GeneratePoRConfigsInput) Validate() error {
 	if g.ForwarderAddress == (common.Address{}) {
 		return errors.New("forwarder address not set")
 	}
-	if g.GatewayConnectorOutput == nil {
-		return errors.New("gateway connector output not set")
+
+	if slices.Contains(g.DonMetadata.Flags, GatewayDON) {
+		if g.GatewayConnectorOutput == nil {
+			return errors.New("gateway connector output not set")
+		}
+	} else {
+		g.SkipGateway = true // If not gateway is present then skip configuration
 	}
 
 	return nil
@@ -565,6 +569,7 @@ type StartNixShellInput struct {
 	InfraInput     *types.InfraInput
 	CribConfigsDir string
 	ExtraEnvVars   map[string]string
+	PurgeNamespace bool
 }
 
 func (s *StartNixShellInput) Validate() error {
@@ -576,3 +581,5 @@ func (s *StartNixShellInput) Validate() error {
 	}
 	return nil
 }
+
+type DONCapabilityWithConfigFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig

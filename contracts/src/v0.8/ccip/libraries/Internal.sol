@@ -10,7 +10,7 @@ import {MerkleMultiProof} from "../libraries/MerkleMultiProof.sol";
 /// expect to have migrated to a new version by then.
 library Internal {
   error InvalidEVMAddress(bytes encodedAddress);
-  error InvalidSVMAddress(bytes SVMAddress);
+  error Invalid32ByteAddress(bytes encodedAddress);
 
   /// @dev We limit return data to a selector plus 4 words. This is to avoid malicious contracts from returning
   /// large amounts of data and causing repeated out-of-gas scenarios.
@@ -171,11 +171,11 @@ library Internal {
     }
   }
 
-  function _validateSVMAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
-    if (encodedAddress.length != 32) revert InvalidSVMAddress(encodedAddress);
+  function _validate32ByteAddress(bytes memory encodedAddress, bool mustBeNonZero) internal pure {
+    if (encodedAddress.length != 32) revert Invalid32ByteAddress(encodedAddress);
     if (mustBeNonZero) {
       if (abi.decode(encodedAddress, (bytes32)) == bytes32(0)) {
-        revert InvalidSVMAddress(encodedAddress);
+        revert Invalid32ByteAddress(encodedAddress);
       }
     }
   }
@@ -275,6 +275,9 @@ library Internal {
 
   // bytes4(keccak256("CCIP ChainFamilySelector SVM"));
   bytes4 public constant CHAIN_FAMILY_SELECTOR_SVM = 0x1e10bdc4;
+
+  // bytes4(keccak256("CCIP ChainFamilySelector APTOS"));
+  bytes4 public constant CHAIN_FAMILY_SELECTOR_APTOS = 0xac77ffec;
 
   /// @dev Holds a merkle root and interval for a source chain so that an array of these can be passed in the CommitReport.
   /// @dev inefficient struct packing intentionally chosen to maintain order of specificity. Not a storage struct so impact is minimal.

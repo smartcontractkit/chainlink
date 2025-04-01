@@ -491,7 +491,7 @@ func TestFluxMonitor_PollIfEligible(t *testing.T) {
 
 			oracles := []common.Address{nodeAddr, testutils.NewAddress()}
 			tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-			require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+			require.NoError(t, fm.SetOracleAddress(t.Context()))
 			fm.ExportedPollIfEligible(thresholds.rel, thresholds.abs)
 		})
 	}
@@ -526,7 +526,7 @@ func TestFluxMonitor_PollIfEligible_Creates_JobErr(t *testing.T) {
 		Once()
 
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+	require.NoError(t, fm.SetOracleAddress(t.Context()))
 
 	fm.ExportedPollIfEligible(1, 1)
 }
@@ -1171,7 +1171,7 @@ func TestFluxMonitor_RoundTimeoutCausesPoll_timesOutAtZero(t *testing.T) {
 	tm.fluxAggregator.On("Address").Return(common.Address{})
 	tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
 
-	require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+	require.NoError(t, fm.SetOracleAddress(t.Context()))
 	fm.ExportedRoundState(t)
 	servicetest.Run(t, fm)
 
@@ -1506,7 +1506,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Return(nil)
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 
 		tm.fluxAggregator.On("LatestRoundData", nilOpts).Return(flux_aggregator_wrapper.LatestRoundData{
 			Answer:    big.NewInt(10),
@@ -1635,7 +1635,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time
@@ -1732,7 +1732,7 @@ func TestFluxMonitor_DoesNotDoubleSubmit(t *testing.T) {
 			Once()
 
 		tm.fluxAggregator.On("GetOracles", nilOpts).Return(oracles, nil)
-		require.NoError(t, fm.SetOracleAddress(tests.Context(t)))
+		require.NoError(t, fm.SetOracleAddress(t.Context()))
 		fm.ExportedPollIfEligible(0, 0)
 
 		// Now fire off the NewRound log and ensure it does not respond this time

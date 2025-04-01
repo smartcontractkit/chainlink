@@ -68,6 +68,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 	require.NoError(t, err)
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -98,7 +99,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
-				MCMSWithTimelockConfig: proposalutils.SingleGroupTimelockConfigV2(t),
+				MCMSWithTimelockConfig: &mcmsConfig,
 				BuildConfig:            buildConfig,
 			},
 		),
@@ -224,7 +225,7 @@ func TestUpgrade(t *testing.T) {
 					NewMCMVersion:       &deployment.Version1_1_0,
 					UpgradeAuthority:    upgradeAuthority,
 					SpillAddress:        upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -263,7 +264,7 @@ func TestUpgrade(t *testing.T) {
 					NewRMNRemoteVersion:            &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
 					SpillAddress:                   upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -281,7 +282,7 @@ func TestUpgrade(t *testing.T) {
 					NewTimelockVersion:         &deployment.Version1_1_0,
 					UpgradeAuthority:           upgradeAuthority,
 					SpillAddress:               upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -293,7 +294,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey2.String(),
 				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -320,7 +321,7 @@ func TestUpgrade(t *testing.T) {
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
 					SpillAddress:      upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},

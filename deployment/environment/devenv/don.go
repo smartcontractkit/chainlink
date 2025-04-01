@@ -526,6 +526,14 @@ func (n *Node) ReplayLogs(blockByChain map[uint64]uint64) error {
 	return nil
 }
 
+func (n *Node) ExportOCR2Keys(id string) (*clclient.OCR2ExportKey, error) {
+	keys, _, err := n.restClient.ExportOCR2Key(id)
+	if err != nil {
+		return nil, err
+	}
+	return keys, nil
+}
+
 func ptr[T any](v T) *T {
 	return &v
 }

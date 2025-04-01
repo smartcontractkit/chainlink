@@ -7,6 +7,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 )
 
 type AcceptAllOwnershipRequest struct {
@@ -39,7 +40,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 		ContractsByChain: map[uint64][]common.Address{
 			chainSelector: contracts.TransferableContracts(),
 		},
-		MinDelay: minDelay,
+		MCMSConfig: proposalutils.TimelockConfig{MinDelay: minDelay},
 	}
 
 	// Create and return the changeset

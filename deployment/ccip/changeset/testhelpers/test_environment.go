@@ -676,10 +676,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Type:    pluginconfig.USDCCCTPHandlerType,
 			Version: "1.0",
 			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				Tokens:                 cctpContracts,
-				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				AttestationConfig: pluginconfig.AttestationConfig{
+					AttestationAPI:         endpoint,
+					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				},
+				Tokens: cctpContracts,
 			}})
 	}
 
@@ -750,9 +752,9 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 	}
 
 	// Apply second set of changesets to configure the CCIP contracts.
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *proposalutils.TimelockConfig
 	if mcmsEnabled {
-		mcmsConfig = &changeset.MCMSConfig{
+		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}

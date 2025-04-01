@@ -23,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-data-streams/llo"
+	"github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
 	"github.com/smartcontractkit/chainlink-data-streams/rpc"
 
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/llo/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo/grpc"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
 )

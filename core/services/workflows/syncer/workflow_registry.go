@@ -5,6 +5,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"io"
 	"iter"
 	"strconv"
 	"strings"
@@ -149,6 +150,7 @@ func WithTicker(ticker <-chan time.Time) func(*workflowRegistry) {
 }
 
 type evtHandler interface {
+	io.Closer
 	Handle(ctx context.Context, event Event) error
 }
 
@@ -245,7 +247,7 @@ func (w *workflowRegistry) Close() error {
 	return w.StopOnce(w.Name(), func() error {
 		close(w.stopCh)
 		w.wg.Wait()
-		return nil
+		return w.handler.Close()
 	})
 }
 

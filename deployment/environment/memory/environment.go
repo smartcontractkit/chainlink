@@ -18,8 +18,6 @@ import (
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 
 	solRpc "github.com/gagliardetto/solana-go/rpc"
@@ -233,7 +231,7 @@ func NewMemoryEnvironment(t *testing.T, lggr logger.Logger, logLevel zapcore.Lev
 		solChains,
 		nodeIDs,
 		NewMemoryJobClient(nodes),
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		deployment.XXXGenerateTestOCRSecrets(),
 	)
 }

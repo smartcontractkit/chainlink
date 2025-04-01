@@ -52,6 +52,7 @@ HTTPURL = 'https://foo.bar'
 
 # Effective Configuration, with defaults applied:
 InsecureFastScrypt = false
+InsecurePPROFHeap = false
 RootDir = '~/.chainlink'
 ShutdownGracePeriod = '5s'
 

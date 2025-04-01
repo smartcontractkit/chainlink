@@ -1,7 +1,6 @@
 package cre
 
 import (
-	"context"
 	"errors"
 	"fmt"
 
@@ -26,7 +25,9 @@ func NewReportCodecCapabilityTrigger(lggr logger.Logger, donID uint32) ReportCod
 	return ReportCodecCapabilityTrigger{lggr, donID}
 }
 
-func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
+// Encode a report into a capability trigger report
+// the returned byte slice is the marshaled protobuf of [capabilitiespb.OCRTriggerReport]
+func (r ReportCodecCapabilityTrigger) Encode(report datastreamsllo.Report, cd llotypes.ChannelDefinition) ([]byte, error) {
 	if len(cd.Streams) != len(report.Values) {
 		// Invariant violation
 		return nil, fmt.Errorf("capability trigger expected %d streams, got %d", len(cd.Streams), len(report.Values))
@@ -65,7 +66,7 @@ func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastr
 		return nil, fmt.Errorf("failed to wrap map: %w", err)
 	}
 	p := &capabilitiespb.OCRTriggerReport{
-		EventID:   r.eventID(report),
+		EventID:   r.EventID(report),
 		Timestamp: report.ObservationTimestampNanoseconds,
 		Outputs:   values.ProtoMap(outputs),
 	}
@@ -77,14 +78,14 @@ func (r ReportCodecCapabilityTrigger) Encode(ctx context.Context, report datastr
 	return b, nil
 }
 
-func (r ReportCodecCapabilityTrigger) Verify(_ context.Context, cd llotypes.ChannelDefinition) error {
+func (r ReportCodecCapabilityTrigger) Verify(cd llotypes.ChannelDefinition) error {
 	if len(cd.Opts) > 0 {
 		return errors.New("capability trigger does not support channel definitions with options")
 	}
 	return nil
 }
 
-// eventID is expected to uniquely identify a (don, round)
-func (r ReportCodecCapabilityTrigger) eventID(report datastreamsllo.Report) string {
+// EventID is expected to uniquely identify a (don, round)
+func (r ReportCodecCapabilityTrigger) EventID(report datastreamsllo.Report) string {
 	return fmt.Sprintf("streams_%d_%d", r.donID, report.ObservationTimestampNanoseconds)
 }

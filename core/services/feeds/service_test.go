@@ -311,9 +311,6 @@ func Test_Service_RegisterManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -365,9 +362,6 @@ func Test_Service_RegisterManager_MultiFeedsManager(t *testing.T) {
 	svc.connMgr.On("Connect", mock.IsType(feeds.ConnectOpts{}))
 
 	actual, err := svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.NoError(t, err)
 
 	assert.Equal(t, actual, id)
@@ -412,9 +406,6 @@ func Test_Service_RegisterManager_InvalidCreateManager(t *testing.T) {
 		transactCall.ReturnArguments = mock.Arguments{fn(svc.orm)}
 	})
 	_, err = svc.RegisterManager(testutils.Context(t), params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 	assert.Equal(t, "orm error", err.Error())
 }
@@ -451,9 +442,6 @@ func Test_Service_RegisterManager_DuplicateFeedsManager(t *testing.T) {
 	svc.orm.On("ListManagers", ctx).Return([]feeds.FeedsManager{mgr}, nil).Maybe()
 
 	_, err = svc.RegisterManager(ctx, params)
-	// We need to stop the service because the manager will attempt to make a
-	// connection
-	svc.Close()
 	require.Error(t, err)
 
 	assert.Equal(t, "manager was previously registered using the same public key", err.Error())
@@ -1880,25 +1868,29 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 	workflowKey, err := workflowkey.New()
 	require.NoError(t, err)
 
-	request := &proto.UpdateNodeRequest{
-		Version: nodeVersion.Version,
-		ChainConfigs: []*proto.ChainConfig{
-			{
-				Chain: &proto.Chain{
-					Id:   cfg.ChainID,
-					Type: proto.ChainType_CHAIN_TYPE_EVM,
+	request := func() *proto.UpdateNodeRequest {
+		return &proto.UpdateNodeRequest{
+			Version: nodeVersion.Version,
+			ChainConfigs: []*proto.ChainConfig{
+				{
+					Chain: &proto.Chain{
+						Id:   cfg.ChainID,
+						Type: proto.ChainType_CHAIN_TYPE_EVM,
+					},
+					AccountAddress:          cfg.AccountAddress,
+					AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
+					AdminAddress:            cfg.AdminAddress,
+					FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
+					Ocr1Config:              &proto.OCR1Config{Enabled: false},
+					Ocr2Config:              &proto.OCR2Config{Enabled: false},
 				},
-				AccountAddress:          cfg.AccountAddress,
-				AccountAddressPublicKey: &cfg.AccountAddressPublicKey.String,
-				AdminAddress:            cfg.AdminAddress,
-				FluxMonitorConfig:       &proto.FluxMonitorConfig{Enabled: true},
-				Ocr1Config:              &proto.OCR1Config{Enabled: false},
-				Ocr2Config:              &proto.OCR2Config{Enabled: false},
 			},
-		},
-		WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+			WorkflowKey: func(s string) *string { return &s }(workflowKey.ID()),
+		}
 	}
-	successResponse := &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	successResponse := func() *proto.UpdateNodeResponse {
+		return &proto.UpdateNodeResponse{ChainConfigErrors: map[string]*proto.ChainConfigError{}}
+	}
 	failureResponse := func(chainID string) *proto.UpdateNodeResponse {
 		return &proto.UpdateNodeResponse{
 			ChainConfigErrors: map[string]*proto.ChainConfigError{chainID: {Message: "error chain " + chainID}},
@@ -1920,10 +1912,10 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-0")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("1"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("2"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-0")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("1"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("2"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
@@ -1944,10 +1936,10 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.orm.EXPECT().GetChainConfig(mock.Anything, cfg.ID).Return(&cfg, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("3"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-4")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("5"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("3"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-4")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("5"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.UpdateChainConfig(testutils.Context(t), cfg)
@@ -1969,10 +1961,10 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("6"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("7"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-8")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(successResponse, nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("6"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("7"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-8")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(successResponse(), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.DeleteChainConfig(testutils.Context(t), cfg.ID)
@@ -1993,10 +1985,10 @@ func Test_Service_syncNodeInfoWithRetry(t *testing.T) {
 				svc.orm.EXPECT().GetManager(mock.Anything, mgr.ID).Return(&mgr, nil)
 				svc.orm.EXPECT().ListChainConfigsByManagerIDs(mock.Anything, []int64{mgr.ID}).Return([]feeds.ChainConfig{cfg}, nil)
 				svc.connMgr.EXPECT().GetClient(mgr.ID).Return(svc.fmsClient, nil)
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("9"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("10"), nil).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(nil, errors.New("error-11")).Once()
-				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request).Return(failureResponse("12"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("9"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("10"), nil).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(nil, errors.New("error-11")).Once()
+				svc.fmsClient.EXPECT().UpdateNode(mock.Anything, request()).Return(failureResponse("12"), nil).Once()
 			},
 			run: func(svc *TestService) (any, error) {
 				return svc.CreateChainConfig(testutils.Context(t), cfg)
