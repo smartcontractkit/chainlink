@@ -174,7 +174,7 @@ func TestBuildConfigs(t *testing.T) {
 
 	configs := cfg.BuildConfigs()
 
-	require.Equal(t, configs.UpdateFeeQuoterDestsConfig, v1_6.UpdateFeeQuoterDestsConfig{
+	require.Equal(t, v1_6.UpdateFeeQuoterDestsConfig{
 		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
 			1: {
 				2: v1_6.DefaultFeeQuoterDestChainConfig(true),
@@ -184,8 +184,8 @@ func TestBuildConfigs(t *testing.T) {
 			},
 		},
 		MCMS: cfg.MCMSConfig,
-	})
-	require.Equal(t, configs.UpdateFeeQuoterPricesConfig, v1_6.UpdateFeeQuoterPricesConfig{
+	}, configs.UpdateFeeQuoterDestsConfig)
+	require.Equal(t, v1_6.UpdateFeeQuoterPricesConfig{
 		PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
 			1: {
 				GasPrices: map[uint64]*big.Int{
@@ -199,8 +199,8 @@ func TestBuildConfigs(t *testing.T) {
 			},
 		},
 		MCMS: cfg.MCMSConfig,
-	})
-	require.Equal(t, configs.UpdateOffRampSourcesConfig, v1_6.UpdateOffRampSourcesConfig{
+	}, configs.UpdateFeeQuoterPricesConfig)
+	require.Equal(t, v1_6.UpdateOffRampSourcesConfig{
 		UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
 			1: {
 				2: {
@@ -218,8 +218,8 @@ func TestBuildConfigs(t *testing.T) {
 			},
 		},
 		MCMS: cfg.MCMSConfig,
-	})
-	require.Equal(t, configs.UpdateOnRampDestsConfig, v1_6.UpdateOnRampDestsConfig{
+	}, configs.UpdateOffRampSourcesConfig)
+	require.Equal(t, v1_6.UpdateOnRampDestsConfig{
 		UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
 			1: {
 				2: {
@@ -237,8 +237,8 @@ func TestBuildConfigs(t *testing.T) {
 			},
 		},
 		MCMS: cfg.MCMSConfig,
-	})
-	require.Equal(t, configs.UpdateRouterRampsConfig, v1_6.UpdateRouterRampsConfig{
+	}, configs.UpdateOnRampDestsConfig)
+	require.Equal(t, v1_6.UpdateRouterRampsConfig{
 		UpdatesByChain: map[uint64]v1_6.RouterUpdates{
 			1: {
 				OnRampUpdates: map[uint64]bool{
@@ -258,7 +258,7 @@ func TestBuildConfigs(t *testing.T) {
 			},
 		},
 		MCMS: cfg.MCMSConfig,
-	})
+	}, configs.UpdateRouterRampsConfig)
 }
 
 func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
