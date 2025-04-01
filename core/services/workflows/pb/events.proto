@@ -6,28 +6,37 @@ package pb;
 
 message WorkflowMetadata {
   string workflowName = 1;
-  string workflowID = 2;
-  string version = 3;
+  string version = 2;
+  string workflowID = 3;
   string workflowExecutionID = 4;
+  string donID = 5;
+  int32 donF = 6;
+  int32 donN = 7;
+  int32 donQ = 8;
+  string p2pID = 9;
 }
 
 message WorkflowExecutionStarted {
   WorkflowMetadata m = 1;
-  string TriggerID = 2;
+  string timestamp = 2;
+  string TriggerID = 3;
 }
 
 message WorkflowExecutionFinished {
   WorkflowMetadata m = 1;
-  string status = 2;
+  string timestamp = 2;
+  string status = 3;
 }
 
 message CapabilityExecutionStarted {
   WorkflowMetadata m = 1;
-  string capabilityID = 2;
+  string timestamp = 2;
+  string capabilityID = 3;
 }
 
 message CapabilityExecutionFinished {
   WorkflowMetadata m = 1;
-  string capabilityID = 2;
-  string status = 3;
+  string timestamp = 2;
+  string capabilityID = 3;
+  string status = 4;
 }
