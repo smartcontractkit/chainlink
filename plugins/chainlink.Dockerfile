@@ -1,5 +1,5 @@
 # Build image: Chainlink binary
-FROM golang:1.24-bullseye as buildgo
+FROM golang:1.24-bullseye AS buildgo
 RUN go version
 WORKDIR /chainlink
 
@@ -48,10 +48,10 @@ RUN make install-plugins \
 
 # -----------------------------------------------------------------------------
 # Final image: common base stage for the final images
-FROM ubuntu:24.04 as final-base
+FROM ubuntu:24.04 AS final-base
 
 ARG CHAINLINK_USER=root
-ENV DEBIAN_FRONTEND noninteractive
+ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get install -y ca-certificates gnupg lsb-release curl
 
 # Install Postgres for CLI tools, needed specifically for DB backups
@@ -67,12 +67,12 @@ COPY --from=buildgo /go/bin/chainlink /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-medianpoc /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-ocr3-capability /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-feeds /usr/local/bin/
-ENV CL_MEDIAN_CMD chainlink-feeds
+ENV CL_MEDIAN_CMD=chainlink-feeds
 COPY --from=buildgo /go/bin/chainlink-mercury /usr/local/bin/
-ENV CL_MERCURY_CMD chainlink-mercury
+ENV CL_MERCURY_CMD=chainlink-mercury
 COPY --from=buildgo /go/bin/chainlink-cosmos /usr/local/bin/
 COPY --from=buildgo /go/bin/chainlink-solana /usr/local/bin/
-ENV CL_SOLANA_CMD chainlink-solana
+ENV CL_SOLANA_CMD=chainlink-solana
 COPY --from=buildgo /go/bin/chainlink-starknet /usr/local/bin/
 
 # Dependency of CosmWasm/wasmd
@@ -91,14 +91,14 @@ RUN if [ ${CHAINLINK_USER} != root ]; then \
 USER ${CHAINLINK_USER}
 WORKDIR /home/${CHAINLINK_USER}
 # explicit set the cache dir. needed so both root and non-root user has an explicit location
-ENV XDG_CACHE_HOME /home/${CHAINLINK_USER}/.cache
+ENV XDG_CACHE_HOME=/home/${CHAINLINK_USER}/.cache
 RUN mkdir -p ${XDG_CACHE_HOME}
 
 EXPOSE 6688
 
 # -----------------------------------------------------------------------------
 # Final image with private plugins (placed earlier so it's not the default target/stage)
-FROM final-base as final-private-plugins
+FROM final-base AS final-private-plugins
 COPY --from=buildgo /go/bin/chainlink-aptos /usr/local/bin/
 ENV CL_APTOS_CMD=chainlink-aptos
 ENTRYPOINT ["chainlink"]
@@ -107,7 +107,7 @@ CMD ["local", "node"]
 
 # -----------------------------------------------------------------------------
 # Final image without private plugins (this is the last stage, so it will be built by default)
-FROM final-base as final
+FROM final-base AS final
 ENTRYPOINT ["chainlink"]
 HEALTHCHECK CMD curl -f http://localhost:6688/health || exit 1
 CMD ["local", "node"]

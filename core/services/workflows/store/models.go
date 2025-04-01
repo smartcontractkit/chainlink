@@ -65,4 +65,41 @@ func (w WorkflowExecution) ResultForStep(s string) (*exec.Result, bool) {
 	}, true
 }
 
+func (w WorkflowExecution) DeepCopy() WorkflowExecution {
+	steps := map[string]*WorkflowExecutionStep{}
+	for ref, step := range w.Steps {
+		var mval *values.Map
+		if step.Inputs != nil {
+			mval = step.Inputs.CopyMap()
+		}
+
+		copiedov := values.Copy(step.Outputs.Value)
+
+		newState := &WorkflowExecutionStep{
+			ExecutionID: step.ExecutionID,
+			Ref:         step.Ref,
+			Status:      step.Status,
+
+			Outputs: StepOutput{
+				Err:   step.Outputs.Err,
+				Value: copiedov,
+			},
+
+			Inputs:    mval,
+			UpdatedAt: step.UpdatedAt,
+		}
+
+		steps[ref] = newState
+	}
+	return WorkflowExecution{
+		ExecutionID: w.ExecutionID,
+		WorkflowID:  w.WorkflowID,
+		Status:      w.Status,
+		CreatedAt:   w.CreatedAt,
+		UpdatedAt:   w.UpdatedAt,
+		FinishedAt:  w.FinishedAt,
+		Steps:       steps,
+	}
+}
+
 var _ exec.Results = WorkflowExecution{}

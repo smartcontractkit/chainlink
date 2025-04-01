@@ -507,23 +507,15 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
-	ec := &store.WorkflowExecution{
-		Steps: map[string]*store.WorkflowExecutionStep{
-			workflows.KeywordTrigger: {
-				Outputs: store.StepOutput{
-					Value: event,
-				},
-				Status:      store.StatusCompleted,
-				ExecutionID: executionID,
-				Ref:         workflows.KeywordTrigger,
+	workflowExecution, err := e.executionsStore.Add(ctx, map[string]*store.WorkflowExecutionStep{
+		workflows.KeywordTrigger: {
+			Outputs: store.StepOutput{
+				Value: event,
 			},
-		},
-		WorkflowID:  e.workflow.id,
-		ExecutionID: executionID,
-		Status:      store.StatusStarted,
-	}
-
-	dbWex, err := e.executionsStore.Add(ctx, ec)
+			Status:      store.StatusCompleted,
+			ExecutionID: executionID,
+			Ref:         workflows.KeywordTrigger,
+		}}, executionID, e.workflow.id, store.StatusStarted)
 	if err != nil {
 		return err
 	}
@@ -547,10 +539,10 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return nil
 	}
 	e.wg.Add(1)
-	go e.stepUpdateLoop(ctx, executionID, ch, dbWex.CreatedAt)
+	go e.stepUpdateLoop(ctx, executionID, ch, workflowExecution.CreatedAt)
 
 	for _, td := range triggerDependents {
-		e.queueIfReady(*ec, td)
+		e.queueIfReady(workflowExecution, td)
 	}
 
 	return nil
@@ -641,10 +633,10 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", copyState(state)).
+		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", state.DeepCopy()).
 			Debug("step request enqueued")
 		e.pendingStepRequests <- stepRequest{
-			state:   copyState(state),
+			state:   state.DeepCopy(),
 			stepRef: step.Ref,
 		}
 	}

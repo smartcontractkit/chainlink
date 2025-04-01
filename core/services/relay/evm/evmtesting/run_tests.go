@@ -214,7 +214,6 @@ func RunContractReaderInLoopTests[T TestingT[T]](t T, it ChainComponentsInterfac
 				cw := it.GetContractWriter(t)
 				bindings := it.GetBindings(t)
 				ctx := tests.Context(t)
-
 				boundContract := BindingsByName(bindings, AnyContractName)[0]
 				require.NoError(t, cr.Bind(ctx, bindings))
 
