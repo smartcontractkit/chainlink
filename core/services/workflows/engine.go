@@ -1161,15 +1161,15 @@ func (e *Engine) Close() error {
 				Config: stepConfig,
 			}
 
-			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
-			if innerErr != nil {
-				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
-					labels: map[string]string{
-						platform.KeyWorkflowID: e.workflow.id,
-						platform.KeyStepID:     s.ID,
-						platform.KeyStepRef:    s.Ref,
-					}}
+			unregisterError := s.capability.UnregisterFromWorkflow(ctx, reg)
+			if unregisterError != nil {
+				// As a capability may be closing/closed down during shutdown it possible that unregistering the
+				// workflow will fail but this is not necessarily indicative of an error so log it as a warning
+				e.logger.Warn("failed to unregister capability from workflow",
+					"workflowID", e.workflow.id,
+					"stepID", s.ID,
+					"stepRef", s.Ref,
+					"error", unregisterError)
 			}
 
 			return nil
