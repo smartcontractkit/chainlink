@@ -34,7 +34,6 @@ import (
 	coreCap "github.com/smartcontractkit/chainlink/v2/core/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
-	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -162,25 +161,6 @@ type testHooks struct {
 	rateLimited       chan string
 }
 
-func newTestDBStore(t *testing.T, clock clockwork.Clock) store.Store {
-	// Taken from https://github.com/smartcontractkit/chainlink/blob/d736d9e0838983a021677bc608556b3994f46690/core/services/job/orm.go#L412
-	// We need to insert this row so that we dont get foreign key constraint errors
-	// based on the workflow_id
-	db := pgtest.NewSqlxDB(t)
-	sql := `INSERT INTO workflow_specs (workflow, workflow_id, workflow_owner, workflow_name, created_at, updated_at)
-	VALUES (:workflow, :workflow_id, :workflow_owner, :workflow_name, NOW(), NOW())
-	RETURNING id;`
-	var wfSpec job.WorkflowSpec
-	wfSpec.Workflow = simpleWorkflow
-	wfSpec.WorkflowID = testWorkflowID
-	wfSpec.WorkflowOwner = testWorkflowOwner
-	wfSpec.WorkflowName = testWorkflowName
-	_, err := db.NamedExec(sql, wfSpec)
-	require.NoError(t, err)
-
-	return store.NewDBStore(db, logger.TestLogger(t), clock)
-}
-
 type testConfigProvider struct {
 	localNode           func(ctx context.Context) (capabilities.Node, error)
 	configForCapability func(ctx context.Context, capabilityID string, donID uint32) (registrysyncer.CapabilityConfiguration, error)
@@ -236,7 +216,9 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	})
 	require.NoError(t, err)
 
-	sl, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+	lggr := logger.TestLogger(t)
+
+	sl, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   200,
 		PerOwner: 200,
 	})
@@ -291,7 +273,7 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	}
 	// We use the cfg clock incase they override it
 	if cfg.Store == nil {
-		cfg.Store = newTestDBStore(t, cfg.clock)
+		cfg.Store = store.NewInMemoryStore(logger.TestLogger(t), clock)
 	}
 	eng, err := NewEngine(testutils.Context(t), cfg)
 	return eng, &testHooks{initSuccessful: initSuccessful, initFailed: initFailed, executionFinished: executionFinished, rateLimited: rateLimited}, err
@@ -412,7 +394,7 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	resp2 := <-target2.response
 	assert.Equal(t, cr.Event.Outputs, resp2.Value)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -491,21 +473,6 @@ func mockTriggerWithName(t *testing.T, name string) (capabilities.TriggerCapabil
 
 func mockTrigger(t *testing.T) (capabilities.TriggerCapability, capabilities.TriggerResponse) {
 	return mockTriggerWithName(t, "mercury-trigger@1.0.0")
-}
-
-func mockNoopTrigger(t *testing.T) capabilities.TriggerCapability {
-	t.Helper()
-
-	mt := &mockTriggerCapability{
-		CapabilityInfo: capabilities.MustNewCapabilityInfo(
-			"mercury-trigger@1.0.0",
-			capabilities.CapabilityTypeTrigger,
-			"issues a trigger when a mercury report is received.",
-		),
-		ch:                         make(chan capabilities.TriggerResponse, 10),
-		registerTriggerCallCounter: make(map[string]int),
-	}
-	return mt
 }
 
 func mockFailingConsensus() *mockCapability {
@@ -587,6 +554,7 @@ func mockTarget(id string) *mockCapability {
 }
 
 func TestEngine_RateLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	t.Run("per user rate limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -645,7 +613,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 	t.Run("global rate limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		reg := coreCap.NewRegistry(logger.TestLogger(t))
+		reg := coreCap.NewRegistry(lggr)
 
 		trigger, _ := mockTrigger(t)
 		require.NoError(t, reg.Add(ctx, trigger))
@@ -724,7 +692,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
 		})
@@ -776,7 +744,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
 		})
@@ -836,7 +804,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:            10,
 			PerOwner:          1,
 			PerOwnerOverrides: overrides,
@@ -891,7 +859,7 @@ func TestEngine_ErrorsTheWorkflowIfAStepErrors(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusErrored, state.Status)
@@ -914,7 +882,7 @@ func TestEngine_GracefulEarlyTermination(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
 	assert.Nil(t, state.Steps["write_polygon-testnet-mumbai"])
@@ -1007,7 +975,7 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1029,116 +997,6 @@ func TestEngine_MultiStepDependencies(t *testing.T) {
 	o, err := values.Unwrap(out)
 	require.NoError(t, err)
 	assert.Equal(t, obs.([]any)[1], o)
-}
-
-func TestEngine_ResumesPendingExecutions(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t))
-
-	trigger := mockNoopTrigger(t)
-	resp, err := values.NewMap(map[string]any{
-		"123": decimal.NewFromFloat(1.00),
-		"456": decimal.NewFromFloat(1.25),
-		"789": decimal.NewFromFloat(1.50),
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus("")))
-	require.NoError(t, reg.Add(ctx, mockTarget("")))
-
-	action, _ := mockAction(t)
-	require.NoError(t, reg.Add(ctx, action))
-	dbstore := newTestDBStore(t, clockwork.NewFakeClock())
-	ec := &store.WorkflowExecution{
-		Steps: map[string]*store.WorkflowExecutionStep{
-			workflows.KeywordTrigger: {
-				Outputs: store.StepOutput{
-					Value: resp,
-				},
-				Status:      store.StatusCompleted,
-				ExecutionID: "<execution-ID>",
-				Ref:         workflows.KeywordTrigger,
-			},
-		},
-		WorkflowID:  testWorkflowID,
-		ExecutionID: "<execution-ID>",
-		Status:      store.StatusStarted,
-	}
-	_, err = dbstore.Add(ctx, ec)
-	require.NoError(t, err)
-
-	eng, hooks := newTestEngineWithYAMLSpec(
-		t,
-		reg,
-		multiStepWorkflow,
-		func(c *Config) { c.Store = dbstore },
-	)
-	servicetest.Run(t, eng)
-
-	eid := getExecutionID(t, eng, hooks)
-	gotEx, err := dbstore.Get(ctx, eid)
-	require.NoError(t, err)
-	assert.Equal(t, store.StatusCompleted, gotEx.Status)
-}
-
-func TestEngine_TimesOutOldExecutions(t *testing.T) {
-	t.Parallel()
-	ctx := testutils.Context(t)
-	reg := coreCap.NewRegistry(logger.TestLogger(t))
-
-	trigger := mockNoopTrigger(t)
-	resp, err := values.NewMap(map[string]any{
-		"123": decimal.NewFromFloat(1.00),
-		"456": decimal.NewFromFloat(1.25),
-		"789": decimal.NewFromFloat(1.50),
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, reg.Add(ctx, trigger))
-	require.NoError(t, reg.Add(ctx, mockConsensus("")))
-	require.NoError(t, reg.Add(ctx, mockTarget("")))
-
-	action, _ := mockAction(t)
-	require.NoError(t, reg.Add(ctx, action))
-
-	clock := clockwork.NewFakeClock()
-	dbstore := newTestDBStore(t, clock)
-	ec := &store.WorkflowExecution{
-		Steps: map[string]*store.WorkflowExecutionStep{
-			workflows.KeywordTrigger: {
-				Outputs: store.StepOutput{
-					Value: resp,
-				},
-				Status:      store.StatusCompleted,
-				ExecutionID: "<execution-ID>",
-				Ref:         workflows.KeywordTrigger,
-			},
-		},
-		WorkflowID:  testWorkflowID,
-		ExecutionID: "<execution-ID>",
-		Status:      store.StatusStarted,
-	}
-	_, err = dbstore.Add(ctx, ec)
-	require.NoError(t, err)
-
-	eng, hooks := newTestEngineWithYAMLSpec(
-		t,
-		reg,
-		multiStepWorkflow,
-		func(c *Config) {
-			c.Store = dbstore
-			c.clock = clock
-		},
-	)
-	clock.Advance(15 * time.Minute)
-	servicetest.Run(t, eng)
-
-	_ = getExecutionID(t, eng, hooks)
-	gotEx, err := dbstore.Get(ctx, "<execution-ID>")
-	require.NoError(t, err)
-	assert.Equal(t, store.StatusTimeout, gotEx.Status)
 }
 
 const (
@@ -1198,14 +1056,14 @@ func TestEngine_WrapsTargets(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := newTestDBStore(t, clock)
+	executionsStore := store.NewInMemoryStore(logger.TestLogger(t), clock)
 
 	eng, hooks := newTestEngineWithYAMLSpec(
 		t,
 		reg,
 		delayedWorkflow,
 		func(c *Config) {
-			c.Store = dbstore
+			c.Store = executionsStore
 			c.clock = clock
 		},
 	)
@@ -1244,7 +1102,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 	require.NoError(t, reg.Add(ctx, mockTarget("")))
 
 	clock := clockwork.NewFakeClock()
-	dbstore := newTestDBStore(t, clock)
+	executionsStore := store.NewInMemoryStore(logger.TestLogger(t), clock)
 
 	var peerID p2ptypes.PeerID
 	node := capabilities.Node{
@@ -1272,7 +1130,7 @@ func TestEngine_GetsNodeInfoDuringInitialization(t *testing.T) {
 		reg,
 		delayedWorkflow,
 		func(c *Config) {
-			c.Store = dbstore
+			c.Store = executionsStore
 			c.clock = clock
 			c.maxRetries = 2
 			c.retryMs = 0
@@ -1358,7 +1216,7 @@ func TestEngine_PassthroughInterpolation(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1452,7 +1310,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 		"deltaStage": "1s",
 		"schedule":   "allAtOnce",
 	})
-	assert.NoError(t, err, "failed to wrap map of registry config")
+	require.NoError(t, err, "failed to wrap map of registry config")
 
 	// Mock the capabilities of the simple workflow.
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -1505,7 +1363,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1589,7 +1447,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 	)
 
 	giveRegistryConfig, err := values.WrapMap(registryConfig)
-	assert.NoError(t, err, "failed to wrap map of registry config")
+	require.NoError(t, err, "failed to wrap map of registry config")
 
 	// Mock the capabilities of the simple workflow.
 	reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -1646,7 +1504,7 @@ func TestEngine_MergesWorkflowConfigAndCRConfig_CRConfigPrecedence(t *testing.T)
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1700,7 +1558,7 @@ func TestEngine_HandlesNilConfigOnchain(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1796,7 +1654,7 @@ targets:
 	servicetest.Run(t, eng)
 
 	eid := getExecutionID(t, eng, hooks)
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
@@ -1895,7 +1753,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
@@ -1970,7 +1828,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 
 	eid := getExecutionID(t, eng, testHooks)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompletedEarlyExit, state.Status)
@@ -2085,7 +1943,7 @@ func TestEngine_FetchesSecrets(t *testing.T) {
 
 		eid := getExecutionID(t, eng, testHooks)
 
-		state, err := eng.executionStates.Get(ctx, eid)
+		state, err := eng.executionsStore.Get(ctx, eid)
 		require.NoError(t, err)
 
 		assert.Equal(t, store.StatusCompleted, state.Status)
@@ -2409,7 +2267,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	resp2 := <-target2.response
 	assert.Equal(t, cr2.Event.Outputs, resp2.Value)
 
-	state, err := eng.executionStates.Get(ctx, eid)
+	state, err := eng.executionsStore.Get(ctx, eid)
 	require.NoError(t, err)
 
 	// gets the execution ID of the second execution

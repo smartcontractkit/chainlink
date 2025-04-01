@@ -89,10 +89,6 @@ func parseError(txError error) (string, error) {
 }
 
 func parseErrorFromABI(errorString string, contractABI string) (string, error) {
-	parsedAbi, err := abi.JSON(strings.NewReader(contractABI))
-	if err != nil {
-		return "", errors.Wrap(err, "error loading ABI")
-	}
 	errorString = strings.TrimPrefix(errorString, "Reverted ")
 	errorString = strings.TrimPrefix(errorString, "0x")
 
@@ -100,6 +96,17 @@ func parseErrorFromABI(errorString string, contractABI string) (string, error) {
 	if err != nil {
 		return "", errors.Wrap(err, "error decoding error string")
 	}
+
+	v, err := abi.UnpackRevert(data)
+	if err == nil {
+		return fmt.Sprintf("error - `%s`", v), nil
+	}
+
+	parsedAbi, err := abi.JSON(strings.NewReader(contractABI))
+	if err != nil {
+		return "", errors.Wrap(err, "error loading ABI")
+	}
+
 	for errorName, abiError := range parsedAbi.Errors {
 		if bytes.Equal(data[:4], abiError.ID.Bytes()[:4]) {
 			// Found a matching error
