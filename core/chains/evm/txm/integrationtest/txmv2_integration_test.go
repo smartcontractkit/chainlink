@@ -312,7 +312,7 @@ func TestIntegration_secondary_feed_transmission(t *testing.T) {
 						"contractAddress":    dualAggAddress.Hex(),
 						"transmitterAddress": keys[1].Address.Hex(),
 						"meta": map[string]any{
-							"hint":   []any{"calldata"},
+							"hint":   []any{"full"},
 							"refund": []any{"0xbc1Be4cC8790b0C99cff76100E0e6d01E32C6A2C:90"},
 						},
 					},
