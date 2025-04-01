@@ -924,7 +924,7 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	require.NoError(t, err)
 
 	for chain, addresses := range nonces {
-		assert.Len(t, results[chain], len(addresses))
+		assert.Len(t, results[chain], len(request[chain]))
 		for address, nonce := range addresses {
 			assert.Equal(t, nonce, results[chain][address.String()])
 		}
