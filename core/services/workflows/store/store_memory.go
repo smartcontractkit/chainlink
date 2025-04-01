@@ -25,7 +25,7 @@ const (
 // The store always returns a copy of the current workflow execution state in the store such that it is effectively an
 // immutable object as state modification only occurs within the store.
 // TODO make the WorkflowExecution type immutable to reflect the latter fact and prevent unexpected side effects from
-// TODO code being added that modifies WorkflowExecution objects outside of the store.
+// TODO code being added that modifies WorkflowExecution objects outside of the store. (https://smartcontract-it.atlassian.net/browse/CAPPL-682)
 type InMemoryStore struct {
 	lggr logger.Logger
 	commonservices.StateMachine

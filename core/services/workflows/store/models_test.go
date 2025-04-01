@@ -23,13 +23,15 @@ func TestWorkflowExecution_DeepCopy(t *testing.T) {
 		UpdatedAt:   &now,
 	}
 
+	updatedNow := now.Add(1 * time.Minute)
+	finishedNow := now.Add(2 * time.Minute)
 	original := WorkflowExecution{
 		ExecutionID: "exec1",
 		WorkflowID:  "workflow1",
 		Status:      StatusStarted,
 		CreatedAt:   &now,
-		UpdatedAt:   &now,
-		FinishedAt:  &now,
+		UpdatedAt:   &updatedNow,
+		FinishedAt:  &finishedNow,
 		Steps:       map[string]*WorkflowExecutionStep{"step1": step},
 	}
 
@@ -40,6 +42,9 @@ func TestWorkflowExecution_DeepCopy(t *testing.T) {
 
 	// Check that the copied execution is a different instance
 	assert.NotSame(t, &original, &deepCopy)
+
+	// Check that the steps map are the same before modification of the original
+	assert.Equal(t, original.Steps, deepCopy.Steps)
 
 	// Add a new step to the original steps and check that the deep copy is not affected
 	original.Steps["step2"] = &WorkflowExecutionStep{}
