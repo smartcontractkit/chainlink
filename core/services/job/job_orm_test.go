@@ -2215,7 +2215,7 @@ func TestORM_CreateJob_OCR2_With_DualTransmission(t *testing.T) {
 
 	jb, err = ocr2validate.ValidatedOracleSpecToml(testutils.Context(t), config.OCR2(), config.Insecure(), baseJobSpec+hintNotValidDualTransmissionSpec, nil)
 	require.NoError(t, err)
-	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs]")
+	require.ErrorContains(t, jobORM.CreateJob(ctx, &jb), "dual transmission meta.hint value some-invalid-hint should be one of the following [contract_address function_selector logs calldata default_logs full]")
 
 	invalidRefundFormatDualTransmissionSpec := fmt.Sprintf(`
 		enableDualTransmission=true

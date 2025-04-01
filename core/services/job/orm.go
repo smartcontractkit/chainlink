@@ -1725,7 +1725,7 @@ func (o *orm) loadJobSpecErrors(ctx context.Context, jb *Job) error {
 }
 
 func validateDualTransmissionHint(vals []interface{}) error {
-	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs"}
+	accepted := []string{"contract_address", "function_selector", "logs", "calldata", "default_logs", "full"}
 	for _, v := range vals {
 		valString, ok := v.(string)
 		if !ok {

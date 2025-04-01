@@ -359,13 +359,15 @@ func ConfirmCommitWithExpectedSeqNumRange(
 	defer ticker.Stop()
 	for {
 		select {
+		case <-t.Context().Done():
+			return nil, nil
 		case <-ticker.C:
 			t.Logf("Waiting for commit report on chain selector %d from source selector %d expected seq nr range %s",
 				dest.Selector, srcSelector, expectedSeqNumRange.String())
 
 			// Need to do this because the subscription sometimes fails to get the event.
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
-				Context: tests.Context(t),
+				Context: t.Context(),
 			})
 			require.NoError(t, err)
 			for iter.Next() {
