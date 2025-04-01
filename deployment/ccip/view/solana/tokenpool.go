@@ -54,6 +54,7 @@ type TokenPoolRateLimitTokenBucket struct {
 func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, remoteChains []uint64, tokens []solana.PublicKey, poolType string) (TokenPoolView, error) {
 	view := TokenPoolView{}
 	view.PoolType = poolType
+	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
 	view.TokenPoolState = make(map[string]TokenPoolState)
 	for _, remote := range remoteChains {
 		view.TokenPoolChainConfig[remote] = make(map[string]TokenPoolChainConfig)
@@ -71,13 +72,15 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 						LastUpdated: remoteChainConfigAccount.Base.InboundRateLimit.LastUpdated,
 						Enabled:     remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Enabled,
 						Capacity:    remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Capacity,
-						Rate:        remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate},
+						Rate:        remoteChainConfigAccount.Base.InboundRateLimit.Cfg.Rate,
+					},
 					OutboundRateLimit: TokenPoolRateLimitTokenBucket{
 						Tokens:      remoteChainConfigAccount.Base.OutboundRateLimit.Tokens,
 						LastUpdated: remoteChainConfigAccount.Base.OutboundRateLimit.LastUpdated,
 						Enabled:     remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Enabled,
 						Capacity:    remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Capacity,
-						Rate:        remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate},
+						Rate:        remoteChainConfigAccount.Base.OutboundRateLimit.Cfg.Rate,
+					},
 				}
 				for i, addr := range remoteChainConfigAccount.Base.Remote.PoolAddresses {
 					view.TokenPoolChainConfig[remote][token.String()].PoolAddresses[i] = string(addr.Address)
