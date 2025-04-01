@@ -35,17 +35,17 @@ func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*geth
 	switch tc.MCMSAction {
 	case types.TimelockActionSchedule:
 		if s.ProposerMcm == nil {
-			return nil, fmt.Errorf("missing proposerMcm")
+			return nil, errors.New("missing proposerMcm")
 		}
 		return s.ProposerMcm, nil
 	case types.TimelockActionCancel:
 		if s.CancellerMcm == nil {
-			return nil, fmt.Errorf("missing cancellerMcm")
+			return nil, errors.New("missing cancellerMcm")
 		}
 		return s.CancellerMcm, nil
 	case types.TimelockActionBypass:
 		if s.BypasserMcm == nil {
-			return nil, fmt.Errorf("missing bypasserMcm")
+			return nil, errors.New("missing bypasserMcm")
 		}
 		return s.BypasserMcm, nil
 	default:
