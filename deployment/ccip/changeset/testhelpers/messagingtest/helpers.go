@@ -104,12 +104,7 @@ func sleepAndReplay(t *testing.T, e testhelpers.DeployedEnv, chainSelectors ...u
 	time.Sleep(30 * time.Second)
 	replayBlocks := make(map[uint64]uint64)
 	for _, selector := range chainSelectors {
-		family, err := chain_selectors.GetSelectorFamily(selector)
-		require.NoError(t, err)
-		// log replay is only available on EVM
-		if family == chain_selectors.FamilyEVM {
-			replayBlocks[selector] = 1
-		}
+		replayBlocks[selector] = 1
 	}
 	testhelpers.ReplayLogs(t, e.Env.Offchain, replayBlocks)
 }

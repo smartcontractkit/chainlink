@@ -132,7 +132,9 @@ func (r *server) expireRequests() {
 
 	for requestID, executeReq := range r.requestIDToRequest {
 		if executeReq.request.Expired() {
-			err := executeReq.request.Cancel(types.Error_TIMEOUT, "request expired by executable server")
+			ctx, cancelFn := r.stopCh.NewCtx()
+			err := executeReq.request.Cancel(ctx, types.Error_TIMEOUT, "request expired by executable server")
+			cancelFn()
 			if err != nil {
 				r.lggr.Errorw("failed to cancel request", "request", executeReq, "err", err)
 			}
@@ -191,9 +193,15 @@ func (r *server) Receive(ctx context.Context, msg *types.MessageBody) {
 			return
 		}
 
+		sr, ierr := request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
+			callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr)
+		if ierr != nil {
+			r.lggr.Errorw("failed to instantiate server request", "err", ierr)
+			return
+		}
+
 		r.requestIDToRequest[requestID] = requestAndMsgID{
-			request: request.NewServerRequest(r.underlying, msg.Method, r.capInfo.ID, r.localDonInfo.ID, r.peerID,
-				callingDon, messageID, r.dispatcher, r.requestTimeout, r.lggr),
+			request:   sr,
 			messageID: messageID,
 		}
 	}

@@ -183,16 +183,19 @@ func LatestBlock(ctx context.Context, env deployment.Environment, chainSelector 
 	}
 }
 
-func LatestBlocksByChain(ctx context.Context, chains map[uint64]deployment.Chain) (map[uint64]uint64, error) {
-	// TODO: use LatestBlock and include solchains
+func LatestBlocksByChain(ctx context.Context, env deployment.Environment) (map[uint64]uint64, error) {
 	latestBlocks := make(map[uint64]uint64)
-	for _, chain := range chains {
-		latesthdr, err := chain.Client.HeaderByNumber(ctx, nil)
+
+	chains := []uint64{}
+	chains = slices.AppendSeq(chains, maps.Keys(env.Chains))
+	chains = slices.AppendSeq(chains, maps.Keys(env.SolChains))
+	for _, selector := range chains {
+		block, err := LatestBlock(ctx, env, selector)
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to get latest header for chain %d", chain.Selector)
+			return nil, errors.Wrapf(err, "failed to get latest block for chain %d", selector)
 		}
-		block := latesthdr.Number.Uint64()
-		latestBlocks[chain.Selector] = block
+		latestBlocks[selector] = block
+
 	}
 	return latestBlocks, nil
 }

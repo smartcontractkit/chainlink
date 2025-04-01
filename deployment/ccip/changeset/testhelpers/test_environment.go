@@ -309,14 +309,15 @@ func (m *MemoryEnvironment) StartChains(t *testing.T) {
 
 	m.Chains = chains
 	m.SolChains = memory.NewMemoryChainsSol(t, tc.SolChains)
+	env := deployment.Environment{
+		Chains:    m.Chains,
+		SolChains: m.SolChains,
+	}
 	homeChainSel, feedSel := allocateCCIPChainSelectors(chains)
-	replayBlocks, err := LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := LatestBlocksByChain(ctx, env)
 	require.NoError(t, err)
 	m.DeployedEnv = DeployedEnv{
-		Env: deployment.Environment{
-			Chains:    m.Chains,
-			SolChains: m.SolChains,
-		},
+		Env:          env,
 		HomeChainSel: homeChainSel,
 		FeedChainSel: feedSel,
 		ReplayBlocks: replayBlocks,

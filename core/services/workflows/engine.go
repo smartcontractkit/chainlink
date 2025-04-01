@@ -110,7 +110,7 @@ type Engine struct {
 	secretsFetcher       SecretsFor
 	env                  exec.Env
 	localNode            capabilities.Node
-	executionStates      store.Store
+	executionsStore      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdatesChMap     stepUpdateManager
@@ -360,11 +360,7 @@ func (e *Engine) init(ctx context.Context) {
 		return
 	}
 
-	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
-	err := e.resumeInProgressExecutions(ctx)
-	if err != nil {
-		e.logger.Errorf("failed to resume in-progress workflows: %v", err)
-	}
+	e.logger.Debug("capabilities resolved")
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
@@ -382,72 +378,13 @@ func (e *Engine) init(ctx context.Context) {
 	e.afterInit(true)
 }
 
-var (
-	defaultOffset, defaultLimit = 0, 1_000
-)
-
-func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
-	wipExecutions, err := e.executionStates.GetUnfinished(ctx, e.workflow.id, defaultOffset, defaultLimit)
-	if err != nil {
-		return err
-	}
-
-	// TODO: paginate properly
-	if len(wipExecutions) >= defaultLimit {
-		e.logger.Warnf("possible execution overflow during resumption, work in progress executions: %d >= %d", len(wipExecutions), defaultLimit)
-	}
-
-	// Cache the dependents associated with a step.
-	// We may have to reprocess many executions, but should only
-	// need to calculate the dependents of a step once since
-	// they won't change.
-	refToDeps := map[string][]*step{}
-	for _, execution := range wipExecutions {
-		for _, step := range execution.Steps {
-			// NOTE: In order to determine what tasks need to be enqueued,
-			// we look at any completed steps, and for each dependent,
-			// check if they are ready to be enqueued.
-			// This will also handle an execution that has stalled immediately on creation,
-			// since we always create an execution with an initially completed trigger step.
-			if step.Status != store.StatusCompleted {
-				continue
-			}
-
-			sds, ok := refToDeps[step.Ref]
-			if !ok {
-				s, err := e.workflow.dependents(step.Ref)
-				if err != nil {
-					return err
-				}
-
-				sds = s
-			}
-
-			for _, sd := range sds {
-				ch := make(chan store.WorkflowExecutionStep)
-				added := e.stepUpdatesChMap.add(execution.ExecutionID, stepUpdateChannel{
-					ch:          ch,
-					executionID: execution.ExecutionID,
-				})
-				if added {
-					// We trigger the `stepUpdateLoop` for this execution, since the loop is not running atm.
-					e.wg.Add(1)
-					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch, execution.CreatedAt)
-				}
-				e.queueIfReady(execution, sd)
-			}
-		}
-	}
-	return nil
-}
-
-func generateTriggerId(workflowID string, triggerIdx int) string {
+func generateTriggerID(workflowID string, triggerIdx int) string {
 	return fmt.Sprintf("wf_%s_trigger_%d", workflowID, triggerIdx)
 }
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	triggerID := generateTriggerId(e.workflow.id, triggerIdx)
+	triggerID := generateTriggerID(e.workflow.id, triggerIdx)
 
 	tc, err := values.NewMap(t.Config)
 	if err != nil {
@@ -586,7 +523,7 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		Status:      store.StatusStarted,
 	}
 
-	dbWex, err := e.executionStates.Add(ctx, ec)
+	dbWex, err := e.executionsStore.Add(ctx, ec)
 	if err != nil {
 		return err
 	}
@@ -629,7 +566,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		stepUpdate.Status = store.StatusTimeout
 	}
 
-	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)
+	state, err := e.executionsStore.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
@@ -718,14 +655,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	l.Info("finishing execution")
 
-	err := e.executionStates.UpdateStatus(ctx, executionID, status)
+	execState, err := e.executionsStore.FinishExecution(ctx, executionID, status)
 	if err != nil {
-		return err
-	}
-
-	execState, err := e.executionStates.Get(ctx, executionID)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
 
 	// clean all per execution state trackers
@@ -1068,7 +1000,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			ReferenceID:              t.Ref,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
-		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
+		TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
 		Config:    t.config.Load(),
 	}
 
@@ -1424,7 +1356,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionStates:      cfg.Store,
+		executionsStore:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
 		triggerEvents:        make(chan capabilities.TriggerResponse),

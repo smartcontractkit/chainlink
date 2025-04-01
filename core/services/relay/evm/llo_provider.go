@@ -174,6 +174,7 @@ func NewLLOProvider(
 			MercuryTransmitterOpts: mercuryTransmitterOpts,
 			Subtransmitters:        lloCfg.Transmitters,
 			RetirementReportCache:  retirementReportCache,
+			CapabilitiesRegistry:   capabilitiesRegistry,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create LLO transmitter: %w", err)

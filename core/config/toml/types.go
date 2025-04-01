@@ -36,6 +36,7 @@ type Core struct {
 	// General/misc
 	AppID               uuid.UUID `toml:"-"` // random or test
 	InsecureFastScrypt  *bool
+	InsecurePPROFHeap   *bool
 	RootDir             *string
 	ShutdownGracePeriod *commonconfig.Duration
 
@@ -66,6 +67,9 @@ type Core struct {
 func (c *Core) SetFrom(f *Core) {
 	if v := f.InsecureFastScrypt; v != nil {
 		c.InsecureFastScrypt = v
+	}
+	if v := f.InsecurePPROFHeap; v != nil {
+		c.InsecurePPROFHeap = v
 	}
 	if v := f.RootDir; v != nil {
 		c.RootDir = v

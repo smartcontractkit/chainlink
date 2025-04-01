@@ -74,7 +74,7 @@ func fetchNodesFromJD(ctx context.Context, env deployment.Environment, nodeFilte
 	return resp.Nodes, nil
 }
 
-func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
+func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpec string, workflowName *string, nodeFilters *NodesFilter) (deployment.ChangesetOutput, error) {
 	out := deployment.ChangesetOutput{
 		Jobs: []deployment.ProposedJob{},
 	}
@@ -89,6 +89,12 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 			Key:   "don_id",
 			Value: pointer.To(strconv.FormatUint(nodeFilters.DONID, 10)),
 		},
+	}
+	if workflowName != nil {
+		jobLabels = append(jobLabels, &ptypes.Label{
+			Key:   "workflow_name",
+			Value: workflowName,
+		})
 	}
 
 	for _, node := range nodes {
@@ -111,7 +117,31 @@ func ProposeJobs(ctx context.Context, env deployment.Environment, workflowJobSpe
 	return out, nil
 }
 
-func DeleteJobs(ctx context.Context, env deployment.Environment, jobIDs []string) {
+func DeleteJobs(ctx context.Context, env deployment.Environment, jobIDs []string, workflowName string) {
+	if len(jobIDs) == 0 {
+		env.Logger.Debugf("jobIDs not present. Listing jobs to delete via workflow name")
+		jobSelectors := []*jdtypesv1.Selector{
+			{
+				Key:   "workflow_name",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: &workflowName,
+			},
+		}
+
+		listJobResponse, err := env.Offchain.ListJobs(ctx, &jobv1.ListJobsRequest{
+			Filter: &jobv1.ListJobsRequest_Filter{
+				Selectors: jobSelectors,
+			},
+		})
+		if err != nil {
+			env.Logger.Errorf("Failed to list jobs before deleting: %v", err)
+			return
+		}
+		for _, job := range listJobResponse.Jobs {
+			jobIDs = append(jobIDs, job.Id)
+		}
+	}
+
 	for _, jobID := range jobIDs {
 		env.Logger.Debugf("Deleting job %s", jobID)
 		_, err := env.Offchain.DeleteJob(ctx, &jobv1.DeleteJobRequest{
