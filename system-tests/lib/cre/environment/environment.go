@@ -68,12 +68,12 @@ type SetupInput struct {
 	ExtraAllowedPorts          []int
 	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
 	CustomJobsFn               func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error)
-	CapabilityFactoryFunctions []func([]string) []keystone_changeset.DONCapabilityWithConfig
+	CapabilityFactoryFunctions []func([]cretypes.CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
 	JobSpecFactoryFunctions    []cretypes.JobSpecFactoryFn
 	BlockchainsInput           blockchain.Input
 	JdInput                    jd.Input
 	InfraInput                 libtypes.InfraInput
-	CustomBinariesPaths        map[string]string
+	CustomBinariesPaths        map[cretypes.CapabilityFlag]string
 }
 
 func SetupTestEnvironment(
@@ -258,32 +258,33 @@ func SetupTestEnvironment(
 		// instruct Docker which capabilities to copy to the container
 		// TODO: add similar support for CRIB
 		if input.InfraInput.InfraType == libtypes.Docker {
-			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
-					Key:   libnode.NodeTypeKey,
-					Value: keystonetypes.WorkerNode,
-				}, libnode.EqualLabels)
-				if wErr != nil {
-					return nil, errors.Wrap(wErr, "failed to find worker nodes")
+			for capabilityFlag, binaryPath := range input.CustomBinariesPaths {
+				if binaryPath == "" {
+					return nil, fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
 				}
 
-				cronBinaryPath := input.CustomBinariesPaths[cretypes.CronCapability]
-				if cronBinaryPath == "" {
-					return nil, errors.New("cron capability binary path is empty")
-				}
-
-				for _, node := range workerNodes {
-					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-					if nErr != nil {
-						return nil, errors.Wrap(nErr, "failed to find index label")
+				if flags.HasFlag(donMetadata.Flags, capabilityFlag) {
+					workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
+						Key:   libnode.NodeTypeKey,
+						Value: keystonetypes.WorkerNode,
+					}, libnode.EqualLabels)
+					if wErr != nil {
+						return nil, errors.Wrap(wErr, "failed to find worker nodes")
 					}
 
-					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-					if nIErr != nil {
-						return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
-					}
+					for _, node := range workerNodes {
+						nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
+						if nErr != nil {
+							return nil, errors.Wrap(nErr, "failed to find index label")
+						}
 
-					input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, cronBinaryPath)
+						nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
+						if nIErr != nil {
+							return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
+						}
+
+						input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, binaryPath)
+					}
 				}
 			}
 		}

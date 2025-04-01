@@ -304,7 +304,7 @@ func setupPoRTestEnvironment(
 		InfraInput:                 *in.Infra,
 		CustomBinariesPaths:        map[string]string{keystonetypes.CronCapability: in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath},
 		ExtraAllowedPorts:          extraAllowedPorts,
-		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{generatePoRJobsFn("/home/capabilities/"+filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath), extraAllowedPorts)},
+		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn("/home/capabilities/"+filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath), extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testLogger, cldlogger.NewSingleFileLogger(t), testcontext.Get(t), universalSetupInput)
@@ -367,28 +367,6 @@ func setupPoRTestEnvironment(
 		blockchainOutput:     universalSetupOutput.BlockchainOutput.BlockchainOutput,
 		donTopology:          universalSetupOutput.DonTopology,
 		nodeOutput:           universalSetupOutput.NodeOutput,
-	}
-}
-
-func generatePoRJobsFn(cronBinaryPath string, extraAllowedPorts []int) keystonetypes.JobSpecFactoryFn {
-	return func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
-		donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
-			&keystonetypes.GeneratePoRJobSpecsInput{
-				BlockchainOutput:       input.BlockchainOutput,
-				DonsWithMetadata:       input.DonTopology.DonsWithMetadata,
-				OCR3CapabilityAddress:  input.KeystoneContractsOutput.OCR3CapabilityAddress,
-				ExtraAllowedPorts:      extraAllowedPorts,
-				ExtraAllowedIPsCIDR:    []string{"0.0.0.0/0"}, // allow all IPs
-				CronCapBinPath:         cronBinaryPath,
-				GatewayConnectorOutput: *input.DonTopology.GatewayConnectorOutput,
-			},
-			nil, // no custom jobs
-		)
-		if jobSpecsErr != nil {
-			return nil, errors.Wrap(jobSpecsErr, "failed to generate job specs")
-		}
-
-		return donToJobSpecs, nil
 	}
 }
 

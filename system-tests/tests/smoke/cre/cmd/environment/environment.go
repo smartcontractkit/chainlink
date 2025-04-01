@@ -17,6 +17,9 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 	crecontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/chainreader"
+	crepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/webapi"
 	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
@@ -65,7 +68,7 @@ var startCmd = &cobra.Command{
 }
 
 type EnvironmentConfig struct {
-	BlockchainA       *blockchain.Input       `toml:"blockchain" validate:"required"`
+	Blockchain        *blockchain.Input       `toml:"blockchain" validate:"required"`
 	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
@@ -91,7 +94,7 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		return nil, fmt.Errorf("expected 3 nodesets, got %d", len(in.NodeSets))
 	}
 
-	capabilitiesBinaryPaths := map[string]string{}
+	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
 
 	workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
 	if in.ExtraCapabilities.CronCapabilityBinaryPath != "" {
@@ -145,7 +148,7 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		fmt.Println()
 	}
 
-	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	chainIDInt, chainErr := strconv.Atoi(in.Blockchain.ChainID)
 	if chainErr != nil {
 		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 	}
@@ -157,13 +160,28 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		crecontracts.WebAPICapabilityFactoryFn,
 	}
 
+	chainReaderJobSpecFactoryFn := chainreader.ChainReaderJobSpecFactoryFn(
+		chainIDInt,
+		"evm",
+		in.ExtraCapabilities.LogEventTriggerBinaryPath,
+		in.ExtraCapabilities.ReadContractBinaryPath,
+	)
+
+	porJobSpecFactoryFn := crepor.PoRJobSpecFactoryFn(
+		in.ExtraCapabilities.CronCapabilityBinaryPath,
+		[]int{},
+		[]string{},
+		[]string{"0.0.0.0/0"}, // allow all IPs
+	)
+
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:  capabilitiesAwareNodeSets,
 		CapabilityFactoryFunctions: capabilityFactoryFns,
-		BlockchainsInput:           *in.BlockchainA,
+		BlockchainsInput:           *in.Blockchain,
 		JdInput:                    *in.JD,
 		InfraInput:                 *in.Infra,
 		CustomBinariesPaths:        capabilitiesBinaryPaths,
+		JobSpecFactoryFunctions:    []cretypes.JobSpecFactoryFn{chainReaderJobSpecFactoryFn, webapi.WebAPIJobSpecFactoryFn, porJobSpecFactoryFn},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testLogger, cldlogger.NewSingleFileLogger(nil), context.Background(), universalSetupInput)

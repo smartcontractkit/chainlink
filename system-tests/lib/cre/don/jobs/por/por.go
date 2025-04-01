@@ -20,8 +20,24 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
-func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
-	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error)) (types.DonsToJobSpecs, error) {
+var PoRJobSpecFactoryFn = func(cronBinaryPath string, extraAllowedPorts []int, extraAllowedIps, extraAllowedIPsCIDR []string) types.JobSpecFactoryFn {
+	return func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+		return GenerateJobSpecs(
+			&types.GeneratePoRJobSpecsInput{
+				BlockchainOutput:       input.BlockchainOutput,
+				DonsWithMetadata:       input.DonTopology.DonsWithMetadata,
+				OCR3CapabilityAddress:  input.KeystoneContractsOutput.OCR3CapabilityAddress,
+				ExtraAllowedPorts:      extraAllowedPorts,
+				ExtraAllowedIPs:        extraAllowedIps,
+				ExtraAllowedIPsCIDR:    extraAllowedIPsCIDR,
+				CronCapBinPath:         cronBinaryPath,
+				GatewayConnectorOutput: *input.DonTopology.GatewayConnectorOutput,
+			},
+		)
+	}
+}
+
+func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput) (types.DonsToJobSpecs, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
 	}
@@ -67,7 +83,6 @@ func GenerateJobSpecs(input *types.GeneratePoRJobSpecsInput,
 			input.ExtraAllowedIPs,
 			input.ExtraAllowedIPsCIDR,
 			gatewayConnectorData,
-			customJobsFn,
 		)
 		if err != nil {
 			return nil, errors.Wrapf(err, "failed to generate job specs for don %d", donWithMetadata.DonMetadata.ID)
@@ -91,7 +106,6 @@ func generateDonJobSpecs(
 	extraAllowedIPs []string,
 	extraAllowedIPsCIDR []string,
 	gatewayConnectorOutput types.GatewayConnectorOutput,
-	customJobsFn func(types.DonJobs, *types.DonWithMetadata) (types.DonJobs, error),
 ) (types.DonJobs, error) {
 	jobSpecs := make(types.DonJobs, 0)
 
@@ -193,14 +207,6 @@ func generateDonJobSpecs(
 				return nil, errors.Wrap(ocr2Err, "failed to get ocr2 key bundle id from labels")
 			}
 			jobSpecs = append(jobSpecs, jobs.WorkerOCR3(nodeID, oCR3CapabilityAddress, nodeEthAddr, ocr2KeyBundleID, ocrPeeringData, chainIDUint64))
-		}
-
-		// Insert custom jobs, test specific
-		if customJobsFn != nil {
-			jobSpecs, err = customJobsFn(jobSpecs, donWithMetadata)
-			if err != nil {
-				return nil, err
-			}
 		}
 	}
 

@@ -110,15 +110,17 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 			)
 		}
 
-		// if it's workflow DON configure workflow registry
-		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
+		// if it's workflow DON configure workflow registry, unless there's no gateway connector data
+		// which means that the workflow DON is using only workflow jobs and won't be downloading any WASM-compiled workflows
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil {
 			configOverrides[nodeIndex] += config.WorkerWorkflowRegistry(
 				input.WorkflowRegistryAddress, chainIDUint64)
 		}
 
-		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
-		// it's also required by custom compute, which can only run on workflow DON nodes
-		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) && !input.SkipGateway {
+		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
+		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
+		// gateway is required by custom compute, which won't start without it. Also, it can only run on workflow DON nodes
+		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				chainIDUint64,
