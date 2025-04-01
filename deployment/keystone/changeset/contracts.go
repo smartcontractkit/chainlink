@@ -97,10 +97,10 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, ch
 	return nil, fmt.Errorf("owner %s not found in address book", ownerStr)
 }
 
-// GetContract retrieves a contract instance of type T from the address book.
+// GetOwnableContract retrieves a contract instance of type T from the address book.
 // If `targetAddr` is provided, it will look for that specific address.
 // If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
-func GetContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr *string) (*T, error) {
+func GetOwnableContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr *string) (*T, error) {
 	var contractType deployment.ContractType
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
