@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/utils/matches"
 
 	cappkg "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 
 	corecapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
@@ -88,9 +87,9 @@ func setup(t *testing.T, config Config) testHarness {
 func TestComputeStartAddsToRegistry(t *testing.T) {
 	th := setup(t, defaultConfig)
 
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
-	cp, err := th.registry.Get(tests.Context(t), CapabilityIDCompute)
+	cp, err := th.registry.Get(t.Context(), CapabilityIDCompute)
 	require.NoError(t, err)
 	assert.Equal(t, th.compute, cp)
 }
@@ -98,7 +97,7 @@ func TestComputeStartAddsToRegistry(t *testing.T) {
 func TestComputeExecuteMissingConfig(t *testing.T) {
 	t.Parallel()
 	th := setup(t, defaultConfig)
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
@@ -113,14 +112,14 @@ func TestComputeExecuteMissingConfig(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	_, err = th.compute.Execute(tests.Context(t), req)
+	_, err = th.compute.Execute(t.Context(), req)
 	assert.ErrorContains(t, err, "invalid request: could not find \"config\" in map")
 }
 
 func TestComputeExecuteMissingBinary(t *testing.T) {
 	th := setup(t, defaultConfig)
 
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
 	config, err := values.WrapMap(map[string]any{
 		"config": []byte(""),
@@ -133,7 +132,7 @@ func TestComputeExecuteMissingBinary(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	_, err = th.compute.Execute(tests.Context(t), req)
+	_, err = th.compute.Execute(t.Context(), req)
 	assert.ErrorContains(t, err, "invalid request: could not find \"binary\" in map")
 }
 
@@ -141,7 +140,7 @@ func TestComputeExecute(t *testing.T) {
 	t.Parallel()
 	th := setup(t, defaultConfig)
 
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
 	binary := wasmtest.CreateTestBinary(simpleBinaryCmd, simpleBinaryLocation, true, t)
 
@@ -164,7 +163,7 @@ func TestComputeExecute(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	resp, err := th.compute.Execute(tests.Context(t), req)
+	resp, err := th.compute.Execute(t.Context(), req)
 	require.NoError(t, err)
 	assert.True(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 
@@ -186,7 +185,7 @@ func TestComputeExecute(t *testing.T) {
 			ReferenceID: "compute",
 		},
 	}
-	resp, err = th.compute.Execute(tests.Context(t), req)
+	resp, err = th.compute.Execute(t.Context(), req)
 	require.NoError(t, err)
 	assert.False(t, resp.Value.Underlying["Value"].(*values.Bool).Underlying)
 }
@@ -212,7 +211,7 @@ func TestComputeFetch(t *testing.T) {
 		th.connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResp)
 	}).Once()
 
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
 	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
 
@@ -289,7 +288,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 		th.connectorHandler.HandleGatewayMessage(context.Background(), "gateway1", gatewayResp)
 	}).Once()
 
-	require.NoError(t, th.compute.Start(tests.Context(t)))
+	require.NoError(t, th.compute.Start(t.Context()))
 
 	binary := wasmtest.CreateTestBinary(fetchBinaryCmd, fetchBinaryLocation, true, t)
 
@@ -308,7 +307,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 		},
 	}
 
-	_, err = th.compute.Execute(tests.Context(t), req)
+	_, err = th.compute.Execute(t.Context(), req)
 	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2056, 1*1024))
 }
 

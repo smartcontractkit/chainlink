@@ -45,22 +45,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -79,22 +66,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -112,6 +86,52 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -141,22 +161,9 @@
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -174,6 +181,31 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      image = "injected-at-runtime"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -201,6 +233,10 @@
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true

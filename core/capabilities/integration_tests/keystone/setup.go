@@ -126,9 +126,8 @@ func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	ctx := t.Context()
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
+	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice: price,
 
 		Timestamp: uint32(timestamp), //nolint:gosec // G115

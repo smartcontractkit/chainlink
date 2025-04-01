@@ -829,6 +829,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 			poolConfigPDA,
 			tokenPubKey,
 			authority,
+			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)
@@ -853,6 +854,7 @@ func RemoveFromTokenPoolAllowList(e deployment.Environment, cfg RemoveFromAllowL
 			poolConfigPDA,
 			tokenPubKey,
 			authority,
+			solana.SystemProgramID,
 		).ValidateAndBuild()
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to generate instructions: %w", err)

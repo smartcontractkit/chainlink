@@ -109,7 +109,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "https://original-url.com"
@@ -145,7 +145,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveEvent := WorkflowRegistryEvent{}
@@ -168,7 +168,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
@@ -199,7 +199,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -235,7 +235,7 @@ func Test_Handler(t *testing.T) {
 		ctx := testutils.Context(t)
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		giveURL := "http://example.com"
@@ -427,8 +427,9 @@ func Test_workflowRegisteredHandler(t *testing.T) {
 			},
 			validationFn: func(t *testing.T, ctx context.Context, event WorkflowRegistryWorkflowRegisteredV1, h *eventHandler, s *artifacts.Store, wfOwner []byte, wfName string, wfID string) {
 				me := &mockEngine{}
-				h.engineRegistry.Add(wfID, me)
-				err := h.workflowRegisteredEvent(ctx, event)
+				err := h.engineRegistry.Add(wfID, me)
+				require.NoError(t, err)
+				err = h.workflowRegisteredEvent(ctx, event)
 				require.Error(t, err)
 				require.ErrorContains(t, err, "workflow is already running")
 			},
@@ -575,18 +576,19 @@ func testRunningWorkflow(t *testing.T, tc testCase) {
 			opts = append(opts, WithEngineFactoryFn(tc.engineFactoryFn))
 		}
 
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
 
 		h := NewEventHandler(lggr, store, registry, emitter, rl, workflowLimits, artifactStore, opts...)
+		t.Cleanup(func() { assert.NoError(t, h.Close()) })
 
 		tc.validationFn(t, ctx, event, h, artifactStore, wfOwner, "workflow-name", wfID)
 	})
@@ -632,12 +634,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()
@@ -704,12 +706,12 @@ func Test_workflowDeletedHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 		decrypter := newMockDecrypter()
 		artifactStore := artifacts.NewStoreWithDecryptSecretsFn(lggr, orm, fetcher, clockwork.NewFakeClock(), workflowkey.Key{}, custmsg.NewLabeler(), decrypter.decryptSecrets)
@@ -780,12 +782,12 @@ func Test_workflowPausedActivatedUpdatedHandler(t *testing.T) {
 		}
 
 		er := NewEngineRegistry()
-		store := wfstore.NewDBStore(db, lggr, clockwork.NewFakeClock())
+		store := wfstore.NewInMemoryStore(lggr, clockwork.NewFakeClock())
 		registry := capabilities.NewRegistry(lggr)
 		registry.SetLocalRegistry(&capabilities.TestMetadataRegistry{})
 		rl, err := ratelimiter.NewRateLimiter(rlConfig)
 		require.NoError(t, err)
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{Global: 200, PerOwner: 200})
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{Global: 200, PerOwner: 200})
 		require.NoError(t, err)
 
 		decrypter := newMockDecrypter()

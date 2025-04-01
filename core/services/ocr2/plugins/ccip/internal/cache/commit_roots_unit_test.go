@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -21,7 +20,7 @@ func Test_CacheIsInitializedWithFirstCall(t *testing.T) {
 	cache := newCommitRootsCache(logger.TestLogger(t), commitStoreReader, time.Hour, time.Hour, time.Hour, time.Hour)
 	commitStoreReader.On("GetAcceptedCommitReportsGteTimestamp", mock.Anything, mock.Anything, mock.Anything).Return([]ccip.CommitStoreReportWithTxMeta{}, nil)
 
-	roots, err := cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err := cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots)
 }
@@ -42,7 +41,7 @@ func Test_CacheExpiration(t *testing.T) {
 		createCommitStoreEntry(root2, ts2, true),
 		createCommitStoreEntry(root3, ts3, false),
 	})
-	roots, err := cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err := cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots, root1, root2, root3)
 
@@ -50,7 +49,7 @@ func Test_CacheExpiration(t *testing.T) {
 		mockCommitStoreReader(commitStoreReader, time.Time{}, []ccip.CommitStoreReportWithTxMeta{
 			createCommitStoreEntry(root3, ts3, false),
 		})
-		roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+		roots, err = cache.RootsEligibleForExecution(t.Context())
 		require.NoError(t, err)
 		return len(roots) == 1 && roots[0].MerkleRoot == root3
 	}, 5*time.Second, 1*time.Second)
@@ -68,7 +67,7 @@ func Test_CacheFullEviction(t *testing.T) {
 	}
 	mockCommitStoreReader(commitStoreReader, time.Time{}, commitRoots)
 
-	roots, err := cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err := cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	require.Len(t, roots, maxElements)
 
@@ -84,7 +83,7 @@ func Test_CacheFullEviction(t *testing.T) {
 	// Eventually everything should be entirely removed from cache. We need that check to verify if cache doesn't grow indefinitely
 	require.Eventually(t, func() bool {
 		mockCommitStoreReader(commitStoreReader, time.Time{}, []ccip.CommitStoreReportWithTxMeta{})
-		roots1, err1 := cache.RootsEligibleForExecution(tests.Context(t))
+		roots1, err1 := cache.RootsEligibleForExecution(t.Context())
 		require.NoError(t, err1)
 
 		return len(roots1) == 0 &&
@@ -109,14 +108,14 @@ func Test_CacheProgression_Internal(t *testing.T) {
 
 	// Empty cache, no results from the reader
 	mockCommitStoreReader(commitStoreReader, time.Time{}, []ccip.CommitStoreReportWithTxMeta{})
-	roots, err := cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err := cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots)
 	assertRoots(t, cache.finalizedCachedLogs())
 
 	// Single unfinalized root returned
 	mockCommitStoreReader(commitStoreReader, time.Time{}, []ccip.CommitStoreReportWithTxMeta{createCommitStoreEntry(root1, ts1, false)})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots, root1)
 	assertRoots(t, cache.finalizedCachedLogs())
@@ -126,7 +125,7 @@ func Test_CacheProgression_Internal(t *testing.T) {
 		createCommitStoreEntry(root1, ts1, true),
 		createCommitStoreEntry(root2, ts2, false),
 	})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots, root1, root2)
 	assertRoots(t, cache.finalizedCachedLogs(), root1)
@@ -136,7 +135,7 @@ func Test_CacheProgression_Internal(t *testing.T) {
 		createCommitStoreEntry(root1, ts1, true),
 		createCommitStoreEntry(root2, ts2, false),
 	})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots, root1, root2)
 	assertRoots(t, cache.finalizedCachedLogs(), root1)
@@ -147,7 +146,7 @@ func Test_CacheProgression_Internal(t *testing.T) {
 		createCommitStoreEntry(root2, ts2, false),
 		createCommitStoreEntry(root3, ts3, false),
 	})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots, root2, root3)
 	assertRoots(t, cache.finalizedCachedLogs(), root1)
@@ -159,7 +158,7 @@ func Test_CacheProgression_Internal(t *testing.T) {
 		createCommitStoreEntry(root2, ts2, true),
 		createCommitStoreEntry(root3, ts3, true),
 	})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots)
 	assertRoots(t, cache.finalizedCachedLogs(), root1, root2, root3)
@@ -172,7 +171,7 @@ func Test_CacheProgression_Internal(t *testing.T) {
 		createCommitStoreEntry(root2, ts2, true),
 		createCommitStoreEntry(root3, ts3, true),
 	})
-	roots, err = cache.RootsEligibleForExecution(tests.Context(t))
+	roots, err = cache.RootsEligibleForExecution(t.Context())
 	require.NoError(t, err)
 	assertRoots(t, roots)
 	assertRoots(t, cache.finalizedCachedLogs())

@@ -984,6 +984,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
+      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_TwoMessagesOnTwoLanesIncludingBatching$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
@@ -1089,6 +1090,7 @@ runner-test-matrix:
     test_env_type: docker
     runs_on: ubuntu24.04-8cores-32GB
     triggers:
+      - PR E2E Core Tests
       - Nightly E2E Tests
     test_cmd: cd integration-tests/smoke/ccip && go test -test.run ^TestRMN_GlobalCurseTwoMessagesOnTwoLanes$ -timeout 30m -test.parallel=1 -count=1 -json
     pyroscope_env: ci-smoke-ccipv1_6-evm-simulated
