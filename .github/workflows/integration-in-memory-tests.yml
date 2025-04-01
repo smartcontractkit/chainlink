@@ -80,6 +80,7 @@ jobs:
       chainlink_version: ${{ inputs.cl_ref || github.sha }}
       test_path: .github/integration-in-memory-tests.yml
       test_trigger: PR Integration CCIP Tests
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }} # TODO: REMOVE
     secrets:
       QA_AWS_REGION: ${{ secrets.QA_AWS_REGION }}
       AWS_REGION: ${{ secrets.AWS_REGION }}
