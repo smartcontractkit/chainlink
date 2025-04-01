@@ -6,10 +6,9 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink/deployment/common/types"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
@@ -17,15 +16,7 @@ import (
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
 )
 
-var (
-	// We expect one of each contract on the chain.
-	timelock  = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-	callProxy = deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-	proposer  = deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-	canceller = deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-	bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
-)
-
+// Ownable is an interface for contracts that have an owner.
 type Ownable interface {
 	Address() common.Address
 	Owner(opts *bind.CallOpts) (common.Address, error)
@@ -39,41 +30,42 @@ type OwnedContract[T Ownable] struct {
 	Contract T
 }
 
-// NewOwnable creates an OwnedContract instance
+// NewOwnable creates an OwnedContract instance.
+// It checks if the contract is owned by a timelock contract and loads the MCMS state if necessary.
 func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*OwnedContract[T], error) {
+	var timelockTV = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+
 	// Look for MCMS contracts that might be owned by the contract
 	addresses, err := ab.AddressesForChain(chain.Selector)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get addresses: %w", err)
 	}
 
-	// Get the contract owner
-	owner, err := contract.Owner(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract owner: %w", err)
-	}
-
-	ownerTv, err := GetOwnerTypeAndVersion(contract, ab, chain)
+	ownerTV, err := GetOwnerTypeAndVersion[T](contract, ab, chain)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get owner type and version: %w", err)
 	}
-	if ownerTv.Type == timelock.Type && ownerTv.Version.String() == timelock.Version.String() {
-		stateMCMS, mcmsErr := loadMCMSWithTimelockChainState(chain, addresses)
+
+	// Check if the owner is a timelock contract (owned by MCMS)
+	if ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
+		// Load MCMS state
+		stateMCMS, mcmsErr := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if mcmsErr != nil {
 			return nil, fmt.Errorf("failed to load MCMS state: %w", mcmsErr)
 		}
+
 		return &OwnedContract[T]{
 			McmsContracts: *stateMCMS,
 			Contract:      contract,
 		}, nil
 	}
-	fmt.Println("Contract owner:", owner.Hex())
 
 	return &OwnedContract[T]{
 		Contract: contract,
 	}, nil
 }
 
+// GetOwnerTypeAndVersion retrieves the owner type and version of a contract.
 func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*deployment.TypeAndVersion, error) {
 	// Get the contract owner
 	owner, err := contract.Owner(nil)
@@ -104,43 +96,11 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, ch
 	return nil, fmt.Errorf("owner %s not found in address book", ownerStr)
 }
 
-func loadMCMSWithTimelockChainState(
-	chain deployment.Chain,
-	addresses map[string]deployment.TypeAndVersion,
-) (*commonchangeset.MCMSWithTimelockState, error) {
-	var (
-		// the same contract can have different roles
-		// multichain    = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		proposerMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		bypasserMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-		cancellerMCMS = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
-	)
-
-	// Convert map keys to a slice
-	proposerMCMS.Labels.Add(types.ProposerRole.String())
-	bypasserMCMS.Labels.Add(types.BypasserRole.String())
-	cancellerMCMS.Labels.Add(types.CancellerRole.String())
-	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
-		proposerMCMS, bypasserMCMS, cancellerMCMS,
-	}
-	// Ensure we either have the bundle or not.
-	_, err := deployment.EnsureDeduped(addresses, wantTypes)
-	if err != nil {
-		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
-	}
-
-	// Load MCMS state
-	stateMCMS, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
-	if err != nil {
-		return nil, fmt.Errorf("failed to load MCMS state: %w", err)
-	}
-
-	return stateMCMS, nil
-}
-
-func GetContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr string) (*T, error) {
+// GetContract retrieves a contract instance of type T from the address book.
+// If `targetAddr` is provided, it will look for that specific address.
+// If not, it will default to looking one contract of type T, and if it doesn't find exactly one, it will error.
+func GetContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr *string) (*T, error) {
 	var contractType deployment.ContractType
-
 	// Determine contract type based on T
 	switch any(*new(T)).(type) {
 	case *forwarder.KeystoneForwarder:
@@ -161,69 +121,66 @@ func GetContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, t
 	}
 
 	// If addr is provided, look for that specific address
-	if len(targetAddr) > 0 {
-		tv, exists := addresses[targetAddr]
+	if targetAddr != nil {
+		addr := *targetAddr
+		tv, exists := addresses[addr]
 		if !exists {
-			return nil, fmt.Errorf("address %s not found in address book", targetAddr)
+			return nil, fmt.Errorf("address %s not found in address book", addr)
 		}
 
 		if tv.Type != contractType {
-			return nil, fmt.Errorf("address %s is not a %s, got %s", targetAddr, contractType, tv.Type)
+			return nil, fmt.Errorf("address %s is not a %s, got %s", addr, contractType, tv.Type)
 		}
 
-		// Create and return the contract instance
-		var instance T
-		var err error
-		switch any(*new(T)).(type) {
-		case *forwarder.KeystoneForwarder:
-			c, e := forwarder.NewKeystoneForwarder(common.HexToAddress(targetAddr), chain.Client)
-			instance, err = any(c).(T), e
-		case *capabilities_registry.CapabilitiesRegistry:
-			c, e := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(targetAddr), chain.Client)
-			instance, err = any(c).(T), e
-		case *ocr3_capability.OCR3Capability:
-			c, e := ocr3_capability.NewOCR3Capability(common.HexToAddress(targetAddr), chain.Client)
-			instance, err = any(c).(T), e
-		case *workflow_registry.WorkflowRegistry:
-			c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(targetAddr), chain.Client)
-			instance, err = any(c).(T), e
-		}
-
-		if err != nil {
-			return nil, fmt.Errorf("failed to create contract instance: %w", err)
-		}
-
-		return &instance, nil
+		return createContractInstance[T](addr, chain)
 	}
 
-	// Find first contract of the required type
+	var foundAddr string
+	var contractCount int
+
 	for addr, tv := range addresses {
 		if tv.Type == contractType {
-			// Create and return the contract instance
-			var instance T
-			var err error
-			switch any(*new(T)).(type) {
-			case *forwarder.KeystoneForwarder:
-				c, e := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), chain.Client)
-				instance, err = any(c).(T), e
-			case *capabilities_registry.CapabilitiesRegistry:
-				c, e := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
-				instance, err = any(c).(T), e
-			case *ocr3_capability.OCR3Capability:
-				c, e := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
-				instance, err = any(c).(T), e
-			case *workflow_registry.WorkflowRegistry:
-				c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
-				instance, err = any(c).(T), e
-			}
+			contractCount++
+			foundAddr = addr
 
-			if err != nil {
-				return nil, fmt.Errorf("failed to create contract instance: %w", err)
+			if contractCount > 1 {
+				return nil, fmt.Errorf("multiple contracts of type %s found, must provide a `targetAddr`", contractType)
 			}
-
-			return &instance, nil
 		}
 	}
 
-	return nil, fmt.Errorf("no contract of type %s found", contractType)
+	if contractCount == 0 {
+		return nil, fmt.Errorf("no contract of type %s found", contractType)
+	}
+
+	return createContractInstance[T](foundAddr, chain)
+}
+
+// createContractInstance is a helper function to create contract instances
+func createContractInstance[T Ownable](addr string, chain deployment.Chain) (*T, error) {
+	var instance T
+	var err error
+
+	switch any(*new(T)).(type) {
+	case *forwarder.KeystoneForwarder:
+		c, e := forwarder.NewKeystoneForwarder(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *capabilities_registry.CapabilitiesRegistry:
+		c, e := capabilities_registry.NewCapabilitiesRegistry(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *ocr3_capability.OCR3Capability:
+		c, e := ocr3_capability.NewOCR3Capability(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	case *workflow_registry.WorkflowRegistry:
+		c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
+		instance, err = any(c).(T), e
+	default:
+		return nil, fmt.Errorf("unsupported contract type for instance creation")
+	}
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create contract instance: %w", err)
+	}
+
+	return &instance, nil
 }
