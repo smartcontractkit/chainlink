@@ -153,33 +153,6 @@ var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_
 	return params
 })
 
-/*
-// Test_CCIPBatching_MultiSource_SingleSource test batching behavior of the CCIP plugin with various configurations.
-func Test_CCIPBatching_Sources(t *testing.T) {
-	testFuncs := map[string]func(t *testing.T, opts ...testhelpers.TestOps){
-		"MultiSource":  ccipBatchingMultiSource,
-		"SingleSource": ccipBatchingSingleSource,
-	}
-	testOpts := map[string]testhelpers.TestOps{
-		"Standard":        nil,
-		"MultiRootReport":  multiRootReportOverride,
-		"MultiPriceReport": multiPriceReportOverride,
-	}
-
-	for testName, testFunc := range testFuncs {
-		for configName, config := range testOpts {
-			t.Run(fmt.Sprintf("%s_%s", testName, configName), func(t *testing.T) {
-				if config != nil {
-					testFunc(t, config)
-				} else {
-					testFunc(t)
-				}
-			})
-		}
-	}
-}
-*/
-
 func Test_CCIPBatching_MultiSource(t *testing.T) {
 	ccipBatchingMultiSource(t)
 }
