@@ -16,6 +16,7 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 )
 
 type laneDefinition struct {
@@ -23,7 +24,7 @@ type laneDefinition struct {
 	Dest   v1_6.ChainDefinition
 }
 
-func getAllPossibleLanes(chains []v1_6.ChainDefinition) []v1_6.BidirectionalLaneDefinition {
+func getAllPossibleLanes(chains []v1_6.ChainDefinition, disable bool) []v1_6.BidirectionalLaneDefinition {
 	lanes := make([]v1_6.BidirectionalLaneDefinition, 0)
 	paired := make(map[uint64]map[uint64]bool)
 
@@ -39,7 +40,10 @@ func getAllPossibleLanes(chains []v1_6.ChainDefinition) []v1_6.BidirectionalLane
 				continue
 			}
 
-			lanes = append(lanes, v1_6.BidirectionalLaneDefinition{chainA, chainB})
+			lanes = append(lanes, v1_6.BidirectionalLaneDefinition{
+				Chains:     [2]v1_6.ChainDefinition{chainA, chainB},
+				IsDisabled: disable,
+			})
 			if paired[chainA.Selector] == nil {
 				paired[chainA.Selector] = make(map[uint64]bool)
 			}
@@ -72,6 +76,7 @@ func checkBidirectionalLaneConnectivity(
 	chainOne v1_6.ChainDefinition,
 	chainTwo v1_6.ChainDefinition,
 	testRouter bool,
+	disable bool,
 ) {
 	lanes := []laneDefinition{
 		{
@@ -96,29 +101,41 @@ func checkBidirectionalLaneConnectivity(
 
 		destChainConfig, err := onRamp.GetDestChainConfig(nil, lane.Dest.Selector)
 		require.NoError(t, err, "must get dest chain config from onRamp")
-		require.Equal(t, routerOnSrc.Address().Hex(), destChainConfig.Router.Hex(), "router must equal expected")
+		routerAddr := routerOnSrc.Address().Hex()
+		if disable {
+			routerAddr = common.HexToAddress("0x0").Hex()
+		}
+		require.Equal(t, routerAddr, destChainConfig.Router.Hex(), "router must equal expected")
 		require.Equal(t, lane.Dest.AllowListEnabled, destChainConfig.AllowlistEnabled, "allowListEnabled must equal expected")
 
 		srcChainConfig, err := offRamp.GetSourceChainConfig(nil, lane.Source.Selector)
 		require.NoError(t, err, "must get src chain config from offRamp")
-		require.True(t, srcChainConfig.IsEnabled, "src chain config must be enabled")
+		require.Equal(t, !disable, srcChainConfig.IsEnabled, "isEnabled must be expected")
 		require.Equal(t, lane.Source.RMNVerificationDisabled, srcChainConfig.IsRMNVerificationDisabled, "rmnVerificationDisabled must equal expected")
 		require.Equal(t, common.LeftPadBytes(state.Chains[lane.Source.Selector].OnRamp.Address().Bytes(), 32), srcChainConfig.OnRamp, "remote onRamp must be set on offRamp")
 		require.Equal(t, routerOnDest.Address().Hex(), srcChainConfig.Router.Hex(), "router must equal expected")
 
 		isOffRamp, err := routerOnSrc.IsOffRamp(nil, lane.Dest.Selector, state.Chains[lane.Source.Selector].OffRamp.Address())
 		require.NoError(t, err, "must check if router has offRamp")
-		require.True(t, isOffRamp, "router must have offRamp")
+		require.Equal(t, !disable, isOffRamp, "isOffRamp result must equal expected")
 		onRampOnRouter, err := routerOnSrc.GetOnRamp(nil, lane.Dest.Selector)
 		require.NoError(t, err, "must get onRamp from router")
-		require.Equal(t, state.Chains[lane.Source.Selector].OnRamp.Address().Hex(), onRampOnRouter.Hex(), "onRamp must equal expected")
+		onRampAddr := state.Chains[lane.Source.Selector].OnRamp.Address().Hex()
+		if disable {
+			onRampAddr = common.HexToAddress("0x0").Hex()
+		}
+		require.Equal(t, onRampAddr, onRampOnRouter.Hex(), "onRamp must equal expected")
 
 		isOffRamp, err = routerOnDest.IsOffRamp(nil, lane.Source.Selector, state.Chains[lane.Dest.Selector].OffRamp.Address())
 		require.NoError(t, err, "must check if router has offRamp")
-		require.True(t, isOffRamp, "router must have offRamp")
+		require.Equal(t, !disable, isOffRamp, "isOffRamp result must equal expected")
 		onRampOnRouter, err = routerOnDest.GetOnRamp(nil, lane.Source.Selector)
 		require.NoError(t, err, "must get onRamp from router")
-		require.Equal(t, state.Chains[lane.Dest.Selector].OnRamp.Address().Hex(), onRampOnRouter.Hex(), "onRamp must equal expected")
+		onRampAddr = state.Chains[lane.Dest.Selector].OnRamp.Address().Hex()
+		if disable {
+			onRampAddr = common.HexToAddress("0x0").Hex()
+		}
+		require.Equal(t, onRampAddr, onRampOnRouter.Hex(), "onRamp must equal expected")
 
 		feeQuoterDestConfig, err := feeQuoterOnSrc.GetDestChainConfig(nil, lane.Dest.Selector)
 		require.NoError(t, err, "must get dest chain config from feeQuoter")
@@ -130,13 +147,128 @@ func checkBidirectionalLaneConnectivity(
 	}
 }
 
-func TestAddBidirectionalLanesChangeset(t *testing.T) {
+func TestBuildConfigs(t *testing.T) {
+	selectors := []uint64{1, 2}
+
+	chains := make([]v1_6.ChainDefinition, len(selectors))
+	for i, selector := range selectors {
+		chains[i] = v1_6.ChainDefinition{
+			ConnectionConfig: v1_6.ConnectionConfig{
+				RMNVerificationDisabled: true,
+				AllowListEnabled:        false,
+			},
+			Selector:                 selector,
+			GasPrice:                 big.NewInt(1e17),
+			FeeQuoterDestChainConfig: v1_6.DefaultFeeQuoterDestChainConfig(true),
+		}
+	}
+
+	cfg := v1_6.UpdateBidirectionalLanesConfig{
+		TestRouter: false,
+		MCMSConfig: &proposalutils.TimelockConfig{
+			MinDelay:   0 * time.Second,
+			MCMSAction: types.TimelockActionSchedule,
+		},
+		Lanes: getAllPossibleLanes(chains, false),
+	}
+
+	configs := cfg.BuildConfigs()
+
+	require.Equal(t, configs.UpdateFeeQuoterDestsConfig, v1_6.UpdateFeeQuoterDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]fee_quoter.FeeQuoterDestChainConfig{
+			1: {
+				2: v1_6.DefaultFeeQuoterDestChainConfig(true),
+			},
+			2: {
+				1: v1_6.DefaultFeeQuoterDestChainConfig(true),
+			},
+		},
+		MCMS: cfg.MCMSConfig,
+	})
+	require.Equal(t, configs.UpdateFeeQuoterPricesConfig, v1_6.UpdateFeeQuoterPricesConfig{
+		PricesByChain: map[uint64]v1_6.FeeQuoterPriceUpdatePerSource{
+			1: {
+				GasPrices: map[uint64]*big.Int{
+					2: big.NewInt(1e17),
+				},
+			},
+			2: {
+				GasPrices: map[uint64]*big.Int{
+					1: big.NewInt(1e17),
+				},
+			},
+		},
+		MCMS: cfg.MCMSConfig,
+	})
+	require.Equal(t, configs.UpdateOffRampSourcesConfig, v1_6.UpdateOffRampSourcesConfig{
+		UpdatesByChain: map[uint64]map[uint64]v1_6.OffRampSourceUpdate{
+			1: {
+				2: {
+					IsEnabled:                 true,
+					TestRouter:                false,
+					IsRMNVerificationDisabled: true,
+				},
+			},
+			2: {
+				1: {
+					IsEnabled:                 true,
+					TestRouter:                false,
+					IsRMNVerificationDisabled: true,
+				},
+			},
+		},
+		MCMS: cfg.MCMSConfig,
+	})
+	require.Equal(t, configs.UpdateOnRampDestsConfig, v1_6.UpdateOnRampDestsConfig{
+		UpdatesByChain: map[uint64]map[uint64]v1_6.OnRampDestinationUpdate{
+			1: {
+				2: {
+					IsEnabled:        true,
+					TestRouter:       false,
+					AllowListEnabled: false,
+				},
+			},
+			2: {
+				1: {
+					IsEnabled:        true,
+					TestRouter:       false,
+					AllowListEnabled: false,
+				},
+			},
+		},
+		MCMS: cfg.MCMSConfig,
+	})
+	require.Equal(t, configs.UpdateRouterRampsConfig, v1_6.UpdateRouterRampsConfig{
+		UpdatesByChain: map[uint64]v1_6.RouterUpdates{
+			1: {
+				OnRampUpdates: map[uint64]bool{
+					2: true,
+				},
+				OffRampUpdates: map[uint64]bool{
+					2: true,
+				},
+			},
+			2: {
+				OnRampUpdates: map[uint64]bool{
+					1: true,
+				},
+				OffRampUpdates: map[uint64]bool{
+					1: true,
+				},
+			},
+		},
+		MCMS: cfg.MCMSConfig,
+	})
+}
+
+func TestUpdateBidirectionalLanesChangeset(t *testing.T) {
 	t.Parallel()
 
 	type test struct {
 		Msg        string
 		TestRouter bool
 		MCMS       *proposalutils.TimelockConfig
+		Disable    bool
 	}
 
 	mcmsConfig := &proposalutils.TimelockConfig{
@@ -145,6 +277,12 @@ func TestAddBidirectionalLanesChangeset(t *testing.T) {
 	}
 
 	tests := []test{
+		{
+			Msg:        "Use production router (with MCMS) & disable afterwards",
+			TestRouter: false,
+			MCMS:       mcmsConfig,
+			Disable:    true,
+		},
 		{
 			Msg:        "Use production router (with MCMS)",
 			TestRouter: false,
@@ -223,11 +361,11 @@ func TestAddBidirectionalLanesChangeset(t *testing.T) {
 
 			e, err = commonchangeset.Apply(t, e, timelockContracts,
 				commonchangeset.Configure(
-					v1_6.AddBidirectionalLanesChangeset,
-					v1_6.AddBidirectionalLanesConfig{
+					v1_6.UpdateBidirectionalLanesChangeset,
+					v1_6.UpdateBidirectionalLanesConfig{
 						TestRouter: test.TestRouter,
 						MCMSConfig: test.MCMS,
-						Lanes:      getAllPossibleLanes(chains),
+						Lanes:      getAllPossibleLanes(chains, false),
 					},
 				),
 			)
@@ -236,7 +374,28 @@ func TestAddBidirectionalLanesChangeset(t *testing.T) {
 			for i, chain := range chains {
 				remoteChains := getRemoteChains(chains, i)
 				for _, remoteChain := range remoteChains {
-					checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter)
+					checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, false)
+				}
+			}
+
+			if test.Disable {
+				e, err = commonchangeset.Apply(t, e, timelockContracts,
+					commonchangeset.Configure(
+						v1_6.UpdateBidirectionalLanesChangeset,
+						v1_6.UpdateBidirectionalLanesConfig{
+							TestRouter: test.TestRouter,
+							MCMSConfig: test.MCMS,
+							Lanes:      getAllPossibleLanes(chains, true),
+						},
+					),
+				)
+				require.NoError(t, err, "must apply AddBidirectionalLanesChangeset")
+
+				for i, chain := range chains {
+					remoteChains := getRemoteChains(chains, i)
+					for _, remoteChain := range remoteChains {
+						checkBidirectionalLaneConnectivity(t, e, state, chain, remoteChain, test.TestRouter, true)
+					}
 				}
 			}
 		})
