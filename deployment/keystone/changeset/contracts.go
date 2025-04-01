@@ -1,6 +1,7 @@
 package changeset
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
@@ -175,7 +176,7 @@ func createContractInstance[T Ownable](addr string, chain deployment.Chain) (*T,
 		c, e := workflow_registry.NewWorkflowRegistry(common.HexToAddress(addr), chain.Client)
 		instance, err = any(c).(T), e
 	default:
-		return nil, fmt.Errorf("unsupported contract type for instance creation")
+		return nil, errors.New("unsupported contract type for instance creation")
 	}
 
 	if err != nil {
