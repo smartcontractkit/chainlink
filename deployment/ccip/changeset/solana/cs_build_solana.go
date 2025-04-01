@@ -204,9 +204,8 @@ func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractTy
 		destination := filepath.Join(cloneDir, deployDir, getTypeToProgramDeployName()[program]+"-keypair.json")
 		if err := os.Rename(absPath, destination); err != nil {
 			return fmt.Errorf("failed to move generated vanity key from %s to %s: %w", absPath, destination, err)
-		} else {
-			fmt.Println("File copied to:", destination)
 		}
+		fmt.Println("File copied to:", destination)
 	}
 	return nil
 }
