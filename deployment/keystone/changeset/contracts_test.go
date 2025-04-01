@@ -7,9 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
-	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -17,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
+	chainsel "github.com/smartcontractkit/chain-selectors"
 	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 )
