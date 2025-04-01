@@ -23,7 +23,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
-// csreateSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
+// createSymmetricRateLimits is a utility to quickly create a rate limiter config with equal inbound and outbound values.
 func createSymmetricRateLimits(rate int64, capacity int64) v1_5_1.RateLimiterConfig {
 	return v1_5_1.RateLimiterConfig{
 		Inbound: token_pool.RateLimiterConfig{

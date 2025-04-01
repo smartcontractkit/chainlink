@@ -79,7 +79,7 @@ type gqlTestFramework struct {
 	Mocks *mocks
 }
 
-// setupFramework ssets up the framework for all GQL testing
+// setupFramework sets up the framework for all GQL testing
 func setupFramework(t *testing.T) *gqlTestFramework {
 	t.Helper()
 
