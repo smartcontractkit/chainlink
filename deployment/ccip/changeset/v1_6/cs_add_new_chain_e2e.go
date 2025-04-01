@@ -9,8 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	mcmslib "github.com/smartcontractkit/mcms"
-	mcmssdk "github.com/smartcontractkit/mcms/sdk"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -354,9 +352,9 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to reset existing addresses: %w", err)
 	}
 
-	proposal, err := aggregateProposals(
+	proposal, err := proposalutils.AggregateProposals(
 		e,
-		state,
+		state.EVMMCMSStateByChain(),
 		allProposals,
 		nil,
 		fmt.Sprintf("Deploy and set candidates for chain with selector %d", c.NewChain.Selector),
@@ -528,9 +526,9 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 	}
 	allProposals = append(allProposals, out.MCMSTimelockProposals...)
 
-	proposal, err := aggregateProposals(
+	proposal, err := proposalutils.AggregateProposals(
 		e,
-		state,
+		state.EVMMCMSStateByChain(),
 		allProposals,
 		nil,
 		fmt.Sprintf("Promote chain with selector %d for testing", c.NewChain.Selector),
@@ -673,7 +671,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 	}
 	readOpts := &bind.CallOpts{Context: env.GetContext()}
 
-	var ownershipTransferProposals []mcmslib.TimelockProposal
+	var ownershipTransferProposals []timelock.MCMSWithTimelockProposal
 	if !*c.TestRouter && c.MCMSConfig != nil {
 		// If using the production router, transfer ownership of all contracts on the new chain to MCMS.
 		allContracts := []commoncs.Ownable{
@@ -699,7 +697,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 				addressesToTransfer = append(addressesToTransfer, contract.Address())
 			}
 		}
-		out, err := commoncs.TransferToMCMSWithTimelockV2(env, commoncs.TransferToMCMSWithTimelockConfig{
+		out, err := commoncs.TransferToMCMSWithTimelock(env, commoncs.TransferToMCMSWithTimelockConfig{
 			ContractsByChain: map[uint64][]common.Address{
 				c.NewChainSelector: addressesToTransfer,
 			},
@@ -708,7 +706,7 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to run TransferToMCMSWithTimelock on chain with selector %d: %w", c.NewChainSelector, err)
 		}
-		ownershipTransferProposals = out.MCMSTimelockProposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
+		ownershipTransferProposals = out.Proposals //nolint:staticcheck //SA1019 ignoring deprecated function for compatibility
 
 		// Also, renounce the admin role on the Timelock (if not already done).
 		adminRole, err := state.Chains[c.NewChainSelector].Timelock.ADMINROLE(readOpts)
@@ -746,11 +744,11 @@ func connectNewChainLogic(env deployment.Environment, c ConnectNewChainConfig) (
 		}
 	}
 
-	proposal, err := aggregateProposals(
+	proposal, err := proposalutils.AggregateProposals(
 		env,
-		state,
-		append(allEnablementProposals, ownershipTransferProposals...),
-		nil,
+		state.EVMMCMSStateByChain(),
+		allEnablementProposals,
+		ownershipTransferProposals,
 		fmt.Sprintf("Connect chain with selector %d to other chains", c.NewChainSelector),
 		c.MCMSConfig,
 	)
@@ -866,72 +864,4 @@ func runAndSaveAddresses(fn func() (deployment.ChangesetOutput, error), newAddre
 	}
 
 	return nil
-}
-
-func aggregateProposals(
-	env deployment.Environment,
-	state changeset.CCIPOnChainState,
-	proposals []mcmslib.TimelockProposal,
-	legacyProposals []timelock.MCMSWithTimelockProposal,
-	description string,
-	mcmsConfig *proposalutils.TimelockConfig,
-) (*mcmslib.TimelockProposal, error) {
-	if mcmsConfig == nil {
-		return nil, nil
-	}
-
-	var batches []mcmstypes.BatchOperation
-	// Add proposals that follow the legacy format to the aggregate.
-	for _, proposal := range legacyProposals {
-		for _, batchTransaction := range proposal.Transactions {
-			for _, transaction := range batchTransaction.Batch {
-				batchOperation, err := proposalutils.BatchOperationForChain(
-					uint64(batchTransaction.ChainIdentifier),
-					transaction.To.Hex(),
-					transaction.Data,
-					big.NewInt(0),
-					transaction.ContractType,
-					transaction.Tags,
-				)
-				if err != nil {
-					return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to create batch operation on chain with selector %d: %w", batchTransaction.ChainIdentifier, err)
-				}
-				batches = append(batches, batchOperation)
-			}
-		}
-	}
-	// Add proposals that follow the new format to the aggregate.
-	for _, proposal := range proposals {
-		batches = append(batches, proposal.Operations...)
-	}
-
-	// Return early if there are no operations.
-	if len(batches) == 0 {
-		return nil, nil
-	}
-
-	// Store the timelocks, proposers, and inspectors for each chain.
-	timelocks := make(map[uint64]string)
-	proposers := make(map[uint64]string)
-	inspectors := make(map[uint64]mcmssdk.Inspector)
-	var err error
-	for _, op := range batches {
-		chainSel := uint64(op.ChainSelector)
-		timelocks[chainSel] = state.Chains[chainSel].Timelock.Address().Hex()
-		proposers[chainSel] = state.Chains[chainSel].ProposerMcm.Address().Hex()
-		inspectors[chainSel], err = proposalutils.McmsInspectorForChain(env, chainSel)
-		if err != nil {
-			return &mcmslib.TimelockProposal{}, fmt.Errorf("failed to get MCMS inspector for chain with selector %d: %w", chainSel, err)
-		}
-	}
-
-	return proposalutils.BuildProposalFromBatchesV2(
-		env,
-		timelocks,
-		proposers,
-		inspectors,
-		batches,
-		description,
-		*mcmsConfig,
-	)
 }

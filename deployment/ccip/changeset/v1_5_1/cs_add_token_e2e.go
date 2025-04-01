@@ -1,14 +1,16 @@
 package v1_5_1
 
 import (
+	"errors"
 	"fmt"
 	"math/big"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/mcms"
 	"golang.org/x/exp/maps"
+
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -153,13 +155,13 @@ type DeployTokenConfig struct {
 
 func (c *DeployTokenConfig) Validate() error {
 	if c.TokenName == "" {
-		return fmt.Errorf("token name must be defined")
+		return errors.New("token name must be defined")
 	}
 	if c.TokenDecimals == 0 && c.Type == changeset.BurnMintToken {
-		return fmt.Errorf("token decimals must be defined for BurnMintToken type")
+		return errors.New("token decimals must be defined for BurnMintToken type")
 	}
 	if c.MaxSupply == nil && c.Type == changeset.BurnMintToken {
-		return fmt.Errorf("max supply must be defined for BurnMintToken type")
+		return errors.New("max supply must be defined for BurnMintToken type")
 	}
 	if _, ok := changeset.TokenPoolTypes[c.PoolType]; !ok {
 		return fmt.Errorf("token pool type not supported %s", c.PoolType)
@@ -338,9 +340,9 @@ func addTokenE2ELogic(env deployment.Environment, config AddTokensE2EConfig) (de
 		e.Logger.Infow("set pool", "token", token, "config", updatedConfigureTokenAdminReg)
 	}
 	// if there are multiple proposals, aggregate them so that we don't have to propose them separately
-	if len(finalCSOut.MCMSTimelockProposals) > 1 || len(finalCSOut.Proposals) > 1 {
+	if len(finalCSOut.MCMSTimelockProposals) > 1 {
 		aggregatedProposals, err := proposalutils.AggregateProposals(
-			e, state.EVMMCMSStateByChain(), finalCSOut.MCMSTimelockProposals, finalCSOut.Proposals,
+			e, state.EVMMCMSStateByChain(), finalCSOut.MCMSTimelockProposals, nil,
 			"Add Tokens E2E", config.MCMS)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
