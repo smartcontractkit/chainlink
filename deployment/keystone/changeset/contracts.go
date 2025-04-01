@@ -5,6 +5,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -14,6 +15,15 @@ import (
 	forwarder "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder_1_0_0"
 	ocr3_capability "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/ocr3_capability_1_0_0"
 	workflow_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/workflow/generated/workflow_registry_wrapper"
+)
+
+var (
+	// We expect one of each contract on the chain.
+	timelock  = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
+	callProxy = deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
+	proposer  = deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
+	canceller = deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
+	bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
 )
 
 type Ownable interface {
@@ -31,26 +41,80 @@ type OwnedContract[T Ownable] struct {
 
 // NewOwnable creates an OwnedContract instance
 func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*OwnedContract[T], error) {
-	var (
-		// We expect one of each contract on the chain.
-		timelock  = deployment.NewTypeAndVersion(types.RBACTimelock, deployment.Version1_0_0)
-		callProxy = deployment.NewTypeAndVersion(types.CallProxy, deployment.Version1_0_0)
-		proposer  = deployment.NewTypeAndVersion(types.ProposerManyChainMultisig, deployment.Version1_0_0)
-		canceller = deployment.NewTypeAndVersion(types.CancellerManyChainMultisig, deployment.Version1_0_0)
-		bypasser  = deployment.NewTypeAndVersion(types.BypasserManyChainMultisig, deployment.Version1_0_0)
+	// Look for MCMS contracts that might be owned by the contract
+	addresses, err := ab.AddressesForChain(chain.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get addresses: %w", err)
+	}
 
+	// Get the contract owner
+	owner, err := contract.Owner(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract owner: %w", err)
+	}
+
+	ownerTv, err := GetOwnerTypeAndVersion(contract, ab, chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get owner type and version: %w", err)
+	}
+	if ownerTv.Type == timelock.Type && ownerTv.Version.String() == timelock.Version.String() {
+		stateMCMS, mcmsErr := loadMCMSWithTimelockChainState(chain, addresses)
+		if mcmsErr != nil {
+			return nil, fmt.Errorf("failed to load MCMS state: %w", mcmsErr)
+		}
+		return &OwnedContract[T]{
+			McmsContracts: *stateMCMS,
+			Contract:      contract,
+		}, nil
+	}
+	fmt.Println("Contract owner:", owner.Hex())
+
+	return &OwnedContract[T]{
+		Contract: contract,
+	}, nil
+}
+
+func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, chain deployment.Chain) (*deployment.TypeAndVersion, error) {
+	// Get the contract owner
+	owner, err := contract.Owner(nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract owner: %w", err)
+	}
+
+	// Look for owner in address book
+	addresses, err := ab.AddressesForChain(chain.Selector)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get addresses for chain %d: %w", chain.Selector, err)
+	}
+
+	ownerStr := owner.Hex()
+	// Check if owner matches any address in the address book
+	if tv, exists := addresses[ownerStr]; exists {
+		return &tv, nil
+	}
+
+	// Handle case where owner is not in address book
+	// Check for case-insensitive match since some addresses might be stored with different casing
+	for addr, tv := range addresses {
+		if common.HexToAddress(addr) == owner {
+			return &tv, nil
+		}
+	}
+
+	return nil, fmt.Errorf("owner %s not found in address book", ownerStr)
+}
+
+func loadMCMSWithTimelockChainState(
+	chain deployment.Chain,
+	addresses map[string]deployment.TypeAndVersion,
+) (*commonchangeset.MCMSWithTimelockState, error) {
+	var (
 		// the same contract can have different roles
 		// multichain    = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		proposerMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		bypasserMCMS  = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 		cancellerMCMS = deployment.NewTypeAndVersion(types.ManyChainMultisig, deployment.Version1_0_0)
 	)
-
-	// Look for MCMS contracts that might be owned by the contract
-	addresses, err := ab.AddressesForChain(chain.Selector)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get addresses: %w", err)
-	}
 
 	// Convert map keys to a slice
 	proposerMCMS.Labels.Add(types.ProposerRole.String())
@@ -59,32 +123,19 @@ func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployme
 	wantTypes := []deployment.TypeAndVersion{timelock, proposer, canceller, bypasser, callProxy,
 		proposerMCMS, bypasserMCMS, cancellerMCMS,
 	}
-
 	// Ensure we either have the bundle or not.
-	_, err = deployment.EnsureDeduped(addresses, wantTypes)
+	_, err := deployment.EnsureDeduped(addresses, wantTypes)
 	if err != nil {
 		return nil, fmt.Errorf("unable to check MCMS contracts on chain %s error: %w", chain.Name(), err)
 	}
 
-	// Get the contract owner
-	owner, err := contract.Owner(nil)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get contract owner: %w", err)
-	}
-	fmt.Println("Contract owner:", owner.Hex())
-
-	// Filter for potential MCMS contracts
-	// TODO: figure out if the contract is owned by MCMS and only load the state if that's the case.
 	// Load MCMS state
-	mcmsState, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	stateMCMS, err := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return nil, fmt.Errorf("failed to load MCMS state: %w", err)
 	}
 
-	return &OwnedContract[T]{
-		McmsContracts: *mcmsState,
-		Contract:      contract,
-	}, nil
+	return stateMCMS, nil
 }
 
 func GetContract[T Ownable](ab deployment.AddressBook, chain deployment.Chain, targetAddr string) (*T, error) {
