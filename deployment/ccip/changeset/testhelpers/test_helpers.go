@@ -121,6 +121,23 @@ func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uin
 	}
 }
 
+func TryReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
+	switch oc := oc.(type) {
+	case *memory.JobClient:
+		err := oc.ReplayLogs(t.Context(), replayBlocks)
+		if err != nil {
+			t.Logf("failed to replay logs: %v", err)
+		}
+	case *devenv.JobDistributor:
+		err := oc.ReplayLogs(replayBlocks)
+		if err != nil {
+			t.Logf("failed to replay logs: %v", err)
+		}
+	default:
+		t.Fatalf("unsupported offchain client type %T", oc)
+	}
+}
+
 func DeployTestContracts(t *testing.T,
 	lggr logger.Logger,
 	ab deployment.AddressBook,
