@@ -169,6 +169,7 @@ var (
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
+						VerifyChainID:                ptr(true),
 						NodeNoNewHeadsThreshold:      &minute,
 						NoNewFinalizedHeadsThreshold: &minute,
 						FinalityDepth:                ptr[uint32](0),
@@ -198,6 +199,7 @@ var (
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
+						VerifyChainID:                ptr(true),
 						NodeNoNewHeadsThreshold:      &minute,
 						NoNewFinalizedHeadsThreshold: &minute,
 						FinalityDepth:                ptr[uint32](0),
@@ -775,6 +777,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalizedBlockPollInterval:   &second,
 					EnforceRepeatableRead:        ptr(true),
 					DeathDeclarationDelay:        &minute,
+					VerifyChainID:                ptr(true),
 					NodeNoNewHeadsThreshold:      &minute,
 					NoNewFinalizedHeadsThreshold: &minute,
 					FinalityDepth:                ptr[uint32](0),
@@ -1246,6 +1249,7 @@ NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0
