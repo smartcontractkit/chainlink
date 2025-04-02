@@ -11,6 +11,7 @@ import (
 
 	"github.com/jonboulle/clockwork"
 
+	billing "github.com/smartcontractkit/chainlink-common/pkg/billing/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -99,6 +100,10 @@ func (sucm *stepUpdateManager) len() int64 {
 
 type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
+type billingClient interface {
+	SubmitWorkflowReceipt(context.Context, *billing.SubmitWorkflowReceiptRequest) (*billing.SubmitWorkflowReceiptResponse, error)
+}
+
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
 	services.StateMachine
@@ -120,6 +125,7 @@ type Engine struct {
 	maxExecutionDuration time.Duration
 	heartbeatCadence     time.Duration
 	stepTimeoutDuration  time.Duration
+	billingClient        billingClient
 
 	// testing lifecycle hook to signal when an execution is finished.
 	onExecutionFinished func(string)
@@ -144,7 +150,7 @@ type Engine struct {
 	meterReports   *MeterReports
 
 	// sendMeteringReport is a test hook to send a metering report
-	sendMeteringReport func(report *MeteringReport, name string, ID string, execID string)
+	sendMeteringReportHook func(report *MeteringReport, name string, ID string, execID string)
 }
 
 func (e *Engine) Start(_ context.Context) error {
@@ -593,7 +599,10 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		}
 
 		report, _ := e.meterReports.Get(stepUpdate.ExecutionID)
-		e.sendMeteringReport(report, e.workflow.name.String(), e.workflow.id, stepUpdate.ExecutionID)
+		if err := e.sendMeteringReport(ctx, report, e.workflow.name.String(), e.workflow.id, stepUpdate.ExecutionID); err != nil {
+			e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, stepUpdate.ExecutionID).updateWorkflowMissingMeteringReport(ctx, 0)
+			l.Warn(fmt.Sprintf("metering report send error %s", err))
+		}
 
 		return e.finishExecution(ctx, cma, state.ExecutionID, status)
 	}
@@ -1141,6 +1150,30 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	}
 }
 
+func (e *Engine) sendMeteringReport(ctx context.Context, report *MeteringReport, workflowName string, workflowID string, executionID string) error {
+	e.sendMeteringReportHook(report, workflowName, workflowID, executionID)
+
+	if e.billingClient != nil {
+		req := billing.SubmitWorkflowReceiptRequest{
+			AccountId:           "", // TODO: not sure what to do with the AccountID
+			WorkflowId:          workflowID,
+			WorkflowExecutionId: executionID,
+			Metering:            report.toProto(),
+		}
+
+		resp, err := e.billingClient.SubmitWorkflowReceipt(ctx, &req)
+		if err != nil {
+			return err
+		}
+
+		if resp == nil || !resp.Success {
+			return errors.New("failed to submit workflow receipt")
+		}
+	}
+
+	return nil
+}
+
 func (e *Engine) Close() error {
 	return e.StopOnce("Engine", func() error {
 		e.logger.Info("shutting down engine")
@@ -1236,6 +1269,7 @@ type Config struct {
 	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
+	BillingClient        billingClient
 
 	// RateLimiter limits the workflow execution steps globally and per
 	// second that a workflow owner can make
@@ -1246,13 +1280,13 @@ type Config struct {
 	WorkflowLimits *syncerlimiter.Limits
 
 	// For testing purposes only
-	maxRetries          int
-	retryMs             int
-	afterInit           func(success bool)
-	onExecutionFinished func(weid string)
-	onRateLimit         func(weid string)
-	clock               clockwork.Clock
-	sendMeteringReport  func(report *MeteringReport, name string, ID string, execID string)
+	maxRetries             int
+	retryMs                int
+	afterInit              func(success bool)
+	onExecutionFinished    func(weid string)
+	onRateLimit            func(weid string)
+	clock                  clockwork.Clock
+	sendMeteringReportHook func(report *MeteringReport, name string, ID string, execID string)
 }
 
 const (
@@ -1317,8 +1351,9 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		cfg.clock = clockwork.NewRealClock()
 	}
 
-	if cfg.sendMeteringReport == nil {
-		cfg.sendMeteringReport = func(*MeteringReport, string, string, string) {}
+	if cfg.sendMeteringReportHook == nil {
+		// TODO: send metering report to billing and to beholder
+		cfg.sendMeteringReportHook = func(*MeteringReport, string, string, string) {}
 	}
 
 	if cfg.RateLimiter == nil {
@@ -1373,26 +1408,27 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionsStore:      cfg.Store,
-		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
-		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
-		triggerEvents:        make(chan capabilities.TriggerResponse),
-		stopCh:               make(chan struct{}),
-		newWorkerTimeout:     cfg.NewWorkerTimeout,
-		stepTimeoutDuration:  cfg.StepTimeout,
-		maxExecutionDuration: cfg.MaxExecutionDuration,
-		heartbeatCadence:     cfg.HeartbeatCadence,
-		onExecutionFinished:  cfg.onExecutionFinished,
-		onRateLimit:          cfg.onRateLimit,
-		afterInit:            cfg.afterInit,
-		maxRetries:           cfg.maxRetries,
-		retryMs:              cfg.retryMs,
-		maxWorkerLimit:       cfg.MaxWorkerLimit,
-		clock:                cfg.clock,
-		ratelimiter:          cfg.RateLimiter,
-		workflowLimits:       cfg.WorkflowLimits,
-		meterReports:         NewMeterReports(),
-		sendMeteringReport:   cfg.sendMeteringReport,
+		executionStates:        cfg.Store,
+		pendingStepRequests:    make(chan stepRequest, cfg.QueueSize),
+		stepUpdatesChMap:       stepUpdateManager{m: map[string]stepUpdateChannel{}},
+		triggerEvents:          make(chan capabilities.TriggerResponse),
+		stopCh:                 make(chan struct{}),
+		newWorkerTimeout:       cfg.NewWorkerTimeout,
+		stepTimeoutDuration:    cfg.StepTimeout,
+		maxExecutionDuration:   cfg.MaxExecutionDuration,
+		heartbeatCadence:       cfg.HeartbeatCadence,
+		onExecutionFinished:    cfg.onExecutionFinished,
+		onRateLimit:            cfg.onRateLimit,
+		afterInit:              cfg.afterInit,
+		maxRetries:             cfg.maxRetries,
+		retryMs:                cfg.retryMs,
+		maxWorkerLimit:         cfg.MaxWorkerLimit,
+		clock:                  cfg.clock,
+		ratelimiter:            cfg.RateLimiter,
+		workflowLimits:         cfg.WorkflowLimits,
+		meterReports:           NewMeterReports(),
+		sendMeteringReportHook: cfg.sendMeteringReportHook,
+		billingClient:          cfg.BillingClient,
 	}
 
 	return engine, nil
