@@ -15173,6 +15173,7 @@ NodeIsSyncingEnabled = false # Default
 FinalizedBlockPollInterval = '5s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
+VerifyChainID = true # Default
 NewHeadsPollInterval = '0s' # Default
 ```
 The node pool manages multiple RPC endpoints.
@@ -15266,6 +15267,12 @@ Larger values might be helpful to reduce the noisiness of health checks like `En
 trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network delays in broadcasting of the finalized state among RPCs.
 Should be greater than `FinalizedBlockPollInterval`.
 Unhealthy RPC will not be picked to handle a request even if this option is set to a nonzero value.
+
+### VerifyChainID
+```toml
+VerifyChainID = true # Default
+```
+VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
 
 ### NewHeadsPollInterval
 ```toml
@@ -15823,6 +15830,7 @@ NewHeadsPollInterval = '10s' # Default
 FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '10s' # Default
+VerifyChainID = true # Default
 NodeNoNewHeadsThreshold = '10s' # Default
 NoNewFinalizedHeadsThreshold = '10s' # Default
 FinalityDepth = 0 # Default
@@ -15896,6 +15904,12 @@ EnforceRepeatableRead enforces the repeatable read guarantee for multinode.
 DeathDeclarationDelay = '10s' # Default
 ```
 DeathDeclarationDelay is the duration to wait before declaring a node dead.
+
+### VerifyChainID
+```toml
+VerifyChainID = true # Default
+```
+VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
 
 ### NodeNoNewHeadsThreshold
 ```toml

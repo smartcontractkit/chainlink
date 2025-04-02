@@ -81,7 +81,7 @@ require (
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
-	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402142912-38edb9d0007e
+	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402144045-4cad3f3cfbb2
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-protos/svr v1.1.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250402143249-3336b1a90fca
