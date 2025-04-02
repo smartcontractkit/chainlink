@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 
 	// The Chainlink logger interface we're implementing:
-	"github.com/google/uuid"
 	corelogger "github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

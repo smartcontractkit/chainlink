@@ -121,7 +121,7 @@ func setupLoadTestEnvironment(
 		JobSpecFactoryFunctions:    jobSpecFactoryFns,
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testLogger, cldlogger.NewSingleFileLogger(t), testcontext.Get(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// TODO not sure we need this for the load test, ask @George Dorin

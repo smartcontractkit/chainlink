@@ -303,7 +303,7 @@ func setupPoRTestEnvironment(
 		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn(filepath.Join("/home/capabilities/", filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)), extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
 	}
 
-	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testLogger, cldlogger.NewSingleFileLogger(t), testcontext.Get(t), universalSetupInput)
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
 	require.NoError(t, setupErr, "failed to setup test environment")
 
 	// Workflow-specific configuration -- START
