@@ -15173,8 +15173,8 @@ NodeIsSyncingEnabled = false # Default
 FinalizedBlockPollInterval = '5s' # Default
 EnforceRepeatableRead = true # Default
 DeathDeclarationDelay = '1m' # Default
-VerifyChainID = true # Default
 NewHeadsPollInterval = '0s' # Default
+VerifyChainID = true # Default
 ```
 The node pool manages multiple RPC endpoints.
 
@@ -15268,12 +15268,6 @@ trigger declaration of `FinalizedBlockOutOfSync` due to insignificant network de
 Should be greater than `FinalizedBlockPollInterval`.
 Unhealthy RPC will not be picked to handle a request even if this option is set to a nonzero value.
 
-### VerifyChainID
-```toml
-VerifyChainID = true # Default
-```
-VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
-
 ### NewHeadsPollInterval
 ```toml
 NewHeadsPollInterval = '0s' # Default
@@ -15281,6 +15275,12 @@ NewHeadsPollInterval = '0s' # Default
 NewHeadsPollInterval define an interval for polling new block periodically using http client rather than subscribe to ws feed
 
 Set to 0 to disable.
+
+### VerifyChainID
+```toml
+VerifyChainID = true # Default
+```
+VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
 
 ## EVM.NodePool.Errors
 :warning: **_ADVANCED_**: _Do not change these settings unless you know what you are doing._
