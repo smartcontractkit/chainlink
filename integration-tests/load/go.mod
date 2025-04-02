@@ -36,7 +36,7 @@ require (
 	github.com/smartcontractkit/chainlink-testing-framework/wasp v1.51.0
 	github.com/smartcontractkit/tdh2/go/tdh2 v0.0.0-20241009055228-33d0c0bf38de
 	github.com/stretchr/testify v1.10.0
-	github.com/wiremock/go-wiremock v1.11.0
+	github.com/wiremock/go-wiremock v1.9.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/ratelimit v0.3.1
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
