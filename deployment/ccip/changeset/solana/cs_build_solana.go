@@ -3,6 +3,7 @@ package solana
 import (
 	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -180,7 +181,7 @@ func syncRouterAndCommon() error {
 	}
 
 	if declareID == "" {
-		return fmt.Errorf("declare_id not found in router file")
+		return errors.New("declare_id not found in router file")
 	}
 
 	commonContent, err := os.ReadFile(commonFile)
@@ -190,7 +191,7 @@ func syncRouterAndCommon() error {
 
 	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
 
-	return os.WriteFile(commonFile, []byte(updatedContent), 0644)
+	return os.WriteFile(commonFile, []byte(updatedContent), 600)
 }
 
 func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
