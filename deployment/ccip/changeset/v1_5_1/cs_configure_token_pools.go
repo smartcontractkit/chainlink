@@ -10,6 +10,7 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -17,6 +18,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
 
+	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commoncs "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
@@ -63,10 +65,28 @@ func (c RateLimiterPerChain) Validate() error {
 	return nil
 }
 
+// SolChainUpdate defines the rate limits and token address for a Solana chain.
+type SolChainUpdate struct {
+	// RateLimiterConfig defines the rate limits for the Solana chain.
+	RateLimiterConfig RateLimiterConfig
+	// TokenAddress is the address of the token on the Solana chain.
+	TokenAddress string
+	// Type is the type of the token pool.
+	Type deployment.ContractType
+}
+
+func (c SolChainUpdate) Validate() error {
+	// TODO
+
+	return nil
+}
+
 // TokenPoolConfig defines all the information required of the user to configure a token pool.
 type TokenPoolConfig struct {
 	// ChainUpdates defines the chains and corresponding rate limits that should be defined on the token pool.
 	ChainUpdates RateLimiterPerChain
+	// SolChainUpdates defines the Solana chains and corresponding rate limits that should be defined on the token pool.
+	SolChainUpdates map[uint64]SolChainUpdate
 	// Type is the type of the token pool.
 	Type deployment.ContractType
 	// Version is the version of the token pool.
@@ -236,6 +256,43 @@ func configureTokenPool(
 	var updatedInboundConfigs []token_pool.RateLimiterConfig
 	// For adding remote pools
 	remotePoolAddressAdditions := make(map[uint64]common.Address)
+
+	for remoteChainSelector, chainUpdate := range poolUpdate.SolChainUpdates {
+		remoteTokenAddress := solana.MustPublicKeyFromBase58(chainUpdate.TokenAddress)
+		var tokenPoolProgram solana.PublicKey
+		switch poolUpdate.Type {
+		case changeset.BurnMintTokenPool:
+			tokenPoolProgram = state.SolChains[remoteChainSelector].BurnMintTokenPool
+		case changeset.LockReleaseTokenPool:
+			tokenPoolProgram = state.SolChains[remoteChainSelector].LockReleaseTokenPool
+		default:
+			return fmt.Errorf("unknown solana token pool type %s", poolUpdate.Type)
+		}
+		remotePoolAddress, err := solTokenUtil.TokenPoolConfigAddress(remoteTokenAddress, tokenPoolProgram)
+		if err != nil {
+			return fmt.Errorf("failed to get token pool address for token %s on solana chain with selector %d: %w", remoteTokenAddress, remoteChainSelector, err)
+		}
+		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
+		if err != nil {
+			return fmt.Errorf("failed to check if %d is supported on pool with address %s on %s: %w", remoteChainSelector, tokenPool.Address(), chain.String(), err)
+		}
+		if isSupportedChain {
+			// Just update the rate limits if the chain is already supported
+			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
+			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+			// TODO: Add a new remote pool if the inputted remote pool is different than the one set on the Solana registry
+		} else {
+			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
+				RemoteChainSelector:       remoteChainSelector,
+				InboundRateLimiterConfig:  chainUpdate.RateLimiterConfig.Inbound,
+				OutboundRateLimiterConfig: chainUpdate.RateLimiterConfig.Outbound,
+				RemoteTokenAddress:        remoteTokenAddress.Bytes(),
+				RemotePoolAddresses:       [][]byte{remotePoolAddress.Bytes()},
+			})
+			// TODO: If updating the EVM pool, support the remote pool addresses that the old pool supported.
+		}
+	}
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.ChainUpdates {
 		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
