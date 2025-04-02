@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
@@ -20,6 +22,7 @@ type DeployRewardManager struct {
 
 type DeployRewardManagerConfig struct {
 	ChainsToDeploy map[uint64]DeployRewardManager
+	MCMSConfig     *proposalutils.TimelockConfig
 }
 
 func (cc DeployRewardManagerConfig) Validate() error {
@@ -41,6 +44,12 @@ func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerCo
 		e.Logger.Errorw("Failed to deploy RewardManager", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.MCMSConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.MCMSConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil

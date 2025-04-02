@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
@@ -23,6 +25,7 @@ type DeployFeeManager struct {
 
 type DeployFeeManagerConfig struct {
 	ChainsToDeploy map[uint64]DeployFeeManager
+	MCMSConfig     *proposalutils.TimelockConfig
 }
 
 func (cc DeployFeeManagerConfig) Validate() error {
@@ -44,6 +47,12 @@ func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) 
 		e.Logger.Errorw("Failed to deploy FeeManager", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.MCMSConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.MCMSConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil

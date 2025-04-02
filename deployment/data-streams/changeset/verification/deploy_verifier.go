@@ -5,10 +5,11 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
-
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	verifier "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
 
@@ -20,6 +21,7 @@ type DeployVerifier struct {
 
 type DeployVerifierConfig struct {
 	ChainsToDeploy map[uint64]DeployVerifier
+	MCMSConfig     *proposalutils.TimelockConfig
 }
 
 func (cc DeployVerifierConfig) Validate() error {
@@ -41,9 +43,13 @@ func deployVerifierLogic(e deployment.Environment, cc DeployVerifierConfig) (dep
 		e.Logger.Errorw("Failed to deploy Verifier", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
-	return deployment.ChangesetOutput{
-		AddressBook: ab,
-	}, nil
+
+	if cc.MCMSConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.Verifier, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.MCMSConfig)
+	}
+
+	return deployment.ChangesetOutput{AddressBook: ab}, nil
 }
 
 func deployVerifierPrecondition(_ deployment.Environment, cc DeployVerifierConfig) error {

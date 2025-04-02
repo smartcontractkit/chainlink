@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
@@ -89,4 +90,54 @@ func ExecuteOrPropose(
 
 	_, err := txutil.SignAndExecute(e, txs)
 	return deployment.ChangesetOutput{}, err
+}
+
+// TransferToMCMSWithTimelockForTypeAndVersion transfers ownership of the contracts of a specific type and version to the
+// MCMS timelock on that chain. The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
+// The address book should be recently deployed addresses that are being transferred to MCMS and should not be in e.ExistingAddresses
+func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
+	ab deployment.AddressBook, filter deployment.TypeAndVersion,
+	MCMSConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
+
+	contractAddressesEvm := make(map[uint64][]common.Address)
+	for _, chain := range e.Chains {
+		chainAddresses, err := ab.AddressesForChain(chain.Selector)
+		if err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
+		}
+		for address, typeAndVersion := range chainAddresses {
+			if typeAndVersion.Type == filter.Type && typeAndVersion.Version == filter.Version {
+				contractAddressesEvm[chain.Selector] = append(contractAddressesEvm[chain.Selector], common.HexToAddress(address))
+			}
+		}
+	}
+
+	// create a merged addressbook with the new addresses. Sub-changesets will need all addresses
+	existingAddresses := e.ExistingAddresses
+	abTemp := deployment.NewMemoryAddressBook()
+	if err := abTemp.Merge(ab); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
+	}
+	if err := abTemp.Merge(e.ExistingAddresses); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging existing addresses into temp addresses: %w", err)
+	}
+
+	e.ExistingAddresses = abTemp
+
+	transferCs := deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
+	transferCsCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
+		ContractsByChain: contractAddressesEvm,
+		MCMSConfig:       MCMSConfig,
+	}
+
+	transferOut, err := transferCs.Apply(e, transferCsCfg)
+	e.ExistingAddresses = existingAddresses // reset the address book to the original state regardless of errors
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer contracts to MCMS: %w", err)
+	}
+
+	return deployment.ChangesetOutput{
+		AddressBook:           ab,
+		MCMSTimelockProposals: transferOut.MCMSTimelockProposals,
+	}, nil
 }

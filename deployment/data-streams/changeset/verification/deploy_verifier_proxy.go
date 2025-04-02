@@ -6,6 +6,8 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 
@@ -22,6 +24,7 @@ type verifierProxyDeploy struct{}
 type DeployVerifierProxyConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 	ChainsToDeploy map[uint64]DeployVerifierProxy
+	MCMSConfig     *proposalutils.TimelockConfig
 	Version        semver.Version
 }
 
@@ -54,6 +57,12 @@ func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierP
 		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.MCMSConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.MCMSConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
