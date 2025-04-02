@@ -275,9 +275,9 @@ func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Cont
 	c.em.engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context) {
+func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
-	c.em.engineHeartbeatGauge.Record(ctx, 1, metric.WithAttributes(otelLabels...))
+	c.em.engineHeartbeatGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
