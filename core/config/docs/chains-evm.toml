@@ -435,8 +435,6 @@ EnforceRepeatableRead = true # Default
 # Should be greater than `FinalizedBlockPollInterval`.
 # Unhealthy RPC will not be picked to handle a request even if this option is set to a nonzero value.
 DeathDeclarationDelay = '1m' # Default
-# VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
-VerifyChainID = true # Default
 # NewHeadsPollInterval define an interval for polling new block periodically using http client rather than subscribe to ws feed
 #
 # Set to 0 to disable.
