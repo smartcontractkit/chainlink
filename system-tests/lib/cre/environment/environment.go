@@ -258,40 +258,6 @@ func SetupTestEnvironment(
 		if appendErr != nil {
 			return nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}
-
-		// instruct Docker which capabilities to copy to the container
-		// TODO: add similar support for CRIB
-		// if input.InfraInput.InfraType == libtypes.Docker {
-		// 	for capabilityFlag, binaryPath := range input.CustomBinariesPaths {
-		// 		if binaryPath == "" {
-		// 			return nil, fmt.Errorf("binary path for capability %s is empty", capabilityFlag)
-		// 		}
-
-		// 		if flags.HasFlag(donMetadata.Flags, capabilityFlag) {
-		// 			workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
-		// 				Key:   libnode.NodeTypeKey,
-		// 				Value: keystonetypes.WorkerNode,
-		// 			}, libnode.EqualLabels)
-		// 			if wErr != nil {
-		// 				return nil, errors.Wrap(wErr, "failed to find worker nodes")
-		// 			}
-
-		// 			for _, node := range workerNodes {
-		// 				nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-		// 				if nErr != nil {
-		// 					return nil, errors.Wrap(nErr, "failed to find index label")
-		// 				}
-
-		// 				nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-		// 				if nIErr != nil {
-		// 					return nil, errors.Wrap(nIErr, "failed to convert index label value to int")
-		// 				}
-
-		// 				input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(input.CapabilitiesAwareNodeSets[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, binaryPath)
-		// 			}
-		// 		}
-		// 	}
-		// }
 	}
 
 	// Deploy the DONs

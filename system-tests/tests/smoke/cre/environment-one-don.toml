@@ -44,7 +44,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../../.."
+      docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
@@ -75,7 +75,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../../.."
+      docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
@@ -104,7 +104,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../../.."
+      docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
@@ -133,7 +133,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../../.."
+      docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """
@@ -162,7 +162,7 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      docker_ctx = "../../../../.."
+      docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
       # image = "chainlink-tmp:latest"
       user_config_overrides = """

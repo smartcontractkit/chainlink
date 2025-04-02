@@ -13,7 +13,7 @@
   type = "docker"
 
 [extra_capabilities]
-# uncomment as needed and adjust paths
+# uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
 # cron_capability_binary_path = "../cron"
 # log_event_trigger_binary_path = "../logtrigger"
 # read_contract_capability_binary_path = "../readcontract"
