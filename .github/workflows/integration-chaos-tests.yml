@@ -15,7 +15,7 @@ on:
 jobs:
   run-e2e-tests-workflow-dispatch:
     name: Run E2E Tests (Workflow Dispatch)
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@52c57ff58abdf960d5c8367b019d43fe1c201a41
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@d23290d4a4468fdb644d211278f2f09a7eafc9d6
     if: github.event_name == 'workflow_dispatch'
     with:
       test_path: .github/e2e-tests.yml
@@ -48,7 +48,7 @@ jobs:
 
   run-e2e-tests-workflow:
     name: Run E2E Tests (Push and Sechedule)
-    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@52c57ff58abdf960d5c8367b019d43fe1c201a41
+    uses: smartcontractkit/.github/.github/workflows/run-e2e-tests.yml@d23290d4a4468fdb644d211278f2f09a7eafc9d6
     if: github.event_name != 'workflow_dispatch'
     with:
       test_path: .github/e2e-tests.yml

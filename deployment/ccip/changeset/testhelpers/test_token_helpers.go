@@ -130,7 +130,7 @@ func SetupTwoChainEnvironmentWithTokens(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{
@@ -210,7 +210,7 @@ func DeployTestTokenPools(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
 					MCMSConfig: proposalutils.TimelockConfig{

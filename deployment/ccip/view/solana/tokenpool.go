@@ -55,6 +55,7 @@ func GenerateTokenPoolView(chain deployment.SolChain, program solana.PublicKey, 
 	view := TokenPoolView{}
 	view.PoolType = poolType
 	view.TokenPoolState = make(map[string]TokenPoolState)
+	view.TokenPoolChainConfig = make(map[uint64]map[string]TokenPoolChainConfig)
 	for _, remote := range remoteChains {
 		view.TokenPoolChainConfig[remote] = make(map[string]TokenPoolChainConfig)
 		// TODO: save the configured chains/tokens to the AB so we can reconstruct state without the loop
