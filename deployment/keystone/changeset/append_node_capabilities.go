@@ -35,10 +35,10 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			c.Chain.Selector: contractSet.Timelock.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			c.Chain.Selector: contractSet.ProposerMcm.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
@@ -65,12 +65,12 @@ func AppendNodeCapabilities(env deployment.Environment, req *AppendNodeCapabilit
 	return out, nil
 }
 
-func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, *ContractSet, error) {
+func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*internal.AppendNodeCapabilitiesRequest, *ContractSetV2, error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
+	resp, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
@@ -81,7 +81,7 @@ func (req *AppendNodeCapabilitiesRequest) convert(e deployment.Environment) (*in
 
 	return &internal.AppendNodeCapabilitiesRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
 		P2pToCapabilities:    req.P2pToCapabilities,
 		UseMCMS:              req.UseMCMS(),
 	}, &contractSet, nil

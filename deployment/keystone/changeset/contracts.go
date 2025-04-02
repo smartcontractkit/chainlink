@@ -186,3 +186,18 @@ func createContractInstance[T Ownable](addr string, chain deployment.Chain) (*T,
 
 	return &instance, nil
 }
+
+// GetOwnedContract is a helper function that gets a contract and wraps it in OwnedContract
+func GetOwnedContract[T Ownable](addressBook deployment.AddressBook, chain deployment.Chain, addr string) (*OwnedContract[T], error) {
+	contract, err := GetOwnableContract[T](addressBook, chain, &addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)
+	}
+
+	ownedContract, err := NewOwnable(*contract, addressBook, chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create owned contract for %s: %w", addr, err)
+	}
+
+	return ownedContract, nil
+}
