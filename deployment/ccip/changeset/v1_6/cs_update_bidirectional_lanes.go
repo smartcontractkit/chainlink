@@ -42,7 +42,7 @@ type UpdateBidirectionalLanesConfig struct {
 	TestRouter bool
 }
 
-type updateBidirectionalLanesChangesetConfigs struct {
+type UpdateBidirectionalLanesChangesetConfigs struct {
 	UpdateFeeQuoterDestsConfig  UpdateFeeQuoterDestsConfig
 	UpdateFeeQuoterPricesConfig UpdateFeeQuoterPricesConfig
 	UpdateOnRampDestsConfig     UpdateOnRampDestsConfig
@@ -50,7 +50,7 @@ type updateBidirectionalLanesChangesetConfigs struct {
 	UpdateRouterRampsConfig     UpdateRouterRampsConfig
 }
 
-func (c UpdateBidirectionalLanesConfig) BuildConfigs() updateBidirectionalLanesChangesetConfigs {
+func (c UpdateBidirectionalLanesConfig) BuildConfigs() UpdateBidirectionalLanesChangesetConfigs {
 	onRampUpdatesByChain := make(map[uint64]map[uint64]OnRampDestinationUpdate)
 	offRampUpdatesByChain := make(map[uint64]map[uint64]OffRampSourceUpdate)
 	routerUpdatesByChain := make(map[uint64]RouterUpdates)
@@ -129,7 +129,7 @@ func (c UpdateBidirectionalLanesConfig) BuildConfigs() updateBidirectionalLanesC
 		routerMCMSConfig = nil // Test router is never owned by MCMS
 	}
 
-	return updateBidirectionalLanesChangesetConfigs{
+	return UpdateBidirectionalLanesChangesetConfigs{
 		UpdateFeeQuoterDestsConfig: UpdateFeeQuoterDestsConfig{
 			MCMS:           c.MCMSConfig,
 			UpdatesByChain: feeQuoterDestUpdatesByChain,
