@@ -436,6 +436,7 @@ FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
