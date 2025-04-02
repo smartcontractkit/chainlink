@@ -407,9 +407,6 @@ type TestSolanaChainsController struct {
 }
 
 func setupSolanaChainsControllerTestV2(t *testing.T, cfgs ...*config.TOMLConfig) *TestSolanaChainsController {
-	for i := range cfgs {
-		cfgs[i].SetDefaults()
-	}
 	cfg := configtest.NewGeneralConfig(t, func(c *chainlink.Config, s *chainlink.Secrets) {
 		c.Solana = cfgs
 		c.EVM = nil

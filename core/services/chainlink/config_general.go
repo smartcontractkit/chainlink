@@ -145,6 +145,7 @@ func (o GeneralConfigOpts) New() (GeneralConfig, error) {
 
 	if fn := o.OverrideFn; fn != nil {
 		fn(&o.Config, &o.Secrets)
+		//TODO this doesn't work after defaults!
 	}
 
 	effective, err := o.Config.TOMLString()

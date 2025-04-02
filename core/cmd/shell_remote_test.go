@@ -127,7 +127,6 @@ func TestShell_ReplayBlocks(t *testing.T) {
 			ChainID: ptr("devnet"),
 			Enabled: ptr(true),
 		}
-		solCfg.SetDefaults()
 		c.Solana = config.TOMLConfigs{solCfg}
 	})
 	client, _ := app.NewShellAndRenderer()

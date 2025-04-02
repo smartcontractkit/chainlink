@@ -9,6 +9,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gagliardetto/solana-go"
 	"github.com/kylelemons/godebug/diff"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
@@ -19,6 +20,7 @@ import (
 
 	commonassets "github.com/smartcontractkit/chainlink-common/pkg/assets"
 	commoncfg "github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
 	commontypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/hex"
 	"github.com/smartcontractkit/chainlink-framework/multinode"
@@ -34,7 +36,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 	"github.com/smartcontractkit/chainlink/v2/core/store/models"
 	"github.com/smartcontractkit/chainlink/v2/core/utils"
@@ -879,14 +880,14 @@ func TestConfig_Marshal(t *testing.T) {
 				{Name: ptr("foo"), URL: commoncfg.MustParseURL("http://solana.foo"), SendOnly: true, Order: ptr(int32(2))},
 				{Name: ptr("bar"), URL: commoncfg.MustParseURL("http://solana.bar"), SendOnly: true, Order: ptr(int32(3))},
 			},
-			Workflow: &solcfg.WorkflowConfig{
+			Workflow: solcfg.WorkflowConfig{
 				AcceptanceTimeout: commoncfg.MustNewDuration(time.Second * 45),
-				FromAddress:       ptr("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e"),
-				ForwarderAddress:  ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
-				ForwarderState:    ptr("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5"),
+				FromAddress:       ptr(solana.MustPublicKeyFromBase58("4BJXYkfvg37zEmBbsacZjeQDpTNx91KppxFJxRqrz48e")),
+				ForwarderAddress:  ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
+				ForwarderState:    ptr(solana.MustPublicKeyFromBase58("14grJpemFaf88c8tiVb77W7TYg2W3ir6pfkKz3YjhhZ5")),
 				TxAcceptanceState: ptr(commontypes.Finalized),
 				PollPeriod:        commoncfg.MustNewDuration(time.Second * 3),
-				Local:             true,
+				Local:             ptr(true),
 				GasLimitDefault:   ptr(uint64(0)),
 			},
 		},
@@ -1526,7 +1527,7 @@ func TestConfig_full(t *testing.T) {
 		}
 	}
 
-	cfgtest.AssertFieldsNotNil(t, got)
+	configtest.AssertFieldsNotNil(t, got)
 }
 
 //go:embed testdata/config-invalid.toml
@@ -1879,7 +1880,7 @@ func TestConfig_setDefaults(t *testing.T) {
 	if s, err := c.TOMLString(); assert.NoError(t, err) {
 		t.Log(s, err)
 	}
-	cfgtest.AssertFieldsNotNil(t, c.Core)
+	configtest.AssertFieldsNotNil(t, c.Core)
 }
 
 func Test_validateEnv(t *testing.T) {

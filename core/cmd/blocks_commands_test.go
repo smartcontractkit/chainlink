@@ -20,12 +20,10 @@ func Test_ReplayFromBlock(t *testing.T) {
 		c.EVM[0].ChainID = (*ubig.Big)(big.NewInt(5))
 		c.EVM[0].Enabled = ptr(true)
 
-		solCfg := &config.TOMLConfig{
+		c.Solana = config.TOMLConfigs{{
 			ChainID: ptr("devnet"),
 			Enabled: ptr(true),
-		}
-		solCfg.SetDefaults()
-		c.Solana = config.TOMLConfigs{solCfg}
+		}}
 	})
 
 	client, _ := app.NewShellAndRenderer()

@@ -143,7 +143,6 @@ func TestHealthController_Health_body(t *testing.T) {
 						{Name: ptr("primary"), URL: config.MustParseURL("http://solana.web")},
 					},
 				})
-				cfg.Solana[0].SetDefaults()
 			})
 			app := cltest.NewApplicationWithConfigAndKey(t, cfg)
 			require.NoError(t, app.Start(testutils.Context(t)))
