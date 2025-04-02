@@ -32,11 +32,13 @@ message CapabilityExecutionStarted {
   WorkflowMetadata m = 1;
   string timestamp = 2;
   string capabilityID = 3;
+  string stepRef = 4;
 }
 
 message CapabilityExecutionFinished {
   WorkflowMetadata m = 1;
   string timestamp = 2;
   string capabilityID = 3;
-  string status = 4;
+  string stepRef = 4;
+  string status = 5;
 }
