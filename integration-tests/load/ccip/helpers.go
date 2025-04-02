@@ -479,12 +479,10 @@ func subscribeSkippedIncorrectNonce(
 }
 
 // fundAdditionalKeys will create len(targetChains) new addresses, and send funds to them on every targetChain
-// we reuse the same addresses across multiple chains to make it easier to track and return funds
 func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains []uint64) (map[uint64][]*bind.TransactOpts, error) {
 	deployerMap := make(map[uint64][]*bind.TransactOpts)
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
-
 	for chain := range e.Chains {
 		deployerMap[chain] = make([]*bind.TransactOpts, 0, numAccounts)
 		addressMap[chain] = make([]common.Address, 0, numAccounts)
@@ -505,6 +503,7 @@ func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains
 			if err != nil {
 				return nil, fmt.Errorf("failed to create transactor: %w", err)
 			}
+
 			deployerMap[chain] = append(deployerMap[chain], deployer)
 			addressMap[chain] = append(addressMap[chain], common.HexToAddress(addr))
 		}

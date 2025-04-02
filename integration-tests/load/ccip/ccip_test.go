@@ -241,6 +241,7 @@ func TestCCIPLoad_RPS(t *testing.T) {
 		go func() {
 			<-testTimer.C
 			cancel()
+			t.Fail()
 		}()
 	}
 
