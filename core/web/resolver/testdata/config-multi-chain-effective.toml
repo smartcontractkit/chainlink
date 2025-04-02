@@ -402,7 +402,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
 NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
@@ -517,7 +516,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
 NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
@@ -626,7 +624,6 @@ NodeIsSyncingEnabled = false
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
-VerifyChainID = true
 NewHeadsPollInterval = '0s'
 
 [EVM.OCR]
