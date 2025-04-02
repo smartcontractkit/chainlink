@@ -26,7 +26,7 @@
   jobs = 2
 
 [infra]
-  type = "docker"
+  type = "crib"
 
 [infra.crib]
   namespace = "crib-workflow-don-load-test"

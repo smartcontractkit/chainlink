@@ -109,7 +109,7 @@ type Config struct {
 	NodeSets          []*ns.Input             `toml:"nodesets" validate:"required"`
 	JD                *jd.Input               `toml:"jd" validate:"required"`
 	Infra             *libtypes.InfraInput    `toml:"infra" validate:"required"`
-	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities" validate:"required"`
+	ExtraCapabilities ExtraCapabilitiesConfig `toml:"extra_capabilities"`
 }
 
 type ExtraCapabilitiesConfig struct {
