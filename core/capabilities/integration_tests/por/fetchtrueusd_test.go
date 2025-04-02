@@ -149,7 +149,6 @@ func (n ComputeFetcherFactory) NewFetcher(log commonlogger.Logger, emitter custm
 
 func setupDons(ctx context.Context, t *testing.T, lggr logger.SugaredLogger, workflowURL string, cronSchedule string,
 	triggerFactory framework.TriggerFactory) *data_feeds_cache.DataFeedsCache {
-
 	configURL := "workflow-config.json"
 	workflowConfig := fetchTrueUSDConfig{
 		CronSchedule: cronSchedule,

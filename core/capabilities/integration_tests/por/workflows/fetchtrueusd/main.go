@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -49,7 +50,7 @@ func convertFeedIDtoBytes(feedIDStr string) ([32]byte, error) {
 
 	if len(b) < 32 {
 		nb := [32]byte{}
-		copy(nb[:], b[:])
+		copy(nb[:], b)
 		return nb, err
 	}
 
@@ -80,7 +81,7 @@ func BuildWorkflow(configBytes []byte) (*sdk.WorkflowSpecFactory, error) {
 		func(runtime sdk.Runtime, config computeConfig, outputs croncap.Payload) (computeOutput, error) {
 			feedID, err := convertFeedIDtoBytes(config.FeedID)
 			if err != nil {
-				return computeOutput{}, fmt.Errorf("cannot convert feedID to bytes")
+				return computeOutput{}, errors.New("cannot convert feedID to bytes")
 			}
 
 			fresp, err := runtime.Fetch(sdk.FetchRequest{
@@ -101,7 +102,7 @@ func BuildWorkflow(configBytes []byte) (*sdk.WorkflowSpecFactory, error) {
 			if resp.Ripcord {
 				err := runtime.Emitter().With(
 					"feedID", config.FeedID,
-				).Emit(fmt.Sprintf("ripcord flag set for feed ID %s", config.FeedID))
+				).Emit("ripcord flag set for feed ID " + config.FeedID)
 				if err != nil {
 					runtime.Logger().Error("failed to emit custom message")
 				}
