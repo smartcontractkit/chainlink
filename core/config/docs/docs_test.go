@@ -6,11 +6,11 @@ import (
 
 	"github.com/kylelemons/godebug/diff"
 	gotoml "github.com/pelletier/go-toml/v2"
-	pkgerrors "github.com/pkg/errors"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
+	"github.com/smartcontractkit/chainlink-common/pkg/config/configtest"
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
 	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
@@ -19,27 +19,13 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink/v2/core/config/docs"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
-	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink/cfgtest"
 )
 
 func TestDoc(t *testing.T) {
-	d := gotoml.NewDecoder(strings.NewReader(docs.DocsTOML))
-	d.DisallowUnknownFields() // Ensure no extra fields
-	var c chainlink.Config
-	err := d.Decode(&c)
-	var strict *gotoml.StrictMissingError
-	if err != nil && strings.Contains(err.Error(), "undecoded keys: ") {
-		t.Errorf("Docs contain extra fields: %v", err)
-	} else if pkgerrors.As(err, &strict) {
-		t.Fatal("StrictMissingError:", strict.String())
-	} else {
-		require.NoError(t, err)
-	}
-
-	cfgtest.AssertFieldsNotNil(t, c)
+	configtest.AssertDocsTOMLComplete[chainlink.Config](t, docs.DocsTOML)
 
 	var defaults chainlink.Config
-	require.NoError(t, cfgtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, config.DecodeTOML))
+	require.NoError(t, configtest.DocDefaultsOnly(strings.NewReader(docs.DocsTOML), &defaults, config.DecodeTOML))
 
 	t.Run("EVM", func(t *testing.T) {
 		fallbackDefaults := toml.Defaults(nil)
