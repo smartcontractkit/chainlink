@@ -32,7 +32,7 @@ func Test_runLLOWorkflow(t *testing.T) {
 	lggr.SetLogLevel(zapcore.InfoLevel)
 
 	// setup the trigger sink that will receive the trigger event in the llo-specific format, per v2.0.0
-	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "2.0.0")
+	triggerSink := framework.NewTriggerSink(t, "streams-trigger:don_16nodes", "2.0.0") // note the label {"don": "16nodes"} to ensure that we can support labelled capabilities; it must match the llo wf spec in [workflow.go]. the label nor the value are important for this test
 
 	// setup the dons, the size is not important for this test
 	workflowDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Workflow", NumNodes: 4, F: 1, AcceptsWorkflows: true})
