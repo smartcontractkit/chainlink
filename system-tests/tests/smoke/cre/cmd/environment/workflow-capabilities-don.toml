@@ -13,7 +13,10 @@
   type = "docker"
 
 [extra_capabilities]
-cron_capability_binary_path = "../cron"
+# uncomment as needed and adjust paths
+# cron_capability_binary_path = "../cron"
+# log_event_trigger_binary_path = "../logtrigger"
+# read_contract_capability_binary_path = "../readcontract"
 
 [[nodesets]]
   nodes = 5
@@ -30,9 +33,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -48,9 +56,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -66,9 +79,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -84,9 +102,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -102,9 +125,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -130,9 +158,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -148,9 +181,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -166,9 +204,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -194,9 +237,14 @@ cron_capability_binary_path = "../cron"
     [nodesets.node_specs.node]
       docker_ctx = "../../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true

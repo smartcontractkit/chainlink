@@ -279,15 +279,12 @@ type porSetupOutput struct {
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
-var NoCustomJobsFn func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error) = nil
-
 func setupPoRTestEnvironment(
 	t *testing.T,
 	testLogger zerolog.Logger,
 	in *TestConfig,
 	priceProvider PriceProvider,
 	mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,
-	customJobsFn func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error),
 	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
 ) *porSetupOutput {
 	extraAllowedPorts := []int{}
@@ -297,14 +294,13 @@ func setupPoRTestEnvironment(
 
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
-		CustomJobsFn:               customJobsFn,
 		CapabilityFactoryFunctions: capabilityFactoryFns,
 		BlockchainsInput:           *in.BlockchainA,
 		JdInput:                    *in.JD,
 		InfraInput:                 *in.Infra,
 		CustomBinariesPaths:        map[string]string{keystonetypes.CronCapability: in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath},
 		ExtraAllowedPorts:          extraAllowedPorts,
-		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn("/home/capabilities/"+filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath), extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
+		JobSpecFactoryFunctions:    []keystonetypes.JobSpecFactoryFn{keystonepor.PoRJobSpecFactoryFn(filepath.Join("/home/capabilities/", filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)), extraAllowedPorts, []string{}, []string{"0.0.0.0/0"})},
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testLogger, cldlogger.NewSingleFileLogger(t), testcontext.Get(t), universalSetupInput)
@@ -405,7 +401,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 		in,
 		priceProvider,
 		mustSetCapabilitiesFn,
-		NoCustomJobsFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
+		[]keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
 	)
 
 	// Log extra information that might help debugging
@@ -517,7 +513,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, NoCustomJobsFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -631,7 +627,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	require.NoError(t, chainErr, "failed to convert chain ID to int")
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, NoCustomJobsFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
+	setupOutput := setupPoRTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {

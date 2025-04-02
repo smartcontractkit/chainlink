@@ -44,9 +44,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -73,9 +73,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -102,9 +102,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -131,9 +131,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -160,9 +160,9 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      # docker_ctx = "../../../.."
-      # docker_file = "plugins/chainlink.Dockerfile"
-      image = "chainlink-tmp:latest"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true

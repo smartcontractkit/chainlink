@@ -271,3 +271,9 @@ func resolveDockerHostWithCurl(containerName string) (string, error) {
 
 	return matches[1], nil
 }
+
+func NodeNeedsGateway(nodeFlags []cretypes.CapabilityFlag) bool {
+	return flags.HasFlag(nodeFlags, cretypes.CustomComputeCapability) ||
+		flags.HasFlag(nodeFlags, cretypes.WebAPITriggerCapability) ||
+		flags.HasFlag(nodeFlags, cretypes.WebAPITargetCapability)
+}

@@ -896,11 +896,11 @@ func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *
 		})
 	}
 
-	jobUuid := uuid.NewString()
+	jobUUID := uuid.NewString()
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
-		"JobID":      jobUuid,
-		"ShortID":    jobUuid[0:8],
+		"JobID":      jobUUID,
+		"ShortID":    jobUUID[0:8],
 		"BinaryPath": binaryPath,
 		"Mocks":      mockJobsData,
 	})

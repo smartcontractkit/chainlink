@@ -7,6 +7,7 @@ import (
 	"github.com/pkg/errors"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystoneflags "github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
@@ -119,8 +120,8 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 		// workflow DON nodes might need gateway connector to download WASM workflow binaries,
 		// but if the workflowDON is using only workflow jobs, we don't need to set the gateway connector
-		// gateway is required by custom compute, which won't start without it. Also, it can only run on workflow DON nodes
-		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) {
+		// gateway is also required by various capabilities
+		if (keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) && input.GatewayConnectorOutput != nil) || don.NodeNeedsGateway(input.Flags) {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				chainIDUint64,
