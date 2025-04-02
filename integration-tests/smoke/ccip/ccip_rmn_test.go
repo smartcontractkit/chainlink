@@ -449,9 +449,8 @@ func runRmnTestCase(t *testing.T, tc rmnTestCase) {
 					return
 				}
 				t.Logf("replaying logs after waiting for more than 1 minute")
-				// Using try replay logs to avoid race condition where nodes are being shut down and we call replay
-				// The original replay logs function would fail the test
-				testhelpers.TryReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks)
+				// Do not assert on error as we replay logs to avoid race condition where nodes are being shut down and we call replay
+				testhelpers.ReplayLogs(t, envWithRMN.Env.Offchain, envWithRMN.ReplayBlocks, testhelpers.WithAssertOnError(false))
 			case <-t.Context().Done():
 				return
 			}
