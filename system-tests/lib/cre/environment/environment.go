@@ -3,6 +3,7 @@ package environment
 import (
 	"context"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"math/big"
 	"os"
@@ -11,7 +12,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/pkg/errors"
+	pkgerrors "github.com/pkg/errors"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
@@ -64,6 +65,12 @@ type SetupOutput struct {
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
 }
 
+func (s *SetupOutput) Close() {
+	if s.BlockchainOutput != nil {
+		s.BlockchainOutput.Close()
+	}
+}
+
 type SetupInput struct {
 	ExtraAllowedPorts          []int
 	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
@@ -83,7 +90,7 @@ func SetupTestEnvironment(
 ) (*SetupOutput, error) {
 	topologyErr := libdon.ValidateTopology(input.CapabilitiesAwareNodeSets, input.InfraInput)
 	if topologyErr != nil {
-		return nil, errors.Wrap(topologyErr, "failed to validate topology")
+		return nil, pkgerrors.Wrap(topologyErr, "failed to validate topology")
 	}
 
 	// Shell is only required, when using CRIB, because we want to run commands in the same "nix develop" context
@@ -99,7 +106,7 @@ func SetupTestEnvironment(
 		var nixErr error
 		nixShell, nixErr = crib.StartNixShell(startNixShellInput)
 		if nixErr != nil {
-			return nil, errors.Wrap(nixErr, "failed to start nix shell")
+			return nil, pkgerrors.Wrap(nixErr, "failed to start nix shell")
 		}
 	}
 
@@ -117,7 +124,7 @@ func SetupTestEnvironment(
 
 	blockchainsOutput, bcOutErr := CreateBlockchains(singeFileLogger, testLogger, blockchainsInput)
 	if bcOutErr != nil {
-		return nil, errors.Wrap(bcOutErr, "failed to create blockchains")
+		return nil, pkgerrors.Wrap(bcOutErr, "failed to create blockchains")
 	}
 
 	// Deploy keystone contracts (forwarder, capability registry, ocr3 capability, workflow registry)
@@ -141,7 +148,7 @@ func SetupTestEnvironment(
 
 	chains, chainsErr := devenv.NewChains(singeFileLogger, chainsConfig)
 	if chainsErr != nil {
-		return nil, errors.Wrap(chainsErr, "failed to create chains")
+		return nil, pkgerrors.Wrap(chainsErr, "failed to create chains")
 	}
 
 	chainsOnlyCld := &deployment.Environment{
@@ -159,14 +166,14 @@ func SetupTestEnvironment(
 	}
 	keystoneContractsOutput, keyContrErr := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
 	if keyContrErr != nil {
-		return nil, errors.Wrap(keyContrErr, "failed to deploy keystone contracts")
+		return nil, pkgerrors.Wrap(keyContrErr, "failed to deploy keystone contracts")
 	}
 
 	// Translate node input to structure required further down the road and put as much information
 	// as we have at this point in labels. It will be used to generate node configs
 	topology, topoErr := libdon.BuildTopology(input.CapabilitiesAwareNodeSets, *blockchainsInput.infraInput)
 	if topoErr != nil {
-		return nil, errors.Wrap(topoErr, "failed to build topology")
+		return nil, pkgerrors.Wrap(topoErr, "failed to build topology")
 	}
 
 	// Generate EVM and P2P keys, which are needed to prepare the node configs
@@ -174,7 +181,7 @@ func SetupTestEnvironment(
 	var keys *keystonetypes.GenerateKeysOutput
 	chainIDInt, chainErr := strconv.Atoi(blockchainsOutput.BlockchainOutput.ChainID)
 	if chainErr != nil {
-		return nil, errors.Wrap(chainErr, "failed to convert chain ID to int")
+		return nil, pkgerrors.Wrap(chainErr, "failed to convert chain ID to int")
 	}
 
 	generateKeysInput := &keystonetypes.GenerateKeysInput{
@@ -185,12 +192,12 @@ func SetupTestEnvironment(
 	}
 	keys, keysErr := libdon.GenereteKeys(generateKeysInput)
 	if keysErr != nil {
-		return nil, errors.Wrap(keysErr, "failed to generate keys")
+		return nil, pkgerrors.Wrap(keysErr, "failed to generate keys")
 	}
 
 	topology, addKeysErr := libdon.AddKeysToTopology(topology, keys)
 	if addKeysErr != nil {
-		return nil, errors.Wrap(addKeysErr, "failed to add keys to topology")
+		return nil, pkgerrors.Wrap(addKeysErr, "failed to add keys to topology")
 	}
 
 	// Configure Workflow Registry contract
@@ -203,12 +210,12 @@ func SetupTestEnvironment(
 
 	_, workflowErr := libcontracts.ConfigureWorkflowRegistry(testLogger, workflowRegistryInput)
 	if workflowErr != nil {
-		return nil, errors.Wrap(workflowErr, "failed to configure workflow registry")
+		return nil, pkgerrors.Wrap(workflowErr, "failed to configure workflow registry")
 	}
 
 	peeringData, peeringErr := libdon.FindPeeringData(topology)
 	if peeringErr != nil {
-		return nil, errors.Wrap(peeringErr, "failed to find peering data")
+		return nil, pkgerrors.Wrap(peeringErr, "failed to find peering data")
 	}
 
 	for i, donMetadata := range topology.DonsMetadata {
@@ -226,7 +233,7 @@ func SetupTestEnvironment(
 			},
 		)
 		if configErr != nil {
-			return nil, errors.Wrap(configErr, "failed to generate config")
+			return nil, pkgerrors.Wrap(configErr, "failed to generate config")
 		}
 
 		secretsInput := &keystonetypes.GenerateSecretsInput{
@@ -246,7 +253,7 @@ func SetupTestEnvironment(
 			secretsInput,
 		)
 		if secretsErr != nil {
-			return nil, errors.Wrap(secretsErr, "failed to generate secrets")
+			return nil, pkgerrors.Wrap(secretsErr, "failed to generate secrets")
 		}
 
 		for j := range donMetadata.NodesMetadata {
@@ -257,7 +264,7 @@ func SetupTestEnvironment(
 		var appendErr error
 		input.CapabilitiesAwareNodeSets[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(input.CapabilitiesAwareNodeSets[i], donMetadata, input.CustomBinariesPaths)
 		if appendErr != nil {
-			return nil, errors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
+			return nil, pkgerrors.Wrapf(appendErr, "failed to append binaries paths to node spec for DON %d", donMetadata.ID)
 		}
 	}
 
@@ -288,7 +295,7 @@ func SetupTestEnvironment(
 		var devspaceErr error
 		input.CapabilitiesAwareNodeSets, devspaceErr = crib.DeployDons(deployCribDonsInput)
 		if devspaceErr != nil {
-			return nil, errors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
+			return nil, pkgerrors.Wrap(devspaceErr, "failed to deploy Dons with devspace")
 		}
 
 		deployCribJdInput := &keystonetypes.DeployCribJdInput{
@@ -300,20 +307,25 @@ func SetupTestEnvironment(
 		var jdErr error
 		input.JdInput.Out, jdErr = crib.DeployJd(deployCribJdInput)
 		if jdErr != nil {
-			return nil, errors.Wrap(jdErr, "failed to deploy JD with devspace")
+			return nil, pkgerrors.Wrap(jdErr, "failed to deploy JD with devspace")
 		}
 	}
 
 	jdOutput, jdErr := CreateJobDistributor(&input.JdInput)
 	if jdErr != nil {
-		return nil, errors.Wrap(jdErr, "failed to create job distributor")
+		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", input.JdInput.Image, jdErr)
+		// useful end user messages
+		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
+			jdErr = errors.Join(jdErr, fmt.Errorf("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`", input.JdInput.Image))
+		}
+		return nil, jdErr
 	}
 
 	nodeOutput := make([]*keystonetypes.WrappedNodeOutput, 0, len(input.CapabilitiesAwareNodeSets))
 	for _, nodeSetInput := range input.CapabilitiesAwareNodeSets {
 		nodeset, nodesetErr := ns.NewSharedDBNodeSet(nodeSetInput.Input, blockchainsOutput.BlockchainOutput)
 		if nodesetErr != nil {
-			return nil, errors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
+			return nil, pkgerrors.Wrapf(nodesetErr, "failed to create node set named %s", nodeSetInput.Name)
 		}
 
 		nodeOutput = append(nodeOutput, &keystonetypes.WrappedNodeOutput{
@@ -346,7 +358,7 @@ func SetupTestEnvironment(
 
 	fullCldOutput, cldErr := libdevenv.BuildFullCLDEnvironment(singeFileLogger, fullCldInput, creds)
 	if cldErr != nil {
-		return nil, errors.Wrap(cldErr, "failed to build full CLD environment")
+		return nil, pkgerrors.Wrap(cldErr, "failed to build full CLD environment")
 	}
 
 	// Fund the nodes
@@ -358,7 +370,7 @@ func SetupTestEnvironment(
 				PrivateKey: blockchainsOutput.SethClient.MustGetRootPrivateKey(),
 			})
 			if fundingErr != nil {
-				return nil, errors.Wrapf(fundingErr, "failed to fund node %s", node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID])
+				return nil, pkgerrors.Wrapf(fundingErr, "failed to fund node %s", node.AccountAddr[blockchainsOutput.SethClient.Cfg.Network.ChainID])
 			}
 		}
 	}
@@ -373,7 +385,7 @@ func SetupTestEnvironment(
 			KeystoneContractsOutput: keystoneContractsOutput,
 		})
 		if jobSpecsErr != nil {
-			return nil, errors.Wrap(jobSpecsErr, "failed to generate job specs")
+			return nil, pkgerrors.Wrap(jobSpecsErr, "failed to generate job specs")
 		}
 		mergeJobSpecSlices(singleDonToJobSpecs, donToJobSpecs)
 	}
@@ -386,7 +398,7 @@ func SetupTestEnvironment(
 
 	jobsErr := libdon.CreateJobs(testLogger, createJobsInput)
 	if jobsErr != nil {
-		return nil, errors.Wrap(jobsErr, "failed to create jobs")
+		return nil, pkgerrors.Wrap(jobsErr, "failed to create jobs")
 	}
 
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
@@ -406,7 +418,7 @@ func SetupTestEnvironment(
 
 	keystoneErr := libcontracts.ConfigureKeystone(configureKeystoneInput, input.CapabilityFactoryFunctions)
 	if keystoneErr != nil {
-		return nil, errors.Wrap(keystoneErr, "failed to configure keystone contracts")
+		return nil, pkgerrors.Wrap(keystoneErr, "failed to configure keystone contracts")
 	}
 
 	return &SetupOutput{
@@ -431,6 +443,9 @@ type BlockchainOutput struct {
 	BlockchainOutput   *blockchain.Output
 	SethClient         *seth.Client
 	DeployerPrivateKey string
+
+	// private data depending crib vs docker
+	c *blockchain.Output // non-nil if running in docker
 }
 
 func CreateBlockchains(
@@ -439,12 +454,12 @@ func CreateBlockchains(
 	input BlockchainsInput,
 ) (*BlockchainOutput, error) {
 	if input.blockchainInput == nil {
-		return nil, errors.New("blockchain input is nil")
+		return nil, pkgerrors.New("blockchain input is nil")
 	}
 
 	if input.infraInput.InfraType == libtypes.CRIB {
 		if input.nixShell == nil {
-			return nil, errors.New("nix shell is nil")
+			return nil, pkgerrors.New("nix shell is nil")
 		}
 
 		deployCribBlockchainInput := &keystonetypes.DeployCribBlockchainInput{
@@ -456,24 +471,24 @@ func CreateBlockchains(
 		var blockchainErr error
 		input.blockchainInput.Out, blockchainErr = crib.DeployBlockchain(deployCribBlockchainInput)
 		if blockchainErr != nil {
-			return nil, errors.Wrap(blockchainErr, "failed to deploy blockchain")
+			return nil, pkgerrors.Wrap(blockchainErr, "failed to deploy blockchain")
 		}
 	}
 
 	// Create a new blockchain network and Seth client to interact with it
 	blockchainOutput, err := blockchain.NewBlockchainNetwork(input.blockchainInput)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create blockchain network")
+		return nil, pkgerrors.Wrap(err, "failed to create blockchain network")
 	}
 
 	pkey := os.Getenv("PRIVATE_KEY")
 	if pkey == "" {
-		return nil, errors.New("PRIVATE_KEY env var must be set")
+		return nil, pkgerrors.New("PRIVATE_KEY env var must be set")
 	}
 
 	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
 	if err != nil {
-		return nil, errors.Wrap(err, "RPC endpoint not available")
+		return nil, pkgerrors.Wrap(err, "RPC endpoint not available")
 	}
 
 	sethClient, err := seth.NewClientBuilder().
@@ -483,12 +498,12 @@ func CreateBlockchains(
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
 		Build()
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create seth client")
+		return nil, pkgerrors.Wrap(err, "failed to create seth client")
 	}
 
 	chainSelector, err := chainselectors.SelectorFromChainId(sethClient.Cfg.Network.ChainID)
 	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
+		return nil, pkgerrors.Wrapf(err, "failed to get chain selector for chain id %d", sethClient.Cfg.Network.ChainID)
 	}
 
 	return &BlockchainOutput{
@@ -497,7 +512,17 @@ func CreateBlockchains(
 		BlockchainOutput:   blockchainOutput,
 		SethClient:         sethClient,
 		DeployerPrivateKey: pkey,
+		c:                  blockchainOutput,
 	}, nil
+}
+func (b *BlockchainOutput) Close() {
+	if b.c != nil {
+		if b.c.Container != nil {
+			ctx := context.Background()
+			ctx, _ = context.WithTimeout(ctx, 30*time.Second)
+			b.c.Container.Terminate(ctx)
+		}
+	}
 }
 
 func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
@@ -509,7 +534,7 @@ func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {
 
 	jdOutput, err := jd.NewJD(input)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to create new job distributor")
+		return nil, pkgerrors.Wrap(err, "failed to create new job distributor")
 	}
 
 	return jdOutput, nil
