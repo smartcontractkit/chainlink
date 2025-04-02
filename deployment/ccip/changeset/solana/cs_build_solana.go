@@ -191,7 +191,7 @@ func syncRouterAndCommon() error {
 
 	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
 
-	return os.WriteFile(commonFile, []byte(updatedContent), 600)
+	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
 }
 
 func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
