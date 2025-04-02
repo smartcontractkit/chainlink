@@ -331,14 +331,6 @@ func nodesetDockerImage(nodeSet *types.CapabilitiesAwareNodeSet) (string, error)
 			return "", fmt.Errorf("dockerfile is not supported in CRIB. Please remove docker_file from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
 		}
 
-		// TODO use kubectl cp to copy them?
-		// if len(nodeSpec.Node.CapabilitiesBinaryPaths) > 0 {
-		// 	return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capabilities_binary_paths from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
-		// }
-		// if nodeSpec.Node.CapabilityContainerDir != "" {
-		// 	return "", fmt.Errorf("capabilities binaries are not supported in CRIB. Please use a Docker image that already contains the capabilities and remove capability_container_dir from the node spec at index %d in nodeSet %s", nodeIdx, nodeSet.Name)
-		// }
-
 		if slices.Contains(dockerImages, nodeSpec.Node.Image) {
 			continue
 		}
