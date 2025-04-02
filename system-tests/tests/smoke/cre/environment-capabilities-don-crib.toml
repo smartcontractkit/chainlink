@@ -29,8 +29,6 @@
   workflow_folder_location = "../../../../../proof-of-reserves-workflow-e2e-test"
 
   [workflow_config.dependencies]
-  # for CRIB this unfortunately works in a convoluted way, this should be the name of cron binary file
-  # which will be appended to `/home/capabilities` path when creating job spec
   cron_capability_binary_path = "cron"
   cre_cli_binary_path = "./cre_v0.1.5_darwin_arm64"
 
@@ -48,6 +46,8 @@
 
     [nodesets.node_specs.node]
       image = "localhost:5001/chainlink:e530f1c"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true

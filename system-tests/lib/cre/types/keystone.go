@@ -574,6 +574,8 @@ func (s *StartNixShellInput) Validate() error {
 }
 
 type DONCapabilityWithConfigFactoryFn = func(donFlags []CapabilityFlag) []keystone_changeset.DONCapabilityWithConfig
+type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string, error)
+type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
 
 type JobSpecFactoryInput struct {
 	CldEnvironment          *deployment.Environment
@@ -581,5 +583,3 @@ type JobSpecFactoryInput struct {
 	DonTopology             *DonTopology
 	KeystoneContractsOutput *KeystoneContractsOutput
 }
-
-type JobSpecFactoryFn = func(input *JobSpecFactoryInput) (DonsToJobSpecs, error)
