@@ -84,8 +84,38 @@ type SolChainUpdate struct {
 	Type deployment.ContractType
 }
 
-func (c SolChainUpdate) Validate() error {
-	// TODO
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (solana.PublicKey, solana.PublicKey, error) {
+	var tokenPoolProgram solana.PublicKey
+	switch c.Type {
+	case changeset.BurnMintTokenPool:
+		tokenPoolProgram = state.BurnMintTokenPool
+	case changeset.LockReleaseTokenPool:
+		tokenPoolProgram = state.LockReleaseTokenPool
+	default:
+		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("unknown solana token pool type %s", c.Type)
+	}
+	if c.TokenAddress == "" {
+		return solana.PublicKey{}, solana.PublicKey{}, errors.New("token address must be defined")
+	}
+	token := solana.MustPublicKeyFromBase58(c.TokenAddress)
+	tokenPool, err := solTokenUtil.TokenPoolConfigAddress(token, tokenPoolProgram)
+	if err != nil {
+		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to get token pool address for token %s on solana chain: %w", c.TokenAddress, err)
+	}
+	return token, tokenPool, err
+}
+
+func (c SolChainUpdate) Validate(state changeset.SolCCIPChainState) error {
+	if err := validateRateLimiterConfig(c.RateLimiterConfig.Inbound); err != nil {
+		return fmt.Errorf("validation of inbound rate limiter config for solana chain failed: %w", err)
+	}
+	if err := validateRateLimiterConfig(c.RateLimiterConfig.Outbound); err != nil {
+		return fmt.Errorf("validation of outbound rate limiter config for solana chain failed: %w", err)
+	}
+	_, _, err := c.GetSolanaTokenAndTokenPool(state)
+	if err != nil {
+		return fmt.Errorf("failed to get solana token and token pool: %w", err)
+	}
 
 	return nil
 }
@@ -105,7 +135,7 @@ type TokenPoolConfig struct {
 	OverrideTokenSymbol changeset.TokenSymbol
 }
 
-func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, state changeset.CCIPChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
+func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, chainState changeset.CCIPChainState, ccipState changeset.CCIPOnChainState, useMcms bool, tokenSymbol changeset.TokenSymbol) error {
 	// Ensure that the inputted type is known
 	if _, ok := changeset.TokenPoolTypes[c.Type]; !ok {
 		return fmt.Errorf("%s is not a known token pool type", c.Type)
@@ -121,7 +151,7 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	}
 
 	// Ensure that a pool with given symbol, type and version is known to the environment
-	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(state, chain, tokenSymbol, c.Type, c.Version)
+	tokenPoolAddress, ok := changeset.GetTokenPoolAddressFromSymbolTypeAndVersion(chainState, chain, tokenSymbol, c.Type, c.Version)
 	if !ok {
 		return fmt.Errorf("token pool does not exist on %s with symbol %s, type %s, and version %s", chain.String(), tokenSymbol, c.Type, c.Version)
 	}
@@ -131,13 +161,24 @@ func (c TokenPoolConfig) Validate(ctx context.Context, chain deployment.Chain, s
 	}
 
 	// Validate that the token pool is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
-	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, state.Timelock.Address(), tokenPool); err != nil {
+	if err := commoncs.ValidateOwnership(ctx, useMcms, chain.DeployerKey.From, chainState.Timelock.Address(), tokenPool); err != nil {
 		return fmt.Errorf("token pool with address %s on %s failed ownership validation: %w", tokenPoolAddress, chain.String(), err)
 	}
 
 	// Validate chain configurations, namely rate limits
 	if err := c.ChainUpdates.Validate(); err != nil {
 		return fmt.Errorf("failed to validate chain updates: %w", err)
+	}
+
+	// Validate Solana chain configurations
+	for remoteChainSelector, solChainUpdate := range c.SolChainUpdates {
+		solChain, ok := ccipState.SolChains[remoteChainSelector]
+		if !ok {
+			return fmt.Errorf("solana chain with selector %d does not exist in environment", remoteChainSelector)
+		}
+		if err := solChainUpdate.Validate(solChain); err != nil {
+			return fmt.Errorf("failed to validate solana chain update for chain with selector %d: %w", remoteChainSelector, err)
+		}
 	}
 
 	return nil
@@ -198,7 +239,7 @@ func (c ConfigureTokenPoolContractsConfig) Validate(env deployment.Environment) 
 				return fmt.Errorf("missing proposerMcm on %s", chain.String())
 			}
 		}
-		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, c.MCMS != nil, c.TokenSymbol); err != nil {
+		if err := poolUpdate.Validate(env.GetContext(), chain, chainState, state, c.MCMS != nil, c.TokenSymbol); err != nil {
 			return fmt.Errorf("invalid pool update on %s: %w", chain.String(), err)
 		}
 	}
@@ -276,19 +317,9 @@ func configureTokenPool(
 	remotePoolAddressAdditions := make(map[uint64]common.Address)
 
 	for remoteChainSelector, chainUpdate := range poolUpdate.SolChainUpdates {
-		remoteTokenAddress := solana.MustPublicKeyFromBase58(chainUpdate.TokenAddress)
-		var tokenPoolProgram solana.PublicKey
-		switch poolUpdate.Type {
-		case changeset.BurnMintTokenPool:
-			tokenPoolProgram = state.SolChains[remoteChainSelector].BurnMintTokenPool
-		case changeset.LockReleaseTokenPool:
-			tokenPoolProgram = state.SolChains[remoteChainSelector].LockReleaseTokenPool
-		default:
-			return fmt.Errorf("unknown solana token pool type %s", poolUpdate.Type)
-		}
-		remotePoolAddress, err := solTokenUtil.TokenPoolConfigAddress(remoteTokenAddress, tokenPoolProgram)
+		remoteTokenAddress, remotePoolAddress, err := chainUpdate.GetSolanaTokenAndTokenPool(state.SolChains[remoteChainSelector])
 		if err != nil {
-			return fmt.Errorf("failed to get token pool address for token %s on solana chain with selector %d: %w", remoteTokenAddress, remoteChainSelector, err)
+			return fmt.Errorf("failed to get solana token and token pool for chain with selector %d: %w", remoteChainSelector, err)
 		}
 		isSupportedChain, err := tokenPool.IsSupportedChain(&bind.CallOpts{Context: ctx}, remoteChainSelector)
 		if err != nil {
@@ -297,8 +328,8 @@ func configureTokenPool(
 		if isSupportedChain {
 			// Just update the rate limits if the chain is already supported
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
-			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
-			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
+			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
 			// TODO: Add a new remote pool if the inputted remote pool is different than the one set on the Solana registry
 		} else {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
