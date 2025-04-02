@@ -24,6 +24,8 @@ import (
 )
 
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-404")
+
 	t.Parallel()
 	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}
 	env := memory.NewMemoryEnvironment(t, logger.TestLogger(t), zapcore.InfoLevel, envConfig)

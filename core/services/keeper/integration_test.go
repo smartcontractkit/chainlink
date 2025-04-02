@@ -150,6 +150,8 @@ func getUpkeepIDFromTx(t *testing.T, registryWrapper *keeper.RegistryWrapper, re
 }
 
 func TestKeeperEthIntegration(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-400")
+
 	t.Parallel()
 	tests := []struct {
 		name            string

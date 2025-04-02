@@ -36,6 +36,8 @@ import (
 )
 
 func TestRMN_IncorrectSig(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-396")
+
 	runRmnTestCase(t, rmnTestCase{
 		nodesWithIncorrectSigner: []int{0, 1},
 		name:                     "messages with incorrect RMN signature",

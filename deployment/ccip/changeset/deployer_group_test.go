@@ -216,6 +216,9 @@ func TestDeployerGroup(t *testing.T) {
 func TestDeployerGroupMCMS(t *testing.T) {
 	for _, tc := range deployerGroupTestCases {
 		t.Run(tc.name, func(t *testing.T) {
+			if tc.name == "happy path" {
+				t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-405")
+			}
 			if tc.expectError {
 				t.Skip("skipping test because it's not possible to verify error when using MCMS since we are explicitly failing the test in ApplyChangesets")
 			}

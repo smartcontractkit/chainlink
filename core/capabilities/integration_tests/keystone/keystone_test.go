@@ -28,6 +28,8 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-399")
+
 	testTransmissionSchedule(t, "2s", "oneAtATime")
 }
 

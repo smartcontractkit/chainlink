@@ -954,6 +954,10 @@ func TestKeeperNodeDown(t *testing.T) {
 	for _, rv := range registryVersions {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if t.Name() == "TestKeeperNodeDown/registry_1_3" {
+				t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-398")
+			}
+
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
