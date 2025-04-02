@@ -485,21 +485,18 @@ func fundAdditionalKeys(lggr logger.Logger, e deployment.Environment, destChains
 	addressMap := make(map[uint64][]common.Address)
 	numAccounts := len(destChains)
 
-	for range numAccounts {
-		addr, pk, err := seth.NewAddress()
-		if err != nil {
-			return nil, fmt.Errorf("failed to create new address: %w", err)
-		}
-		pvtKey, err := crypto.HexToECDSA(pk)
-		if err != nil {
-			return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
-		}
-
-		lggr.Infow("created new wallet",
-			"address", addr,
-			"privateKey", pk,
-		)
-		for chain := range e.Chains {
+	for chain := range e.Chains {
+		deployerMap[chain] = make([]*bind.TransactOpts, 0, numAccounts)
+		addressMap[chain] = make([]common.Address, 0, numAccounts)
+		for range numAccounts {
+			addr, pk, err := seth.NewAddress()
+			if err != nil {
+				return nil, fmt.Errorf("failed to create new address: %w", err)
+			}
+			pvtKey, err := crypto.HexToECDSA(pk)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert private key to ECDSA: %w", err)
+			}
 			chainID, err := chainselectors.ChainIdFromSelector(chain)
 			if err != nil {
 				return nil, fmt.Errorf("could not get chain id from selector: %w", err)
@@ -557,7 +554,7 @@ func reclaimFunds(lggr logger.Logger, e deployment.Environment, addressesByChain
 			tx := gethtypes.NewTx(&gethtypes.LegacyTx{
 				Nonce:    nonce,
 				To:       &returnAddress,
-				Value:    balance.Sub(balance, big.NewInt(1e16)), // leave a little bit for gas
+				Value:    balance.Sub(balance, big.NewInt(1e14)), // leave a little bit for gas
 				GasPrice: gasPrice,
 				Gas:      21000,
 			})

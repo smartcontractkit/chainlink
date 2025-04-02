@@ -104,7 +104,6 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	if err != nil {
 		m.l.Errorw("could not get fee ",
 			"dstChainSelector", m.chainSelector,
-			"msg", msg,
 			"fee", fee,
 			"err", deployment.MaybeDataErr(err))
 		return &wasp.Response{Error: err.Error(), Group: waspGroup, Failed: true}
@@ -163,7 +162,7 @@ func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
-	index := mathrand.Intn(len(otherCS))
+	index := (int(m.roundNum.Load()) + m.chainOffset) % len(otherCS)
 	return otherCS[index], nil
 }
 
