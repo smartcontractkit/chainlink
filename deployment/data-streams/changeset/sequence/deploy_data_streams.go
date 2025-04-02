@@ -5,6 +5,8 @@ import (
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
@@ -13,7 +15,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
-	"github.com/smartcontractkit/mcms"
 )
 
 // DeployDataStreamsChangeset deploys the entire data streams stack to a new chain. It should be kept up to date

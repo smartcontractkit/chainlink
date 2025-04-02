@@ -3,9 +3,10 @@ package reward_manager
 import (
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
-	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"

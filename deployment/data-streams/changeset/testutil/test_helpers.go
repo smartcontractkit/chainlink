@@ -5,9 +5,10 @@ import (
 	"testing"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
+
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 
 	"github.com/ethereum/go-ethereum/common"
 

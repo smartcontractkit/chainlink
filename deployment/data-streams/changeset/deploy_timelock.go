@@ -4,12 +4,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/smartcontractkit/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
-	"github.com/smartcontractkit/mcms"
 )
 
 var DeployAndTransferMCMSChangeset = deployment.CreateChangeSet(deployAndTransferMcmsLogic, deployAndTransferMcmsPrecondition)
