@@ -5,14 +5,14 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
-	mcmslib "github.com/smartcontractkit/mcms"
-	mcmstypes "github.com/smartcontractkit/mcms/types"
-
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsTypes "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
+	"github.com/smartcontractkit/mcms"
+	mcmslib "github.com/smartcontractkit/mcms"
+	mcmstypes "github.com/smartcontractkit/mcms/types"
 )
 
 // CreateMCMSProposal creates a new MCMS proposal with prepared (but not sent) transactions.
@@ -99,7 +99,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
 	ab deployment.AddressBook, filter deployment.TypeAndVersion,
 	MCMSConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
 
-	contractAddressesEvm := make(map[uint64][]common.Address)
+	contractAddresses := make(map[uint64][]common.Address)
 	for _, chain := range e.Chains {
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
 		if err != nil {
@@ -107,12 +107,13 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
 		}
 		for address, typeAndVersion := range chainAddresses {
 			if typeAndVersion.Type == filter.Type && typeAndVersion.Version == filter.Version {
-				contractAddressesEvm[chain.Selector] = append(contractAddressesEvm[chain.Selector], common.HexToAddress(address))
+				contractAddresses[chain.Selector] = append(contractAddresses[chain.Selector], common.HexToAddress(address))
 			}
 		}
 	}
 
-	// create a merged addressbook with the new addresses. Sub-changesets will need all addresses
+	// create a merged addressbook with the existing + new addresses. Sub-changesets will need all addresses
+	// This is required when chaining together changesets
 	existingAddresses := e.ExistingAddresses
 	abTemp := deployment.NewMemoryAddressBook()
 	if err := abTemp.Merge(ab); err != nil {
@@ -125,12 +126,12 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
 	e.ExistingAddresses = abTemp
 
 	transferCs := deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
-	transferCsCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
-		ContractsByChain: contractAddressesEvm,
+	transferCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
+		ContractsByChain: contractAddresses,
 		MCMSConfig:       MCMSConfig,
 	}
 
-	transferOut, err := transferCs.Apply(e, transferCsCfg)
+	transferOut, err := transferCs.Apply(e, transferCfg)
 	e.ExistingAddresses = existingAddresses // reset the address book to the original state regardless of errors
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer contracts to MCMS: %w", err)
@@ -140,4 +141,28 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
 		AddressBook:           ab,
 		MCMSTimelockProposals: transferOut.MCMSTimelockProposals,
 	}, nil
+}
+
+// MergeSimilarTimelockProposals merges multiple MCMS timelock proposals into a single proposal.
+// It assumes that all proposals have the same action, delay, and timelock addresses, etc... just different operations.
+// This is useful for combining multiple proposals into 1 when chaining together changesets.
+func MergeSimilarTimelockProposals(proposals []mcms.TimelockProposal) (mcms.TimelockProposal, error) {
+	var newProposal mcms.TimelockProposal
+
+	if len(proposals) >= 1 {
+		// we make an assumption that all proposals have these common settings
+		newProposal = mcms.TimelockProposal{
+			BaseProposal:      proposals[0].BaseProposal,
+			Action:            proposals[0].Action,
+			Delay:             proposals[0].Delay,
+			TimelockAddresses: proposals[0].TimelockAddresses,
+			SaltOverride:      proposals[0].SaltOverride,
+		}
+	}
+
+	for _, prop := range proposals {
+		newProposal.Operations = append(newProposal.Operations, prop.Operations...)
+	}
+
+	return newProposal, nil
 }

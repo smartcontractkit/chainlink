@@ -4,6 +4,8 @@ import (
 	"time"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 )
 
 // data streams contract types
@@ -22,3 +24,25 @@ type (
 		OverrideRoot bool
 	}
 )
+
+type OwnershipFeature struct {
+	Transfer           bool // If true, MCMS takes ownership
+	DeployMCMS         bool
+	DeployMCMSConfig   commontypes.MCMSWithTimelockConfigV2
+	MCMSProposalConfig *proposalutils.TimelockConfig
+}
+
+func (f OwnershipFeature) AsSettings() OwnershipSettings {
+	if f.Transfer && f.MCMSProposalConfig == nil {
+		panic("MCMSConfig is required if Transfer is true")
+	}
+	return OwnershipSettings{
+		Transfer:           f.Transfer,
+		MCMSProposalConfig: f.MCMSProposalConfig,
+	}
+}
+
+type OwnershipSettings struct {
+	Transfer           bool
+	MCMSProposalConfig *proposalutils.TimelockConfig
+}

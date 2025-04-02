@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -46,8 +45,11 @@ func TestDeployVerifier(t *testing.T) {
 				ChainsToDeploy: map[uint64]DeployVerifier{
 					testutil.TestChain.Selector: {VerifierProxyAddress: verifierProxyAddr},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: 0,
+				Ownership: types.OwnershipSettings{
+					Transfer: true,
+					MCMSProposalConfig: &proposalutils.TimelockConfig{
+						MinDelay: 0,
+					},
 				},
 			},
 		),
@@ -59,12 +61,9 @@ func TestDeployVerifier(t *testing.T) {
 	verifierAddr, err := dsutil.MaybeFindEthAddress(e.ExistingAddresses, testutil.TestChain.Selector, types.Verifier)
 	require.NoError(t, err)
 
-	// Confirm transfer to MCMS was successful
 	chain := e.Chains[testutil.TestChain.Selector]
-	verifier, err := verifier_v0_5_0.NewVerifier(verifierAddr, chain.Client)
-	require.NoError(t, err)
 
-	owner, err := verifier.Owner(nil)
+	owner, _, err := commonChangesets.LoadOwnableContract(verifierAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
 

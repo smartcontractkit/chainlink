@@ -5,7 +5,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/stretchr/testify/require"
 
@@ -43,8 +42,11 @@ func TestDeployFeeManager(t *testing.T) {
 			VerifierProxyAddress: common.HexToAddress("0x742d35Cc6634C0532925a3b844Bc454e4438f44e"),
 			RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
 		}},
-		MCMSConfig: &proposalutils.TimelockConfig{
-			MinDelay: 0,
+		Ownership: types.OwnershipSettings{
+			Transfer: true,
+			MCMSProposalConfig: &proposalutils.TimelockConfig{
+				MinDelay: 0,
+			},
 		},
 	}
 
@@ -58,15 +60,7 @@ func TestDeployFeeManager(t *testing.T) {
 	fmAddr, err := dsutil.MaybeFindEthAddress(resp.ExistingAddresses, testutil.TestChain.Selector, types.FeeManager)
 	require.NoError(t, err)
 
-	addresses, err = resp.ExistingAddresses.AddressesForChain(testutil.TestChain.Selector)
-	require.NoError(t, err)
-
-	chainState, err := changeset.LoadChainState(e.Logger, chain, addresses)
-	require.NoError(t, err)
-
-	contract := chainState.FeeManagers[fmAddr]
-	owner, err := contract.Owner(nil)
-
+	owner, _, err := commonChangesets.LoadOwnableContract(fmAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
 

@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 	"github.com/stretchr/testify/require"
 
@@ -41,8 +40,11 @@ func TestDeployRewardManager(t *testing.T) {
 				ChainsToDeploy: map[uint64]DeployRewardManager{
 					testutil.TestChain.Selector: {LinkTokenAddress: linkState.LinkToken.Address()},
 				},
-				MCMSConfig: &proposalutils.TimelockConfig{
-					MinDelay: 0,
+				Ownership: types.OwnershipSettings{
+					Transfer: true,
+					MCMSProposalConfig: &proposalutils.TimelockConfig{
+						MinDelay: 0,
+					},
 				},
 			},
 		),
@@ -53,15 +55,8 @@ func TestDeployRewardManager(t *testing.T) {
 	rmAddr, err := dsutil.MaybeFindEthAddress(e.ExistingAddresses, testutil.TestChain.Selector, types.RewardManager)
 	require.NoError(t, err)
 
-	addresses, err = e.ExistingAddresses.AddressesForChain(testutil.TestChain.Selector)
-	require.NoError(t, err)
-
-	chainState, err := changeset.LoadChainState(e.Logger, chain, addresses)
-	require.NoError(t, err)
-
-	contract := chainState.RewardManagers[rmAddr]
-	owner, err := contract.Owner(nil)
-
+	owner, _, err := commonChangesets.LoadOwnableContract(rmAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
+
 }

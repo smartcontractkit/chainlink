@@ -98,6 +98,8 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			}
 		}
 		if out.MCMSTimelockProposals != nil {
+			// ExistingAddresses on environment loading can contain new addresses.
+			e.ExistingAddresses = addresses
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
 				// return the error so devs can ensure expected reversions
