@@ -54,7 +54,7 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployme
 		return err
 	}
 	for _, address := range accounts {
-		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(1000000), nil)
+		tx := gethtypes.NewTransaction(nonce, address, fundingAmount, uint64(1000000), big.NewInt(100000000), nil)
 
 		signedTx, err := chain.DeployerKey.Signer(chain.DeployerKey.From, tx)
 		if err != nil {

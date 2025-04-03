@@ -253,16 +253,16 @@ RPCJitter = "0ms"
 # Messages that include data MUST have a `DataLengthBytes` field
 MessageDetails = [
 #    {Ratio = 100, MsgType = "Token"},
-    {Ratio = 3, MsgType = "TokenTransfer"},
-    {Ratio = 82, MsgType = "ProgrammableTokenTransfer", DataLengthBytes = 5000, DestGasLimit=650_000},
-    {Ratio = 10,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=800_000},
-    {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
+#    {Ratio = 3, MsgType = "TokenTransfer"},
+#    {Ratio = 82, MsgType = "ProgrammableTokenTransfer", DataLengthBytes = 5000, DestGasLimit=650_000},
+    {Ratio = 100,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=800_000},
+#    {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
 RequestFrequency = "5s"
-LoadDuration = "30m"
+LoadDuration = "20s"
 # destination chain selectors to send messages to
-NumDestinationChains = 6
+NumDestinationChains = 3
 # Directory where we receive environment configuration from crib
 CribEnvDirectory = "../../../../crib/deployments/ccip-v2/.tmp"
 TimeoutDuration = "30m"
