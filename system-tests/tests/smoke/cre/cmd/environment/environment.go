@@ -91,7 +91,10 @@ var startCmd = &cobra.Command{
 
 		output, err := startCLIEnvironment()
 		if err != nil {
-			return err
+			// TODO clean up the environment with some sort of close function
+			// the containers can be stranded if the command fails, for example the blockchain nodes
+			output.Close() // maybe this should be a call to ctf d rm?
+			return fmt.Errorf("unexpected startup error. this may have stranded resources. please manually shutdown containers as needed: %w", err)
 		}
 
 		// TODO print urls?
