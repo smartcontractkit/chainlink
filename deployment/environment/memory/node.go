@@ -545,10 +545,14 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 	}
 
 	return &solcfg.TOMLConfig{
-		ChainID:   &chainID,
-		Enabled:   ptr(true),
-		Chain:     chainConfig,
-		MultiNode: mnCfg.MultiNodeConfig{},
+		ChainID: &chainID,
+		Enabled: ptr(true),
+		Chain:   chainConfig,
+		MultiNode: mnCfg.MultiNodeConfig{
+			MultiNode: mnCfg.MultiNode{
+				VerifyChainID: ptr(false),
+			},
+		},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,
