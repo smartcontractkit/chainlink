@@ -17,9 +17,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
-type messageIDKey struct{}
-type workflowIDKey struct{}
-
 const (
 	DefaultGlobalRPS      = 100.0
 	DefaultGlobalBurst    = 100
@@ -79,9 +76,6 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
-	ctx = context.WithValue(ctx, workflowIDKey{}, req.WorkflowID)
-	ctx = context.WithValue(ctx, messageIDKey{}, messageID)
-
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
 		return nil, errors.New(errorOutgoingRatelimitWorkflow)
@@ -121,7 +115,10 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		Payload:   payload,
 	}
 
-	selectedGateway, err := c.AwaitConnection(ctx)
+	selectedGateway, err := c.awaitConnection(ctx, awaitContext{
+		messageID:  messageID,
+		workflowID: req.WorkflowID,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -150,13 +147,18 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	}
 }
 
-// AwaitConnection attempts to establish a connection to an available gateway.  It iterates through available gateways
+// awaitContext are context values useful for tracing the logs of awaiting connections.
+type awaitContext struct {
+	gateway    string
+	workflowID string
+	messageID  string
+}
+
+// awaitConnection attempts to establish a connection to an available gateway.  It iterates through available gateways
 // using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
 // cancellation or timeout.
-func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
-	workflowID := ctx.Value(workflowIDKey{}).(string)
-	messageID := ctx.Value(messageIDKey{}).(string)
-	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", workflowID)
+func (c *OutgoingConnectorHandler) awaitConnection(ctx context.Context, md awaitContext) (string, error) {
+	lggr := logger.With(c.lggr, "messageID", md.messageID, "workflowID", md.workflowID)
 	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
 	attempts := make(map[string]int)
 	backoff := 10 * time.Millisecond
@@ -170,6 +172,8 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 			if err != nil {
 				return "", fmt.Errorf("failed to select gateway: %w", err)
 			}
+
+			md.gateway = gateway
 
 			if attempts[gateway] > 0 {
 				if allGatewaysAttempted(attempts) {
@@ -190,7 +194,7 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 
 			lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
 
-			if err := c.attemptGatewayConnection(ctx, gateway); err != nil {
+			if err := c.attemptGatewayConnection(ctx, md); err != nil {
 				lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
 				continue
 			}
@@ -212,19 +216,17 @@ func allGatewaysAttempted(attempts map[string]int) bool {
 }
 
 // attemptGatewayConnection waits to connect to a gateway with a new child context
-func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
-	workflowID := ctx.Value(workflowIDKey{}).(string)
-	messageID := ctx.Value(messageIDKey{}).(string)
-	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", workflowID)
+func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, md awaitContext) error {
+	lggr := logger.With(c.lggr, "messageID", md.messageID, "workflowID", md.workflowID, "selectedGateway", md.gateway)
 	timeout := 1_000 * time.Millisecond
 
-	lggr.Debugw("awaiting connection", "selectedGateway", gateway, "timeout", timeout)
+	lggr.Debugw("awaiting connection", "timeout", timeout)
 
 	// create a new child context to wait on gateway connection
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	if err := c.gc.AwaitConnection(ctxWithTimeout, gateway); err != nil {
+	if err := c.gc.AwaitConnection(ctxWithTimeout, md.gateway); err != nil {
 		return fmt.Errorf("gateway connection failed: %w", err)
 	}
 	return nil

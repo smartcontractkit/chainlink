@@ -118,7 +118,10 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			}
 
 			ctx := tc.ctxSetup()
-			gateway, err := c.AwaitConnection(ctx)
+			gateway, err := c.awaitConnection(ctx, awaitContext{
+				workflowID: "test-workflow",
+				messageID:  "some-message",
+			})
 
 			assert.Equal(t, tc.expectedGateway, gateway)
 			if tc.expectedError != "" {

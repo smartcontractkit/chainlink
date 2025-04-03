@@ -21,6 +21,41 @@ func TestRoundRobinSelector(t *testing.T) {
 	}
 }
 
+// TestNewRoundRobinSelector_NotAlwaysZero ensures that the start index is not always 0
+// because it starts at a random index.  Does not prove randomness but proves that
+// the start value is not always the first index.
+func TestNewRoundRobinSelector_NotAlwaysZero(t *testing.T) {
+	items := []string{"a", "b", "c", "d", "e"}
+	numInstances := 100 // Check a reasonable number of instances
+	alwaysZero := true
+
+	for i := 0; i < numInstances; i++ {
+		selector := NewRoundRobinSelector(items)
+		if selector.index != 0 {
+			alwaysZero = false
+			break
+		}
+	}
+
+	assert.False(t, alwaysZero)
+}
+
+func TestNewRoundRobinSelector_AlwaysZero(t *testing.T) {
+	items := []string{"a", "b", "c", "d", "e"}
+	numInstances := 100 // Check a reasonable number of instances
+	alwaysZero := true
+
+	for i := 0; i < numInstances; i++ {
+		selector := NewRoundRobinSelector(items, WithFixedStart())
+		if selector.index != 0 {
+			alwaysZero = false
+			break
+		}
+	}
+
+	assert.True(t, alwaysZero)
+}
+
 func TestRoundRobinSelector_Empty(t *testing.T) {
 	rr := NewRoundRobinSelector([]string{}, WithFixedStart())
 
