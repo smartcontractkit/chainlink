@@ -114,28 +114,6 @@ type DeployDataFeedsCacheOutput struct {
 	UseCache              bool           `toml:"use_cache"`
 	DataFeedsCacheAddress common.Address `toml:"data_feeds_cache_address"`
 }
-
-type DeployFeedConsumerInput struct {
-	ChainSelector uint64                    `toml:"-"`
-	CldEnv        *deployment.Environment   `toml:"-"`
-	Out           *DeployFeedConsumerOutput `toml:"out"`
-}
-
-func (i *DeployFeedConsumerInput) Validate() error {
-	if i.ChainSelector == 0 {
-		return errors.New("chain selector not set")
-	}
-	if i.CldEnv == nil {
-		return errors.New("chainlink deployment env not set")
-	}
-	return nil
-}
-
-type DeployFeedConsumerOutput struct {
-	UseCache            bool           `toml:"use_cache"`
-	FeedConsumerAddress common.Address `toml:"feed_consumer_address"`
-}
-
 type ConfigureDataFeedsCacheOutput struct {
 	UseCache              bool             `toml:"use_cache"`
 	DataFeedsCacheAddress common.Address   `toml:"data_feeds_cache_address"`
@@ -191,43 +169,6 @@ func (c *ConfigureDataFeedsCacheInput) Validate() error {
 	}
 
 	return nil
-}
-
-type ConfigureFeedConsumerInput struct {
-	SethClient            *seth.Client                 `toml:"-"`
-	FeedConsumerAddress   common.Address               `toml:"-"`
-	AllowedSenders        []common.Address             `toml:"-"`
-	AllowedWorkflowOwners []common.Address             `toml:"-"`
-	AllowedWorkflowNames  []string                     `toml:"-"`
-	Out                   *ConfigureFeedConsumerOutput `toml:"out"`
-}
-
-func (c *ConfigureFeedConsumerInput) Validate() error {
-	if c.SethClient == nil {
-		return errors.New("seth client not set")
-	}
-	if c.FeedConsumerAddress == (common.Address{}) {
-		return errors.New("feed consumer address not set")
-	}
-	if len(c.AllowedSenders) == 0 {
-		return errors.New("allowed senders not set")
-	}
-	if len(c.AllowedWorkflowOwners) == 0 {
-		return errors.New("allowed workflow owners not set")
-	}
-	if len(c.AllowedWorkflowNames) == 0 {
-		return errors.New("allowed workflow names not set")
-	}
-
-	return nil
-}
-
-type ConfigureFeedConsumerOutput struct {
-	UseCache              bool             `toml:"use_cache"`
-	FeedConsumerAddress   common.Address   `toml:"feed_consumer_address"`
-	AllowedSenders        []common.Address `toml:"allowed_senders"`
-	AllowedWorkflowOwners []common.Address `toml:"allowed_workflow_owners"`
-	AllowedWorkflowNames  []string         `toml:"allowed_workflow_names"`
 }
 
 type WrappedNodeOutput struct {

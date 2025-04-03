@@ -18,7 +18,6 @@ import (
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
@@ -623,99 +622,5 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 
 	input.Out = out
 
-	return out, nil
-}
-
-func DeployFeedsConsumer(testLogger zerolog.Logger, input *types.DeployFeedConsumerInput) (*types.DeployFeedConsumerOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	output, err := keystone_changeset.DeployFeedsConsumer(*input.CldEnv, &keystone_changeset.DeployFeedsConsumerRequest{
-		ChainSelector: input.ChainSelector,
-	})
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to deploy feeds_consumer contract")
-	}
-
-	err = input.CldEnv.ExistingAddresses.Merge(output.AddressBook)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to merge address book")
-	}
-
-	addresses, err := input.CldEnv.ExistingAddresses.AddressesForChain(input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", input.ChainSelector)
-	}
-
-	var feedsConsumerAddress common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "FeedConsumer") {
-			feedsConsumerAddress = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed FeedConsumer contract at %s", feedsConsumerAddress.Hex())
-			break
-		}
-	}
-
-	if feedsConsumerAddress == (common.Address{}) {
-		return nil, errors.New("failed to find FeedConsumer address in the address book")
-	}
-
-	out := &types.DeployFeedConsumerOutput{
-		FeedConsumerAddress: feedsConsumerAddress,
-	}
-
-	input.Out = out
-	return out, nil
-}
-
-func ConfigureFeedsConsumer(testLogger zerolog.Logger, input *types.ConfigureFeedConsumerInput) (*types.ConfigureFeedConsumerOutput, error) {
-	if input == nil {
-		return nil, errors.New("input is nil")
-	}
-	if input.Out != nil && input.Out.UseCache {
-		return input.Out, nil
-	}
-
-	if err := input.Validate(); err != nil {
-		return nil, errors.Wrap(err, "input validation failed")
-	}
-
-	feedsConsumerInstance, err := feeds_consumer.NewKeystoneFeedsConsumer(input.FeedConsumerAddress, input.SethClient.Client)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create feeds consumer instance")
-	}
-
-	truncatedNames := make([][10]byte, 0, len(input.AllowedWorkflowNames))
-	for _, workflowName := range input.AllowedWorkflowNames {
-		truncatedNames = append(truncatedNames, truncateWorkflowName(workflowName))
-	}
-
-	_, decodeErr := input.SethClient.Decode(feedsConsumerInstance.SetConfig(
-		input.SethClient.NewTXOpts(),
-		input.AllowedSenders,        // forwarder contract!!!
-		input.AllowedWorkflowOwners, // allowed workflow owners
-		// here we need to use hex-encoded workflow name converted to []byte
-		truncatedNames, // allowed workflow names
-	))
-	if decodeErr != nil {
-		return nil, errors.Wrap(decodeErr, "failed to set config for feeds consumer")
-	}
-
-	out := &types.ConfigureFeedConsumerOutput{
-		FeedConsumerAddress:   input.FeedConsumerAddress,
-		AllowedSenders:        input.AllowedSenders,
-		AllowedWorkflowOwners: input.AllowedWorkflowOwners,
-		AllowedWorkflowNames:  input.AllowedWorkflowNames,
-	}
-
-	input.Out = out
 	return out, nil
 }

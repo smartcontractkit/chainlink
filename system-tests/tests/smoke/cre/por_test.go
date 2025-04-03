@@ -828,7 +828,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 		// create CRE CLI settings file
 		var settingsErr error
-		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(blockchainsOutput.sethClient.MustGetRootKeyAddress(), keystoneContractsOutput.CapabilitiesRegistryAddress, keystoneContractsOutput.WorkflowRegistryAddress, deployDataFeedsCacheOutput.DataFeedsCacheAddress, fullCldOutput.DonTopology.WorkflowDonID, blockchainsOutput.chainSelector, blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl)
+		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(blockchainsOutput.sethClient.MustGetRootKeyAddress(), keystoneContractsOutput.CapabilitiesRegistryAddress, keystoneContractsOutput.WorkflowRegistryAddress, deployDataFeedsCacheOutput.DataFeedsCacheAddress, fullCldOutput.DonTopology.WorkflowDonID, blockchainsOutput.chainSelector, blockchainsOutput.blockchainOutput.Nodes[0].ExternalHTTPUrl)
 		require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
 	}
 
