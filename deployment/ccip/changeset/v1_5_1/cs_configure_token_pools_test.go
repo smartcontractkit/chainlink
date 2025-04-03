@@ -101,6 +101,35 @@ func validateMemberOfTokenPoolPair(
 	}
 }
 
+func validateSolanaConfig(t *testing.T, state changeset.CCIPOnChainState, solChainUpdates map[uint64]v1_5_1.SolChainUpdate, selector uint64, solanaSelector uint64) {
+	tokenPool := state.Chains[selector].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1]
+	isSupported, err := tokenPool.IsSupportedChain(nil, solanaSelector)
+	require.NoError(t, err)
+	require.True(t, isSupported)
+
+	remoteToken, remoteTokenPool, err := solChainUpdates[solanaSelector].GetSolanaTokenAndTokenPool(state.SolChains[solanaSelector])
+	require.NoError(t, err)
+	remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, remoteToken.Bytes(), remoteTokenAddress)
+	remotePoolAddresses, err := tokenPool.GetRemotePools(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, 1, len(remotePoolAddresses))
+	require.Equal(t, remoteTokenPool.Bytes(), remotePoolAddresses[0])
+
+	inboundRateLimiterConfig, err := tokenPool.GetCurrentInboundRateLimiterState(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.Rate.Int64(), inboundRateLimiterConfig.Rate.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.Capacity.Int64(), inboundRateLimiterConfig.Capacity.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Inbound.IsEnabled, inboundRateLimiterConfig.IsEnabled)
+
+	outboundRateLimiterConfig, err := tokenPool.GetCurrentOutboundRateLimiterState(nil, solanaSelector)
+	require.NoError(t, err)
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.Rate.Int64(), outboundRateLimiterConfig.Rate.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.Capacity.Int64(), outboundRateLimiterConfig.Capacity.Int64())
+	require.Equal(t, solChainUpdates[solanaSelector].RateLimiterConfig.Outbound.IsEnabled, outboundRateLimiterConfig.IsEnabled)
+}
+
 func TestValidateRemoteChains(t *testing.T) {
 	t.Parallel()
 
@@ -750,32 +779,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, remoteSelector := range solanaSelectors {
-			tokenPool := state.Chains[selector].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1]
-			isSupported, err := tokenPool.IsSupportedChain(nil, remoteSelector)
-			require.NoError(t, err)
-			require.True(t, isSupported)
-
-			remoteToken, remoteTokenPool, err := solChainUpdates[remoteSelector].GetSolanaTokenAndTokenPool(state.SolChains[remoteSelector])
-			require.NoError(t, err)
-			remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, remoteToken.Bytes(), remoteTokenAddress)
-			remotePoolAddresses, err := tokenPool.GetRemotePools(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, 1, len(remotePoolAddresses))
-			require.Equal(t, remoteTokenPool.Bytes(), remotePoolAddresses[0])
-
-			inboundRateLimiterConfig, err := tokenPool.GetCurrentInboundRateLimiterState(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.Rate.Int64(), inboundRateLimiterConfig.Rate.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.Capacity.Int64(), inboundRateLimiterConfig.Capacity.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.IsEnabled, inboundRateLimiterConfig.IsEnabled)
-
-			outboundRateLimiterConfig, err := tokenPool.GetCurrentOutboundRateLimiterState(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.Rate.Int64(), outboundRateLimiterConfig.Rate.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.Capacity.Int64(), outboundRateLimiterConfig.Capacity.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.IsEnabled, outboundRateLimiterConfig.IsEnabled)
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
 		}
 	}
 
@@ -788,9 +792,10 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 			solChainUpdates[remoteSelector] = v1_5_1.SolChainUpdate{
 				Type:              changeset.BurnMintTokenPool,
 				TokenAddress:      state.SolChains[remoteSelector].SPL2022Tokens[0].String(),
-				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(0, 0),
+				RateLimiterConfig: testhelpers.CreateSymmetricRateLimits(100, 1000),
 			}
 		}
+		e.Chains[selector].DeployerKey.GasLimit = 1_000_000 // Hack: Increase gas limit to avoid out of gas error (could this be a cause for test flakiness?)
 		e, err = commonchangeset.Apply(t, e, nil,
 			commonchangeset.Configure(
 				deployment.CreateLegacyChangeSet(v1_5_1.ConfigureTokenPoolContractsChangeset),
@@ -809,32 +814,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 		require.NoError(t, err)
 
 		for _, remoteSelector := range solanaSelectors {
-			tokenPool := state.Chains[selector].BurnMintTokenPools[testhelpers.TestTokenSymbol][deployment.Version1_5_1]
-			isSupported, err := tokenPool.IsSupportedChain(nil, remoteSelector)
-			require.NoError(t, err)
-			require.True(t, isSupported)
-
-			remoteToken, remoteTokenPool, err := solChainUpdates[remoteSelector].GetSolanaTokenAndTokenPool(state.SolChains[remoteSelector])
-			require.NoError(t, err)
-			remoteTokenAddress, err := tokenPool.GetRemoteToken(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, remoteToken.Bytes(), remoteTokenAddress)
-			remotePoolAddresses, err := tokenPool.GetRemotePools(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, 1, len(remotePoolAddresses))
-			require.Equal(t, remoteTokenPool.Bytes(), remotePoolAddresses[0])
-
-			inboundRateLimiterConfig, err := tokenPool.GetCurrentInboundRateLimiterState(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.Rate.Int64(), inboundRateLimiterConfig.Rate.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.Capacity.Int64(), inboundRateLimiterConfig.Capacity.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Inbound.IsEnabled, inboundRateLimiterConfig.IsEnabled)
-
-			outboundRateLimiterConfig, err := tokenPool.GetCurrentOutboundRateLimiterState(nil, remoteSelector)
-			require.NoError(t, err)
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.Rate.Int64(), outboundRateLimiterConfig.Rate.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.Capacity.Int64(), outboundRateLimiterConfig.Capacity.Int64())
-			require.Equal(t, solChainUpdates[remoteSelector].RateLimiterConfig.Outbound.IsEnabled, outboundRateLimiterConfig.IsEnabled)
+			validateSolanaConfig(t, state, solChainUpdates, selector, remoteSelector)
 		}
 	}
 }
