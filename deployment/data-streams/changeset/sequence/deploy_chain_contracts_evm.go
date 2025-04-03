@@ -51,7 +51,7 @@ func deployChainComponentsEVM(env deployment.Environment, chain uint64, cfg Depl
 		return nil, fmt.Errorf("failed to set verifier config: %w", err)
 	}
 
-	// Step 6: Deploy FeeManager & RewardManager if billing is enabled
+	// Step 6: Deploy and configure billing components if enabled
 	if cfg.Billing.Enabled && cfg.Billing.Config != nil {
 		billingProposals, err := deployBillingComponents(env, chain, cfg, verifierProxyAddr, newAddresses)
 		if err != nil {
