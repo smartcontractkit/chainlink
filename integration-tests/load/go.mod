@@ -12,9 +12,9 @@ replace github.com/smartcontractkit/chainlink/integration-tests => ../
 // Using a separate `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
 require (
-	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/deployment v0.0.0-20250402195829-918b2a02a926
 	github.com/smartcontractkit/chainlink/integration-tests v0.0.0-20250221184958-34c2d51a64bc
-	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
+	github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 )
 
 require (
@@ -29,7 +29,7 @@ require (
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250401173720-f1ced171b753
 	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250401155045-d0dccede284b
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.8-0.20250225210020-fc215b29321e
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0
 	github.com/smartcontractkit/chainlink-testing-framework/havoc v1.50.5
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.53.0
 	github.com/smartcontractkit/chainlink-testing-framework/seth v1.51.0
@@ -88,7 +88,7 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20230301143203-a9d515a09cc2 // indirect
 	github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c // indirect
 	github.com/avast/retry-go v3.0.0+incompatible // indirect
-	github.com/avast/retry-go/v4 v4.6.0 // indirect
+	github.com/avast/retry-go/v4 v4.6.1 // indirect
 	github.com/awalterschulze/gographviz v2.0.3+incompatible // indirect
 	github.com/aws/aws-sdk-go v1.55.6 // indirect
 	github.com/aws/aws-sdk-go-v2 v1.32.7 // indirect
