@@ -55,6 +55,32 @@ func TestHTTPClient_Send(t *testing.T) {
 			},
 		},
 		{
+			name: "transmits headers",
+			setupServer: func() *httptest.Server {
+				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					assert.Equal(t, "bar", r.Header.Get("foo"))
+					w.WriteHeader(http.StatusOK)
+					_, err2 := w.Write([]byte("success"))
+					assert.NoError(t, err2)
+				}))
+			},
+			request: HTTPRequest{
+				Method: "GET",
+				URL:    "/",
+				Headers: map[string]string{
+					"foo": "bar",
+				},
+				Body:    nil,
+				Timeout: 2 * time.Second,
+			},
+			expectedError: nil,
+			expectedResp: &HTTPResponse{
+				StatusCode: http.StatusOK,
+				Headers:    map[string]string{"Content-Length": "7"},
+				Body:       []byte("success"),
+			},
+		},
+		{
 			name: "request timeout",
 			setupServer: func() *httptest.Server {
 				return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
