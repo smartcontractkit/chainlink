@@ -13,12 +13,14 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
@@ -40,6 +42,7 @@ import (
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
+	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	cretypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libfunding "github.com/smartcontractkit/chainlink/system-tests/lib/funding"
@@ -392,9 +395,26 @@ func SetupTestEnvironment(
 	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
 	// Wait for OCR listeners to be ready before setting the configuration.
 	// If the ConfigSet event is missed, OCR protocol will not start.
-	// TODO: workflow/core team should expose a way for us to check if the OCR listener is ready
-	testLogger.Info().Msg("Waiting 45s for OCR listeners to be ready...")
-	time.Sleep(45 * time.Second)
+	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
+
+	for idx, nodeSetOut := range nodeOutput {
+		if flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.GatewayDON) || flags.HasFlag(input.CapabilitiesAwareNodeSets[idx].DONTypes, cretypes.CapabilitiesDON) {
+			continue
+		}
+		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
+		if cErr != nil {
+			return nil, errors.Wrap(cErr, "failed to create node set clients")
+		}
+		eg := &errgroup.Group{}
+		for _, c := range nsClients {
+			eg.Go(func() error {
+				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
+			})
+		}
+		if err := eg.Wait(); err != nil {
+			return nil, errors.Wrap(err, "failed to wait for ConfigWatcher health check")
+		}
+	}
 	testLogger.Info().Msg("Proceeding to set OCR3 and Keystone configuration...")
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
