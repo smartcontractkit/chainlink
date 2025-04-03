@@ -15,12 +15,15 @@ type RoundRobinSelector struct {
 	mu    sync.Mutex
 }
 
+// WithFixedStart option will set the start point for the round robin selector.
 func WithFixedStart() func(*RoundRobinSelector) {
 	return func(rrs *RoundRobinSelector) {
 		rrs.index = 0
 	}
 }
 
+// NewRoundRobinSelector creates a selector that will select a string from a list using the round robin strategy.
+// By default the index starts on a random start point in the list.
 func NewRoundRobinSelector(items []string, opts ...func(*RoundRobinSelector)) *RoundRobinSelector {
 	var index int
 	if len(items) > 0 {

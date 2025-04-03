@@ -17,6 +17,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
 )
 
+type messageIDKey struct{}
+type workflowIDKey struct{}
+
 const (
 	DefaultGlobalRPS      = 100.0
 	DefaultGlobalBurst    = 100
@@ -76,6 +79,8 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
+	ctx = context.WithValue(ctx, workflowIDKey{}, req.WorkflowID)
+	ctx = context.WithValue(ctx, messageIDKey{}, messageID)
 
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
@@ -149,6 +154,9 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 // using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
 // cancellation or timeout.
 func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string, error) {
+	workflowID := ctx.Value(workflowIDKey{}).(string)
+	messageID := ctx.Value(messageIDKey{}).(string)
+	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", workflowID)
 	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
 	attempts := make(map[string]int)
 	backoff := 10 * time.Millisecond
@@ -165,7 +173,7 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 
 			if attempts[gateway] > 0 {
 				if allGatewaysAttempted(attempts) {
-					c.lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", backoff)
+					lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", backoff)
 
 					select {
 					case <-ctx.Done():
@@ -180,14 +188,14 @@ func (c *OutgoingConnectorHandler) AwaitConnection(ctx context.Context) (string,
 
 			attempts[gateway]++
 
-			c.lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
+			lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
 
 			if err := c.attemptGatewayConnection(ctx, gateway); err != nil {
-				c.lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
+				lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
 				continue
 			}
 
-			c.lggr.Debugw("connected successfully", "selectedGateway", gateway)
+			lggr.Debugw("connected successfully", "selectedGateway", gateway)
 			return gateway, nil
 		}
 	}
@@ -205,9 +213,12 @@ func allGatewaysAttempted(attempts map[string]int) bool {
 
 // attemptGatewayConnection waits to connect to a gateway with a new child context
 func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, gateway string) error {
+	workflowID := ctx.Value(workflowIDKey{}).(string)
+	messageID := ctx.Value(messageIDKey{}).(string)
+	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", workflowID)
 	timeout := 1_000 * time.Millisecond
 
-	c.lggr.Debugw("awaiting connection", "selectedGateway", gateway, "timeout", timeout)
+	lggr.Debugw("awaiting connection", "selectedGateway", gateway, "timeout", timeout)
 
 	// create a new child context to wait on gateway connection
 	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
