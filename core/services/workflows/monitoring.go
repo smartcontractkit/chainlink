@@ -40,6 +40,7 @@ type engineMetrics struct {
 	workflowErrorDurationSeconds     metric.Int64Histogram
 	workflowTimeoutDurationSeconds   metric.Int64Histogram
 	workflowStepDurationSeconds      metric.Int64Histogram
+	workflowMissingMeteringReport    metric.Int64Counter
 }
 
 func initMonitoringResources() (em *engineMetrics, err error) {
@@ -168,6 +169,11 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
 	}
 
+	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow metering missing gauge: %w", err)
+	}
+
 	return em, nil
 }
 
@@ -269,9 +275,9 @@ func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Cont
 	c.em.engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
-func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context) {
+func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context, val int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
-	c.em.engineHeartbeatGauge.Record(ctx, 1, metric.WithAttributes(otelLabels...))
+	c.em.engineHeartbeatGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
 }
 
 func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
@@ -317,4 +323,9 @@ func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx conte
 func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowMissingMeteringReport(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

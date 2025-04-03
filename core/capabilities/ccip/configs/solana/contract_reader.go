@@ -64,6 +64,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 
 	trueVal := true
 
+	locationFirst := codec.ElementExtractorLocationFirst
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}, {consts.ContractNameRMNRemote, consts.ContractNameRMNProxy}},
 		Namespaces: map[string]config.ChainContractReader{
@@ -99,6 +100,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{Fields: map[string]string{"MerkleRoot": "UnblessedMerkleRoots"}},
+							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"UnblessedMerkleRoots": &locationFirst}},
 						},
 					},
 					consts.MethodNameOffRampLatestConfigDetails: {
@@ -363,9 +365,18 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
+						OutputModifications: codec.ModifiersConfig{
+							// create a field to extract it
+							&codec.HardCodeModifierConfig{
+								OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							},
+							&codec.PropertyExtractorConfig{
+								FieldName: "RmnRemoteAddress",
+							},
+						},
 						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
-							// type doesn't matter it will be overridden with address internally
-							OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							// type doesn't matter it will be overridden with address internally, key is "" because it's a primitive value and not a field
+							OffChainValues: map[string]any{"": ""},
 						},
 					},
 				},

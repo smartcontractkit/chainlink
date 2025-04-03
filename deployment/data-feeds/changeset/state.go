@@ -7,6 +7,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
+
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
@@ -24,6 +27,7 @@ var (
 )
 
 type DataFeedsChainState struct {
+	ABIByAddress map[string]string
 	commonchangeset.MCMSWithTimelockState
 	DataFeedsCache  map[common.Address]*cache.DataFeedsCache
 	AggregatorProxy map[common.Address]*proxy.AggregatorProxy
@@ -73,6 +77,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 
 	state.DataFeedsCache = make(map[common.Address]*cache.DataFeedsCache)
 	state.AggregatorProxy = make(map[common.Address]*proxy.AggregatorProxy)
+	state.ABIByAddress = make(map[string]string)
 
 	for address, tv := range addresses {
 		switch {
@@ -82,12 +87,20 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 				return &state, err
 			}
 			state.DataFeedsCache[common.HexToAddress(address)] = contract
+			state.ABIByAddress[address] = cache.DataFeedsCacheABI
 		case strings.Contains(tv.String(), "AggregatorProxy"):
 			contract, err := proxy.NewAggregatorProxy(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return &state, err
 			}
 			state.AggregatorProxy[common.HexToAddress(address)] = contract
+			state.ABIByAddress[address] = proxy.AggregatorProxyABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.RBACTimelock, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.RBACTimelockABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.CallProxy, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.CallProxyABI
+		case tv.String() == deployment.NewTypeAndVersion(commontypes.ProposerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.CancellerManyChainMultisig, deployment.Version1_0_0).String() || tv.String() == deployment.NewTypeAndVersion(commontypes.BypasserManyChainMultisig, deployment.Version1_0_0).String():
+			state.ABIByAddress[address] = gethwrappers.ManyChainMultiSigABI
 		default:
 			logger.Warnw("unknown contract type", "type", tv.Type)
 		}

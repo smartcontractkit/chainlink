@@ -74,6 +74,8 @@ FinalizedBlockPollInterval = '10s' # Default
 EnforceRepeatableRead = true # Default
 # DeathDeclarationDelay is the duration to wait before declaring a node dead.
 DeathDeclarationDelay = '10s' # Default
+# VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
+VerifyChainID = true # Default
 # NodeNoNewHeadsThreshold is the duration to wait before declaring a node unhealthy due to no new heads.
 NodeNoNewHeadsThreshold = '10s' # Default
 # NoNewFinalizedHeadsThreshold is the duration to wait before declaring a node unhealthy due to no new finalized heads.

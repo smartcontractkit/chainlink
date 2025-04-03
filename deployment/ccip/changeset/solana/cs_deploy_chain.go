@@ -844,6 +844,36 @@ func generateUpgradeTxns(
 	if err != nil {
 		return txns, fmt.Errorf("failed to generate close buffer instruction: %w", err)
 	}
+	addresses, err := e.ExistingAddresses.AddressesForChain(chain.Selector)
+	if err != nil {
+		return txns, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
+	mcmState, err := state.MaybeLoadMCMSWithTimelockChainStateSolana(chain, addresses)
+	if err != nil {
+		return txns, fmt.Errorf("failed to load MCMS with timelock chain state: %w", err)
+	}
+	timelockSignerPDA := state.GetTimelockSignerPDA(mcmState.TimelockProgram, mcmState.TimelockSeed)
+	// if we're not upgrading via timelock, execute the raw ixns
+	if config.UpgradeConfig.UpgradeAuthority != timelockSignerPDA {
+		ixns := []solana.Instruction{upgradeIxn}
+		extendIxn, err := generateExtendIxn(
+			&e,
+			chain,
+			programID,
+			bufferProgram,
+			config.UpgradeConfig.UpgradeAuthority,
+		)
+		if err != nil {
+			return txns, fmt.Errorf("failed to generate extend buffer instruction: %w", err)
+		}
+		if extendIxn != nil {
+			ixns = append(ixns, extendIxn)
+		}
+		ixns = append(ixns, closeIxn)
+		if err := chain.Confirm(ixns); err != nil {
+			return txns, fmt.Errorf("failed to confirm instructions: %w", err)
+		}
+	}
 	upgradeTx, err := BuildMCMSTxn(upgradeIxn, solana.BPFLoaderUpgradeableProgramID.String(), contractType)
 	if err != nil {
 		return txns, fmt.Errorf("failed to create upgrade transaction: %w", err)

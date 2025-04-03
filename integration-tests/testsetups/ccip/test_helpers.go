@@ -252,6 +252,7 @@ func MustCCIPNameToRMNName(a string) string {
 	m := map[string]string{
 		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
 		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		chainsel.GETH_DEVNET_3.Name: "DevnetGamma",
 		// TODO: Add more as needed.
 	}
 	v, ok := m[a]

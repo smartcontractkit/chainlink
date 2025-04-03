@@ -21,13 +21,19 @@ import (
 
 var CurrentTokenPoolVersion semver.Version = deployment.Version1_5_1
 
-var TokenPoolTypes map[deployment.ContractType]struct{} = map[deployment.ContractType]struct{}{
-	BurnMintTokenPool:              struct{}{},
-	BurnWithFromMintTokenPool:      struct{}{},
-	BurnFromMintTokenPool:          struct{}{},
-	LockReleaseTokenPool:           struct{}{},
-	USDCTokenPool:                  struct{}{},
-	HybridLockReleaseUSDCTokenPool: struct{}{},
+var TokenTypes = map[deployment.ContractType]struct{}{
+	BurnMintToken: {},
+	ERC20Token:    {},
+	ERC677Token:   {},
+}
+
+var TokenPoolTypes = map[deployment.ContractType]struct{}{
+	BurnMintTokenPool:              {},
+	BurnWithFromMintTokenPool:      {},
+	BurnFromMintTokenPool:          {},
+	LockReleaseTokenPool:           {},
+	USDCTokenPool:                  {},
+	HybridLockReleaseUSDCTokenPool: {},
 }
 
 var TokenPoolVersions map[semver.Version]struct{} = map[semver.Version]struct{}{
@@ -204,6 +210,9 @@ type TokenAdminRegistryChangesetConfig struct {
 	MCMS *proposalutils.TimelockConfig
 	// Pools defines the pools corresponding to the tokens we want to accept admin role for.
 	Pools map[uint64]map[TokenSymbol]TokenPoolInfo
+	// SkipOwnershipValidation indicates whether or not to skip admin ownership validation of token in the registry.
+	// it is skipped when propose admin,set admin and set pool operations are done as part of one changeset.
+	SkipOwnershipValidation bool
 }
 
 // validateTokenAdminRegistryChangeset validates all token admin registry changesets.
@@ -223,7 +232,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		return fmt.Errorf("failed to load onchain state: %w", err)
 	}
 	for chainSelector, symbolToPoolInfo := range c.Pools {
-		err := deployment.IsValidChainSelector(chainSelector)
+		err := ValidateChain(env, state, chainSelector, c.MCMS)
 		if err != nil {
 			return fmt.Errorf("failed to validate chain selector %d: %w", chainSelector, err)
 		}
@@ -238,14 +247,7 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 		if tokenAdminRegistry := chainState.TokenAdminRegistry; tokenAdminRegistry == nil {
 			return fmt.Errorf("missing tokenAdminRegistry on %s", chain)
 		}
-		if c.MCMS != nil {
-			if timelock := chainState.Timelock; timelock == nil {
-				return fmt.Errorf("missing timelock on %s", chain)
-			}
-			if proposerMcm := chainState.ProposerMcm; proposerMcm == nil {
-				return fmt.Errorf("missing proposerMcm on %s", chain)
-			}
-		}
+
 		// Validate that the token admin registry is owned by the address that will be actioning the transactions (i.e. Timelock or deployer key)
 		// However, most token admin registry actions aren't owner-protected. They just require you to be the admin.
 		if mustBeOwner {
@@ -268,9 +270,11 @@ func (c TokenAdminRegistryChangesetConfig) Validate(
 				fromAddress = chainState.Timelock.Address()
 			}
 
-			err = registryConfigCheck(tokenConfigOnRegistry, fromAddress, poolInfo.ExternalAdmin, symbol, chain)
-			if err != nil {
-				return err
+			if !c.SkipOwnershipValidation {
+				err = registryConfigCheck(tokenConfigOnRegistry, fromAddress, poolInfo.ExternalAdmin, symbol, chain)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

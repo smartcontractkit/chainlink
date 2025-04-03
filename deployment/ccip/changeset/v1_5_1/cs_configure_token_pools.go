@@ -22,6 +22,15 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
+// ConfigureTokenPoolContractsChangeset is responsible for the following operations:
+// If the chain is already supported -
+//  1. it updates the rate limits for the chain
+//  2. it adds a new remote pool if the token pool on the remote chain is being updated
+//
+// If the chain is not supported -
+//  1. it adds chain support with the desired rate limits
+//  2. it adds the desired remote pool addresses to the token pool on the chain
+//  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
 var _ deployment.ChangeSet[ConfigureTokenPoolContractsConfig] = ConfigureTokenPoolContractsChangeset
 
 // RateLimiterConfig defines the inbound and outbound rate limits for a remote chain.
@@ -209,6 +218,15 @@ func ConfigureTokenPoolContractsChangeset(env deployment.Environment, c Configur
 
 // configureTokenPool creates all transactions required to configure the desired token pool on a chain,
 // either applying the transactions with the deployer key or returning an MCMS proposal.
+// configureTokenPool is responsible for the following operations:
+// If the chain is already supported -
+//  1. it updates the rate limits for the chain
+//  2. it adds a new remote pool if the token pool on the remote chain is being updated
+//
+// If the chain is not supported -
+//  1. it adds chain support with the desired rate limits
+//  2. it adds the desired remote pool addresses to the token pool on the chain
+//  3. if there used to be an existing token pool on tokenadmin_registry, it adds the remote pool addresses of that token pool to ensure 0 downtime
 func configureTokenPool(
 	ctx context.Context,
 	opts *bind.TransactOpts,
@@ -280,7 +298,7 @@ func configureTokenPool(
 				}
 				for _, address := range remotePoolAddressesOnChain {
 					if !bytes.Equal(address, remoteTokenPoolAddressBytes) {
-						remotePoolAddresses = append(remotePoolAddresses, remotePoolAddressesOnChain...)
+						remotePoolAddresses = append(remotePoolAddresses, address)
 					}
 				}
 			}

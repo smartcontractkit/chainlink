@@ -50,6 +50,7 @@ func GenerateOffRampView(chain deployment.SolChain, program solana.PublicKey, re
 	view.Owner = config.Owner.String()
 	view.ProposedOwner = config.ProposedOwner.String()
 	view.EnableManualExecutionAfter = config.EnableManualExecutionAfter
+	view.SourceChains = make(map[uint64]OffRampSourceChainConfig)
 
 	var referenceAddressesAccount solOffRamp.ReferenceAddresses
 	offRampReferenceAddressesPDA, _, _ := solState.FindOfframpReferenceAddressesPDA(program)

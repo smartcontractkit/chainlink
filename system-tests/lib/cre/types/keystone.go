@@ -583,3 +583,5 @@ func (s *StartNixShellInput) Validate() error {
 }
 
 type DONCapabilityWithConfigFactoryFn = func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig
+
+type CapabilitiesBinaryPathFactoryFn = func(donMetadata *DonMetadata) ([]string, error)

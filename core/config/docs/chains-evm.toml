@@ -439,6 +439,8 @@ DeathDeclarationDelay = '1m' # Default
 #
 # Set to 0 to disable.
 NewHeadsPollInterval = '0s' # Default
+# VerifyChainID enforces RPC Client ChainIDs to match configured ChainID
+VerifyChainID = true # Default
 # **ADVANCED**
 # Errors enable the node to provide custom regex patterns to match against error messages from RPCs.
 [EVM.NodePool.Errors]
