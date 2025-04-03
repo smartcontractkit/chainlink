@@ -490,7 +490,7 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list node chain configs for node %s id %s: %w", node.Name, node.Id, err)
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
