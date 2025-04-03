@@ -54,7 +54,7 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		fmt.Printf("WARNING: Missing node metadata:\n%s", err.Error())
 	} else if err != nil {
-		return nv, err
+		return nv, fmt.Errorf("failed to get node info: %w", err)
 	}
 	for _, node := range nodes {
 		// get node info
