@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"math/big"
+	"sync"
 	"testing"
 	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -30,8 +32,7 @@ func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
 }
 
 func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) {
-	ctx, cancel := framework.Context(t)
-	defer cancel()
+	ctx := t.Context()
 
 	lggr := logger.TestLogger(t)
 	lggr.SetLogLevel(zapcore.InfoLevel)
@@ -43,6 +44,7 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 	targetDonConfiguration, err := framework.NewDonConfiguration(framework.NewDonConfigurationParams{Name: "Target", NumNodes: 4, F: 1})
 	require.NoError(t, err)
 
+	// mercury-style reports
 	triggerSink := framework.NewTriggerSink(t, "streams-trigger", "1.0.0")
 	workflowDon, consumer := setupKeystoneDons(ctx, t, lggr, workflowDonConfiguration, triggerDonConfiguration,
 		targetDonConfiguration, triggerSink)
@@ -66,14 +68,15 @@ func testTransmissionSchedule(t *testing.T, deltaStage string, schedule string) 
 	wrappedReports, err := wrapReports(reports, 12, datastreams.Metadata{})
 	require.NoError(t, err)
 
-	triggerSink.SendOutput(wrappedReports)
+	triggerSink.SendOutput(wrappedReports, uuid.New().String())
+	h := newStreamsV1Handler(reports)
 
-	waitForConsumerReports(ctx, t, consumer, reports)
+	waitForConsumerReports(t, consumer, h)
 }
 
 func wrapReports(reportList []*datastreams.FeedReport,
 	timestamp int64, meta datastreams.Metadata) (*values.Map, error) {
-	var rl []datastreams.FeedReport
+	rl := make([]datastreams.FeedReport, 0, len(reportList))
 	for _, r := range reportList {
 		rl = append(rl, *r)
 	}
@@ -92,37 +95,70 @@ func newFeedID(t *testing.T) string {
 	return "0x" + hex.EncodeToString(buf[:])
 }
 
-func waitForConsumerReports(ctx context.Context, t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, triggerFeedReports []*datastreams.FeedReport) {
+type feedReceivedHandler interface {
+	handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool)
+	handleDone(t *testing.T)
+}
+
+func waitForConsumerReports(t *testing.T, consumer *feeds_consumer.KeystoneFeedsConsumer, h feedReceivedHandler) {
 	feedsReceived := make(chan *feeds_consumer.KeystoneFeedsConsumerFeedReceived, 1000)
 	feedsSub, err := consumer.WatchFeedReceived(&bind.WatchOpts{}, feedsReceived, nil)
 	require.NoError(t, err)
-
-	feedToReport := map[string]*datastreams.FeedReport{}
-	for _, report := range triggerFeedReports {
-		feedToReport[report.FeedID] = report
-	}
-
-	ctxWithTimeout, cancel := context.WithTimeout(ctx, 1*time.Minute)
+	ctx := t.Context()
+	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
-	feedCount := 0
 	for {
 		select {
-		case <-ctxWithTimeout.Done():
-			t.Fatalf("timed out waiting for feeds reports, expected %d, received %d", len(triggerFeedReports), feedCount)
+		case <-ctx.Done():
+			h.handleDone(t)
+			t.Fatalf("timed out waiting for feeds reports")
 		case err := <-feedsSub.Err():
 			require.NoError(t, err)
 		case feed := <-feedsReceived:
-			feedID := "0x" + hex.EncodeToString(feed.FeedId[:])
-			report := feedToReport[feedID]
-			decodedReport, err := reporttypes.Decode(report.FullReport)
-			require.NoError(t, err)
-			assert.Equal(t, decodedReport.BenchmarkPrice, feed.Price)
-			assert.Equal(t, decodedReport.ObservationsTimestamp, feed.Timestamp)
-
-			feedCount++
-			if feedCount == len(triggerFeedReports) {
+			done := h.handleFeedReceived(t, feed)
+			if done {
 				return
 			}
 		}
 	}
+}
+
+type streamsV1Handler struct {
+	mu       sync.Mutex
+	expected map[string]*datastreams.FeedReport
+	found    map[string]struct{}
+}
+
+func newStreamsV1Handler(expected []*datastreams.FeedReport) *streamsV1Handler {
+	h := &streamsV1Handler{
+		expected: make(map[string]*datastreams.FeedReport),
+		found:    make(map[string]struct{}),
+	}
+	for _, report := range expected {
+		h.expected[report.FeedID] = report
+	}
+	return h
+}
+
+func (h *streamsV1Handler) handleFeedReceived(t *testing.T, feed *feeds_consumer.KeystoneFeedsConsumerFeedReceived) (done bool) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	feedID := "0x" + hex.EncodeToString(feed.FeedId[:])
+	report := h.expected[feedID]
+	require.NotNil(t, report, "unexpected feedID %s", feedID)
+
+	decodedReport, err := reporttypes.Decode(report.FullReport)
+	require.NoError(t, err)
+
+	assert.Equal(t, decodedReport.BenchmarkPrice, feed.Price)
+	assert.Equal(t, decodedReport.ObservationsTimestamp, feed.Timestamp)
+
+	h.found[feedID] = struct{}{}
+	return len(h.found) == len(h.expected)
+}
+
+func (h *streamsV1Handler) handleDone(t *testing.T) {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	t.Logf("found (%v) %d of %d", h.found, len(h.found), len(h.expected))
 }

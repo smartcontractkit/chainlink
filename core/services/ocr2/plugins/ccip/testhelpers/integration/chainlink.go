@@ -34,7 +34,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	pb "github.com/smartcontractkit/chainlink-protos/orchestrator/feedsmanager"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
@@ -337,7 +336,7 @@ func (node *Node) AddJob(t *testing.T, spec *OCR2TaskJobSpec) {
 		nil,
 	)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -346,7 +345,7 @@ func (node *Node) AddBootstrapJob(t *testing.T, spec *OCR2TaskJobSpec) {
 	require.NoError(t, err)
 	ccipJob, err := ocrbootstrap.ValidatedBootstrapSpecToml(specString)
 	require.NoError(t, err)
-	err = node.App.AddJobV2(tests.Context(t), &ccipJob)
+	err = node.App.AddJobV2(t.Context(), &ccipJob)
 	require.NoError(t, err)
 }
 
@@ -478,13 +477,13 @@ func setupNodeCCIP(
 	lggr.Debug(fmt.Sprintf("Transmitter address %s chainID %s", transmitter, s.EVMChainID.String()))
 
 	// Fund the commitTransmitter address with some ETH
-	n, err := destChain.Client().NonceAt(tests.Context(t), owner.From, nil)
+	n, err := destChain.Client().NonceAt(t.Context(), owner.From, nil)
 	require.NoError(t, err)
 
 	tx := types3.NewTransaction(n, transmitter, big.NewInt(1000000000000000000), 21000, big.NewInt(1000000000), nil)
 	signedTx, err := owner.Signer(owner.From, tx)
 	require.NoError(t, err)
-	err = destChain.Client().SendTransaction(tests.Context(t), signedTx)
+	err = destChain.Client().SendTransaction(t.Context(), signedTx)
 	require.NoError(t, err)
 	destChain.Commit()
 
@@ -963,11 +962,10 @@ func (c *CCIPIntegrationTestHarness) SetupAndStartNodes(ctx context.Context, t *
 	return bootstrapNode, nodes, uint64(configBlock)
 }
 
+// setup Jobs
 func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeline string, priceGetterConfig string, usdcAttestationAPI string) CCIPJobSpecParams {
-	// setup Jobs
-	ctx := tests.Context(t)
 	// Starts nodes and configures them in the OCR contracts.
-	bootstrapNode, _, configBlock := c.SetupAndStartNodes(ctx, t, int64(freeport.GetOne(t)))
+	bootstrapNode, _, configBlock := c.SetupAndStartNodes(t.Context(), t, int64(freeport.GetOne(t)))
 
 	jobParams := c.NewCCIPJobSpecParams(pricePipeline, priceGetterConfig, configBlock, usdcAttestationAPI)
 
@@ -979,7 +977,7 @@ func (c *CCIPIntegrationTestHarness) SetUpNodesAndJobs(t *testing.T, pricePipeli
 	bc, err := bootstrapNode.App.GetRelayers().LegacyEVMChains().Get(strconv.FormatUint(c.Dest.ChainID, 10))
 	require.NoError(t, err)
 	require.LessOrEqual(t, configBlock, uint64(math.MaxInt64))
-	require.NoError(t, bc.LogPoller().Replay(ctx, int64(configBlock))) //nolint:gosec // G115 false positive
+	require.NoError(t, bc.LogPoller().Replay(t.Context(), int64(configBlock))) //nolint:gosec // G115 false positive
 	c.Dest.Chain.Commit()
 
 	return jobParams

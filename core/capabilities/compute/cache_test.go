@@ -10,7 +10,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/wasmtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
@@ -63,7 +62,6 @@ func TestCache(t *testing.T) {
 // Verify that an expired module is not evicted because evictAfterSize is 1
 func TestCache_EvictAfterSize(t *testing.T) {
 	t.Parallel()
-	ctx := tests.Context(t)
 	clock := clockwork.NewFakeClock()
 	tick := 1 * time.Second
 	timeout := 1 * time.Second
@@ -97,7 +95,7 @@ func TestCache_EvictAfterSize(t *testing.T) {
 	clock.Advance(15 * time.Second)
 	reapTicker <- time.Now()
 	select {
-	case <-ctx.Done():
+	case <-t.Context().Done():
 		return
 	case <-cache.onReaper:
 	}

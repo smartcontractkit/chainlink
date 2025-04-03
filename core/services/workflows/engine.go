@@ -97,9 +97,7 @@ func (sucm *stepUpdateManager) len() int64 {
 	return int64(len(sucm.m))
 }
 
-type secretsFetcher interface {
-	SecretsFor(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
-}
+type SecretsFor func(ctx context.Context, workflowOwner, hexWorkflowName, decodedWorkflowName, workflowID string) (map[string]string, error)
 
 // Engine handles the lifecycle of a single workflow and its executions.
 type Engine struct {
@@ -109,10 +107,10 @@ type Engine struct {
 	logger               logger.Logger
 	registry             core.CapabilitiesRegistry
 	workflow             *workflow
-	secretsFetcher       secretsFetcher
+	secretsFetcher       SecretsFor
 	env                  exec.Env
 	localNode            capabilities.Node
-	executionStates      store.Store
+	executionsStore      store.Store
 	pendingStepRequests  chan stepRequest
 	triggerEvents        chan capabilities.TriggerResponse
 	stepUpdatesChMap     stepUpdateManager
@@ -362,11 +360,7 @@ func (e *Engine) init(ctx context.Context) {
 		return
 	}
 
-	e.logger.Debug("capabilities resolved, resuming in-progress workflows")
-	err := e.resumeInProgressExecutions(ctx)
-	if err != nil {
-		e.logger.Errorf("failed to resume in-progress workflows: %v", err)
-	}
+	e.logger.Debug("capabilities resolved")
 
 	e.logger.Debug("registering triggers")
 	for idx, t := range e.workflow.triggers {
@@ -384,72 +378,13 @@ func (e *Engine) init(ctx context.Context) {
 	e.afterInit(true)
 }
 
-var (
-	defaultOffset, defaultLimit = 0, 1_000
-)
-
-func (e *Engine) resumeInProgressExecutions(ctx context.Context) error {
-	wipExecutions, err := e.executionStates.GetUnfinished(ctx, e.workflow.id, defaultOffset, defaultLimit)
-	if err != nil {
-		return err
-	}
-
-	// TODO: paginate properly
-	if len(wipExecutions) >= defaultLimit {
-		e.logger.Warnf("possible execution overflow during resumption, work in progress executions: %d >= %d", len(wipExecutions), defaultLimit)
-	}
-
-	// Cache the dependents associated with a step.
-	// We may have to reprocess many executions, but should only
-	// need to calculate the dependents of a step once since
-	// they won't change.
-	refToDeps := map[string][]*step{}
-	for _, execution := range wipExecutions {
-		for _, step := range execution.Steps {
-			// NOTE: In order to determine what tasks need to be enqueued,
-			// we look at any completed steps, and for each dependent,
-			// check if they are ready to be enqueued.
-			// This will also handle an execution that has stalled immediately on creation,
-			// since we always create an execution with an initially completed trigger step.
-			if step.Status != store.StatusCompleted {
-				continue
-			}
-
-			sds, ok := refToDeps[step.Ref]
-			if !ok {
-				s, err := e.workflow.dependents(step.Ref)
-				if err != nil {
-					return err
-				}
-
-				sds = s
-			}
-
-			for _, sd := range sds {
-				ch := make(chan store.WorkflowExecutionStep)
-				added := e.stepUpdatesChMap.add(execution.ExecutionID, stepUpdateChannel{
-					ch:          ch,
-					executionID: execution.ExecutionID,
-				})
-				if added {
-					// We trigger the `stepUpdateLoop` for this execution, since the loop is not running atm.
-					e.wg.Add(1)
-					go e.stepUpdateLoop(ctx, execution.ExecutionID, ch, execution.CreatedAt)
-				}
-				e.queueIfReady(execution, sd)
-			}
-		}
-	}
-	return nil
-}
-
-func generateTriggerId(workflowID string, triggerIdx int) string {
+func generateTriggerID(workflowID string, triggerIdx int) string {
 	return fmt.Sprintf("wf_%s_trigger_%d", workflowID, triggerIdx)
 }
 
 // registerTrigger is used during the initialization phase to bind a trigger to this workflow
 func (e *Engine) registerTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
-	triggerID := generateTriggerId(e.workflow.id, triggerIdx)
+	triggerID := generateTriggerID(e.workflow.id, triggerIdx)
 
 	tc, err := values.NewMap(t.Config)
 	if err != nil {
@@ -572,23 +507,15 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
-	ec := &store.WorkflowExecution{
-		Steps: map[string]*store.WorkflowExecutionStep{
-			workflows.KeywordTrigger: {
-				Outputs: store.StepOutput{
-					Value: event,
-				},
-				Status:      store.StatusCompleted,
-				ExecutionID: executionID,
-				Ref:         workflows.KeywordTrigger,
+	workflowExecution, err := e.executionsStore.Add(ctx, map[string]*store.WorkflowExecutionStep{
+		workflows.KeywordTrigger: {
+			Outputs: store.StepOutput{
+				Value: event,
 			},
-		},
-		WorkflowID:  e.workflow.id,
-		ExecutionID: executionID,
-		Status:      store.StatusStarted,
-	}
-
-	dbWex, err := e.executionStates.Add(ctx, ec)
+			Status:      store.StatusCompleted,
+			ExecutionID: executionID,
+			Ref:         workflows.KeywordTrigger,
+		}}, executionID, e.workflow.id, store.StatusStarted)
 	if err != nil {
 		return err
 	}
@@ -612,10 +539,10 @@ func (e *Engine) startExecution(ctx context.Context, executionID string, event *
 		return nil
 	}
 	e.wg.Add(1)
-	go e.stepUpdateLoop(ctx, executionID, ch, dbWex.CreatedAt)
+	go e.stepUpdateLoop(ctx, executionID, ch, workflowExecution.CreatedAt)
 
 	for _, td := range triggerDependents {
-		e.queueIfReady(*ec, td)
+		e.queueIfReady(workflowExecution, td)
 	}
 
 	return nil
@@ -631,7 +558,7 @@ func (e *Engine) handleStepUpdate(ctx context.Context, stepUpdate store.Workflow
 		stepUpdate.Status = store.StatusTimeout
 	}
 
-	state, err := e.executionStates.UpsertStep(ctx, &stepUpdate)
+	state, err := e.executionsStore.UpsertStep(ctx, &stepUpdate)
 	if err != nil {
 		return err
 	}
@@ -706,10 +633,10 @@ func (e *Engine) queueIfReady(state store.WorkflowExecution, step *step) {
 
 	// If all dependencies are completed, enqueue the step.
 	if !waitingOnDependencies {
-		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", copyState(state)).
+		e.logger.With(platform.KeyStepRef, step.Ref, platform.KeyWorkflowExecutionID, state.ExecutionID, "state", state.DeepCopy()).
 			Debug("step request enqueued")
 		e.pendingStepRequests <- stepRequest{
-			state:   copyState(state),
+			state:   state.DeepCopy(),
 			stepRef: step.Ref,
 		}
 	}
@@ -720,14 +647,9 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 
 	l.Info("finishing execution")
 
-	err := e.executionStates.UpdateStatus(ctx, executionID, status)
+	execState, err := e.executionsStore.FinishExecution(ctx, executionID, status)
 	if err != nil {
-		return err
-	}
-
-	execState, err := e.executionStates.Get(ctx, executionID)
-	if err != nil {
-		return err
+		return fmt.Errorf("failed to mark execution as finished: %w", err)
 	}
 
 	// clean all per execution state trackers
@@ -840,7 +762,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	logCustMsg(ctx, cma, "executing step", l)
 
 	stepExecutionStartTime := time.Now()
-	inputs, outputs, err := e.executeStep(ctx, l, msg)
+	inputs, response, sErr := e.executeStep(ctx, l, msg)
 	stepExecutionDuration := time.Since(stepExecutionStartTime).Seconds()
 
 	curStepID := "UNSET"
@@ -854,27 +776,53 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 
 	var stepStatus string
 	switch {
-	case err != nil && capabilities.ErrStopExecution.Is(err):
+	case sErr != nil && capabilities.ErrStopExecution.Is(sErr):
 		lmsg := "step executed successfully with a termination"
 		l.Info(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompletedEarlyExit
-	case err != nil:
-		lmsg := fmt.Sprintf("error executing step request: %s", err)
+	case sErr != nil:
+		lmsg := fmt.Sprintf("error executing step request: %s", sErr)
 		l.Error(lmsg)
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusErrored
 	default:
 		lmsg := "step executed successfully"
-		l.With("outputs", outputs).Info(lmsg)
+		l.With("outputs", response.Value).Info(lmsg)
 		// TODO ks-462 emit custom message with outputs
 		logCustMsg(ctx, cma, lmsg, l)
 		stepStatus = store.StatusCompleted
 	}
 
+	meteringSteps := make([]MeteringReportStep, len(response.Metadata.Metering))
+
+	for idx, detail := range response.Metadata.Metering {
+		unit := MeteringSpendUnit(detail.SpendUnit)
+		value, err := unit.StringToSpendValue(detail.SpendValue)
+		if err != nil {
+			l.Error(fmt.Sprintf("failed to get spend value from %s: %s", detail.SpendValue, err))
+		}
+
+		meteringSteps[idx] = MeteringReportStep{
+			Peer2PeerID: detail.Peer2PeerID,
+			SpendUnit:   unit,
+			SpendValue:  value,
+		}
+	}
+
+	if rpt, ok := e.meterReports.Get(msg.state.ExecutionID); ok {
+		if err := rpt.SetStep(MeteringReportStepRef(stepState.Ref), meteringSteps); err != nil {
+			l.Error(fmt.Sprintf("failed to set metering report step for ref %s: %s", stepState.Ref, err))
+		}
+	} else {
+		e.metrics.with(platform.KeyWorkflowID, e.workflow.id, platform.KeyWorkflowExecutionID, msg.state.ExecutionID).incrementWorkflowMissingMeteringReport(ctx)
+		// TODO: to be bumped to error if all capabilities must implement metering
+		l.Warnf("no metering report found for %v", msg.state.ExecutionID)
+	}
+
 	stepState.Status = stepStatus
-	stepState.Outputs.Value = outputs
-	stepState.Outputs.Err = err
+	stepState.Outputs.Value = response.Value
+	stepState.Outputs.Err = sErr
 	stepState.Inputs = inputs
 
 	// Let's try and emit the stepUpdate.
@@ -884,8 +832,7 @@ func (e *Engine) workerForStepRequest(ctx context.Context, msg stepRequest) {
 	// Note: When full persistence support is added, any hanging steps
 	// like this one will get picked up again and will be reprocessed.
 	l.Debugf("trying to send step state update for execution %s with status %s", stepState.ExecutionID, stepStatus)
-	err = e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState)
-	if err != nil {
+	if err := e.stepUpdatesChMap.send(ctx, stepState.ExecutionID, *stepState); err != nil {
 		l.Errorf("failed to issue step state update; error %v", err)
 		return
 	}
@@ -948,7 +895,7 @@ func (e *Engine) interpolateEnvVars(config map[string]any, env exec.Env) (*value
 // registry (for capability-level configuration). It doesn't perform any caching of the config values, since
 // the two registries perform their own caching.
 func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *step) (*values.Map, error) {
-	secrets, err := e.secretsFetcher.SecretsFor(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
+	secrets, err := e.secretsFetcher(ctx, e.workflow.owner, e.workflow.name.Hex(), e.workflow.name.String(), e.workflow.id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch secrets: %w", err)
 	}
@@ -989,10 +936,10 @@ func (e *Engine) configForStep(ctx context.Context, lggr logger.Logger, step *st
 }
 
 // executeStep executes the referenced capability within a step and returns the result.
-func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, values.Value, error) {
+func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRequest) (*values.Map, capabilities.CapabilityResponse, error) {
 	curStep, err := e.workflow.Vertex(msg.stepRef)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	var inputs any
@@ -1004,17 +951,17 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 
 	i, err := exec.FindAndInterpolateAllKeys(inputs, msg.state)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	inputsMap, err := values.NewMap(i.(map[string]any))
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 
 	config, err := e.configForStep(ctx, lggr, curStep)
 	if err != nil {
-		return nil, nil, err
+		return nil, capabilities.CapabilityResponse{}, err
 	}
 	stepTimeoutDuration := e.stepTimeoutDuration
 	if timeoutOverride, ok := config.Underlying[reservedFieldNameStepTimeout]; ok {
@@ -1053,10 +1000,10 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	output, err := curStep.capability.Execute(stepCtx, tr)
 	if err != nil {
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
-		return inputsMap, nil, err
+		return inputsMap, capabilities.CapabilityResponse{}, err
 	}
 
-	return inputsMap, output.Value, err
+	return inputsMap, output, err
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -1070,7 +1017,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 			ReferenceID:              t.Ref,
 			DecodedWorkflowName:      e.workflow.name.String(),
 		},
-		TriggerID: generateTriggerId(e.workflow.id, triggerIdx),
+		TriggerID: generateTriggerID(e.workflow.id, triggerIdx),
 		Config:    t.config.Load(),
 	}
 
@@ -1084,7 +1031,7 @@ func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, tr
 	return nil
 }
 
-func (e *Engine) isWorkflowFullyProcessed(ctx context.Context, state store.WorkflowExecution) (bool, string, error) {
+func (e *Engine) isWorkflowFullyProcessed(_ context.Context, state store.WorkflowExecution) (bool, string, error) {
 	statuses := map[string]string{}
 	// we need to first propagate the status of the errored status if it exists...
 	err := e.workflow.walkDo(workflows.KeywordTrigger, func(s *step) error {
@@ -1180,13 +1127,17 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	ticker := time.NewTicker(e.heartbeatCadence)
 	defer ticker.Stop()
 
+	// Gauge values are "persisted" by the backend
+	// and will be continually reported until the value changes.
+	e.metrics.engineHeartbeatGauge(ctx, 1)
+
 	for {
 		select {
 		case <-ctx.Done():
+			e.metrics.engineHeartbeatGauge(ctx, 0)
 			e.logger.Info("shutting down heartbeat")
 			return
 		case <-ticker.C:
-			e.metrics.engineHeartbeatGauge(ctx)
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
 			e.metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
@@ -1239,15 +1190,15 @@ func (e *Engine) Close() error {
 				Config: stepConfig,
 			}
 
-			innerErr := s.capability.UnregisterFromWorkflow(ctx, reg)
-			if innerErr != nil {
-				return &workflowError{err: innerErr,
-					reason: fmt.Sprintf("failed to unregister capability from  workflow: %+v", reg),
-					labels: map[string]string{
-						platform.KeyWorkflowID: e.workflow.id,
-						platform.KeyStepID:     s.ID,
-						platform.KeyStepRef:    s.Ref,
-					}}
+			unregisterError := s.capability.UnregisterFromWorkflow(ctx, reg)
+			if unregisterError != nil {
+				// As a capability may be closing/closed down during shutdown it possible that unregistering the
+				// workflow will fail but this is not necessarily indicative of an error so log it as a warning
+				e.logger.Warn("failed to unregister capability from workflow",
+					"workflowID", e.workflow.id,
+					"stepID", s.ID,
+					"stepRef", s.Ref,
+					"error", unregisterError)
 			}
 
 			return nil
@@ -1265,7 +1216,7 @@ func (e *Engine) Close() error {
 }
 
 func (e *Engine) HealthReport() map[string]error {
-	return map[string]error{e.Name(): nil}
+	return map[string]error{e.Name(): e.Healthy()}
 }
 
 func (e *Engine) Name() string {
@@ -1286,7 +1237,7 @@ type Config struct {
 	Store                store.Store
 	Config               []byte
 	Binary               []byte
-	SecretsFetcher       secretsFetcher
+	SecretsFetcher       SecretsFor
 	HeartbeatCadence     time.Duration
 	StepTimeout          time.Duration
 
@@ -1426,7 +1377,7 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 			Config: cfg.Config,
 			Binary: cfg.Binary,
 		},
-		executionStates:      cfg.Store,
+		executionsStore:      cfg.Store,
 		pendingStepRequests:  make(chan stepRequest, cfg.QueueSize),
 		stepUpdatesChMap:     stepUpdateManager{m: map[string]stepUpdateChannel{}},
 		triggerEvents:        make(chan capabilities.TriggerResponse),

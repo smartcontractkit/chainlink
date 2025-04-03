@@ -32,26 +32,23 @@ type WorkflowJobCfg struct {
 	WorkflowOwner string
 }
 
-func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName string) (string, error) {
+func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName string) (wfSpec string, wfName string, err error) {
 	wfYaml, err := inputFs.ReadFile(inputFileName)
 	if err != nil {
-		return "", fmt.Errorf("failed to read workflow file: %w", err)
+		return "", "", fmt.Errorf("failed to read workflow file: %w", err)
 	}
 	wfStr := string(wfYaml)
 	wf, err := workflows.ParseWorkflowSpecYaml(wfStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse workflow spec: %w", err)
+		return "", "", fmt.Errorf("failed to parse workflow spec: %w", err)
 	}
 
 	wfAlias := WorkflowSpecAlias(wf)
 	if err := wfAlias.validate(); err != nil {
-		return "", fmt.Errorf("workflow validation failed: %w", err)
+		return "", "", fmt.Errorf("workflow validation failed: %w", err)
 	}
 
-	externalID, err := createExternalJobID(wf.Name, wf.Owner)
-	if err != nil {
-		return "", fmt.Errorf("failed to get external job id: %w", err)
-	}
+	externalID := uuid.New().String()
 
 	wfCfg := WorkflowJobCfg{
 		JobName:       workflowJobName,
@@ -63,9 +60,9 @@ func JobSpecFromWorkflow(inputFs embed.FS, inputFileName string, workflowJobName
 
 	workflowJobSpec, err := wfCfg.createSpec()
 	if err != nil {
-		return "", fmt.Errorf("failed to create workflow job spec: %w", err)
+		return "", "", fmt.Errorf("failed to create workflow job spec: %w", err)
 	}
-	return workflowJobSpec, nil
+	return workflowJobSpec, wf.Name, nil
 }
 
 func (wf WorkflowSpecAlias) validate() error {
@@ -80,19 +77,20 @@ func (wf WorkflowSpecAlias) validate() error {
 		return fmt.Errorf("feeds not found in aggregation_config for workflow %s", wf.Name)
 	}
 	for streamsID, feed := range feeds.(map[string]interface{}) {
-		feedMap, feedMapExists := feed.(map[string]string)
-		if !feedMapExists {
+		feedMap, feedExists := feed.(map[string]interface{})
+		if !feedExists {
 			return fmt.Errorf("invalid feed type %s", streamsID)
 		}
-		_, deviation := feedMap["deviation"]
-		if !deviation {
+		_, hasDeviation := feedMap["deviation"].(string)
+		if !hasDeviation {
 			return fmt.Errorf("deviation not found in feed %s", streamsID)
 		}
-		_, heartbeat := feedMap["heartbeat"]
-		if !heartbeat {
+
+		_, hasHeartbeat := feedMap["heartbeat"].(int64)
+		if !hasHeartbeat {
 			return fmt.Errorf("heartbeat not found in feed %s", streamsID)
 		}
-		remmapedID, hasRemmapedID := feedMap["remappedID"]
+		remmapedID, hasRemmapedID := feedMap["remappedID"].(string)
 		if !hasRemmapedID {
 			return fmt.Errorf("remappedID not found in feed %s", streamsID)
 		}

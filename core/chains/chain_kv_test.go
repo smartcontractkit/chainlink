@@ -104,3 +104,6 @@ func (s *testChainService) ListNodeStatuses(ctx context.Context, pageSize int32,
 func (s *testChainService) Transact(ctx context.Context, from string, to string, amount *big.Int, balanceCheck bool) error {
 	return nil
 }
+func (s *testChainService) Replay(ctx context.Context, fromBlock string, args map[string]any) error {
+	return nil
+}

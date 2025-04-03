@@ -67,7 +67,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	}
 
 	// generate configuration for the bootstrap node
-	configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl, input.BlockchainOutput.Nodes[0].DockerInternalWSUrl)
+	configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
 
 	if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 		configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
@@ -91,7 +91,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		}
 
 		// for now we just assume that every worker node is connected to one EVM chain
-		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl, input.BlockchainOutput.Nodes[0].DockerInternalWSUrl)
+		configOverrides[nodeIndex] = config.WorkerEVM(donBootstrapNodePeerID, donBootstrapNodeHost, input.PeeringData, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
 		var nodeEthAddr common.Address
 		for _, label := range workflowNodeSet[i].Labels {
 			if label.Key == node.EthAddressKey {
@@ -118,7 +118,7 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 
 		// workflow DON nodes always needs gateway connector, otherwise they won't be able to fetch the workflow
 		// it's also required by custom compute, which can only run on workflow DON nodes
-		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) {
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) || keystoneflags.HasFlag(input.Flags, cretypes.CustomComputeCapability) && !input.SkipGateway {
 			configOverrides[nodeIndex] += config.WorkerGateway(
 				nodeEthAddr,
 				chainIDUint64,

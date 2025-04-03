@@ -3,6 +3,7 @@ package deployment
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"github.com/smartcontractkit/mcms"
@@ -121,3 +122,46 @@ type ChangesetOutput struct {
 type ViewState func(e Environment) (json.Marshaler, error)
 
 type ViewStateV2 func(e Environment, previousView json.Marshaler) (json.Marshaler, error)
+
+// MergeChangesetOutput merges the source ChangesetOutput into the destination ChangesetOutput.
+// It is useful to combine multiple ChangesetOutput objects into one to create one consolidated changeset from multiple granular changesets.
+// Ensure to run proposalutils.AggregateProposals at the end of consolidated changeset to ensure the proposals are merged correctly.
+func MergeChangesetOutput(env Environment, dest *ChangesetOutput, src ChangesetOutput) error {
+	if dest == nil {
+		return nil
+	}
+
+	if dest.AddressBook == nil {
+		dest.AddressBook = src.AddressBook
+	} else if src.AddressBook != nil {
+		if err := dest.AddressBook.Merge(src.AddressBook); err != nil {
+			return fmt.Errorf("failed to merge address book: %w", err)
+		}
+		if err := env.ExistingAddresses.Merge(src.AddressBook); err != nil {
+			return fmt.Errorf("failed to merge existing addresses to environment: %w", err)
+		}
+	}
+	if dest.Jobs == nil {
+		dest.Jobs = src.Jobs
+	} else if src.Jobs != nil {
+		dest.Jobs = append(dest.Jobs, src.Jobs...)
+	}
+	if dest.MCMSTimelockProposals == nil {
+		dest.MCMSTimelockProposals = src.MCMSTimelockProposals
+	} else if src.MCMSTimelockProposals != nil {
+		dest.MCMSTimelockProposals = append(dest.MCMSTimelockProposals, src.MCMSTimelockProposals...)
+	}
+	if dest.DescribedTimelockProposals == nil {
+		dest.DescribedTimelockProposals = src.DescribedTimelockProposals
+	} else if src.DescribedTimelockProposals != nil {
+		dest.DescribedTimelockProposals = append(dest.DescribedTimelockProposals, src.DescribedTimelockProposals...)
+	}
+
+	if dest.MCMSProposals == nil {
+		dest.MCMSProposals = src.MCMSProposals
+	} else if src.MCMSProposals != nil {
+		dest.MCMSProposals = append(dest.MCMSProposals, src.MCMSProposals...)
+	}
+
+	return nil
+}

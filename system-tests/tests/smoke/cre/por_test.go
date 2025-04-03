@@ -1,4 +1,4 @@
-package capabilities_test
+package cre
 
 import (
 	"context"
@@ -21,12 +21,16 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 
+	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/clclient"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/fake"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
@@ -39,19 +43,21 @@ import (
 	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
+	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	lidcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	libenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
@@ -219,6 +225,7 @@ func validateEnvVars(t *testing.T, in *TestConfig) {
 type registerPoRWorkflowInput struct {
 	*WorkflowConfig
 	chainSelector               uint64
+	writeTargetName             string
 	workflowDonID               uint32
 	feedID                      string
 	workflowRegistryAddress     common.Address
@@ -251,7 +258,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].HostHTTPUrl)
+	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].ExternalHTTPUrl)
 	if settingsErr != nil {
 		return errors.Wrap(settingsErr, "failed to create CRE CLI settings file")
 	}
@@ -259,7 +266,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	var workflowURL string
 	var workflowConfigURL string
 
-	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.feedConsumerAddress, input.feedID, input.priceProvider.URL())
+	workflowConfigFile, configErr := keystoneporcrecli.CreateConfigFile(input.feedConsumerAddress, input.feedID, input.priceProvider.URL(), input.writeTargetName)
 	if configErr != nil {
 		return errors.Wrap(configErr, "failed to create workflow config file")
 	}
@@ -385,8 +392,13 @@ func CreateBlockchains(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
+	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
+	if err != nil {
+		return nil, errors.Wrap(err, "RPC endpoint not available")
+	}
+
 	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
+		WithRpcUrl(blockchainOutput.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{pkey}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
@@ -433,7 +445,7 @@ type setupOutput struct {
 	nodeOutput           []*keystonetypes.WrappedNodeOutput
 }
 
-func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet) *setupOutput {
+func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfig, priceProvider PriceProvider, mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet, customJobsFn func(keystonetypes.DonJobs, *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error), capabilityFactoryFns func([]string) []keystone_changeset.DONCapabilityWithConfig) *setupOutput {
 	// Universal setup -- START
 
 	nodeSetInput := mustSetCapabilitiesFn(in.NodeSets)
@@ -447,6 +459,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		startNixShellInput := &keystonetypes.StartNixShellInput{
 			InfraInput:     in.Infra,
 			CribConfigsDir: cribConfigsDir,
+			PurgeNamespace: true,
 		}
 
 		var nixErr error
@@ -476,12 +489,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ChainName: blockchainsOutput.sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(blockchainsOutput.blockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostWSUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: blockchainsOutput.sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
 		},
@@ -503,7 +516,6 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		ChainSelector: blockchainsOutput.chainSelector,
 		CldEnv:        chainsOnlyCld,
 	}
-
 	keystoneContractsOutput, err := libcontracts.DeployKeystone(testLogger, keystoneContractsInput)
 	require.NoError(t, err, "failed to deploy keystone contracts")
 
@@ -598,27 +610,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
 		}
 
-		// instruct Docker which capabilities to copy to the container
-		// TODO: add similar support for CRIB
-		if in.Infra.InfraType == libtypes.Docker {
-			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
-					Key:   libnode.NodeTypeKey,
-					Value: keystonetypes.WorkerNode,
-				}, libnode.EqualLabels)
-				require.NoError(t, wErr, "failed to find worker nodes")
-
-				for _, node := range workerNodes {
-					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-					require.NoError(t, nErr, "failed to find index label")
-
-					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-					require.NoError(t, nIErr, "failed to convert index to int")
-
-					nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)
-				}
-			}
-		}
+		var appendErr error
+		nodeSetInput[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(nodeSetInput[i], donMetadata, []keystonetypes.CapabilitiesBinaryPathFactoryFn{
+			libcaps.DefaultBinariesPathsFactory(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+		})
+		require.NoError(t, appendErr, "failed to append binaries to node spec for DON %d", donMetadata.ID)
 	}
 
 	// Deploy the DONs
@@ -711,6 +707,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
+	capDir, capDirErr := lidcap.DefaultContainerDirectory(in.Infra.InfraType)
+	require.NoError(t, capDirErr, "failed to get default capabilities directory")
+
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
@@ -720,9 +719,10 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ExtraAllowedPorts:     extraAllowedPorts,
 			ExtraAllowedIPs:       extraAllowedIPs,
 			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
-			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+			CronCapBinPath:         filepath.Join(capDir, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
+		customJobsFn,
 	)
 	require.NoError(t, jobSpecsErr, "failed to define job specs for DONs")
 
@@ -737,13 +737,24 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	err = libdon.CreateJobs(testLogger, createJobsInput)
 	require.NoError(t, err, "failed to configure nodes and create jobs")
 
-	// CAUTION: It is crucial to configure OCR3 jobs on nodes before configuring the workflow contracts.
-	// Wait for OCR listeners to be ready before setting the configuration.
-	// If the ConfigSet event is missed, OCR protocol will not start.
-	// TODO: workflow/core team should expose a way for us to check if the OCR listener is ready
-	testLogger.Info().Msg("Waiting 45s for OCR listeners to be ready...")
-	time.Sleep(45 * time.Second)
-	testLogger.Info().Msg("Proceeding to set OCR3 and Keystone configuration...")
+	// Wait until ConfigWatcher health checks are passing
+	// we need it to start before we'll be deploying OCR contracts
+	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
+
+	for _, nodeSetOut := range nodeOutput {
+		if nodeSetOut.NodeSetName == keystonetypes.GatewayDON || nodeSetOut.NodeSetName == keystonetypes.CapabilitiesDON {
+			continue
+		}
+		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
+		require.NoError(t, cErr)
+		eg := &errgroup.Group{}
+		for _, c := range nsClients {
+			eg.Go(func() error {
+				return c.WaitHealthy(".*ConfigWatcher", "passing", 100)
+			})
+		}
+		require.NoError(t, eg.Wait())
+	}
 
 	// Configure the Forwarder, OCR3 and Capabilities contracts
 	configureKeystoneInput := keystonetypes.ConfigureKeystoneInput{
@@ -752,7 +763,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		Topology:      topology,
 	}
 
-	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{libcontracts.DefaultCapabilityFactoryFn})
+	err = libcontracts.ConfigureKeystone(configureKeystoneInput, []keystonetypes.DONCapabilityWithConfigFactoryFn{capabilityFactoryFns, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))})
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Universal setup -- END
@@ -791,6 +802,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		deployerPrivateKey:          blockchainsOutput.deployerPrivateKey,
 		blockchain:                  blockchainsOutput.blockchainOutput,
 		creCLIAbsPath:               creCLIAbsPath,
+		writeTargetName:             corevm.GenerateWriteTargetName(libc.MustSafeUint64(int64(chainIDInt))),
 	}
 
 	err = registerPoRWorkflow(registerInput)
@@ -839,7 +851,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -947,7 +959,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	priceProvider, priceErr := NewFakePriceProvider(testLogger, in.Fake)
 	require.NoError(t, priceErr, "failed to create fake price provider")
 
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
@@ -1058,7 +1070,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	}
 
 	priceProvider := NewTrueUSDPriceProvider(testLogger)
-	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn)
+	setupOutput := setupTestEnvironment(t, testLogger, in, priceProvider, mustSetCapabilitiesFn, nil, libcontracts.DefaultCapabilityFactoryFn)
 
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
