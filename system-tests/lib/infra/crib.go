@@ -32,8 +32,8 @@ func ReadBlockchainURL(cribConfigsDir, chainType, chainID string) (*blockchain.O
 	out.Family = chainType
 	out.Nodes = []*blockchain.Node{
 		{
-			ExternalWSUrl:             chainURLs.WSExternalURL,
-			ExternalHTTPUrl:           chainURLs.HTTPExternalURL,
+			ExternalWSUrl:   chainURLs.WSExternalURL,
+			ExternalHTTPUrl: chainURLs.HTTPExternalURL,
 			InternalWSUrl:   chainURLs.WSInternalURL,
 			InternalHTTPUrl: chainURLs.HTTPInternalURL,
 		},
@@ -107,9 +107,9 @@ func ReadNodeSetURL(cribConfigsDir string, donMetadata *cretypes.DonMetadata) (*
 			Node: &clnode.NodeOut{
 				APIAuthUser:     apiCredentials.Username,
 				APIAuthPassword: apiCredentials.Password,
-				ExternalURL:         donURLs.BootstrapNodes[i].ExternalURL,
-				InternalURL:       donURLs.BootstrapNodes[i].InternalURL,
-				InternalP2PUrl:    donURLs.BootstrapNodes[i].P2PInternalURL,
+				ExternalURL:     donURLs.BootstrapNodes[i].ExternalURL,
+				InternalURL:     donURLs.BootstrapNodes[i].InternalURL,
+				InternalP2PUrl:  donURLs.BootstrapNodes[i].P2PInternalURL,
 				InternalIP:      donURLs.BootstrapNodes[i].InternalIP,
 			},
 		})
@@ -121,9 +121,9 @@ func ReadNodeSetURL(cribConfigsDir string, donMetadata *cretypes.DonMetadata) (*
 			Node: &clnode.NodeOut{
 				APIAuthUser:     apiCredentials.Username,
 				APIAuthPassword: apiCredentials.Password,
-				ExternalURL:         donURLs.WorkerNodes[i].ExternalURL,
-				InternalURL:       donURLs.WorkerNodes[i].InternalURL,
-				InternalP2PUrl:    donURLs.WorkerNodes[i].P2PInternalURL,
+				ExternalURL:     donURLs.WorkerNodes[i].ExternalURL,
+				InternalURL:     donURLs.WorkerNodes[i].InternalURL,
+				InternalP2PUrl:  donURLs.WorkerNodes[i].P2PInternalURL,
 				InternalIP:      donURLs.WorkerNodes[i].InternalIP,
 			},
 		})
