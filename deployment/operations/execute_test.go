@@ -2,10 +2,8 @@ package operations
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"math"
-	"sync"
 	"testing"
 
 	"github.com/Masterminds/semver/v3"
@@ -84,7 +82,7 @@ func Test_ExecuteOperation(t *testing.T) {
 				require.ErrorContains(t, res.Err, tt.wantErr)
 				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				require.NoError(t, res.Err)
+				require.Nil(t, res.Err)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantOutput, res.Output)
 			}
@@ -113,7 +111,7 @@ func Test_ExecuteOperation_ErrorReporter(t *testing.T) {
 	res, err := ExecuteOperation(e, op, nil, 1)
 	require.Error(t, err)
 	require.ErrorContains(t, err, reportErr.Error())
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 }
 
 func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
@@ -137,21 +135,21 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	// first run
 	res, err := ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 1, handlerCalledTimes)
 
 	// rerun should return previous report
 	res, err = ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 1, handlerCalledTimes)
 
 	// new run with different input, should perform execution
 	res, err = ExecuteOperation(bundle, op, nil, 3)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 4, res.Output)
 	assert.Equal(t, 2, handlerCalledTimes)
 
@@ -159,7 +157,7 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	op = NewOperation("plus1-v2", semver.MustParse("2.0.0"), "test operation", handler)
 	res, err = ExecuteOperation(bundle, op, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Equal(t, 3, handlerCalledTimes)
 
@@ -176,6 +174,63 @@ func Test_ExecuteOperation_WithPreviousRun(t *testing.T) {
 	require.ErrorContains(t, err, "test error")
 	require.ErrorContains(t, res.Err, "test error")
 	assert.Equal(t, 2, handlerWithErrorCalledTimes)
+}
+
+func Test_ExecuteOperation_Unserializable_Data(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name      string
+		input     any
+		output    any
+		wantError string
+	}{
+		{
+			name:   "both input and output are serializable",
+			input:  1,
+			output: 2,
+		},
+		{
+			name:      "input is serializable, output is not",
+			input:     1,
+			output:    func() bool { return true },
+			wantError: "operation example output: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+		{
+			name: "input is not serializable, output is",
+			input: struct {
+				A            int
+				privateField string
+			}{
+				A:            1,
+				privateField: "private",
+			},
+			output:    2,
+			wantError: "operation example input: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			op := NewOperation("example", semver.MustParse("1.0.0"), "test operation",
+				func(e Bundle, deps any, input any) (output any, err error) {
+					return tt.output, nil
+				})
+
+			e := NewBundle(context.Background, logger.Test(t), NewMemoryReporter())
+
+			res, err := ExecuteOperation(e, op, nil, tt.input)
+			if len(tt.wantError) != 0 {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantError)
+			} else {
+				require.NoError(t, err)
+				require.Nil(t, res.Err)
+			}
+		})
+	}
 }
 
 func Test_ExecuteSequence(t *testing.T) {
@@ -235,7 +290,7 @@ func Test_ExecuteSequence(t *testing.T) {
 				require.ErrorContains(t, seqReport.Err, tt.wantErr)
 				require.ErrorContains(t, err, tt.wantErr)
 			} else {
-				require.NoError(t, seqReport.Err)
+				require.Nil(t, seqReport.Err)
 				require.NoError(t, err)
 				assert.Equal(t, tt.wantOutput, seqReport.Output)
 			}
@@ -286,18 +341,15 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	// first run
 	res, err := ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 1, handlerCalledTimes)
 
-	marshal, err := json.MarshalIndent(res.ExecutionReports, "", "  ")
-	require.NoError(t, err)
-	t.Log(string(marshal))
 	// rerun should return previous report
 	res, err = ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 1, handlerCalledTimes)
@@ -305,7 +357,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	// new run with different input, should perform execution
 	res, err = ExecuteSequence(bundle, sequence, nil, 3)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 4, res.Output)
 	assert.Len(t, res.ExecutionReports, 2) // 1 seq report + 1 op report
 	assert.Equal(t, 2, handlerCalledTimes)
@@ -314,7 +366,7 @@ func Test_ExecuteSequence_WithPreviousRun(t *testing.T) {
 	sequence = NewSequence("seq-plus1-v2", semver.MustParse("2.0.0"), "plus 1", handler)
 	res, err = ExecuteSequence(bundle, sequence, nil, 1)
 	require.NoError(t, err)
-	require.NoError(t, res.Err)
+	require.Nil(t, res.Err)
 	assert.Equal(t, 2, res.Output)
 	// only 1 because the op was not executed due to previous execution found
 	assert.Len(t, res.ExecutionReports, 1)
@@ -409,80 +461,43 @@ func Test_ExecuteSequence_ErrorReporter(t *testing.T) {
 	}
 }
 
-func Test_constructUniqueHashFrom(t *testing.T) {
+func Test_ExecuteSequence_Unserializable_Data(t *testing.T) {
 	t.Parallel()
 
-	type Input struct {
-		A int
-		B int
-	}
+	version := semver.MustParse("1.0.0")
+	op := NewOperation("test", version, "test description",
+		func(b Bundle, deps OpDeps, input any) (output any, err error) {
+			return 1, nil
+		})
 
-	definition := Definition{
-		ID:          "plus1",
-		Version:     semver.MustParse("1.0.0"),
-		Description: "plus 1",
-	}
 	tests := []struct {
-		name    string
-		def     Definition
-		input   any
-		want    string
-		wantErr string
+		name      string
+		input     any
+		output    any
+		wantError string
 	}{
 		{
-			name: "Same def and input should always have the same hash (struct input)",
-			def:  definition,
-			input: Input{
-				A: 1,
-				B: 2,
+			name:   "both input and output are serializable",
+			input:  1,
+			output: 2,
+		},
+		{
+			name:      "input is serializable, output is not",
+			input:     1,
+			output:    func() bool { return true },
+			wantError: "sequence seq-example output: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
+		},
+		{
+			name: "input is not serializable, output is",
+			input: struct {
+				A            int
+				privateField string
+			}{
+				A:            1,
+				privateField: "private",
 			},
-			want: "e6148d004b97353d8361d8cbcfbefe77da97dec220bd04449667f6ba6180d46c",
-		},
-		{
-			name: "Same def and same input (different map order) should always have the same hash (struct input)",
-			def:  definition,
-			input: Input{
-				B: 2,
-				A: 1,
-			},
-			want: "e6148d004b97353d8361d8cbcfbefe77da97dec220bd04449667f6ba6180d46c",
-		},
-		{
-			name:  "Same def and input should always have the same hash (literal input)",
-			def:   definition,
-			input: 1,
-			want:  "3f409a93e9fe5507c0d4a902ba5cb6e80a3740c74dc6a4a9bca13e71f2d46ca5",
-		},
-		{
-			name: "Different def, same input should have different hash",
-			def: Definition{
-				ID:          "plus2",
-				Version:     semver.MustParse("1.0.0"),
-				Description: "plus 2",
-			},
-			input: 1,
-			want:  "9f9d42fb8ced1129a0071a30a301cc03e94f12f225f7649ab34df16e6891d37c",
-		},
-		{
-			name: "Different input, same def should have different hash (struct input)",
-			def:  definition,
-			input: Input{
-				B: 1,
-				A: 2,
-			},
-			want: "6c8b5986bd08e115df5cbbd77c23fcd28ea31055d0cf6de8ec29ddd7fd056bca",
-		},
-		{
-			name:  "Different input, same def should have different hash (literal input)",
-			def:   definition,
-			input: 2,
-			want:  "468cd7f2b432fa59559c69a2db32fc0d44d829328a6db5c7d745889c53f4fff0",
-		},
-		{
-			name:    "invalid input",
-			def:     definition,
-			input:   math.NaN(),
-			wantErr: "json: unsupported value: NaN",
+			output:    2,
+			wantError: "sequence seq-example input: data cannot be safely written to disk without data lost, avoid type that can't be serialized",
 		},
 	}
 
@@ -490,36 +505,24 @@ func Test_constructUniqueHashFrom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
-			cache := &sync.Map{}
-			hash, err := constructUniqueHashFrom(cache, tt.def, tt.input)
-			if tt.wantErr != "" {
-				require.Error(t, err)
-				require.ErrorContains(t, err, tt.wantErr)
+			sequence := NewSequence("seq-example", version, "test operation",
+				func(e Bundle, deps any, _ any) (output any, err error) {
+					_, err = ExecuteOperation(e, op, OpDeps{}, 1)
+					if err != nil {
+						return 0, err
+					}
+					return tt.output, nil
+				})
 
-				// should not store anything in cache on failure
-				key := struct {
-					Def   Definition
-					Input any
-				}{tt.def, tt.input}
-				_, ok := cache.Load(key)
-				require.False(t, ok)
+			e := NewBundle(context.Background, logger.Test(t), NewMemoryReporter())
+
+			res, err := ExecuteSequence(e, sequence, nil, tt.input)
+			if len(tt.wantError) != 0 {
+				require.Error(t, err)
+				require.ErrorContains(t, err, tt.wantError)
 			} else {
 				require.NoError(t, err)
-				assert.Equal(t, tt.want, hash)
-
-				// check cache
-				key := struct {
-					Def   Definition
-					Input any
-				}{tt.def, tt.input}
-				cached, ok := cache.Load(key)
-				require.True(t, ok)
-				assert.Equal(t, tt.want, cached)
-
-				// this call should use the cache
-				hash2, err := constructUniqueHashFrom(cache, tt.def, tt.input)
-				require.NoError(t, err)
-				assert.Equal(t, tt.want, hash2)
+				require.Nil(t, res.Err)
 			}
 		})
 	}
@@ -538,9 +541,9 @@ func Test_loadPreviousSuccessfulReport(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupReporter func() Reporter
-		input         any
+		input         float64
 		wantDef       Definition
-		wantInput     int
+		wantInput     float64
 		wantFound     bool
 	}{
 		{
@@ -618,12 +621,12 @@ func Test_loadPreviousSuccessfulReport(t *testing.T) {
 				bundle.reporter = tt.setupReporter()
 			}
 
-			report, found := loadPreviousSuccessfulReport[any, int](bundle, definition, tt.input)
+			report, found := loadPreviousSuccessfulReport[float64, int](bundle, definition, tt.input)
 			assert.Equal(t, tt.wantFound, found)
 
 			if tt.wantFound {
 				assert.Equal(t, tt.wantDef, report.Def)
-				assert.Equal(t, tt.wantInput, report.Input)
+				assert.InDelta(t, tt.wantInput, report.Input, 0)
 			}
 		})
 	}

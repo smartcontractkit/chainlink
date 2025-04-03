@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -156,9 +153,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
 	env = deployment.Environment{
-		GetContext: func() context.Context {
-			return testcontext.Get(t)
-		},
+		GetContext:        t.Context,
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
@@ -394,7 +389,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		nil,
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		deployment.XXXGenerateTestOCRSecrets(),
 	)
 
@@ -430,7 +425,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return tests.Context(t) }, lggr, chains, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, dons.AllNodes())
 	return dons, env
 }
 

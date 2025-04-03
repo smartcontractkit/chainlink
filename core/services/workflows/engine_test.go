@@ -216,7 +216,9 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 	})
 	require.NoError(t, err)
 
-	sl, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+	lggr := logger.TestLogger(t)
+
+	sl, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 		Global:   200,
 		PerOwner: 200,
 	})
@@ -552,6 +554,7 @@ func mockTarget(id string) *mockCapability {
 }
 
 func TestEngine_RateLimit(t *testing.T) {
+	lggr := logger.TestLogger(t)
 	t.Run("per user rate limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
 		reg := coreCap.NewRegistry(logger.TestLogger(t))
@@ -610,7 +613,7 @@ func TestEngine_RateLimit(t *testing.T) {
 
 	t.Run("global rate limit", func(t *testing.T) {
 		ctx := testutils.Context(t)
-		reg := coreCap.NewRegistry(logger.TestLogger(t))
+		reg := coreCap.NewRegistry(lggr)
 
 		trigger, _ := mockTrigger(t)
 		require.NoError(t, reg.Add(ctx, trigger))
@@ -689,7 +692,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   1,
 			PerOwner: 5,
 		})
@@ -741,7 +744,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:   10,
 			PerOwner: 1,
 		})
@@ -801,7 +804,7 @@ func TestEngine_RateLimit(t *testing.T) {
 		)
 		require.NoError(t, reg.Add(ctx, target2))
 
-		workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+		workflowLimits, err := syncerlimiter.NewWorkflowLimits(lggr, syncerlimiter.Config{
 			Global:            10,
 			PerOwner:          1,
 			PerOwnerOverrides: overrides,

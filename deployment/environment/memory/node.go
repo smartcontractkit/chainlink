@@ -27,7 +27,6 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
@@ -307,7 +306,7 @@ func NewNode(
 	}
 
 	master := keystore.New(db, utils.FastScryptParams, lggr)
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	require.NoError(t, master.Unlock(ctx, "password"))
 	require.NoError(t, master.CSA().EnsureKey(ctx))
 	require.NoError(t, master.Workflow().EnsureKey(ctx))
@@ -370,7 +369,7 @@ func CreateKeys(t *testing.T,
 	chains map[uint64]deployment.Chain,
 	solchains map[uint64]deployment.SolChain,
 ) Keys {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	_, err := app.GetKeyStore().P2P().Create(ctx)
 	require.NoError(t, err)
 

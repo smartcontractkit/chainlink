@@ -1,12 +1,10 @@
 package deployment
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -102,7 +100,7 @@ func NewNoopEnvironment(t *testing.T) Environment {
 		map[uint64]SolChain{},
 		[]string{},
 		nil,
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		XXXGenerateTestOCRSecrets(),
 	)
 }

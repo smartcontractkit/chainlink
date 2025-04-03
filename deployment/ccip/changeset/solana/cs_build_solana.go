@@ -1,12 +1,15 @@
 package solana
 
 import (
+	"bufio"
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	cs "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -26,6 +29,7 @@ const (
 // Needed for upgrades in place
 var programToFileMap = map[deployment.ContractType]string{
 	cs.Router:                      "programs/ccip-router/src/lib.rs",
+	cs.CCIPCommon:                  "programs/ccip-common/src/lib.rs",
 	cs.FeeQuoter:                   "programs/fee-quoter/src/lib.rs",
 	cs.OffRamp:                     "programs/ccip-offramp/src/lib.rs",
 	cs.BurnMintTokenPool:           "programs/burnmint-token-pool/src/lib.rs",
@@ -36,13 +40,22 @@ var programToFileMap = map[deployment.ContractType]string{
 	types.RBACTimelockProgram:      "programs/timelock/src/lib.rs",
 }
 
+var programToVanityKey = map[deployment.ContractType]string{
+	cs.Router:    "Ccip",
+	cs.FeeQuoter: "FeeQ",
+	cs.OffRamp:   "off",
+	cs.RMNRemote: "Rmn",
+}
+
 type LocalBuildConfig struct {
 	BuildLocally         bool
 	CleanDestinationDir  bool
 	CreateDestinationDir bool
 	// Forces re-clone of git directory. Useful for forcing regeneration of keys
 	CleanGitDir bool
-	UpgradeKeys map[deployment.ContractType]string
+	// When building locally, this will be used to replace the keys in the Rust files
+	GenerateVanityKeys bool
+	UpgradeKeys        map[deployment.ContractType]string
 }
 
 type BuildSolanaConfig struct {
@@ -144,6 +157,98 @@ func replaceKeysForUpgrade(e deployment.Environment, keys map[deployment.Contrac
 	return nil
 }
 
+func syncRouterAndCommon() error {
+	routerFileName := programToFileMap[cs.Router]
+	commonFileName := programToFileMap[cs.CCIPCommon]
+	routerFile := filepath.Join(cloneDir, anchorDir, routerFileName)
+	commonFile := filepath.Join(cloneDir, anchorDir, commonFileName)
+	file, err := os.Open(routerFile)
+	if err != nil {
+		return fmt.Errorf("error opening router file: %w", err)
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	declareRegex := regexp.MustCompile(`declare_id!\(\"(.+?)\"\);`)
+	var declareID string
+
+	for scanner.Scan() {
+		match := declareRegex.FindStringSubmatch(scanner.Text())
+		if match != nil {
+			declareID = match[0]
+			break
+		}
+	}
+
+	if declareID == "" {
+		return errors.New("declare_id not found in router file")
+	}
+
+	commonContent, err := os.ReadFile(commonFile)
+	if err != nil {
+		return fmt.Errorf("error reading common file: %w", err)
+	}
+
+	updatedContent := declareRegex.ReplaceAllString(string(commonContent), declareID)
+
+	return os.WriteFile(commonFile, []byte(updatedContent), 0600)
+}
+
+func generateVanityKeys(e deployment.Environment, keys map[deployment.ContractType]string) error {
+	e.Logger.Debug("Generating vanity keys...")
+	for program, prefix := range programToVanityKey {
+		_, exists := keys[program]
+		if exists {
+			fmt.Printf("Vanity key for program %s already exists, skipping generation.", program)
+			continue
+		}
+
+		// Construct command arguments
+		args := []string{"grind", "--starts-with", prefix + ":1"}
+
+		// Run command using helper function
+		output, err := runCommand("solana-keygen", args, "./")
+		if err != nil {
+			return fmt.Errorf("failed to generate vanity key for program %s: %w", program, err)
+		}
+
+		// Parse output for JSON filename
+		scanner := bufio.NewScanner(strings.NewReader(output))
+		jsonFilePattern := regexp.MustCompile(`Wrote keypair to (.*\.json)`) // Regex to match output
+		var jsonFilePath string
+
+		for scanner.Scan() {
+			line := scanner.Text()
+			matches := jsonFilePattern.FindStringSubmatch(line)
+			if len(matches) > 1 {
+				jsonFilePath = matches[1]
+				break
+			}
+		}
+
+		if jsonFilePath == "" {
+			return fmt.Errorf("failed to parse output for JSON file path when generating vanity key for program %s", program)
+		}
+
+		// Get absolute path
+		absPath, err := filepath.Abs(jsonFilePath)
+		if err != nil {
+			return fmt.Errorf("failed to get absolute path for JSON file: %w", err)
+		}
+
+		// Extract file name
+		fileName := filepath.Base(absPath)
+		keys[program] = strings.TrimSuffix(fileName, ".json")
+
+		destination := filepath.Join(cloneDir, deployDir, getTypeToProgramDeployName()[program]+"-keypair.json")
+		if err := os.Rename(absPath, destination); err != nil {
+			return fmt.Errorf("failed to move generated vanity key from %s to %s: %w", absPath, destination, err)
+		}
+		fmt.Println("File copied to:", destination)
+	}
+	return nil
+}
+
 func copyFile(srcFile string, destDir string) error {
 	output, err := runCommand("cp", []string{srcFile, destDir}, ".")
 	if err != nil {
@@ -176,10 +281,24 @@ func buildLocally(e deployment.Environment, config BuildSolanaConfig) error {
 		return fmt.Errorf("error replacing keys: %w", err)
 	}
 
+	if config.LocalBuild.GenerateVanityKeys {
+		if len(config.LocalBuild.UpgradeKeys) == 0 {
+			config.LocalBuild.UpgradeKeys = make(map[deployment.ContractType]string)
+		}
+		if err := generateVanityKeys(e, config.LocalBuild.UpgradeKeys); err != nil {
+			return fmt.Errorf("error generating vanity keys: %w", err)
+		}
+	}
+
 	// Replace keys in Rust files for upgrade by replacing the declare_id!() macro explicitly
 	// We need to do this so the keys will match the existing deployed program
 	if err := replaceKeysForUpgrade(e, config.LocalBuild.UpgradeKeys); err != nil {
 		return fmt.Errorf("error replacing keys for upgrade: %w", err)
+	}
+
+	// Sync the router and common program files
+	if err := syncRouterAndCommon(); err != nil {
+		return fmt.Errorf("error syncing router and common program files: %w", err)
 	}
 
 	// Build the project with Anchor

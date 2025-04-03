@@ -12,6 +12,9 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 )
 
+// ProposeAdminRoleChangeset is a changeset that proposes admin rights for tokens on the token admin registry.
+// To be able to propose admin rights, the caller must own the token admin registry and the token must not already have an administrator.
+// If you want to propose admin role for an external address, you can set the ExternalAdmin field in the TokenPoolInfo within TokenAdminRegistryChangesetConfig.
 var _ deployment.ChangeSet[changeset.TokenAdminRegistryChangesetConfig] = ProposeAdminRoleChangeset
 
 func validateProposeAdminRole(
