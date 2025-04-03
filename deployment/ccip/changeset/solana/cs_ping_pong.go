@@ -141,17 +141,17 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, nil, chainState.Router)
+	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, solana.PublicKey(*chain.DeployerKey), chainState.Router)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	feeBillingSignerPDA, err := solanaStateUtils.FindFeeBillingSignerPDA(c.ChainSelector, nil, chainState.Router)
+	feeBillingSignerPDA, _, err := solanaStateUtils.FindFeeBillingSignerPDA(chainState.Router)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	fqBillingTokenConfigPDA, err := solanaStateUtils.FindFqBillingTokenConfigPDA(c.ChainSelector, nil, chainState.Router)
+	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(nil, chainState.FeeQuoter)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
@@ -205,8 +205,8 @@ func StartPingPongContractChangeset(
 }
 
 type SetPausePingPongConfig struct {
-	IsPaused      bool
 	ChainSelector uint64
+	IsPaused      bool
 }
 
 func (c SetPausePingPongConfig) Validate(e deployment.Environment) error {
