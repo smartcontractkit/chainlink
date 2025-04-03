@@ -116,7 +116,7 @@ func TestDeployDataStreamsContractsTableDriven(t *testing.T) {
 			}
 
 			resp, err := commonChangesets.Apply(t, testEnv.Environment, nil,
-				commonChangesets.Configure(DeployDataStreamsChangeset, cfg),
+				commonChangesets.Configure(DeployDataStreamsDestinationChainChangeset, cfg),
 			)
 			require.NoError(t, err)
 

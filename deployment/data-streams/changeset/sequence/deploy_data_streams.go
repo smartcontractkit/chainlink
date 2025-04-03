@@ -18,9 +18,9 @@ import (
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 )
 
-// DeployDataStreamsChangeset deploys the entire data streams stack to a new chain. It should be kept up to date
+// DeployDataStreamsDestinationChainChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
 // with the latest contract versions and deployment logic.
-var DeployDataStreamsChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
+var DeployDataStreamsDestinationChainChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
 
 type DeployDataStreamsConfig struct {
 	ChainsToDeploy map[uint64]DeployDataStreams
