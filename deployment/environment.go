@@ -139,6 +139,25 @@ func NewEnvironment(
 	}
 }
 
+// Clone creates a copy of the environment with a new reference to the address book.
+func (e Environment) Clone() Environment {
+	ab := NewMemoryAddressBook()
+	if err := ab.Merge(e.ExistingAddresses); err != nil {
+		panic(fmt.Sprintf("failed to copy address book: %v", err))
+	}
+	return Environment{
+		Name:              e.Name,
+		Logger:            e.Logger,
+		ExistingAddresses: ab,
+		Chains:            e.Chains,
+		SolChains:         e.SolChains,
+		NodeIDs:           e.NodeIDs,
+		Offchain:          e.Offchain,
+		GetContext:        e.GetContext,
+		OCRSecrets:        e.OCRSecrets,
+	}
+}
+
 func (e Environment) AllChainSelectors() []uint64 {
 	var selectors []uint64
 	for sel := range e.Chains {
@@ -471,11 +490,11 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list node chain configs for node %s id %s: %w", node.Name, node.Id, err)
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			xerr = errors.Join(xerr, err)
+			xerr = errors.Join(xerr, fmt.Errorf("failed to get node metadata for node %s id %s: %w", node.Name, node.Id, err))
 			if !errors.Is(err, ErrMissingEVMChain) {
 				onlyMissingEVMChain = false
 			}

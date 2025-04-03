@@ -1,6 +1,8 @@
 package globals
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+)
 
 // GlobalCurseSubject as defined here: https://github.com/smartcontractkit/chainlink/blob/new-rmn-curse-changeset/contracts/src/v0.8/ccip/rmn/RMNRemote.sol#L15
 func GlobalCurseSubject() Subject {

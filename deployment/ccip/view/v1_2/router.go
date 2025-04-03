@@ -11,7 +11,7 @@ import (
 
 type RouterView struct {
 	types.ContractMetaData
-	IsTestRouter  bool                      `json:"isTestRouter,omitempty"`
+	IsTestRouter  bool                      `json:"isTestRouter"`
 	WrappedNative common.Address            `json:"wrappedNative,omitempty"`
 	ARMProxy      common.Address            `json:"armProxy,omitempty"`
 	OnRamps       map[uint64]common.Address `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses

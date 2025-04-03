@@ -226,7 +226,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].HostHTTPUrl)
+	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].ExternalHTTPUrl)
 	if settingsErr != nil {
 		return errors.Wrap(settingsErr, "failed to create CRE CLI settings file")
 	}

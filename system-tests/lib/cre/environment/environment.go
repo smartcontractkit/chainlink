@@ -128,12 +128,12 @@ func SetupTestEnvironment(
 			ChainName: blockchainsOutput.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(blockchainsOutput.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.BlockchainOutput.Nodes[0].HostWSUrl,
-				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: blockchainsOutput.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.BlockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: blockchainsOutput.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: blockchainsOutput.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: blockchainsOutput.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
 		},
@@ -471,13 +471,13 @@ func CreateBlockchains(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
+	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, errors.Wrap(err, "RPC endpoint not available")
 	}
 
 	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
+		WithRpcUrl(blockchainOutput.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{pkey}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).

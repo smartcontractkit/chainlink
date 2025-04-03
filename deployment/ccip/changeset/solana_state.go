@@ -35,6 +35,7 @@ const (
 	SPL2022Tokens             deployment.ContractType = "SPL2022Tokens"
 	SPLTokens                 deployment.ContractType = "SPLTokens"
 	WSOL                      deployment.ContractType = "WSOL"
+	CCIPCommon                deployment.ContractType = "CCIPCommon"
 	// for PDAs from AddRemoteChainToSolana
 	RemoteSource deployment.ContractType = "RemoteSource"
 	RemoteDest   deployment.ContractType = "RemoteDest"
