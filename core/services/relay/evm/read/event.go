@@ -147,7 +147,7 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 
 	}
 
-	if !b.registrar.Dirty() {
+	if b.registrar == nil || !b.registrar.Dirty() {
 		return nil
 	}
 
