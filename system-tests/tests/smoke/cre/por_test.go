@@ -742,7 +742,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	testLogger.Info().Msg("Waiting for ConfigWatcher health check")
 
 	for _, nodeSetOut := range nodeOutput {
-		if nodeSetOut.NodeSetName == "gateway" || nodeSetOut.NodeSetName == "capabilities" {
+		if nodeSetOut.NodeSetName == keystonetypes.GatewayDON || nodeSetOut.NodeSetName == keystonetypes.CapabilitiesDON {
 			continue
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
