@@ -1,6 +1,7 @@
 package mcmsutil
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 	"time"
@@ -198,13 +199,13 @@ func proposalsEqualForMerge(p1, p2 mcms.TimelockProposal) (bool, error) {
 		return false, fmt.Errorf("mismatched Delay: %v vs %v", p1.Delay, p2.Delay)
 	}
 	if !reflect.DeepEqual(p1.BaseProposal, p2.BaseProposal) {
-		return false, fmt.Errorf("mismatched BaseProposal")
+		return false, errors.New("mismatched BaseProposal")
 	}
 	if !reflect.DeepEqual(p1.ChainMetadata, p2.ChainMetadata) {
-		return false, fmt.Errorf("mismatched ChainMetadata")
+		return false, errors.New("mismatched ChainMetadata")
 	}
 	if !reflect.DeepEqual(p1.TimelockAddresses, p2.TimelockAddresses) {
-		return false, fmt.Errorf("mismatched TimelockAddresses")
+		return false, errors.New("mismatched TimelockAddresses")
 	}
 
 	return true, nil

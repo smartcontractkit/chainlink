@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/mcms"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
-	"github.com/smartcontractkit/mcms"
 )
 
 // DeployDataStreamsDestinationChainChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
@@ -54,7 +55,6 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 		default:
 			return deployment.ChangesetOutput{}, fmt.Errorf("unsupported chain family %s for chain %d", family, chainSel)
 		}
-
 	}
 
 	if len(timelockProposals) > 0 {
@@ -101,9 +101,7 @@ func (cc DeployDataStreamsConfig) Validate() error {
 		if err := cfg.Billing.Validate(); err != nil {
 			return fmt.Errorf("invalid billing settings for chain %d: %w", chain, err)
 		}
-
 	}
-
 	return nil
 }
 
