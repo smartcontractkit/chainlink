@@ -138,8 +138,9 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	}
 
 	return MemoryEnv{
-		Environment: env,
-		Timelocks:   timelocks,
+		Environment:    env,
+		Timelocks:      timelocks,
+		LinkTokenState: linkTokenState,
 	}
 }
 
