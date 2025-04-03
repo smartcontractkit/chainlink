@@ -124,8 +124,8 @@ github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da/go.mod h1:Q73ZrmV
 github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj4x4TnLV4JWEpy2hxWSpsRywHrMgIH9cCH8=
 github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c h1:cxQVoh6kY+c4b0HUchHjGWBI8288VhH50qxKG3hdEg0=
 github.com/atombender/go-jsonschema v0.16.1-0.20240916205339-a74cd4e2851c/go.mod h1:3XzxudkrYVUvbduN/uI2fl4lSrMSzU0+3RCu2mpnfx8=
-github.com/avast/retry-go/v4 v4.6.0 h1:K9xNA+KeB8HHc2aWFuLb25Offp+0iVRXEvFx8IinRJA=
-github.com/avast/retry-go/v4 v4.6.0/go.mod h1:gvWlPhBVsvBbLkVGDg/KwvBv0bEkCOLRRSHKIr2PyOE=
+github.com/avast/retry-go/v4 v4.6.1 h1:VkOLRubHdisGrHnTu89g08aQEWEgRU7LVEop3GbIcMk=
+github.com/avast/retry-go/v4 v4.6.1/go.mod h1:V6oF8njAwxJ5gRo1Q7Cxab24xs5NCWZBeaHHBklR8mA=
 github.com/aws/aws-sdk-go v1.55.6 h1:cSg4pvZ3m8dgYcgqB97MrcdjUmZ1BeMYKUxMMB89IPk=
 github.com/aws/aws-sdk-go v1.55.6/go.mod h1:eRwEWoyTWFMVYVQzKMNHWP5/RV4xIUGMQfXQHfHkpNU=
 github.com/aws/aws-sdk-go-v2 v1.32.2 h1:AkNLZEyYMLnx/Q/mSKkcMqwNFXMAvFto9bNsHqcTduI=
@@ -1144,8 +1144,8 @@ github.com/smartcontractkit/chainlink-protos/svr v1.1.0 h1:79Z9N9dMbMVRGaLoDPAQ+
 github.com/smartcontractkit/chainlink-protos/svr v1.1.0/go.mod h1:TcOliTQU6r59DwG4lo3U+mFM9WWyBHGuFkkxQpvSujo=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250402145836-4234da19fdb3 h1:6lwEZZRqyIkHb6pl6hyJ2uqol74DfJzQn1EZlQk6Uuk=
 github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250402145836-4234da19fdb3/go.mod h1:yEF+XSuGQkZpGyfA38ykPt7vITkmNktwfR2CuFxDfpI=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3 h1:CeZqFz/si4YBnYE1118mtc4FBLs2Za1qohYAeLZTI+o=
-github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3/go.mod h1:9b5ugzYeKkwbxZ9yMOoxUaPiONDLC/QLCncarDFnhwk=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0 h1:YcucGUvtOyObElPuZAUKYH3Pq4+C2+PsZCOUF6jyDsI=
+github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0/go.mod h1:jr6HSPJY+tIZDpy6DfwrjU+SgLzxpNgnGAua/B/q3bw=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22 h1:W3doYLVoZN8VwJb/kAZsbDjW+6cgZPgNTcQHJUH9JrA=
 github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22/go.mod h1:70JLBXQncNHyW63ik4PvPQGjQGZ1xK67MKrDanVAk2w=
 github.com/smartcontractkit/grpc-proxy v0.0.0-20240830132753-a7e17fec5ab7 h1:12ijqMM9tvYVEm+nR826WsrNi6zCKpwBhuApq127wHs=
