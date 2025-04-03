@@ -205,7 +205,7 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency]
-    timeout-minutes: 20
+    timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 20 }} # 40 minute timeout for scheduled events (race tests)
     # runs-on rollout - use self-hosted runners 10% of the time
     runs-on: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' && matrix.type.os-self-hosted || matrix.type.os }}
     permissions:
