@@ -175,7 +175,6 @@ jobs:
 
   run-core-cre-e2e-tests-for-pr:
     name: Run Core CRE E2E Tests For PR
-    runs-on: ubuntu22.04-8cores-32GB
     permissions:
       actions: read
       checks: write
