@@ -143,7 +143,6 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 
 	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
 	if b.registrar != nil {
-		b.registrar.SetName(logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString())))
 	}
 
 	for _, binding := range bindings {
@@ -158,8 +157,10 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 		b.addBinding(binding)
 	}
 
+	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString()))
+
 	if b.registered() {
-		return b.Register(ctx)
+		return b.Update(ctx, name)
 	}
 
 	return nil
@@ -194,6 +195,21 @@ func (b *EventBinding) Unbind(ctx context.Context, bindings ...common.Address) e
 	}
 
 	return nil
+}
+
+func (b *EventBinding) Update(ctx context.Context, name string) error {
+	b.mu.Lock()
+	b.mu.Unlock()
+
+	if b.registrar == nil {
+		return nil
+	}
+
+	if len(b.bound) == 0 {
+		return nil
+	}
+
+	return b.registrar.Update(ctx, b.lp, name)
 }
 
 func (b *EventBinding) Register(ctx context.Context) error {
