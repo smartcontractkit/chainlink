@@ -30,7 +30,7 @@ var (
 	}
 )
 
-func TestDeployDataStreamsContractsTableDriven(t *testing.T) {
+func TestDeployDataStreamsContracts(t *testing.T) {
 	tests := []struct {
 		name                    string
 		hasExistingMcms         bool
