@@ -232,7 +232,7 @@ func updateBidirectionalLanesLogic(e deployment.Environment, c UpdateBidirection
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", err)
 	}
-	proposal, err := aggregateProposals(e, state, proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
+	proposal, err := proposalutils.AggregateProposals(e, state.EVMMCMSStateByChain(), proposals, nil, "Update multiple bidirectional lanes", c.MCMSConfig)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to aggregate proposals: %w", err)
 	}
