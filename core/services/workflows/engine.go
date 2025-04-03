@@ -6,11 +6,14 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
 	"github.com/jonboulle/clockwork"
+	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
 	"github.com/smartcontractkit/chainlink-common/pkg/metrics"
@@ -20,10 +23,10 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/exec"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows/sdk"
-
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/platform"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/pb"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncerlimiter"
@@ -502,8 +505,13 @@ func generateExecutionID(workflowID, eventID string) (string, error) {
 }
 
 // startExecution kicks off a new workflow execution when a trigger event is received.
-func (e *Engine) startExecution(ctx context.Context, executionID string, event *values.Map) error {
+func (e *Engine) startExecution(ctx context.Context, executionID string, triggerID string, event *values.Map) error {
 	e.meterReports.Add(executionID, NewMeteringReport())
+
+	err := emitExecutionStartedEvent(ctx, e.cma, triggerID)
+	if err != nil {
+		e.logger.Errorf("failed to emit execution started event: %+v", err)
+	}
 
 	lggr := e.logger.With("event", event, platform.KeyWorkflowExecutionID, executionID)
 	lggr.Debug("executing on a trigger event")
@@ -684,6 +692,10 @@ func (e *Engine) finishExecution(ctx context.Context, cma custmsg.MessageEmitter
 	}
 	logCustMsg(ctx, cma, fmt.Sprintf("execution duration: %d (seconds)", executionDuration), l)
 	l.Infof("execution duration: %d (seconds)", executionDuration)
+	err = emitExecutionFinishedEvent(ctx, cma, status)
+	if err != nil {
+		e.logger.Errorf("failed to emit execution finished event: %+v", err)
+	}
 	e.onExecutionFinished(executionID)
 	return nil
 }
@@ -739,7 +751,7 @@ func (e *Engine) worker(ctx context.Context) {
 			}
 
 			cma := e.cma.With(platform.KeyWorkflowExecutionID, executionID)
-			err = e.startExecution(ctx, executionID, resp.Event.Outputs)
+			err = e.startExecution(ctx, executionID, te.ID, resp.Event.Outputs)
 			if err != nil {
 				e.logger.With(platform.KeyWorkflowExecutionID, executionID).Errorf("failed to start execution: %v", err)
 				logCustMsg(ctx, cma, fmt.Sprintf("failed to start execution: %s", err), e.logger)
@@ -980,13 +992,31 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	defer cancel()
 
 	e.metrics.with(platform.KeyCapabilityID, curStep.ID).incrementCapabilityInvocationCounter(ctx)
-	output, err := curStep.capability.Execute(stepCtx, tr)
+	err = emitCapabilityStartedEvent(ctx, e.cma, curStep.ID, msg.stepRef)
 	if err != nil {
+		e.logger.Errorf("failed to emit capability event: %v", err)
+	}
+	output, capErr := curStep.capability.Execute(stepCtx, tr)
+	status := store.StatusCompleted
+
+	if capErr != nil {
+		status = store.StatusErrored
+		if capabilities.ErrStopExecution.Is(err) {
+			status = store.StatusCompletedEarlyExit
+		}
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
-		return inputsMap, nil, err
 	}
 
-	return inputsMap, output.Value, err
+	emitErr := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status)
+	if emitErr != nil {
+		e.logger.Errorf("failed to emit capability event: %v", emitErr)
+	}
+
+	if capErr != nil {
+		return inputsMap, nil, capErr
+	}
+
+	return inputsMap, output.Value, nil
 }
 
 func (e *Engine) deregisterTrigger(ctx context.Context, t *triggerCapability, triggerIdx int) error {
@@ -1418,4 +1448,101 @@ func logCustMsg(ctx context.Context, cma custmsg.MessageEmitter, msg string, log
 	if err != nil {
 		log.Errorf("failed to send custom message with msg: %s, err: %v", msg, err)
 	}
+}
+
+// buildWorkflowMetadata populates a WorkflowMetadata from kvs (map[string]string).
+func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
+	m := &pb.WorkflowMetadata{}
+
+	m.WorkflowName = kvs[platform.KeyWorkflowName]
+	m.Version = kvs[platform.KeyWorkflowVersion]
+	m.WorkflowID = kvs[platform.KeyWorkflowID]
+	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
+	m.DonID = kvs[platform.KeyDonID]
+	m.P2PID = kvs[platform.KeyP2PID]
+
+	if donFStr, ok := kvs[platform.KeyDonF]; ok {
+		if donFInt, err := strconv.Atoi(donFStr); err == nil {
+			m.DonF = int32(donFInt)
+		}
+	}
+	if donNStr, ok := kvs[platform.KeyDonN]; ok {
+		if donNInt, err := strconv.Atoi(donNStr); err == nil {
+			m.DonN = int32(donNInt)
+		}
+	}
+	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
+		if donQInt, err := strconv.Atoi(donQStr); err == nil {
+			m.DonQ = int32(donQInt)
+		}
+	}
+
+	return m
+}
+
+// emitProtoMessage marshals a proto.Message and emits it via beholder.
+func emitProtoMessage(ctx context.Context, msg proto.Message, entity string) error {
+	wfBytes, err := proto.Marshal(msg)
+	if err != nil {
+		return err
+	}
+	return beholder.GetEmitter().Emit(ctx, wfBytes,
+		"beholder_data_schema", "/cre-events/versions/1", // required
+		"beholder_domain", "platform", // required
+		"beholder_entity", entity) // required
+}
+
+// emitExecutionStartedEvent emits a WorkflowExecutionStarted event.
+func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string) error {
+	metadata := buildWorkflowMetadata(cma.Labels())
+
+	event := &pb.WorkflowExecutionStarted{
+		M:         metadata,
+		Timestamp: time.Now().String(),
+		TriggerID: triggerID,
+	}
+
+	return emitProtoMessage(ctx, event, "WorkflowExecutionStarted")
+}
+
+// emitExecutionFinishedEvent emits a WorkflowExecutionFinished event.
+func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string) error {
+	metadata := buildWorkflowMetadata(cma.Labels())
+
+	event := &pb.WorkflowExecutionFinished{
+		M:         metadata,
+		Timestamp: time.Now().String(),
+		Status:    status,
+	}
+
+	return emitProtoMessage(ctx, event, "WorkflowExecutionFinished")
+}
+
+// emitCapabilityStartedEvent emits a CapabilityExecutionStarted event.
+func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
+	metadata := buildWorkflowMetadata(cma.Labels())
+
+	event := &pb.CapabilityExecutionStarted{
+		M:            metadata,
+		Timestamp:    time.Now().String(),
+		CapabilityID: capabilityID,
+		StepRef:      stepRef,
+	}
+
+	return emitProtoMessage(ctx, event, "CapabilityExecutionStarted")
+}
+
+// emitCapabilityFinishedEvent emits a CapabilityExecutionFinished event.
+func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
+	metadata := buildWorkflowMetadata(cma.Labels())
+
+	event := &pb.CapabilityExecutionFinished{
+		M:            metadata,
+		Timestamp:    time.Now().String(),
+		CapabilityID: capabilityID,
+		StepRef:      stepRef,
+		Status:       status,
+	}
+
+	return emitProtoMessage(ctx, event, "CapabilityExecutionFinished")
 }

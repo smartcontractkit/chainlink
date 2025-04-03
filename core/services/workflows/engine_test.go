@@ -398,7 +398,12 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
+
 	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", WorkflowExecutionStarted))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", WorkflowExecutionFinished))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", CapabilityExecutionStarted))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", CapabilityExecutionFinished))
 }
 
 const (
