@@ -147,6 +147,13 @@ func (r *syncedFilter) Count() int {
 	return len(r.filter.Addresses)
 }
 
+func (r *syncedFilter) Dirty() bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+
+	return r.dirty
+}
+
 func (r *syncedFilter) HasEventSigs() bool {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
