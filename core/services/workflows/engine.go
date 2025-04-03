@@ -13,6 +13,7 @@ import (
 	"github.com/jonboulle/clockwork"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/custmsg"
@@ -1364,7 +1365,22 @@ func NewEngine(ctx context.Context, cfg Config) (engine *Engine, err error) {
 		return nil, fmt.Errorf("could not initialize monitoring resources: %w", err)
 	}
 
-	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID, platform.KeyWorkflowOwner, cfg.WorkflowOwner, platform.KeyWorkflowName, cfg.WorkflowName.String())
+	nodeState, err := cfg.Registry.LocalNode(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("could not get local node state: %w", err)
+	}
+	cma := custmsg.NewLabeler().With(platform.KeyWorkflowID, cfg.WorkflowID,
+		platform.KeyWorkflowOwner, cfg.WorkflowOwner,
+		platform.KeyWorkflowName, cfg.WorkflowName.String(),
+		platform.KeyDonID, strconv.Itoa(int(nodeState.WorkflowDON.ID)),
+		platform.KeyDonF, strconv.Itoa(int(nodeState.WorkflowDON.F)),
+		platform.KeyDonN, strconv.Itoa(len(nodeState.WorkflowDON.Members)),
+		platform.KeyDonQ, strconv.Itoa(aggregation.ByzantineQuorum(
+			len(nodeState.WorkflowDON.Members),
+			int(nodeState.WorkflowDON.F),
+		)),
+		platform.KeyP2PID, nodeState.PeerID.String(),
+	)
 	workflow, err := Parse(cfg.Workflow)
 	if err != nil {
 		logCustMsg(ctx, cma, fmt.Sprintf("failed to parse workflow: %s", err), cfg.Lggr)
@@ -1458,7 +1474,13 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 	m.Version = kvs[platform.KeyWorkflowVersion]
 	m.WorkflowID = kvs[platform.KeyWorkflowID]
 	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
-	m.DonID = kvs[platform.KeyDonID]
+
+	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
+		if donIDInt, err := strconv.Atoi(donIDStr); err == nil {
+			m.DonF = int32(donIDInt)
+		}
+	}
+
 	m.P2PID = kvs[platform.KeyP2PID]
 
 	if donFStr, ok := kvs[platform.KeyDonF]; ok {

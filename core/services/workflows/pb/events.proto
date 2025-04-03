@@ -9,7 +9,7 @@ message WorkflowMetadata {
   string version = 2;
   string workflowID = 3;
   string workflowExecutionID = 4;
-  string donID = 5;
+  int32 donID = 5;
   int32 donF = 6;
   int32 donN = 7;
   int32 donQ = 8;
