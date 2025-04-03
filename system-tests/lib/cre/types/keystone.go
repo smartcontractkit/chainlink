@@ -94,6 +94,27 @@ type WorkflowRegistryOutput struct {
 	WorkflowOwners []common.Address `toml:"workflow_owners"`
 }
 
+type DeployDataFeedsCacheInput struct {
+	ChainSelector uint64                      `toml:"-"`
+	CldEnv        *deployment.Environment     `toml:"-"`
+	Out           *DeployDataFeedsCacheOutput `toml:"out"`
+}
+
+func (i *DeployDataFeedsCacheInput) Validate() error {
+	if i.ChainSelector == 0 {
+		return errors.New("chain selector not set")
+	}
+	if i.CldEnv == nil {
+		return errors.New("chainlink deployment env not set")
+	}
+	return nil
+}
+
+type DeployDataFeedsCacheOutput struct {
+	UseCache              bool           `toml:"use_cache"`
+	DataFeedsCacheAddress common.Address `toml:"data_feeds_cache_address"`
+}
+
 type DeployFeedConsumerInput struct {
 	ChainSelector uint64                    `toml:"-"`
 	CldEnv        *deployment.Environment   `toml:"-"`

@@ -198,7 +198,7 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.dataFeedsCacheAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
@@ -716,7 +716,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
          - "$(trigger.outputs)"
      config:
        report_id: "0001"
-       key_id: "evm"	
+       key_id: "evm"
        aggregation_method: "llo_streams"
        aggregation_config:
          streams:

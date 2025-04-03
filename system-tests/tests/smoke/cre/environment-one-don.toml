@@ -17,7 +17,8 @@
 
 [workflow_config]
 	workflow_name = "abcdefgasd"
-  feed_id = "018bfe8840700040000000000000000000000000000000000000000000000000"
+  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
+  feed_id = "018e16c39e000020000000000000000000000000000000000000000000000000"
 
   use_cre_cli = true
   should_compile_new_workflow = true
@@ -45,6 +46,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
@@ -75,6 +77,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -103,6 +106,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -131,6 +135,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -159,6 +164,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
