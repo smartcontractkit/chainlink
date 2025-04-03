@@ -20,8 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -249,7 +247,7 @@ func Test_DecodeReport(t *testing.T) {
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
 
 	codec := NewExecutePluginCodecV1(ExtraDataCodec)
-	decoded, err := codec.Decode(tests.Context(t), rawReport)
+	decoded, err := codec.Decode(t.Context(), rawReport)
 	require.NoError(t, err)
 
 	t.Logf("decoded: %+v", decoded)

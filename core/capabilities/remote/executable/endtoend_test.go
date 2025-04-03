@@ -362,7 +362,7 @@ func (a *testAsyncMessageBroker) start(ctx context.Context) error {
 					panic("server not found for peer id")
 				}
 
-				receiver.Receive(tests.Context(a.t), msg)
+				receiver.Receive(a.t.Context(), msg)
 			}
 		}
 	})

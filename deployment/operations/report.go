@@ -1,6 +1,7 @@
 package operations
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -11,12 +12,12 @@ import (
 // Report is the result of an operation.
 // It contains the inputs and other metadata that was used to execute the operation.
 type Report[IN, OUT any] struct {
-	ID        string     `json:"ID"`
-	Def       Definition `json:"Definition"`
-	Output    OUT        `json:"Output"`
-	Input     IN         `json:"Input"`
-	Timestamp time.Time  `json:"Timestamp"`
-	Err       error      `json:"Error"`
+	ID        string       `json:"ID"`
+	Def       Definition   `json:"Definition"`
+	Output    OUT          `json:"Output"`
+	Input     IN           `json:"Input"`
+	Timestamp *time.Time   `json:"Timestamp"`
+	Err       *ReportError `json:"Error"`
 	// stores a list of report ID for an operation that was executed as part of a sequence.
 	ChildOperationReports []string `json:"ChildOperationReports"`
 }
@@ -38,15 +39,32 @@ type SequenceReport[IN, OUT any] struct {
 func NewReport[IN, OUT any](
 	def Definition, input IN, output OUT, err error, childReportsID ...string,
 ) Report[IN, OUT] {
-	return Report[IN, OUT]{
+	now := time.Now()
+	r := Report[IN, OUT]{
 		ID:                    uuid.New().String(),
 		Def:                   def,
 		Output:                output,
 		Input:                 input,
-		Timestamp:             time.Now(),
-		Err:                   err,
+		Timestamp:             &now,
 		ChildOperationReports: childReportsID,
 	}
+	if err != nil {
+		r.Err = &ReportError{Message: err.Error()}
+	}
+
+	return r
+}
+
+// ReportError represents an error in the Report.
+// Its purpose is to have an exported field `Message` for marshalling as the
+// native error cant be marshaled to JSON.
+type ReportError struct {
+	Message string
+}
+
+// Error implements the error interface.
+func (o ReportError) Error() string {
+	return o.Message
 }
 
 var ErrReportNotFound = errors.New("report not found")
@@ -181,18 +199,33 @@ func genericReport[IN, OUT any](r Report[IN, OUT]) Report[any, any] {
 	}
 }
 
-func typeReport[Input, Output any](r Report[any, any]) (Report[Input, Output], bool) {
-	input, ok := r.Input.(Input)
-	if !ok {
-		return Report[Input, Output]{}, false
+// typeReport attempts to convert Report[any,any] type into Report[IN,OUT].
+// This is needed when loading Report from disk and need to convert the type during execution
+// once the type is known.
+func typeReport[IN, OUT any](r Report[any, any]) (Report[IN, OUT], bool) {
+	// When marshalling and unmarshalling, the type information is lost.
+	// eg int becomes float64, struct becomes map[string]interface{}. So we need to unmarshal it
+	// back to the original type as specified by the generic type to avoid data lost.
+	inputBytes, err := json.Marshal(r.Input)
+	if err != nil {
+		return Report[IN, OUT]{}, false
+	}
+	var input IN
+	if err := json.Unmarshal(inputBytes, &input); err != nil {
+		return Report[IN, OUT]{}, false
 	}
 
-	output, ok := r.Output.(Output)
-	if !ok {
-		return Report[Input, Output]{}, false
+	outputBytes, err := json.Marshal(r.Output)
+	if err != nil {
+		return Report[IN, OUT]{}, false
 	}
 
-	return Report[Input, Output]{
+	var output OUT
+	if err := json.Unmarshal(outputBytes, &output); err != nil {
+		return Report[IN, OUT]{}, false
+	}
+
+	return Report[IN, OUT]{
 		ID:        r.ID,
 		Def:       r.Def,
 		Output:    output,

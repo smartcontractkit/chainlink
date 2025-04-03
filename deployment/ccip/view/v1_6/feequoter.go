@@ -27,7 +27,7 @@ type FeeQuoterStaticConfig struct {
 }
 
 type FeeQuoterDestChainConfig struct {
-	IsEnabled                         bool   `json:"isEnabled,omitempty"`
+	IsEnabled                         bool   `json:"isEnabled"`
 	MaxNumberOfTokensPerMsg           uint16 `json:"maxNumberOfTokensPerMsg,omitempty"`
 	MaxDataBytes                      uint32 `json:"maxDataBytes,omitempty"`
 	MaxPerMsgGasLimit                 uint32 `json:"maxPerMsgGasLimit,omitempty"`
@@ -43,7 +43,7 @@ type FeeQuoterDestChainConfig struct {
 	DefaultTxGasLimit                 uint32 `json:"defaultTxGasLimit,omitempty"`
 	GasMultiplierWeiPerEth            uint64 `json:"gasMultiplierWeiPerEth,omitempty"`
 	NetworkFeeUSDCents                uint32 `json:"networkFeeUSDCents,omitempty"`
-	EnforceOutOfOrder                 bool   `json:"enforceOutOfOrder,omitempty"`
+	EnforceOutOfOrder                 bool   `json:"enforceOutOfOrder"`
 	ChainFamilySelector               string `json:"chainFamilySelector,omitempty"`
 }
 
