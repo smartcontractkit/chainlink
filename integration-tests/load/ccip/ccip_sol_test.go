@@ -92,7 +92,7 @@ func TestCCIPSolCRIB(t *testing.T) {
 		)
 	)
 
-	if false {
+	if true {
 		// TODO: handle in setup
 		deployer := *e.Env.SolChains[sourceChain].DeployerKey
 		rpcClient := e.Env.SolChains[sourceChain].Client
