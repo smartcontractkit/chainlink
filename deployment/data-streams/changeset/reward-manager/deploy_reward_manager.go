@@ -45,7 +45,7 @@ func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerCo
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
 
-	if cc.Ownership.Transfer && cc.Ownership.MCMSProposalConfig != nil {
+	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
 		filter := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
 		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
 	}

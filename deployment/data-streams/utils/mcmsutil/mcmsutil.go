@@ -2,6 +2,7 @@ package mcmsutil
 
 import (
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -99,21 +100,21 @@ func ExecuteOrPropose(
 func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab deployment.AddressBook,
 	filter deployment.TypeAndVersion, mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
 	contractAddresses := make(map[uint64][]common.Address)
-	for _, chain := range e.Chains {
-		chainAddresses, err := ab.AddressesForChain(chain.Selector)
-		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
-		}
-		for address, typeAndVersion := range chainAddresses {
+	addresses, err := ab.Addresses()
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get addresses from address book: %w", err)
+	}
+
+	for chainSelector, addressToTypeAndVersion := range addresses {
+		for address, typeAndVersion := range addressToTypeAndVersion {
 			if typeAndVersion.Type == filter.Type && typeAndVersion.Version == filter.Version {
-				contractAddresses[chain.Selector] = append(contractAddresses[chain.Selector], common.HexToAddress(address))
+				contractAddresses[chainSelector] = append(contractAddresses[chainSelector], common.HexToAddress(address))
 			}
 		}
 	}
 
 	// create a merged addressbook with the existing + new addresses. Sub-changesets will need all addresses
 	// This is required when chaining together changesets
-	existingAddresses := e.ExistingAddresses
 	abTemp := deployment.NewMemoryAddressBook()
 	if err := abTemp.Merge(ab); err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed merging new addresses into temp addresses: %w", err)
@@ -131,7 +132,6 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 	}
 
 	transferOut, err := transferCs.Apply(e, transferCfg)
-	e.ExistingAddresses = existingAddresses // reset the address book to the original state regardless of errors
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to transfer contracts to MCMS: %w", err)
 	}
@@ -146,22 +146,66 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab de
 // It assumes that all proposals have the same action, delay, and timelock addresses, etc... just different operations.
 // This is useful for combining multiple proposals into 1 when chaining together changesets.
 func MergeSimilarTimelockProposals(proposals []mcms.TimelockProposal) (mcms.TimelockProposal, error) {
-	var newProposal mcms.TimelockProposal
+	var mergedProposal mcms.TimelockProposal
+	if len(proposals) == 0 {
+		// not considered an error, just no proposals to merge
+		return mcms.TimelockProposal{}, nil
+	}
 
-	if len(proposals) >= 1 {
-		// we make an assumption that all proposals have these common settings
-		newProposal = mcms.TimelockProposal{
-			BaseProposal:      proposals[0].BaseProposal,
-			Action:            proposals[0].Action,
-			Delay:             proposals[0].Delay,
-			TimelockAddresses: proposals[0].TimelockAddresses,
-			SaltOverride:      proposals[0].SaltOverride,
+	if len(proposals) == 1 {
+		return proposals[0], nil
+	}
+
+	// Initialize merged proposal from first
+	// we make an assumption that all proposals have these common settings and check for equality later
+	mergedProposal = mcms.TimelockProposal{
+		BaseProposal:      proposals[0].BaseProposal,
+		Action:            proposals[0].Action,
+		Delay:             proposals[0].Delay,
+		TimelockAddresses: proposals[0].TimelockAddresses,
+		SaltOverride:      proposals[0].SaltOverride,
+	}
+
+	for i, prop := range proposals {
+		ok, err := proposalsEqualForMerge(proposals[0], prop)
+		if !ok {
+			return mcms.TimelockProposal{}, fmt.Errorf("cannot merge proposal index %d didn't match proposal at index 0: %w", i, err)
 		}
+		mergedProposal.Operations = append(mergedProposal.Operations, prop.Operations...)
 	}
 
-	for _, prop := range proposals {
-		newProposal.Operations = append(newProposal.Operations, prop.Operations...)
+	return mergedProposal, nil
+}
+
+// proposalsEqualForMerge tests equality of two proposals to see if they can be merged.
+// This assumes that the proposals are similar enough to be merged within the context of MergeSimilarTimelockProposals.
+// Shouldn't be used outside the context of MergeSimilarTimelockProposals as the equality check is not exhaustive
+// and only supports the merge capabilities of MergeSimilarTimelockProposals
+func proposalsEqualForMerge(p1, p2 mcms.TimelockProposal) (bool, error) {
+	if p1.Version != p2.Version {
+		return false, fmt.Errorf("mismatched Version: %s vs %s", p1.Version, p2.Version)
+	}
+	if p1.Kind != p2.Kind {
+		return false, fmt.Errorf("mismatched Kind: %s vs %s", p1.Kind, p2.Kind)
+	}
+	if p1.OverridePreviousRoot != p2.OverridePreviousRoot {
+		return false, fmt.Errorf("mismatched OverridePreviousRoot: %v vs %v", p1.OverridePreviousRoot, p2.OverridePreviousRoot)
+	}
+	if p1.Action != p2.Action {
+		return false, fmt.Errorf("mismatched Action: %s vs %s", p1.Action, p2.Action)
+	}
+	if p1.Delay != p2.Delay {
+		return false, fmt.Errorf("mismatched Delay: %v vs %v", p1.Delay, p2.Delay)
+	}
+	if !reflect.DeepEqual(p1.BaseProposal, p2.BaseProposal) {
+		return false, fmt.Errorf("mismatched BaseProposal")
+	}
+	if !reflect.DeepEqual(p1.ChainMetadata, p2.ChainMetadata) {
+		return false, fmt.Errorf("mismatched ChainMetadata")
+	}
+	if !reflect.DeepEqual(p1.TimelockAddresses, p2.TimelockAddresses) {
+		return false, fmt.Errorf("mismatched TimelockAddresses")
 	}
 
-	return newProposal, nil
+	return true, nil
 }

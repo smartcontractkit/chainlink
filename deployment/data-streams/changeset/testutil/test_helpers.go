@@ -67,9 +67,9 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 }
 
 type MemoryEnvConfig struct {
-	DeployMCMS      bool
-	DeployLinkToken bool
-	NumNodes        int
+	ShouldDeployMCMS      bool
+	ShouldDeployLinkToken bool
+	NumNodes              int
 }
 
 type MemoryEnv struct {
@@ -92,7 +92,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 	chain := env.Chains[chainSelector]
 
 	var linkTokenState *commonstate.LinkTokenState
-	if cfg.DeployLinkToken {
+	if cfg.ShouldDeployLinkToken {
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,
 			commonChangesets.Configure(
 				deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
@@ -100,16 +100,17 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 			),
 		)
 		require.NoError(t, err)
-		addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(TestChain.Selector)
+		addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(chainSelector)
 		require.NoError(t, err)
 		env = updatedEnv
 		linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 		require.NoError(t, err)
-		linkTokenState.LinkToken = linkState.LinkToken
+		require.NotNil(t, linkState.LinkToken)
+		linkTokenState = linkState
 	}
 
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-	if cfg.DeployMCMS {
+	if cfg.ShouldDeployMCMS {
 		config := proposalutils.SingleGroupTimelockConfigV2(t)
 		// Deploy MCMS and Timelock
 		updatedEnv, err := commonChangesets.Apply(t, env, nil,

@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
-	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
-	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
@@ -31,6 +31,7 @@ var (
 )
 
 func TestDeployDataStreamsContracts(t *testing.T) {
+	proposalCfg := proposalutils.SingleGroupTimelockConfigV2(t)
 	tests := []struct {
 		name                    string
 		hasExistingMcms         bool
@@ -43,17 +44,17 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 			deployDataStreamsConfig: DeployDataStreamsConfig{
 				ChainsToDeploy: map[uint64]DeployDataStreams{testutil.TestChain.Selector: {
 					VerifierConfig: verificationCfg,
-					Billing: BillingFeature{
+					Billing: types.BillingFeature{
 						Enabled: true,
-						Config: &BillingConfig{
+						Config: &types.BillingConfig{
 							NativeTokenAddress: common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9"),
 						},
 					},
 					Ownership: types.OwnershipFeature{
-						Transfer:           true,
+						ShouldTransfer:     true,
 						MCMSProposalConfig: &proposalutils.TimelockConfig{MinDelay: 0},
-						DeployMCMS:         true,
-						DeployMCMSConfig:   proposalutils.SingleGroupTimelockConfigV2(t),
+						ShouldDeployMCMS:   true,
+						DeployMCMSConfig:   &proposalCfg,
 					},
 				}},
 			},
@@ -67,10 +68,10 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				ChainsToDeploy: map[uint64]DeployDataStreams{testutil.TestChain.Selector: {
 					VerifierConfig: verificationCfg,
 					Ownership: types.OwnershipFeature{
-						Transfer:           true,
+						ShouldTransfer:     true,
 						MCMSProposalConfig: &proposalutils.TimelockConfig{MinDelay: 0},
-						DeployMCMS:         true,
-						DeployMCMSConfig:   proposalutils.SingleGroupTimelockConfigV2(t),
+						ShouldDeployMCMS:   true,
+						DeployMCMSConfig:   &proposalCfg,
 					},
 				}},
 			},
@@ -84,7 +85,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 				ChainsToDeploy: map[uint64]DeployDataStreams{testutil.TestChain.Selector: {
 					VerifierConfig: verificationCfg,
 					Ownership: types.OwnershipFeature{
-						Transfer:           true,
+						ShouldTransfer:     true,
 						MCMSProposalConfig: &proposalutils.TimelockConfig{MinDelay: 0},
 					},
 				}},
@@ -105,11 +106,15 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{DeployMCMS: tt.hasExistingMcms})
+			cfg := tt.deployDataStreamsConfig
+			billingEnabled := cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Enabled
+
+			testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{
+				ShouldDeployMCMS:      tt.hasExistingMcms,
+				ShouldDeployLinkToken: billingEnabled,
+			})
 
 			chain := testEnv.Environment.Chains[testutil.TestChain.Selector]
-
-			cfg := tt.deployDataStreamsConfig
 
 			if cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Enabled {
 				cfg.ChainsToDeploy[testutil.TestChain.Selector].Billing.Config.LinkTokenAddress = testEnv.LinkTokenState.LinkToken.Address()
@@ -140,7 +145,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 
 				require.NoError(t, err)
 
-				if cfg.ChainsToDeploy[testutil.TestChain.Selector].Ownership.Transfer {
+				if cfg.ChainsToDeploy[testutil.TestChain.Selector].Ownership.ShouldTransfer {
 					require.Equal(t, timelockAddr, owner, "%s contract owner should be the MCMS timelock", contract)
 				} else {
 					require.Equal(t, chain.DeployerKey.From, owner, "%s contract owner should be the deployer", contract)

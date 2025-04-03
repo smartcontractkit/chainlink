@@ -20,7 +20,7 @@ import (
 )
 
 func TestDeployFeeManager(t *testing.T) {
-	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{DeployMCMS: true})
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
 
 	// Need the Link Token
 	e, err := commonChangesets.Apply(t, testEnv.Environment, nil,
@@ -46,7 +46,7 @@ func TestDeployFeeManager(t *testing.T) {
 			RewardManagerAddress: common.HexToAddress("0x0fd8b81e3d1143ec7f1ce474827ab93c43523ea2"),
 		}},
 		Ownership: types.OwnershipSettings{
-			Transfer: true,
+			ShouldTransfer: true,
 			MCMSProposalConfig: &proposalutils.TimelockConfig{
 				MinDelay: 0,
 			},

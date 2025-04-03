@@ -17,14 +17,14 @@ import (
 )
 
 func TestDeployVerifierProxy(t *testing.T) {
-	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{DeployMCMS: true})
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
 
 	cc := DeployVerifierProxyConfig{
 		ChainsToDeploy: map[uint64]DeployVerifierProxy{
 			testutil.TestChain.Selector: {AccessControllerAddress: common.Address{}},
 		},
 		Ownership: types.OwnershipSettings{
-			Transfer: true,
+			ShouldTransfer: true,
 			MCMSProposalConfig: &proposalutils.TimelockConfig{
 				MinDelay: 0,
 			},

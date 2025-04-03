@@ -16,7 +16,7 @@ import (
 )
 
 func TestDeployVerifier(t *testing.T) {
-	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{DeployMCMS: true})
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
 
 	cc := DeployVerifierProxyConfig{
 		ChainsToDeploy: map[uint64]DeployVerifierProxy{
@@ -38,8 +38,7 @@ func TestDeployVerifier(t *testing.T) {
 	require.NoError(t, err)
 	verifierProxyAddr := common.HexToAddress(verifierProxyAddrHex)
 
-	// Specifying timelock configurations will execute any resulting proposals - in this case, the ownership transfer
-	e, err = commonChangesets.Apply(t, e, testEnv.Timelocks,
+	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
 			DeployVerifierChangeset,
 			DeployVerifierConfig{
@@ -47,7 +46,7 @@ func TestDeployVerifier(t *testing.T) {
 					testutil.TestChain.Selector: {VerifierProxyAddress: verifierProxyAddr},
 				},
 				Ownership: types.OwnershipSettings{
-					Transfer: true,
+					ShouldTransfer: true,
 					MCMSProposalConfig: &proposalutils.TimelockConfig{
 						MinDelay: 0,
 					},

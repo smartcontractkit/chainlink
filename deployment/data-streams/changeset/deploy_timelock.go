@@ -40,7 +40,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 	}
 
 	var proposals []mcms.TimelockProposal
-	if cc.Ownership.Transfer && cc.Ownership.MCMSProposalConfig != nil {
+	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
 		for _, contractType := range transferContracts {
 			// all MCMS contracts are version 1.0.0 right now
 			contractFilter := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)

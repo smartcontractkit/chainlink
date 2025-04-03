@@ -16,7 +16,7 @@ import (
 )
 
 func TestDeployRewardManager(t *testing.T) {
-	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{DeployMCMS: true})
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
 
 	e, err := commonChangesets.Apply(t, testEnv.Environment, nil,
 		commonChangesets.Configure(
@@ -42,7 +42,7 @@ func TestDeployRewardManager(t *testing.T) {
 					testutil.TestChain.Selector: {LinkTokenAddress: linkState.LinkToken.Address()},
 				},
 				Ownership: types.OwnershipSettings{
-					Transfer: true,
+					ShouldTransfer: true,
 					MCMSProposalConfig: &proposalutils.TimelockConfig{
 						MinDelay: 0,
 					},
