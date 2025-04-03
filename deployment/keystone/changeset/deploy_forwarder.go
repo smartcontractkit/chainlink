@@ -106,10 +106,10 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		for chainSelector, op := range r.OpsPerChain {
 			contracts := cresp.ContractSets[chainSelector]
 			timelocksPerChain := map[uint64]common.Address{
-				chainSelector: contracts.CapabilitiesRegistry.McmsContracts.Timelock.Address(),
+				chainSelector: contracts.Forwarder.McmsContracts.Timelock.Address(),
 			}
 			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-				chainSelector: contracts.CapabilitiesRegistry.McmsContracts.ProposerMcm,
+				chainSelector: contracts.Forwarder.McmsContracts.ProposerMcm,
 			}
 
 			proposal, err := proposalutils.BuildProposalFromBatches(

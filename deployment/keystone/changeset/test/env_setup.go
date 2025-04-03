@@ -317,7 +317,8 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 			),
 		)
 		require.NoError(t, err)
-		// extract the MCMS address
+		// extract the MCMS address using `GetContractSets` instead of `GetContractSetsV2` because the latter
+		// expects contracts to already be owned by MCMS
 		r, err := changeset.GetContractSets(lggr, &changeset.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,

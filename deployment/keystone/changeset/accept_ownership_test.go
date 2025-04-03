@@ -24,6 +24,9 @@ func TestAcceptAllOwnership(t *testing.T) {
 		Chains: 2,
 	}
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
+	for chainSel, chain := range env.Chains {
+		require.NoError(t, env.ExistingAddresses.Save(chainSel, chain.DeployerKey.From.Hex(), deployment.NewTypeAndVersion("TestAcceptAllOwnership", deployment.Version1_0_0)))
+	}
 	registrySel := env.AllChainSelectors()[0]
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
