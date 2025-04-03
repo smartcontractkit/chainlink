@@ -69,9 +69,7 @@ func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindin
 		cb.addBinding(binding)
 	}
 
-	name := logpoller.FilterName(cb.name + "." + uuid.NewString())
-
-	return cb.Update(ctx, registrar, name)
+	return cb.Update(ctx, registrar)
 }
 
 func (cb *contractBinding) BindReaders(ctx context.Context, addresses ...common.Address) error {
@@ -149,9 +147,11 @@ func (cb *contractBinding) Register(ctx context.Context, registrar Registrar) er
 	return nil
 }
 
-func (cb *contractBinding) Update(ctx context.Context, registrar Registrar, newName string) error {
+func (cb *contractBinding) Update(ctx context.Context, registrar Registrar) error {
+	name := logpoller.FilterName(cb.name + "." + uuid.NewString())
+
 	if !cb.registered() {
-		cb.registrar.SetName(newName)
+		cb.registrar.SetName(name)
 		return nil
 	}
 
@@ -159,7 +159,7 @@ func (cb *contractBinding) Update(ctx context.Context, registrar Registrar, newN
 		return nil
 	}
 
-	return cb.registrar.Update(ctx, registrar, newName)
+	return cb.registrar.Update(ctx, registrar, name)
 }
 
 func (cb *contractBinding) RegisterReaders(ctx context.Context) error {

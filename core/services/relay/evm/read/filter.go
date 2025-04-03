@@ -33,7 +33,7 @@ func newSyncedFilter() *syncedFilter {
 
 func (r *syncedFilter) Update(ctx context.Context, registrar Registrar, updatedName string) error {
 	r.mu.Lock()
-	r.mu.Unlock()
+	defer r.mu.Unlock()
 
 	oldName := r.filter.Name
 	if !r.dirty {
@@ -108,7 +108,7 @@ func (r *syncedFilter) SetFilter(filter logpoller.Filter) {
 func (r *syncedFilter) SetName(name string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	fmt.Println("SET NAME -", name)
+
 	r.dirty = true
 
 	r.filter.Name = name
