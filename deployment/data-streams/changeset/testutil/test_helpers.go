@@ -117,9 +117,7 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 				CallProxy: mcmsState.CallProxy,
 			},
 		}
-
 		env = updatedEnv
-
 	}
 
 	return MemoryEnv{

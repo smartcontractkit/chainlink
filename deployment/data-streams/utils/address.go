@@ -11,7 +11,7 @@ import (
 func MaybeFindEthAddress(ab deployment.AddressBook, chain uint64, typ deployment.ContractType) (common.Address, error) {
 	verifierAddrHex, err := deployment.SearchAddressBook(ab, chain, typ)
 	if err != nil {
-		return common.Address{}, fmt.Errorf("failed to find contract %s address: %s", typ, err)
+		return common.Address{}, fmt.Errorf("failed to find contract %s address: %w", typ, err)
 	}
 	verifierAddr := common.HexToAddress(verifierAddrHex)
 	return verifierAddr, nil

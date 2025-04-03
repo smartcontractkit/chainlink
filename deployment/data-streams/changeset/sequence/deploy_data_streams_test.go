@@ -10,6 +10,7 @@ import (
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
@@ -60,6 +61,7 @@ func TestDeployDataStreams(t *testing.T) {
 				Config: &BillingConfig{
 					LinkTokenAddress:   linkState.LinkToken.Address(),
 					NativeTokenAddress: common.HexToAddress("0x3e5e9111ae8eb78fe1cc3bb8915d5d461f3ef9a9"),
+					Surcharge:          1000,
 				},
 			},
 			Ownership: types.OwnershipFeature{
@@ -162,7 +164,8 @@ func TestDeployDataStreamsV2(t *testing.T) {
 	require.NotNil(t, mcmsState.BypasserMcm, "MCMS Bypasser should be deployed")
 	require.NotNil(t, mcmsState.ProposerMcm, "MCMS Proposer should be deployed")
 
-	var expectedContracts = []deployment.ContractType{types.VerifierProxy, types.Verifier, types.RewardManager, types.FeeManager}
+	var expectedContracts = []deployment.ContractType{types.VerifierProxy, types.Verifier, types.RewardManager, types.FeeManager,
+		commontypes.ProposerManyChainMultisig, commontypes.BypasserManyChainMultisig, commontypes.CancellerManyChainMultisig}
 	// Check the address book for all contract existence + ownership
 	for _, contract := range expectedContracts {
 		contractAddr, err := dsutil.MaybeFindEthAddress(result.ExistingAddresses, testutil.TestChain.Selector, contract)

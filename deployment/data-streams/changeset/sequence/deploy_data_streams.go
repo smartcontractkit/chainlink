@@ -7,6 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/mcms"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	feemanager "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
@@ -14,7 +16,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/verification"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
-	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
 // DeployDataStreamsChangeset deploys the entire data streams stack to a new chain. It should be kept up to date
@@ -28,6 +29,7 @@ type DeployDataStreamsConfig struct {
 type BillingConfig struct {
 	LinkTokenAddress   common.Address
 	NativeTokenAddress common.Address
+	Surcharge          uint64
 }
 
 type BillingFeature struct {
@@ -43,9 +45,27 @@ type DeployDataStreams struct {
 }
 
 func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig) (deployment.ChangesetOutput, error) {
-	ab := deployment.NewMemoryAddressBook() // changeset output expects only new addresses
+	newAddresses := deployment.NewMemoryAddressBook() // changeset output expects only new addresses
+	// Clone env. to avoid mutation the changeset Applier expects no changes.
+	existingAddresses, err := e.ExistingAddresses.Addresses()
+	abClone := deployment.NewMemoryAddressBookFromMap(existingAddresses)
+	cloneEnv := deployment.Environment{
+		Name:              e.Name,
+		Logger:            e.Logger,
+		ExistingAddresses: abClone,
+		Chains:            e.Chains,
+		SolChains:         e.SolChains,
+		NodeIDs:           e.NodeIDs,
+		Offchain:          e.Offchain,
+		OCRSecrets:        e.OCRSecrets,
+		GetContext:        e.GetContext,
+	}
+
 	var timelockProposals []mcms.TimelockProposal
-	existingAddresses := e.ExistingAddresses
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to get existing addresses: %w", err)
+	}
 	for chain, cfg := range cc.ChainsToDeploy {
 		// Deploy MCMS
 		if cfg.Ownership.DeployMCMS {
@@ -54,22 +74,17 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 				Ownership:      cfg.Ownership.AsSettings(),
 				Config:         cfg.Ownership.DeployMCMSConfig,
 			}
-			mcmsDeployOut, err := changeset.DeployAndTransferMCMSChangeset.Apply(e, mcmsDeployCfg)
+			mcmsDeployOut, err := changeset.DeployAndTransferMCMSChangeset.Apply(cloneEnv, mcmsDeployCfg)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy MCMS on chain %d: %w", chain, err)
 			}
-			if err := ab.Merge(mcmsDeployOut.AddressBook); err != nil {
+			if err := newAddresses.Merge(mcmsDeployOut.AddressBook); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("address book merge failed after MCMS deployment: %w", err)
 			}
 			timelockProposals = append(timelockProposals, mcmsDeployOut.MCMSTimelockProposals...)
-			addressesWithMCMS := deployment.NewMemoryAddressBook()
-			if err := addressesWithMCMS.Merge(ab); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge addressesWithMCMS with ab: %w", err)
+			if err := cloneEnv.ExistingAddresses.Merge(mcmsDeployOut.AddressBook); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge existing addresses with mcms addresses: %w", err)
 			}
-			if err := addressesWithMCMS.Merge(e.ExistingAddresses); err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge existing addresses with existing: %w", err)
-			}
-			e.ExistingAddresses = addressesWithMCMS
 		}
 
 		// Deploy Verifier Proxy
@@ -80,20 +95,23 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 			Version:   deployment.Version0_5_0,
 			Ownership: cfg.Ownership.AsSettings(),
 		}
-		proxyOut, err := verification.DeployVerifierProxyChangeset.Apply(e, verifierProxyCfg)
+		proxyOut, err := verification.DeployVerifierProxyChangeset.Apply(cloneEnv, verifierProxyCfg)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy verifier proxy on chain: %d err %w", chain, err)
 		}
-
-		if err := ab.Merge(proxyOut.AddressBook); err != nil {
+		timelockProposals = append(timelockProposals, proxyOut.MCMSTimelockProposals...)
+		if err := newAddresses.Merge(proxyOut.AddressBook); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("address book merge failed after verifier proxy deployment: %w", err)
 		}
 
-		verifierProxyAddr, err := dsutil.MaybeFindEthAddress(ab, chain, types.VerifierProxy)
+		verifierProxyAddr, err := dsutil.MaybeFindEthAddress(newAddresses, chain, types.VerifierProxy)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to find verifier proxy address: %s", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to find verifier proxy address: %w", err)
 		}
-		timelockProposals = append(timelockProposals, proxyOut.MCMSTimelockProposals...)
+
+		if err := cloneEnv.ExistingAddresses.Merge(proxyOut.AddressBook); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge verifier proxy address: %w", err)
+		}
 
 		// Deploy Verifier
 		verifierCfg := verification.DeployVerifierConfig{
@@ -103,20 +121,23 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 			Ownership: cfg.Ownership.AsSettings(),
 		}
 
-		verifierOut, err := verification.DeployVerifierChangeset.Apply(e, verifierCfg)
+		verifierOut, err := verification.DeployVerifierChangeset.Apply(cloneEnv, verifierCfg)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy verifier on chain %d: %w", chain, err)
 		}
-		if err := ab.Merge(verifierOut.AddressBook); err != nil {
+		timelockProposals = append(timelockProposals, verifierOut.MCMSTimelockProposals...)
+		if err := newAddresses.Merge(verifierOut.AddressBook); err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("address book merge failed after verifier deployment: %w", err)
 		}
 
-		verifierAddr, err := dsutil.MaybeFindEthAddress(ab, chain, types.Verifier)
+		verifierAddr, err := dsutil.MaybeFindEthAddress(newAddresses, chain, types.Verifier)
 		if err != nil {
-			return deployment.ChangesetOutput{}, fmt.Errorf("failed to find verifier address: %s", err)
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to find verifier address: %w", err)
 		}
 
-		timelockProposals = append(timelockProposals, verifierOut.MCMSTimelockProposals...)
+		if err := cloneEnv.ExistingAddresses.Merge(verifierOut.AddressBook); err != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge in verifier address: %w", err)
+		}
 
 		// Initialize Verifier on VerifierProxy
 		initVerifierCfg := verification.VerifierProxyInitializeVerifierConfig{
@@ -128,7 +149,7 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 			},
 		}
 
-		_, err = verification.InitializeVerifierChangeset.Apply(e, initVerifierCfg)
+		_, err = verification.InitializeVerifierChangeset.Apply(cloneEnv, initVerifierCfg)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to initialize verifier on chain %d: %w", chain, err)
 		}
@@ -146,7 +167,7 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 			},
 		}
 
-		_, err = verification.SetConfigChangeset.Apply(e, setCfg)
+		_, err = verification.SetConfigChangeset.Apply(cloneEnv, setCfg)
 		if err != nil {
 			return deployment.ChangesetOutput{}, fmt.Errorf("failed to set config on chain %d: %w", chain, err)
 		}
@@ -161,21 +182,21 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 				Ownership: cfg.Ownership.AsSettings(),
 			}
 
-			rmOut, err := rewardmanager.DeployRewardManagerChangeset.Apply(e, rewardMgrCfg)
+			rmOut, err := rewardmanager.DeployRewardManagerChangeset.Apply(cloneEnv, rewardMgrCfg)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy reward manager on chain %d: %w", chain, err)
 			}
-			if err := ab.Merge(rmOut.AddressBook); err != nil {
+			timelockProposals = append(timelockProposals, rmOut.MCMSTimelockProposals...)
+			if err := newAddresses.Merge(rmOut.AddressBook); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("address book merge failed after reward manager deployment: %w", err)
 			}
-
-			rewardMgrAddr, err := dsutil.MaybeFindEthAddress(ab, chain, types.RewardManager)
+			rewardMgrAddr, err := dsutil.MaybeFindEthAddress(newAddresses, chain, types.RewardManager)
 			if err != nil {
-				return deployment.ChangesetOutput{}, fmt.Errorf("failed to find reward manager address: %s", err)
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to find reward manager address: %w", err)
 			}
-
-			timelockProposals = append(timelockProposals, rmOut.MCMSTimelockProposals...)
-
+			if err := cloneEnv.ExistingAddresses.Merge(rmOut.AddressBook); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge in fm address: %w", err)
+			}
 			// Deploy FeeManager
 			feeMgrCfg := feemanager.DeployFeeManagerConfig{
 				ChainsToDeploy: map[uint64]feemanager.DeployFeeManager{
@@ -189,20 +210,74 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 				Ownership: cfg.Ownership.AsSettings(),
 			}
 
-			fmOut, err := feemanager.DeployFeeManagerChangeset.Apply(e, feeMgrCfg)
+			fmOut, err := feemanager.DeployFeeManagerChangeset.Apply(cloneEnv, feeMgrCfg)
 			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("failed to deploy fee manager on chain %d: %w", chain, err)
 			}
-			if err := ab.Merge(fmOut.AddressBook); err != nil {
+			if err := newAddresses.Merge(fmOut.AddressBook); err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("address book merge failed after fee manager deployment: %w", err)
 			}
-			if _, err := dsutil.MaybeFindEthAddress(ab, chain, types.FeeManager); err != nil {
+
+			feeManagerAddress, err := dsutil.MaybeFindEthAddress(newAddresses, chain, types.FeeManager)
+			if err != nil {
 				return deployment.ChangesetOutput{}, fmt.Errorf("fee manager address not found for chain %d: %w", chain, err)
 			}
 
+			if err := cloneEnv.ExistingAddresses.Merge(fmOut.AddressBook); err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to merge in fm address: %w", err)
+			}
+
 			timelockProposals = append(timelockProposals, fmOut.MCMSTimelockProposals...)
-			// reset the address book to the original state
-			e.ExistingAddresses = existingAddresses
+
+			//set the native surcharge on the fee manager
+			setNativeCfg := feemanager.SetNativeSurchargeConfig{
+				ConfigPerChain: map[uint64][]feemanager.SetNativeSurcharge{
+					chain: {
+						feemanager.SetNativeSurcharge{
+							FeeManagerAddress: feeManagerAddress,
+							Surcharge:         cfg.Billing.Config.Surcharge,
+						},
+					},
+				},
+			}
+
+			_, err = feemanager.SetNativeSurchargeChangeset.Apply(cloneEnv, setNativeCfg)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to set native surcharge on chain %d: %w", chain, err)
+			}
+
+			// Update VerifierProxy to set the FeeManager address
+			setFeeManagerCfg := verification.VerifierProxySetFeeManagerConfig{
+				ConfigPerChain: map[uint64][]verification.SetFeeManagerConfig{
+					chain: {
+						verification.SetFeeManagerConfig{
+							ContractAddress:   verifierProxyAddr,
+							FeeManagerAddress: feeManagerAddress,
+						},
+					},
+				},
+			}
+
+			_, err = verification.SetFeeManagerChangeset.Apply(cloneEnv, setFeeManagerCfg)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to set fee manager on verifier proxy on chain %d: %w", chain, err)
+			}
+
+			// Update RewardManager to set the FeeManager address
+			rmSetFeeManagerCfg := rewardmanager.SetFeeManagerConfig{
+				ConfigsByChain: map[uint64][]rewardmanager.SetFeeManager{
+					chain: {
+						rewardmanager.SetFeeManager{
+							FeeManagerAddress:    feeManagerAddress,
+							RewardManagerAddress: rewardMgrAddr,
+						},
+					},
+				},
+			}
+			_, err = rewardmanager.SetFeeManagerChangeset.Apply(cloneEnv, rmSetFeeManagerCfg)
+			if err != nil {
+				return deployment.ChangesetOutput{}, fmt.Errorf("failed to set fee manager on reward manager on chain %d: %w", chain, err)
+			}
 		}
 	}
 
@@ -212,7 +287,7 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 	}
 
 	return deployment.ChangesetOutput{
-		AddressBook:           ab,
+		AddressBook:           newAddresses,
 		MCMSTimelockProposals: []mcms.TimelockProposal{mergedTimelockProposal},
 	}, nil
 }

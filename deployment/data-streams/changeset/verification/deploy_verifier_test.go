@@ -67,5 +67,4 @@ func TestDeployVerifier(t *testing.T) {
 	owner, _, err := commonChangesets.LoadOwnableContract(verifierAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
-
 }

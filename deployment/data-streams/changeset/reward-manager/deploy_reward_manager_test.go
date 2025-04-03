@@ -59,5 +59,4 @@ func TestDeployRewardManager(t *testing.T) {
 	owner, _, err := commonChangesets.LoadOwnableContract(rmAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
-
 }

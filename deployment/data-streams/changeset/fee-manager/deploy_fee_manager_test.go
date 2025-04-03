@@ -6,6 +6,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
@@ -33,7 +35,7 @@ func TestDeployFeeManager(t *testing.T) {
 	require.NoError(t, err)
 
 	chain := e.Chains[testutil.TestChain.Selector]
-	linkState, err := commonChangesets.MaybeLoadLinkTokenChainState(chain, addresses)
+	linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
 	require.NoError(t, err)
 
 	cc := DeployFeeManagerConfig{
@@ -64,5 +66,4 @@ func TestDeployFeeManager(t *testing.T) {
 	owner, _, err := commonChangesets.LoadOwnableContract(fmAddr, chain.Client)
 	require.NoError(t, err)
 	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
-
 }

@@ -96,10 +96,8 @@ func ExecuteOrPropose(
 // TransferToMCMSWithTimelockForTypeAndVersion transfers ownership of the contracts of a specific type and version to the
 // MCMS timelock on that chain. The output will contain an MCMS timelock proposal for "AcceptOwnership" of those contracts
 // The address book should be recently deployed addresses that are being transferred to MCMS and should not be in e.ExistingAddresses
-func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
-	ab deployment.AddressBook, filter deployment.TypeAndVersion,
-	MCMSConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
-
+func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment, ab deployment.AddressBook,
+	filter deployment.TypeAndVersion, mcmsConfig proposalutils.TimelockConfig) (deployment.ChangesetOutput, error) {
 	contractAddresses := make(map[uint64][]common.Address)
 	for _, chain := range e.Chains {
 		chainAddresses, err := ab.AddressesForChain(chain.Selector)
@@ -129,7 +127,7 @@ func TransferToMCMSWithTimelockForTypeAndVersion(e deployment.Environment,
 	transferCs := deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelockV2)
 	transferCfg := commonchangeset.TransferToMCMSWithTimelockConfig{
 		ContractsByChain: contractAddresses,
-		MCMSConfig:       MCMSConfig,
+		MCMSConfig:       mcmsConfig,
 	}
 
 	transferOut, err := transferCs.Apply(e, transferCfg)
