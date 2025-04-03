@@ -26,9 +26,9 @@ const (
 )
 
 type TimelockConfig struct {
-	MinDelay     time.Duration // delay for timelock worker to execute the transfers.
-	MCMSAction   types.TimelockAction
-	OverrideRoot bool // if true, override the previous root with the new one
+	MinDelay     time.Duration        `json:"minDelay"` // delay for timelock worker to execute the transfers.
+	MCMSAction   types.TimelockAction `json:"mcmsAction"`
+	OverrideRoot bool                 `json:"overrideRoot"` // if true, override the previous root with the new one.
 }
 
 func (tc *TimelockConfig) MCMBasedOnAction(s state.MCMSWithTimelockState) (*gethwrappers.ManyChainMultiSig, error) {

@@ -47,53 +47,55 @@ var (
 	ConnectNewChainChangeset = deployment.CreateChangeSet(connectNewChainLogic, connectNewChainPrecondition)
 )
 
-///////////////////////////////////
+// /////////////////////////////////
 // START AddCandidatesForNewChainChangeset
-///////////////////////////////////
-
+// /////////////////////////////////
 // ChainDefinition defines how a chain should be configured on both remote chains and itself.
 type ChainDefinition struct {
-	ConnectionConfig
+	// ConnectionConfig holds configuration for connection.
+	ConnectionConfig `json:"connectionConfig"`
 	// Selector is the chain selector of this chain.
-	Selector uint64
+	Selector uint64 `json:"selector"`
 	// GasPrice defines the USD price (18 decimals) per unit gas for this chain as a destination.
-	GasPrice *big.Int
+	GasPrice *big.Int `json:"gasPrice"`
 	// TokenPrices define the USD price (18 decimals) per 1e18 of the smallest token denomination for various tokens on this chain.
-	TokenPrices map[common.Address]*big.Int
+	TokenPrices map[common.Address]*big.Int `json:"tokenPrices"`
 	// FeeQuoterDestChainConfig is the configuration on a fee quoter for this chain as a destination.
-	FeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig
+	FeeQuoterDestChainConfig fee_quoter.FeeQuoterDestChainConfig `json:"feeQuoterDestChainConfig"`
 }
 
 // NewChainDefinition defines how a NEW chain should be configured.
 type NewChainDefinition struct {
-	ChainDefinition
-	ChainContractParams
+	// ChainDefinition holds basic chain info.
+	ChainDefinition `json:"chainDefinition"`
+	// ChainContractParams defines contract parameters for the chain.
+	ChainContractParams `json:"chainContractParams"`
 	// ExistingContracts defines any contracts that are already deployed on this chain.
-	ExistingContracts commoncs.ExistingContractsConfig
+	ExistingContracts commoncs.ExistingContractsConfig `json:"existingContracts"`
 	// ConfigOnHome defines how this chain should be configured on the CCIPHome contract.
-	ConfigOnHome ChainConfig
+	ConfigOnHome ChainConfig `json:"configOnHome"`
 	// CommitOCRParams defines the OCR parameters for this chain's commit plugin.
-	CommitOCRParams CCIPOCRParams
+	CommitOCRParams CCIPOCRParams `json:"commitOcrParams"`
 	// ExecOCRParams defines the OCR parameters for this chain's exec plugin.
-	ExecOCRParams CCIPOCRParams
+	ExecOCRParams CCIPOCRParams `json:"execOcrParams"`
 	// RMNRemoteConfig is the config for the RMNRemote contract.
-	RMNRemoteConfig *RMNRemoteConfig
+	RMNRemoteConfig *RMNRemoteConfig `json:"rmnRemoteConfig,omitempty"`
 }
 
 // AddCandidatesForNewChainConfig is a configuration struct for AddCandidatesForNewChainChangeset.
 type AddCandidatesForNewChainConfig struct {
 	// HomeChainSelector is the selector of the home chain.
-	HomeChainSelector uint64
+	HomeChainSelector uint64 `json:"homeChainSelector"`
 	// FeedChainSelector is the selector of the chain on which price feeds are deployed.
-	FeedChainSelector uint64
+	FeedChainSelector uint64 `json:"feedChainSelector"`
 	// NewChain defines the new chain to be deployed.
-	NewChain NewChainDefinition
+	NewChain NewChainDefinition `json:"newChain"`
 	// RemoteChains defines the remote chains to be connected to the new chain.
-	RemoteChains []ChainDefinition
+	RemoteChains []ChainDefinition `json:"remoteChains"`
 	// MCMSDeploymentConfig configures the MCMS deployment to the new chain.
-	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2
+	MCMSDeploymentConfig *commontypes.MCMSWithTimelockConfigV2 `json:"mcmsDeploymentConfig,omitempty"`
 	// MCMSConfig defines the MCMS configuration for the changeset.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c AddCandidatesForNewChainConfig) prerequisiteConfigForNewChain() changeset.DeployPrerequisiteConfig {
@@ -380,10 +382,14 @@ func addCandidatesForNewChainLogic(e deployment.Environment, c AddCandidatesForN
 
 // PromoteNewChainForTestingConfig is a configuration struct for PromoteNewChainForTestingChangeset.
 type PromoteNewChainForTestingConfig struct {
-	HomeChainSelector uint64
-	NewChain          NewChainDefinition
-	RemoteChains      []ChainDefinition
-	MCMSConfig        *proposalutils.TimelockConfig
+	// HomeChainSelector is the selector of the home chain.
+	HomeChainSelector uint64 `json:"homeChainSelector"`
+	// NewChain defines the new chain to be deployed.
+	NewChain NewChainDefinition `json:"newChain"`
+	// RemoteChains defines the remote chains to be connected to the new chain.
+	RemoteChains []ChainDefinition `json:"remoteChains"`
+	// MCMSConfig defines the MCMS configuration for the changeset.
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c PromoteNewChainForTestingConfig) promoteCandidateConfig() PromoteCandidateChangesetConfig {
@@ -555,23 +561,23 @@ func promoteNewChainForTestingLogic(e deployment.Environment, c PromoteNewChainF
 // ConnectionConfig defines how a chain should connect with other chains.
 type ConnectionConfig struct {
 	// RMNVerificationDisabled is true if we do not want the RMN to bless messages FROM this chain.
-	RMNVerificationDisabled bool
+	RMNVerificationDisabled bool `json:"rmnVerificationDisabled"`
 	// AllowListEnabled is true if we want an allowlist to dictate who can send messages TO this chain.
-	AllowListEnabled bool
+	AllowListEnabled bool `json:"allowListEnabled"`
 }
 
 // ConnectNewChainConfig is a configuration struct for ConnectNewChainChangeset.
 type ConnectNewChainConfig struct {
 	// NewChainSelector is the selector of the new chain to connect.
-	NewChainSelector uint64
+	NewChainSelector uint64 `json:"newChainSelector"`
 	// NewChainConnectionConfig defines how the new chain should connect with other chains.
-	NewChainConnectionConfig ConnectionConfig
+	NewChainConnectionConfig ConnectionConfig `json:"newChainConnectionConfig"`
 	// RemoteChains are the chains to connect the new chain to.
-	RemoteChains map[uint64]ConnectionConfig
+	RemoteChains map[uint64]ConnectionConfig `json:"remoteChains"`
 	// TestRouter is true if we want to connect via test routers.
-	TestRouter *bool
+	TestRouter *bool `json:"testRouter,omitempty"`
 	// MCMSConfig is the MCMS configuration, omit to use deployer key only.
-	MCMSConfig *proposalutils.TimelockConfig
+	MCMSConfig *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c ConnectNewChainConfig) validateNewChain(env deployment.Environment, state changeset.CCIPOnChainState) error {
