@@ -36,19 +36,27 @@ type GetContractSetsResponseV2 struct {
 }
 
 func (cs ContractSetV2) toContractSet() ContractSet {
+	// We don't set the `ContractSet.MCMSWithTimelockState` due to the nature of `ContractSetV2`.
+	// Now each contract has its own MCMS state, and that format is not compatible with `ContractSet`.
+	out := ContractSet{}
+
 	ocr3Contracts := make(map[common.Address]*ocr3_capability.OCR3Capability)
 	for addr, ocr := range cs.OCR3 {
 		ocr3Contracts[addr] = ocr.Contract
 	}
 
-	// We don't set the `ContractSet.MCMSWithTimelockState` due to the nature of `ContractSetV2`.
-	// Now each contract has its own MCMS state, and that format is not compatible with `ContractSet`.
-	return ContractSet{
-		OCR3:                 ocr3Contracts,
-		Forwarder:            cs.Forwarder.Contract,
-		CapabilitiesRegistry: cs.CapabilitiesRegistry.Contract,
-		WorkflowRegistry:     cs.WorkflowRegistry.Contract,
+	out.OCR3 = ocr3Contracts
+	if cs.Forwarder != nil {
+		out.Forwarder = cs.Forwarder.Contract
 	}
+	if cs.CapabilitiesRegistry != nil {
+		out.CapabilitiesRegistry = cs.CapabilitiesRegistry.Contract
+	}
+	if cs.WorkflowRegistry != nil {
+		out.WorkflowRegistry = cs.WorkflowRegistry.Contract
+	}
+
+	return out
 }
 
 // TransferableContracts returns a list of addresses of contracts that are transferable.

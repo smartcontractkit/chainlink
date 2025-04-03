@@ -26,6 +26,8 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
+const DeployerOwner deployment.ContractType = "DeployerOwner"
+
 type DonConfig struct {
 	Name             string // required, must be unique across all dons
 	N                int
@@ -158,6 +160,12 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
+
+	for chainSel, chain := range chains {
+		// We add the owners addresses to the address book
+		require.NoError(t, env.ExistingAddresses.Save(chainSel, chain.DeployerKey.From.Hex(), deployment.NewTypeAndVersion(DeployerOwner, deployment.Version1_0_0)))
+	}
+
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
@@ -270,16 +278,16 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := &changeset.GetContractSetsRequest{
+	req := changeset.GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	}
 
-	contractSetsResp, err := changeset.GetContractSets(lggr, req)
+	contractSetsResp, err := changeset.GetContractSetsV2(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
-	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry
+	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
 	require.NotNil(t, gotRegistry)
 	// validate the registry
 	// check the nodes
@@ -446,15 +454,15 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 	// all contracts on registry chain
 	registryChainAddrs, err := ad.AddressesForChain(registryChainSel)
 	require.NoError(t, err)
-	require.Len(t, registryChainAddrs, 4) // registry, ocr3, forwarder, workflowRegistry
+	require.Len(t, registryChainAddrs, 5) // registry, ocr3, forwarder, workflowRegistry, owner address
 	// only forwarder on non-home chain
 	for sel := range env.Chains {
 		chainAddrs, err := ad.AddressesForChain(sel)
 		require.NoError(t, err)
 		if sel != registryChainSel {
-			require.Len(t, chainAddrs, 1)
+			require.Len(t, chainAddrs, 2) // plus owner address
 		} else {
-			require.Len(t, chainAddrs, 4)
+			require.Len(t, chainAddrs, 5) // plus owner address
 		}
 		containsForwarder := false
 		for _, tv := range chainAddrs {
