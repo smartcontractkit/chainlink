@@ -229,7 +229,7 @@ func deployDataStreamsLogic(e deployment.Environment, cc DeployDataStreamsConfig
 
 			timelockProposals = append(timelockProposals, fmOut.MCMSTimelockProposals...)
 
-			//set the native surcharge on the fee manager
+			// set the native surcharge on the fee manager
 			setNativeCfg := feemanager.SetNativeSurchargeConfig{
 				ConfigPerChain: map[uint64][]feemanager.SetNativeSurcharge{
 					chain: {

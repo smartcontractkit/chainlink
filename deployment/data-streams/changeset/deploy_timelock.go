@@ -46,7 +46,7 @@ func deployAndTransferMcmsLogic(e deployment.Environment, cc DeployMCMSConfig) (
 			contractFilter := deployment.NewTypeAndVersion(contractType, deployment.Version1_0_0)
 			contractTransfer, err := mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, mcmsOut.AddressBook, contractFilter, *cc.Ownership.MCMSProposalConfig)
 			if err != nil {
-				return deployment.ChangesetOutput{AddressBook: mcmsOut.AddressBook}, fmt.Errorf("failed to transfer CallProxy to MCMS: %w", err)
+				return deployment.ChangesetOutput{AddressBook: mcmsOut.AddressBook}, fmt.Errorf("failed to transfer %s to MCMS: %w", contractType, err)
 			}
 			proposals = append(proposals, contractTransfer.MCMSTimelockProposals...)
 		}

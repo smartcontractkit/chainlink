@@ -67,13 +67,15 @@ func NewMemoryEnv(t *testing.T, deployMCMS bool, optionalNumNodes ...int) deploy
 }
 
 type MemoryEnvConfig struct {
-	DeployMCMS bool
-	NumNodes   int
+	DeployMCMS      bool
+	DeployLinkToken bool
+	NumNodes        int
 }
 
 type MemoryEnv struct {
-	Environment deployment.Environment
-	Timelocks   map[uint64]*proposalutils.TimelockExecutionContracts
+	Environment    deployment.Environment
+	Timelocks      map[uint64]*proposalutils.TimelockExecutionContracts
+	LinkTokenState *commonstate.LinkTokenState
 }
 
 // NewMemoryEnvV2 Deploys a memory environment with configuration and returns an environment wrapper with metadata
@@ -87,9 +89,26 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 
 	env := memory.NewMemoryEnvironment(t, lggr, zapcore.InfoLevel, memEnvConf)
 	chainSelector := env.AllChainSelectors()[0]
+	chain := env.Chains[chainSelector]
+
+	var linkTokenState *commonstate.LinkTokenState
+	if cfg.DeployLinkToken {
+		updatedEnv, err := commonChangesets.Apply(t, env, nil,
+			commonChangesets.Configure(
+				deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
+				[]uint64{chainSelector},
+			),
+		)
+		require.NoError(t, err)
+		addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(TestChain.Selector)
+		require.NoError(t, err)
+		env = updatedEnv
+		linkState, err := commonstate.MaybeLoadLinkTokenChainState(chain, addresses)
+		require.NoError(t, err)
+		linkTokenState.LinkToken = linkState.LinkToken
+	}
 
 	timelocks := make(map[uint64]*proposalutils.TimelockExecutionContracts)
-
 	if cfg.DeployMCMS {
 		config := proposalutils.SingleGroupTimelockConfigV2(t)
 		// Deploy MCMS and Timelock
@@ -105,8 +124,6 @@ func NewMemoryEnvV2(t *testing.T, cfg MemoryEnvConfig) MemoryEnv {
 
 		addresses, err := updatedEnv.ExistingAddresses.AddressesForChain(TestChain.Selector)
 		require.NoError(t, err)
-
-		chain := updatedEnv.Chains[chainSelector]
 
 		mcmsState, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		require.NoError(t, err)
