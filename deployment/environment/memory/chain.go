@@ -284,8 +284,8 @@ func solChain(t *testing.T, chainID uint64, adminKey *solana.PrivateKey) (string
 		}
 		require.NoError(t, err)
 		testcontainers.CleanupContainer(t, output.Container)
-		url = output.Nodes[0].HostHTTPUrl
-		wsURL = output.Nodes[0].HostWSUrl
+		url = output.Nodes[0].ExternalHTTPUrl
+		wsURL = output.Nodes[0].ExternalWSUrl
 		break
 	}
 	require.NoError(t, err)

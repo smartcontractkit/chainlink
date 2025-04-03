@@ -255,7 +255,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].HostHTTPUrl)
+	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].ExternalHTTPUrl)
 	if settingsErr != nil {
 		return errors.Wrap(settingsErr, "failed to create CRE CLI settings file")
 	}
@@ -389,13 +389,13 @@ func CreateBlockchains(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
+	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, errors.Wrap(err, "RPC endpoint not available")
 	}
 
 	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
+		WithRpcUrl(blockchainOutput.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{pkey}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
@@ -486,12 +486,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ChainName: blockchainsOutput.sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(blockchainsOutput.blockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostWSUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: blockchainsOutput.sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
 		},

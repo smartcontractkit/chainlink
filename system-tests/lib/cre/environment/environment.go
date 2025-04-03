@@ -34,12 +34,12 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			ChainName: input.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].HostWSUrl,
-				Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: input.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: input.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: input.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: input.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 		},
@@ -60,8 +60,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 
 		jdConfig := devenv.JDConfig{
-			GRPC:     input.JdOutput.HostGRPCUrl,
-			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			GRPC:     input.JdOutput.ExternalGRPCUrl,
+			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: nodeInfo,
 		}
@@ -113,8 +113,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
 		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
 		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
-			GRPC:     input.JdOutput.HostGRPCUrl,
-			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			GRPC:     input.JdOutput.ExternalGRPCUrl,
+			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: allNodesInfo,
 		})

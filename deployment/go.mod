@@ -7,14 +7,14 @@ replace github.com/smartcontractkit/chainlink/v2 => ../
 
 // Using a separate inline `require` here to avoid surrounding line changes
 // creating potential merge conflicts.
-require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250221182743-098d1b0a763a
+require github.com/smartcontractkit/chainlink/v2 v2.0.0-20250402195829-918b2a02a926
 
 require (
 	dario.cat/mergo v1.0.1
 	github.com/Khan/genqlient v0.7.0
 	github.com/Masterminds/semver/v3 v3.3.1
 	github.com/aptos-labs/aptos-go-sdk v1.5.0
-	github.com/avast/retry-go/v4 v4.6.0
+	github.com/avast/retry-go/v4 v4.6.1
 	github.com/aws/aws-sdk-go v1.54.19
 	github.com/deckarep/golang-set/v2 v2.6.0
 	github.com/ethereum/go-ethereum v1.15.3
@@ -39,7 +39,7 @@ require (
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
 	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250402145836-4234da19fdb3
-	github.com/smartcontractkit/chainlink-testing-framework/framework v0.5.3
+	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510
 	github.com/smartcontractkit/mcms v0.14.0

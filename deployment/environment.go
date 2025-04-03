@@ -490,11 +490,11 @@ func NodeInfo(nodeIDs []string, oc NodeChainConfigsLister) (Nodes, error) {
 			NodeIds: []string{node.Id},
 		}})
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("failed to list node chain configs for node %s id %s: %w", node.Name, node.Id, err)
 		}
 		n, err := NewNodeFromJD(node, nodeChainConfigs.ChainConfigs)
 		if err != nil {
-			xerr = errors.Join(xerr, err)
+			xerr = errors.Join(xerr, fmt.Errorf("failed to get node metadata for node %s id %s: %w", node.Name, node.Id, err))
 			if !errors.Is(err, ErrMissingEVMChain) {
 				onlyMissingEVMChain = false
 			}
