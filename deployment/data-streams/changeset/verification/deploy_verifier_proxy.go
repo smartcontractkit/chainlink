@@ -99,7 +99,7 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerif
 			e.Logger.Errorw("Failed to load chain state", "err", err)
 			return err
 		}
-		if len(chainState.Verifiers) == 0 {
+		if len(chainState.VerifierProxys) == 0 {
 			errNoCCS := errors.New("no VerifierProxy on chain")
 			e.Logger.Error(errNoCCS)
 			return errNoCCS
