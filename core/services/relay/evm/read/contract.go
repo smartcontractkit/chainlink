@@ -60,6 +60,8 @@ func (cb *contractBinding) AddReaderNamed(name string, rdr Reader) {
 
 // Bind binds contract addresses to contract binding and registers the common contract polling filter.
 func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindings ...common.Address) error {
+	var isAddrUpdated bool
+
 	for _, binding := range bindings {
 		if cb.bindingExists(binding) {
 			continue
@@ -67,6 +69,12 @@ func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindin
 
 		cb.registrar.AddAddress(binding)
 		cb.addBinding(binding)
+
+		isAddrUpdated = true
+	}
+
+	if !isAddrUpdated {
+		return nil
 	}
 
 	return cb.Update(ctx, registrar)

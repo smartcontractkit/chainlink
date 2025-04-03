@@ -134,6 +134,8 @@ func (b *EventBinding) GetDataWords() map[string]DataWordDetail {
 }
 
 func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) error {
+	var isAddrUpdated bool
+
 	for _, binding := range bindings {
 		if b.isBound(binding) {
 			continue
@@ -144,6 +146,12 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 		}
 
 		b.addBinding(binding)
+
+		isAddrUpdated = true
+	}
+
+	if !isAddrUpdated {
+		return nil
 	}
 
 	if b.registered() {
