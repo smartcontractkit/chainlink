@@ -956,6 +956,7 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
+				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
@@ -1059,6 +1060,7 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
+				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
@@ -1165,6 +1167,7 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 			debugInput := keystonetypes.DebugInput{
 				DebugDons:        debugDons,
 				BlockchainOutput: setupOutput.blockchainOutput,
+				InfraInput:       in.Infra,
 			}
 			lidebug.PrintTestDebug(t.Name(), testLogger, debugInput)
 		}
