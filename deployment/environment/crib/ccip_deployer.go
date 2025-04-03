@@ -364,6 +364,19 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 		}
 	}
 
+	for _, chain := range solChainSelectors {
+		chainConfigs[chain] = v1_6.ChainConfig{
+			Readers: nodeInfo.NonBootstraps().PeerIDs(),
+			// #nosec G115 - Overflow is not a concern in this test scenario
+			FChain: uint8(len(nodeInfo.NonBootstraps().PeerIDs()) / 3),
+			EncodableChainConfig: chainconfig.ChainConfig{
+				GasPriceDeviationPPB:    cciptypes.BigInt{Int: big.NewInt(globals.GasPriceDeviationPPB)},
+				DAGasPriceDeviationPPB:  cciptypes.BigInt{Int: big.NewInt(globals.DAGasPriceDeviationPPB)},
+				OptimisticConfirmations: globals.OptimisticConfirmations,
+			},
+		}
+	}
+
 	env, err := commonchangeset.Apply(nil, *e, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.UpdateChainConfigChangeset),
@@ -415,7 +428,7 @@ func setupChains(lggr logger.Logger, e *deployment.Environment, homeChainSel uin
 	}
 
 	buildConfig := ccipChangesetSolana.BuildSolanaConfig{
-		GitCommitSha:   "ee019d39e1fd586a76abee0f18990a505dd564fe",
+		GitCommitSha:   "d2fd3633f4854492d233a0b545dd17895cfcdc4e",
 		DestinationDir: deployedEnv.Env.SolChains[solChainSelectors[0]].ProgramsPath,
 		LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 			BuildLocally: true,
@@ -643,7 +656,9 @@ func setupLanes(e *deployment.Environment, state changeset.CCIPOnChainState) (de
 }
 
 func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64, newDons bool, rmnEnabled bool) (deployment.Environment, error) {
-	chainSelectors := e.AllChainSelectors()
+	evmChainSelectors := e.AllChainSelectors()
+	solChainSelectors := e.AllChainSelectorsSolana()
+	allChainSelectors := append(evmChainSelectors, solChainSelectors...)
 	var commitOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	var execOCRConfigPerSelector = make(map[uint64]v1_6.CCIPOCRParams)
 	// Should be configured in the future based on the load test scenario
@@ -659,6 +674,11 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 
 	for selector := range e.Chains {
 		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, overrides)
+		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
+	}
+
+	for selector := range e.SolChains {
+		commitOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForCommit(chainType, feedChainSel, nil, nil)
 		execOCRConfigPerSelector[selector] = v1_6.DeriveOCRParamsForExec(chainType, nil, nil)
 	}
 
@@ -722,11 +742,11 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 				HomeChainSelector: homeChainSel,
 				PluginInfo: []v1_6.PromoteCandidatePluginInfo{
 					{
-						RemoteChainSelectors: chainSelectors,
+						RemoteChainSelectors: allChainSelectors,
 						PluginType:           types.PluginTypeCCIPCommit,
 					},
 					{
-						RemoteChainSelectors: chainSelectors,
+						RemoteChainSelectors: allChainSelectors,
 						PluginType:           types.PluginTypeCCIPExec,
 					},
 				},
@@ -737,7 +757,16 @@ func mustOCR(e *deployment.Environment, homeChainSel uint64, feedChainSel uint64
 			deployment.CreateLegacyChangeSet(v1_6.SetOCR3OffRampChangeset),
 			v1_6.SetOCR3OffRampConfig{
 				HomeChainSel:       homeChainSel,
-				RemoteChainSels:    chainSelectors,
+				RemoteChainSels:    evmChainSelectors,
+				CCIPHomeConfigType: globals.ConfigTypeActive,
+			},
+		),
+		commonchangeset.Configure(
+			// Enable the OCR config on the remote chains.
+			deployment.CreateLegacyChangeSet(ccipChangesetSolana.SetOCR3ConfigSolana),
+			v1_6.SetOCR3OffRampConfig{
+				HomeChainSel:       homeChainSel,
+				RemoteChainSels:    solChainSelectors,
 				CCIPHomeConfigType: globals.ConfigTypeActive,
 			},
 		),
