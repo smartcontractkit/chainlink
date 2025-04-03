@@ -432,6 +432,10 @@ func (g *generalConfig) InsecureFastScrypt() bool {
 	return *g.c.InsecureFastScrypt
 }
 
+func (g *generalConfig) InsecurePPROFHeap() bool {
+	return *g.c.InsecurePPROFHeap
+}
+
 func (g *generalConfig) JobPipelineReaperInterval() time.Duration {
 	return g.c.JobPipeline.ReaperInterval.Duration()
 }

@@ -63,15 +63,6 @@ func isVRFV2Contract(fullpath string) bool {
 	return strings.Contains(fullpath, "VRFCoordinatorV2")
 }
 
-// getRootDir returns the local chainlink root working directory
-func getRootDir() (string, error) { // compute rootDir
-	wd, err := os.Getwd()
-	if err != nil {
-		return "", fmt.Errorf("failed to get working directory: %w", err)
-	}
-	return filepath.Abs(filepath.Join(wd, "../.."))
-}
-
 // compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources checks that
 // the file at each ContractVersion.AbiPath and ContractVersion.BinaryPath hashes to its
 // ContractVersion.Hash, and that the solidity source code recorded in the
@@ -89,8 +80,7 @@ func compareCurrentCompilerArtifactAgainstRecordsAndSoliditySources(
 	t *testing.T, versionInfo ContractVersion,
 ) {
 	hash := VersionHash(versionInfo.AbiPath, versionInfo.BinaryPath)
-	rootDir, err := getRootDir()
-	require.NoError(t, err)
+	rootDir := getProjectRoot(t)
 	recompileCommand := fmt.Sprintf("(cd %s/contracts; make wrappers-all)", rootDir)
 	assert.Equal(t, versionInfo.Hash, hash,
 		BoxOutput(`compiled %s and/or %s has changed; please rerun

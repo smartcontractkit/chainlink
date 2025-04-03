@@ -676,10 +676,12 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 			Type:    pluginconfig.USDCCCTPHandlerType,
 			Version: "1.0",
 			USDCCCTPObserverConfig: &pluginconfig.USDCCCTPObserverConfig{
-				Tokens:                 cctpContracts,
-				AttestationAPI:         endpoint,
-				AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
-				AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				AttestationConfig: pluginconfig.AttestationConfig{
+					AttestationAPI:         endpoint,
+					AttestationAPITimeout:  commonconfig.MustNewDuration(time.Second),
+					AttestationAPIInterval: commonconfig.MustNewDuration(500 * time.Millisecond),
+				},
+				Tokens: cctpContracts,
 			}})
 	}
 

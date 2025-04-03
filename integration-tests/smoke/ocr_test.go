@@ -67,7 +67,7 @@ func TestOCRJobReplacement(t *testing.T) {
 	err = actions.DeleteBridges(nodeClients)
 	require.NoError(t, err, "Error deleting OCR bridges")
 
-	//Recreate job
+	// Recreate job
 	err = actions.CreateOCRJobsLocal(ocrInstances, bootstrapNode, workerNodes, 5, env.MockAdapter, big.NewInt(sethClient.ChainID))
 	require.NoError(t, err, "Error creating OCR jobs")
 

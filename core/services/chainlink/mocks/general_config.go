@@ -878,6 +878,51 @@ func (_c *GeneralConfig_InsecureFastScrypt_Call) RunAndReturn(run func() bool) *
 	return _c
 }
 
+// InsecurePPROFHeap provides a mock function with no fields
+func (_m *GeneralConfig) InsecurePPROFHeap() bool {
+	ret := _m.Called()
+
+	if len(ret) == 0 {
+		panic("no return value specified for InsecurePPROFHeap")
+	}
+
+	var r0 bool
+	if rf, ok := ret.Get(0).(func() bool); ok {
+		r0 = rf()
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+
+	return r0
+}
+
+// GeneralConfig_InsecurePPROFHeap_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'InsecurePPROFHeap'
+type GeneralConfig_InsecurePPROFHeap_Call struct {
+	*mock.Call
+}
+
+// InsecurePPROFHeap is a helper method to define mock.On call
+func (_e *GeneralConfig_Expecter) InsecurePPROFHeap() *GeneralConfig_InsecurePPROFHeap_Call {
+	return &GeneralConfig_InsecurePPROFHeap_Call{Call: _e.mock.On("InsecurePPROFHeap")}
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) Run(run func()) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) Return(_a0 bool) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Return(_a0)
+	return _c
+}
+
+func (_c *GeneralConfig_InsecurePPROFHeap_Call) RunAndReturn(run func() bool) *GeneralConfig_InsecurePPROFHeap_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // JobPipeline provides a mock function with no fields
 func (_m *GeneralConfig) JobPipeline() config.JobPipeline {
 	ret := _m.Called()

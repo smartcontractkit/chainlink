@@ -139,6 +139,25 @@ func NewEnvironment(
 	}
 }
 
+// Clone creates a copy of the environment with a new reference to the address book.
+func (e Environment) Clone() Environment {
+	ab := NewMemoryAddressBook()
+	if err := ab.Merge(e.ExistingAddresses); err != nil {
+		panic(fmt.Sprintf("failed to copy address book: %v", err))
+	}
+	return Environment{
+		Name:              e.Name,
+		Logger:            e.Logger,
+		ExistingAddresses: ab,
+		Chains:            e.Chains,
+		SolChains:         e.SolChains,
+		NodeIDs:           e.NodeIDs,
+		Offchain:          e.Offchain,
+		GetContext:        e.GetContext,
+		OCRSecrets:        e.OCRSecrets,
+	}
+}
+
 func (e Environment) AllChainSelectors() []uint64 {
 	var selectors []uint64
 	for sel := range e.Chains {

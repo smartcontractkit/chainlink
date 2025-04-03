@@ -273,6 +273,7 @@ Ensure `DON_TYPE` matches the `name` field in your TOML config:
    - Set environment variables: `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT` and `DON_TYPE`.
    - Deploy with `devspace run deploy-don`.
    - Read DON URLs from `don-<DON_TYPE>-urls.json`.
+   - Copy capabilities binaries to pods with `devspace run copy-to-pods` (if needed).
 6. **Start Job Distributor**:
    - Set environment variable: `JOB_DISTRIBUTOR_IMAGE_TAG`.
    - Deploy with `devspace run deploy-jd`.
@@ -294,10 +295,6 @@ It is thus advised to change namespace names, when switching providers.
 - Must always be on a **dedicated node**.
 - Identified using `DON_TYPE=gateway`.
 - No bootstrap node required, but multiple worker nodes are allowed.
-
-### Capabilities Binaries
-- Unlike Docker, k8s does not support copying capability binaries into a running container.
-- Use a pre-built Docker image containing the necessary capabilities.
 
 ### Mocked Price Provider
 - CRIB does **not** support the mocked data source used in PoR smoke tests, as it runs outside a container.

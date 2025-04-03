@@ -13,7 +13,7 @@ import (
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 
-	commonState "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
@@ -126,7 +126,7 @@ var (
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
-	commoncs.MCMSWithTimelockState
+	commonstate.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
 	ABIByAddress       map[string]string
@@ -506,6 +506,20 @@ type CCIPOnChainState struct {
 	AptosChains map[uint64]AptosCCIPChainState
 }
 
+func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
+	for chainSelector, chain := range c.Chains {
+		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
+			CancellerMcm: chain.CancellerMcm,
+			BypasserMcm:  chain.BypasserMcm,
+			ProposerMcm:  chain.ProposerMcm,
+			Timelock:     chain.Timelock,
+			CallProxy:    chain.CallProxy,
+		}
+	}
+	return mcmsStateByChain
+}
+
 func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
@@ -790,7 +804,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
@@ -1171,7 +1185,7 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
 	if mcmsCfg != nil {
-		err = mcmsCfg.Validate(chain, commonState.MCMSWithTimelockState{
+		err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
 			CancellerMcm: chainState.CancellerMcm,
 			ProposerMcm:  chainState.ProposerMcm,
 			BypasserMcm:  chainState.BypasserMcm,
