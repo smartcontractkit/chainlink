@@ -15,10 +15,17 @@ import (
 var SetFeedConfigChangeset = deployment.CreateChangeSet(setFeedConfigLogic, setFeedConfigPrecondition)
 
 func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig) (deployment.ChangesetOutput, error) {
-	state, _ := LoadOnchainState(env)
+	state, stateErr := LoadOnchainState(env)
+	if stateErr != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", stateErr)
+	}
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
+
+	if contract == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("cache contract not found for address %s", c.CacheAddress.String())
+	}
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
@@ -45,7 +52,11 @@ func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig
 	}
 
 	if _, err := deployment.ConfirmIfNoError(chain, tx, err); err != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		if tx != nil {
+			return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm transaction: %s, %w", tx.Hash().String(), err)
+		}
+
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to submit transaction: %w", err)
 	}
 
 	return deployment.ChangesetOutput{}, nil

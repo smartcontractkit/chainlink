@@ -14,10 +14,17 @@ import (
 var SetFeedAdminChangeset = deployment.CreateChangeSet(setFeedAdminLogic, setFeedAdminPrecondition)
 
 func setFeedAdminLogic(env deployment.Environment, c types.SetFeedAdminConfig) (deployment.ChangesetOutput, error) {
-	state, _ := LoadOnchainState(env)
+	state, stateErr := LoadOnchainState(env)
+	if stateErr != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", stateErr)
+	}
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
+
+	if contract == nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("cache contract not found for address %s", c.CacheAddress.String())
+	}
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {

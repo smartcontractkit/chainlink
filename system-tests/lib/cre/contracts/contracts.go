@@ -13,7 +13,10 @@ import (
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
+	df_changeset_types "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset/types"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 
@@ -480,6 +483,149 @@ func ConfigureWorkflowRegistry(testLogger zerolog.Logger, input *types.WorkflowR
 	return out, nil
 }
 
+func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeedsCacheInput) (*types.DeployDataFeedsCacheOutput, error) {
+	if input == nil {
+		return nil, errors.New("input is nil")
+	}
+
+	if input.Out != nil && input.Out.UseCache {
+		return input.Out, nil
+	}
+
+	if err := input.Validate(); err != nil {
+		return nil, errors.Wrap(err, "input validation failed")
+	}
+
+	deployConfig := df_changeset_types.DeployConfig{
+		ChainsToDeploy: []uint64{input.ChainSelector},
+		Labels:         []string{"data-feeds"},
+	}
+	dfOutput, dfErr := df_changeset.DeployCacheChangeset.Apply(*input.CldEnv, deployConfig)
+	if dfErr != nil {
+		return nil, errors.Wrap(dfErr, "failed to deploy data feed cache contract")
+	}
+
+	mergeErr := input.CldEnv.ExistingAddresses.Merge(dfOutput.AddressBook)
+	if mergeErr != nil {
+		return nil, errors.Wrap(mergeErr, "failed to merge address book")
+	}
+
+	addresses, err := input.CldEnv.ExistingAddresses.AddressesForChain(input.ChainSelector)
+	if err != nil {
+		return nil, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", input.ChainSelector)
+	}
+
+	var dataFeedsCacheAddress common.Address
+	for addrStr, tv := range addresses {
+		if strings.Contains(tv.String(), "DataFeedsCache") {
+			dataFeedsCacheAddress = common.HexToAddress(addrStr)
+			testLogger.Info().Msgf("Deployed DataFeedsCache contract at %s", dataFeedsCacheAddress.Hex())
+			break
+		}
+	}
+
+	if dataFeedsCacheAddress == (common.Address{}) {
+		return nil, errors.New("failed to find FeedConsumer address in the address book")
+	}
+
+	out := &types.DeployDataFeedsCacheOutput{
+		DataFeedsCacheAddress: dataFeedsCacheAddress,
+	}
+	input.Out = out
+
+	return out, nil
+}
+
+func hashTruncateName(name string) string {
+	// Compute SHA-256 hash of the input string
+	hash := sha256.Sum256([]byte(name))
+
+	// Encode as hex to ensure UTF8
+	var hashBytes = hash[:]
+	resultHex := hex.EncodeToString(hashBytes)
+
+	// Truncate to 10 bytes
+	truncated := []byte(resultHex)[:10]
+	return string(truncated)
+}
+
+func truncateWorkflowName(workflowName string) [10]byte {
+	var workflowNameBytes [10]byte
+	truncated := hashTruncateName(workflowName)
+	copy(workflowNameBytes[:], []byte(truncated))
+
+	return workflowNameBytes
+}
+
+func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {
+	if input == nil {
+		return nil, errors.New("input is nil")
+	}
+
+	if input.Out != nil && input.Out.UseCache {
+		return input.Out, nil
+	}
+
+	if err := input.Validate(); err != nil {
+		return nil, errors.Wrap(err, "input validation failed")
+	}
+
+	if input.AdminAddress != (common.Address{}) {
+		setAdminConfig := df_changeset_types.SetFeedAdminConfig{
+			ChainSelector: input.ChainSelector,
+			CacheAddress:  input.DataFeedsCacheAddress,
+			AdminAddress:  input.AdminAddress,
+			IsAdmin:       true,
+		}
+		_, setAdminErr := df_changeset.SetFeedAdminChangeset.Apply(*input.CldEnv, setAdminConfig)
+		if setAdminErr != nil {
+			return nil, errors.Wrap(setAdminErr, "failed to set feed admin")
+		}
+	}
+
+	metadatas := []data_feeds_cache.DataFeedsCacheWorkflowMetadata{}
+	for idx := range input.AllowedWorkflowNames {
+		metadatas = append(metadatas, data_feeds_cache.DataFeedsCacheWorkflowMetadata{
+			AllowedWorkflowName:  truncateWorkflowName(input.AllowedWorkflowNames[idx]),
+			AllowedSender:        input.AllowedSenders[idx],
+			AllowedWorkflowOwner: input.AllowedWorkflowOwners[idx],
+		})
+	}
+
+	feeIDs := []string{}
+	for _, feedID := range input.FeedIDs {
+		feeIDs = append(feeIDs, feedID[:32])
+	}
+
+	_, setFeedConfigErr := df_changeset.SetFeedConfigChangeset.Apply(*input.CldEnv, df_changeset_types.SetFeedDecimalConfig{
+		ChainSelector:    input.ChainSelector,
+		CacheAddress:     input.DataFeedsCacheAddress,
+		DataIDs:          feeIDs,
+		Descriptions:     input.Descriptions,
+		WorkflowMetadata: metadatas,
+	})
+
+	if setFeedConfigErr != nil {
+		return nil, errors.Wrap(setFeedConfigErr, "failed to set feed config")
+	}
+
+	out := &types.ConfigureDataFeedsCacheOutput{
+		DataFeedsCacheAddress: input.DataFeedsCacheAddress,
+		FeedIDs:               input.FeedIDs,
+		AllowedSenders:        input.AllowedSenders,
+		AllowedWorkflowOwners: input.AllowedWorkflowOwners,
+		AllowedWorkflowNames:  input.AllowedWorkflowNames,
+	}
+
+	if input.AdminAddress != (common.Address{}) {
+		out.AdminAddress = input.AdminAddress
+	}
+
+	input.Out = out
+
+	return out, nil
+}
+
 func DeployFeedsConsumer(testLogger zerolog.Logger, input *types.DeployFeedConsumerInput) (*types.DeployFeedConsumerOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
@@ -547,28 +693,9 @@ func ConfigureFeedsConsumer(testLogger zerolog.Logger, input *types.ConfigureFee
 		return nil, errors.Wrap(err, "failed to create feeds consumer instance")
 	}
 
-	// Prepare hex-encoded and truncated workflow name
-
-	var HashTruncateName = func(name string) string {
-		// Compute SHA-256 hash of the input string
-		hash := sha256.Sum256([]byte(name))
-
-		// Encode as hex to ensure UTF8
-		var hashBytes []byte = hash[:]
-		resultHex := hex.EncodeToString(hashBytes)
-
-		// Truncate to 10 bytes
-		truncated := []byte(resultHex)[:10]
-		return string(truncated)
-	}
-
 	truncatedNames := make([][10]byte, 0, len(input.AllowedWorkflowNames))
 	for _, workflowName := range input.AllowedWorkflowNames {
-		var workflowNameBytes [10]byte
-		truncated := HashTruncateName(workflowName)
-		copy(workflowNameBytes[:], []byte(truncated))
-
-		truncatedNames = append(truncatedNames, workflowNameBytes)
+		truncatedNames = append(truncatedNames, truncateWorkflowName(workflowName))
 	}
 
 	_, decodeErr := input.SethClient.Decode(feedsConsumerInstance.SetConfig(

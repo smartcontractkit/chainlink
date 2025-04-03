@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/exec"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/ethereum/go-ethereum/common"
@@ -19,7 +20,7 @@ type CompilationResult struct {
 }
 
 func SetFeedAdmin(creCLICommandPath string, chainID int, adminAddress common.Address, settingsFile *os.File) error {
-	setFeedAdminCmd := exec.Command(creCLICommandPath, "-S", settingsFile.Name(), "df", "set-feed-admin", "--chain-id", fmt.Sprint(chainID), "--feed-admin", adminAddress.Hex()) // #nosec G204
+	setFeedAdminCmd := exec.Command(creCLICommandPath, "-S", settingsFile.Name(), "df", "set-feed-admin", "--chain-id", strconv.Itoa(chainID), "--feed-admin", adminAddress.Hex()) // #nosec G204
 	var outputBuffer bytes.Buffer
 	setFeedAdminCmd.Stdout = &outputBuffer
 	setFeedAdminCmd.Stderr = &outputBuffer
@@ -41,13 +42,13 @@ func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription stri
 	for i, addr := range allowedSenders {
 		allowedSendersHex[i] = addr.Hex()
 	}
-	allowedSendersStr := fmt.Sprintf("%s", strings.Join(allowedSendersHex, ","))
+	allowedSendersStr := strings.Join(allowedSendersHex, ",")
 
 	allowedWorkflowOwnersHex := make([]string, len(allowedWorkflowOwners))
 	for i, addr := range allowedWorkflowOwners {
 		allowedWorkflowOwnersHex[i] = addr.Hex()
 	}
-	allowedWorkflowOwnersStr := fmt.Sprintf("%s", strings.Join(allowedWorkflowOwnersHex, ","))
+	allowedWorkflowOwnersStr := strings.Join(allowedWorkflowOwnersHex, ",")
 
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 	feedLength := len(cleanFeedID)
@@ -64,10 +65,10 @@ func SetFeedConfig(creCLICommandPath, feedID, feedDecimals, feedDescription stri
 		"-S", settingsFile.Name(),
 		"df",
 		"set-feed-config",
-		"--chain-id", fmt.Sprint(chainID),
+		"--chain-id", strconv.Itoa(chainID),
 		"--allowed-senders", allowedSendersStr,
 		"--allowed-workflow-owners", allowedWorkflowOwnersStr,
-		"--allowed-workflow-names", fmt.Sprintf("%s", strings.Join(allowedWorkflowNames, ",")),
+		"--allowed-workflow-names", strings.Join(allowedWorkflowNames, ","),
 		"--data-id", cleanFeedID,
 		"--decimals-arr", fmt.Sprintf("[%s]", feedDecimals),
 		"--description", feedDescription,

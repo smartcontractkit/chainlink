@@ -33,7 +33,6 @@ import (
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/seth"
-	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -85,7 +84,7 @@ type TestConfig struct {
 	Fake                          *fake.Input                              `toml:"fake"`
 	KeystoneContracts             *keystonetypes.KeystoneContractsInput    `toml:"keystone_contracts"`
 	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput     `toml:"workflow_registry_configuration"`
-	dataFeedsCache                *keystonetypes.DeployDataFeedsCacheInput `toml:"data_feeds_cache"`
+	DataFeedsCacheContract        *keystonetypes.DeployDataFeedsCacheInput `toml:"data_feeds_cache"`
 	Infra                         *libtypes.InfraInput                     `toml:"infra" validate:"required"`
 }
 
@@ -237,38 +236,67 @@ type registerPoRWorkflowInput struct {
 }
 
 type configureDataFeedsCacheInput struct {
-	forwarderAddress common.Address
-	workflowName     string
-	feedID           string
-	sethClient       *seth.Client
-	blockchain       *blockchain.Output
-	creCLIAbsPath    string
-	settingsFile     *os.File
+	useCRECLI             bool
+	chainSelector         uint64
+	fullCldEnvironment    *deployment.Environment
+	forwarderAddress      common.Address
+	dataFeedsCacheAddress common.Address
+	workflowName          string
+	feedID                string
+	sethClient            *seth.Client
+	blockchain            *blockchain.Output
+	creCLIAbsPath         string
+	settingsFile          *os.File
+	deployerPrivateKey    string
 }
 
-func configureDataFeedsCacheContract(input *configureDataFeedsCacheInput) error {
+func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configureDataFeedsCacheInput) error {
 	chainIDInt, intErr := strconv.Atoi(input.blockchain.ChainID)
 	if intErr != nil {
 		return errors.Wrap(intErr, "failed to convert chain ID to int")
 	}
 
-	dfAdminErr := libcrecli.SetFeedAdmin(input.creCLIAbsPath, chainIDInt, input.sethClient.MustGetRootKeyAddress(), input.settingsFile)
-	if dfAdminErr != nil {
-		return errors.Wrap(dfAdminErr, "failed to set feed admin")
+	if input.useCRECLI {
+		// These two env vars are required by the CRE CLI
+		err := os.Setenv("CRE_ETH_PRIVATE_KEY", input.deployerPrivateKey)
+		if err != nil {
+			return errors.Wrap(err, "failed to set CRE_ETH_PRIVATE_KEY")
+		}
+
+		dfAdminErr := libcrecli.SetFeedAdmin(input.creCLIAbsPath, chainIDInt, input.sethClient.MustGetRootKeyAddress(), input.settingsFile)
+		if dfAdminErr != nil {
+			return errors.Wrap(dfAdminErr, "failed to set feed admin")
+		}
+
+		// Extract decimals from feed ID
+		decimals, decimalsErr := contracts.GetDecimalsFromFeedID(input.feedID)
+		if decimalsErr != nil {
+			return errors.Wrapf(decimalsErr, "failed to get decimals from feed ID %s", input.feedID)
+		}
+
+		dfConfigErr := libcrecli.SetFeedConfig(input.creCLIAbsPath, input.feedID, strconv.Itoa(decimals), "PoR test feed", chainIDInt, []common.Address{input.forwarderAddress}, []common.Address{input.sethClient.MustGetRootKeyAddress()}, []string{input.workflowName}, input.settingsFile)
+		if dfConfigErr != nil {
+			return errors.Wrap(dfConfigErr, "failed to set feed config")
+		}
+
+		return nil
 	}
 
-	// Extract decimals from feed ID
-	decimals, decimalsErr := contracts.GetDecimalsFromFeedID(input.feedID)
-	if decimalsErr != nil {
-		return errors.Wrapf(decimalsErr, "failed to get decimals from feed ID %s", input.feedID)
+	configInput := &keystonetypes.ConfigureDataFeedsCacheInput{
+		CldEnv:                input.fullCldEnvironment,
+		ChainSelector:         input.chainSelector,
+		FeedIDs:               []string{input.feedID},
+		Descriptions:          []string{"PoR test feed"},
+		DataFeedsCacheAddress: input.dataFeedsCacheAddress,
+		AdminAddress:          input.sethClient.MustGetRootKeyAddress(),
+		AllowedSenders:        []common.Address{input.forwarderAddress},
+		AllowedWorkflowNames:  []string{input.workflowName},
+		AllowedWorkflowOwners: []common.Address{input.sethClient.MustGetRootKeyAddress()},
 	}
 
-	dfConfigErr := libcrecli.SetFeedConfig(input.creCLIAbsPath, input.feedID, strconv.Itoa(decimals), "PoR test feed", chainIDInt, []common.Address{input.forwarderAddress}, []common.Address{input.sethClient.MustGetRootKeyAddress()}, []string{input.workflowName}, input.settingsFile)
-	if dfConfigErr != nil {
-		return errors.Wrap(dfConfigErr, "failed to set feed config")
-	}
+	_, configErr := libcontracts.ConfigureDataFeedsCache(testLogger, configInput)
 
-	return nil
+	return configErr
 }
 
 func registerPoRWorkflow(input registerPoRWorkflowInput) error {
@@ -320,11 +348,11 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	return nil
 }
 
-func logTestInfo(l zerolog.Logger, feedID, workflowName, DataFeedsCacheAddr, forwarderAddr string) {
+func logTestInfo(l zerolog.Logger, feedID, workflowName, dataFeedsCacheAddr, forwarderAddr string) {
 	l.Info().Msg("------ Test configuration:")
 	l.Info().Msgf("Feed ID: %s", feedID)
 	l.Info().Msgf("Workflow name: %s", workflowName)
-	l.Info().Msgf("DataFeedsCache address: %s", DataFeedsCacheAddr)
+	l.Info().Msgf("DataFeedsCache address: %s", dataFeedsCacheAddr)
 	l.Info().Msgf("KeystoneForwarder address: %s", forwarderAddr)
 }
 
@@ -783,30 +811,42 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 	require.NoError(t, err, "failed to configure keystone contracts")
 
 	// Workflow-specific configuration -- START
-	// pass []string{} as labels, because we don't need to set any labels for the data feeds cache
-	response, dfErr := df_changeset.DeployCache(fullCldOutput.Environment.Chains[blockchainsOutput.chainSelector], []string{})
-	require.NoError(t, dfErr, "failed to deploy data feed cache contract")
+	deployDataFeedsInput := &keystonetypes.DeployDataFeedsCacheInput{
+		ChainSelector: blockchainsOutput.chainSelector,
+		CldEnv:        fullCldOutput.Environment,
+	}
+	deployDataFeedsCacheOutput, dfErr := libcontracts.DeployDataFeedsCache(testLogger, deployDataFeedsInput)
+	require.NoError(t, dfErr, "failed to deploy data feeds cache")
 
-	dataFeedsCacheAddress := response.Address
+	var creCLIAbsPath string
+	var creCLISettingsFile *os.File
+	if in.WorkflowConfig.UseCRECLI {
+		// make sure that path is indeed absolute
+		var pathErr error
+		creCLIAbsPath, pathErr = filepath.Abs(in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath)
+		require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
 
-	// make sure that path is indeed absolute
-	creCLIAbsPath, pathErr := filepath.Abs(in.WorkflowConfig.DependenciesConfig.CRECLIBinaryPath)
-	require.NoError(t, pathErr, "failed to get absolute path for CRE CLI")
-
-	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(blockchainsOutput.sethClient.MustGetRootKeyAddress(), keystoneContractsOutput.CapabilitiesRegistryAddress, keystoneContractsOutput.WorkflowRegistryAddress, dataFeedsCacheAddress, fullCldOutput.DonTopology.WorkflowDonID, blockchainsOutput.chainSelector, blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl)
-	require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
+		// create CRE CLI settings file
+		var settingsErr error
+		creCLISettingsFile, settingsErr = libcrecli.PrepareCRECLISettingsFile(blockchainsOutput.sethClient.MustGetRootKeyAddress(), keystoneContractsOutput.CapabilitiesRegistryAddress, keystoneContractsOutput.WorkflowRegistryAddress, deployDataFeedsCacheOutput.DataFeedsCacheAddress, fullCldOutput.DonTopology.WorkflowDonID, blockchainsOutput.chainSelector, blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl)
+		require.NoError(t, settingsErr, "failed to create CRE CLI settings file")
+	}
 
 	dfConfigInput := &configureDataFeedsCacheInput{
-		forwarderAddress: keystoneContractsOutput.ForwarderAddress,
-		workflowName:     in.WorkflowConfig.WorkflowName,
-		feedID:           in.WorkflowConfig.FeedID,
-		sethClient:       blockchainsOutput.sethClient,
-		blockchain:       blockchainsOutput.blockchainOutput,
-		creCLIAbsPath:    creCLIAbsPath,
-		settingsFile:     settingsFile,
+		useCRECLI:             in.WorkflowConfig.UseCRECLI,
+		chainSelector:         blockchainsOutput.chainSelector,
+		fullCldEnvironment:    fullCldOutput.Environment,
+		forwarderAddress:      keystoneContractsOutput.ForwarderAddress,
+		dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
+		workflowName:          in.WorkflowConfig.WorkflowName,
+		feedID:                in.WorkflowConfig.FeedID,
+		sethClient:            blockchainsOutput.sethClient,
+		blockchain:            blockchainsOutput.blockchainOutput,
+		creCLIAbsPath:         creCLIAbsPath,
+		settingsFile:          creCLISettingsFile,
+		deployerPrivateKey:    blockchainsOutput.deployerPrivateKey,
 	}
-	dfConfigErr := configureDataFeedsCacheContract(dfConfigInput)
+	dfConfigErr := configureDataFeedsCacheContract(testLogger, dfConfigInput)
 	require.NoError(t, dfConfigErr, "failed to configure data feeds cache")
 
 	registerInput := registerPoRWorkflowInput{
@@ -815,13 +855,13 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		workflowDonID:           fullCldOutput.DonTopology.WorkflowDonID,
 		feedID:                  in.WorkflowConfig.FeedID,
 		workflowRegistryAddress: keystoneContractsOutput.WorkflowRegistryAddress,
-		dataFeedsCacheAddress:   dataFeedsCacheAddress,
+		dataFeedsCacheAddress:   deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		priceProvider:           priceProvider,
 		sethClient:              blockchainsOutput.sethClient,
 		deployerPrivateKey:      blockchainsOutput.deployerPrivateKey,
 		creCLIAbsPath:           creCLIAbsPath,
 		writeTargetName:         corevm.GenerateWriteTargetName(libc.MustSafeUint64(int64(chainIDInt))),
-		settingsFile:            settingsFile,
+		settingsFile:            creCLISettingsFile,
 	}
 
 	err = registerPoRWorkflow(registerInput)
@@ -830,16 +870,16 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 
 	// Set inputs in the test config, so that they can be saved
 	in.KeystoneContracts = keystoneContractsInput
-	in.dataFeedsCache = &keystonetypes.DeployDataFeedsCacheInput{
+	in.DataFeedsCacheContract = &keystonetypes.DeployDataFeedsCacheInput{
 		Out: &keystonetypes.DeployDataFeedsCacheOutput{
-			DataFeedsCacheAddress: dataFeedsCacheAddress,
+			DataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		},
 	}
 	in.WorkflowRegistryConfiguration = workflowRegistryInput
 
 	return &setupOutput{
 		priceProvider:         priceProvider,
-		dataFeedsCacheAddress: dataFeedsCacheAddress,
+		dataFeedsCacheAddress: deployDataFeedsCacheOutput.DataFeedsCacheAddress,
 		forwarderAddress:      keystoneContractsOutput.ForwarderAddress,
 		sethClient:            blockchainsOutput.sethClient,
 		blockchainOutput:      blockchainsOutput.blockchainOutput,

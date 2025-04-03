@@ -6,13 +6,13 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
 )
 
 // GetDecimalsFromFeedID extracts the number of decimals from a feed ID
 // Feed ID format is assumed to be a hex string (with or without 0x prefix)
-// The 7th byte (index 6 when zero-based) determines the decimal count
 func GetDecimalsFromFeedID(feedID string) (int, error) {
-	// Remove 0x prefix if present
 	cleanFeedID := strings.TrimPrefix(feedID, "0x")
 
 	// Ensure the feed ID is long enough
@@ -21,8 +21,8 @@ func GetDecimalsFromFeedID(feedID string) (int, error) {
 	}
 
 	// Extract the 7th byte (bytes are represented by 2 hex characters)
-	// Position 12-13 represents the 7th byte (0-indexed)
-	dataTypeByte := cleanFeedID[12:14]
+	// Position 14-16 represents the 7th byte (0-indexed)
+	dataTypeByte := cleanFeedID[14:16]
 
 	// Convert the hex string to a byte
 	dataTypeInt, err := strconv.ParseUint(dataTypeByte, 16, 8)
@@ -35,7 +35,7 @@ func GetDecimalsFromFeedID(feedID string) (int, error) {
 	case dataTypeInt == 0x20:
 		return 0, nil // Integer (Decimal0)
 	case dataTypeInt >= 0x21 && dataTypeInt <= 0x60:
-		return int(dataTypeInt - 0x20), nil // DecimalN where N is (dataTypeInt - 0x20)
+		return libc.MustSafeInt(dataTypeInt - 0x20), nil // DecimalN where N is (dataTypeInt - 0x20)
 	default:
 		return 0, fmt.Errorf("unknown data type: 0x%s", dataTypeByte)
 	}
