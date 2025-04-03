@@ -114,7 +114,7 @@ func validateSolanaConfig(t *testing.T, state changeset.CCIPOnChainState, solCha
 	require.Equal(t, remoteToken.Bytes(), remoteTokenAddress)
 	remotePoolAddresses, err := tokenPool.GetRemotePools(nil, solanaSelector)
 	require.NoError(t, err)
-	require.Equal(t, 1, len(remotePoolAddresses))
+	require.Len(t, remotePoolAddresses, 1)
 	require.Equal(t, remoteTokenPool.Bytes(), remotePoolAddresses[0])
 
 	inboundRateLimiterConfig, err := tokenPool.GetCurrentInboundRateLimiterState(nil, solanaSelector)
@@ -730,6 +730,7 @@ func TestValidateConfigureTokenPoolContractsForSolana(t *testing.T) {
 				},
 			),
 		)
+		require.NoError(t, err)
 		state, err := changeset.LoadOnchainState(e)
 		require.NoError(t, err)
 		tokenAddress := state.SolChains[selector].SPL2022Tokens[0]

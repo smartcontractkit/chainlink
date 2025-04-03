@@ -84,7 +84,7 @@ type SolChainUpdate struct {
 	Type deployment.ContractType
 }
 
-func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (solana.PublicKey, solana.PublicKey, error) {
+func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainState) (token solana.PublicKey, tokenPool solana.PublicKey, err error) {
 	var tokenPoolProgram solana.PublicKey
 	switch c.Type {
 	case changeset.BurnMintTokenPool:
@@ -92,17 +92,22 @@ func (c SolChainUpdate) GetSolanaTokenAndTokenPool(state changeset.SolCCIPChainS
 	case changeset.LockReleaseTokenPool:
 		tokenPoolProgram = state.LockReleaseTokenPool
 	default:
-		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("unknown solana token pool type %s", c.Type)
+		err = fmt.Errorf("unknown solana token pool type %s", c.Type)
+		return
 	}
 	if c.TokenAddress == "" {
-		return solana.PublicKey{}, solana.PublicKey{}, errors.New("token address must be defined")
+		err = errors.New("token address must be defined")
+		return
 	}
-	token := solana.MustPublicKeyFromBase58(c.TokenAddress)
-	tokenPool, err := solTokenUtil.TokenPoolConfigAddress(token, tokenPoolProgram)
+	token = solana.MustPublicKeyFromBase58(c.TokenAddress)
+	tokenPool, err = solTokenUtil.TokenPoolConfigAddress(token, tokenPoolProgram)
 	if err != nil {
-		return solana.PublicKey{}, solana.PublicKey{}, fmt.Errorf("failed to get token pool address for token %s on solana chain: %w", c.TokenAddress, err)
+		token = solana.PublicKey{}
+		tokenPool = solana.PublicKey{}
+		err = fmt.Errorf("failed to get token pool address for token %s on solana chain: %w", c.TokenAddress, err)
+		return
 	}
-	return token, tokenPool, err
+	return
 }
 
 func (c SolChainUpdate) Validate(state changeset.SolCCIPChainState) error {
