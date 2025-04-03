@@ -326,6 +326,7 @@ func (d *DeployerGroup) enactDeployer() (deployment.ChangesetOutput, error) {
 					if err != nil {
 						return fmt.Errorf("waiting for tx to be mined failed: %w", err)
 					}
+					d.e.Logger.Infow("Transaction sent", "chain", selector, "tx", tx.Tx.Hash().Hex(), "description", tx.Description)
 				}
 				return nil
 			})

@@ -1127,13 +1127,17 @@ func (e *Engine) heartbeat(ctx context.Context) {
 	ticker := time.NewTicker(e.heartbeatCadence)
 	defer ticker.Stop()
 
+	// Gauge values are "persisted" by the backend
+	// and will be continually reported until the value changes.
+	e.metrics.engineHeartbeatGauge(ctx, 1)
+
 	for {
 		select {
 		case <-ctx.Done():
+			e.metrics.engineHeartbeatGauge(ctx, 0)
 			e.logger.Info("shutting down heartbeat")
 			return
 		case <-ticker.C:
-			e.metrics.engineHeartbeatGauge(ctx)
 			e.metrics.incrementEngineHeartbeatCounter(ctx)
 			e.metrics.updateTotalWorkflowsGauge(ctx, e.stepUpdatesChMap.len())
 			logCustMsg(ctx, e.cma, "engine heartbeat at: "+e.clock.Now().Format(time.RFC3339), e.logger)
