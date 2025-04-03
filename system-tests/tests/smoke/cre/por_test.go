@@ -45,16 +45,16 @@ import (
 	ctfconfig "github.com/smartcontractkit/chainlink-testing-framework/lib/config"
 
 	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	libcaps "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
+	lidcap "github.com/smartcontractkit/chainlink/system-tests/lib/cre/capabilities"
 	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/crib"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	libdon "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don"
 	keystoneporconfig "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/config/por"
 	keystonepor "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/jobs/por"
-	libnode "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
 	keystonesecrets "github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/secrets"
 	libenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
-	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 	libcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli"
 	keystoneporcrecli "github.com/smartcontractkit/chainlink/system-tests/lib/crecli/por"
@@ -255,7 +255,7 @@ func registerPoRWorkflow(input registerPoRWorkflowInput) error {
 	}
 
 	// create CRE CLI settings file
-	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].HostHTTPUrl)
+	settingsFile, settingsErr := libcrecli.PrepareCRECLISettingsFile(input.sethClient.MustGetRootKeyAddress(), input.capabilitiesRegistryAddress, input.workflowRegistryAddress, input.workflowDonID, input.chainSelector, input.blockchain.Nodes[0].ExternalHTTPUrl)
 	if settingsErr != nil {
 		return errors.Wrap(settingsErr, "failed to create CRE CLI settings file")
 	}
@@ -389,13 +389,13 @@ func CreateBlockchains(
 		return nil, errors.New("PRIVATE_KEY env var must be set")
 	}
 
-	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].HostHTTPUrl, 10*time.Minute)
+	err = keystonepor.WaitForRPCEndpoint(testLogger, blockchainOutput.Nodes[0].ExternalHTTPUrl, 10*time.Minute)
 	if err != nil {
 		return nil, errors.Wrap(err, "RPC endpoint not available")
 	}
 
 	sethClient, err := seth.NewClientBuilder().
-		WithRpcUrl(blockchainOutput.Nodes[0].HostWSUrl).
+		WithRpcUrl(blockchainOutput.Nodes[0].ExternalWSUrl).
 		WithPrivateKeys([]string{pkey}).
 		// do not check if there's a pending nonce nor check node's health
 		WithProtections(false, false, seth.MustMakeDuration(time.Second)).
@@ -486,12 +486,12 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ChainName: blockchainsOutput.sethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(blockchainsOutput.blockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostWSUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: blockchainsOutput.blockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: blockchainsOutput.blockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: blockchainsOutput.blockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: blockchainsOutput.blockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: blockchainsOutput.sethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the RPC node
 		},
@@ -607,27 +607,11 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			nodeSetInput[i].NodeSpecs[j].Node.TestSecretsOverrides = secrets[j]
 		}
 
-		// instruct Docker which capabilities to copy to the container
-		// TODO: add similar support for CRIB
-		if in.Infra.InfraType == libtypes.Docker {
-			if flags.HasFlag(donMetadata.Flags, keystonetypes.CronCapability) {
-				workerNodes, wErr := libnode.FindManyWithLabel(donMetadata.NodesMetadata, &keystonetypes.Label{
-					Key:   libnode.NodeTypeKey,
-					Value: keystonetypes.WorkerNode,
-				}, libnode.EqualLabels)
-				require.NoError(t, wErr, "failed to find worker nodes")
-
-				for _, node := range workerNodes {
-					nodeIndexStr, nErr := libnode.FindLabelValue(node, libnode.IndexKey)
-					require.NoError(t, nErr, "failed to find index label")
-
-					nodeIndex, nIErr := strconv.Atoi(nodeIndexStr)
-					require.NoError(t, nIErr, "failed to convert index to int")
-
-					nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths = append(nodeSetInput[i].NodeSpecs[nodeIndex].Node.CapabilitiesBinaryPaths, in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)
-				}
-			}
-		}
+		var appendErr error
+		nodeSetInput[i], appendErr = libcaps.AppendBinariesPathsNodeSpec(nodeSetInput[i], donMetadata, []keystonetypes.CapabilitiesBinaryPathFactoryFn{
+			libcaps.DefaultBinariesPathsFactory(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+		})
+		require.NoError(t, appendErr, "failed to append binaries to node spec for DON %d", donMetadata.ID)
 	}
 
 	// Deploy the DONs
@@ -720,6 +704,9 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 		}
 	}
 
+	capDir, capDirErr := lidcap.DefaultContainerDirectory(in.Infra.InfraType)
+	require.NoError(t, capDirErr, "failed to get default capabilities directory")
+
 	// Generate and propose jobs (they will auto-accepted)
 	donToJobSpecs, jobSpecsErr := keystonepor.GenerateJobSpecs(
 		&keystonetypes.GeneratePoRJobSpecsInput{
@@ -729,7 +716,7 @@ func setupTestEnvironment(t *testing.T, testLogger zerolog.Logger, in *TestConfi
 			ExtraAllowedPorts:     extraAllowedPorts,
 			ExtraAllowedIPs:       extraAllowedIPs,
 			// ExtraAllowedIPsCIDR is not needed for this test, but is supported
-			CronCapBinPath:         "/home/capabilities/" + filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath),
+			CronCapBinPath:         filepath.Join(capDir, filepath.Base(in.WorkflowConfig.DependenciesConfig.CronCapabilityBinaryPath)),
 			GatewayConnectorOutput: *topology.GatewayConnectorOutput,
 		},
 		customJobsFn,

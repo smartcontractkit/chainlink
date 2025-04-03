@@ -485,14 +485,14 @@ func BuildRMNRemotePerChain(e deployment.Environment, state changeset.CCIPOnChai
 }
 
 type RMNRemoteConfig struct {
-	Signers []rmn_remote.RMNRemoteSigner
-	F       uint64
+	Signers []rmn_remote.RMNRemoteSigner `json:"signers"`
+	F       uint64                       `json:"f"`
 }
 
 type SetRMNRemoteConfig struct {
-	HomeChainSelector uint64
-	RMNRemoteConfigs  map[uint64]RMNRemoteConfig
-	MCMSConfig        *proposalutils.TimelockConfig
+	HomeChainSelector uint64                        `json:"homeChainSelector"`
+	RMNRemoteConfigs  map[uint64]RMNRemoteConfig    `json:"rmnRemoteConfigs"`
+	MCMSConfig        *proposalutils.TimelockConfig `json:"mcmsConfig,omitempty"`
 }
 
 func (c SetRMNRemoteConfig) Validate() error {

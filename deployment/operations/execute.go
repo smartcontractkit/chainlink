@@ -1,10 +1,14 @@
 package operations
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/avast/retry-go/v4"
 )
+
+var ErrNotSerializable = errors.New("data cannot be safely written to disk without data lost, " +
+	"avoid type that can't be serialized")
 
 // ExecuteConfig is the configuration for the ExecuteOperation function.
 type ExecuteConfig[IN, DEP any] struct {
@@ -42,6 +46,11 @@ func WithRetryConfig[IN, DEP any](config RetryConfig[IN, DEP]) ExecuteOption[IN,
 // By default, it retries the operation up to 10 times with exponential backoff if it fails.
 // Use WithRetryConfig to customize the retry behavior.
 // To cancel the retry early, return an error with NewUnrecoverableError.
+//
+// Input & Output:
+// The input and output must be JSON serializable. If the input is not serializable, it will return an error.
+// To be serializable, the input and output must be json.marshalable, or it must implement json.Marshaler and json.Unmarshaler.
+// IsSerializable can be used to check if the input or output is serializable.
 func ExecuteOperation[IN, OUT, DEP any](
 	b Bundle,
 	operation *Operation[IN, OUT, DEP],
@@ -49,6 +58,10 @@ func ExecuteOperation[IN, OUT, DEP any](
 	input IN,
 	opts ...ExecuteOption[IN, DEP],
 ) (Report[IN, OUT], error) {
+	if !IsSerializable(b.Logger, input) {
+		return Report[IN, OUT]{}, fmt.Errorf("operation %s input: %w", operation.def.ID, ErrNotSerializable)
+	}
+
 	if previousReport, found := loadPreviousSuccessfulReport[IN, OUT](b, operation.def, input); found {
 		b.Logger.Infow("Operation already executed. Returning previous result", "id", operation.def.ID,
 			"version", operation.def.Version, "description", operation.def.Description)
@@ -79,6 +92,10 @@ func ExecuteOperation[IN, OUT, DEP any](
 		}))
 	}
 
+	if err == nil && !IsSerializable(b.Logger, output) {
+		return Report[IN, OUT]{}, fmt.Errorf("operation %s output: %w", operation.def.ID, ErrNotSerializable)
+	}
+
 	report := NewReport(operation.def, input, output, err)
 	err = b.reporter.AddReport(genericReport(report))
 	if err != nil {
@@ -100,10 +117,19 @@ func ExecuteOperation[IN, OUT, DEP any](
 //
 // Note:
 // Sequences or Operations that were skipped will not be added to the reporter.
-// THe ExecutionReports do not include Sequences or Operations that were skipped.
+// The ExecutionReports do not include Sequences or Operations that were skipped.
+//
+// Input & Output:
+// The input and output must be JSON serializable. If the input is not serializable, it will return an error.
+// To be serializable, the input and output must be json.marshalable, or it must implement json.Marshaler and json.Unmarshaler.
+// IsSerializable can be used to check if the input or output is serializable.
 func ExecuteSequence[IN, OUT, DEP any](
 	b Bundle, sequence *Sequence[IN, OUT, DEP], deps DEP, input IN,
 ) (SequenceReport[IN, OUT], error) {
+	if !IsSerializable(b.Logger, input) {
+		return SequenceReport[IN, OUT]{}, fmt.Errorf("sequence %s input: %w", sequence.def.ID, ErrNotSerializable)
+	}
+
 	if previousReport, found := loadPreviousSuccessfulReport[IN, OUT](b, sequence.def, input); found {
 		executionReports, err := b.reporter.GetExecutionReports(previousReport.ID)
 		if err != nil {
@@ -124,6 +150,13 @@ func ExecuteSequence[IN, OUT, DEP any](
 		reportHashCache: b.reportHashCache,
 	}
 	ret, err := sequence.handler(newBundle, deps, input)
+	if errors.Is(err, ErrNotSerializable) {
+		return SequenceReport[IN, OUT]{}, err
+	}
+
+	if err == nil && !IsSerializable(b.Logger, ret) {
+		return SequenceReport[IN, OUT]{}, fmt.Errorf("sequence %s output: %w", sequence.def.ID, ErrNotSerializable)
+	}
 
 	recentReports := recentReporter.GetRecentReports()
 	childReports := make([]string, 0, len(recentReports))
