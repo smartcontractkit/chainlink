@@ -6,8 +6,8 @@ ReadTimeoutMillis = 1000
 WriteTimeoutMillis = 1000
 RequestTimeoutMillis = 1000
 MaxRequestBytes = 10_000
-CORSEnabled = true
-CORSAllowedOrigins = ["https://remix.ethereum.org"]
+CORSEnabled = false
+CORSAllowedOrigins = []
 
 [NodeServerConfig]
 Port = 8081
