@@ -39,6 +39,8 @@ type HTTPServerConfig struct {
 	WriteTimeoutMillis   uint32
 	RequestTimeoutMillis uint32
 	MaxRequestBytes      int64
+	CORSEnabled          bool
+	CORSAllowedOrigins   []string
 }
 
 type httpServer struct {
@@ -87,7 +89,33 @@ func (s *httpServer) handleHealthCheck(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (s *httpServer) isAllowedOrigin(origin string) bool {
+	for _, allowed := range s.config.CORSAllowedOrigins {
+		if origin == allowed {
+			return true
+		}
+	}
+	return false
+}
+
 func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
+	if s.config.CORSEnabled {
+		origin := r.Header.Get("Origin")
+		if s.isAllowedOrigin(origin) {
+			w.Header().Set("Access-Control-Allow-Origin", origin)
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "null")
+		}
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		// handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+	}
+
 	source := http.MaxBytesReader(nil, r.Body, s.config.MaxRequestBytes)
 	rawMessage, err := io.ReadAll(source)
 	if err != nil {

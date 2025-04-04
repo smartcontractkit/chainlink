@@ -22,7 +22,7 @@ const (
 	HTTPTestPath = "/test_path"
 )
 
-func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32) (server network.HttpServer, handler *mocks.HTTPRequestHandler, url string) {
+func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint32, enabledCORS bool, allowedOrigins []string) (server network.HttpServer, handler *mocks.HTTPRequestHandler, url string) {
 	config := &network.HTTPServerConfig{
 		Host:                 HTTPTestHost,
 		Port:                 0,
@@ -33,6 +33,8 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 		WriteTimeoutMillis:   10_000,
 		RequestTimeoutMillis: 10_000,
 		MaxRequestBytes:      maxRequestBytes,
+		CORSEnabled:          enabledCORS,
+		CORSAllowedOrigins:   allowedOrigins,
 	}
 
 	handler = mocks.NewHTTPRequestHandler(t)
@@ -46,8 +48,11 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	return
 }
 
-func sendRequest(t *testing.T, url string, body []byte) *http.Response {
+func sendRequest(t *testing.T, url string, body []byte, origin *string) *http.Response {
 	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", url, bytes.NewBuffer(body))
+	if origin != nil {
+		req.Header.Set("Origin", *origin)
+	}
 	require.NoError(t, err)
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -57,12 +62,12 @@ func sendRequest(t *testing.T, url string, body []byte) *http.Response {
 
 func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 	t.Parallel()
-	server, handler, url := startNewServer(t, 100_000, 100_000)
+	server, handler, url := startNewServer(t, 100_000, 100_000, false, nil)
 	defer server.Close()
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	resp := sendRequest(t, url, []byte("0123456789"))
+	resp := sendRequest(t, url, []byte("0123456789"), nil)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -71,22 +76,41 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 
 func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	t.Parallel()
-	server, _, url := startNewServer(t, 5, 100_000)
+	server, _, url := startNewServer(t, 5, 100_000, false, nil)
 	defer server.Close()
 
-	resp := sendRequest(t, url, []byte("0123456789"))
+	resp := sendRequest(t, url, []byte("0123456789"), nil)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
 func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	t.Parallel()
-	server, _, url := startNewServer(t, 100_000, 100_000)
+	server, _, url := startNewServer(t, 100_000, 100_000, false, nil)
 	defer server.Close()
 
 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
-	resp := sendRequest(t, url, []byte{})
+	resp := sendRequest(t, url, []byte{}, nil)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
 	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
+}
+
+func TestHTTPServer_HandleRequest_CORSEnable_FromAllowedOrigin(t *testing.T) {
+	t.Parallel()
+	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
+	defer server.Close()
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin := "https://remix.ethereum.org"
+	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
 }
