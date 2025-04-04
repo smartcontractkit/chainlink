@@ -253,3 +253,59 @@ func TestAddressRefByQualifier(t *testing.T) {
 		})
 	}
 }
+
+func TestContractMetadataByChainSelector(t *testing.T) {
+	var (
+		recordOne = ContractMetadata[DefaultMetadata]{
+			ChainSelector: 1,
+			Metadata:      DefaultMetadata("Record1"),
+		}
+		recordTwo = ContractMetadata[DefaultMetadata]{
+			ChainSelector: 2,
+			Metadata:      DefaultMetadata("Record2"),
+		}
+		recordThree = ContractMetadata[DefaultMetadata]{
+			ChainSelector: 1,
+			Metadata:      DefaultMetadata("Record3"),
+		}
+	)
+
+	tests := []struct {
+		name           string
+		givenState     []ContractMetadata[DefaultMetadata]
+		giveChain      uint64
+		expectedResult []ContractMetadata[DefaultMetadata]
+	}{
+		{
+			name: "success: returns records with given chain",
+			givenState: []ContractMetadata[DefaultMetadata]{
+				recordOne,
+				recordTwo,
+				recordThree,
+			},
+			giveChain: 1,
+			expectedResult: []ContractMetadata[DefaultMetadata]{
+				recordOne,
+				recordThree,
+			},
+		},
+		{
+			name: "success: returns no records with given chain",
+			givenState: []ContractMetadata[DefaultMetadata]{
+				recordOne,
+				recordTwo,
+				recordThree,
+			},
+			giveChain:      3,
+			expectedResult: []ContractMetadata[DefaultMetadata]{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter := ContractMetadataByChainSelector[DefaultMetadata](tt.giveChain)
+			filteredRecords := filter(tt.givenState)
+			assert.Equal(t, tt.expectedResult, filteredRecords)
+		})
+	}
+}

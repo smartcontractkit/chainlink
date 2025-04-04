@@ -134,18 +134,6 @@ func (b *EventBinding) GetDataWords() map[string]DataWordDetail {
 }
 
 func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) error {
-	if b.hasBindings() {
-		// we are changing contract address reference, so we need to unregister old filter if it exists
-		if err := b.Unregister(ctx); err != nil {
-			return err
-		}
-	}
-
-	// filterRegisterer isn't required here because the event can also be polled for by the contractBinding common filter.
-	if b.registrar != nil {
-		b.registrar.SetName(logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString())))
-	}
-
 	for _, binding := range bindings {
 		if b.isBound(binding) {
 			continue
@@ -156,10 +144,15 @@ func (b *EventBinding) Bind(ctx context.Context, bindings ...common.Address) err
 		}
 
 		b.addBinding(binding)
+
+	}
+
+	if b.registrar == nil || !b.registrar.Dirty() {
+		return nil
 	}
 
 	if b.registered() {
-		return b.Register(ctx)
+		return b.Update(ctx)
 	}
 
 	return nil
@@ -194,6 +187,23 @@ func (b *EventBinding) Unbind(ctx context.Context, bindings ...common.Address) e
 	}
 
 	return nil
+}
+
+func (b *EventBinding) Update(ctx context.Context) error {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	name := logpoller.FilterName(fmt.Sprintf("%s.%s.%s", b.contractName, b.eventName, uuid.NewString()))
+
+	if b.registrar == nil {
+		return nil
+	}
+
+	if len(b.bound) == 0 {
+		return nil
+	}
+
+	return b.registrar.Update(ctx, b.lp, name)
 }
 
 func (b *EventBinding) Register(ctx context.Context) error {
