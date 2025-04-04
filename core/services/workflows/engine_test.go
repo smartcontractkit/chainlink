@@ -2280,7 +2280,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	eid2 := getExecutionID(t, eng, testHooks)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
-	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
+	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
 }
