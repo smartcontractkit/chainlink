@@ -83,6 +83,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/vrf"
 	"github.com/smartcontractkit/chainlink/v2/core/services/webhook"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows"
+	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/artifacts"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/ratelimiter"
 	workflowstore "github.com/smartcontractkit/chainlink/v2/core/services/workflows/store"
 	"github.com/smartcontractkit/chainlink/v2/core/services/workflows/syncer"
@@ -466,7 +467,7 @@ func NewApplication(ctx context.Context, opts ApplicationOpts) (Application, err
 		jobORM         = job.NewORM(opts.DS, pipelineORM, bridgeORM, keyStore, globalLogger)
 		txmORM         = txmgr.NewTxStore(opts.DS, globalLogger)
 		streamRegistry = streams.NewRegistry(globalLogger, pipelineRunner)
-		workflowORM    = workflowstore.NewDBStore(opts.DS, globalLogger, clockwork.NewRealClock())
+		workflowORM    = workflowstore.NewInMemoryStore(globalLogger, clockwork.NewRealClock())
 	)
 	srvcs = append(srvcs, workflowORM)
 
@@ -760,7 +761,7 @@ type CREOpts struct {
 	CapabilitiesDispatcher  remotetypes.Dispatcher
 	CapabilitiesPeerWrapper p2ptypes.PeerWrapper
 
-	FetcherFunc      syncer.FetcherFunc
+	FetcherFunc      artifacts.FetcherFunc
 	FetcherFactoryFn compute.FetcherFactory
 }
 
@@ -813,7 +814,11 @@ func newCREServices(
 		return nil, fmt.Errorf("could not instantiate workflow rate limiter: %w", err)
 	}
 
-	workflowLimits, err := syncerlimiter.NewWorkflowLimits(syncerlimiter.Config{
+	if len(wCfg.Limits().PerOwnerOverrides()) > 0 {
+		globalLogger.Debugw("loaded per owner overrides", "overrides", wCfg.Limits().PerOwnerOverrides())
+	}
+
+	workflowLimits, err := syncerlimiter.NewWorkflowLimits(globalLogger, syncerlimiter.Config{
 		Global:            wCfg.Limits().Global(),
 		PerOwner:          wCfg.Limits().PerOwner(),
 		PerOwnerOverrides: wCfg.Limits().PerOwnerOverrides(),
@@ -896,7 +901,7 @@ func newCREServices(
 
 			if capCfg.WorkflowRegistry().Address() != "" {
 				lggr := globalLogger.Named("WorkflowRegistrySyncer")
-				var fetcherFunc syncer.FetcherFunc
+				var fetcherFunc artifacts.FetcherFunc
 				if opts.FetcherFunc == nil {
 					if gatewayConnectorWrapper == nil {
 						return nil, errors.New("unable to create workflow registry syncer without gateway connector")
@@ -913,24 +918,24 @@ func newCREServices(
 					return nil, fmt.Errorf("failed to get all workflow keys: %w", err)
 				}
 
-				eventHandler := syncer.NewEventHandler(
-					lggr,
-					syncer.NewWorkflowRegistryDS(ds, globalLogger),
+				artifactsStore := artifacts.NewStore(lggr, artifacts.NewWorkflowRegistryDS(ds, globalLogger),
 					fetcherFunc,
-					workflowstore.NewDBStore(ds, lggr, clockwork.NewRealClock()),
-					opts.CapabilitiesRegistry,
-					custmsg.NewLabeler(),
-					clockwork.NewRealClock(),
-					key,
-					workflowRateLimiter,
-					workflowLimits,
-					syncer.WithMaxArtifactSize(
-						syncer.ArtifactConfig{
+					clockwork.NewRealClock(), key, custmsg.NewLabeler(), artifacts.WithMaxArtifactSize(
+						artifacts.ArtifactConfig{
 							MaxBinarySize:  uint64(capCfg.WorkflowRegistry().MaxBinarySize()),
 							MaxSecretsSize: uint64(capCfg.WorkflowRegistry().MaxEncryptedSecretsSize()),
 							MaxConfigSize:  uint64(capCfg.WorkflowRegistry().MaxConfigSize()),
 						},
-					),
+					))
+
+				eventHandler := syncer.NewEventHandler(
+					lggr,
+					workflowstore.NewInMemoryStore(lggr, clockwork.NewRealClock()),
+					opts.CapabilitiesRegistry,
+					custmsg.NewLabeler(),
+					workflowRateLimiter,
+					workflowLimits,
+					artifactsStore,
 				)
 
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
@@ -1271,9 +1276,9 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if app.Config.Feature().LogPoller() {
 			chain.LogPoller().ReplayAsync(fromBlock)
 		}
-	case relay.NetworkSolana:
+	default:
 		relayer, err := app.GetRelayers().Get(commontypes.RelayID{
-			Network: relay.NetworkSolana,
+			Network: chainFamily,
 			ChainID: chainID,
 		})
 		if err != nil {
@@ -1283,8 +1288,6 @@ func (app *ChainlinkApplication) ReplayFromBlock(ctx context.Context, chainFamil
 		if err != nil {
 			return err
 		}
-	default:
-		return errors.Errorf("Replay not implemented for chain family: %s", chainFamily)
 	}
 	return nil
 }

@@ -22,7 +22,7 @@ func TestSetNativeSurcharge(t *testing.T) {
 
 	e, err = commonChangesets.Apply(t, e, nil,
 		commonChangesets.Configure(
-			SetNativeChangeset,
+			SetNativeSurchargeChangeset,
 			SetNativeSurchargeConfig{
 				ConfigPerChain: map[uint64][]SetNativeSurcharge{
 					testutil.TestChain.Selector: {

@@ -9,7 +9,6 @@ import (
 	"github.com/ethereum/go-ethereum/common/math"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -62,7 +61,7 @@ type FeeTokenTestCase struct {
 }
 
 func RunFeeTokenTestCase(tc FeeTokenTestCase) {
-	ctx := tests.Context(tc.t)
+	ctx := tc.t.Context()
 	// Need to keep track of the block number for each chain so that event subscription can be done from that block.
 	startBlocks := make(map[uint64]*uint64)
 	expectedSeqNum := make(map[testhelpers.SourceDestPair]uint64)

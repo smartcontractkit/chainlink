@@ -207,8 +207,8 @@ func Test_DecodingCommitReport(t *testing.T) {
 		require.NoError(t, err)
 
 		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
-		tokenPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
-		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
+		tokenPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
+		gasPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
 		merkleRoot := utils.RandomBytes32()
 
 		tpu := []ccip_offramp.TokenPriceUpdate{
@@ -256,12 +256,12 @@ func Test_DecodingCommitReport(t *testing.T) {
 
 		// check decoded ocr report token price update matches with on-chain report
 		pu := decode.PriceUpdates.TokenPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(tokenPrice), pu.Price)
+		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
 		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
 
 		// check decoded ocr report gas price update matches with on-chain report
 		gu := decode.PriceUpdates.GasPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(gasPrice), gu.GasPrice)
+		require.Equal(t, decodeBEToBigInt(gasPrice), gu.GasPrice)
 		require.Equal(t, chainSel, gu.ChainSel)
 	})
 
@@ -269,8 +269,8 @@ func Test_DecodingCommitReport(t *testing.T) {
 		chainSel := cciptypes.ChainSelector(rand.Uint64())
 
 		tokenSource := solanago.MustPublicKeyFromBase58("C8WSPj3yyus1YN3yNB6YA5zStYtbjQWtpmKadmvyUXq8")
-		tokenPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
-		gasPrice := encodeBigIntToFixedLengthLE(big.NewInt(rand.Int63()), 28)
+		tokenPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
+		gasPrice := encodeBigIntToFixedLengthBE(big.NewInt(rand.Int63()), 28)
 
 		tpu := []ccip_offramp.TokenPriceUpdate{
 			{
@@ -306,12 +306,12 @@ func Test_DecodingCommitReport(t *testing.T) {
 
 		// check decoded ocr report token price update matches with on-chain report
 		pu := decode.PriceUpdates.TokenPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(tokenPrice), pu.Price)
+		require.Equal(t, decodeBEToBigInt(tokenPrice), pu.Price)
 		require.Equal(t, cciptypes.UnknownEncodedAddress(tokenSource.String()), pu.TokenID)
 
 		// check decoded ocr report gas price update matches with on-chain report
 		gu := decode.PriceUpdates.GasPriceUpdates[0]
-		require.Equal(t, decodeLEToBigInt(gasPrice), gu.GasPrice)
+		require.Equal(t, decodeBEToBigInt(gasPrice), gu.GasPrice)
 		require.Equal(t, chainSel, gu.ChainSel)
 	})
 
@@ -331,10 +331,10 @@ func Test_DecodingCommitReport(t *testing.T) {
 
 		tu := rep.PriceUpdates.TokenPriceUpdates[0]
 		require.Equal(t, tu.TokenID, cciptypes.UnknownEncodedAddress(decodedReport.PriceUpdates.TokenPriceUpdates[0].SourceToken.String()))
-		require.Equal(t, tu.Price, decodeLEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
+		require.Equal(t, tu.Price, decodeBEToBigInt(decodedReport.PriceUpdates.TokenPriceUpdates[0].UsdPerToken[:]))
 
 		gu := rep.PriceUpdates.GasPriceUpdates[0]
 		require.Equal(t, gu.ChainSel, cciptypes.ChainSelector(decodedReport.PriceUpdates.GasPriceUpdates[0].DestChainSelector))
-		require.Equal(t, gu.GasPrice, decodeLEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
+		require.Equal(t, gu.GasPrice, decodeBEToBigInt(decodedReport.PriceUpdates.GasPriceUpdates[0].UsdPerUnitGas[:]))
 	})
 }

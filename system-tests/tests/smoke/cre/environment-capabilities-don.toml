@@ -40,9 +40,16 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -58,9 +65,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -76,9 +88,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -94,9 +111,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -112,9 +134,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -126,7 +153,7 @@
       """
 
 [[nodesets]]
-  nodes = 3
+  nodes = 2
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
@@ -140,9 +167,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -158,27 +190,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -204,9 +223,14 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
 			[OCR2]
 			Enabled = true

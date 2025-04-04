@@ -10,6 +10,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/gagliardetto/solana-go"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
@@ -297,11 +298,7 @@ func BuildSetOCR3ConfigArgsSolana(
 			}
 			copy(signer[:], node.SignerKey)
 			signerAddresses = append(signerAddresses, signer)
-			// https://smartcontract-it.atlassian.net/browse/NONEVM-1254
-			key, err := solana.PublicKeyFromBase58(string(node.TransmitterKey))
-			if err != nil {
-				return nil, err
-			}
+			key := solana.PublicKeyFromBytes(node.TransmitterKey)
 			transmitterAddresses = append(transmitterAddresses, key)
 		}
 
@@ -409,9 +406,24 @@ func BuildOCR3ConfigForCCIPHome(
 
 		transmittersBytes := make([][]byte, len(transmitters))
 		for i, transmitter := range transmitters {
-			parsed, err2 := common.ParseHexOrString(string(transmitter))
-			if err2 != nil {
-				return nil, err2
+			// TODO: this should just use the addresscodec
+			family, err := chain_selectors.GetSelectorFamily(destSelector)
+			if err != nil {
+				return nil, err
+			}
+			var parsed []byte
+			switch family {
+			case chain_selectors.FamilyEVM:
+				parsed, err2 = common.ParseHexOrString(string(transmitter))
+				if err2 != nil {
+					return nil, err2
+				}
+			case chain_selectors.FamilySolana:
+				pk, err := solana.PublicKeyFromBase58(string(transmitter))
+				if err != nil {
+					return nil, fmt.Errorf("failed to decode SVM address '%s': %w", transmitter, err)
+				}
+				parsed = pk.Bytes()
 			}
 			transmittersBytes[i] = parsed
 		}

@@ -140,18 +140,41 @@ func Test_CCIPBatching_MaxBatchSizeEVM(t *testing.T) {
 	require.NoErrorf(t, err, "failed to confirm commit from chain %d", sourceChain)
 }
 
+var multiRootReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	params.CommitOffChainConfig.MultipleReportsEnabled = true
+	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+	return params
+})
+
+var multiPriceReportOverride = testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
+	params.CommitOffChainConfig.MultipleReportsEnabled = true
+	params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
+	params.CommitOffChainConfig.MaxPricesPerReport = 1
+	return params
+})
+
 func Test_CCIPBatching_MultiSource(t *testing.T) {
 	ccipBatchingMultiSource(t)
 }
 
-func Test_CCIPBatching_MultiSource_MultiReports(t *testing.T) {
-	t.Skip("TODO: fix flaky test.")
-	opt := testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-		params.CommitOffChainConfig.MultipleReportsEnabled = true
-		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
-		return params
-	})
-	ccipBatchingMultiSource(t, opt)
+func Test_CCIPBatching_MultiSource_MultiRoot(t *testing.T) {
+	ccipBatchingMultiSource(t, multiRootReportOverride)
+}
+
+func Test_CCIPBatching_MultiSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
+}
+
+func Test_CCIPBatching_SingleSource(t *testing.T) {
+	ccipBatchingSingleSource(t)
+}
+
+func Test_CCIPBatching_SingleSource_MultiRoot(t *testing.T) {
+	ccipBatchingMultiSource(t, multiRootReportOverride)
+}
+
+func Test_CCIPBatching_SingleSource_MultiPrice(t *testing.T) {
+	ccipBatchingMultiSource(t, multiPriceReportOverride)
 }
 
 func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
@@ -277,20 +300,6 @@ func ccipBatchingMultiSource(t *testing.T, opts ...testhelpers.TestOps) {
 			require.Equal(t, testhelpers.EXECUTION_STATE_SUCCESS, state)
 		}
 	}
-}
-
-func Test_CCIPBatching_SingleSource(t *testing.T) {
-	ccipBatchingSingleSource(t)
-}
-
-func Test_CCIPBatching_SingleSource_MultipleReports(t *testing.T) {
-	t.Skip("TODO: fix flaky test.")
-	opt := testhelpers.WithOCRConfigOverride(func(params v1_6.CCIPOCRParams) v1_6.CCIPOCRParams {
-		params.CommitOffChainConfig.MultipleReportsEnabled = true
-		params.CommitOffChainConfig.MaxMerkleRootsPerReport = 1
-		return params
-	})
-	ccipBatchingSingleSource(t, opt)
 }
 
 func ccipBatchingSingleSource(t *testing.T, opts ...testhelpers.TestOps) {

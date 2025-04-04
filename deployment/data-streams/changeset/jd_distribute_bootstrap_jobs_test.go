@@ -12,7 +12,6 @@ import (
 )
 
 func TestDistributeBootstrapJobSpecs(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-196")
 	t.Parallel()
 
 	e := testutil.NewMemoryEnv(t, false, 1)
@@ -21,7 +20,8 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 	chainSelector := e.AllChainSelectors()[0]
 
 	// insert a Configurator address for the given DON
-	err := e.ExistingAddresses.Save(chainSelector, "0x4170ed0880ac9a755fd29b2688956bd959f923f4",
+	configuratorAddr := "0x4170ed0880ac9a755fd29b2688956bd959f923f4"
+	err := e.ExistingAddresses.Save(chainSelector, configuratorAddr,
 		deployment.TypeAndVersion{
 			Type:    "Configurator",
 			Version: deployment.Version1_0_0,
@@ -37,6 +37,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 			EnvLabel: "env",
 			Size:     0,
 		},
+		ConfiguratorAddress: configuratorAddr,
 	}
 
 	tests := []struct {
@@ -66,7 +67,7 @@ func TestDistributeBootstrapJobSpecs(t *testing.T) {
 				require.NoError(t, err)
 			} else {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.wantErr)
+				require.Contains(t, err.Error(), *tt.wantErr)
 			}
 		})
 	}

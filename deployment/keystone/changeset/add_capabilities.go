@@ -37,7 +37,7 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cs, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	cs, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: env.ExistingAddresses,
 	})
@@ -49,7 +49,7 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 		return deployment.ChangesetOutput{}, fmt.Errorf("contract set not found for chain %d", req.RegistryChainSel)
 	}
 	useMCMS := req.MCMSConfig != nil
-	ops, err := internal.AddCapabilities(env.Logger, contractSet.CapabilitiesRegistry, env.Chains[req.RegistryChainSel], req.Capabilities, useMCMS)
+	ops, err := internal.AddCapabilities(env.Logger, contractSet.CapabilitiesRegistry.Contract, env.Chains[req.RegistryChainSel], req.Capabilities, useMCMS)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to add capabilities: %w", err)
 	}
@@ -59,10 +59,10 @@ func AddCapabilities(env deployment.Environment, req *AddCapabilitiesRequest) (d
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			registryChain.Selector: contractSet.Timelock.Address().Hex(),
+			registryChain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			registryChain.Selector: contractSet.ProposerMcm.Address().Hex(),
+			registryChain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

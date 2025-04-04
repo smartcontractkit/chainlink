@@ -95,6 +95,32 @@ runs:
         restore-keys: |
           ${{ runner.os }}-gomod-${{ inputs.cache-version }}-
 
+    - name: Build Cache Key
+      id: build-cache-keys
+      shell: bash
+      env:
+        CACHE_VERSION: ${{ inputs.build-cache-version || inputs.cache-version }}
+        CURRENT_BRANCH: ${{ steps.branch-name.outputs.current_branch }}
+        RUNNER_OS: ${{ runner.os }}
+      # Build the cache keys here so that we can guarantee that the cache keys are the same
+      # across the conditional steps below.
+      # --
+      # We use a SHA and the branch name in the cache key, so that build caches can be "upserted".
+      # As a PR progresses, it will continue to use a cache that is relevant to a recent commit.
+      #
+      # If the cache is only created once and reused over the life of a PR, then it will become stale over time.
+      # As the cache would be populated on the first run, and then never updated again.
+      run: |
+        SHORT_SHA=$(echo $GITHUB_SHA | cut -c1-7)
+
+        DEVELOP_KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}-develop-"
+        KEY_PREFIX="${RUNNER_OS}-gobuild-${CACHE_VERSION}-${CURRENT_BRANCH}-"
+        PRIMARY_KEY="${KEY_PREFIX}${SHORT_SHA}"
+
+        echo "primary-key=${PRIMARY_KEY}" >> $GITHUB_OUTPUT
+        echo "key-prefix=${KEY_PREFIX}" >> $GITHUB_OUTPUT
+        echo "develop-key-prefix=${DEVELOP_KEY_PREFIX}" >> $GITHUB_OUTPUT
+
     - uses: actions/cache/restore@v4
       name: Cache Go Build Outputs (restore)
       # For certain events, we don't necessarily want to create a build cache, but we will benefit from restoring from one.
@@ -102,20 +128,20 @@ runs:
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
-        key: ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        key: ${{ steps.build-cache-keys.outputs.primary-key }}
         restore-keys: |
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
+          ${{ steps.build-cache-keys.outputs.key-prefix }}
+          ${{ steps.build-cache-keys.outputs.develop-key-prefix }}
 
     - uses: actions/cache@v4
       # don't save cache on merge queue events
       if: ${{ inputs.only-modules == 'false' && (github.event_name != 'merge_group' && inputs.restore-build-cache-only == 'false') }}
+      id: build-cache
       name: Cache Go Build Outputs
       with:
         path: |
           ${{ steps.go-cache-dir.outputs.gobuildcache }}
-        # The lifetime of go build outputs is pretty short, so we make our primary cache key be the branch name
-        key: ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-${{ steps.branch-name.outputs.current_branch }}
+        key: ${{ steps.build-cache-keys.outputs.primary-key }}
         restore-keys: |
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-develop
-          ${{ runner.os }}-gobuild-${{ inputs.build-cache-version || inputs.cache-version }}-${{ hashFiles(steps.go-module-path.outputs.path) }}-
+          ${{ steps.build-cache-keys.outputs.key-prefix }}
+          ${{ steps.build-cache-keys.outputs.develop-key-prefix }}
