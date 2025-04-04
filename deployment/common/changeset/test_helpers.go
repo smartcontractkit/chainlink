@@ -98,8 +98,6 @@ func ApplyChangesets(t *testing.T, e deployment.Environment, timelockContractsPe
 			}
 		}
 		if out.MCMSTimelockProposals != nil {
-			// ExistingAddresses on environment loading can contain new addresses.
-			e.ExistingAddresses = addresses
 			for _, prop := range out.MCMSTimelockProposals {
 				mcmProp := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
 				// return the error so devs can ensure expected reversions
@@ -159,6 +157,20 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
+
+		// Updated environment is required before executing proposals when proposals involve new addresses
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			SolChains:         e.SolChains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
+		}
+
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				chains := mapset.NewSet[uint64]()
@@ -166,12 +178,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
-				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
@@ -184,23 +196,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
 			}
-		}
-		currentEnv = deployment.Environment{
-			Name:              e.Name,
-			Logger:            e.Logger,
-			ExistingAddresses: addresses,
-			Chains:            e.Chains,
-			SolChains:         e.SolChains,
-			NodeIDs:           e.NodeIDs,
-			Offchain:          e.Offchain,
-			OCRSecrets:        e.OCRSecrets,
-			GetContext:        e.GetContext,
 		}
 	}
 	return currentEnv, nil
