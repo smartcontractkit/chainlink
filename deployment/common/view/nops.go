@@ -54,16 +54,16 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 	if errors.Is(err, deployment.ErrMissingNodeMetadata) {
 		fmt.Printf("WARNING: Missing node metadata:\n%s", err.Error())
 	} else if err != nil {
-		return nv, err
+		return nv, fmt.Errorf("failed to get node info: %w", err)
 	}
 	for _, node := range nodes {
 		// get node info
 		nodeDetails, err := oc.GetNode(context.Background(), &nodev1.GetNodeRequest{Id: node.NodeID})
 		if err != nil {
-			return nv, errors.Wrapf(err, "failed to get node details from offchain client for node %s", node.NodeID)
+			return nv, errors.Wrapf(err, "failed to get node details from offchain client for node %s", node.Name)
 		}
 		if nodeDetails == nil || nodeDetails.Node == nil {
-			return nv, fmt.Errorf("failed to get node details from offchain client for node %s", node.NodeID)
+			return nv, fmt.Errorf("failed to get node details from offchain client for node %s", node.Name)
 		}
 		nodeName := nodeDetails.Node.Name
 		if nodeName == "" {
@@ -78,7 +78,7 @@ func GenerateNopsView(nodeIDs []string, oc deployment.OffchainClient) (map[strin
 		}
 		jobspecs, err := approvedJobspecs(context.Background(), node.NodeID, oc)
 		if err != nil {
-			return nv, errors.Wrapf(err, "failed to get approved jobspecs for node %s", node.NodeID)
+			return nv, errors.Wrapf(err, "failed to get approved jobspecs for node %s", node.Name)
 		}
 		nop := NopView{
 			NodeID:           node.NodeID,

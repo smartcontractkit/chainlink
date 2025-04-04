@@ -60,28 +60,20 @@ func (cb *contractBinding) AddReaderNamed(name string, rdr Reader) {
 
 // Bind binds contract addresses to contract binding and registers the common contract polling filter.
 func (cb *contractBinding) Bind(ctx context.Context, registrar Registrar, bindings ...common.Address) error {
-	if cb.isBound() {
-		if err := cb.Unregister(ctx, registrar); err != nil {
-			return err
-		}
-	}
-
 	for _, binding := range bindings {
 		if cb.bindingExists(binding) {
 			continue
 		}
 
-		cb.registrar.SetName(logpoller.FilterName(cb.name + "." + uuid.NewString()))
 		cb.registrar.AddAddress(binding)
 		cb.addBinding(binding)
 	}
 
-	// registerCalled during ChainReader start
-	if cb.registered() {
-		return cb.Register(ctx, registrar)
+	if !cb.registrar.Dirty() {
+		return nil
 	}
 
-	return nil
+	return cb.Update(ctx, registrar)
 }
 
 func (cb *contractBinding) BindReaders(ctx context.Context, addresses ...common.Address) error {
@@ -157,6 +149,21 @@ func (cb *contractBinding) Register(ctx context.Context, registrar Registrar) er
 	}
 
 	return nil
+}
+
+func (cb *contractBinding) Update(ctx context.Context, registrar Registrar) error {
+	name := logpoller.FilterName(cb.name + "." + uuid.NewString())
+
+	if !cb.registered() {
+		cb.registrar.SetName(name)
+		return nil
+	}
+
+	if !cb.registrar.HasEventSigs() {
+		return nil
+	}
+
+	return cb.registrar.Update(ctx, registrar, name)
 }
 
 func (cb *contractBinding) RegisterReaders(ctx context.Context) error {
