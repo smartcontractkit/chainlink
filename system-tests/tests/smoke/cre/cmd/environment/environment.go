@@ -44,6 +44,7 @@ var EnvironmentCmd = &cobra.Command{
 
 func init() {
 	EnvironmentCmd.AddCommand(startCmd)
+	EnvironmentCmd.AddCommand(stopCmd)
 	EnvironmentCmd.AddCommand(DeployAndSetupKeystoneConsumerCmd)
 
 	// add flags to the command
@@ -74,7 +75,6 @@ func init() {
 
 const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
 
-// update e2e-test.ysml with new command
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the environment",
@@ -125,6 +125,21 @@ var startCmd = &cobra.Command{
 		fmt.Println("Environment started successfully")
 		fmt.Println("To terminate execute: ctf d rm")
 
+		return nil
+	},
+}
+
+var stopCmd = &cobra.Command{
+	Use:   "stop",
+	Short: "Stops the environment",
+	Long:  `Stops the local CRE environment (if it's not running, it just fallsthrough)`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		removeErr := framework.RemoveTestContainers()
+		if removeErr != nil {
+			fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
+		}
+
+		fmt.Println("Environment stopped successfully")
 		return nil
 	},
 }
