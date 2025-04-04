@@ -32,7 +32,11 @@
     "_comment": "See https://github.com/ethers-io/ethers.js/discussions/2849#discussioncomment-2696454",
     "_comment2_logger": "See https://github.com/ethers-io/ethers.js/issues/379 we pin this version since that's what was used in the old yarn lockfile",
     "overrides": {
-      "@ethersproject/logger": "5.0.6"
+      "@ethersproject/logger": "5.0.6",
+      "@ethersproject/providers@5.7.2>ws": "7.5.10",
+      "@openzeppelin/contracts-upgradeable": "4.9.6",
+      "@openzeppelin/contracts": "4.9.6",
+      "cookie": "^0.7.0"
     },
     "onlyBuiltDependencies": [
       "// keccak@3.0.4, secp256k1@4.0.4 run node-gyp-build during install",
@@ -88,7 +92,7 @@
   },
   "dependencies": {
     "@arbitrum/nitro-contracts": "3.0.0",
-    "@changesets/cli": "~2.27.12",
+    "@changesets/cli": "~2.28.1",
     "@changesets/get-github-info": "^0.6.0",
     "@eth-optimism/contracts": "0.6.0",
     "@openzeppelin/contracts": "4.9.6",

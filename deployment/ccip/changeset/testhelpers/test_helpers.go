@@ -110,14 +110,48 @@ func Context(tb testing.TB) context.Context {
 	return ctx
 }
 
-func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64) {
+// ReplayLogsOption represents an option for the ReplayLogs function
+type ReplayLogsOption func(*replayLogsOptions)
+
+type replayLogsOptions struct {
+	assertOnError bool
+}
+
+// WithAssertOnError configures whether ReplayLogs should assert on errors
+func WithAssertOnError(assert bool) ReplayLogsOption {
+	return func(opts *replayLogsOptions) {
+		opts.assertOnError = assert
+	}
+}
+
+// ReplayLogs replays logs for the given blocks using the provided offchain client.
+// By default, it will assert on errors. Use WithAssertOnError(false) to change this behavior.
+func ReplayLogs(t *testing.T, oc deployment.OffchainClient, replayBlocks map[uint64]uint64, opts ...ReplayLogsOption) {
+	options := &replayLogsOptions{
+		assertOnError: true,
+	}
+
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	var err error
+
 	switch oc := oc.(type) {
 	case *memory.JobClient:
-		require.NoError(t, oc.ReplayLogs(t.Context(), replayBlocks))
+		err = oc.ReplayLogs(t.Context(), replayBlocks)
 	case *devenv.JobDistributor:
-		require.NoError(t, oc.ReplayLogs(replayBlocks))
+		err = oc.ReplayLogs(replayBlocks)
 	default:
 		t.Fatalf("unsupported offchain client type %T", oc)
+	}
+
+	if err != nil {
+		if options.assertOnError {
+			require.NoError(t, err)
+		} else {
+			t.Logf("failed to replay logs: %v", err)
+		}
 	}
 }
 

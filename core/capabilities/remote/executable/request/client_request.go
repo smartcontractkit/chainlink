@@ -9,18 +9,16 @@ import (
 	"sync"
 	"time"
 
+	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
-	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
-
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
-
-	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
+
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/transmission"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/validation"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
@@ -31,14 +29,15 @@ type clientResponse struct {
 }
 
 type ClientRequest struct {
-	id               string
-	cancelFn         context.CancelFunc
-	responseCh       chan clientResponse
-	createdAt        time.Time
-	responseIDCount  map[[32]byte]int
-	errorCount       map[string]int
-	responseReceived map[p2ptypes.PeerID]bool
-	lggr             logger.Logger
+	id                string
+	cancelFn          context.CancelFunc
+	responseCh        chan clientResponse
+	createdAt         time.Time
+	responseIDCount   map[[32]byte]int
+	meteringResponses map[[32]byte][]commoncap.MeteringNodeDetail
+	errorCount        map[string]int
+	responseReceived  map[p2ptypes.PeerID]bool
+	lggr              logger.Logger
 
 	requiredIdenticalResponses int
 
@@ -50,7 +49,7 @@ type ClientRequest struct {
 }
 
 func NewClientExecuteRequest(ctx context.Context, lggr logger.Logger, req commoncap.CapabilityRequest,
-	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo capabilities.DON, dispatcher types.Dispatcher,
+	remoteCapabilityInfo commoncap.CapabilityInfo, localDonInfo commoncap.DON, dispatcher types.Dispatcher,
 	requestTimeout time.Duration) (*ClientRequest, error) {
 	rawRequest, err := proto.MarshalOptions{Deterministic: true}.Marshal(pb.CapabilityRequestToProto(req))
 	if err != nil {
@@ -168,6 +167,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		requestTimeout:             requestTimeout,
 		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
 		responseIDCount:            make(map[[32]byte]int),
+		meteringResponses:          make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                 make(map[string]int),
 		responseReceived:           responseReceived,
 		responseCh:                 make(chan clientResponse, 1),
@@ -229,25 +229,52 @@ func (c *ClientRequest) OnMessage(_ context.Context, msg *types.MessageBody) err
 	c.responseReceived[sender] = true
 
 	if msg.Error == types.Error_OK {
-		responseID := sha256.Sum256(msg.Payload)
-		c.responseIDCount[responseID]++
+		// metering reports per node are aggregated into a single array of values. for any single node message, the
+		// metering values are extracted from the CapabilityResponse, added to an array, and the CapabilityResponse
+		// is marshalled without the metering value to get the hash. each node could have a different metering value
+		// which would result in different hashes. removing the metering detail allows for direct comparison of results.
+		responseID, metadata, err := c.getMessageHashAndMetadata(msg)
+		if err != nil {
+			return fmt.Errorf("failed to get message hash: %w", err)
+		}
 
-		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "count", c.responseIDCount[responseID], "requiredCount", c.requiredIdenticalResponses, "peer", sender)
-		lggr.Debug("received response from peer")
+		lggr := c.lggr.With("responseID", hex.EncodeToString(responseID[:]), "requiredCount", c.requiredIdenticalResponses, "peer", sender)
+
+		nodeReports, exists := c.meteringResponses[responseID]
+		if !exists {
+			nodeReports = make([]commoncap.MeteringNodeDetail, 0)
+		}
+
+		if len(metadata.Metering) == 1 {
+			rpt := metadata.Metering[0]
+			rpt.Peer2PeerID = sender.String()
+
+			nodeReports = append(nodeReports, rpt)
+		} else {
+			lggr.Errorw("node metering detail did not contain exactly 1 record", "records", len(metadata.Metering))
+		}
+
+		c.responseIDCount[responseID]++
+		c.meteringResponses[responseID] = nodeReports
 
 		if len(c.responseIDCount) > 1 {
 			lggr.Warn("received multiple different responses for the same request, number of different responses received: %d", len(c.responseIDCount))
 		}
 
 		if c.responseIDCount[responseID] == c.requiredIdenticalResponses {
-			c.sendResponse(clientResponse{Result: msg.Payload})
+			payload, err := c.encodePayloadWithMetadata(msg, commoncap.ResponseMetadata{Metering: nodeReports})
+			if err != nil {
+				return fmt.Errorf("failed to encode payload with metadata: %w", err)
+			}
+
+			c.sendResponse(clientResponse{Result: payload})
 		}
 	} else {
 		c.lggr.Debugw("received error from peer", "error", msg.Error, "errorMsg", msg.ErrorMsg, "peer", sender)
 		c.errorCount[msg.ErrorMsg]++
 
 		if len(c.errorCount) > 1 {
-			c.lggr.Warn("received multiple different errors for the same request, number of different errors received", "errorCount", len(c.errorCount))
+			c.lggr.Warn("received multiple different errors for the same request, number of different errors received: %d", len(c.errorCount))
 		}
 
 		if c.errorCount[msg.ErrorMsg] == c.requiredIdenticalResponses {
@@ -266,4 +293,34 @@ func (c *ClientRequest) sendResponse(response clientResponse) {
 		return
 	}
 	c.lggr.Debugw("received OK response", "count", c.requiredIdenticalResponses)
+}
+
+func (c *ClientRequest) getMessageHashAndMetadata(msg *types.MessageBody) ([32]byte, commoncap.ResponseMetadata, error) {
+	var metadata commoncap.ResponseMetadata
+
+	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+	if err != nil {
+		return [32]byte{}, metadata, err
+	}
+
+	metadata = resp.Metadata
+	resp.Metadata = commoncap.ResponseMetadata{}
+
+	payload, err := pb.MarshalCapabilityResponse(resp)
+	if err != nil {
+		return [32]byte{}, metadata, err
+	}
+
+	return sha256.Sum256(payload), metadata, nil
+}
+
+func (c *ClientRequest) encodePayloadWithMetadata(msg *types.MessageBody, metadata commoncap.ResponseMetadata) ([]byte, error) {
+	resp, err := pb.UnmarshalCapabilityResponse(msg.Payload)
+	if err != nil {
+		return nil, err
+	}
+
+	resp.Metadata = metadata
+
+	return pb.MarshalCapabilityResponse(resp)
 }

@@ -18,7 +18,6 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/remote"
 	remotetypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/remote/types"
@@ -84,7 +83,6 @@ func randomWord() [32]byte {
 
 func TestLauncher(t *testing.T) {
 	t.Run("OK-wires_up_external_capabilities", func(t *testing.T) {
-		ctx := tests.Context(t)
 		lggr := logger.TestLogger(t)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
@@ -111,7 +109,7 @@ func TestLauncher(t *testing.T) {
 			capabilities.CapabilityTypeTrigger,
 			"streams trigger",
 		))
-		require.NoError(t, registry.Add(ctx, mt))
+		require.NoError(t, registry.Add(t.Context(), mt))
 
 		fullTargetID := "write-chain_evm_1@1.0.0"
 		mtarg := &mockCapability{
@@ -121,7 +119,7 @@ func TestLauncher(t *testing.T) {
 				"write chain",
 			),
 		}
-		require.NoError(t, registry.Add(ctx, mtarg))
+		require.NoError(t, registry.Add(t.Context(), mtarg))
 
 		triggerCapID := randomWord()
 		targetCapID := randomWord()
@@ -208,13 +206,12 @@ func TestLauncher(t *testing.T) {
 		dispatcher.On("SetReceiver", fullTriggerCapID, dID, mock.AnythingOfType("*remote.triggerPublisher")).Return(nil)
 		dispatcher.On("SetReceiver", fullTargetID, dID, mock.AnythingOfType("*executable.server")).Return(nil)
 
-		err = launcher.Launch(ctx, state)
+		err = launcher.Launch(t.Context(), state)
 		require.NoError(t, err)
 		defer launcher.Close()
 	})
 
 	t.Run("NOK-invalid_trigger_capability", func(t *testing.T) {
-		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
@@ -244,7 +241,7 @@ func TestLauncher(t *testing.T) {
 				"wrong type capability",
 			),
 		}
-		require.NoError(t, registry.Add(ctx, mtarg))
+		require.NoError(t, registry.Add(t.Context(), mtarg))
 
 		triggerCapID := randomWord()
 
@@ -315,7 +312,7 @@ func TestLauncher(t *testing.T) {
 			&mockDonNotifier{},
 		)
 
-		err = launcher.Launch(ctx, state)
+		err = launcher.Launch(t.Context(), state)
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a trigger capability - it won't be exposed remotely").Len())
@@ -323,7 +320,6 @@ func TestLauncher(t *testing.T) {
 	})
 
 	t.Run("NOK-invalid_target_capability", func(t *testing.T) {
-		ctx := tests.Context(t)
 		lggr, observedLogs := logger.TestLoggerObserved(t, zapcore.DebugLevel)
 		registry := NewRegistry(lggr)
 		dispatcher := remoteMocks.NewDispatcher(t)
@@ -350,7 +346,7 @@ func TestLauncher(t *testing.T) {
 			capabilities.CapabilityTypeTrigger,
 			"streams trigger",
 		))
-		require.NoError(t, registry.Add(ctx, mt))
+		require.NoError(t, registry.Add(t.Context(), mt))
 
 		targetCapID := randomWord()
 		dID := uint32(1)
@@ -420,7 +416,7 @@ func TestLauncher(t *testing.T) {
 			&mockDonNotifier{},
 		)
 
-		err = launcher.Launch(ctx, state)
+		err = launcher.Launch(t.Context(), state)
 		require.NoError(t, err)
 
 		assert.Equal(t, 1, observedLogs.FilterMessage("failed to add server-side receiver for a target capability - it won't be exposed remotely").Len())
@@ -457,7 +453,7 @@ func newTriggerEventMsg(t *testing.T,
 }
 
 func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
-	ctx := tests.Context(t)
+	ctx := t.Context()
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -667,7 +663,6 @@ func TestLauncher_RemoteTriggerModeAggregatorShim(t *testing.T) {
 }
 
 func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
-	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -768,7 +763,7 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 	// If the DON were public, this would fail with two errors:
 	// - error fetching the capabilities from the registry since they haven't been added
 	// - erroneous calls to dispatcher.SetReceiver, since the call hasn't been registered.
-	err = launcher.Launch(ctx, state)
+	err = launcher.Launch(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
@@ -777,7 +772,6 @@ func TestSyncer_IgnoresCapabilitiesForPrivateDON(t *testing.T) {
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
-	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -934,19 +928,18 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDON(t *testing.T) {
 	dispatcher.On("SetReceiver", fullTriggerCapID, capDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 	dispatcher.On("SetReceiver", fullTargetID, capDonID, mock.AnythingOfType("*executable.client")).Return(nil)
 
-	err = launcher.Launch(ctx, state)
+	err = launcher.Launch(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
-	_, err = registry.Get(ctx, fullTriggerCapID)
+	_, err = registry.Get(t.Context(), fullTriggerCapID)
 	require.NoError(t, err)
 
-	_, err = registry.Get(ctx, fullTargetID)
+	_, err = registry.Get(t.Context(), fullTargetID)
 	require.NoError(t, err)
 }
 
 func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilities(t *testing.T) {
-	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -1099,16 +1092,15 @@ func TestLauncher_WiresUpClientsForPublicWorkflowDONButIgnoresPrivateCapabilitie
 
 	dispatcher.On("SetReceiver", fullTriggerCapID, triggerCapDonID, mock.AnythingOfType("*remote.triggerSubscriber")).Return(nil)
 
-	err = launcher.Launch(ctx, state)
+	err = launcher.Launch(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 
-	_, err = registry.Get(ctx, fullTriggerCapID)
+	_, err = registry.Get(t.Context(), fullTriggerCapID)
 	require.NoError(t, err)
 }
 
 func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
-	ctx := tests.Context(t)
 	lggr := logger.TestLogger(t)
 	registry := NewRegistry(lggr)
 	dispatcher := remoteMocks.NewDispatcher(t)
@@ -1128,7 +1120,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		capabilities.CapabilityTypeTrigger,
 		"streams trigger",
 	))
-	require.NoError(t, registry.Add(ctx, mt))
+	require.NoError(t, registry.Add(t.Context(), mt))
 
 	workflowDonNodes := []p2ptypes.PeerID{
 		randomWord(),
@@ -1248,7 +1240,7 @@ func TestLauncher_SucceedsEvenIfDispatcherAlreadyHasReceiver(t *testing.T) {
 		&mockDonNotifier{},
 	)
 
-	err = launcher.Launch(ctx, state)
+	err = launcher.Launch(t.Context(), state)
 	require.NoError(t, err)
 	defer launcher.Close()
 }

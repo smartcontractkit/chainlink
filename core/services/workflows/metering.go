@@ -140,6 +140,7 @@ func (r *MeteringReport) SetStep(ref MeteringReportStepRef, steps []MeteringRepo
 	if _, ok := r.steps[ref]; ok {
 		return errors.New("step already exists")
 	}
+
 	r.steps[ref] = steps
 
 	return nil

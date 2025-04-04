@@ -75,7 +75,7 @@ const lloStreamsWorkflow = `
 name: "%s"
 owner: "0x%s"
 triggers:
-  - id: "streams-trigger@2.0.0"
+  - id: "streams-trigger:don_16nodes@2.0.0"
     config:
       feedIds:
 %s

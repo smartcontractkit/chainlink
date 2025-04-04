@@ -45,6 +45,8 @@
 
     [nodesets.node_specs.node]
       image = "injected-at-runtime"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
       user_config_overrides = """
       [Feature]
 			LogPoller = true

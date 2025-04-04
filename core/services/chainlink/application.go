@@ -207,8 +207,6 @@ type ApplicationOpts struct {
 	LLOTransmissionReaper    services.ServiceCtx
 	NewOracleFactoryFn       standardcapabilities.NewOracleFactoryFn
 	EVMFactoryConfigFn       func(*EVMFactoryConfig)
-	FetcherFunc              artifacts.FetcherFunc
-	FetcherFactoryFn         compute.FetcherFactory
 }
 
 type Heartbeat struct {
