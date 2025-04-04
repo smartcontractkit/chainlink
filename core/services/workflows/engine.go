@@ -1535,7 +1535,6 @@ func emitProtoMessage(ctx context.Context, msg proto.Message, entity string) err
 		"beholder_entity", entity) // required
 }
 
-// emitExecutionStartedEvent emits a WorkflowExecutionStarted event.
 func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, triggerID string) error {
 	metadata := buildWorkflowMetadata(cma.Labels())
 
@@ -1548,7 +1547,6 @@ func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, 
 	return emitProtoMessage(ctx, event, "WorkflowExecutionStarted")
 }
 
-// emitExecutionFinishedEvent emits a WorkflowExecutionFinished event.
 func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string) error {
 	metadata := buildWorkflowMetadata(cma.Labels())
 
@@ -1561,7 +1559,6 @@ func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event, "WorkflowExecutionFinished")
 }
 
-// emitCapabilityStartedEvent emits a CapabilityExecutionStarted event.
 func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
 	metadata := buildWorkflowMetadata(cma.Labels())
 
@@ -1575,7 +1572,6 @@ func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 	return emitProtoMessage(ctx, event, "CapabilityExecutionStarted")
 }
 
-// emitCapabilityFinishedEvent emits a CapabilityExecutionFinished event.
 func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
 	metadata := buildWorkflowMetadata(cma.Labels())
 
