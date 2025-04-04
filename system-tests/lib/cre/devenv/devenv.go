@@ -45,9 +45,14 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		},
 	}
 
-	for i, nodeOutput := range input.NodeSetOutput {
-		// assume that each nodeset has only one bootstrap node
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
+	for idx, nodeOutput := range input.NodeSetOutput {
+		// check how many bootstrap nodes we have in each DON
+		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.BootstrapNode}, libnode.EqualLabels)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		}
+
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -76,8 +81,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			return nil, errors.Wrap(err, "failed to create environment")
 		}
 
-		envs[i] = env
-		dons[i] = don
+		envs[idx] = env
+		dons[idx] = don
 	}
 
 	var nodeIDs []string
