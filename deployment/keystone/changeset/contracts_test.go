@@ -154,7 +154,7 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 		assert.Equal(t, deployment.Version1_0_0, tv.Version)
 	})
 
-	t.Run("errors when owner not in address book", func(t *testing.T) {
+	t.Run("nil owner when owner not in address book", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -173,16 +173,14 @@ func TestGetOwnerTypeAndVersion(t *testing.T) {
 			targetAddrStr = addr
 			break // Just take the first one
 		}
-
 		addrBook := env.ExistingAddresses
-
 		contract, err := changeset.GetOwnableContract[*capabilities_registry.CapabilitiesRegistry](addrBook, chain, &targetAddrStr)
 		require.NoError(t, err)
 
-		_, err = changeset.GetOwnerTypeAndVersion(*contract, addrBook, chain)
+		ownerTV, err := changeset.GetOwnerTypeAndVersion(*contract, addrBook, chain)
 
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "not found in address book")
+		require.NoError(t, err)
+		assert.Nil(t, ownerTV)
 	})
 }
 
@@ -282,7 +280,7 @@ func TestNewOwnable(t *testing.T) {
 		assert.NotNil(t, ownedContract.McmsContracts)
 	})
 
-	t.Run("handles error when owner type lookup fails", func(t *testing.T) {
+	t.Run("no error when owner type lookup fails due to missing address on address book (it is non-MCMS owned)", func(t *testing.T) {
 		t.Parallel()
 
 		env := memory.NewMemoryEnvironment(t, lggr, zapcore.DebugLevel, cfg)
@@ -309,11 +307,13 @@ func TestNewOwnable(t *testing.T) {
 		contract, err := changeset.GetOwnableContract[*capabilities_registry.CapabilitiesRegistry](addrBook, chain, &targetAddrStr)
 		require.NoError(t, err)
 
-		// Don't add owner to address book, so lookup will fail
+		// Don't add owner to address book, so lookup will return nil TV and no error
 
-		// Call NewOwnable, should fail because owner is not in address book
-		_, err = changeset.NewOwnable(*contract, addrBook, chain)
-		require.Error(t, err)
-		assert.Contains(t, err.Error(), "failed to get owner type and version")
+		// Call NewOwnable, should not fail because owner is not in address book, but should return a non-MCMS contract
+		ownableContract, err := changeset.NewOwnable(*contract, addrBook, chain)
+		require.NoError(t, err)
+		assert.NotNil(t, ownableContract)
+		assert.Nil(t, ownableContract.McmsContracts)
+		assert.Equal(t, (*contract).Address(), ownableContract.Contract.Address())
 	})
 }
