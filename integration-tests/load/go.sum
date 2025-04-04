@@ -124,10 +124,10 @@ github.com/Masterminds/sprig/v3 v3.3.0 h1:mQh0Yrg1XPo6vjYXgtf5OtijNAKJRNcTdOOGZe
 github.com/Masterminds/sprig/v3 v3.3.0/go.mod h1:Zy1iXRYNqNLUolqCpL4uhk6SHUMAOSCzdgBfDb35Lz0=
 github.com/Microsoft/go-winio v0.6.2 h1:F2VQgta7ecxGYO8k3ZZz3RS8fVIXVxONVUPlNERoyfY=
 github.com/Microsoft/go-winio v0.6.2/go.mod h1:yd8OoFMLzJbo9gZq8j5qaps8bJ9aShtEA8Ipt1oGCvU=
-github.com/NethermindEth/juno v0.3.1 h1:AW72LiAm9gqUeCVJWvepnZcTnpU4Vkl0KzPMxS+42FA=
-github.com/NethermindEth/juno v0.3.1/go.mod h1:SGbTpgGaCsxhFsKOid7Ylnz//WZ8swtILk+NbHGsk/Q=
-github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb h1:Mv8SscePPyw2ju4igIJAjFgcq5zCQfjgbz53DwYu5mc=
-github.com/NethermindEth/starknet.go v0.7.1-0.20240401080518-34a506f3cfdb/go.mod h1:gQkhWpAs9/QR6reZU2xoi1UIYlMS64FLTlh9CrgHH/Y=
+github.com/NethermindEth/juno v0.12.5 h1:a+KYQg8MxzNJIbbqGHq+vU9nTyuWu3acbyXxcUPUDOY=
+github.com/NethermindEth/juno v0.12.5/go.mod h1:XonWmZVRwCVHv1gjoVCoTFiZnYObwdukpd3NCsl04bA=
+github.com/NethermindEth/starknet.go v0.8.0 h1:mGh7qDWrvuXJPcgGJP31DpifzP6+Ef2gt/BQhaqsV40=
+github.com/NethermindEth/starknet.go v0.8.0/go.mod h1:slNA8PxtxA/0LQv0FwHnL3lHFDNhVZfTK6U2gjVb7l8=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 h1:TngWCqHvy9oXAN6lEVMRuU21PR1EtLVZJmdB18Gu3Rw=
 github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5/go.mod h1:lmUJ/7eu/Q8D7ML55dXQrVaamCz2vxCfdQBasLZfHKk=
 github.com/VictoriaMetrics/fastcache v1.12.2 h1:N0y9ASrJ0F6h0QaC3o6uJb3NIZ9VKLjCM7NQbSmF7WI=
@@ -1416,8 +1416,8 @@ github.com/smartcontractkit/chain-selectors v1.0.47 h1:hQ2icGwDv2NklB1J3krLVZkaf
 github.com/smartcontractkit/chain-selectors v1.0.47/go.mod h1:xsKM0aN3YGcQKTPRPDDtPx2l4mlTN1Djmg0VVXV40b8=
 github.com/smartcontractkit/chainlink-automation v0.8.1 h1:sTc9LKpBvcKPc1JDYAmgBc2xpDKBco/Q4h4ydl6+UUU=
 github.com/smartcontractkit/chainlink-automation v0.8.1/go.mod h1:Iij36PvWZ6blrdC5A/nrQUBuf3MH3JvsBB9sSyc9W08=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250401173720-f1ced171b753 h1:qDm22uxMu/tqgGDF9DzXLLcIctGycyTk15RFVePyJ+g=
-github.com/smartcontractkit/chainlink-ccip v0.0.0-20250401173720-f1ced171b753/go.mod h1:wfLn6WlF9eNrzxcVKg53DL/Zydus0J5oHFEYuLQcT/Y=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250403143043-d2fd3633f485 h1:0q5hqlZqt2A+rcAwCGomoiMYvR4FLLTFtEI4A/HprNQ=
+github.com/smartcontractkit/chainlink-ccip v0.0.0-20250403143043-d2fd3633f485/go.mod h1:wfLn6WlF9eNrzxcVKg53DL/Zydus0J5oHFEYuLQcT/Y=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331140029-aa0756b72e7b h1:tSo3JBZfR+wWXKSE5w5IUMCd0G4oHY8+LINC9SYYtE8=
 github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331140029-aa0756b72e7b/go.mod h1:k3/Z6AvwurPUlfuDFEonRbkkiTSgNSrtVNhJEWNlUZA=
 github.com/smartcontractkit/chainlink-common v0.6.1-0.20250401155045-d0dccede284b h1:g4NHR7K9Bs8Fp4E1F5Glrd0q0VI2jFYP32hhuhGmR4E=
