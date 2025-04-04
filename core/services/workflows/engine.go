@@ -1525,13 +1525,33 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 }
 
 // emitProtoMessage marshals a proto.Message and emits it via beholder.
-func emitProtoMessage(ctx context.Context, msg proto.Message, entity string) error {
+func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	b, err := proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
+
+	// Determine the schema and entity based on the message type
+	var schema, entity string
+	switch msg.(type) {
+	case *pb.WorkflowExecutionStarted:
+		schema = "/cre-events-workflow-started/v1"
+		entity = "WorkflowExecutionStarted"
+	case *pb.WorkflowExecutionFinished:
+		schema = "/cre-events-workflow-finished/v1"
+		entity = "WorkflowExecutionFinished"
+	case *pb.CapabilityExecutionStarted:
+		schema = "/cre-events-capability-started/v1"
+		entity = "CapabilityExecutionStarted"
+	case *pb.CapabilityExecutionFinished:
+		schema = "/cre-events-capability-finished/v1"
+		entity = "CapabilityExecutionFinished"
+	default:
+		return fmt.Errorf("unknown message type: %T", msg)
+	}
+
 	return beholder.GetEmitter().Emit(ctx, b,
-		"beholder_data_schema", "/cre-events/versions/1", // required
+		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity) // required
 }
@@ -1545,7 +1565,7 @@ func emitExecutionStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, 
 		TriggerID: triggerID,
 	}
 
-	return emitProtoMessage(ctx, event, "WorkflowExecutionStarted")
+	return emitProtoMessage(ctx, event)
 }
 
 func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, status string) error {
@@ -1557,7 +1577,7 @@ func emitExecutionFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 		Status:    status,
 	}
 
-	return emitProtoMessage(ctx, event, "WorkflowExecutionFinished")
+	return emitProtoMessage(ctx, event)
 }
 
 func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef string) error {
@@ -1570,7 +1590,7 @@ func emitCapabilityStartedEvent(ctx context.Context, cma custmsg.MessageEmitter,
 		StepRef:      stepRef,
 	}
 
-	return emitProtoMessage(ctx, event, "CapabilityExecutionStarted")
+	return emitProtoMessage(ctx, event)
 }
 
 func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter, capabilityID, stepRef, status string) error {
@@ -1584,5 +1604,5 @@ func emitCapabilityFinishedEvent(ctx context.Context, cma custmsg.MessageEmitter
 		Status:       status,
 	}
 
-	return emitProtoMessage(ctx, event, "CapabilityExecutionFinished")
+	return emitProtoMessage(ctx, event)
 }
