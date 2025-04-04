@@ -26,7 +26,6 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	pollermocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/logpoller/mocks"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
 	txmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr/mocks"
@@ -46,7 +45,7 @@ import (
 var forwardABI = evmtypes.MustGetABI(forwarder.KeystoneForwarderMetaData.ABI)
 
 func newMockedEncodeTransmissionInfo() ([]byte, error) {
-	info := targets.TransmissionInfo{
+	info := evm.TransmissionInfo{
 		GasLimit:        big.NewInt(0),
 		InvalidReceiver: false,
 		State:           0,
@@ -164,7 +163,7 @@ func TestEvmWrite(t *testing.T) {
 	require.Len(t, registeredCapabilities, 1) // WriteTarget should be added to the registry
 
 	reportID := [2]byte{0x00, 0x01}
-	reportMetadata := targets.ReportV1Metadata{
+	reportMetadata := evm.ReportV1Metadata{
 		Version:             1,
 		WorkflowExecutionID: [32]byte{},
 		Timestamp:           0,
