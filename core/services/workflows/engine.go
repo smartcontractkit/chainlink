@@ -1025,10 +1025,11 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
 	}
 
-	emitErr := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status)
-	if emitErr != nil {
-		e.logger.Errorf("failed to emit capability event: %v", emitErr)
-	}
+	defer func() {
+		if err := emitCapabilityFinishedEvent(ctx, e.cma, curStep.ID, msg.stepRef, status); err != nil {
+			e.logger.Errorf("failed to emit capability event: %v", err)
+		}
+	}()
 
 	if capErr != nil {
 		return inputsMap, capabilities.CapabilityResponse{}, capErr
@@ -1497,26 +1498,26 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 	m.WorkflowExecutionID = kvs[platform.KeyWorkflowExecutionID]
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
-		if donIDInt, err := strconv.Atoi(donIDStr); err == nil {
-			m.DonF = int32(donIDInt) //nolint: gosec // G115 donID will never be larger than int32
+		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
+			m.DonF = int32(id)
 		}
 	}
 
 	m.P2PID = kvs[platform.KeyP2PID]
 
 	if donFStr, ok := kvs[platform.KeyDonF]; ok {
-		if donFInt, err := strconv.Atoi(donFStr); err == nil {
-			m.DonF = int32(donFInt) //nolint: gosec // G115 donF will never be larger than int32
+		if id, err := strconv.ParseInt(donFStr, 10, 32); err == nil {
+			m.DonF = int32(id)
 		}
 	}
 	if donNStr, ok := kvs[platform.KeyDonN]; ok {
-		if donNInt, err := strconv.Atoi(donNStr); err == nil {
-			m.DonN = int32(donNInt) //nolint: gosec // G115 donN will never be larger than int32
+		if id, err := strconv.ParseInt(donNStr, 10, 32); err == nil {
+			m.DonN = int32(id)
 		}
 	}
 	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
-		if donQInt, err := strconv.Atoi(donQStr); err == nil {
-			m.DonQ = int32(donQInt) //nolint: gosec // G115 donQ will never be larger than int32
+		if id, err := strconv.ParseInt(donQStr, 10, 32); err == nil {
+			m.DonQ = int32(id)
 		}
 	}
 
@@ -1525,11 +1526,11 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 // emitProtoMessage marshals a proto.Message and emits it via beholder.
 func emitProtoMessage(ctx context.Context, msg proto.Message, entity string) error {
-	wfBytes, err := proto.Marshal(msg)
+	b, err := proto.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	return beholder.GetEmitter().Emit(ctx, wfBytes,
+	return beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", "/cre-events/versions/1", // required
 		"beholder_domain", "platform", // required
 		"beholder_entity", entity) // required
