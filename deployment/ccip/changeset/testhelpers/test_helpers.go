@@ -783,7 +783,7 @@ func addLaneSolanaChangesets(t *testing.T, e *DeployedEnv, solChainSelector, rem
 							MaxPerMsgGasLimit:           3000000,
 							MaxDataBytes:                30000,
 							MaxNumberOfTokensPerMsg:     5,
-							DefaultTokenDestGasOverhead: 5000,
+							DefaultTokenDestGasOverhead: 75000,
 							ChainFamilySelector:         chainFamilySelector,
 						},
 					},
