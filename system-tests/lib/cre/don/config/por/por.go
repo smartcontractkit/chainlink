@@ -39,7 +39,12 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 	}
 
-	if len(bootstrapNodes) == 1 {
+	switch len(bootstrapNodes) {
+	case 0:
+		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
+		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
+		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
+	case 1:
 		bootstrapNode := bootstrapNodes[0]
 
 		donBootstrapNodePeerID, err = node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
@@ -75,12 +80,8 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
 			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
 		}
-	} else if len(bootstrapNodes) > 1 {
+	default:
 		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
-	} else if len(bootstrapNodes) == 0 {
-		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
-		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
-		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
 	}
 
 	// find worker nodes

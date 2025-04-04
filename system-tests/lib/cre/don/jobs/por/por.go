@@ -130,14 +130,14 @@ func generateDonJobSpecs(
 
 	if creflags.HasFlag(donWithMetadata.Flags, types.OCR3Capability) {
 		// look for boostrap node and then for required values in its labels
-		bootstrapNode, err := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.BootstrapNode}, node.EqualLabels)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to find bootstrap node")
+		bootstrapNode, bootErr := node.FindOneWithLabel(donWithMetadata.NodesMetadata, &types.Label{Key: node.NodeTypeKey, Value: types.BootstrapNode}, node.EqualLabels)
+		if bootErr != nil {
+			return nil, errors.Wrap(bootErr, "failed to find bootstrap node")
 		}
 
-		donBootstrapNodePeerID, err := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
-		if err != nil {
-			return nil, errors.Wrap(err, "failed to get bootstrap node peer ID")
+		donBootstrapNodePeerID, pIDErr := node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
+		if pIDErr != nil {
+			return nil, errors.Wrap(pIDErr, "failed to get bootstrap node peer ID")
 		}
 
 		donBootstrapNodeHost, hostErr := node.FindLabelValue(bootstrapNode, node.HostLabelKey)
