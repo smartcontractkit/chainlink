@@ -1022,7 +1022,6 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 		if capabilities.ErrStopExecution.Is(capErr) {
 			status = store.StatusCompletedEarlyExit
 		}
-		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
 	}
 
 	defer func() {
@@ -1032,6 +1031,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 	}()
 
 	if capErr != nil {
+		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
 		return inputsMap, capabilities.CapabilityResponse{}, capErr
 	}
 
