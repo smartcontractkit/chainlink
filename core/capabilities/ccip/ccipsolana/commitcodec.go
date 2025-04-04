@@ -86,11 +86,11 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 	if len(combinedRoots) > 0 {
 		switch len(report.RMNSignatures) {
 		case 0:
-			if report.UnblessedMerkleRoots == nil {
+			if len(report.UnblessedMerkleRoots) == 0 {
 				return nil, errors.New("No RMN signature included for the blessed root")
 			}
 		case 1:
-			if report.BlessedMerkleRoots == nil {
+			if len(report.BlessedMerkleRoots) == 0 {
 				return nil, errors.New("RMN signature included without a blessed root")
 			}
 			// R part goes into leading 32 bytes, and S part goes into the trailing 32 bytes.
