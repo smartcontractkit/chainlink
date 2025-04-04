@@ -3,6 +3,7 @@ package mcmsutil
 import (
 	"errors"
 	"fmt"
+	"math"
 	"reflect"
 	"time"
 
@@ -198,6 +199,14 @@ func proposalsEqualForMerge(p1, p2 mcms.TimelockProposal) (bool, error) {
 	if p1.Delay != p2.Delay {
 		return false, fmt.Errorf("mismatched Delay: %v vs %v", p1.Delay, p2.Delay)
 	}
+
+	// timestamps should be sufficiently close
+	p1.BaseProposal.ValidUntil = p2.BaseProposal.ValidUntil
+	timeDiff := math.Abs(float64(p1.BaseProposal.ValidUntil - p2.BaseProposal.ValidUntil))
+	if timeDiff > time.Minute.Seconds() {
+		return false, errors.New("timestamps differ too much between proposals")
+	}
+
 	if !reflect.DeepEqual(p1.BaseProposal, p2.BaseProposal) {
 		return false, errors.New("mismatched BaseProposal")
 	}
