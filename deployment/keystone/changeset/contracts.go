@@ -48,7 +48,8 @@ func NewOwnable[T Ownable](contract T, ab deployment.AddressBook, chain deployme
 	}
 
 	// Check if the owner is a timelock contract (owned by MCMS)
-	if ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
+	// If the owner is not in the address book (ownerTV = nil and err = nil), we assume it's not owned by MCMS
+	if ownerTV != nil && ownerTV.Type == timelockTV.Type && ownerTV.Version.String() == timelockTV.Version.String() {
 		// Load MCMS state
 		stateMCMS, mcmsErr := commonchangeset.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 		if mcmsErr != nil {
@@ -95,7 +96,8 @@ func GetOwnerTypeAndVersion[T Ownable](contract T, ab deployment.AddressBook, ch
 		}
 	}
 
-	return nil, fmt.Errorf("owner %s not found in address book", ownerStr)
+	// Owner not found, assume it's non-MCMS so no error is returned
+	return nil, nil
 }
 
 // GetOwnableContract retrieves a contract instance of type T from the address book.
@@ -185,4 +187,19 @@ func createContractInstance[T Ownable](addr string, chain deployment.Chain) (*T,
 	}
 
 	return &instance, nil
+}
+
+// GetOwnedContract is a helper function that gets a contract and wraps it in OwnedContract
+func GetOwnedContract[T Ownable](addressBook deployment.AddressBook, chain deployment.Chain, addr string) (*OwnedContract[T], error) {
+	contract, err := GetOwnableContract[T](addressBook, chain, &addr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get contract at %s: %w", addr, err)
+	}
+
+	ownedContract, err := NewOwnable(*contract, addressBook, chain)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create owned contract for %s: %w", addr, err)
+	}
+
+	return ownedContract, nil
 }
