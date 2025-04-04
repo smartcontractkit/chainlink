@@ -1,6 +1,8 @@
 package solana_test
 
 import (
+	"context"
+	"fmt"
 	"math/big"
 	"testing"
 	"time"
@@ -27,8 +29,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	solRpc "github.com/gagliardetto/solana-go/rpc"
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 )
 
 func deployToken(t *testing.T, tenv deployment.Environment, solChain uint64) (deployment.Environment, solana.PublicKey, error) {
@@ -858,4 +862,24 @@ func TestPoolLookupTable(t *testing.T) {
 			require.Equal(t, lookupTablePubKey, tokenAdminRegistry.LookupTable)
 		})
 	}
+}
+
+func TestRouterPDA(t *testing.T) {
+	solanaClient := solRpc.New(solRpc.DevNet.RPC)
+	routerId := solana.MustPublicKeyFromBase58("C53gSG3MXJC2N1Qg8NbvdwpBUbt6VCPXsNPsKwZBx1UH")
+	routerConfigPDA, _, _ := solState.FindConfigPDA(routerId)
+	var routerConfig solRouter.Config
+	err := solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, routerConfigPDA, solRpc.CommitmentConfirmed, &routerConfig)
+	require.NoError(t, err)
+	fmt.Println("routerConfig.Owner", routerConfig.Owner)
+	timelockSeed := commonstate.PDASeed([]byte("KFUcObzdr53U3Jalfr6N9mZwKet3BTUj"))
+	timelockAddress := solana.MustPublicKeyFromBase58("EEL43qb1jyNWAQTU8iVnHAbouax6yGQoob6y3dXLntY9")
+	timelockSignerPDA := commonstate.GetTimelockSignerPDA(timelockAddress, timelockSeed)
+	fmt.Println("timelockSignerPDA", timelockSignerPDA.String())
+
+	// remoteDestPDA, _ := solState.FindDestChainStatePDA(uint64(16015286601757825753), routerId)
+	// var remoteDest solRouter.DestChain
+	// err = solCommonUtil.GetAccountDataBorshInto(context.Background(), solanaClient, remoteDestPDA, solRpc.CommitmentConfirmed, &remoteDest)
+	// require.NoError(t, err)
+	// fmt.Println(remoteDest.Config.AllowListEnabled)
 }

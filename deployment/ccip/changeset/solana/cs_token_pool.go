@@ -360,6 +360,7 @@ func getInstructionsForBurnMint(
 		}
 		ixns = append(ixns, ixConfigure)
 	}
+	// TODO: this should only be done the first time, or if its an update and the rate limits are not nil
 	ixRates, err := solBurnMintTokenPool.NewSetChainRateLimitInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
@@ -373,11 +374,13 @@ func getInstructionsForBurnMint(
 		return nil, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	ixns = append(ixns, ixRates)
+	// TODO: like evm, we should query onchain and see if the pool supplied here is registered, and if necessary
+	// otherwise we are giving to the user to supply the correct input all the time
 	if len(cfg.RemoteConfig.PoolAddresses) > 0 {
 		ixAppend, err := solBurnMintTokenPool.NewAppendRemotePoolAddressesInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
-			cfg.RemoteConfig.PoolAddresses, // i dont know why this is a list (is it for different types of pool of the same token?)
+			cfg.RemoteConfig.PoolAddresses, // evm supports multiple remote pools per token
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
@@ -440,6 +443,7 @@ func getInstructionsForLockRelease(
 		}
 		ixns = append(ixns, ixConfigure)
 	}
+	// TODO: this should only be done the first time, or if its an update and the rate limits are not nil
 	ixRates, err := solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
 		cfg.RemoteChainSelector,
 		tokenPubKey,
@@ -453,11 +457,13 @@ func getInstructionsForLockRelease(
 		return nil, fmt.Errorf("failed to generate instructions: %w", err)
 	}
 	ixns = append(ixns, ixRates)
+	// TODO: like evm, we should query onchain and see if the pool supplied here is registered, and if necessary
+	// otherwise we are giving to the user to supply the correct input all the time
 	if len(cfg.RemoteConfig.PoolAddresses) > 0 {
 		ixAppend, err := solLockReleaseTokenPool.NewAppendRemotePoolAddressesInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
-			cfg.RemoteConfig.PoolAddresses, // i dont know why this is a list (is it for different types of pool of the same token?)
+			cfg.RemoteConfig.PoolAddresses, // evm supports multiple remote pools per token
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
