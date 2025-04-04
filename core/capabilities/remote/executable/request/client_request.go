@@ -12,6 +12,7 @@ import (
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
@@ -165,7 +166,7 @@ func newClientRequest(ctx context.Context, lggr logger.Logger, requestID string,
 		cancelFn:                   cancelFn,
 		createdAt:                  time.Now(),
 		requestTimeout:             requestTimeout,
-		requiredIdenticalResponses: int(remoteCapabilityDonInfo.F + 1),
+		requiredIdenticalResponses: aggregation.ByzantineQuorum(len(remoteCapabilityDonInfo.Members), int(remoteCapabilityDonInfo.F)),
 		responseIDCount:            make(map[[32]byte]int),
 		meteringResponses:          make(map[[32]byte][]commoncap.MeteringNodeDetail),
 		errorCount:                 make(map[string]int),

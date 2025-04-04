@@ -4,15 +4,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strconv"
 	"sync"
 	"time"
 
-	"slices"
-
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/metric"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/aggregation"
 	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
@@ -249,7 +249,7 @@ func (e *ServerRequest) addRequester(from p2ptypes.PeerID) error {
 }
 
 func (e *ServerRequest) minimumRequiredRequestsReceived() bool {
-	return len(e.requesters) >= int(e.callingDon.F+1)
+	return len(e.requesters) >= aggregation.ByzantineQuorum(len(e.callingDon.Members), int(e.callingDon.F))
 }
 
 func (e *ServerRequest) setResult(result []byte) {
