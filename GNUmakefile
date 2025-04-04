@@ -103,38 +103,6 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 		echo "Skipping private plugin installation (set CL_INSTALL_PRIVATE_PLUGINS=true to install)"; \
 	fi
 
-.PHONY: docker ## Build the chainlink docker image
-docker:
-	docker buildx build \
-	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-f core/chainlink.Dockerfile .
-
-.PHONY: docker-ccip ## Build the chainlink docker image
-docker-ccip:
-	docker buildx build \
-	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-f core/chainlink.Dockerfile . -t chainlink-ccip:latest
-
-	docker buildx build \
-	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	-f ccip/ccip.Dockerfile .
-
-.PHONY: docker-plugins ## Build the chainlink-plugins docker image
-docker-plugins:
-	@if [ "$(CL_INSTALL_PRIVATE_PLUGINS)" = "true" ] && [ -z "$(GITHUB_TOKEN)" ]; then \
-		echo "Error: GITHUB_TOKEN environment variable is required when CL_INSTALL_PRIVATE_PLUGINS=true"; \
-		exit 1; \
-	fi
-	$(eval PRIVATE_PLUGIN_ARGS := $(if $(and $(filter true,$(CL_INSTALL_PRIVATE_PLUGINS)),$(GITHUB_TOKEN)),--secret id=GIT_AUTH_TOKEN$(comma)env=GITHUB_TOKEN --target final-private-plugins,))
-	docker buildx build \
-	--build-arg COMMIT_SHA=$(COMMIT_SHA) \
-	--build-arg APTOS_RELAYER_GIT_REF=$(APTOS_RELAYER_GIT_REF) \
-	--build-arg COSMOS_SHA=$(COSMOS_SHA) \
-	--build-arg STARKNET_SHA=$(STARKNET_SHA) \
-	--build-arg CL_INSTALL_PRIVATE_PLUGINS=$(CL_INSTALL_PRIVATE_PLUGINS) \
-	$(PRIVATE_PLUGIN_ARGS) \
-	-f plugins/chainlink.Dockerfile .
-
 # Define a comma variable for use in $(eval) (needed for the PRIVATE_PLUGIN_ARGS)
 comma := ,
 
