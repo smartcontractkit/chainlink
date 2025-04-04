@@ -1535,17 +1535,17 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 	var schema, entity string
 	switch msg.(type) {
 	case *pb.WorkflowExecutionStarted:
-		schema = "/cre-events-workflow-started/v1"
-		entity = "WorkflowExecutionStarted"
+		schema = SchemaWorkflowStarted
+		entity = EventWorkflowExecutionStarted
 	case *pb.WorkflowExecutionFinished:
-		schema = "/cre-events-workflow-finished/v1"
-		entity = "WorkflowExecutionFinished"
+		schema = SchemaWorkflowFinished
+		entity = EventWorkflowExecutionFinished
 	case *pb.CapabilityExecutionStarted:
-		schema = "/cre-events-capability-started/v1"
-		entity = "CapabilityExecutionStarted"
+		schema = SchemaCapabilityStarted
+		entity = EventCapabilityExecutionStarted
 	case *pb.CapabilityExecutionFinished:
-		schema = "/cre-events-capability-finished/v1"
-		entity = "CapabilityExecutionFinished"
+		schema = SchemaCapabilityFinished
+		entity = EventCapabilityExecutionFinished
 	default:
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
