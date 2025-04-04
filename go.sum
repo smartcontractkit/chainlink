@@ -1025,6 +1025,8 @@ github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404083900-81e
 github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404083900-81e412c12805/go.mod h1:Pu/dVxh8tJLSJiYzuSOtp05iegbkK9LGN4DCxsbZEys=
 github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404091449-576d9b02f84e h1:k1E4/0fbOAOKdscfbs2oiPk9UPFmvtSgmltQUk8kJf0=
 github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404091449-576d9b02f84e/go.mod h1:Pu/dVxh8tJLSJiYzuSOtp05iegbkK9LGN4DCxsbZEys=
+github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404100402-dfa6d7de7220 h1:Hawv/fOOBwfoBmg32OUVqcuXEaleMdlC3SUQ7Nc3G00=
+github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250404100402-dfa6d7de7220/go.mod h1:Pu/dVxh8tJLSJiYzuSOtp05iegbkK9LGN4DCxsbZEys=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0 h1:xRgu/kMkxcY4LeDKMBhaXU4khgya7v2wyb4Sa5Nzb+Y=
 github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0/go.mod h1:m/A3lqD7ms/RsQ9BT5P2uceYY0QX5mIt4KQxT2G6qEo=
 github.com/smartcontractkit/chainlink-protos/rmn/v1.6/go v0.0.0-20250131130834-15e0d4cde2a6 h1:L6KJ4kGv/yNNoCk8affk7Y1vAY0qglPMXC/hevV/IsA=
