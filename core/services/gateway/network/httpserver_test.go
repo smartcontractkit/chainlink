@@ -96,7 +96,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	require.Equal(t, []byte(network.HealthCheckResponse), respBytes)
 }
 
-func TestHTTPServer_HandleRequest_CORSEnable_FromAllowedOrigin(t *testing.T) {
+func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	t.Parallel()
 	server, handler, url := startNewServer(t, 100_000, 100_000, true,
 		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
@@ -113,4 +113,40 @@ func TestHTTPServer_HandleRequest_CORSEnable_FromAllowedOrigin(t *testing.T) {
 	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
+}
+
+func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest(t *testing.T) {
+	t.Parallel()
+	server, _, url := startNewServer(t, 100_000, 100_000, true,
+		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
+	defer server.Close()
+
+	origin := "https://remix.ethereum.org"
+	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNoContent, resp.StatusCode)
+	require.Equal(t, 0, len(respBytes))
+	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
+}
+
+func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T) {
+	t.Parallel()
+	server, handler, url := startNewServer(t, 100_000, 100_000, true,
+		[]string{"https://remix.ethereum.org", "https://another.valid.origin.com"})
+	defer server.Close()
+
+	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
+
+	origin := "https://not.allowed.origin.com"
+	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	respBytes, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, resp.StatusCode)
+	require.Equal(t, []byte("response"), respBytes)
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Origin"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Methods"))
+	require.Equal(t, "", resp.Header.Get("Access-Control-Allow-Headers"))
 }

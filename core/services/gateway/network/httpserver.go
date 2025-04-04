@@ -103,11 +103,9 @@ func (s *httpServer) handleRequest(w http.ResponseWriter, r *http.Request) {
 		origin := r.Header.Get("Origin")
 		if s.isAllowedOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
-		} else {
-			w.Header().Set("Access-Control-Allow-Origin", "null")
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 		}
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
 
 		// handle preflight requests
 		if r.Method == http.MethodOptions {
