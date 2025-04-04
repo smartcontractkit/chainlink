@@ -68,12 +68,6 @@ type SetupOutput struct {
 	NodeOutput                          []*keystonetypes.WrappedNodeOutput
 }
 
-func (s *SetupOutput) Close() {
-	if s.BlockchainOutput != nil {
-		s.BlockchainOutput.Close()
-	}
-}
-
 type SetupInput struct {
 	ExtraAllowedPorts          []int
 	CapabilitiesAwareNodeSets  []*keystonetypes.CapabilitiesAwareNodeSet
@@ -317,9 +311,10 @@ func SetupTestEnvironment(
 	jdOutput, jdErr := CreateJobDistributor(&input.JdInput)
 	if jdErr != nil {
 		jdErr = fmt.Errorf("failed to start JD container for image %s: %w", input.JdInput.Image, jdErr)
+
 		// useful end user messages
 		if strings.Contains(jdErr.Error(), "pull access denied") || strings.Contains(jdErr.Error(), "may require 'docker login'") {
-			jdErr = errors.Join(jdErr, fmt.Errorf("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`", input.JdInput.Image))
+			jdErr = errors.Join(jdErr, errors.New("ensure that you either you have built the local image or you are logged into AWS with a profile that can read it (`aws sso login --profile <foo>)`"))
 		}
 		return nil, jdErr
 	}
@@ -415,7 +410,7 @@ func SetupTestEnvironment(
 		}
 		nsClients, cErr := clclient.New(nodeSetOut.CLNodes)
 		if cErr != nil {
-			return nil, errors.Wrap(cErr, "failed to create node set clients")
+			return nil, pkgerrors.Wrap(cErr, "failed to create node set clients")
 		}
 		eg := &errgroup.Group{}
 		for _, c := range nsClients {
@@ -424,7 +419,7 @@ func SetupTestEnvironment(
 			})
 		}
 		if err := eg.Wait(); err != nil {
-			return nil, errors.Wrap(err, "failed to wait for ConfigWatcher health check")
+			return nil, pkgerrors.Wrap(err, "failed to wait for ConfigWatcher health check")
 		}
 	}
 	testLogger.Info().Msg("Proceeding to set OCR3 and Keystone configuration...")
@@ -534,15 +529,6 @@ func CreateBlockchains(
 		DeployerPrivateKey: pkey,
 		c:                  blockchainOutput,
 	}, nil
-}
-func (b *BlockchainOutput) Close() {
-	if b.c != nil {
-		if b.c.Container != nil {
-			ctx := context.Background()
-			ctx, _ = context.WithTimeout(ctx, 30*time.Second)
-			b.c.Container.Terminate(ctx)
-		}
-	}
 }
 
 func CreateJobDistributor(input *jd.Input) (*jd.Output, error) {

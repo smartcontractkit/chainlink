@@ -72,12 +72,32 @@ func init() {
 	}
 }
 
+const manualCleanupMsg = `unexpected startup error. this may have stranded resources. please manually remove containers with 'ctf' label and delete their volumes`
+
 // update e2e-test.ysml with new command
 var startCmd = &cobra.Command{
 	Use:   "start",
 	Short: "Start the environment",
 	Long:  `Start the local CRE environment with all supported capabilities`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		defer func() {
+			p := recover()
+
+			if p != nil {
+				fmt.Println("Panicked when starting environment")
+				if err, ok := p.(error); ok {
+					fmt.Fprint(os.Stderr, errors.Wrap(err, "error:\n%s").Error())
+				} else {
+					fmt.Fprintf(os.Stderr, "panic: %v", p)
+				}
+
+				removeErr := framework.RemoveTestContainers()
+				if removeErr != nil {
+					fmt.Fprint(os.Stderr, errors.Wrap(removeErr, manualCleanupMsg).Error())
+				}
+			}
+		}()
+
 		if os.Getenv("CTF_CONFIGS") == "" {
 			return errors.New("CTF_CONFIGS environment variable is not set. It should contain paths to TOML files with configurations")
 		}
@@ -91,10 +111,12 @@ var startCmd = &cobra.Command{
 
 		output, err := startCLIEnvironment()
 		if err != nil {
-			// TODO clean up the environment with some sort of close function
-			// the containers can be stranded if the command fails, for example the blockchain nodes
-			output.Close() // maybe this should be a call to ctf d rm?
-			return fmt.Errorf("unexpected startup error. this may have stranded resources. please manually shutdown containers as needed: %w", err)
+			removeErr := framework.RemoveTestContainers()
+			if removeErr != nil {
+				return errors.Wrap(removeErr, manualCleanupMsg)
+			}
+
+			return errors.Wrap(err, "failed to start environment")
 		}
 
 		// TODO print urls?
@@ -136,6 +158,7 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 
 	capabilitiesBinaryPaths := map[cretypes.CapabilityFlag]string{}
 
+	// add support for more binaries if needed
 	workflowDONCapabilities := []string{cretypes.OCR3Capability, cretypes.CustomComputeCapability, cretypes.WebAPITriggerCapability}
 	if in.ExtraCapabilities.CronCapabilityBinaryPath != "" {
 		workflowDONCapabilities = append(workflowDONCapabilities, cretypes.CronCapability)
@@ -170,8 +193,8 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 			Input:              in.NodeSets[2],
 			Capabilities:       []string{},
 			DONTypes:           []string{cretypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+			BootstrapNodeIndex: -1,                            // <----- it's crucial to indicate there's no bootstrap node
 			GatewayNodeIndex:   0,
-			BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 		},
 	}
 
@@ -193,6 +216,7 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		return nil, fmt.Errorf("failed to convert chain ID to int: %w", chainErr)
 	}
 
+	// add support for more capabilities if needed
 	capabilityFactoryFns := []cretypes.DONCapabilityWithConfigFactoryFn{
 		crecontracts.DefaultCapabilityFactoryFn,
 		crecontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt))),
@@ -215,6 +239,9 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		[]string{"0.0.0.0/0"}, // allow all IPs
 	)
 
+	// add support for more job spec factory functions if needed
+	jobSpecFactoryFns := []cretypes.JobSpecFactoryFn{chainReaderJobSpecFactoryFn, webapi.WebAPIJobSpecFactoryFn, porJobSpecFactoryFn}
+
 	universalSetupInput := creenv.SetupInput{
 		CapabilitiesAwareNodeSets:  capabilitiesAwareNodeSets,
 		CapabilityFactoryFunctions: capabilityFactoryFns,
@@ -222,7 +249,7 @@ func startCLIEnvironment() (*creenv.SetupOutput, error) {
 		JdInput:                    *in.JD,
 		InfraInput:                 *in.Infra,
 		CustomBinariesPaths:        capabilitiesBinaryPaths,
-		JobSpecFactoryFunctions:    []cretypes.JobSpecFactoryFn{chainReaderJobSpecFactoryFn, webapi.WebAPIJobSpecFactoryFn, porJobSpecFactoryFn},
+		JobSpecFactoryFunctions:    jobSpecFactoryFns,
 	}
 
 	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(context.Background(), testLogger, cldlogger.NewSingleFileLogger(nil), universalSetupInput)
