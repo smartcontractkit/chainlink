@@ -972,14 +972,10 @@ func TestCRE_OCR3_PoR_Workflow_SingleDon_MockedPrice(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
 		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
-		require.NoError(t, err, "failed to get price from Data Feeds Cachce contract")
+		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
+		// if there are no more prices to be found, we can stop waiting
+		return !setupOutput.priceProvider.NextPrice(price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
 	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
@@ -1076,14 +1072,10 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
 		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
-		require.NoError(t, err, "failed to get price from Data Feeds Cachce contract")
+		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
+		// if there are no more prices to be found, we can stop waiting
+		return !setupOutput.priceProvider.NextPrice(price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
 	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "pricesup do not match")
@@ -1183,14 +1175,10 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 	assert.Eventually(t, func() bool {
 		elapsed := time.Since(startTime).Round(time.Second)
 		price, err := dataFeedsCacheInstance.GetLatestAnswer(setupOutput.sethClient.NewCallOpts(), [16]byte(common.Hex2Bytes(in.WorkflowConfig.FeedID)))
-		require.NoError(t, err, "failed to get price from Data Feeds Cachce contract")
+		require.NoError(t, err, "failed to get price from Data Feeds Cache contract")
 
-		hasNextPrice := setupOutput.priceProvider.NextPrice(price, elapsed)
-		if !hasNextPrice {
-			testLogger.Info().Msgf("Feed not updated yet, waiting for %s", elapsed)
-		}
-
-		return !hasNextPrice
+		// if there are no more prices to be found, we can stop waiting
+		return !setupOutput.priceProvider.NextPrice(price, elapsed)
 	}, timeout, 10*time.Second, "feed did not update, timeout after: %s", timeout)
 
 	require.EqualValues(t, priceProvider.ExpectedPrices(), priceProvider.ActualPrices(), "prices do not match")
