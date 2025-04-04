@@ -44,9 +44,7 @@ func TypeAndVersion(addr common.Address, client bind.ContractBackend) (ContractT
 	if err != nil {
 		return "", semver.Version{}, err
 	}
-
-	fmt.Println("TypeAndVersion Address: ", addr.String())
-	tvStr, err := tv.TypeAndVersion(nil)
+	tvStr, err := tv.TypeAndVersion(&bind.CallOpts{BlockNumber: nil})
 	if err != nil {
 		return "", semver.Version{}, fmt.Errorf("error calling typeAndVersion on addr: %s %w (%s)", addr.String(), err, tvStr)
 	}
