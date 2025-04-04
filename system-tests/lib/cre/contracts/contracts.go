@@ -1,8 +1,6 @@
 package contracts
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"strings"
 
@@ -535,27 +533,6 @@ func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeed
 	return out, nil
 }
 
-func hashTruncateName(name string) string {
-	// Compute SHA-256 hash of the input string
-	hash := sha256.Sum256([]byte(name))
-
-	// Encode as hex to ensure UTF8
-	var hashBytes = hash[:]
-	resultHex := hex.EncodeToString(hashBytes)
-
-	// Truncate to 10 bytes
-	truncated := []byte(resultHex)[:10]
-	return string(truncated)
-}
-
-func truncateWorkflowName(workflowName string) [10]byte {
-	var workflowNameBytes [10]byte
-	truncated := hashTruncateName(workflowName)
-	copy(workflowNameBytes[:], []byte(truncated))
-
-	return workflowNameBytes
-}
-
 func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDataFeedsCacheInput) (*types.ConfigureDataFeedsCacheOutput, error) {
 	if input == nil {
 		return nil, errors.New("input is nil")
@@ -585,7 +562,7 @@ func ConfigureDataFeedsCache(testLogger zerolog.Logger, input *types.ConfigureDa
 	metadatas := []data_feeds_cache.DataFeedsCacheWorkflowMetadata{}
 	for idx := range input.AllowedWorkflowNames {
 		metadatas = append(metadatas, data_feeds_cache.DataFeedsCacheWorkflowMetadata{
-			AllowedWorkflowName:  truncateWorkflowName(input.AllowedWorkflowNames[idx]),
+			AllowedWorkflowName:  df_changeset.HashedWorkflowName(input.AllowedWorkflowNames[idx]),
 			AllowedSender:        input.AllowedSenders[idx],
 			AllowedWorkflowOwner: input.AllowedWorkflowOwners[idx],
 		})
