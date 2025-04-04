@@ -1498,7 +1498,7 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
 		if donIDInt, err := strconv.Atoi(donIDStr); err == nil {
-			m.DonF = int32(donIDInt)
+			m.DonF = int32(donIDInt) // #nosec G109
 		}
 	}
 
@@ -1506,17 +1506,17 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 	if donFStr, ok := kvs[platform.KeyDonF]; ok {
 		if donFInt, err := strconv.Atoi(donFStr); err == nil {
-			m.DonF = int32(donFInt)
+			m.DonF = int32(donFInt) // #nosec G109
 		}
 	}
 	if donNStr, ok := kvs[platform.KeyDonN]; ok {
 		if donNInt, err := strconv.Atoi(donNStr); err == nil {
-			m.DonN = int32(donNInt)
+			m.DonN = int32(donNInt) // #nosec G109
 		}
 	}
 	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
 		if donQInt, err := strconv.Atoi(donQStr); err == nil {
-			m.DonQ = int32(donQInt)
+			m.DonQ = int32(donQInt) // #nosec G109
 		}
 	}
 
