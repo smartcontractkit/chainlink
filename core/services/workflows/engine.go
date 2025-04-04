@@ -1019,7 +1019,7 @@ func (e *Engine) executeStep(ctx context.Context, lggr logger.Logger, msg stepRe
 
 	if capErr != nil {
 		status = store.StatusErrored
-		if capabilities.ErrStopExecution.Is(err) {
+		if capabilities.ErrStopExecution.Is(capErr) {
 			status = store.StatusCompletedEarlyExit
 		}
 		e.metrics.with(platform.KeyStepRef, msg.stepRef, platform.KeyCapabilityID, curStep.ID).incrementCapabilityFailureCounter(ctx)
@@ -1498,7 +1498,7 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
 		if donIDInt, err := strconv.Atoi(donIDStr); err == nil {
-			m.DonF = int32(donIDInt) // #nosec G109
+			m.DonF = int32(donIDInt) //nolint: gosec // G115 donID will never be larger than int32
 		}
 	}
 
@@ -1506,17 +1506,17 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 	if donFStr, ok := kvs[platform.KeyDonF]; ok {
 		if donFInt, err := strconv.Atoi(donFStr); err == nil {
-			m.DonF = int32(donFInt) // #nosec G109
+			m.DonF = int32(donFInt) //nolint: gosec // G115 donF will never be larger than int32
 		}
 	}
 	if donNStr, ok := kvs[platform.KeyDonN]; ok {
 		if donNInt, err := strconv.Atoi(donNStr); err == nil {
-			m.DonN = int32(donNInt) // #nosec G109
+			m.DonN = int32(donNInt) //nolint: gosec // G115 donN will never be larger than int32
 		}
 	}
 	if donQStr, ok := kvs[platform.KeyDonQ]; ok {
 		if donQInt, err := strconv.Atoi(donQStr); err == nil {
-			m.DonQ = int32(donQInt) // #nosec G109
+			m.DonQ = int32(donQInt) //nolint: gosec // G115 donQ will never be larger than int32
 		}
 	}
 
