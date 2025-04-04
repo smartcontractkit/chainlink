@@ -1,6 +1,7 @@
 package workflows
 
 const (
+	EventsProtoPkg = "pb"
 	// EventWorkflowExecutionStarted represents a workflow execution started event
 	EventWorkflowExecutionStarted string = "WorkflowExecutionStarted"
 	// EventWorkflowExecutionFinished represents a workflow execution finished event

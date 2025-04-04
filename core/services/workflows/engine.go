@@ -1550,6 +1550,9 @@ func emitProtoMessage(ctx context.Context, msg proto.Message) error {
 		return fmt.Errorf("unknown message type: %T", msg)
 	}
 
+	// entity must be prefixed with the proto package name
+	entity = fmt.Sprintf("%s.%s", EventsProtoPkg, entity)
+
 	return beholder.GetEmitter().Emit(ctx, b,
 		"beholder_data_schema", schema, // required
 		"beholder_domain", "platform", // required
