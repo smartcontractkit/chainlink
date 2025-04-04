@@ -9,21 +9,30 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
+	solconfig "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
+	soltestutils "github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/testutils"
+	solccip "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/ccip"
+	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
+	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	mt "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/messagingtest"
+	soltesthelpers "github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/solana"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/manualexechelpers"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
 )
 
-func Test_CCIPMessaging(t *testing.T) {
+func Test_CCIPMessaging_EVM2EVM(t *testing.T) {
 	// fix the chain ids for the test so we can appropriately set finality depth numbers on the destination chain.
 	chains := []chainsel.Chain{
 		chainsel.GETH_TESTNET,  // source
@@ -93,7 +102,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               replayed,
 				Nonce:                  nonce,
-				Receiver:               common.HexToAddress("0xdead"),
+				Receiver:               common.HexToAddress("0xdead").Bytes(),
 				MsgData:                []byte("hello eoa"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call an EOA
@@ -112,7 +121,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
-				Receiver:               state.Chains[destChain].FeeQuoter.Address(),
+				Receiver:               state.Chains[destChain].FeeQuoter.Address().Bytes(),
 				MsgData:                []byte("hello FeeQuoter"),
 				ExtraArgs:              nil,                                 // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS, // success because offRamp won't call a contract not implementing CCIPReceiver
@@ -121,14 +130,14 @@ func Test_CCIPMessaging(t *testing.T) {
 	})
 
 	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
-		latestHead, err := e.Env.Chains[destChain].Client.HeaderByNumber(ctx, nil)
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
 		require.NoError(t, err)
 		out = mt.Run(
 			mt.TestCase{
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address(),
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver"),
 				ExtraArgs:              nil, // default extraArgs
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
@@ -136,7 +145,7 @@ func Test_CCIPMessaging(t *testing.T) {
 					func(t *testing.T) {
 						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
 							Context: ctx,
-							Start:   latestHead.Number.Uint64(),
+							Start:   latestHead,
 						})
 						require.NoError(t, err)
 						require.True(t, iter.Next())
@@ -153,7 +162,7 @@ func Test_CCIPMessaging(t *testing.T) {
 				TestSetup:              setup,
 				Replayed:               out.Replayed,
 				Nonce:                  out.Nonce,
-				Receiver:               state.Chains[destChain].Receiver.Address(),
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
 				MsgData:                []byte("hello CCIPReceiver with low exec gas"),
 				ExtraArgs:              testhelpers.MakeEVMExtraArgsV2(1, false), // 1 gas is too low.
 				ExpectedExecutionState: testhelpers.EXECUTION_STATE_FAILURE,      // state would be failed onchain due to low gas
@@ -183,6 +192,204 @@ func Test_CCIPMessaging(t *testing.T) {
 	wg.Wait()
 	// there should be no re-executions.
 	require.Equal(t, int32(0), ms.reExecutionsObserved.Load())
+}
+
+func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	ctx := testhelpers.Context(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+
+	// TODO: do this as part of setup
+	testhelpers.DeploySolanaCcipReceiver(t, e.Env)
+
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	sourceChain := allChainSelectors[0]
+	destChain := allSolChainSelectors[0]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		nonce    uint64
+		sender   = common.LeftPadBytes(e.Env.Chains[sourceChain].DeployerKey.From.Bytes(), 32)
+		out      mt.TestCaseOutput
+		setup    = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+			true,  // validateResp
+		)
+	)
+
+	// message := ccip_router.SVM2AnyMessage{
+	// 	Receiver:     validReceiverAddress[:],
+	// 	FeeToken:     wsol.mint,
+	// 	TokenAmounts: []ccip_router.SVMTokenAmount{{Token: token0.Mint.PublicKey(), Amount: 1}},
+	// 	ExtraArgs:    emptyEVMExtraArgsV2,
+	// }
+
+	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		receiverProgram := state.SolChains[destChain].Receiver
+		receiver := receiverProgram.Bytes()
+		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
+		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
+
+		accounts := [][32]byte{
+			receiverProgram,
+			receiverExternalExecutionConfigPDA,
+			receiverTargetAccountPDA,
+			solana.SystemProgramID,
+		}
+
+		extraArgs, err := testhelpers.SerializeSVMExtraArgs(message_hasher.ClientSVMExtraArgsV1{
+			AccountIsWritableBitmap: solccip.GenerateBitMapForIndexes([]int{0, 1}),
+			Accounts:                accounts,
+		})
+		require.NoError(t, err)
+
+		// check that counter is 0
+		var receiverCounterAccount soltesthelpers.ReceiverCounter
+		err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+		require.NoError(t, err, "failed to get account info")
+		require.Equal(t, uint8(0), receiverCounterAccount.Value)
+
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nonce,
+				Receiver:               receiver,
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              extraArgs,
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						var receiverCounterAccount soltesthelpers.ReceiverCounter
+						err = solcommon.GetAccountDataBorshInto(ctx, e.Env.SolChains[destChain].Client, receiverTargetAccountPDA, solconfig.DefaultCommitment, &receiverCounterAccount)
+						require.NoError(t, err, "failed to get account info")
+						require.Equal(t, uint8(1), receiverCounterAccount.Value)
+					},
+				},
+			},
+		)
+	})
+
+	_ = out
+}
+
+func Test_CCIPMessaging_Solana2EVM(t *testing.T) {
+	// Setup 2 chains (EVM and Solana) and a single lane.
+	ctx := testhelpers.Context(t)
+	e, _, _ := testsetups.NewIntegrationEnvironment(t, testhelpers.WithSolChains(1))
+
+	state, err := changeset.LoadOnchainState(e.Env)
+	require.NoError(t, err)
+
+	allChainSelectors := maps.Keys(e.Env.Chains)
+	allSolChainSelectors := maps.Keys(e.Env.SolChains)
+	sourceChain := allSolChainSelectors[0]
+	destChain := allChainSelectors[0]
+	t.Log("All chain selectors:", allChainSelectors,
+		", sol chain selectors:", allSolChainSelectors,
+		", home chain selector:", e.HomeChainSel,
+		", feed chain selector:", e.FeedChainSel,
+		", source chain selector:", sourceChain,
+		", dest chain selector:", destChain,
+	)
+	// connect a single lane, source to dest
+	testhelpers.AddLaneWithDefaultPricesAndFeeQuoterConfig(t, &e, state, sourceChain, destChain, false)
+
+	var (
+		replayed bool
+		nonce    uint64
+		sender   = common.LeftPadBytes(e.Env.SolChains[sourceChain].DeployerKey.PublicKey().Bytes(), 32)
+		out      mt.TestCaseOutput
+		setup    = mt.NewTestSetupWithDeployedEnv(
+			t,
+			e,
+			state,
+			sourceChain,
+			destChain,
+			sender,
+			false, // testRouter
+			true,  // validateResp
+		)
+	)
+
+	// TODO: handle in setup
+	deployer := e.Env.SolChains[sourceChain].DeployerKey
+	rpcClient := e.Env.SolChains[sourceChain].Client
+
+	// create ATA for user
+	tokenProgram := solana.TokenProgramID
+	wSOL := solana.SolMint
+	ixAtaUser, deployerWSOL, uerr := soltokens.CreateAssociatedTokenAccount(tokenProgram, wSOL, deployer.PublicKey(), deployer.PublicKey())
+	require.NoError(t, uerr)
+
+	billingSignerPDA, _, err := solstate.FindFeeBillingSignerPDA(state.SolChains[sourceChain].Router)
+	require.NoError(t, err)
+
+	// Approve CCIP to transfer the user's token for billing
+	ixApprove, err := soltokens.TokenApproveChecked(1e9, 9, tokenProgram, deployerWSOL, wSOL, billingSignerPDA, deployer.PublicKey(), []solana.PublicKey{})
+	require.NoError(t, err)
+
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixAtaUser, ixApprove}, *deployer, solconfig.DefaultCommitment)
+
+	// fund user WSOL (transfer SOL + syncNative)
+	transferAmount := 1.0 * solana.LAMPORTS_PER_SOL
+	ixTransfer, err := soltokens.NativeTransfer(tokenProgram, transferAmount, deployer.PublicKey(), deployerWSOL)
+	require.NoError(t, err)
+	ixSync, err := soltokens.SyncNative(tokenProgram, deployerWSOL)
+	require.NoError(t, err)
+	soltestutils.SendAndConfirm(ctx, t, rpcClient, []solana.Instruction{ixTransfer, ixSync}, *deployer, solconfig.DefaultCommitment)
+	// END: handle in setup
+
+	emptyEVMExtraArgsV2 := []byte{}
+
+	t.Run("message to contract implementing CCIPReceiver", func(t *testing.T) {
+		extraArgs := emptyEVMExtraArgsV2
+		latestHead, err := testhelpers.LatestBlock(ctx, e.Env, destChain)
+		require.NoError(t, err)
+		out = mt.Run(
+			mt.TestCase{
+				TestSetup:              setup,
+				Replayed:               replayed,
+				Nonce:                  nonce,
+				Receiver:               state.Chains[destChain].Receiver.Address().Bytes(),
+				MsgData:                []byte("hello CCIPReceiver"),
+				ExtraArgs:              extraArgs, // default extraArgs
+				ExpectedExecutionState: testhelpers.EXECUTION_STATE_SUCCESS,
+				ExtraAssertions: []func(t *testing.T){
+					func(t *testing.T) {
+						iter, err := state.Chains[destChain].Receiver.FilterMessageReceived(&bind.FilterOpts{
+							Context: ctx,
+							Start:   latestHead,
+						})
+						require.NoError(t, err)
+						require.True(t, iter.Next())
+						// MessageReceived doesn't emit the data unfortunately, so can't check that.
+					},
+				},
+			},
+		)
+
+		_ = out // avoid unused error
+	})
 }
 
 type monitorState struct {

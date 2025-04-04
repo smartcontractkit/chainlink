@@ -5,17 +5,19 @@ import (
 
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 
-	gethcommon "github.com/ethereum/go-ethereum/common"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/ocr3confighelper"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+
+	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
 type configTracker struct {
-	cfg cctypes.OCR3ConfigWithMeta
+	cfg          cctypes.OCR3ConfigWithMeta
+	addressCodec ccipocr3.AddressCodec
 }
 
-func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta) *configTracker {
-	return &configTracker{cfg: cfg}
+func NewConfigTracker(cfg cctypes.OCR3ConfigWithMeta, addressCodec ccipocr3.AddressCodec) *configTracker {
+	return &configTracker{cfg: cfg, addressCodec: addressCodec}
 }
 
 // LatestBlockHeight implements types.ContractConfigTracker.
@@ -50,7 +52,7 @@ func (c *configTracker) contractConfig() types.ContractConfig {
 		ConfigDigest:          c.cfg.ConfigDigest,
 		ConfigCount:           uint64(c.cfg.Version),
 		Signers:               toOnchainPublicKeys(signers),
-		Transmitters:          toOCRAccounts(transmitters),
+		Transmitters:          toOCRAccounts(transmitters, c.addressCodec, c.cfg.Config.ChainSelector),
 		F:                     c.cfg.Config.FRoleDON,
 		OnchainConfig:         []byte{},
 		OffchainConfigVersion: c.cfg.Config.OffchainConfigVersion,
@@ -72,11 +74,11 @@ func toOnchainPublicKeys(signers [][]byte) []types.OnchainPublicKey {
 	return keys
 }
 
-func toOCRAccounts(transmitters [][]byte) []types.Account {
+func toOCRAccounts(transmitters [][]byte, addressCodec ccipocr3.AddressCodec, chainSelector ccipocr3.ChainSelector) []types.Account {
 	accounts := make([]types.Account, len(transmitters))
 	for i, transmitter := range transmitters {
-		// TODO: string-encode the transmitter appropriately to the dest chain family.
-		accounts[i] = types.Account(gethcommon.BytesToAddress(transmitter).Hex())
+		address, _ := addressCodec.AddressBytesToString(transmitter, chainSelector)
+		accounts[i] = types.Account(address)
 	}
 	return accounts
 }

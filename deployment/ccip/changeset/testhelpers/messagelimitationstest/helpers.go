@@ -97,7 +97,7 @@ func Run(tc TestCase) TestCaseOutput {
 		require.NoError(tc.T, err)
 	}
 
-	msgSentEvent, err := testhelpers.DoSendRequest(
+	msgSentEvent, err := testhelpers.SendRequest(
 		tc.T, tc.Env, tc.OnchainState,
 		testhelpers.WithSourceChain(tc.SrcChain),
 		testhelpers.WithDestChain(tc.DestChain),

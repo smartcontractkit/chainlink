@@ -46,7 +46,7 @@ func TestDisableLane(t *testing.T) {
 		wethPrice              = deployment.E18Mult(4000)
 		noOfRequests           = 3
 		sendmessage            = func(src, dest uint64, deployer *bind.TransactOpts) (*onramp.OnRampCCIPMessageSent, error) {
-			return testhelpers.DoSendRequest(
+			return testhelpers.SendRequest(
 				t,
 				e,
 				state,

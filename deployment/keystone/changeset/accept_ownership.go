@@ -24,7 +24,7 @@ func AcceptAllOwnershipsProposal(e deployment.Environment, req *AcceptAllOwnersh
 	chain := e.Chains[chainSelector]
 	addrBook := e.ExistingAddresses
 
-	r, err := GetContractSets(e.Logger, &GetContractSetsRequest{
+	r, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
 		Chains: map[uint64]deployment.Chain{
 			req.ChainSelector: chain,
 		},

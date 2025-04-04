@@ -12,6 +12,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 	ag_binary "github.com/gagliardetto/binary"
 	chainsel "github.com/smartcontractkit/chain-selectors"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	"github.com/smartcontractkit/chainlink-ccip/pkg/logutil"
@@ -113,7 +114,7 @@ func (h *MessageHasherV1) Hash(ctx context.Context, msg cciptypes.Message) (ccip
 		lggr.Debugw("decoded dest gas amount",
 			"destGasAmount", destGasAmount)
 
-		destTokenAddress, err := abiDecodeAddress(rta.DestTokenAddress)
+		destTokenAddress, err := abiDecodeAddress(common.LeftPadBytes(rta.DestTokenAddress, 32))
 		if err != nil {
 			return [32]byte{}, fmt.Errorf("decode dest token address: %w", err)
 		}

@@ -6,6 +6,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 
 	agbinary "github.com/gagliardetto/binary"
@@ -31,6 +32,13 @@ func NewExecutePluginCodecV1(extraDataCodec common.ExtraDataCodec) *ExecutePlugi
 }
 
 func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.ExecutePluginReport) ([]byte, error) {
+	if len(report.ChainReports) == 0 {
+		// OCR3 runs in a constant loop and will produce empty reports, so we need to handle this case
+		// return an empty report, CCIP will discard it on ShouldAcceptAttestedReport/ShouldTransmitAcceptedReport
+		// via validateReport before attempting to decode
+		return nil, nil
+	}
+
 	if len(report.ChainReports) != 1 {
 		return nil, fmt.Errorf("unexpected chain report length: %d", len(report.ChainReports))
 	}
@@ -231,6 +239,40 @@ func extractDestGasAmountFromMap(input map[string]any) (uint32, error) {
 	}
 
 	return 0, errors.New("invalid token message, dest gas amount not found in the DestExecDataDecoded map")
+}
+
+func encodeBigIntToFixedLengthLE(bi *big.Int, length int) []byte {
+	// Create a fixed-length byte array
+	paddedBytes := make([]byte, length)
+
+	// Use FillBytes to fill the array with big-endian data, zero-padded
+	bi.FillBytes(paddedBytes)
+
+	// Reverse the array for little-endian encoding
+	for i, j := 0, len(paddedBytes)-1; i < j; i, j = i+1, j-1 {
+		paddedBytes[i], paddedBytes[j] = paddedBytes[j], paddedBytes[i]
+	}
+
+	return paddedBytes
+}
+
+func decodeLEToBigInt(data []byte) cciptypes.BigInt {
+	// Avoid modifying original data
+	buf := make([]byte, len(data))
+	copy(buf, data)
+
+	// Reverse the byte array to convert it from little-endian to big-endian
+	for i, j := 0, len(buf)-1; i < j; i, j = i+1, j-1 {
+		buf[i], buf[j] = buf[j], buf[i]
+	}
+
+	// Use big.Int.SetBytes to construct the big.Int
+	bi := new(big.Int).SetBytes(buf)
+	if bi.Cmp(big.NewInt(0)) == 0 {
+		return cciptypes.NewBigInt(big.NewInt(0))
+	}
+
+	return cciptypes.NewBigInt(bi)
 }
 
 // Ensure ExecutePluginCodec implements the ExecutePluginCodec interface

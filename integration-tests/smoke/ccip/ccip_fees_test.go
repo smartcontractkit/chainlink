@@ -311,11 +311,11 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			state,
 			&testhelpers.CCIPSendReqConfig{
-				Sender:         e.Chains[sourceChain].DeployerKey,
-				IsTestRouter:   true,
-				SourceChain:    sourceChain,
-				DestChain:      destChain,
-				Evm2AnyMessage: ccipMessage,
+				Sender:       e.Chains[sourceChain].DeployerKey,
+				IsTestRouter: true,
+				SourceChain:  sourceChain,
+				DestChain:    destChain,
+				Message:      ccipMessage,
 			},
 		)
 		require.Error(t, err)
