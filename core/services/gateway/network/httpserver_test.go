@@ -126,7 +126,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
-	require.Equal(t, 0, len(respBytes))
+	require.Empty(t, respBytes)
 	require.Equal(t, "https://remix.ethereum.org", resp.Header.Get("Access-Control-Allow-Origin"))
 	require.Equal(t, "GET, POST, OPTIONS", resp.Header.Get("Access-Control-Allow-Methods"))
 	require.Equal(t, "Content-Type", resp.Header.Get("Access-Control-Allow-Headers"))
