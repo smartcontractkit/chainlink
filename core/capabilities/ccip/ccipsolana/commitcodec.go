@@ -82,22 +82,25 @@ func (c *CommitPluginCodecV1) Encode(ctx context.Context, report cciptypes.Commi
 		},
 	}
 
-	switch len(report.RMNSignatures) {
-	case 0:
-		if report.UnblessedMerkleRoots == nil {
-			return nil, errors.New("No RMN signature included for the blessed root")
+	// Only validate if we actually have a root
+	if len(combinedRoots) > 0 {
+		switch len(report.RMNSignatures) {
+		case 0:
+			if report.UnblessedMerkleRoots == nil {
+				return nil, errors.New("No RMN signature included for the blessed root")
+			}
+		case 1:
+			if report.BlessedMerkleRoots == nil {
+				return nil, errors.New("RMN signature included without a blessed root")
+			}
+			// R part goes into leading 32 bytes, and S part goes into the trailing 32 bytes.
+			var rmnSig64Array [64]uint8
+			copy(rmnSig64Array[:32], report.RMNSignatures[0].R[:])
+			copy(rmnSig64Array[32:], report.RMNSignatures[0].S[:])
+			commit.RmnSignatures = [][64]uint8{rmnSig64Array}
+		default:
+			return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
 		}
-	case 1:
-		if report.BlessedMerkleRoots == nil {
-			return nil, errors.New("RMN signature included without a blessed root")
-		}
-		// R part goes into leading 32 bytes, and S part goes into the trailing 32 bytes.
-		var rmnSig64Array [64]uint8
-		copy(rmnSig64Array[:32], report.RMNSignatures[0].R[:])
-		copy(rmnSig64Array[32:], report.RMNSignatures[0].S[:])
-		commit.RmnSignatures = [][64]uint8{rmnSig64Array}
-	default:
-		return nil, fmt.Errorf("Multiple RMNSignatures in report: %d", len(report.RMNSignatures))
 	}
 
 	err := commit.MarshalWithEncoder(encoder)
