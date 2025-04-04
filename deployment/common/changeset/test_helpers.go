@@ -158,7 +158,8 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 			// do nothing, as these jobs auto-accept.
 		}
 
-		// Updated environment is required before executing proposals when proposals involve new addresses
+		// Updated environment may be required before executing proposals when proposals involve new addresses
+		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
 		currentEnv = deployment.Environment{
 			Name:              e.Name,
 			Logger:            e.Logger,
