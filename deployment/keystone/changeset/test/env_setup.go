@@ -26,8 +26,6 @@ import (
 	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
-const DeployerOwner deployment.ContractType = "DeployerOwner"
-
 type DonConfig struct {
 	Name             string // required, must be unique across all dons
 	N                int
@@ -159,11 +157,6 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
-	}
-
-	for chainSel, chain := range chains {
-		// We add the owners addresses to the address book
-		require.NoError(t, env.ExistingAddresses.Save(chainSel, chain.DeployerKey.From.Hex(), deployment.NewTypeAndVersion(DeployerOwner, deployment.Version1_0_0)))
 	}
 
 	env, err := commonchangeset.Apply(t, env, nil,
@@ -455,15 +448,15 @@ func validateInitialChainState(t *testing.T, env deployment.Environment, registr
 	// all contracts on registry chain
 	registryChainAddrs, err := ad.AddressesForChain(registryChainSel)
 	require.NoError(t, err)
-	require.Len(t, registryChainAddrs, 5) // registry, ocr3, forwarder, workflowRegistry, owner address
+	require.Len(t, registryChainAddrs, 4) // registry, ocr3, forwarder, workflowRegistry
 	// only forwarder on non-home chain
 	for sel := range env.Chains {
 		chainAddrs, err := ad.AddressesForChain(sel)
 		require.NoError(t, err)
 		if sel != registryChainSel {
-			require.Len(t, chainAddrs, 2) // plus owner address
+			require.Len(t, chainAddrs, 1)
 		} else {
-			require.Len(t, chainAddrs, 5) // plus owner address
+			require.Len(t, chainAddrs, 4)
 		}
 		containsForwarder := false
 		for _, tv := range chainAddrs {
