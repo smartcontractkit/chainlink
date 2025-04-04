@@ -12,7 +12,7 @@ before_hook() {
   # Copy over all platform versions of the wasmvm library
   cp -f "$(go env GOMODCACHE)"/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.* "$lib_path/libs"
   mkdir -p "$lib_path/plugins"
-  build_standard_capabilities
+  # build_standard_capabilities
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)

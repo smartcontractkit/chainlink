@@ -384,12 +384,17 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameRMNRemote: {
 				IDL: rmnRemoteIDL,
 				Reads: map[string]config.ReadDefinition{
-					// TODO: need to have definition or it'll complain
 					consts.MethodNameGetVersionedConfig: {
 						ChainSpecificName: "Config",
 						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							// Disable fields so config isn't used, we only use global verification
+							&codec.DropModifierConfig{
+								Fields: []string{"Version"},
+							},
 						},
 					},
 					consts.MethodNameGetReportDigestHeader: {
