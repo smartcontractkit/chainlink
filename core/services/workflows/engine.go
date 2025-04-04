@@ -1499,7 +1499,7 @@ func buildWorkflowMetadata(kvs map[string]string) *pb.WorkflowMetadata {
 
 	if donIDStr, ok := kvs[platform.KeyDonID]; ok {
 		if id, err := strconv.ParseInt(donIDStr, 10, 32); err == nil {
-			m.DonF = int32(id)
+			m.DonID = int32(id)
 		}
 	}
 
