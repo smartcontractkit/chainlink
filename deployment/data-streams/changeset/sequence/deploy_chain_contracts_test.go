@@ -32,6 +32,7 @@ var (
 )
 
 func TestDeployDataStreamsContracts(t *testing.T) {
+	t.Parallel()
 	proposalCfg := proposalutils.SingleGroupTimelockConfigV2(t)
 	tests := []struct {
 		name                    string
@@ -122,7 +123,7 @@ func TestDeployDataStreamsContracts(t *testing.T) {
 			}
 
 			resp, err := commonChangesets.Apply(t, testEnv.Environment, nil,
-				commonChangesets.Configure(DeployDataStreamsDestinationChainChangeset, cfg),
+				commonChangesets.Configure(DeployDataStreamsChainContractsChangeset, cfg),
 			)
 			require.NoError(t, err)
 

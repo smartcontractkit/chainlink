@@ -13,9 +13,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 )
 
-// DeployDataStreamsDestinationChainChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
+// DeployDataStreamsChainContractsChangeset deploys the entire data streams destination chain contracts. It should be kept up to date
 // with the latest contract versions and deployment logic.
-var DeployDataStreamsDestinationChainChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
+var DeployDataStreamsChainContractsChangeset = deployment.CreateChangeSet(deployDataStreamsLogic, deployDataStreamsPrecondition)
 
 type DeployDataStreamsConfig struct {
 	ChainsToDeploy map[uint64]DeployDataStreams
