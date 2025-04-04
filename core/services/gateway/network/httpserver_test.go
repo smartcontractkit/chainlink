@@ -48,8 +48,8 @@ func startNewServer(t *testing.T, maxRequestBytes int64, readTimeoutMillis uint3
 	return
 }
 
-func sendRequest(t *testing.T, url string, body []byte, origin *string) *http.Response {
-	req, err := http.NewRequestWithContext(testutils.Context(t), "POST", url, bytes.NewBuffer(body))
+func sendRequest(t *testing.T, url string, body []byte, httpMethod string, origin *string) *http.Response {
+	req, err := http.NewRequestWithContext(testutils.Context(t), httpMethod, url, bytes.NewBuffer(body))
 	if origin != nil {
 		req.Header.Set("Origin", *origin)
 	}
@@ -67,7 +67,7 @@ func TestHTTPServer_HandleRequest_Correct(t *testing.T) {
 
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
-	resp := sendRequest(t, url, []byte("0123456789"), nil)
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -79,7 +79,7 @@ func TestHTTPServer_HandleRequest_RequestBodyTooBig(t *testing.T) {
 	server, _, url := startNewServer(t, 5, 100_000, false, nil)
 	defer server.Close()
 
-	resp := sendRequest(t, url, []byte("0123456789"), nil)
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, nil)
 	require.Equal(t, http.StatusBadRequest, resp.StatusCode)
 }
 
@@ -89,7 +89,7 @@ func TestHTTPServer_HandleHealthCheck(t *testing.T) {
 	defer server.Close()
 
 	url = strings.Replace(url, HTTPTestPath, network.HealthCheckPath, 1)
-	resp := sendRequest(t, url, []byte{}, nil)
+	resp := sendRequest(t, url, []byte{}, http.MethodPost, nil)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -105,7 +105,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin(t *testing.T) {
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
 	origin := "https://remix.ethereum.org"
-	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
@@ -122,7 +122,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromAllowedOrigin_PreflightRequest
 	defer server.Close()
 
 	origin := "https://remix.ethereum.org"
-	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodOptions, &origin)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusNoContent, resp.StatusCode)
@@ -141,7 +141,7 @@ func TestHTTPServer_HandleRequest_CORSEnabled_FromNotAllowedOrigin(t *testing.T)
 	handler.On("ProcessRequest", mock.Anything, mock.Anything).Return([]byte("response"), 200)
 
 	origin := "https://not.allowed.origin.com"
-	resp := sendRequest(t, url, []byte("0123456789"), &origin)
+	resp := sendRequest(t, url, []byte("0123456789"), http.MethodPost, &origin)
 	respBytes, err := io.ReadAll(resp.Body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.StatusCode)
