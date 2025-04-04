@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/ethereum/go-ethereum/common"
+	"github.com/gagliardetto/solana-go"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
@@ -28,6 +29,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/config"
 	mnCfg "github.com/smartcontractkit/chainlink-framework/multinode/config"
+
+	solrpc "github.com/gagliardetto/solana-go/rpc"
 
 	solcfg "github.com/smartcontractkit/chainlink-solana/pkg/solana/config"
 
@@ -78,8 +81,9 @@ func (n Node) MultiAddr() string {
 
 func (n Node) ReplayLogs(ctx context.Context, chains map[uint64]uint64) error {
 	for sel, block := range chains {
-		chainID, _ := chainsel.ChainIdFromSelector(sel)
-		if err := n.App.ReplayFromBlock(ctx, "evm", strconv.FormatUint(chainID, 10), block, false); err != nil {
+		family, _ := chainsel.GetSelectorFamily(sel)
+		chainID, _ := chainsel.GetChainIDFromSelector(sel)
+		if err := n.App.ReplayFromBlock(ctx, family, chainID, block, false); err != nil {
 			return err
 		}
 	}
@@ -442,10 +446,11 @@ func CreateKeys(t *testing.T,
 			// need to look more into it, but it seems like with sim chains nodes are sending txs with 0x from address
 			fundAddress(t, chain.DeployerKey, common.Address{}, assets.Ether(1000).ToInt(), backend)
 		case chainsel.FamilyAptos:
-			err = app.GetKeyStore().Aptos().EnsureKey(ctx)
+			keystore := app.GetKeyStore().Aptos()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for aptos")
 
-			keys, err := app.GetKeyStore().Aptos().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
@@ -454,23 +459,22 @@ func CreateKeys(t *testing.T,
 
 			// TODO: funding
 		case chainsel.FamilyStarknet:
-			err = app.GetKeyStore().StarkNet().EnsureKey(ctx)
+			keystore := app.GetKeyStore().StarkNet()
+			err = keystore.EnsureKey(ctx)
 			require.NoError(t, err, "failed to create key for starknet")
 
-			keys, err := app.GetKeyStore().StarkNet().GetAll()
+			keys, err := keystore.GetAll()
 			require.NoError(t, err)
 			require.Len(t, keys, 1)
 
 			transmitter := keys[0]
 			transmitters[chain.Selector] = transmitter.ID()
-
-			// TODO: funding
 		default:
 			// TODO: other transmission keys unsupported for now
 		}
 	}
 
-	for chain := range solchains {
+	for chainSelector, chain := range solchains {
 		ctype := chaintype.Solana
 		err = app.GetKeyStore().OCR2().EnsureKeys(ctx, ctype)
 		require.NoError(t, err)
@@ -489,9 +493,9 @@ func CreateKeys(t *testing.T,
 		require.Len(t, solkeys, 1)
 
 		transmitter := solkeys[0]
-		transmitters[chain] = transmitter.ID()
+		transmitters[chainSelector] = transmitter.ID()
 
-		// TODO: funding
+		FundSolAccounts(ctx, []solana.PublicKey{transmitter.PublicKey()}, chain.Client, t)
 	}
 
 	return Keys{
@@ -500,6 +504,14 @@ func CreateKeys(t *testing.T,
 		Transmitters:  transmitters,
 		OCRKeyBundles: keybundles,
 	}
+}
+
+func FundSolAccounts(ctx context.Context, accounts []solana.PublicKey, solanaGoClient *solrpc.Client, t *testing.T) {
+	for _, v := range accounts {
+		_, err := solanaGoClient.RequestAirdrop(ctx, v, 1000*solana.LAMPORTS_PER_SOL, solrpc.CommitmentConfirmed)
+		require.NoError(t, err)
+	}
+	// we don't wait for confirmation so we don't block the tests, it'll take a while before nodes start transmitting
 }
 
 func createConfigV2Chain(chainID uint64) *v2toml.EVMConfig {
@@ -521,16 +533,26 @@ func createSolanaChainConfig(chainID string, chain deployment.SolChain) *solcfg.
 	chainConfig := solcfg.Chain{}
 	chainConfig.SetDefaults()
 
+	// CCIP requires a non-zero execution fee estimate
+	computeUnitPriceDefault := uint64(100)
+	txRetentionTimeout := config.MustNewDuration(10 * time.Minute)
+	chainConfig.ComputeUnitPriceDefault = &computeUnitPriceDefault
+	chainConfig.TxRetentionTimeout = txRetentionTimeout
+
 	url, err := config.ParseURL(chain.URL)
 	if err != nil {
 		panic(err)
 	}
 
 	return &solcfg.TOMLConfig{
-		ChainID:   &chainID,
-		Enabled:   ptr(true),
-		Chain:     chainConfig,
-		MultiNode: mnCfg.MultiNodeConfig{},
+		ChainID: &chainID,
+		Enabled: ptr(true),
+		Chain:   chainConfig,
+		MultiNode: mnCfg.MultiNodeConfig{
+			MultiNode: mnCfg.MultiNode{
+				VerifyChainID: ptr(false),
+			},
+		},
 		Nodes: []*solcfg.Node{{
 			Name:     ptr("primary"),
 			URL:      url,

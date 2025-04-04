@@ -911,18 +911,22 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	}
 	s.sb.Commit()
 
-	for sourceChain, addrs := range nonces {
-		var addrQuery []string
-		for addr := range addrs {
-			addrQuery = append(addrQuery, addr.String())
+	request := make(map[cciptypes.ChainSelector][]string)
+	for chain, addresses := range nonces {
+		request[chain] = make([]string, 0, len(addresses))
+		for address := range addresses {
+			request[chain] = append(request[chain], address.String())
 		}
-		addrQuery = append(addrQuery, utils.RandomAddress().String())
+		request[chain] = append(request[chain], utils.RandomAddress().String())
+	}
 
-		results, err := s.reader.Nonces(ctx, sourceChain, addrQuery)
-		require.NoError(t, err)
-		assert.Len(t, results, len(addrQuery))
-		for addr, nonce := range addrs {
-			assert.Equal(t, nonce, results[addr.String()])
+	results, err := s.reader.Nonces(ctx, request)
+	require.NoError(t, err)
+
+	for chain, addresses := range nonces {
+		assert.Len(t, results[chain], len(request[chain]))
+		for address, nonce := range addresses {
+			assert.Equal(t, nonce, results[chain][address.String()])
 		}
 	}
 }

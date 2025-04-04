@@ -9,6 +9,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
+	chain_selectors "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/exp/maps"
 
 	mcmslib "github.com/smartcontractkit/mcms"
@@ -91,6 +92,16 @@ func validateCommitOffchainConfig(c *pluginconfig.CommitOffchainConfig, selector
 	if err := c.Validate(); err != nil {
 		return fmt.Errorf("invalid commit off-chain config: %w", err)
 	}
+
+	family, err := chain_selectors.GetSelectorFamily(selector)
+	if err != nil {
+		return err
+	}
+	if family != chain_selectors.FamilyEVM {
+		// TODO: implement more proper validation
+		return nil
+	}
+
 	for tokenAddr, tokenConfig := range c.TokenInfo {
 		tokenUnknownAddr, err := ccipocr3.NewUnknownAddressFromHex(string(tokenAddr))
 		if err != nil {
@@ -161,11 +172,12 @@ func validateUSDCConfig(usdcConfig *pluginconfig.USDCCCTPObserverConfig, state c
 }
 
 type CCIPOCRParams struct {
-	OCRParameters commontypes.OCRParameters
-	// Note contains pointers to Arb feeds for prices
-	CommitOffChainConfig *pluginconfig.CommitOffchainConfig
-	// Note contains USDC config
-	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig
+	// OCRParameters contains the parameters for the OCR plugin.
+	OCRParameters commontypes.OCRParameters `json:"ocrParameters"`
+	// CommitOffChainConfig contains pointers to Arb feeds for prices.
+	CommitOffChainConfig *pluginconfig.CommitOffchainConfig `json:"commitOffChainConfig,omitempty"`
+	// ExecuteOffChainConfig contains USDC config.
+	ExecuteOffChainConfig *pluginconfig.ExecuteOffchainConfig `json:"executeOffChainConfig,omitempty"`
 }
 
 func (c CCIPOCRParams) Copy() CCIPOCRParams {
@@ -206,19 +218,19 @@ func (c CCIPOCRParams) Validate(e deployment.Environment, selector uint64, feedC
 type PromoteCandidatePluginInfo struct {
 	// RemoteChainSelectors is the chain selector of the DONs that we want to promote the candidate config of.
 	// Note that each (chain, ccip capability version) pair has a unique DON ID.
-	RemoteChainSelectors    []uint64
-	PluginType              types.PluginType
-	AllowEmptyConfigPromote bool // safe guard to prevent promoting empty config to active
+	RemoteChainSelectors    []uint64         `json:"remoteChainSelectors"`
+	PluginType              types.PluginType `json:"pluginType"`
+	AllowEmptyConfigPromote bool             `json:"allowEmptyConfigPromote"` // safe guard to prevent promoting empty config to active
 }
 
 type PromoteCandidateChangesetConfig struct {
-	HomeChainSelector uint64
+	HomeChainSelector uint64 `json:"homeChainSelector"`
 
-	PluginInfo []PromoteCandidatePluginInfo
+	PluginInfo []PromoteCandidatePluginInfo `json:"pluginInfo"`
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig
+	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (p PromoteCandidateChangesetConfig) Validate(e deployment.Environment) (map[uint64]uint32, error) {
@@ -375,13 +387,13 @@ func PromoteCandidateChangeset(
 
 type SetCandidatePluginInfo struct {
 	// OCRConfigPerRemoteChainSelector is the chain selector of the chain where the DON will be added.
-	OCRConfigPerRemoteChainSelector map[uint64]CCIPOCRParams
-	PluginType                      types.PluginType
+	OCRConfigPerRemoteChainSelector map[uint64]CCIPOCRParams `json:"ocrConfigPerRemoteChainSelector"`
+	PluginType                      types.PluginType         `json:"pluginType"`
 
 	// SkipChainConfigValidation skips validation of the config for chain on CCIPHome.
 	// WARNING: Never enable this parameter if running this changeset in isolation.
 	// This is only meant to be enabled when running this changeset as part of a larger changeset that groups multiple proposals together.
-	SkipChainConfigValidation bool
+	SkipChainConfigValidation bool `json:"skipChainConfigValidation"`
 }
 
 func (p SetCandidatePluginInfo) String() string {
@@ -444,13 +456,13 @@ func (p SetCandidatePluginInfo) Validate(e deployment.Environment, state changes
 // This is extracted to deduplicate most of the validation logic.
 // Remaining validation logic is done in the specific config structs that inherit from this.
 type SetCandidateConfigBase struct {
-	HomeChainSelector uint64
-	FeedChainSelector uint64
+	HomeChainSelector uint64 `json:"homeChainSelector"`
+	FeedChainSelector uint64 `json:"feedChainSelector"`
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig
+	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -489,11 +501,11 @@ func (s SetCandidateConfigBase) Validate(e deployment.Environment, state changes
 // because the validation is slightly different from SetCandidateChangesetConfig.
 // In particular, we check to make sure we don't already have a DON for the chain.
 type AddDonAndSetCandidateChangesetConfig struct {
-	SetCandidateConfigBase
+	SetCandidateConfigBase `json:"setCandidateConfigBase"`
 
 	// Only set one plugin at a time while you are adding the DON for the first time.
 	// For subsequent SetCandidate call use SetCandidateChangeset as that fetches the already added DONID and sets the candidate.
-	PluginInfo SetCandidatePluginInfo
+	PluginInfo SetCandidatePluginInfo `json:"pluginInfo"`
 }
 
 func (a AddDonAndSetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) error {
@@ -691,12 +703,12 @@ func newDonWithCandidateOp(
 }
 
 type SetCandidateChangesetConfig struct {
-	SetCandidateConfigBase
+	SetCandidateConfigBase `json:"setCandidateConfigBase"`
 
-	PluginInfo []SetCandidatePluginInfo
+	PluginInfo []SetCandidatePluginInfo `json:"pluginInfo"`
 
 	// WARNING: Do not use if calling this changeset in isolation
-	DonIDOverrides map[uint64]uint32
+	DonIDOverrides map[uint64]uint32 `json:"donIdOverrides"`
 }
 
 func (s SetCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (map[uint64]uint32, error) {
@@ -996,16 +1008,16 @@ func promoteCandidateForChainOps(
 }
 
 type RevokeCandidateChangesetConfig struct {
-	HomeChainSelector uint64
+	HomeChainSelector uint64 `json:"homeChainSelector"`
 
 	// RemoteChainSelector is the chain selector whose candidate config we want to revoke.
-	RemoteChainSelector uint64
-	PluginType          types.PluginType
+	RemoteChainSelector uint64           `json:"remoteChainSelector"`
+	PluginType          types.PluginType `json:"pluginType"`
 
 	// MCMS is optional MCMS configuration, if provided the changeset will generate an MCMS proposal.
 	// If nil, the changeset will execute the commands directly using the deployer key
 	// of the provided environment.
-	MCMS *proposalutils.TimelockConfig
+	MCMS *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (r RevokeCandidateChangesetConfig) Validate(e deployment.Environment, state changeset.CCIPOnChainState) (donID uint32, err error) {
@@ -1185,16 +1197,16 @@ func revokeCandidateOps(
 }
 
 type ChainConfig struct {
-	Readers              [][32]byte
-	FChain               uint8
-	EncodableChainConfig chainconfig.ChainConfig
+	Readers              [][32]byte              `json:"readers"`
+	FChain               uint8                   `json:"fChain"`
+	EncodableChainConfig chainconfig.ChainConfig `json:"encodableChainConfig"`
 }
 
 type UpdateChainConfigConfig struct {
-	HomeChainSelector  uint64
-	RemoteChainRemoves []uint64
-	RemoteChainAdds    map[uint64]ChainConfig
-	MCMS               *proposalutils.TimelockConfig
+	HomeChainSelector  uint64                        `json:"homeChainSelector"`
+	RemoteChainRemoves []uint64                      `json:"remoteChainRemoves"`
+	RemoteChainAdds    map[uint64]ChainConfig        `json:"remoteChainAdds"`
+	MCMS               *proposalutils.TimelockConfig `json:"mcms,omitempty"`
 }
 
 func (c UpdateChainConfigConfig) Validate(e deployment.Environment) error {

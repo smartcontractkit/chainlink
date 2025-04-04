@@ -169,6 +169,7 @@ var (
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
+						VerifyChainID:                ptr(true),
 						NodeNoNewHeadsThreshold:      &minute,
 						NoNewFinalizedHeadsThreshold: &minute,
 						FinalityDepth:                ptr[uint32](0),
@@ -198,6 +199,7 @@ var (
 						FinalizedBlockPollInterval:   &second,
 						EnforceRepeatableRead:        ptr(true),
 						DeathDeclarationDelay:        &minute,
+						VerifyChainID:                ptr(true),
 						NodeNoNewHeadsThreshold:      &minute,
 						NoNewFinalizedHeadsThreshold: &minute,
 						FinalityDepth:                ptr[uint32](0),
@@ -681,6 +683,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalizedBlockPollInterval: &second,
 					EnforceRepeatableRead:      ptr(true),
 					DeathDeclarationDelay:      &minute,
+					VerifyChainID:              ptr(true),
 					NewHeadsPollInterval:       &zeroSeconds,
 					Errors: evmcfg.ClientErrors{
 						NonceTooLow:                       ptr[string]("(: |^)nonce too low"),
@@ -775,6 +778,7 @@ func TestConfig_Marshal(t *testing.T) {
 					FinalizedBlockPollInterval:   &second,
 					EnforceRepeatableRead:        ptr(true),
 					DeathDeclarationDelay:        &minute,
+					VerifyChainID:                ptr(true),
 					NodeNoNewHeadsThreshold:      &minute,
 					NoNewFinalizedHeadsThreshold: &minute,
 					FinalityDepth:                ptr[uint32](0),
@@ -1161,6 +1165,7 @@ FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
 NewHeadsPollInterval = '0s'
+VerifyChainID = true
 
 [EVM.NodePool.Errors]
 NonceTooLow = '(: |^)nonce too low'
@@ -1246,6 +1251,7 @@ NewHeadsPollInterval = '1s'
 FinalizedBlockPollInterval = '1s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '1m0s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '1m0s'
 NoNewFinalizedHeadsThreshold = '1m0s'
 FinalityDepth = 0

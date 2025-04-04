@@ -1,4 +1,4 @@
-package general
+package reward_manager
 
 import (
 	"testing"

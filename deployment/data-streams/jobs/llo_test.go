@@ -10,8 +10,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
 
-const donSpecTOML1 = `name = 'Test-DON'
-type = 'don'
+const lloSpecTOML1 = `name = 'Test-DON'
+type = 'offchainreporting2'
 schemaVersion = 1
 externalJobID = '00000000-0000-0000-0000-000000000000'
 contractID = 'contract-123'
@@ -37,8 +37,8 @@ donID = 300
 servers = {server1 = 'http://localhost'}
 `
 
-const donSpecTOML2 = `name = 'Empty-DON-Test'
-type = 'don'
+const lloSpecTOML2 = `name = 'Empty-DON-Test'
+type = 'offchainreporting2'
 schemaVersion = 1
 externalJobID = '00000000-0000-0000-0000-000000000000'
 contractID = 'contract-empty'
@@ -53,18 +53,18 @@ donID = 0
 servers = {}
 `
 
-func TestDonJobSpec_MarshalTOML(t *testing.T) {
+func TestLLOJobSpec_MarshalTOML(t *testing.T) {
 	testCases := []struct {
 		name string
-		spec DonJobSpec
+		spec LLOJobSpec
 		want string
 	}{
 		{
 			name: "with fields populated",
-			spec: DonJobSpec{
+			spec: LLOJobSpec{
 				Base: Base{
 					Name:          "Test-DON",
-					Type:          "don",
+					Type:          "offchainreporting2",
 					SchemaVersion: 1,
 					ExternalJobID: uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 				},
@@ -77,37 +77,37 @@ func TestDonJobSpec_MarshalTOML(t *testing.T) {
 				ContractConfigTrackerPollInterval: 1 * time.Minute,
 				Relay:                             "testrelay",
 				PluginType:                        "testplugin",
-				RelayConfig: RelayConfigDon{
+				RelayConfig: RelayConfigLLO{
 					ChainID:       "chain",
 					FromBlock:     100,
 					LLOConfigMode: "mode",
 					LLODonID:      200,
 				},
-				PluginConfig: PluginConfigDon{
+				PluginConfig: PluginConfigLLO{
 					ChannelDefinitionsContractAddress:   "0xabc",
 					ChannelDefinitionsContractFromBlock: 50,
 					DonID:                               300,
 					Servers:                             map[string]string{"server1": "http://localhost"},
 				},
 			},
-			want: donSpecTOML1,
+			want: lloSpecTOML1,
 		},
 		{
 			name: "empty minimal fields",
-			spec: DonJobSpec{
+			spec: LLOJobSpec{
 				Base: Base{
 					Name:          "Empty-DON-Test",
-					Type:          "don",
+					Type:          "offchainreporting2",
 					SchemaVersion: 1,
 					ExternalJobID: uuid.MustParse("00000000-0000-0000-0000-000000000000"),
 				},
 				ContractID:  "contract-empty",
-				RelayConfig: RelayConfigDon{},
-				PluginConfig: PluginConfigDon{
+				RelayConfig: RelayConfigLLO{},
+				PluginConfig: PluginConfigLLO{
 					Servers: map[string]string{},
 				},
 			},
-			want: donSpecTOML2,
+			want: lloSpecTOML2,
 		},
 	}
 
