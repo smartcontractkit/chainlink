@@ -1,10 +1,12 @@
-package general
+package reward_manager
 
 import (
 	"errors"
 	"fmt"
 
 	"github.com/ethereum/go-ethereum/common"
+
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
@@ -15,11 +17,12 @@ import (
 var DeployRewardManagerChangeset = deployment.CreateChangeSet(deployRewardManagerLogic, deployRewardManagerPrecondition)
 
 type DeployRewardManager struct {
-	LinkAddress common.Address
+	LinkTokenAddress common.Address
 }
 
 type DeployRewardManagerConfig struct {
 	ChainsToDeploy map[uint64]DeployRewardManager
+	Ownership      types.OwnershipSettings
 }
 
 func (cc DeployRewardManagerConfig) Validate() error {
@@ -41,6 +44,12 @@ func deployRewardManagerLogic(e deployment.Environment, cc DeployRewardManagerCo
 		e.Logger.Errorw("Failed to deploy RewardManager", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.RewardManager, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
@@ -65,7 +74,7 @@ func deployRewardManager(e deployment.Environment, ab deployment.AddressBook, cc
 			return fmt.Errorf("chain not found for chain selector %d", chainSel)
 		}
 		deployRewardManager := cc.ChainsToDeploy[chainSel]
-		_, err := changeset.DeployContract(e, ab, chain, RewardManagerDeployFn(deployRewardManager.LinkAddress))
+		_, err := changeset.DeployContract(e, ab, chain, RewardManagerDeployFn(deployRewardManager.LinkTokenAddress))
 		if err != nil {
 			return err
 		}

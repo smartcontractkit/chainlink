@@ -157,6 +157,21 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 		if out.Jobs != nil { //nolint:revive,staticcheck // we want the empty block as documentation
 			// do nothing, as these jobs auto-accept.
 		}
+
+		// Updated environment may be required before executing proposals when proposals involve new addresses
+		// Ex. changesets[0] deploys MCMS, changesets[1] generates a proposal with the new MCMS addresses
+		currentEnv = deployment.Environment{
+			Name:              e.Name,
+			Logger:            e.Logger,
+			ExistingAddresses: addresses,
+			Chains:            e.Chains,
+			SolChains:         e.SolChains,
+			NodeIDs:           e.NodeIDs,
+			Offchain:          e.Offchain,
+			OCRSecrets:        e.OCRSecrets,
+			GetContext:        e.GetContext,
+		}
+
 		if out.MCMSTimelockProposals != nil {
 			for _, prop := range out.MCMSTimelockProposals {
 				chains := mapset.NewSet[uint64]()
@@ -164,12 +179,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSTimelockProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSTimelockProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
-				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, e, &prop)
+				err = proposalutils.ExecuteMCMSTimelockProposalV2(t, currentEnv, &prop)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
@@ -182,23 +197,12 @@ func ApplyChangesetsV2(t *testing.T, e deployment.Environment, changesetApplicat
 					chains.Add(uint64(op.ChainSelector))
 				}
 
-				p := proposalutils.SignMCMSProposal(t, e, &prop)
-				err = proposalutils.ExecuteMCMSProposalV2(t, e, p)
+				p := proposalutils.SignMCMSProposal(t, currentEnv, &prop)
+				err = proposalutils.ExecuteMCMSProposalV2(t, currentEnv, p)
 				if err != nil {
 					return deployment.Environment{}, err
 				}
 			}
-		}
-		currentEnv = deployment.Environment{
-			Name:              e.Name,
-			Logger:            e.Logger,
-			ExistingAddresses: addresses,
-			Chains:            e.Chains,
-			SolChains:         e.SolChains,
-			NodeIDs:           e.NodeIDs,
-			Offchain:          e.Offchain,
-			OCRSecrets:        e.OCRSecrets,
-			GetContext:        e.GetContext,
 		}
 	}
 	return currentEnv, nil
