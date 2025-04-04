@@ -104,6 +104,7 @@ func DeployPingPongContractChangeset(
 
 type StartPingPongConfig struct {
 	ChainSelector uint64
+	FeesToken     solana.PublicKey
 }
 
 func (c StartPingPongConfig) Validate(e deployment.Environment) error {
@@ -151,7 +152,7 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(nil, chainState.FeeQuoter)
+	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(c.FeesToken, chainState.FeeQuoter)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
