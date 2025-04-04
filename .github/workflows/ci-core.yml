@@ -213,6 +213,9 @@ jobs:
       contents: read
       actions: read
     steps:
+      - name: Collect Workflow Telemetry
+        uses: erikburt/workflow-telemetry-action@0bcfed82126f069f2c6cfbd722804f17fe86f116
+
       - name: Enable S3 Cache for Self-Hosted Runners
         if: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' }}
         uses: runs-on/action@66d4449b717b5462159659523d1241051ff470b9 # v1
