@@ -6,6 +6,7 @@ import (
 	"github.com/gagliardetto/solana-go"
 	solPingPong "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ping_pong_demo"
 	solanaStateUtils "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
+	"github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	ccipChangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -21,6 +22,10 @@ type DeployPingPongContractsConfig struct {
 	CounterpartAddress []byte
 	IsPaused           bool
 	ExtraArgs          []byte
+	DeployerKey        solana.PublicKey
+
+	FeesTokenProgram solana.PublicKey
+	FeesTokenMint    solana.PublicKey
 }
 
 func (c DeployPingPongContractsConfig) Validate(e deployment.Environment) error {
@@ -95,6 +100,42 @@ func DeployPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
 	}
 
+	feeBillingSignerPDA, _, err := solanaStateUtils.FindFeeBillingSignerPDA(chainState.Router)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	ppSendSignerPDA, _, err := solanaStateUtils.FindPingPongCCIPSendSignerPDA(chainState.PingPong)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	ppFeeTokenAta, _, err := tokens.FindAssociatedTokenAddress(c.FeesTokenProgram, c.FeesTokenMint, ppSendSignerPDA)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	initialize, err := solPingPong.NewInitializeInstruction(
+		ppConfigPDA,
+		solana.PublicKey{}, // TODO complete with name version PDA
+		feeBillingSignerPDA,
+		c.FeesTokenProgram,
+		c.FeesTokenMint,
+		ppFeeTokenAta,
+		ppSendSignerPDA,
+		c.DeployerKey,
+		solana.SPLAssociatedTokenAccountProgramID,
+		solana.SystemProgramID,
+	).ValidateAndBuild()
+
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build instruction: %w", err)
+	}
+
+	if err := chain.Confirm([]solana.Instruction{initialize}); err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to confirm initializeRMNRemote: %w", err)
+	}
+
 	e.Logger.Infow("Initialized ping pong demo", "chain", chain.String())
 
 	return deployment.ChangesetOutput{
@@ -103,8 +144,13 @@ func DeployPingPongContractChangeset(
 }
 
 type StartPingPongConfig struct {
+	DeployerKey   solana.PublicKey
 	ChainSelector uint64
-	FeesToken     solana.PublicKey
+
+	FeesTokenProgram solana.PublicKey
+	FeesTokenMint    solana.PublicKey
+
+	LinkTokenMint solana.PublicKey
 }
 
 func (c StartPingPongConfig) Validate(e deployment.Environment) error {
@@ -142,7 +188,7 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, solana.PublicKey(*chain.DeployerKey), chainState.Router)
+	routerNoncePDA, err := solanaStateUtils.FindNoncePDA(c.ChainSelector, ppSendSignerPDA, chainState.Router)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
@@ -152,7 +198,7 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
-	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(c.FeesToken, chainState.FeeQuoter)
+	fqBillingTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(c.FeesTokenMint, chainState.FeeQuoter)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
@@ -167,28 +213,54 @@ func StartPingPongContractChangeset(
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
 	}
 
+	ppFeeTokenAta, _, err := tokens.FindAssociatedTokenAddress(c.FeesTokenProgram, c.FeesTokenMint, ppSendSignerPDA)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find ping pong config pda: %w", err)
+	}
+
+	routerFeeTokenReceiver, _, err := tokens.FindAssociatedTokenAddress(c.FeesTokenProgram, c.FeesTokenMint, feeBillingSignerPDA)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find router fee token receiver: %w", err)
+	}
+
+	fqDestChainPDA, _, err := solanaStateUtils.FindFqDestChainPDA(c.ChainSelector, chainState.FeeQuoter)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find fq dest chain pda: %w", err)
+	}
+
+	fqLinkTokenConfigPDA, _, err := solanaStateUtils.FindFqBillingTokenConfigPDA(c.LinkTokenMint, chainState.FeeQuoter)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find link config pda: %w", err)
+	}
+
+	// NOTE this will be deleted on the next version of the ping pong demo contract
+	externalTokenPoolSignerPDA, _, err := solanaStateUtils.FindExternalTokenPoolsSignerPDA(chainState.Router)
+	if err != nil {
+		return deployment.ChangesetOutput{}, fmt.Errorf("failed to find external pool signer pda: %w", err)
+	}
+
 	initTx, err := solPingPong.NewStartPingPongInstruction(
 		ppConfigPDA,
-		chain.DeployerKey.PublicKey(),
+		c.DeployerKey,
 		ppSendSignerPDA,
-		nil, // feeTokenProgram ag_solanago.PublicKey,
-		nil, // feeTokenMint ag_solanago.PublicKey,
-		nil, // feeTokenAta ag_solanago.PublicKey,
+		c.FeesTokenProgram,
+		c.FeesTokenMint,
+		ppFeeTokenAta,
 		chainState.Router,
 		chainState.RouterConfigPDA,
 		destChainStatePDA,
 		routerNoncePDA,
-		chainState.Receiver, // TODO is this right?
+		routerFeeTokenReceiver,
 		feeBillingSignerPDA,
 		chainState.FeeQuoter,
 		chainState.FeeQuoterConfigPDA,
-		nil, // feeQuoterDestChain ag_solanago.PublicKey,
+		fqDestChainPDA,
 		fqBillingTokenConfigPDA,
-		nil, // feeQuoterLinkTokenConfig ag_solanago.PublicKey,
+		fqLinkTokenConfigPDA,
 		chainState.RMNRemote,
-		rmnRemoteConfigPDA,
 		rmnRemoteCursesPDA,
-		nil, // tokenPoolsSigner ag_solanago.PublicKey,
+		rmnRemoteConfigPDA,
+		externalTokenPoolSignerPDA,
 		solana.SystemProgramID,
 	).ValidateAndBuild()
 
