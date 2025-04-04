@@ -335,7 +335,7 @@ func configureTokenPool(
 			remoteChainSelectorsToUpdate = append(remoteChainSelectorsToUpdate, remoteChainSelector)
 			updatedOutboundConfigs = append(updatedOutboundConfigs, chainUpdate.RateLimiterConfig.Outbound)
 			updatedInboundConfigs = append(updatedInboundConfigs, chainUpdate.RateLimiterConfig.Inbound)
-			// TODO: Add a new remote pool if the inputted remote pool is different than the one set on the Solana registry
+			// we dont need to add a new remote pool because solana only supports one remote pool per token
 		} else {
 			chainAdditions = append(chainAdditions, token_pool.TokenPoolChainUpdate{
 				RemoteChainSelector:       remoteChainSelector,
@@ -344,7 +344,6 @@ func configureTokenPool(
 				RemoteTokenAddress:        remoteTokenAddress.Bytes(),
 				RemotePoolAddresses:       [][]byte{remotePoolAddress.Bytes()},
 			})
-			// TODO: If updating the EVM pool, support the remote pool addresses that the old pool supported.
 		}
 	}
 
