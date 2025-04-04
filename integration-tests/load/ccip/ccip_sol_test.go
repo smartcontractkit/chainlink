@@ -85,7 +85,7 @@ func TestCCIPSol2EvmCRIB(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -209,7 +209,7 @@ func TestCCIPEvm2SolCRIB(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -314,7 +314,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
@@ -463,7 +463,7 @@ func TestTokenTransfer_Solana2EVMCRIB(t *testing.T) {
 	userOverrides := config.CCIP.Load
 
 	// generate environment from crib-produced files
-	cribEnv := crib.NewDevspaceEnvFromStateDir(*userOverrides.CribEnvDirectory)
+	cribEnv := crib.NewDevspaceEnvFromStateDir(lggr, *userOverrides.CribEnvDirectory)
 	cribDeployOutput, err := cribEnv.GetConfig(simChainTestKey, solTestKey)
 	require.NoError(t, err)
 	cribEnvironment, err := crib.NewDeployEnvironmentFromCribOutput(lggr, cribDeployOutput)
