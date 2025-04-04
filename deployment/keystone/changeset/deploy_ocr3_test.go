@@ -97,7 +97,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, existingContracts, 5)
+		require.Len(t, existingContracts, 4)
 
 		// Find existing OCR3 contract
 		var existingOCR3Addr string
@@ -117,7 +117,7 @@ func TestConfigureOCR3(t *testing.T) {
 		// Verify after merge there are three original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, addrs, 6)
+		require.Len(t, addrs, 5)
 
 		// Find new OCR3 contract
 		var newOCR3Addr string
@@ -162,7 +162,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, existingContracts, 5)
+		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
 		resp, err := changeset.DeployOCR3(te.Env, registrySel)
@@ -173,7 +173,7 @@ func TestConfigureOCR3(t *testing.T) {
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, addrs, 6)
+		require.Len(t, addrs, 5)
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
@@ -202,7 +202,7 @@ func TestConfigureOCR3(t *testing.T) {
 
 		existingContracts, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, existingContracts, 5)
+		require.Len(t, existingContracts, 4)
 
 		// Deploy a new OCR3 contract
 		resp, err := changeset.DeployOCR3(te.Env, registrySel)
@@ -213,7 +213,7 @@ func TestConfigureOCR3(t *testing.T) {
 		// Verify after merge there are original contracts plus one new one
 		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
 		require.NoError(t, err)
-		require.Len(t, addrs, 6)
+		require.Len(t, addrs, 5)
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
