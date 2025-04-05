@@ -3,7 +3,7 @@ package datastore
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContractMetadata_Clone(t *testing.T) {
@@ -15,18 +15,18 @@ func TestContractMetadata_Clone(t *testing.T) {
 
 	cloned := original.Clone()
 
-	assert.Equal(t, original.ChainSelector, cloned.ChainSelector)
-	assert.Equal(t, original.Address, cloned.Address)
-	assert.Equal(t, original.Metadata, cloned.Metadata)
+	require.Equal(t, original.ChainSelector, cloned.ChainSelector)
+	require.Equal(t, original.Address, cloned.Address)
+	require.Equal(t, original.Metadata, cloned.Metadata)
 
 	// Modify the original and ensure the cloned remains unchanged
 	original.ChainSelector = 2
 	original.Address = "0x456"
 	original.Metadata = DefaultMetadata("updated data")
 
-	assert.NotEqual(t, original.ChainSelector, cloned.ChainSelector)
-	assert.NotEqual(t, original.Address, cloned.Address)
-	assert.NotEqual(t, original.Metadata, cloned.Metadata)
+	require.NotEqual(t, original.ChainSelector, cloned.ChainSelector)
+	require.NotEqual(t, original.Address, cloned.Address)
+	require.NotEqual(t, original.Metadata, cloned.Metadata)
 }
 
 func TestContractMetadata_Key(t *testing.T) {
@@ -39,5 +39,5 @@ func TestContractMetadata_Key(t *testing.T) {
 	key := metadata.Key()
 	expectedKey := NewContractMetadataKey(1, "0x123")
 
-	assert.Equal(t, expectedKey, key)
+	require.Equal(t, expectedKey, key)
 }
