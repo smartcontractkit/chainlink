@@ -98,7 +98,7 @@ jobs:
         with:
           persist-credentials: false
           repository: smartcontractkit/.github
-          ref: 9aed33e5298471f20a3d630d711b96ae5538728c # jira-tracing@0.2.0
+          ref: a104d316e1d8bf08f7283b90356450c72157e149 # 2025-04-03
           path: ./dot_github
 
       - name: Update Jira ticket for core
@@ -209,4 +209,3 @@ jobs:
           message: |
             It appears that the changeset file you've added or modified in `contracts/.changeset` is not valid.
             Please delete the file and run `pnpm changeset` in the contracts directory.
-

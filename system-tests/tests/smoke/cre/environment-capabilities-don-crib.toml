@@ -150,7 +150,7 @@
       """
 
 [[nodesets]]
-  nodes = 3
+  nodes = 2
   override_mode = "each"
   http_port_range_start = 10200
   name = "capability"
@@ -158,27 +158,6 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13100
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "localhost:5001/chainlink:e530f1c"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
 
   [[nodesets.node_specs]]
 

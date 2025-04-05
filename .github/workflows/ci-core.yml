@@ -2,7 +2,7 @@ name: CI Core
 run-name: CI Core ${{ inputs.distinct_run_name && inputs.distinct_run_name || '' }}
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.distinct_run_name }}
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 # Run on key branches to make sure integration is good, otherwise run on all PR's
@@ -107,7 +107,7 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
         run: |
           # if scheduled, run for all modules. Otherwise, run for only affected modules.
-          if [[ "$GH_EVENT_NAME" == "schedule" ]]; then
+          if [[ "$GH_EVENT_NAME" == "schedule" || "$GH_EVENT_NAME" == "workflow_dispatch" ]]; then
             json_array=$(find . -name 'go.mod' -exec dirname {} \; | sed 's|^./||' | uniq |  jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "module_names=$json_array" >> "$GITHUB_OUTPUT"
           else
@@ -177,16 +177,12 @@ jobs:
         type:
           - cmd: go_core_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted:
-              - runs-on=${{ github.run_id }}
-              - runner=32core-256gb-large-ubuntu-r7iz-s3
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_tests_integration
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted:
-              - runs-on=${{ github.run_id }}
-              - runner=32core-256gb-large-ubuntu-r7iz-s3
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_fuzz
@@ -196,16 +192,12 @@ jobs:
 
           - cmd: go_core_race_tests
             os: 'ubuntu-latest-32cores-128GB'
-            os-self-hosted:
-              - runs-on=${{ github.run_id }}
-              - runner=64core-128gb-large-ubuntu-c7i-flex-s3
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=64/ram=128/family=c7/disk=large/extras=s3-cache
             should-run: ${{ needs.filter.outputs.should-run-core-tests }}
 
           - cmd: go_core_ccip_deployment_tests
             os: ubuntu22.04-32cores-128GB
-            os-self-hosted:
-              - runs-on=${{ github.run_id }}
-              - runner=32core-256gb-large-ubuntu-r7iz-s3
+            os-self-hosted: runs-on=${{ github.run_id }}/cpu=32/ram=256/family=r7/disk=large/extras=s3-cache
             build-solana-artifacts: 'true'
             should-run: ${{ needs.filter.outputs.should-run-deployment-tests }}
 
@@ -213,8 +205,9 @@ jobs:
     # We don't directly merge dependabot PRs, so let's not waste the resources
     if: ${{ github.actor != 'dependabot[bot]' }}
     needs: [filter, run-frequency]
+    timeout-minutes: ${{ github.event_name == 'schedule' && 40 || 20 }} # 40 minute timeout for scheduled events (race tests)
     # runs-on rollout - use self-hosted runners 10% of the time
-    runs-on: ${{needs.run-frequency.outputs.should-use-self-hosted == 'true' && matrix.type.os-self-hosted || matrix.type.os }}
+    runs-on: ${{ needs.run-frequency.outputs.should-use-self-hosted == 'true' && matrix.type.os-self-hosted || matrix.type.os }}
     permissions:
       id-token: write
       contents: read
@@ -454,7 +447,8 @@ jobs:
   scan:
     name: SonarQube Scan
     needs: [golangci, core, core-scripts-tests]
-    if: ${{ always() && github.actor != 'dependabot[bot]' }}
+    # If core is cancelled, skip this to not delay the cancellation of the workflow.
+    if: ${{ always() && github.actor != 'dependabot[bot]' && needs.core.result != 'cancelled' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the repo
@@ -635,16 +629,31 @@ jobs:
 
       - name: Self-hosted Runner Frequencies
         id: check-branch
+        env:
+          RUNS_ON_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on') }}
+          RUNS_ON_OPT_OUT: ${{ contains(github.event.pull_request.labels.*.name, 'runs-on-opt-out') }}
         run: |
-          if ["$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+          if [ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]; then
+            echo "Using self-hosted runners for workflow dispatch events"
             echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
 
-          exit 0
-          # Only enable for workflow dispatch events for now
-          # Following logic will be used once we've validated the reliability
+          if [ "$RUNS_ON_OPT_OUT" == "true" ]; then
+            echo "Not using self-hosted runners for PR with 'runs-on-opt-out' label"
+            echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
 
+          if [ "$RUNS_ON_LABEL" == "true" ]; then
+            echo "Using self-hosted runners for PR with 'runs-on' label"
+            echo "self-hosted-runners=true" | tee -a $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "Not using self-hosted runners for this event"
+
+          exit 0
           if [ "$GITHUB_EVENT_NAME" == "merge_group" ]; then
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
             exit 0

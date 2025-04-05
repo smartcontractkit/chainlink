@@ -1,4 +1,4 @@
-package general
+package reward_manager
 
 import (
 	"testing"
@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 )
 
-func runClaimRewardsTest(t *testing.T, useMCMS bool) {
+func runPayRecipientsTest(t *testing.T, useMCMS bool) {
 	e := testutil.NewMemoryEnv(t, true)
 	chainSelector := testutil.TestChain.Selector
 
@@ -31,22 +31,24 @@ func runClaimRewardsTest(t *testing.T, useMCMS bool) {
 	_, err := commonChangesets.Apply(
 		t, e, timelocks,
 		commonChangesets.Configure(
-			ClaimRewardsChangeset,
-			ClaimRewardsConfig{
-				ConfigsByChain: map[uint64][]ClaimRewards{
+			PayRecipientsChangeset,
+			PayRecipientsConfig{
+				ConfigsByChain: map[uint64][]PayRecipients{
 					chainSelector: {{
 						RewardManagerAddress: rewardManagerAddr,
-						PoolIDs:              [][32]byte{poolID},
+						PoolID:               poolID,
+						Recipients:           []common.Address{},
 					}},
 				},
 				MCMSConfig: testutil.GetMCMSConfig(useMCMS),
 			},
 		),
 	)
+	// Need Configured Fee Manager For PayRecipients Event
 	require.NoError(t, err)
 }
 
-func TestClaimRewards(t *testing.T) {
+func TestPayRecipients(t *testing.T) {
 	testCases := []struct {
 		name    string
 		useMCMS bool
@@ -63,7 +65,7 @@ func TestClaimRewards(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			runClaimRewardsTest(t, tc.useMCMS)
+			runPayRecipientsTest(t, tc.useMCMS)
 		})
 	}
 }

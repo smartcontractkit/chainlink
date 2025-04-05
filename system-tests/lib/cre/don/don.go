@@ -54,6 +54,30 @@ func ValidateTopology(nodeSetInput []*cretypes.CapabilitiesAwareNodeSet, infraIn
 		}
 	}
 
+	hasAtLeastOneBootstrapNode := false
+	for _, nodeSet := range nodeSetInput {
+		if nodeSet.BootstrapNodeIndex != -1 {
+			hasAtLeastOneBootstrapNode = true
+			break
+		}
+	}
+
+	if !hasAtLeastOneBootstrapNode {
+		return errors.New("at least one nodeSet must have a bootstrap node")
+	}
+
+	workflowDONHasBootstrapNode := false
+	for _, nodeSet := range nodeSetInput {
+		if nodeSet.BootstrapNodeIndex != -1 && slices.Contains(nodeSet.DONTypes, cretypes.WorkflowDON) {
+			workflowDONHasBootstrapNode = true
+			break
+		}
+	}
+
+	if !workflowDONHasBootstrapNode {
+		return errors.New("due to the limitations of our implementation, workflow DON must always have a bootstrap node")
+	}
+
 	return nil
 }
 

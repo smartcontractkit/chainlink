@@ -1,9 +1,12 @@
-package general
+package reward_manager
 
 import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -12,10 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 )
 
-func TestDeployVerifier(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, true)
+func TestDeployRewardManager(t *testing.T) {
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
 
-	e, err := commonChangesets.Apply(t, e, nil,
+	e, err := commonChangesets.Apply(t, testEnv.Environment, nil,
 		commonChangesets.Configure(
 			deployment.CreateLegacyChangeSet(commonChangesets.DeployLinkToken),
 			[]uint64{testutil.TestChain.Selector},
@@ -36,7 +39,13 @@ func TestDeployVerifier(t *testing.T) {
 			DeployRewardManagerChangeset,
 			DeployRewardManagerConfig{
 				ChainsToDeploy: map[uint64]DeployRewardManager{
-					testutil.TestChain.Selector: {LinkAddress: linkState.LinkToken.Address()},
+					testutil.TestChain.Selector: {LinkTokenAddress: linkState.LinkToken.Address()},
+				},
+				Ownership: types.OwnershipSettings{
+					ShouldTransfer: true,
+					MCMSProposalConfig: &proposalutils.TimelockConfig{
+						MinDelay: 0,
+					},
 				},
 			},
 		),
@@ -44,6 +53,10 @@ func TestDeployVerifier(t *testing.T) {
 
 	require.NoError(t, err)
 
-	_, err = deployment.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.RewardManager)
+	rmAddr, err := dsutil.MaybeFindEthAddress(e.ExistingAddresses, testutil.TestChain.Selector, types.RewardManager)
 	require.NoError(t, err)
+
+	owner, _, err := commonChangesets.LoadOwnableContract(rmAddr, chain.Client)
+	require.NoError(t, err)
+	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
 }

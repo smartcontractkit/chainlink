@@ -65,7 +65,7 @@ func setup(t *testing.T, config Config) testHarness {
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
 	idGeneratorFn := func() string { return validRequestUUID }
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	fetchFactory, err := NewOutgoingConnectorFetcherFactory(connectorHandler, idGeneratorFn)

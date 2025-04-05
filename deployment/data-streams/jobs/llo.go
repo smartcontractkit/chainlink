@@ -6,7 +6,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 )
 
-type DonJobSpec struct {
+type LLOJobSpec struct {
 	Base
 
 	ContractID                        string          `toml:"contractID"`
@@ -17,26 +17,26 @@ type DonJobSpec struct {
 	MaxTaskDuration                   time.Duration   `toml:"maxTaskDuration,omitempty"`
 	ContractConfigTrackerPollInterval time.Duration   `toml:"contractConfigTrackerPollInterval,omitempty"`
 	Relay                             RelayType       `toml:"relay,omitempty"`
-	PluginType                        string          `toml:"pluginType,omitempty"`
-	RelayConfig                       RelayConfigDon  `toml:"relayConfig"`
-	PluginConfig                      PluginConfigDon `toml:"pluginConfig"`
+	PluginType                        PluginType      `toml:"pluginType,omitempty"`
+	RelayConfig                       RelayConfigLLO  `toml:"relayConfig"`
+	PluginConfig                      PluginConfigLLO `toml:"pluginConfig"`
 }
 
 // RelayConfig is the configuration for the relay. This could change depending on the relay type.
-type RelayConfigDon struct {
+type RelayConfigLLO struct {
 	ChainID       string `toml:"chainID"`
 	FromBlock     uint64 `toml:"fromBlock,omitempty"`
 	LLOConfigMode string `toml:"lloConfigMode,omitempty"`
-	LLODonID      int64  `toml:"lloDonID,omitempty"`
+	LLODonID      uint64 `toml:"lloDonID,omitempty"`
 }
 
-type PluginConfigDon struct {
+type PluginConfigLLO struct {
 	ChannelDefinitionsContractAddress   string            `toml:"channelDefinitionsContractAddress"`
 	ChannelDefinitionsContractFromBlock uint64            `toml:"channelDefinitionsContractFromBlock"`
-	DonID                               int64             `toml:"donID"`
+	DonID                               uint64            `toml:"donID"`
 	Servers                             map[string]string `toml:"servers,inline"`
 }
 
-func (s *DonJobSpec) MarshalTOML() ([]byte, error) {
+func (s *LLOJobSpec) MarshalTOML() ([]byte, error) {
 	return toml.Marshal(s)
 }

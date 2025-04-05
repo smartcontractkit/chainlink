@@ -695,7 +695,7 @@ func TestMigrateFromV1_5ToV1_6(t *testing.T) {
 	startBlocks[dest] = &block
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
 	expectedSeqNums := make(map[testhelpers.SourceDestPair]uint64)
-	msgSentEvent, err := testhelpers.DoSendRequest(
+	msgSentEvent, err := testhelpers.SendRequest(
 		t, e.Env, state,
 		testhelpers.WithSourceChain(src1),
 		testhelpers.WithDestChain(dest),
@@ -891,7 +891,7 @@ func sendMessageInRealRouter(
 		DestChain:    dest,
 		Sender:       e.Env.Chains[src].DeployerKey,
 		IsTestRouter: false,
-		Evm2AnyMessage: router.ClientEVM2AnyMessage{
+		Message: router.ClientEVM2AnyMessage{
 			Receiver:     common.LeftPadBytes(state.Chains[dest].Receiver.Address().Bytes(), 32),
 			Data:         []byte("hello"),
 			TokenAmounts: nil,

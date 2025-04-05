@@ -8,7 +8,6 @@ import (
 	"maps"
 	"slices"
 	"strings"
-	"time"
 
 	"github.com/ethereum/go-ethereum/accounts/abi"
 	"github.com/ethereum/go-ethereum/common"
@@ -172,12 +171,9 @@ func (cr *chainReader) Start(ctx context.Context) error {
 	})
 }
 
-// Close unregisters polling filters for bound contracts.
 func (cr *chainReader) Close() error {
 	return cr.StopOnce("ChainReader", func() error {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-		defer cancel()
-		return cr.bindings.UnregisterAll(ctx, cr.lp)
+		return nil
 	})
 }
 
