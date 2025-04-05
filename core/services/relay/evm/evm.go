@@ -37,6 +37,7 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
 	coretypes "github.com/smartcontractkit/chainlink-common/pkg/types/core"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
+	"github.com/smartcontractkit/chainlink-integrations/evm/config/chaintype"
 	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	coreconfig "github.com/smartcontractkit/chainlink/v2/core/config"
@@ -931,16 +932,52 @@ func generateTransmitterFrom(ctx context.Context, rargs commontypes.RelayArgs, e
 			relayConfig.DualTransmissionConfig,
 		)
 	case commontypes.CCIPExecution:
-		transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
-			configWatcher.chain.TxManager(),
-			fromAddresses,
-			gasLimit,
-			effectiveTransmitterAddress,
-			strategy,
-			checker,
-			configWatcher.chain.ID(),
-			ethKeystore,
-		)
+		if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+			transmitter, err = cciptransmitter.NewTronTransmitterWithStatusChecker(
+				configWatcher.chain.TxManager(),
+				fromAddresses,
+				gasLimit,
+				effectiveTransmitterAddress,
+				strategy,
+				checker,
+				configWatcher.chain.ID(),
+				ethKeystore,
+			)
+		} else {
+			transmitter, err = cciptransmitter.NewTransmitterWithStatusChecker(
+				configWatcher.chain.TxManager(),
+				fromAddresses,
+				gasLimit,
+				effectiveTransmitterAddress,
+				strategy,
+				checker,
+				configWatcher.chain.ID(),
+				ethKeystore,
+			)
+		}
+	case commontypes.CCIPCommit:
+		if configWatcher.chain.Config().EVM().ChainType() == chaintype.ChainTron {
+			transmitter, err = cciptransmitter.NewTronTransmitter(
+				configWatcher.chain.TxManager(),
+				fromAddresses,
+				gasLimit,
+				effectiveTransmitterAddress,
+				strategy,
+				checker,
+				configWatcher.chain.ID(),
+				ethKeystore,
+			)
+		} else {
+			transmitter, err = ocrcommon.NewTransmitter(
+				configWatcher.chain.TxManager(),
+				fromAddresses,
+				gasLimit,
+				effectiveTransmitterAddress,
+				strategy,
+				checker,
+				ethKeystore,
+			)
+		}
 	default:
 		transmitter, err = ocrcommon.NewTransmitter(
 			configWatcher.chain.TxManager(),
