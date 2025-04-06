@@ -10,7 +10,7 @@ func TestDomainMetadata_Clone(t *testing.T) {
 	original := DomainMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",
-		Metadata:    DefaultMetadata("test-value"),
+		Metadata:    DefaultMetadata{Data: "test-value"},
 	}
 
 	cloned := original.Clone()
@@ -25,7 +25,7 @@ func TestDomainMetadata_Key(t *testing.T) {
 	domainMetadata := DomainMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",
-		Metadata:    DefaultMetadata("test data"),
+		Metadata:    DefaultMetadata{Data: "test data"},
 	}
 
 	key := domainMetadata.Key()

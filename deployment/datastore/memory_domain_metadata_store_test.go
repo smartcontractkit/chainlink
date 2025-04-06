@@ -11,7 +11,7 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 		recordOne = DomainMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
-			Metadata:    DefaultMetadata("data1"),
+			Metadata:    DefaultMetadata{Data: "data1"},
 		}
 	)
 
@@ -63,12 +63,12 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 		recordOne = DomainMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
-			Metadata:    DefaultMetadata("data1"),
+			Metadata:    DefaultMetadata{Data: "data1"},
 		}
 		recordTwo = DomainMetadata[DefaultMetadata]{
 			Domain:      "example2.com",
 			Environment: "test2",
-			Metadata:    DefaultMetadata("data2"),
+			Metadata:    DefaultMetadata{Data: "data2"},
 		}
 	)
 
