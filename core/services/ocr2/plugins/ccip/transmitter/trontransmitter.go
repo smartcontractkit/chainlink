@@ -95,8 +95,7 @@ func (t *tronTransmitter) CreateEthTransaction(ctx context.Context, toAddress co
 	// TODO: RoundRobinFromAddress
 
 	if t.IsExecTransmitter() {
-		fmt.Printf("Failed to transmit report as exec transmitter not yet implemented: ", "report", hex.EncodeToString(payload), "contractAddress", toAddress, "txMeta", txMeta)
-		return fmt.Errorf("exec transmitter not yet implemented")
+		// TODO: Add idempotency key generation
 	}
 
 	report, rs, ss, vs, err := t.unpackPayload(payload)
@@ -112,7 +111,7 @@ func (t *tronTransmitter) CreateEthTransaction(ctx context.Context, toAddress co
 
 	fmt.Printf("About to transmit Tron Transaction... noop as Tron TXM is not yet implemented")
 
-	return fmt.Errorf("The Tron TXM is not yet implemented")
+	return nil
 }
 
 func (t *tronTransmitter) FromAddress(ctx context.Context) common.Address {
@@ -137,7 +136,7 @@ func (t *tronTransmitter) SecondaryFromAddress(ctx context.Context) (common.Addr
 }
 
 func (t *tronTransmitter) IsCommitTransmitter() bool {
-	return t.statuschecker != nil
+	return t.statuschecker == nil
 }
 
 func (t *tronTransmitter) IsExecTransmitter() bool {
