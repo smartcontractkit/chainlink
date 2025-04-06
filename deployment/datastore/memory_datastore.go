@@ -72,7 +72,7 @@ func (s *MemoryDataStore[CM, DM]) Addresses() MutableAddressRefStore {
 	return s.AddressRefStore
 }
 
-// Metadata returns the MetadataStore of the MemoryDataStore.
+// ContractMetadata returns the ContractMetadataStore of the MemoryDataStore.
 func (s *MemoryDataStore[CM, DM]) ContractMetadata() MutableContractMetadataStore[CM] {
 	return s.ContractMetadataStore
 }
@@ -133,16 +133,22 @@ type sealedMemoryDataStore[CM Cloneable[CM], DM Cloneable[DM]] struct {
 
 // Addresses returns the AddressRefStore of the sealedMemoryDataStore.
 // It implements the BaseDataStore interface.
-func (s *sealedMemoryDataStore[CCM, DM]) Addresses() AddressRefStore {
+//
+//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of Addresses() in the same file
+func (s *sealedMemoryDataStore[CM, DM]) Addresses() AddressRefStore {
 	return s.AddressRefStore
 }
 
-// Metadata returns the MetadataStore of the sealedMemoryDataStore.
+// ContractMetadata returns the ContractMetadataStore of the sealedMemoryDataStore.
+//
+//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of ContractMetadata() in the same file
 func (s *sealedMemoryDataStore[CM, DM]) ContractMetadata() ContractMetadataStore[CM] {
 	return s.ContractMetadataStore
 }
 
 // DomainMetadata returns the DomainMetadataStore of the sealedMemoryDataStore.
+//
+//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of DomainMetadata() in the same file
 func (s *sealedMemoryDataStore[CM, DM]) DomainMetadata() DomainMetadataStore[DM] {
 	return s.DomainMetadataStore
 }
