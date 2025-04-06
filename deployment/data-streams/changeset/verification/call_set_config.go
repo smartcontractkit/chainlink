@@ -12,7 +12,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/txutil"
-	verifier_v0_5_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
 
 var SetConfigChangeset = deployment.CreateChangeSet(setConfigLogic, setConfigPrecondition)
@@ -51,7 +51,7 @@ func setConfigPrecondition(_ deployment.Environment, cc SetConfigConfig) error {
 func setConfigLogic(e deployment.Environment, cfg SetConfigConfig) (deployment.ChangesetOutput, error) {
 	txs, err := txutil.GetTxs(
 		e,
-		types.VerifierProxy.String(),
+		types.Verifier.String(),
 		cfg.ConfigsByChain,
 		loadVerifierState,
 		doSetConfig,

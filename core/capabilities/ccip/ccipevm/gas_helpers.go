@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/pkg/errors"
+
 	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"

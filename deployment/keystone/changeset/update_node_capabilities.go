@@ -80,12 +80,12 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSet, error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSetV2, error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
+	resp, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
@@ -99,7 +99,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
 		P2pToCapabilities:    req.P2pToCapabilities,
 		UseMCMS:              req.UseMCMS(),
 	}, &contractSet, nil
@@ -123,10 +123,10 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			c.Chain.Selector: contractSet.Timelock.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			c.Chain.Selector: contractSet.ProposerMcm.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

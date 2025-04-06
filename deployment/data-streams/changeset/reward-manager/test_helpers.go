@@ -1,4 +1,4 @@
-package general
+package reward_manager
 
 import (
 	"testing"
@@ -45,7 +45,7 @@ func DeployRewardManagerAndLink(
 	// 2) Deploy RewardManager
 	deployRewardManagerCfg := DeployRewardManagerConfig{
 		ChainsToDeploy: map[uint64]DeployRewardManager{
-			testutil.TestChain.Selector: {LinkAddress: linkState.LinkToken.Address()},
+			testutil.TestChain.Selector: {LinkTokenAddress: linkState.LinkToken.Address()},
 		},
 	}
 

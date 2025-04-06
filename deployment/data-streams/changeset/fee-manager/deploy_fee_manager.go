@@ -6,6 +6,8 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
@@ -23,6 +25,7 @@ type DeployFeeManager struct {
 
 type DeployFeeManagerConfig struct {
 	ChainsToDeploy map[uint64]DeployFeeManager
+	Ownership      types.OwnershipSettings
 }
 
 func (cc DeployFeeManagerConfig) Validate() error {
@@ -44,6 +47,12 @@ func deployFeeManagerLogic(e deployment.Environment, cc DeployFeeManagerConfig) 
 		e.Logger.Errorw("Failed to deploy FeeManager", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.FeeManager, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
