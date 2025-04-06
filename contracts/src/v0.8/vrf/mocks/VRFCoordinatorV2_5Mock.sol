@@ -17,6 +17,7 @@ contract VRFCoordinatorV2_5Mock is SubscriptionAPI, IVRFCoordinatorV2Plus {
   error InvalidRandomWords();
   error InvalidExtraArgsTag();
   error NotImplemented();
+  error ValueAndAmountMismatch();
 
   event RandomWordsRequested(
     bytes32 indexed keyHash,
@@ -172,14 +173,29 @@ contract VRFCoordinatorV2_5Mock is SubscriptionAPI, IVRFCoordinatorV2Plus {
    * @param _subId the subscription to fund
    * @param _amount the amount to fund
    */
-  function fundSubscription(uint256 _subId, uint256 _amount) public {
+  function fundSubscription(uint256 _subId, uint256 _amount) public payable {
     if (s_subscriptionConfigs[_subId].owner == address(0)) {
       revert InvalidSubscription();
     }
-    uint256 oldBalance = s_subscriptions[_subId].balance;
-    s_subscriptions[_subId].balance += uint96(_amount);
-    s_totalBalance += uint96(_amount);
-    emit SubscriptionFunded(_subId, oldBalance, oldBalance + _amount);
+
+    uint96 amount = uint96(_amount);
+
+    if (msg.value > 0) {
+      if (msg.value != _amount) {
+        revert ValueAndAmountMismatch();
+      }
+
+      uint96 oldNativeBalance = s_subscriptions[_subId].nativeBalance;
+      s_subscriptions[_subId].nativeBalance += amount;
+
+      emit SubscriptionFunded(_subId, oldNativeBalance, oldNativeBalance + amount);
+    } else {
+      uint96 oldBalance = s_subscriptions[_subId].balance;
+      s_subscriptions[_subId].balance += amount;
+      s_totalBalance += amount;
+
+      emit SubscriptionFunded(_subId, oldBalance, oldBalance + amount);
+    }
   }
 
   /// @dev Convert the extra args bytes into a struct
