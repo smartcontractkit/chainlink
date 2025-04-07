@@ -38,6 +38,13 @@ func (k *DummyKeystore) Add(privateKeyString string) error {
 	return nil
 }
 
+func (k *DummyKeystore) CheckEnabled(ctx context.Context, address common.Address) error {
+	if _, exists := k.privateKeyMap[address]; exists {
+		return nil
+	}
+	return fmt.Errorf("private key for address: %v not found", address)
+}
+
 func (k *DummyKeystore) SignTx(_ context.Context, fromAddress common.Address, tx *types.Transaction) (*types.Transaction, error) {
 	if key, exists := k.privateKeyMap[fromAddress]; exists {
 		return types.SignTx(tx, types.LatestSignerForChainID(k.chainID), key)

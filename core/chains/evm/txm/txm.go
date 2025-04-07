@@ -162,8 +162,9 @@ func (t *Txm) initializeNonce(ctx context.Context, address common.Address) {
 			}
 			continue
 		}
-		t.setNonce(address, max(pendingNonce, storedNonce))
-		t.lggr.Debugf("Set initial nonce for address: %v to %d", address, pendingNonce)
+		maxNonce := max(pendingNonce, storedNonce)
+		t.setNonce(address, maxNonce)
+		t.lggr.Debugf("Set initial nonce for address: %v to %d", address, maxNonce)
 		return
 	}
 }
