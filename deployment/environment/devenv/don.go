@@ -85,7 +85,7 @@ func (don *DON) CreateSupportedChains(ctx context.Context, chains []ChainConfig,
 			var jdChains []JDChainConfigInput
 			for _, chain := range chains {
 				jdChains = append(jdChains, JDChainConfigInput{
-					ChainID:   chain.ChainID,
+					ChainID:   strconv.FormatUint(chain.ChainID, 10),
 					ChainType: chain.ChainType,
 				})
 			}
@@ -189,7 +189,7 @@ type Node struct {
 	NodeID          string                    // node id returned by job distributor after node is registered with it
 	JDId            string                    // job distributor id returned by node after Job distributor is created in node
 	Name            string                    // name of the node
-	AccountAddr     map[uint64]string         // chain id to node's account address mapping for supported chains
+	AccountAddr     map[string]string         // chain id to node's account address mapping for supported chains
 	Ocr2KeyBundleID string                    // OCR2 key bundle id of the node
 	gqlClient       client.Client             // graphql client to interact with the node
 	restClient      *clclient.ChainlinkClient // rest client to interact with the node
@@ -199,7 +199,7 @@ type Node struct {
 }
 
 type JDChainConfigInput struct {
-	ChainID   uint64
+	ChainID   string
 	ChainType string
 }
 
@@ -217,11 +217,10 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
-		chainId := strconv.FormatUint(chain.ChainID, 10)
 		var account string
 		switch chain.ChainType {
 		case "EVM":
-			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
+			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chain.ChainID)
 			if err != nil {
 				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
@@ -229,7 +228,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
 			if n.AccountAddr == nil {
-				n.AccountAddr = make(map[uint64]string)
+				n.AccountAddr = make(map[string]string)
 			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
@@ -286,7 +285,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			}
 			if nodeChainConfigs != nil {
 				for _, chainConfig := range nodeChainConfigs.ChainConfigs {
-					if chainConfig.Chain.Id == chainId {
+					if chainConfig.Chain.Id == chain.ChainID {
 						return nil
 					}
 				}
@@ -296,7 +295,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 			// if it's not updated , throw an error
 			_, err = n.gqlClient.CreateJobDistributorChainConfig(ctx, client.JobDistributorChainConfigInput{
 				JobDistributorID: n.JDId,
-				ChainID:          chainId,
+				ChainID:          chain.ChainID,
 				ChainType:        chain.ChainType,
 				AccountAddr:      account,
 				AdminAddr:        n.adminAddr,
