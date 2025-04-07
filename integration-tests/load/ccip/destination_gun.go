@@ -132,7 +132,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 func (m *DestinationGun) MustSourceChain() (uint64, error) {
 	otherCS := m.env.AllChainSelectorsExcluding([]uint64{m.chainSelector})
 	// todo: uncomment to enable solana as a source chain
-	//otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
+	// otherCS := m.env.AllChainSelectorsAllFamilliesExcluding([]uint64{m.chainSelector})
 	if len(otherCS) == 0 {
 		return 0, errors.New("no other chains to send from")
 	}
@@ -362,6 +362,13 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 	instruction, err := base.ValidateAndBuild()
+	if err != nil {
+		m.l.Errorw("failed to build instruction",
+			"src", src,
+			"dest", m.chainSelector,
+			"err", deployment.MaybeDataErr(err))
+		return err
+	}
 
 	result, err := solcommon.SendAndConfirm(
 		m.env.GetContext(),
@@ -380,7 +387,6 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 }
 
 func (m *DestinationGun) getSolanaMessage(src uint64, account *solana.PrivateKey) (ccip_router.SVM2AnyMessage, error) {
-
 	return ccip_router.SVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(m.receiver.Bytes(), 32),
 		TokenAmounts: nil,
