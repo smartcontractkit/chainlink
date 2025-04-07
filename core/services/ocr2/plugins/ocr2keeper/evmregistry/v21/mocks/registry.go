@@ -7,9 +7,9 @@ import (
 
 	bind "github.com/ethereum/go-ethereum/accounts/abi/bind"
 
-	generated "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated"
+	generated "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated"
 
-	i_automation_v21_plus_common "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/i_automation_v21_plus_common"
+	i_automation_v21_plus_common "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/i_automation_v21_plus_common"
 
 	mock "github.com/stretchr/testify/mock"
 

@@ -29,10 +29,10 @@ import (
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/vrf_log_emitter"
 	evmmocks "github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm/mocks"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/vrf_log_emitter"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"

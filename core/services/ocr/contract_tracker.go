@@ -27,8 +27,8 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/log"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/offchain_aggregator_wrapper"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocrcommon"
 )

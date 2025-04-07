@@ -39,6 +39,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 
+	ac "github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/automation_compatible_utils"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/log_emitter"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions"
 	"github.com/smartcontractkit/chainlink/integration-tests/actions/automationv2"
 	"github.com/smartcontractkit/chainlink/integration-tests/contracts"
@@ -46,9 +49,6 @@ import (
 	tc "github.com/smartcontractkit/chainlink/integration-tests/testconfig"
 	aconfig "github.com/smartcontractkit/chainlink/integration-tests/testconfig/automation"
 	"github.com/smartcontractkit/chainlink/integration-tests/testreporters"
-	ac "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/automation_compatible_utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/simple_log_upkeep_counter_wrapper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/log_emitter"
 )
 
 const (

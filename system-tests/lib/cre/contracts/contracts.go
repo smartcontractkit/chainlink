@@ -12,10 +12,10 @@ import (
 
 	capabilitiespb "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer"
 	"github.com/smartcontractkit/chainlink/deployment"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer"
 
 	corevm "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 
