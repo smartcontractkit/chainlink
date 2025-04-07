@@ -80,7 +80,7 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 type UnaryStore[K Comparable[K], R Record[K, R]] interface {
 	// Get returns the record or an error.
 	// if the record exists, the error should be nil.
-	// If the record does not exist not be nil.
+	// If the record does not exist, the error should not be nil.
 	Get() (R, error)
 }
 
@@ -88,7 +88,7 @@ type UnaryStore[K Comparable[K], R Record[K, R]] interface {
 type MutableUnaryStore[K Comparable[K], R Record[K, R]] interface {
 	// Get returns the record or an error.
 	// if the record exists, the error should be nil.
-	// If the record does not exist not be nil.
+	// If the record does not exist, the error should not be nil.
 	Get() (R, error)
 
 	// Update replaces the existing record if present or adds it to the slice if empty.
