@@ -12,7 +12,6 @@ before_hook() {
   # Copy over all platform versions of the wasmvm library
   cp -f "$(go env GOMODCACHE)"/github.com/\!cosm\!wasm/wasmvm@v*/internal/api/libwasmvm.* "$lib_path/libs"
   mkdir -p "$lib_path/plugins"
-  build_standard_capabilities
 
   # Retrieve GOPATH
   GOPATH=$(go env GOPATH)
@@ -52,22 +51,6 @@ before_hook() {
 install_local_plugins() {
   make install-medianpoc
   make install-ocr3-capability
-}
-
-build_standard_capabilities() {
-  echo "Building standard capabilities"
-  cpath=./capabilities
-  if [ ! -z "$CAPABILITIES_REPO" ]; then
-    echo "Using capabilities repo at $CAPABILITIES_REPO"
-    cpath=$CAPABILITIES_REPO
-  fi
-  pushd "$cpath"
-  
-  npx nx@19.8.2 init
-  ./nx run-many -t build
-  # binaries get put into /bin under /bin/amd64/ and /bin/arm64/
-  cp "./bin/$(go env GOARCH)"/* "$lib_path/plugins" 
-  popd
 }
 
 install_remote_plugins() {
