@@ -243,12 +243,28 @@ func TestConfigureOCR3(t *testing.T) {
 
 		wfNodes := te.GetP2PIDs("wfDon").Strings()
 
+		registrySel := te.Env.AllChainSelectors()[0]
+		// Verify after merge there are three original contracts plus one new one
+		addrs, err := te.Env.ExistingAddresses.AddressesForChain(registrySel)
+		require.NoError(t, err)
+
+		// Find new OCR3 contract
+		var existingOCR3Addr string
+		for addr, tv := range addrs {
+			if tv.Type == internal.OCR3Capability {
+				existingOCR3Addr = addr
+				break
+			}
+		}
+
 		w := &bytes.Buffer{}
+		addr := common.HexToAddress(existingOCR3Addr)
 		cfg := changeset.ConfigureOCR3Config{
 			ChainSel:             te.RegistrySelector,
 			NodeIDs:              wfNodes,
 			OCR3Config:           &c,
 			WriteGeneratedConfig: w,
+			Address:              &addr,
 			MCMSConfig:           &changeset.MCMSConfig{MinDuration: 0},
 		}
 

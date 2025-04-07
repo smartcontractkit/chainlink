@@ -3,7 +3,7 @@ package v1_4_0
 import (
 	"github.com/ethereum/go-ethereum/common"
 
-	burn_mint_token_pool_1_4_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_4_0/burn_mint_token_pool"
+	burn_mint_token_pool_1_4_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_4_0/burn_mint_token_pool"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/rpclib"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"

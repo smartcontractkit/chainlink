@@ -55,6 +55,7 @@ The test requires several environment variables. Below is a launch configuration
   "env": {
     "CTF_CONFIGS": "environment-one-don.toml",
     "PRIVATE_KEY": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "GIST_WRITE_TOKEN": "xxxx",
   },
   "args": [
     "-test.run",
@@ -62,6 +63,11 @@ The test requires several environment variables. Below is a launch configuration
   ]
 }
 ```
+
+Required env vars:
+- **`CTF_CONFIGS`**: Always required, a comma-separated list of TOML configs to use.
+- **`PRIVATE_KEY`**: Plaintext private key that will be used for all contract deployment and configuration, and CL node funding. It needs to have sufficient funds.
+- **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
 
 You might also need to adjust the TOML configuration file used by your test, so that it points to correct location of two binaries:
 * `cron` -- cron capability binary for AMD platform that lives in [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities)

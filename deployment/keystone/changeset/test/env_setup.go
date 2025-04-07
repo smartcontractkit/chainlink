@@ -22,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type DonConfig struct {
@@ -158,6 +158,7 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
+
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
@@ -270,16 +271,16 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := &changeset.GetContractSetsRequest{
+	req := changeset.GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	}
 
-	contractSetsResp, err := changeset.GetContractSets(lggr, req)
+	contractSetsResp, err := changeset.GetContractSetsV2(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
-	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry
+	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
 	require.NotNil(t, gotRegistry)
 	// validate the registry
 	// check the nodes
@@ -309,7 +310,8 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 			),
 		)
 		require.NoError(t, err)
-		// extract the MCMS address
+		// extract the MCMS address using `GetContractSets` instead of `GetContractSetsV2` because the latter
+		// expects contracts to already be owned by MCMS
 		r, err := changeset.GetContractSets(lggr, &changeset.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,

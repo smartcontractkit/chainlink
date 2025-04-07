@@ -124,6 +124,10 @@ func (c *httpClient) Send(ctx context.Context, req HTTPRequest) (*HTTPResponse, 
 		return nil, err
 	}
 
+	for k, v := range req.Headers {
+		r.Header.Add(k, v)
+	}
+
 	resp, err := c.client.Do(r)
 	if err != nil {
 		c.lggr.Errorw("failed to send HTTP request", "url", req.URL, "err", err)
