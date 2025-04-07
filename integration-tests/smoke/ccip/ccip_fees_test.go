@@ -10,14 +10,14 @@ import (
 
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers/feestest"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 
@@ -311,11 +311,11 @@ func Test_CCIPFees(t *testing.T) {
 			e,
 			state,
 			&testhelpers.CCIPSendReqConfig{
-				Sender:         e.Chains[sourceChain].DeployerKey,
-				IsTestRouter:   true,
-				SourceChain:    sourceChain,
-				DestChain:      destChain,
-				Evm2AnyMessage: ccipMessage,
+				Sender:       e.Chains[sourceChain].DeployerKey,
+				IsTestRouter: true,
+				SourceChain:  sourceChain,
+				DestChain:    destChain,
+				Message:      ccipMessage,
 			},
 		)
 		require.Error(t, err)

@@ -23,7 +23,7 @@
 
   [workflow_config.compiled_config]
     binary_url = "https://gist.githubusercontent.com/Tofel/6b07d51e519cc48b829790567542992d/raw/943952cbff46333007fe4c6173da9db75390cf23/binary.wasm.br.b64"
-    config_url = "https://gist.githubusercontent.com/Tofel/c334703c75bd457c6dcf260f1492616f/raw/cca378bb173fc79e524a7c7add12bb06dd39ba87/capabilities-don-config.json_17_03_2025"
+    config_url = "https://gist.githubusercontent.com/Tofel/e9950438d5eb603542e6fb2a7957ccbe/raw/fd8ff77b96f3e92b13c7ace015a46d05eab92f1d/capabilities-don-config.json_04_04_2025"
 
 [[nodesets]]
   nodes = 5
@@ -144,7 +144,7 @@
       """
 
 [[nodesets]]
-  nodes = 3
+  nodes = 2
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
@@ -153,27 +153,6 @@
     image = "postgres:12.0"
     port = 13100
     volume_name = "capabilities_volume"
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      user_config_overrides = """
-      [Feature]
-			LogPoller = true
-
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
 
   [[nodesets.node_specs]]
 

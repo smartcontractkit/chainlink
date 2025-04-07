@@ -6,7 +6,9 @@ import (
 
 	nodeapiv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	jdtypesv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
+
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/pointer"
 )
@@ -28,13 +30,13 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 	return &nodeapiv1.ListNodesRequest_Filter{
 		Selectors: []*jdtypesv1.Selector{
 			{
-				Key: fmt.Sprintf("don-%d-%s", f.DONID, f.DONName),
+				Key: utils.DonIdentifier(f.DONID, f.DONName),
 				Op:  jdtypesv1.SelectorOp_EXIST,
 			},
 			{
 				Key:   "nodeType",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To("bootstrap"),
+				Value: pointer.To(NodeTypeBootstrap.String()),
 			},
 			{
 				Key:   "environment",
@@ -44,7 +46,34 @@ func (f *ListFilter) bootstrappersFilter() *nodeapiv1.ListNodesRequest_Filter {
 			{
 				Key:   "product",
 				Op:    jdtypesv1.SelectorOp_EQ,
-				Value: pointer.To("data-streams"),
+				Value: pointer.To(ProductLabel),
+			},
+		},
+	}
+}
+
+// oraclesFilter is used to fetch all oracle (non-bootstrap) nodes in a DON.
+func (f *ListFilter) oraclesFilter() *nodeapiv1.ListNodesRequest_Filter {
+	return &nodeapiv1.ListNodesRequest_Filter{
+		Selectors: []*jdtypesv1.Selector{
+			{
+				Key: utils.DonIdentifier(f.DONID, f.DONName),
+				Op:  jdtypesv1.SelectorOp_EXIST,
+			},
+			{
+				Key:   "nodeType",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: pointer.To(NodeTypeOracle.String()),
+			},
+			{
+				Key:   "environment",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: &f.EnvLabel,
+			},
+			{
+				Key:   "product",
+				Op:    jdtypesv1.SelectorOp_EQ,
+				Value: pointer.To(ProductLabel),
 			},
 		},
 	}
@@ -59,6 +88,21 @@ func FetchDONBootstrappersFromJD(ctx context.Context, jd deployment.OffchainClie
 
 	if len(resp.Nodes) != filter.Size {
 		return nil, fmt.Errorf("expected %d bootstrap nodes for DON(%d,%s), got %d", filter.Size, filter.DONID, filter.DONName, len(resp.Nodes))
+	}
+
+	return resp.Nodes, nil
+}
+
+// FetchDONOraclesFromJD fetches all oracle nodes.
+func FetchDONOraclesFromJD(ctx context.Context, jd deployment.OffchainClient, filter *ListFilter) (nodes []*nodeapiv1.Node, err error) {
+	jdFilter := filter.oraclesFilter()
+	resp, err := jd.ListNodes(ctx, &nodeapiv1.ListNodesRequest{Filter: jdFilter})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list nodes for DON %d - %s: %w", filter.DONID, filter.DONName, err)
+	}
+
+	if len(resp.Nodes) != filter.Size {
+		return nil, fmt.Errorf("expected %d nodes for DON(%d,%s), got %d", filter.Size, filter.DONID, filter.DONName, len(resp.Nodes))
 	}
 
 	return resp.Nodes, nil

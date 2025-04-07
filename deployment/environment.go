@@ -106,9 +106,10 @@ type Environment struct {
 	SolChains         map[uint64]SolChain
 	AptosChains       map[uint64]AptosChain
 	NodeIDs           []string
-	Offchain          OffchainClient
-	GetContext        func() context.Context
-	OCRSecrets        OCRSecrets
+	// The Offchain client is responsible for node and job management.
+	Offchain   OffchainClient
+	GetContext func() context.Context
+	OCRSecrets OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }
@@ -607,7 +608,18 @@ func chainToDetails(c *nodev1.Chain) (chain_selectors.ChainDetails, error) {
 	default:
 		return chain_selectors.ChainDetails{}, fmt.Errorf("unsupported chain type %s", c.Type)
 	}
-
+	if family == chain_selectors.FamilySolana {
+		// Temporary workaround to handle cases when solana chainId was not using the standard genesis hash,
+		// but using old strings mainnet/testnet/devnet.
+		switch c.Id {
+		case "mainnet":
+			c.Id = "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+		case "devnet":
+			c.Id = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+		case "testnet":
+			c.Id = "4uhcVJyU9pJkvQyS88uRDiswHXSCkY3zQawwpjk2NsNY"
+		}
+	}
 	details, err := chain_selectors.GetChainDetailsByChainIDAndFamily(c.Id, family)
 	if err != nil {
 		return chain_selectors.ChainDetails{}, err

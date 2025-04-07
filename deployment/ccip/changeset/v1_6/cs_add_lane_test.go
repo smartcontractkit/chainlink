@@ -8,9 +8,9 @@ import (
 
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 )
 
 func TestAddLanesWithTestRouter(t *testing.T) {
@@ -27,9 +27,8 @@ func TestAddLanesWithTestRouter(t *testing.T) {
 	startBlocks := make(map[uint64]*uint64)
 	// Send a message from each chain to every other chain.
 	expectedSeqNumExec := make(map[testhelpers.SourceDestPair][]uint64)
-	latesthdr, err := e.Env.Chains[chain2].Client.HeaderByNumber(testcontext.Get(t), nil)
+	block, err := testhelpers.LatestBlock(testcontext.Get(t), e.Env, chain2)
 	require.NoError(t, err)
-	block := latesthdr.Number.Uint64()
 	startBlocks[chain2] = &block
 	msgSentEvent := testhelpers.TestSendRequest(t, e.Env, state, chain1, chain2, true, router.ClientEVM2AnyMessage{
 		Receiver:     common.LeftPadBytes(state.Chains[chain2].Receiver.Address().Bytes(), 32),

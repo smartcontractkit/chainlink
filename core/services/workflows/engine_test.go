@@ -259,7 +259,8 @@ func newTestEngine(t *testing.T, reg *coreCap.Registry, sdkSpec sdk.WorkflowSpec
 			detail := report.Description()
 			bClient := beholder.GetClient()
 			// kvAttrs is what the test client matches on, view pkg/utils/test in common for more detail
-			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain, "beholder_entity", detail.Entity,
+			kvAttrs := []any{"beholder_data_schema", detail.Schema, "beholder_domain", detail.Domain,
+				"beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, detail.Entity),
 				platform.KeyWorkflowName, name, platform.KeyWorkflowID, ID, platform.KeyWorkflowExecutionID, execID}
 
 			data, mErr := proto.Marshal(report.Message())
@@ -398,7 +399,12 @@ func TestEngineWithHardcodedWorkflow(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
-	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
+
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionStarted)))
+	assert.Equal(t, 1, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventWorkflowExecutionFinished)))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionStarted)))
+	assert.Equal(t, 3, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", EventsProtoPkg, EventCapabilityExecutionFinished)))
 }
 
 const (
@@ -1714,7 +1720,7 @@ func TestEngine_WithCustomComputeStep(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log)
+		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
@@ -1789,7 +1795,7 @@ func TestEngine_CustomComputePropagatesBreaks(t *testing.T) {
 	handler, err := webapi.NewOutgoingConnectorHandler(
 		connector,
 		cfg.ServiceConfig,
-		ghcapabilities.MethodComputeAction, log)
+		ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	idGeneratorFn := func() string { return "validRequestID" }
@@ -2274,7 +2280,7 @@ func TestEngine_ConcurrentExecutions(t *testing.T) {
 	eid2 := getExecutionID(t, eng, testHooks)
 
 	assert.Equal(t, store.StatusCompleted, state.Status)
-	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", MeteringReportEntity))
+	assert.Equal(t, 2, beholderTester.Len(t, "beholder_entity", fmt.Sprintf("%s.%s", MeteringProtoPkg, MeteringReportEntity)))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid))
 	assert.Equal(t, 1, beholderTester.Len(t, platform.KeyWorkflowExecutionID, eid2))
 }

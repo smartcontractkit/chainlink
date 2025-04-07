@@ -74,17 +74,7 @@ func (d ExtraDataDecoder) DecodeExtraArgsToMap(extraArgs cciptypes.Bytes) (map[s
 
 // DecodeDestExecDataToMap is a helper function for converting dest exec data bytes into map[string]any
 func (d ExtraDataDecoder) DecodeDestExecDataToMap(destExecData cciptypes.Bytes) (map[string]any, error) {
-	return map[string]interface{}{
-		svmDestExecDataKey: bytesToUint32LE(destExecData),
+	return map[string]any{
+		svmDestExecDataKey: binary.BigEndian.Uint32(destExecData),
 	}, nil
-}
-
-func bytesToUint32LE(b []byte) uint32 {
-	if len(b) < 4 {
-		var padded [4]byte
-		copy(padded[:len(b)], b) // Pad from the right for little-endian
-		return binary.LittleEndian.Uint32(padded[:])
-	}
-
-	return binary.LittleEndian.Uint32(b)
 }
