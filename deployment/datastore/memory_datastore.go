@@ -36,7 +36,7 @@ type MutableDataStore[T Cloneable[T], U Cloneable[U]] interface {
 	Merger[DataStore[T, U]]
 	Sealer[DataStore[T, U]]
 
-	BaseDataStore[T, U, MutableAddressRefStore, MutableContractMetadataStore[T], DomainMetadataStore[U]]
+	BaseDataStore[T, U, MutableAddressRefStore, MutableContractMetadataStore[T], MutableDomainMetadataStore[U]]
 }
 
 // MemoryDataStore is a concrete implementation of the MutableDataStore interface.
@@ -78,7 +78,7 @@ func (s *MemoryDataStore[CM, DM]) ContractMetadata() MutableContractMetadataStor
 }
 
 // DomainMetadata returns the DomainMetadataStore of the MemoryDataStore.
-func (s *MemoryDataStore[CM, DM]) DomainMetadata() DomainMetadataStore[DM] {
+func (s *MemoryDataStore[CM, DM]) DomainMetadata() MutableDomainMetadataStore[DM] {
 	return s.DomainMetadataStore
 }
 
