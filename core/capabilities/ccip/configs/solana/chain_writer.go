@@ -241,7 +241,6 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			// are appended to the accounts list in the CCIPExecute args transform for each token transfer
 		},
 		DebugIDLocation: "Info.AbstractReports.Messages.Header.MessageID",
-		// logic receiver and user defined messaging accounts are appended in the CCIPExecute args transform
 	}
 }
 
