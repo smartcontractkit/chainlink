@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"math/big"
+	"sync/atomic"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
@@ -31,7 +32,7 @@ type evmTargetStrategy struct {
 
 	receiverGasMinimum uint64
 	binding            commontypes.BoundContract
-	bound              bool
+	bound              atomic.Bool
 }
 
 type TransmissionInfo struct {
@@ -63,6 +64,8 @@ type Config struct {
 }
 
 func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.ContractWriter, forwarder string, gasLimitDefault uint64, lggr logger.Logger) *evmTargetStrategy {
+	bound := atomic.Bool{}
+	bound.Store(false)
 	return &evmTargetStrategy{
 		cr:                 cr,
 		cw:                 cw,
@@ -73,7 +76,7 @@ func NewEVMTargetStrategy(cr commontypes.ContractReader, cw commontypes.Contract
 			Address: forwarder,
 			Name:    "forwarder",
 		},
-		bound: false,
+		bound: bound,
 	}
 }
 
@@ -86,13 +89,13 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	b := make([]byte, 2)
 	binary.BigEndian.PutUint16(b, reportID)
 
-	if !t.bound {
+	if t.bound.Load() == false {
 		t.lggr.Debugw("Binding to forwarder address")
 		err := t.cr.Bind(ctx, []commontypes.BoundContract{t.binding})
 		if err != nil {
 			return nil, err
 		}
-		t.bound = true
+		t.bound.Store(true)
 	}
 
 	r, err := getEVMRequest(request)
