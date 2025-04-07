@@ -10,11 +10,11 @@ import (
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
 )
 
 var _ deployment.ChangeSet[DeployUSDCTokenPoolContractsConfig] = DeployUSDCTokenPoolContractsChangeset

@@ -9,11 +9,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	feeManagerCs "github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/fee-manager"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/testutil"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
 )
 
 func runSetFeeManagerTest(t *testing.T, useMCMS bool) {
