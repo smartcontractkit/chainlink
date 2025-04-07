@@ -12,9 +12,15 @@ const (
 	KeyWorkflowID          = "workflowID"
 	KeyWorkflowExecutionID = "workflowExecutionID"
 	KeyWorkflowName        = "workflowName"
+	KeyWorkflowVersion     = "workflowVersion"
 	KeyWorkflowOwner       = "workflowOwner"
 	KeyStepID              = "stepID"
 	KeyStepRef             = "stepRef"
+	KeyDonID               = "DonID"
+	KeyDonF                = "F"
+	KeyDonN                = "N"
+	KeyDonQ                = "Q"
+	KeyP2PID               = "p2pID"
 )
 
 func LabelKeysSorted() iter.Seq[string] {

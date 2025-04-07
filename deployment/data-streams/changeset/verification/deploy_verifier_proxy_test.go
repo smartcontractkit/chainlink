@@ -7,7 +7,8 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
+	dsutil "github.com/smartcontractkit/chainlink/deployment/data-streams/utils"
 
 	commonChangesets "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 
@@ -16,15 +17,22 @@ import (
 )
 
 func TestDeployVerifierProxy(t *testing.T) {
-	e := testutil.NewMemoryEnv(t, false, 0)
+	testEnv := testutil.NewMemoryEnvV2(t, testutil.MemoryEnvConfig{ShouldDeployMCMS: true})
+
 	cc := DeployVerifierProxyConfig{
 		ChainsToDeploy: map[uint64]DeployVerifierProxy{
 			testutil.TestChain.Selector: {AccessControllerAddress: common.Address{}},
 		},
+		Ownership: types.OwnershipSettings{
+			ShouldTransfer: true,
+			MCMSProposalConfig: &proposalutils.TimelockConfig{
+				MinDelay: 0,
+			},
+		},
 		Version: *semver.MustParse("0.5.0"),
 	}
 
-	e, err := commonChangesets.Apply(t, e, nil,
+	e, err := commonChangesets.Apply(t, testEnv.Environment, testEnv.Timelocks,
 		commonChangesets.Configure(
 			DeployVerifierProxyChangeset,
 			cc,
@@ -32,8 +40,12 @@ func TestDeployVerifierProxy(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	verifierProxyAddrHex, err := deployment.SearchAddressBook(e.ExistingAddresses, testutil.TestChain.Selector, types.VerifierProxy)
+	verifierProxyAddr, err := dsutil.MaybeFindEthAddress(e.ExistingAddresses, testutil.TestChain.Selector, types.VerifierProxy)
 	require.NoError(t, err)
-	verifierAddr := common.HexToAddress(verifierProxyAddrHex)
-	require.NotEqual(t, common.HexToAddress("0x0000000000000000000000000000000000000000"), verifierAddr)
+
+	chain := e.Chains[testutil.TestChain.Selector]
+
+	owner, _, err := commonChangesets.LoadOwnableContract(verifierProxyAddr, chain.Client)
+	require.NoError(t, err)
+	require.Equal(t, testEnv.Timelocks[testutil.TestChain.Selector].Timelock.Address(), owner)
 }

@@ -252,15 +252,15 @@ RPCJitter = "0ms"
 # The sum of all ratios should be 100
 # Messages that include data MUST have a `DataLengthBytes` field
 MessageDetails = [
-#    {Ratio = 100, MsgType = "Token"},
     {Ratio = 3, MsgType = "TokenTransfer"},
     {Ratio = 82, MsgType = "ProgrammableTokenTransfer", DataLengthBytes = 5000, DestGasLimit=650_000},
     {Ratio = 10,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=800_000},
     {Ratio = 5,  MsgType = "Messaging", DataLengthBytes = 10_000, DestGasLimit=2_500_000},
 ]
 # each destination chain will receive 1 incoming request per RequestFrequency for the duration of LoadDuration
-RequestFrequency = "5s"
-LoadDuration = "30m"
+RequestFrequency = "1s"
+LoadDuration = "1h"
+TestLabel = "asoliman-local"
 # destination chain selectors to send messages to
 NumDestinationChains = 6
 # Directory where we receive environment configuration from crib
@@ -269,12 +269,12 @@ TimeoutDuration = "30m"
 OOOExecution = false
 
 [CCIP.Chaos]
-Namespace = "crib-ccip-chaos-tests"
+Namespace = "crib-asoliman"
 # RPC, commit, exec dashboards, can be found here: https://grafana.ops.prod.cldev.sh/d/dde396ff-5d22-42fb-9e92-00845c17688c/load-ccipv2-exec-plugin-v2?orgId=1&editview=dashboard_json
 DashboardUIDs = ["e08d9f98-a39a-4603-8b44-e9a2958330e4", "ed3d5742-57cb-440f-b432-65f229c124ec", "dde396ff-5d22-42fb-9e92-00845c17688c"]
 WaitBeforeStart = "30s"
 # works only with Load.CCIP.ChaosMode = 2
 # Chaos experiment total duration (chaos + recovery)
-ExperimentFullInterval = "10m"
+ExperimentFullInterval = "90m"
 # Chaos time
 ExperimentInjectionInterval = "9m"

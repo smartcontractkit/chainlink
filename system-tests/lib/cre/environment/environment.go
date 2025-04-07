@@ -34,20 +34,25 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			ChainName: input.SethClient.Cfg.Network.Name,
 			ChainType: strings.ToUpper(input.BlockchainOutput.Family),
 			WSRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].HostWSUrl,
-				Internal: input.BlockchainOutput.Nodes[0].DockerInternalWSUrl,
+				External: input.BlockchainOutput.Nodes[0].ExternalWSUrl,
+				Internal: input.BlockchainOutput.Nodes[0].InternalWSUrl,
 			}},
 			HTTPRPCs: []devenv.CribRPCs{{
-				External: input.BlockchainOutput.Nodes[0].HostHTTPUrl,
-				Internal: input.BlockchainOutput.Nodes[0].DockerInternalHTTPUrl,
+				External: input.BlockchainOutput.Nodes[0].ExternalHTTPUrl,
+				Internal: input.BlockchainOutput.Nodes[0].InternalHTTPUrl,
 			}},
 			DeployerKey: input.SethClient.NewTXOpts(seth.WithNonce(nil)), // set nonce to nil, so that it will be fetched from the chain
 		},
 	}
 
-	for i, nodeOutput := range input.NodeSetOutput {
-		// assume that each nodeset has only one bootstrap node
-		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, 1)
+	for idx, nodeOutput := range input.NodeSetOutput {
+		// check how many bootstrap nodes we have in each DON
+		bootstrapNodes, err := libnode.FindManyWithLabel(input.Topology.DonsMetadata[idx].NodesMetadata, &types.Label{Key: libnode.NodeTypeKey, Value: types.BootstrapNode}, libnode.EqualLabels)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to find bootstrap nodes")
+		}
+
+		nodeInfo, err := libnode.GetNodeInfo(nodeOutput.Output, nodeOutput.NodeSetName, len(bootstrapNodes))
 		if err != nil {
 			return nil, errors.Wrap(err, "failed to get node info")
 		}
@@ -60,8 +65,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		}
 
 		jdConfig := devenv.JDConfig{
-			GRPC:     input.JdOutput.HostGRPCUrl,
-			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			GRPC:     input.JdOutput.ExternalGRPCUrl,
+			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: nodeInfo,
 		}
@@ -76,8 +81,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 			return nil, errors.Wrap(err, "failed to create environment")
 		}
 
-		envs[i] = env
-		dons[i] = don
+		envs[idx] = env
+		dons[idx] = don
 	}
 
 	var nodeIDs []string
@@ -113,8 +118,8 @@ func BuildFullCLDEnvironment(lgr logger.Logger, input *types.FullCLDEnvironmentI
 		// Otherwise, JD would fail to accept job proposals for unknown nodes, even though it would still propose jobs to them. And that
 		// would be happening silently, without any error messages, and we wouldn't know about it until much later.
 		jd, err = devenv.NewJDClient(context.Background(), devenv.JDConfig{
-			GRPC:     input.JdOutput.HostGRPCUrl,
-			WSRPC:    input.JdOutput.DockerWSRPCUrl,
+			GRPC:     input.JdOutput.ExternalGRPCUrl,
+			WSRPC:    input.JdOutput.InternalWSRPCUrl,
 			Creds:    credentials,
 			NodeInfo: allNodesInfo,
 		})

@@ -112,12 +112,16 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			}
 
 			c := &OutgoingConnectorHandler{
-				gc:   mockConnector,
-				lggr: lggr,
+				gc:           mockConnector,
+				lggr:         lggr,
+				selectorOpts: []func(*RoundRobinSelector){WithFixedStart()},
 			}
 
 			ctx := tc.ctxSetup()
-			gateway, err := c.AwaitConnection(ctx)
+			gateway, err := c.awaitConnection(ctx, awaitContext{
+				workflowID: "test-workflow",
+				messageID:  "some-message",
+			})
 
 			assert.Equal(t, tc.expectedGateway, gateway)
 			if tc.expectedError != "" {
@@ -348,7 +352,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log, WithFixedStart())
 	require.NoError(t, err)
 	return connector, connectorHandler
 }

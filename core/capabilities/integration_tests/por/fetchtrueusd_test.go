@@ -22,12 +22,12 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink-common/pkg/workflows"
-	wasmpb "github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/pb"
+	"github.com/smartcontractkit/chainlink-common/pkg/workflows/wasm/host"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/compute"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/keystone"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/webapi"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/data-feeds/generated/data_feeds_cache"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/capabilities"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/handlers/common"
@@ -136,9 +136,9 @@ func generateRandomReservesResponse() string {
 type ComputeFetcherFactory struct{}
 
 func (n ComputeFetcherFactory) NewFetcher(log commonlogger.Logger, emitter custmsg.MessageEmitter) compute.FetcherFn {
-	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if req.Url == "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD" {
-			return &wasmpb.FetchResponse{
+	return func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error) {
+		if req.URL == "https://api.real-time-reserves.verinumus.io/v1/chainlink/proof-of-reserves/TrueUSD" {
+			return &host.FetchResponse{
 				Body: []byte(generateRandomReservesResponse()),
 			}, nil
 		}
