@@ -11,9 +11,9 @@ type Workflow struct {
 }
 
 type Feeds struct {
-	StreamsId   string   `json:"streamsId"`
+	StreamsID   string   `json:"streamsId"`
 	Proxy       string   `json:"proxy"`
-	FeedId      string   `json:"feedId"`
+	FeedID      string   `json:"feedId"`
 	Description string   `json:"description"`
 	Deviation   string   `json:"deviation"`
 	Heartbeat   int      `json:"heartbeat"`
