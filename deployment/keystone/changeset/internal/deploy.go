@@ -436,7 +436,7 @@ type RegisterNOPSRequest struct {
 
 type RegisterNOPSResponse struct {
 	Nops []*capabilities_registry.CapabilitiesRegistryNodeOperatorAdded // if UseMCMS is false, a list of added node operators is returned
-	Ops  *timelock.BatchChainOperation                                  // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
+	Ops  *mcmstypes.BatchOperation                                      // if UseMCMS is true, a batch proposal is returned and no transaction is confirmed on chain.
 }
 
 func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSRequest) (*RegisterNOPSResponse, error) {
@@ -516,23 +516,19 @@ func RegisterNOPS(ctx context.Context, lggr logger.Logger, req RegisterNOPSReque
 	return resp, nil
 }
 
-func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*timelock.BatchChainOperation, error) {
+func addNOPsMCMSProposal(registry *capabilities_registry.CapabilitiesRegistry, nops []capabilities_registry.CapabilitiesRegistryNodeOperator, regChain deployment.Chain) (*mcmstypes.BatchOperation, error) {
 	tx, err := registry.AddNodeOperators(deployment.SimTransactOpts(), nops)
 	if err != nil {
 		err = deployment.DecodeErr(capabilities_registry.CapabilitiesRegistryABI, err)
 		return nil, fmt.Errorf("failed to call AddNodeOperators: %w", err)
 	}
 
-	return &timelock.BatchChainOperation{
-		ChainIdentifier: mcms.ChainIdentifier(regChain.Selector),
-		Batch: []mcms.Operation{
-			{
-				To:    registry.Address(),
-				Data:  tx.Data(),
-				Value: big.NewInt(0),
-			},
-		},
-	}, nil
+	ops, err := proposalutils.BatchOperationForChain(regChain.Selector, registry.Address().Hex(), tx.Data(), big.NewInt(0), string(CapabilitiesRegistry), nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create batch operation: %w", err)
+	}
+
+	return &ops, nil
 }
 
 // register nodes
