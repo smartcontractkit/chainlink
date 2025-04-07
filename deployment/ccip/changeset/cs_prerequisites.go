@@ -286,7 +286,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), Err: err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
@@ -294,6 +294,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 			return err
 		}
 		registryModule = append(registryModule, customRegistryModule.Contract)
+		e.Logger.Infow("deployed custom registry module", "chain", chain.String(), "addr", customRegistryModule.Address)
 	} else {
 		regAddresses := make([]common.Address, len(registryModule))
 		for _, reg := range registryModule {
