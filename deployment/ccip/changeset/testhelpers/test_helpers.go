@@ -1034,12 +1034,12 @@ func DeployTransferableTokenSolana(
 					},
 					Decimals: 9,
 				},
-				InboundRateLimit: solTestTokenPool.RateLimitConfig{
+				InboundRateLimit: &solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000),
 					Rate:     1,
 				},
-				OutboundRateLimit: solTestTokenPool.RateLimitConfig{
+				OutboundRateLimit: &solTestTokenPool.RateLimitConfig{
 					Enabled:  true,
 					Capacity: uint64(1000),
 					Rate:     1,

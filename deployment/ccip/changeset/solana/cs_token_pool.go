@@ -1,6 +1,7 @@
 package solana
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 
@@ -195,8 +196,8 @@ type RemoteChainTokenPoolConfig struct {
 	PoolType            solTestTokenPool.PoolType
 	// this is actually derivable from on chain given token symbol
 	RemoteConfig      solBaseTokenPool.RemoteConfig
-	InboundRateLimit  solBaseTokenPool.RateLimitConfig
-	OutboundRateLimit solBaseTokenPool.RateLimitConfig
+	InboundRateLimit  *solBaseTokenPool.RateLimitConfig
+	OutboundRateLimit *solBaseTokenPool.RateLimitConfig
 	MCMSSolana        *MCMSConfigSolana
 	IsUpdate          bool
 }
@@ -346,6 +347,7 @@ func getInstructionsForBurnMint(
 		}
 		ixns = append(ixns, ixConfigure)
 	} else {
+		e.Logger.Infof("Updating token pool remote chain config for remote chain %d for token %s", cfg.RemoteChainSelector, tokenPubKey.String())
 		ixConfigure, err := solBurnMintTokenPool.NewEditChainRemoteConfigInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
@@ -360,27 +362,61 @@ func getInstructionsForBurnMint(
 		}
 		ixns = append(ixns, ixConfigure)
 	}
-	// TODO: this should only be done the first time, or if its an update and the rate limits are not nil
-	ixRates, err := solBurnMintTokenPool.NewSetChainRateLimitInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.InboundRateLimit,
-		cfg.OutboundRateLimit,
-		poolConfigPDA,
-		remoteChainConfigPDA,
-		authority,
-	).ValidateAndBuild()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+
+	var remoteChainConfigAccount solBurnMintTokenPool.ChainConfig
+	if cfg.IsUpdate {
+		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get remote chain config: %w", err)
+		}
 	}
-	ixns = append(ixns, ixRates)
-	// TODO: like evm, we should query onchain and see if the pool supplied here is registered, and if necessary
-	// otherwise we are giving to the user to supply the correct input all the time
+
+	inboundRateLimit := cfg.InboundRateLimit
+	outboundRateLimit := cfg.OutboundRateLimit
+	setRateLimit := false // it will remain false if its not a new remote chain and there is no rate limit update
+	// check if there is a rate limit update
+	if cfg.IsUpdate && (inboundRateLimit != nil || outboundRateLimit != nil) {
+		e.Logger.Infof("Updating token pool rate limits for remote chain %d for token %s", cfg.RemoteChainSelector, tokenPubKey.String())
+		setRateLimit = true
+		if inboundRateLimit == nil {
+			inboundRateLimit = &remoteChainConfigAccount.Base.InboundRateLimit.Cfg
+		}
+		if outboundRateLimit == nil {
+			outboundRateLimit = &remoteChainConfigAccount.Base.OutboundRateLimit.Cfg
+		}
+	} else if !cfg.IsUpdate {
+		setRateLimit = true
+	}
+	if setRateLimit {
+		ixRates, err := solBurnMintTokenPool.NewSetChainRateLimitInstruction(
+			cfg.RemoteChainSelector,
+			tokenPubKey,
+			*inboundRateLimit,
+			*outboundRateLimit,
+			poolConfigPDA,
+			remoteChainConfigPDA,
+			authority,
+		).ValidateAndBuild()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		ixns = append(ixns, ixRates)
+	}
+
 	if len(cfg.RemoteConfig.PoolAddresses) > 0 {
+		var newPoolAddresses []solBaseTokenPool.RemoteAddress
+		if cfg.IsUpdate {
+			e.Logger.Infof("Updating pool addresses for remote chain %d for token %s", cfg.RemoteChainSelector, tokenPubKey.String())
+			newPoolAddresses = poolDiff(remoteChainConfigAccount.Base.Remote.PoolAddresses, cfg.RemoteConfig.PoolAddresses)
+			e.Logger.Infof("New pool addresses: %v", newPoolAddresses)
+		} else {
+			newPoolAddresses = cfg.RemoteConfig.PoolAddresses
+		}
+		// Update pool addresses to only include new ones
 		ixAppend, err := solBurnMintTokenPool.NewAppendRemotePoolAddressesInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
-			cfg.RemoteConfig.PoolAddresses, // evm supports multiple remote pools per token
+			newPoolAddresses, // evm supports multiple remote pools per token
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
@@ -392,6 +428,23 @@ func getInstructionsForBurnMint(
 		ixns = append(ixns, ixAppend)
 	}
 	return ixns, nil
+}
+
+func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
+	var result []solBaseTokenPool.RemoteAddress
+	for _, newAddr := range newPoolAddresses {
+		exists := false
+		for _, existingAddr := range existingPoolAddresses {
+			if bytes.Equal(existingAddr.Address, newAddr.Address) {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			result = append(result, newAddr)
+		}
+	}
+	return result
 }
 
 func getInstructionsForLockRelease(
@@ -443,27 +496,58 @@ func getInstructionsForLockRelease(
 		}
 		ixns = append(ixns, ixConfigure)
 	}
-	// TODO: this should only be done the first time, or if its an update and the rate limits are not nil
-	ixRates, err := solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
-		cfg.RemoteChainSelector,
-		tokenPubKey,
-		cfg.InboundRateLimit,
-		cfg.OutboundRateLimit,
-		poolConfigPDA,
-		remoteChainConfigPDA,
-		authority,
-	).ValidateAndBuild()
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate instructions: %w", err)
+	var remoteChainConfigAccount solLockReleaseTokenPool.ChainConfig
+	if cfg.IsUpdate {
+		err = chain.GetAccountDataBorshInto(context.Background(), remoteChainConfigPDA, &remoteChainConfigAccount)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get remote chain config: %w", err)
+		}
 	}
-	ixns = append(ixns, ixRates)
+
+	inboundRateLimit := cfg.InboundRateLimit
+	outboundRateLimit := cfg.OutboundRateLimit
+	setRateLimit := false // it will remain false if its not a new remote chain and there is no rate limit update
+	// check if there is a rate limit update
+	if cfg.IsUpdate && (inboundRateLimit != nil || outboundRateLimit != nil) {
+		setRateLimit = true
+
+		if inboundRateLimit == nil {
+			inboundRateLimit = &remoteChainConfigAccount.Base.InboundRateLimit.Cfg
+		}
+		if outboundRateLimit == nil {
+			outboundRateLimit = &remoteChainConfigAccount.Base.OutboundRateLimit.Cfg
+		}
+	} else if !cfg.IsUpdate {
+		setRateLimit = true
+	}
+	if setRateLimit {
+		ixRates, err := solLockReleaseTokenPool.NewSetChainRateLimitInstruction(
+			cfg.RemoteChainSelector,
+			tokenPubKey,
+			*inboundRateLimit,
+			*outboundRateLimit,
+			poolConfigPDA,
+			remoteChainConfigPDA,
+			authority,
+		).ValidateAndBuild()
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate instructions: %w", err)
+		}
+		ixns = append(ixns, ixRates)
+	}
 	// TODO: like evm, we should query onchain and see if the pool supplied here is registered, and if necessary
 	// otherwise we are giving to the user to supply the correct input all the time
 	if len(cfg.RemoteConfig.PoolAddresses) > 0 {
+		var newPoolAddresses []solBaseTokenPool.RemoteAddress
+		if cfg.IsUpdate {
+			newPoolAddresses = poolDiff(remoteChainConfigAccount.Base.Remote.PoolAddresses, cfg.RemoteConfig.PoolAddresses)
+		} else {
+			newPoolAddresses = cfg.RemoteConfig.PoolAddresses
+		}
 		ixAppend, err := solLockReleaseTokenPool.NewAppendRemotePoolAddressesInstruction(
 			cfg.RemoteChainSelector,
 			tokenPubKey,
-			cfg.RemoteConfig.PoolAddresses, // evm supports multiple remote pools per token
+			newPoolAddresses, // evm supports multiple remote pools per token
 			poolConfigPDA,
 			remoteChainConfigPDA,
 			authority,
