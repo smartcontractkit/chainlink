@@ -1,5 +1,7 @@
 package datastore
 
+import "errors"
+
 // Merger is an interface that defines a method for merging two data stores.
 type Merger[T any] interface {
 	// Merge merges the given data into the current data store.
@@ -106,15 +108,17 @@ func (s *MemoryDataStore[CM, EM]) Merge(other DataStore[CM, EM]) error {
 		}
 	}
 
-	// If the env metadata was not set in `other` data store, we don't need to
-	// update it.
 	envMetadata, err := other.EnvMetadata().Get()
 	if err != nil {
-		// Get() will return ErrEnvMetadataNotFound if no record is set. So
-		// we can skip the update in this case.
-		return nil
+		if errors.Is(err, ErrEnvMetadataNotFound) {
+			// If the env metadata was not set in `other` data store, Get() will return
+			// ErrEnvMetadataNotFound. In this case, we don't need to do anything because
+			// since `other` don't contain any update to the env metadata, we can just
+			// skip the env metadata update.
+			return nil
+		}
+		return err
 	}
-
 	// If the env metadata was set, we need to update it in the current
 	// data store.
 	err = s.EnvMetadataStore.Update(envMetadata)
