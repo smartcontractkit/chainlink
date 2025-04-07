@@ -651,14 +651,11 @@ jobs:
             exit 0
           fi
 
-          if [ "GITHUB_EVENT_NAME" != 'pull_request' ]; then
+          if [ "$GITHUB_EVENT_NAME" != "pull_request" ]; then
             echo "Not using self-hosted runners for event ${GITHUB_EVENT_NAME}"
             echo "self-hosted-runners=false" | tee -a $GITHUB_OUTPUT
             exit 0
           fi
-
-          # TODO: Enable below logic once ready for rollout
-          exit 0
 
           # PR Events
           # generate a deterministic random number based on the branch name
