@@ -31,14 +31,14 @@ require (
 	github.com/sethvargo/go-retry v0.2.4
 	github.com/smartcontractkit/ccip-owner-contracts v0.1.0
 	github.com/smartcontractkit/chain-selectors v1.0.47
-	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250403143043-d2fd3633f485
-	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331140029-aa0756b72e7b
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250401155045-d0dccede284b
+	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250404133334-ec9500255452
+	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250331144401-209a0783b7d2
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250401183809-d68a079c09d1
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24
 	github.com/smartcontractkit/chainlink-protos/job-distributor v0.9.0
 	github.com/smartcontractkit/chainlink-protos/orchestrator v0.5.0
-	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250402145836-4234da19fdb3
+	github.com/smartcontractkit/chainlink-solana v1.1.2-0.20250404135440-77cf27b13c10
 	github.com/smartcontractkit/chainlink-testing-framework/framework v0.7.0
 	github.com/smartcontractkit/chainlink-testing-framework/lib v1.50.22
 	github.com/smartcontractkit/libocr v0.0.0-20250328171017-609ec10a5510

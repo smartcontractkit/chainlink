@@ -14,8 +14,8 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager_v0_5_0"
 )
 
-// SetNativeChangeset sets the native surcharge on the FeeManager contract
-var SetNativeChangeset deployment.ChangeSetV2[SetNativeSurchargeConfig] = &nativeSurcharge{}
+// SetNativeSurchargeChangeset sets the native surcharge on the FeeManager contract
+var SetNativeSurchargeChangeset deployment.ChangeSetV2[SetNativeSurchargeConfig] = &nativeSurcharge{}
 
 type nativeSurcharge struct{}
 

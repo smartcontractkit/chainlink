@@ -56,7 +56,7 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -70,7 +70,7 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 
 	resp, err := internal.RemoveDONs(env.Logger, &internal.RemoveDONsRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contracts.CapabilitiesRegistry,
+		CapabilitiesRegistry: contracts.CapabilitiesRegistry.Contract,
 		DONs:                 req.DONs,
 		UseMCMS:              req.UseMCMS(),
 	})
@@ -85,10 +85,10 @@ func RemoveDONs(env deployment.Environment, req *RemoveDONsRequest) (deployment.
 		}
 
 		timelocksPerChain := map[uint64]string{
-			req.RegistryChainSel: contracts.Timelock.Address().Hex(),
+			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			req.RegistryChainSel: contracts.ProposerMcm.Address().Hex(),
+			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

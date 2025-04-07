@@ -63,7 +63,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 	if !ok {
 		return deployment.ChangesetOutput{}, fmt.Errorf("registry chain selector %d does not exist in environment", req.RegistryChainSel)
 	}
-	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -77,7 +77,7 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 
 	resp, err := internal.UpdateNodes(env.Logger, &internal.UpdateNodesRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contracts.CapabilitiesRegistry,
+		CapabilitiesRegistry: contracts.CapabilitiesRegistry.Contract,
 		P2pToUpdates:         req.P2pToUpdates,
 		UseMCMS:              req.UseMCMS(),
 	})
@@ -91,10 +91,10 @@ func UpdateNodes(env deployment.Environment, req *UpdateNodesRequest) (deploymen
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			req.RegistryChainSel: contracts.Timelock.Address().Hex(),
+			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			req.RegistryChainSel: contracts.ProposerMcm.Address().Hex(),
+			req.RegistryChainSel: contracts.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {

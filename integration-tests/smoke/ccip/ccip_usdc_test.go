@@ -4,7 +4,6 @@ import (
 	"math/big"
 	"testing"
 
-	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
 	"golang.org/x/exp/maps"
@@ -102,7 +101,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	tcs := []testhelpers.TestTransferRequest{
 		{
 			Name:        "single USDC token transfer to EOA",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainA,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -110,14 +109,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Token:  cChainUSDC.Address(),
 					Amount: tinyOneCoin,
 				}},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				aChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: aChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "multiple USDC tokens within the same message",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainA,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -130,15 +129,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Amount: tinyOneCoin,
 				},
 			},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
 				// 2 coins because of the same Receiver
-				aChainUSDC.Address(): new(big.Int).Add(tinyOneCoin, tinyOneCoin),
+				{Token: aChainUSDC.Address().Bytes(), Amount: new(big.Int).Add(tinyOneCoin, tinyOneCoin)},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC token together with another token transferred to EOA",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -151,15 +150,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 					Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
 				},
 			},
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address():  tinyOneCoin,
-				cChainToken.Address(): new(big.Int).Mul(tinyOneCoin, big.NewInt(10)),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
+				{Token: cChainToken.Address().Bytes(), Amount: new(big.Int).Mul(tinyOneCoin, big.NewInt(10))},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer to valid contract receiver",
-			Receiver:    state.Chains[chainC].Receiver.Address(),
+			Receiver:    state.Chains[chainC].Receiver.Address().Bytes(),
 			SourceChain: chainA,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -169,14 +168,14 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: []byte("hello world"),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
 		{
 			Name:        "USDC programmable token transfer with too little gas",
-			Receiver:    state.Chains[chainB].Receiver.Address(),
+			Receiver:    state.Chains[chainB].Receiver.Address().Bytes(),
 			SourceChain: chainC,
 			DestChain:   chainB,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -186,15 +185,15 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: []byte("gimme more gas to execute that!"),
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				bChainUSDC.Address(): new(big.Int).SetUint64(0),
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: bChainUSDC.Address().Bytes(), Amount: new(big.Int).SetUint64(0)},
 			},
 			ExtraArgs:      testhelpers.MakeEVMExtraArgsV2(1, false),
 			ExpectedStatus: testhelpers.EXECUTION_STATE_FAILURE,
 		},
 		{
 			Name:        "USDC token transfer from a different source chain",
-			Receiver:    utils.RandomAddress(),
+			Receiver:    utils.RandomAddress().Bytes(),
 			SourceChain: chainB,
 			DestChain:   chainC,
 			Tokens: []router.ClientEVMTokenAmount{
@@ -204,8 +203,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 				},
 			},
 			Data: nil,
-			ExpectedTokenBalances: map[common.Address]*big.Int{
-				cChainUSDC.Address(): tinyOneCoin,
+			ExpectedTokenBalances: []testhelpers.ExpectedBalance{
+				{Token: cChainUSDC.Address().Bytes(), Amount: tinyOneCoin},
 			},
 			ExpectedStatus: testhelpers.EXECUTION_STATE_SUCCESS,
 		},
@@ -216,8 +215,8 @@ func TestUSDCTokenTransfer(t *testing.T) {
 
 	err = testhelpers.ConfirmMultipleCommits(
 		t,
-		e.Chains,
-		state.Chains,
+		e,
+		state,
 		startBlocks,
 		false,
 		expectedSeqNums,
@@ -233,7 +232,7 @@ func TestUSDCTokenTransfer(t *testing.T) {
 	)
 	require.Equal(t, expectedExecutionStates, execStates)
 
-	testhelpers.WaitForTokenBalances(ctx, t, e.Chains, expectedTokenBalances)
+	testhelpers.WaitForTokenBalances(ctx, t, e, expectedTokenBalances)
 }
 
 func updateFeeQuoters(
