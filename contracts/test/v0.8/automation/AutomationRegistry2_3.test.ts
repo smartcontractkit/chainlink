@@ -96,10 +96,10 @@ let cancellationDelay: number
 
 // This is the margin for gas that we test for. Gas charged should always be greater
 // than total gas used in tx but should not increase beyond this margin
-const gasCalculationMargin = BigNumber.from(5000)
+const gasCalculationMargin = BigNumber.from(5100)
 // This is the margin for gas overhead estimation in checkUpkeep. The estimated gas
 // overhead should be larger than actual gas overhead but should not increase beyond this margin
-const gasEstimationMargin = BigNumber.from(5000)
+const gasEstimationMargin = BigNumber.from(5100)
 
 // 1 Link = 0.005 Eth
 const linkUSD = BigNumber.from('2000000000') // 1 LINK = $20

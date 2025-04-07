@@ -26,26 +26,25 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/hashutil"
 	"github.com/smartcontractkit/chainlink-common/pkg/merklemulti"
 	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/commit_store_helper"
-	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store_helper"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	commit_store_helper_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/commit_store_helper"
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/commit_store_helper"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	ccipconfig "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/config"
@@ -463,7 +462,7 @@ func (c *CCIPContracts) SetNopsOnRamp(t *testing.T, nopsAndWeights []evm_2_evm_o
 	tx, err := c.Source.OnRamp.SetNops(c.Source.User, nopsAndWeights)
 	require.NoError(t, err)
 	c.Source.Chain.Commit()
-	_, err = bind.WaitMined(tests.Context(t), c.Source.Chain.Client(), tx)
+	_, err = bind.WaitMined(t.Context(), c.Source.Chain.Client(), tx)
 	require.NoError(t, err)
 }
 
@@ -603,7 +602,7 @@ func (c *CCIPContracts) SetupExecOCR2Config(t *testing.T, execOnchainConfig, exe
 
 func (c *CCIPContracts) SetupOnchainConfig(t *testing.T, commitOnchainConfig, commitOffchainConfig, execOnchainConfig, execOffchainConfig []byte) int64 {
 	// Note We do NOT set the payees, payment is done in the OCR2Base implementation
-	blockBeforeConfig, err := c.Dest.Chain.Client().BlockByNumber(tests.Context(t), nil)
+	blockBeforeConfig, err := c.Dest.Chain.Client().BlockByNumber(t.Context(), nil)
 	require.NoError(t, err)
 
 	c.SetupCommitOCR2Config(t, commitOnchainConfig, commitOffchainConfig)
@@ -1618,10 +1617,9 @@ func (c *CCIPContracts) ExecuteMessage(
 	destStartBlock uint64,
 ) uint64 {
 	t.Log("Executing request manually")
-	ctx := tests.Context(t)
-	sendReqReceipt, err := c.Source.Chain.Client().TransactionReceipt(ctx, txHash)
+	sendReqReceipt, err := c.Source.Chain.Client().TransactionReceipt(t.Context(), txHash)
 	require.NoError(t, err)
-	currentNum, err := c.Dest.Chain.Client().BlockNumber(ctx)
+	currentNum, err := c.Dest.Chain.Client().BlockNumber(t.Context())
 	require.NoError(t, err)
 	args := ManualExecArgs{
 		SourceChainID:      c.Source.ChainID,
@@ -1638,11 +1636,11 @@ func (c *CCIPContracts) ExecuteMessage(
 		OnRamp:             c.Source.OnRamp.Address().String(),
 		OffRamp:            c.Dest.OffRamp.Address().String(),
 	}
-	tx, err := args.ExecuteManually(ctx)
+	tx, err := args.ExecuteManually(t.Context())
 	require.NoError(t, err)
 	c.Dest.Chain.Commit()
 	c.Source.Chain.Commit()
-	rec, err := c.Dest.Chain.Client().TransactionReceipt(ctx, tx.Hash())
+	rec, err := c.Dest.Chain.Client().TransactionReceipt(t.Context(), tx.Hash())
 	require.NoError(t, err)
 	require.Equal(t, uint64(1), rec.Status, "manual execution failed")
 	t.Logf("Manual Execution completed for seqNum %d", args.SeqNr)

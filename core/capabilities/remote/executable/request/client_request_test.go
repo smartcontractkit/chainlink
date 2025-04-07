@@ -464,6 +464,77 @@ func Test_ClientRequest_MessageValidation(t *testing.T) {
 		}
 	})
 
+	// tests that (once added) metering data in the capability responses
+	// will not cause the identical response calculation to break;
+	// also locks in no validation of SpendUnit/SpendValue at that layer.
+	t.Run("with metering metadata", func(t *testing.T) {
+		capabilityResponseWithMetering1 := commoncap.CapabilityResponse{
+			Value: m,
+			Metadata: commoncap.ResponseMetadata{
+				Metering: []commoncap.MeteringNodeDetail{
+					{SpendUnit: "testunit_a", SpendValue: "15"},
+				},
+			},
+		}
+
+		capabilityResponseWithMetering2 := commoncap.CapabilityResponse{
+			Value: m,
+			Metadata: commoncap.ResponseMetadata{
+				Metering: []commoncap.MeteringNodeDetail{
+					{SpendUnit: "testunit_b", SpendValue: "17"},
+				},
+			},
+		}
+
+		payload1, err2 := pb.MarshalCapabilityResponse(capabilityResponseWithMetering1)
+		require.NoError(t, err2)
+
+		payload2, err2 := pb.MarshalCapabilityResponse(capabilityResponseWithMetering2)
+		require.NoError(t, err2)
+
+		msg.Payload = payload1
+
+		ctx := t.Context()
+
+		dispatcher := &clientRequestTestDispatcher{msgs: make(chan *types.MessageBody, 100)}
+		request, err := request.NewClientExecuteRequest(ctx, lggr, capabilityRequest, capInfo,
+			workflowDonInfo, dispatcher, 10*time.Minute)
+		require.NoError(t, err)
+		defer request.Cancel(errors.New("test end"))
+
+		msg.Sender = capabilityPeers[0][:]
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		msg.Sender = capabilityPeers[1][:]
+		msg.Payload = payload2
+		err = request.OnMessage(ctx, msg)
+		require.NoError(t, err)
+
+		response := <-request.ResponseChan()
+		capResponse, err := pb.UnmarshalCapabilityResponse(response.Result)
+		require.NoError(t, err)
+
+		resp := capResponse.Value.Underlying["response"]
+		assert.Equal(t, resp, values.NewString("response1"))
+
+		assert.Len(t, capResponse.Metadata.Metering, 2)
+		spendUnit := capResponse.Metadata.Metering[0].SpendUnit
+		spendValue := capResponse.Metadata.Metering[0].SpendValue
+		p2pID := capResponse.Metadata.Metering[0].Peer2PeerID
+
+		assert.Equal(t, "testunit_a", spendUnit)
+		assert.Equal(t, "15", spendValue)
+		assert.Equal(t, capabilityPeers[0].String(), p2pID)
+
+		spendUnit = capResponse.Metadata.Metering[1].SpendUnit
+		spendValue = capResponse.Metadata.Metering[1].SpendValue
+		p2pID = capResponse.Metadata.Metering[1].Peer2PeerID
+
+		assert.Equal(t, "testunit_b", spendUnit)
+		assert.Equal(t, "17", spendValue)
+		assert.Equal(t, capabilityPeers[1].String(), p2pID)
+	})
 }
 
 type clientRequestTestDispatcher struct {

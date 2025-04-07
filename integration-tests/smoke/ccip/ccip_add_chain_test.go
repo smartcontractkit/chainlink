@@ -8,7 +8,6 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -16,10 +15,10 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
 	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/maps"
@@ -106,7 +105,7 @@ func Test_AddChain(t *testing.T) {
 				}
 
 				gp, err := state.Chains[source].FeeQuoter.GetDestinationChainGasPrice(&bind.CallOpts{
-					Context: tests.Context(t),
+					Context: t.Context(),
 				}, dest)
 				require.NoError(t, err)
 				gasPricePreUpdate[testhelpers.SourceDestPair{
@@ -553,7 +552,7 @@ func assertChainWiringInbound(
 		// in addition, check that the onRamp set in the source chain config
 		// matches the address of the onRamp on the existing chain.
 		dcc, err := state.Chains[newChain].OffRamp.GetSourceChainConfig(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, existingChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
@@ -561,7 +560,7 @@ func assertChainWiringInbound(
 
 		// check that the router has the existing chain enabled as a source.
 		routerOffRamps, err := rtr.GetOffRamps(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		})
 		require.NoError(t, err)
 
@@ -597,21 +596,21 @@ func assertChainWiringOutbound(
 
 		// check that the onRamp has the new chain enabled as a dest.
 		dcc, err := state.Chains[existingChain].OnRamp.GetDestChainConfig(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
 		require.Equal(t, rtr.Address(), dcc.Router)
 
 		// check that the feeQuoter has the new chain enabled as a dest.
 		fqdcc, err := state.Chains[existingChain].FeeQuoter.GetDestChainConfig(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
 		require.True(t, fqdcc.IsEnabled)
 
 		// check that the router has the new chain enabled as a dest.
 		routerOnRamp, err := rtr.GetOnRamp(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, newChain)
 		require.NoError(t, err)
 		require.Equal(t, state.Chains[existingChain].OnRamp.Address(), routerOnRamp)
@@ -736,13 +735,13 @@ func assertRMNRemoteAndProxyState(t *testing.T, chains []uint64, state state2.CC
 	for _, chain := range chains {
 		require.NotEqual(t, common.Address{}, state.Chains[chain].RMNRemote.Address())
 		_, err := state.Chains[chain].RMNRemote.GetCursedSubjects(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		})
 		require.NoError(t, err)
 
 		// check which address RMNProxy is pointing to
 		rmnAddress, err := state.Chains[chain].RMNProxy.GetARM(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		})
 		require.NoError(t, err)
 		require.Equal(t, state.Chains[chain].RMNRemote.Address(), rmnAddress)

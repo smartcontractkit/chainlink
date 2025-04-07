@@ -116,7 +116,7 @@ ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Chain.Txm
 ok StarkNet.Baz.RelayerService.PluginRelayerClient.PluginStarknet.Relayer
 ok TelemetryManager
-ok WorkflowDBStore
+ok WorkflowStore
 
 -- out-unhealthy.txt --
 !  EVM.1.HeadTracker.HeadListener
@@ -523,9 +523,9 @@ ok WorkflowDBStore
     },
     {
       "type": "checks",
-      "id": "WorkflowDBStore",
+      "id": "WorkflowStore",
       "attributes": {
-        "name": "WorkflowDBStore",
+        "name": "WorkflowStore",
         "status": "passing",
         "output": ""
       }

@@ -11,7 +11,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/gateway/api"
 	gcmocks "github.com/smartcontractkit/chainlink/v2/core/services/gateway/connector/mocks"
@@ -113,12 +112,16 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 			}
 
 			c := &OutgoingConnectorHandler{
-				gc:   mockConnector,
-				lggr: lggr,
+				gc:           mockConnector,
+				lggr:         lggr,
+				selectorOpts: []func(*RoundRobinSelector){WithFixedStart()},
 			}
 
 			ctx := tc.ctxSetup()
-			gateway, err := c.AwaitConnection(ctx)
+			gateway, err := c.awaitConnection(ctx, awaitContext{
+				workflowID: "test-workflow",
+				messageID:  "some-message",
+			})
 
 			assert.Equal(t, tc.expectedGateway, gateway)
 			if tc.expectedError != "" {
@@ -134,7 +137,6 @@ func TestOutgoingConnectorHandler_AwaitConnection(t *testing.T) {
 
 func TestHandleSingleNodeRequest(t *testing.T) {
 	t.Run("uses default timeout if no timeout is provided", func(t *testing.T) {
-		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -166,14 +168,13 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
 		}).Return(nil).Times(1)
 
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL: testURL,
 		})
 		require.NoError(t, err)
 	})
 
 	t.Run("uses timeout", func(t *testing.T) {
-		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -205,7 +206,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
 		}).Return(nil).Times(1)
 
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL:       testURL,
 			TimeoutMs: 40000,
 		})
@@ -215,7 +216,6 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	})
 
 	t.Run("cleans up in event of a timeout", func(t *testing.T) {
-		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		connector, connectorHandler := newFunctionWithDefaultConfig(
@@ -247,7 +247,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			// don't call HandleGatewayMessage here; i.e. simulate a failure to receive a response
 		}).Return(nil).Times(1)
 
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL:       testURL,
 			TimeoutMs: 10,
 		})
@@ -257,7 +257,6 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 	})
 
 	t.Run("rate limits outgoing traffic", func(t *testing.T) {
-		ctx := tests.Context(t)
 		msgID := "msgID"
 		testURL := "http://localhost:8080"
 		var config = ServiceConfig{
@@ -305,14 +304,14 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 			connectorHandler.HandleGatewayMessage(ctx, "gateway1", gatewayResponse(t, msgID))
 		}).Return(nil).Times(1)
 
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL:        testURL,
 			WorkflowID: "1",
 		})
 		require.NoError(t, err)
 
 		// Second request should error from workflow ratelimit
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL:        testURL,
 			WorkflowID: "1",
 		})
@@ -320,7 +319,7 @@ func TestHandleSingleNodeRequest(t *testing.T) {
 		require.ErrorContains(t, err, errorOutgoingRatelimitWorkflow)
 
 		// Third request should error from global ratelimit
-		_, err = connectorHandler.HandleSingleNodeRequest(ctx, msgID, ghcapabilities.Request{
+		_, err = connectorHandler.HandleSingleNodeRequest(t.Context(), msgID, ghcapabilities.Request{
 			URL:        testURL,
 			WorkflowID: "2",
 		})
@@ -353,7 +352,7 @@ func newFunction(t *testing.T, mockFn func(*gcmocks.GatewayConnector), serviceCo
 
 	mockFn(connector)
 
-	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := NewOutgoingConnectorHandler(connector, serviceConfig, ghcapabilities.MethodComputeAction, log, WithFixedStart())
 	require.NoError(t, err)
 	return connector, connectorHandler
 }

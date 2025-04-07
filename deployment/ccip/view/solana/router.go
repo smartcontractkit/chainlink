@@ -58,6 +58,7 @@ func GenerateRouterView(chain deployment.SolChain, program solana.PublicKey, rem
 	view.LinkTokenMint = config.LinkTokenMint.String()
 	view.FeeAggregator = config.FeeAggregator.String()
 	view.DestinationChainConfig = make(map[uint64]RouterDestChainConfig)
+	view.TokenAdminRegistry = make(map[string]RouterTokenAdminRegistry)
 	for _, remote := range remoteChains {
 		remoteChainPDA, err := solState.FindDestChainStatePDA(remote, program)
 		if err != nil {

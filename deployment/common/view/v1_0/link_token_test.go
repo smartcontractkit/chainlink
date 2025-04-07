@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 )
 

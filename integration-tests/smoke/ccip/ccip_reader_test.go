@@ -46,13 +46,13 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	evmconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_reader_tester"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmtypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
@@ -635,6 +635,7 @@ func TestCCIPReader_ExecutedMessages_MultiChain(t *testing.T) {
 				chainS2: {
 					cciptypes.NewSeqNumRange(15, 15),
 				},
+				chainS3: {}, // empty, should not affect query
 			},
 			primitives.Unconfirmed,
 		)
@@ -910,18 +911,22 @@ func TestCCIPReader_Nonces(t *testing.T) {
 	}
 	s.sb.Commit()
 
-	for sourceChain, addrs := range nonces {
-		var addrQuery []string
-		for addr := range addrs {
-			addrQuery = append(addrQuery, addr.String())
+	request := make(map[cciptypes.ChainSelector][]string)
+	for chain, addresses := range nonces {
+		request[chain] = make([]string, 0, len(addresses))
+		for address := range addresses {
+			request[chain] = append(request[chain], address.String())
 		}
-		addrQuery = append(addrQuery, utils.RandomAddress().String())
+		request[chain] = append(request[chain], utils.RandomAddress().String())
+	}
 
-		results, err := s.reader.Nonces(ctx, sourceChain, addrQuery)
-		require.NoError(t, err)
-		assert.Len(t, results, len(addrQuery))
-		for addr, nonce := range addrs {
-			assert.Equal(t, nonce, results[addr.String()])
+	results, err := s.reader.Nonces(ctx, request)
+	require.NoError(t, err)
+
+	for chain, addresses := range nonces {
+		assert.Len(t, results[chain], len(request[chain]))
+		for address, nonce := range addresses {
+			assert.Equal(t, nonce, results[chain][address.String()])
 		}
 	}
 }

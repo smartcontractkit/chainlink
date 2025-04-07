@@ -114,7 +114,7 @@ func WaitTimeout(t *testing.T) time.Duration {
 
 // Context returns a context with the test's deadline, if available.
 func Context(tb testing.TB) context.Context {
-	return tests.Context(tb)
+	return tb.Context()
 }
 
 // MustParseURL parses the URL or fails the test

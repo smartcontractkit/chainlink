@@ -1,7 +1,6 @@
 package test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"math"
@@ -13,8 +12,6 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 
 	"github.com/smartcontractkit/chainlink/deployment"
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
@@ -25,8 +22,8 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/workflowregistry"
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 )
 
 type DonConfig struct {
@@ -156,13 +153,12 @@ func initEnv(t *testing.T, nChains int) (registryChainSel uint64, env deployment
 	// we choose to use changesets to deploy the initial contracts because that's how it's done in the real world
 	// this requires a initial environment to house the address book
 	env = deployment.Environment{
-		GetContext: func() context.Context {
-			return testcontext.Get(t)
-		},
+		GetContext:        t.Context,
 		Logger:            logger.Test(t),
 		Chains:            chains,
 		ExistingAddresses: deployment.NewMemoryAddressBook(),
 	}
+
 	env, err := commonchangeset.Apply(t, env, nil,
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(changeset.DeployCapabilityRegistry),
@@ -275,16 +271,16 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 	require.NoError(t, err)
 	require.Nil(t, csOut.AddressBook, "no new addresses should be created in configure initial contracts")
 
-	req := &changeset.GetContractSetsRequest{
+	req := changeset.GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	}
 
-	contractSetsResp, err := changeset.GetContractSets(lggr, req)
+	contractSetsResp, err := changeset.GetContractSetsV2(lggr, req)
 	require.NoError(t, err)
 	require.Len(t, contractSetsResp.ContractSets, len(env.Chains))
 	// check the registry
-	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry
+	gotRegistry := contractSetsResp.ContractSets[registryChainSel].CapabilitiesRegistry.Contract
 	require.NotNil(t, gotRegistry)
 	// validate the registry
 	// check the nodes
@@ -314,7 +310,8 @@ func setupTestEnv(t *testing.T, c EnvWrapperConfig) EnvWrapper {
 			),
 		)
 		require.NoError(t, err)
-		// extract the MCMS address
+		// extract the MCMS address using `GetContractSets` instead of `GetContractSetsV2` because the latter
+		// expects contracts to already be owned by MCMS
 		r, err := changeset.GetContractSets(lggr, &changeset.GetContractSetsRequest{
 			Chains:      env.Chains,
 			AddressBook: env.ExistingAddresses,
@@ -394,7 +391,7 @@ func setupViewOnlyNodeTest(t *testing.T, registryChainSel uint64, chains map[uin
 		nil,
 		dons.NodeList().IDs(),
 		envtest.NewJDService(dons.NodeList()),
-		func() context.Context { return tests.Context(t) },
+		t.Context,
 		deployment.XXXGenerateTestOCRSecrets(),
 	)
 
@@ -430,7 +427,7 @@ func setupMemoryNodeTest(t *testing.T, registryChainSel uint64, chains map[uint6
 	dons.Put(newMemoryDon(c.AssetDonConfig.Name, assetNodes))
 	dons.Put(newMemoryDon(c.WriterDonConfig.Name, cwNodes))
 
-	env := memory.NewMemoryEnvironmentFromChainsNodes(func() context.Context { return tests.Context(t) }, lggr, chains, nil, dons.AllNodes())
+	env := memory.NewMemoryEnvironmentFromChainsNodes(t.Context, lggr, chains, nil, dons.AllNodes())
 	return dons, env
 }
 

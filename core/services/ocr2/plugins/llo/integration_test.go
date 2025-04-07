@@ -37,10 +37,18 @@ import (
 	"github.com/smartcontractkit/wsrpc/credentials"
 
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
 
 	lloevm "github.com/smartcontractkit/chainlink-data-streams/llo/reportcodecs/evm"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/destination_verifier"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
@@ -48,15 +56,6 @@ import (
 	ubig "github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/config"
 	"github.com/smartcontractkit/chainlink/v2/core/config/toml"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/destination_verifier_proxy"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"
@@ -1668,12 +1667,12 @@ channelDefinitionsContractFromBlock = %d`, serverURL, serverPubKey, serverPubKey
 			cnt := 0
 
 			// The failing server
-			err := db.GetContext(tests.Context(t), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
+			err := db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = 'example.invalid'")
 			require.NoError(t, err)
 			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for failing server", i)
 
 			// The succeeding server
-			err = db.GetContext(tests.Context(t), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
+			err = db.GetContext(t.Context(), &cnt, "SELECT count(*) FROM llo_mercury_transmit_queue WHERE server_url = $1", serverURL)
 			require.NoError(t, err)
 			assert.LessOrEqual(t, cnt, maxQueueSize, "persisted transmit queue size too large for node %d for succeeding server", i)
 		}

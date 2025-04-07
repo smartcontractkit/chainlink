@@ -45,12 +45,18 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
+      # capabilities = ['./cron']
       user_config_overrides = """
             [Telemetry]
             Enabled = true
             Endpoint = 'host.docker.internal:4317'
             InsecureConnection = true
             TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
             [Feature]
 			LogPoller = true
@@ -76,29 +82,9 @@
             InsecureConnection = true
             TraceSampleRatio = 1
 
-            [Feature]
-			LogPoller = true
-
-			[OCR2]
-			Enabled = true
-			DatabaseTimeout = '1s'
-
-			[P2P.V2]
-			Enabled = true
-			ListenAddresses = ['0.0.0.0:5001']
-      """
-
-  [[nodesets.node_specs]]
-
-    [nodesets.node_specs.node]
-      docker_ctx = "../../../.."
-      docker_file = "plugins/chainlink.Dockerfile"
-      user_config_overrides = """
-            [Telemetry]
-            Enabled = true
-            Endpoint = 'host.docker.internal:4317'
-            InsecureConnection = true
-            TraceSampleRatio = 1
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
             [Feature]
 			LogPoller = true
@@ -124,6 +110,10 @@
             InsecureConnection = true
             TraceSampleRatio = 1
 
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
             [Feature]
 			LogPoller = true
 
@@ -147,6 +137,38 @@
             Endpoint = 'host.docker.internal:4317'
             InsecureConnection = true
             TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      user_config_overrides = """
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
 
             [Feature]
 			LogPoller = true

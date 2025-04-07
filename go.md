@@ -37,6 +37,8 @@ flowchart LR
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-evm --> chainlink-integrations/evm
+	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/chains --> chainlink-framework/multinode
@@ -56,8 +58,8 @@ flowchart LR
 	click chainlink-solana href "https://github.com/smartcontractkit/chainlink-solana"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
+	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-integrations/evm
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
@@ -143,6 +145,8 @@ flowchart LR
 	click chainlink-common href "https://github.com/smartcontractkit/chainlink-common"
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
+	chainlink-evm --> chainlink-integrations/evm
+	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
 	click chainlink-feeds href "https://github.com/smartcontractkit/chainlink-feeds"
 	chainlink-framework/chains --> chainlink-framework/multinode
@@ -166,10 +170,13 @@ flowchart LR
 	click chainlink-testing-framework/framework href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/havoc --> chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/havoc href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/lib --> chainlink-testing-framework/parrot
 	chainlink-testing-framework/lib --> chainlink-testing-framework/seth
 	click chainlink-testing-framework/lib href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/lib/grafana
 	click chainlink-testing-framework/lib/grafana href "https://github.com/smartcontractkit/chainlink-testing-framework"
+	chainlink-testing-framework/parrot
+	click chainlink-testing-framework/parrot href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/sentinel --> chainlink-testing-framework/lib
 	click chainlink-testing-framework/sentinel href "https://github.com/smartcontractkit/chainlink-testing-framework"
 	chainlink-testing-framework/seth
@@ -194,12 +201,13 @@ flowchart LR
 	click chainlink/load-tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/system-tests/lib --> chainlink/deployment
 	click chainlink/system-tests/lib href "https://github.com/smartcontractkit/chainlink"
+	chainlink/system-tests/tests --> chainlink-testing-framework/wasp
 	chainlink/system-tests/tests --> chainlink/system-tests/lib
 	click chainlink/system-tests/tests href "https://github.com/smartcontractkit/chainlink"
 	chainlink/v2 --> chainlink-automation
 	chainlink/v2 --> chainlink-data-streams
+	chainlink/v2 --> chainlink-evm
 	chainlink/v2 --> chainlink-feeds
-	chainlink/v2 --> chainlink-integrations/evm
 	chainlink/v2 --> chainlink-protos/orchestrator
 	chainlink/v2 --> chainlink-protos/svr
 	chainlink/v2 --> chainlink-solana
@@ -256,6 +264,7 @@ flowchart LR
 		 chainlink-testing-framework/havoc
 		 chainlink-testing-framework/lib
 		 chainlink-testing-framework/lib/grafana
+		 chainlink-testing-framework/parrot
 		 chainlink-testing-framework/sentinel
 		 chainlink-testing-framework/seth
 		 chainlink-testing-framework/wasp

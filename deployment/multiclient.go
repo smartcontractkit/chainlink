@@ -196,7 +196,7 @@ func (mc *MultiClient) retryWithBackups(opName string, op func(*ethclient.Client
 			mc.lggr.Debugf("Trying op %s with chain %s client index %d", opName, mc.chainName, i)
 			err = op(client)
 			if err != nil {
-				mc.lggr.Warnf("retryable error '%s' for op %s with chain %s client index %d", err.Error(), opName, mc.chainName, i)
+				mc.lggr.Warnf("retryable error '%s' for op %s with chain %s client index %d", MaybeDataErr(err), opName, mc.chainName, i)
 				return err
 			}
 			return nil
@@ -221,7 +221,7 @@ func (mc *MultiClient) dialWithRetry(rpc RPC, lggr logger.Logger) (*ethclient.Cl
 		mc.lggr.Debugf("dialing endpoint '%s' for RPC %s for chain %s", endpoint, rpc.Name, mc.chainName)
 		client, err2 = ethclient.Dial(endpoint)
 		if err2 != nil {
-			lggr.Warnf("retryable error for RPC %s:%s for chain %s  %v", rpc.Name, endpoint, mc.chainName, err)
+			lggr.Warnf("retryable error for RPC %s:%s for chain %s  %v", rpc.Name, endpoint, mc.chainName, err2)
 			return err2
 		}
 		return nil

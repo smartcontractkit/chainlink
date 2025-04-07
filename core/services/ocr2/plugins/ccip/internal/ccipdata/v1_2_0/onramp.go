@@ -17,8 +17,8 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/client"
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 
-	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	evm_2_evm_onramp_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/abihelpers"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/cache"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipdata"

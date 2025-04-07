@@ -18,7 +18,6 @@ type TestEnvConfig struct {
 
 type MockAdapterConfig struct {
 	ContainerName string `json:"container_name"`
-	ImpostersPath string `json:"imposters_path"`
 }
 
 type GethConfig struct {

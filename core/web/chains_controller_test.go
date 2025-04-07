@@ -272,6 +272,7 @@ NewHeadsPollInterval = '5s'
 FinalizedBlockPollInterval = '5s'
 EnforceRepeatableRead = true
 DeathDeclarationDelay = '20s'
+VerifyChainID = true
 NodeNoNewHeadsThreshold = '20s'
 NoNewFinalizedHeadsThreshold = '20s'
 FinalityDepth = 0

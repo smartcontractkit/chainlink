@@ -55,6 +55,7 @@ The test requires several environment variables. Below is a launch configuration
   "env": {
     "CTF_CONFIGS": "environment-one-don.toml",
     "PRIVATE_KEY": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
+    "GIST_WRITE_TOKEN": "xxxx",
   },
   "args": [
     "-test.run",
@@ -62,6 +63,11 @@ The test requires several environment variables. Below is a launch configuration
   ]
 }
 ```
+
+Required env vars:
+- **`CTF_CONFIGS`**: Always required, a comma-separated list of TOML configs to use.
+- **`PRIVATE_KEY`**: Plaintext private key that will be used for all contract deployment and configuration, and CL node funding. It needs to have sufficient funds.
+- **`GIST_WRITE_TOKEN`**: Required only for compiling and uploading a new workflow. It needs `gist:read:write` permissions and should be a fine-grained PAT **tied to your personal GitHub account**.
 
 You might also need to adjust the TOML configuration file used by your test, so that it points to correct location of two binaries:
 * `cron` -- cron capability binary for AMD platform that lives in [smartcontractkit/capabilities](https://github.com/smartcontractkit/capabilities)
@@ -273,6 +279,7 @@ Ensure `DON_TYPE` matches the `name` field in your TOML config:
    - Set environment variables: `DEVSPACE_IMAGE`, `DEVSPACE_IMAGE_TAG`, `DON_BOOT_NODE_COUNT`, `DON_NODE_COUNT` and `DON_TYPE`.
    - Deploy with `devspace run deploy-don`.
    - Read DON URLs from `don-<DON_TYPE>-urls.json`.
+   - Copy capabilities binaries to pods with `devspace run copy-to-pods` (if needed).
 6. **Start Job Distributor**:
    - Set environment variable: `JOB_DISTRIBUTOR_IMAGE_TAG`.
    - Deploy with `devspace run deploy-jd`.
@@ -294,10 +301,6 @@ It is thus advised to change namespace names, when switching providers.
 - Must always be on a **dedicated node**.
 - Identified using `DON_TYPE=gateway`.
 - No bootstrap node required, but multiple worker nodes are allowed.
-
-### Capabilities Binaries
-- Unlike Docker, k8s does not support copying capability binaries into a running container.
-- Use a pre-built Docker image containing the necessary capabilities.
 
 ### Mocked Price Provider
 - CRIB does **not** support the mocked data source used in PoR smoke tests, as it runs outside a container.

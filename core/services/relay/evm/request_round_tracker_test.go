@@ -15,7 +15,6 @@ import (
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 
 	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
 	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
@@ -119,7 +118,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -141,7 +140,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		require.Equal(t, 0, int(round))
 		require.Equal(t, 0, int(epoch))
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -173,7 +172,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		})).Return(nil)
 		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -193,7 +192,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 1 && rr.Round == 9
 		})).Return(nil)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast2)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast2)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -202,7 +201,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		assert.Equal(t, 9, int(round))
 
 		// Same round with lower epoch is ignored
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -223,7 +222,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 			return rr.Epoch == 2 && rr.Round == 1
 		})).Return(nil)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast3)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast3)
 
 		configDigest, epoch, round, err = uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
@@ -245,7 +244,7 @@ func Test_OCRContractTracker_HandleLog_OCRContractLatestRoundRequested(t *testin
 		uni.db.On("SaveLatestRoundRequested", mock.Anything, mock.Anything).Return(errors.New("something exploded"))
 		uni.db.On("WithDataSource", mock.Anything).Return(uni.db)
 
-		uni.requestRoundTracker.HandleLog(tests.Context(t), logBroadcast)
+		uni.requestRoundTracker.HandleLog(t.Context(), logBroadcast)
 
 		configDigest, epoch, round, err := uni.requestRoundTracker.LatestRoundRequested(testutils.Context(t), 0)
 		require.NoError(t, err)
