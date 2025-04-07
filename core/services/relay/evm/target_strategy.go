@@ -116,7 +116,7 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 		return nil, fmt.Errorf("failed to getTransmissionInfo latest value: %w", err)
 	}
 
-	// TODO: am i dealing with this correctly?
+	// TODO: Want to confirm these states are correct - invalid receiver and failed with sufficient gas are fatal.
 	switch {
 	case transmissionInfo.State == TransmissionStateNotAttempted:
 		t.lggr.Infow("non-empty report - transmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
@@ -147,7 +147,12 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 				Err:         ErrTxFailed,
 			}, ErrTxFailed
 		} else {
-			t.lggr.Infow("non-empty report - retrying a failed transmission - attempting to push to txmgr", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			t.lggr.Infow("non-empty report - transmission should be retried", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID, "receiverGasMinimum", receiverGasMinimum, "transmissionGasLimit", transmissionInfo.GasLimit)
+			return &writetarget.TransmissionState{
+				Status:      writetarget.TransmissionStateFailed,
+				Transmitter: transmissionInfo.Transmitter.String(),
+				Err:         ErrTxFailed,
+			}, ErrTxFailed
 		}
 	default:
 		return &writetarget.TransmissionState{
