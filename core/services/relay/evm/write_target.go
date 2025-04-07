@@ -81,7 +81,17 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, err
 	}
 
-	time, _ := commonconfig.NewDuration(30 * time.Second)
+	pollPeriod, err := commonconfig.NewDuration(2 * time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create poll period: %w", err)
+	}
+
+	// TODO: Unsure what the timeout should be, I don't see an EVM config that corresponds to this. 
+	timeout, err := commonconfig.NewDuration(30 * time.Second)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create timeout: %w", err)
+	}
+
 	chainInfo, err := getChainInfo(chain.ID().Uint64())
 	if err != nil {
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
@@ -96,9 +106,8 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		ID:     id,
 		Logger: lggr,
 		Config: writetarget.Config{
-			// TODO: replace with real config values
-			ConfirmerPollPeriod: time,
-			ConfirmerTimeout:    time,
+			ConfirmerPollPeriod: pollPeriod,
+			ConfirmerTimeout:    timeout,
 		},
 		ChainInfo:        chainInfo,
 		Beholder:         beholder,
