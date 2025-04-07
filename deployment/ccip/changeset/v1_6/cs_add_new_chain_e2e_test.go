@@ -24,9 +24,9 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
 )
 
 func checkConnectivity(

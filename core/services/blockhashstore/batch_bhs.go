@@ -9,9 +9,9 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_blockhash_store"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_blockhash_store"
 )
 
 type batchBHSConfig interface {

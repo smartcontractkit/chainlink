@@ -19,12 +19,12 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
 	testsetups "github.com/smartcontractkit/chainlink/integration-tests/testsetups/ccip"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_6"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
 )
 
 const (

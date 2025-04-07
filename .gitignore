@@ -24,7 +24,6 @@ tools/clroot/db.sqlite3-wal
 .envrc
 .env*
 .dbenv
-!crib/.env.example
 !.github/actions/setup-postgres/.env
 .direnv
 .idea

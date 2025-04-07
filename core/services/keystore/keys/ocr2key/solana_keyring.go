@@ -4,12 +4,14 @@ import (
 	"bytes"
 	"crypto/ecdsa"
 	"crypto/sha256"
+	"encoding/binary"
 	"io"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/smartcontractkit/libocr/offchainreporting2/types"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	ocrtypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
+	"golang.org/x/crypto/sha3"
 )
 
 var _ ocrtypes.OnchainKeyring = &solanaKeyring{}
@@ -48,15 +50,22 @@ func (skr *solanaKeyring) Sign(reportCtx ocrtypes.ReportContext, report ocrtypes
 }
 
 func (skr *solanaKeyring) Sign3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) (signature []byte, err error) {
-	return skr.SignBlob(skr.reportToSigData3(digest, seqNr, r))
+	bytes, err := skr.reportToSigData3(digest, seqNr, r)
+	if err != nil {
+		return nil, err
+	}
+	return skr.SignBlob(bytes)
 }
 
-func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) []byte {
+func (skr *solanaKeyring) reportToSigData3(digest types.ConfigDigest, seqNr uint64, r ocrtypes.Report) ([]byte, error) {
 	rawReportContext := RawReportContext3(digest, seqNr)
-	sigData := crypto.Keccak256(r)
-	sigData = append(sigData, rawReportContext[0][:]...)
-	sigData = append(sigData, rawReportContext[1][:]...)
-	return crypto.Keccak256(sigData)
+	h := sha3.NewLegacyKeccak256()
+	reportLen := uint16(len(r)) //nolint:gosec // max U16 larger than solana transaction size
+	err := binary.Write(h, binary.LittleEndian, reportLen)
+	h.Write(r)
+	h.Write(rawReportContext[0][:])
+	h.Write(rawReportContext[1][:])
+	return h.Sum(nil), err
 }
 
 func (skr *solanaKeyring) SignBlob(b []byte) (sig []byte, err error) {
@@ -69,7 +78,10 @@ func (skr *solanaKeyring) Verify(publicKey ocrtypes.OnchainPublicKey, reportCtx 
 }
 
 func (skr *solanaKeyring) Verify3(publicKey ocrtypes.OnchainPublicKey, cd ocrtypes.ConfigDigest, seqNr uint64, r ocrtypes.Report, signature []byte) bool {
-	hash := skr.reportToSigData3(cd, seqNr, r)
+	hash, err := skr.reportToSigData3(cd, seqNr, r)
+	if err != nil {
+		return false
+	}
 	return skr.VerifyBlob(publicKey, hash, signature)
 }
 

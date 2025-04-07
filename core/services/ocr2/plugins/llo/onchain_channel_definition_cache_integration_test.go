@@ -30,7 +30,7 @@ import (
 	"github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils/pgtest"

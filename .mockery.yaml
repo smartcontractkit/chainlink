@@ -71,7 +71,7 @@ packages:
     interfaces:
       TelemetryIngress:
       TelemetryIngressEndpoint:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flux_aggregator_wrapper:
+  github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flux_aggregator_wrapper:
     config:
       dir: core/internal/mocks
       filename: flux_aggregator.go
@@ -79,7 +79,7 @@ packages:
       FluxAggregatorInterface:
         config:
           mockname: FluxAggregator
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/flags_wrapper:
+  github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/flags_wrapper:
     config:
       dir: core/internal/mocks
       filename: flags.go
@@ -291,7 +291,7 @@ packages:
         config:
           dir: core/services/relay/evm/mocks
       ContractWriter:
-  github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp:
+  github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/evm_2_evm_offramp:
     config:
       dir: core/services/ocr2/plugins/ccip/internal/ccipdata/mocks/contracts
       filename: evm2_evm_off_ramp_interface.go

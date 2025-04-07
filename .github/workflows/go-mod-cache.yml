@@ -43,7 +43,7 @@ jobs:
 
       - name: Install Dependencies
         shell: bash
-        run:  go mod download all
+        run:  go mod download
 
   go-cache-self-hosted:
     name: Go Cache
@@ -68,4 +68,4 @@ jobs:
 
       - name: Install Dependencies
         shell: bash
-        run:  go mod download all
+        run:  go mod download

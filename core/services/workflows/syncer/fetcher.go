@@ -16,19 +16,21 @@ import (
 
 type FetcherService struct {
 	services.StateMachine
-	lggr    logger.Logger
-	och     *webapi.OutgoingConnectorHandler
-	wrapper gatewayConnector
+	lggr         logger.Logger
+	och          *webapi.OutgoingConnectorHandler
+	wrapper      gatewayConnector
+	selectorOpts []func(*webapi.RoundRobinSelector)
 }
 
 type gatewayConnector interface {
 	GetGatewayConnector() connector.GatewayConnector
 }
 
-func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector) *FetcherService {
+func NewFetcherService(lggr logger.Logger, wrapper gatewayConnector, selectorOpts ...func(*webapi.RoundRobinSelector)) *FetcherService {
 	return &FetcherService{
-		lggr:    lggr.Named("FetcherService"),
-		wrapper: wrapper,
+		lggr:         lggr.Named("FetcherService"),
+		wrapper:      wrapper,
+		selectorOpts: selectorOpts,
 	}
 }
 
@@ -55,7 +57,7 @@ func (s *FetcherService) Start(ctx context.Context) error {
 
 		och, err := webapi.NewOutgoingConnectorHandler(connector,
 			webAPIConfig,
-			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr)
+			ghcapabilities.MethodWorkflowSyncer, outgoingConnectorLggr, s.selectorOpts...)
 		if err != nil {
 			return fmt.Errorf("could not create outgoing connector handler: %w", err)
 		}
