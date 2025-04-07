@@ -21,25 +21,6 @@ import (
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
 
-func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	t.Parallel()
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
-		t,
-		testhelpers.SourceChainID,
-		testhelpers.SourceChainSelector,
-		testhelpers.DestChainID,
-		testhelpers.DestChainSelector,
-		ccip.DefaultSourceFinalityDepth,
-		ccip.DefaultDestFinalityDepth,
-	)
-
-	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
-	defer linkUSD.Close()
-	defer ethUSD.Close()
-
-	test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
-}
-
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	t.Parallel()
 	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(

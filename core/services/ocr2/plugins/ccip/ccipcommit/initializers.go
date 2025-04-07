@@ -3,11 +3,14 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math/big"
 	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"go.uber.org/multierr"
 
@@ -135,6 +138,30 @@ func NewCommitServices(
 	if err != nil {
 		return nil, err
 	}
+
+	// --------------------------------------------------------------------------------
+	// Backwards compatibility for old job spec price getter dynamic config.
+	// Should be removed after all jobSpecs migrate to the new format.
+	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
+	if !ok {
+		return nil, fmt.Errorf("failed to get source chain by evm ID %d", destChainID)
+	}
+	dstChain, ok := chainselectors.ChainByEvmChainID(uint64(destChainID))
+	if !ok {
+		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", destChainID)
+	}
+	dynamicPriceGetter, is := priceGetter.(*pricegetter.DynamicPriceGetter)
+	if is {
+		sourceNativeEvmAddr, err := ccipcalc.GenericAddrToEvm(sourceNative)
+		if err != nil {
+			return nil, fmt.Errorf("convert source native token address %s to evm address: %w", sourceNative, err)
+		}
+		err = dynamicPriceGetter.MoveDeprecatedFields(srcChain.Selector, dstChain.Selector, sourceNativeEvmAddr)
+		if err != nil {
+			return nil, fmt.Errorf("move deprecated fields: %w", err)
+		}
+	}
+	// --------------------------------------------------------------------------------
 
 	priceService := db.NewPriceService(
 		lggr,

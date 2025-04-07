@@ -7,12 +7,12 @@ import (
 	"testing"
 
 	"github.com/ethereum/go-ethereum/common"
+	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
-	cciptypes "github.com/smartcontractkit/chainlink-common/pkg/types/ccip"
-
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
@@ -26,6 +26,9 @@ type testParameters struct {
 	tokens                       []common.Address
 	expectedTokenPrices          map[common.Address]big.Int
 	expectedTokenPricesForAll    map[common.Address]big.Int
+	sourceChain                  chainselectors.Chain
+	destChain                    chainselectors.Chain
+	sourceNativeAddr             common.Address
 	evmCallErr                   bool
 	invalidConfigErrorExpected   bool
 	priceResolutionErrorExpected bool
@@ -98,18 +101,44 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
+			defaultSourceChain := chainselectors.TEST_1000
+			defaultDestChain := chainselectors.TEST_1338
+			if test.param.sourceChain.Selector == 0 {
+				test.param.sourceChain = defaultSourceChain
+			}
+			if test.param.destChain.Selector == 0 {
+				test.param.destChain = defaultDestChain
+			}
+
 			pg, err := NewDynamicPriceGetter(test.param.cfg, test.param.contractReaders)
+			require.NoError(t, err)
+
+			require.NoError(t, pg.MoveDeprecatedFields(
+				test.param.sourceChain.Selector, test.param.destChain.Selector, test.param.sourceNativeAddr))
+
+			err = pg.cfg.Validate()
 			if test.param.invalidConfigErrorExpected {
 				require.Error(t, err)
 				return
+			} else {
+				require.NoError(t, err)
 			}
+
 			require.NoError(t, err)
 			ctx := testutils.Context(t)
 
-			var prices map[cciptypes.Address]*big.Int
+			var prices map[ccipcommon.TokenID]*big.Int
 			var expectedTokens map[common.Address]big.Int
 			if len(test.param.expectedTokenPricesForAll) == 0 {
-				prices, err = pg.TokenPricesUSD(ctx, ccipcalc.EvmAddrsToGeneric(test.param.tokens...))
+				tokenIDs := make([]ccipcommon.TokenID, len(test.param.tokens))
+				for i, token := range test.param.tokens {
+					tokenIDs[i] = ccipcommon.TokenID{
+						TokenAddress:  ccipcalc.EvmAddrToGeneric(token),
+						ChainSelector: test.param.destChain.Selector,
+					}
+				}
+
+				prices, err = pg.GetTokenPricesUSD(ctx, tokenIDs)
 				if test.param.evmCallErr {
 					require.Error(t, err)
 					return
@@ -130,11 +159,16 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 			assert.Equal(t, len(prices), len(expectedTokens))
 			// Check prices are matching expected result.
 			for tk, expectedPrice := range expectedTokens {
-				if prices[cciptypes.Address(tk.String())] == nil {
+				actualPrice := prices[ccipcommon.TokenID{
+					TokenAddress:  ccipcalc.EvmAddrToGeneric(tk),
+					ChainSelector: test.param.destChain.Selector,
+				}]
+
+				if actualPrice == nil {
 					assert.Fail(t, "Token price not found")
 				}
-				assert.Equal(t, 0, expectedPrice.Cmp(prices[cciptypes.Address(tk.String())]),
-					"Token price mismatch: expected price %v, got %v", expectedPrice, *prices[cciptypes.Address(tk.String())])
+				assert.Equal(t, 0, expectedPrice.Cmp(actualPrice),
+					"Token price mismatch: expected price %v, got %v", expectedPrice, *actualPrice)
 			}
 		})
 	}
