@@ -132,7 +132,6 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 			if err != nil {
 				return out, fmt.Errorf("failed to build proposal: %w", err)
 			}
-			//nolint:staticcheck // migration will be done in a separate PR
 			out.MCMSTimelockProposals = append(out.MCMSTimelockProposals, *proposal)
 		}
 	}
