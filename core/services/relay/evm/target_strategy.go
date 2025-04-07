@@ -120,24 +120,29 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 	}
 
 	// TODO: Want to confirm these states are correct - invalid receiver and failed with sufficient gas are fatal.
-	switch {
-	case transmissionInfo.State == TransmissionStateNotAttempted:
-		t.lggr.Infow("non-empty report - transmission not attempted - attempting to push to txmgr", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
-	case transmissionInfo.State == TransmissionStateSucceeded:
+	switch transmissionInfo.State {
+	case TransmissionStateNotAttempted:
+		t.lggr.Infow("non-empty report - transmission not attempted", "request", request, "reportLen", len(r.Inputs.SignedReport.Report), "reportContextLen", len(r.Inputs.SignedReport.Context), "nSignatures", len(r.Inputs.SignedReport.Signatures), "executionID", request.Metadata.WorkflowExecutionID)
+		return &writetarget.TransmissionState{
+			Status:      writetarget.TransmissionStateNotAttempted,
+			Transmitter: transmissionInfo.Transmitter.String(),
+			Err:         nil,
+		}, nil
+	case TransmissionStateSucceeded:
 		t.lggr.Infow("returning without a transmission attempt - report already onchain ", "executionID", request.Metadata.WorkflowExecutionID)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateSucceeded,
 			Transmitter: transmissionInfo.Transmitter.String(),
 			Err:         nil,
 		}, nil
-	case transmissionInfo.State == TransmissionStateInvalidReceiver:
+	case TransmissionStateInvalidReceiver:
 		t.lggr.Infow("returning without a transmission attempt - transmission already attempted, receiver was marked as invalid", "executionID", request.Metadata.WorkflowExecutionID)
 		return &writetarget.TransmissionState{
 			Status:      writetarget.TransmissionStateFatal,
 			Transmitter: transmissionInfo.Transmitter.String(),
 			Err:         ErrTxFailed,
 		}, ErrTxFailed
-	case transmissionInfo.State == TransmissionStateFailed:
+	case TransmissionStateFailed:
 		receiverGasMinimum := t.receiverGasMinimum
 		if r.Config.GasLimit != nil {
 			receiverGasMinimum = *r.Config.GasLimit - ForwarderContractLogicGasCost
@@ -157,15 +162,13 @@ func (t *evmTargetStrategy) QueryTransmissionState(ctx context.Context, reportID
 				Err:         ErrTxFailed,
 			}, ErrTxFailed
 		}
-	default:
-		return &writetarget.TransmissionState{
-			Status:      writetarget.TransmissionStateFatal,
-			Transmitter: transmissionInfo.Transmitter.String(),
-			Err:         ErrTxFailed,
-		}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 	}
 
-	return nil, nil
+	return &writetarget.TransmissionState{
+		Status:      writetarget.TransmissionStateFatal,
+		Transmitter: transmissionInfo.Transmitter.String(),
+		Err:         ErrTxFailed,
+	}, fmt.Errorf("unexpected transmission state: %v", transmissionInfo.State)
 }
 
 // TransmitReport constructs the tx to transmit the report, and defines
