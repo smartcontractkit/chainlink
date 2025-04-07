@@ -9,6 +9,7 @@ import (
 
 	"github.com/NethermindEth/juno/core/felt"
 	"github.com/NethermindEth/starknet.go/curve"
+
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/chains/evmutil"
 	"github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -48,8 +49,10 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 	for i := 0; i < len(splitReport); i++ {
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
-
-	hash := curve.ComputeHashOnElements(dataArray)
+	hash, err := curve.Curve.ComputeHashOnElements(dataArray)
+	if err != nil {
+		return &big.Int{}, err
+	}
 	return hash, nil
 }
 

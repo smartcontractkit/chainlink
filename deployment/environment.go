@@ -8,11 +8,11 @@ import (
 	"fmt"
 	"math/big"
 	"regexp"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
 
-	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -219,15 +219,16 @@ func (e Environment) AllChainSelectorsAllFamilies() []uint64 {
 }
 
 func (e Environment) AllChainSelectorsAllFamilliesExcluding(excluding []uint64) []uint64 {
-	selectors := mapset.NewSet(e.AllChainSelectorsAllFamilies())
-	exclusionSet := mapset.NewSet(excluding)
-	selectors = selectors.Difference(exclusionSet)
-	selectorsSlice := selectors.ToSlice()
-	sort.Slice(selectorsSlice, func(i, j int) bool {
-		return selectorsSlice[i].(uint64) < selectorsSlice[j].(uint64)
-	})
+	selectors := e.AllChainSelectorsAllFamilies()
+	ret := make([]uint64, 0)
+	// remove the excluded selectors
+	for _, sel := range selectors {
+		if slices.Contains(excluding, sel) {
+			continue
+		}
+		ret = append(ret, sel)
+	}
 	return selectors
-
 }
 
 func (e Environment) AllDeployerKeys() []common.Address {
