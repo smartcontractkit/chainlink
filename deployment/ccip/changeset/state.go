@@ -16,6 +16,7 @@ import (
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+
 	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
@@ -136,7 +137,9 @@ type CCIPChainState struct {
 	RMNProxy           *rmn_proxy_contract.RMNProxy
 	NonceManager       *nonce_manager.NonceManager
 	TokenAdminRegistry *token_admin_registry.TokenAdminRegistry
-	RegistryModule     *registry_module_owner_custom.RegistryModuleOwnerCustom
+	RegistryModules1_6 []*registry_module_owner_custom.RegistryModuleOwnerCustom
+	// TODO change this to contract object for v1.5 RegistryModules once we have the wrapper available in chainlink-evm
+	RegistryModules1_5 []common.Address
 	Router             *router.Router
 	Weth9              *weth9.WETH9
 	RMNRemote          *rmn_remote.RMNRemote
@@ -898,13 +901,15 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 			}
 			state.TokenAdminRegistry = tm
 			state.ABIByAddress[address] = token_admin_registry.TokenAdminRegistryABI
-		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
+		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0).String():
 			rm, err := registry_module_owner_custom.NewRegistryModuleOwnerCustom(common.HexToAddress(address), chain.Client)
 			if err != nil {
 				return state, err
 			}
-			state.RegistryModule = rm
+			state.RegistryModules1_6 = append(state.RegistryModules1_6, rm)
 			state.ABIByAddress[address] = registry_module_owner_custom.RegistryModuleOwnerCustomABI
+		case deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0).String():
+			state.RegistryModules1_5 = append(state.RegistryModules1_5, common.HexToAddress(address))
 		case deployment.NewTypeAndVersion(Router, deployment.Version1_2_0).String():
 			r, err := router.NewRouter(common.HexToAddress(address), chain.Client)
 			if err != nil {
