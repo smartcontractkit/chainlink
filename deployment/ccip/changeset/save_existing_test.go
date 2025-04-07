@@ -66,7 +66,7 @@ func TestSaveExistingCCIP(t *testing.T) {
 	require.Equal(t, state.Chains[chain1].LinkToken.Address(), common.BigToAddress(big.NewInt(1)))
 	require.Equal(t, state.Chains[chain1].Weth9.Address(), common.BigToAddress(big.NewInt(2)))
 	require.Equal(t, state.Chains[chain1].TokenAdminRegistry.Address(), common.BigToAddress(big.NewInt(3)))
-	require.NotEmpty(t, state.Chains[chain1].RegistryModules1_6)
+	require.NotEmpty(t, state.Chains[chain2].RegistryModules1_6)
 	require.Equal(t, state.Chains[chain2].RegistryModules1_6[0].Address(), common.BigToAddress(big.NewInt(4)))
 	require.Equal(t, state.Chains[chain2].Router.Address(), common.BigToAddress(big.NewInt(5)))
 }
