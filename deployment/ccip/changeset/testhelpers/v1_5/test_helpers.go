@@ -247,10 +247,10 @@ func CreatePriceGetterConfig(t *testing.T, state changeset.CCIPOnChainState, sou
 		},
 	}
 
-	cfgJson, err := json.Marshal(cfg)
+	cfgJSON, err := json.Marshal(cfg)
 	require.NoError(t, err)
 
-	return string(cfgJson)
+	return string(cfgJSON)
 }
 
 func DefaultOCRParams() confighelper.PublicConfig {
