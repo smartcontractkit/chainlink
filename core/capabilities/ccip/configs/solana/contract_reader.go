@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/gagliardetto/solana-go"
+
 	idl "github.com/smartcontractkit/chainlink-ccip/chains/solana"
 	"github.com/smartcontractkit/chainlink-ccip/pkg/consts"
 	"github.com/smartcontractkit/chainlink-common/pkg/codec"
@@ -13,8 +15,8 @@ import (
 
 var ccipOffRampIDL = idl.FetchCCIPOfframpIDL()
 var ccipFeeQuoterIDL = idl.FetchFeeQuoterIDL()
+var ccipRmnRemoteIDL = idl.FetchRMNRemoteIDL()
 
-// TODO add events when Querying is finished
 func DestContractReaderConfig() (config.ContractReader, error) {
 	var offRampIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipOffRampIDL), &offRampIDL); err != nil {
@@ -24,6 +26,11 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 	var feeQuoterIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipFeeQuoterIDL), &feeQuoterIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Fee Quoter IDL, error: %w", err)
+	}
+
+	var rmnRemoteIDL solanacodec.IDL
+	if err := json.Unmarshal([]byte(ccipRmnRemoteIDL), &rmnRemoteIDL); err != nil {
+		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP RMN Remote IDL, error: %w", err)
 	}
 
 	feeQuoterIDL.Accounts = append(feeQuoterIDL.Accounts, solanacodec.IdlTypeDef{
@@ -41,6 +48,15 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 		},
 	})
 
+	// Prepend custom type so it takes priority over the IDL
+	offRampIDL.Types = append([]solanacodec.IdlTypeDef{{
+		Name: "OnRampAddress",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind:  solanacodec.IdlTypeDefTyKindCustom,
+			Codec: "onramp_address",
+		},
+	}}, offRampIDL.Types...)
+
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
 		return config.ContractReader{}, fmt.Errorf("unexpected error: invalid CCIP Router IDL, error: %w", err)
@@ -50,7 +66,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 
 	locationFirst := codec.ElementExtractorLocationFirst
 	return config.ContractReader{
-		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}},
+		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameNonceManager}, {consts.ContractNameRMNRemote, consts.ContractNameRMNProxy}},
 		Namespaces: map[string]config.ChainContractReader{
 			consts.ContractNameOffRamp: {
 				IDL: offRampIDL,
@@ -64,7 +80,7 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							},
 							IndexedField0: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSourceChain,
-								OnChainPath:  consts.EventAttributeSourceChain,
+								OnChainPath:  "SourceChainSelector",
 							},
 							IndexedField1: &config.IndexedField{
 								OffChainPath: consts.EventAttributeSequenceNumber,
@@ -91,24 +107,25 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						ChainSpecificName: "Config",
 						ReadType:          config.Account,
 						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("config")},
-						OutputModifications: codec.ModifiersConfig{
-							// TODO why does Solana have two of these in an array, but EVM has one
-							&codec.WrapperModifierConfig{
-								Fields: map[string]string{"Ocr3": "OcrConfig"},
-							},
-							&codec.PropertyExtractorConfig{FieldName: "Ocr3"},
-							&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
-							&codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
-						},
+						// TODO: OutputModifications are currently disabled and a special workaround is built into chainlink-solana for now
+						// OutputModifications: codec.ModifiersConfig{
+						// 	&codec.WrapperModifierConfig{
+						// 		Fields: map[string]string{"Ocr3": "OcrConfig"},
+						// 	},
+						// 	&codec.PropertyExtractorConfig{FieldName: "Ocr3"},
+						// 	&codec.ElementExtractorFromOnchainModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OcrConfig": &locationFirst}},
+						// 	&codec.ByteToBooleanModifierConfig{Fields: []string{"OcrConfig.ConfigInfo.IsSignatureVerificationEnabled"}},
+						// },
 					},
 					consts.MethodNameGetLatestPriceSequenceNumber: {
 						ChainSpecificName: "GlobalState",
 						ReadType:          config.Account,
 						PDADefinition:     solanacodec.PDATypeDef{Prefix: []byte("state")},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{"LatestPriceSequenceNumber": "LatestSeqNr"},
-							}},
+							&codec.PropertyExtractorConfig{
+								FieldName: "LatestPriceSequenceNumber",
+							},
+						},
 					},
 					consts.MethodNameOffRampGetStaticConfig: {
 						ChainSpecificName: "Config",
@@ -123,6 +140,21 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								},
 							},
 						},
+						MultiReader: &config.MultiReader{
+							Reads: []config.ReadDefinition{
+								// CCIP expects a NonceManager address, in our case that's the Router
+								{
+									ChainSpecificName: "ReferenceAddresses",
+									ReadType:          config.Account,
+									PDADefinition: solanacodec.PDATypeDef{
+										Prefix: []byte("reference_addresses"),
+									},
+									OutputModifications: codec.ModifiersConfig{
+										&codec.RenameModifierConfig{Fields: map[string]string{"Router": "NonceManager"}},
+									},
+								},
+							},
+						},
 					},
 					consts.MethodNameOffRampGetDynamicConfig: {
 						ChainSpecificName: "Config",
@@ -134,6 +166,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"EnableManualExecutionAfter": "PermissionLessExecutionThresholdSeconds"},
 							},
+							// TODO: figure out how this will be properly configured, if it has to be added to SVM state
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"IsRMNVerificationDisabled": true}},
 						},
 						MultiReader: &config.MultiReader{
 							Reads: []config.ReadDefinition{
@@ -157,11 +191,8 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "SourceChainSelector"}}},
 						OutputModifications: codec.ModifiersConfig{
 							&codec.PropertyExtractorConfig{FieldName: "Config"},
-							// TODO, onchain comment cays that both can be populated, but EVM contracts only have 1, so we take first here
-							//	  // OnRamp addresses supported from the source chain, each of them has a 64 byte address. So this can hold 2 addresses.
-							//    // If only one address is configured, then the space for the second address must be zeroed.
-							//    // Each address must be right padded with zeros if it is less than 64 bytes.
-							&codec.ElementExtractorModifierConfig{Extractions: map[string]*codec.ElementExtractorLocation{"OnRamp": &locationFirst}},
+							// TODO: figure out how this will be properly configured, if it has to be added to SVM state
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"IsRMNVerificationDisabled": true}},
 						},
 						MultiReader: &config.MultiReader{
 							ReuseParams: true,
@@ -171,6 +202,19 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 									ReadType:          config.Account,
 									PDADefinition: solanacodec.PDATypeDef{
 										Prefix: []byte("reference_addresses"),
+									},
+								},
+								{
+									// this seems like a hack to extract both State and Config fields?
+									ChainSpecificName: "SourceChain",
+									ReadType:          config.Account,
+									PDADefinition: solanacodec.PDATypeDef{
+										Prefix: []byte("source_chain_state"),
+										Seeds:  []solanacodec.PDASeed{{Name: "NewChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
+									},
+									InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"NewChainSelector": "SourceChainSelector"}}},
+									OutputModifications: codec.ModifiersConfig{
+										&codec.PropertyExtractorConfig{FieldName: "State"},
 									},
 								},
 							},
@@ -222,13 +266,12 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{{
-								Name: "Tokens",
-								Type: solanacodec.IdlType{
-									AsIdlTypeVec: &solanacodec.IdlTypeVec{
-										Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
-									},
-								},
+								Name: "Token",
+								Type: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
 							}}},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{FieldName: "Config.UsdPerToken"},
+						},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "DestChain",
@@ -255,23 +298,39 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 								},
 							},
 						},
+						MultiReader: &config.MultiReader{
+							ReuseParams: true,
+							Reads: []config.ReadDefinition{
+								{
+									// this seems like a hack to extract both State and Config fields?
+									ChainSpecificName: "DestChain",
+									PDADefinition: solanacodec.PDATypeDef{
+										Prefix: []byte("dest_chain"),
+										Seeds:  []solanacodec.PDASeed{{Name: "DestinationChainSelector", Type: solanacodec.IdlType{AsString: solanacodec.IdlTypeU64}}},
+									},
+									InputModifications: codec.ModifiersConfig{&codec.RenameModifierConfig{Fields: map[string]string{"DestinationChainSelector": "DestChainSelector"}}},
+									OutputModifications: codec.ModifiersConfig{
+										&codec.PropertyExtractorConfig{FieldName: "State"},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
 			consts.ContractNameRouter: {
 				IDL: routerIDL,
 				Reads: map[string]config.ReadDefinition{
+					// TODO: PDA fetching is unnecessary here
 					consts.MethodNameRouterGetWrappedNative: {
 						ChainSpecificName: "Config",
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{
-									"LinkTokenMint": "LinkToken",
-								},
-							},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.String()}},
+							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
+							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
 					},
 				},
@@ -296,11 +355,76 @@ func DestContractReaderConfig() (config.ContractReader, error) {
 					},
 				},
 			},
+			consts.ContractNameRMNProxy: {
+				IDL: rmnRemoteIDL,
+				Reads: map[string]config.ReadDefinition{
+					consts.MethodNameGetARM: {
+						// TODO: need to have definition or it'll complain
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							// create a field to extract it
+							&codec.HardCodeModifierConfig{
+								OffChainValues: map[string]any{"RmnRemoteAddress": ""},
+							},
+							&codec.PropertyExtractorConfig{
+								FieldName: "RmnRemoteAddress",
+							},
+						},
+						ResponseAddressHardCoder: &codec.HardCodeModifierConfig{
+							// type doesn't matter it will be overridden with address internally, key is "" because it's a primitive value and not a field
+							OffChainValues: map[string]any{"": ""},
+						},
+					},
+				},
+			},
+			consts.ContractNameRMNRemote: {
+				IDL: rmnRemoteIDL,
+				Reads: map[string]config.ReadDefinition{
+					consts.MethodNameGetVersionedConfig: {
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							// Disable fields so config isn't used, we only use global verification
+							&codec.DropModifierConfig{
+								Fields: []string{"Version"},
+							},
+						},
+					},
+					consts.MethodNameGetReportDigestHeader: {
+						ChainSpecificName: "Config",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("config"),
+						},
+					},
+					consts.MethodNameGetCursedSubjects: {
+						ChainSpecificName: "Curses",
+						ReadType:          config.Account,
+						PDADefinition: solanacodec.PDATypeDef{
+							Prefix: []byte("curses"),
+						},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{
+								FieldName: "CursedSubjects.Value",
+							},
+							&codec.WrapperModifierConfig{
+								Fields: map[string]string{"": "CursedSubjects"},
+							},
+						},
+					},
+				},
+			},
 		},
 	}, nil
 }
 
-// TODO add events when Querying is finished
 func SourceContractReaderConfig() (config.ContractReader, error) {
 	var routerIDL solanacodec.IDL
 	if err := json.Unmarshal([]byte(ccipRouterIDL), &routerIDL); err != nil {
@@ -327,6 +451,15 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 		},
 	})
 
+	// Prepend custom type so it takes priority over the IDL
+	routerIDL.Types = append([]solanacodec.IdlTypeDef{{
+		Name: "CrossChainAmount",
+		Type: solanacodec.IdlTypeDefTy{
+			Kind:  solanacodec.IdlTypeDefTyKindCustom,
+			Codec: "cross_chain_amount",
+		},
+	}}, routerIDL.Types...)
+
 	return config.ContractReader{
 		AddressShareGroups: [][]string{{consts.ContractNameRouter, consts.ContractNameOnRamp}},
 		Namespaces: map[string]config.ChainContractReader{
@@ -346,6 +479,25 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"SequenceNumber": "ExpectedNextSequenceNumber"},
 							}},
+					},
+					consts.EventNameCCIPMessageSent: {
+						ChainSpecificName: "CCIPMessageSent",
+						ReadType:          config.Event,
+						EventDefinitions: &config.EventDefinitions{
+							PollingFilter: &config.PollingFilter{},
+							IndexedField0: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSourceChain,
+								OnChainPath:  "Message.Header.SourceChainSelector",
+							},
+							IndexedField1: &config.IndexedField{
+								OffChainPath: consts.EventAttributeDestChain,
+								OnChainPath:  "Message.Header.DestChainSelector",
+							},
+							IndexedField2: &config.IndexedField{
+								OffChainPath: consts.EventAttributeSequenceNumber,
+								OnChainPath:  "Message.Header.SequenceNumber",
+							},
+						},
 					},
 					consts.MethodNameOnRampGetDestChainConfig: {
 						ChainSpecificName: "DestChain",
@@ -369,6 +521,7 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						MultiReader: &config.MultiReader{
 							ReuseParams: true,
 							Reads: []config.ReadDefinition{
+								// this seems like a hack to extract both State and Config fields?
 								{
 									ChainSpecificName: "DestChain",
 									ReadType:          config.Account,
@@ -389,7 +542,12 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						OutputModifications: codec.ModifiersConfig{
 							&codec.RenameModifierConfig{
 								Fields: map[string]string{"Owner": "AllowListAdmin"},
-							}},
+							},
+							// for some reason CCIP reader expects the data to be wrapped under DynamicConfig, but not on offramp...
+							&codec.WrapperModifierConfig{
+								Fields: map[string]string{"": "DynamicConfig"},
+							},
+						},
 					},
 				},
 			},
@@ -437,13 +595,12 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("fee_billing_token_config"),
 							Seeds: []solanacodec.PDASeed{{
-								Name: "Tokens",
-								Type: solanacodec.IdlType{
-									AsIdlTypeVec: &solanacodec.IdlTypeVec{
-										Vec: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
-									},
-								},
+								Name: "Token",
+								Type: solanacodec.IdlType{AsString: solanacodec.IdlTypePublicKey},
 							}}},
+						OutputModifications: codec.ModifiersConfig{
+							&codec.PropertyExtractorConfig{FieldName: "Config.UsdPerToken"},
+						},
 					},
 					consts.MethodNameGetFeePriceUpdate: {
 						ChainSpecificName: "DestChain",
@@ -476,17 +633,17 @@ func SourceContractReaderConfig() (config.ContractReader, error) {
 			consts.ContractNameRouter: {
 				IDL: routerIDL,
 				Reads: map[string]config.ReadDefinition{
+					// TODO: PDA fetching is unnecessary here
 					consts.MethodNameRouterGetWrappedNative: {
 						ChainSpecificName: "Config",
+						ReadType:          config.Account,
 						PDADefinition: solanacodec.PDATypeDef{
 							Prefix: []byte("config"),
 						},
 						OutputModifications: codec.ModifiersConfig{
-							&codec.RenameModifierConfig{
-								Fields: map[string]string{
-									"LinkTokenMint": "LinkToken",
-								},
-							},
+							&codec.HardCodeModifierConfig{OffChainValues: map[string]any{"WrappedNative": solana.WrappedSol.String()}},
+							&codec.PropertyExtractorConfig{FieldName: "WrappedNative"},
+							// TODO: error: process Router results: get router wrapped native result: invalid type: '': source data must be an array or slice, got string"
 						},
 					},
 				},

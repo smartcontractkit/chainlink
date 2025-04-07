@@ -91,7 +91,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains

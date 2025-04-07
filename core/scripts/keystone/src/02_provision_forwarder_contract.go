@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder"
 	helpers "github.com/smartcontractkit/chainlink/core/scripts/common"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/forwarder"
 )
 
 func deployForwarder(

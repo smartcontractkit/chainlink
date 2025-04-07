@@ -264,7 +264,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		require.Equal(t, cciptypes.UnknownAddress(tokenReceiver.Bytes()), msg.Receiver)
 		require.Equal(t, cciptypes.Bytes(extraArgsBuf.Bytes()), msg.ExtraArgs)
 		require.Equal(t, tokenAmount, msg.TokenAmounts[0].Amount.Int)
-		require.Equal(t, destGasAmount, bytesToUint32LE(msg.TokenAmounts[0].DestExecData))
+		require.Equal(t, destGasAmount, binary.LittleEndian.Uint32(msg.TokenAmounts[0].DestExecData))
 	})
 
 	t.Run("decode Borsh encoded execute report", func(t *testing.T) {
@@ -295,7 +295,7 @@ func Test_DecodingExecuteReport(t *testing.T) {
 		originTokenAmount := originMsg.TokenAmounts[0]
 		require.Equal(t, originTokenAmount.Amount, decodeLEToBigInt(executeReport.Message.TokenAmounts[0].Amount.LeBytes[:]))
 		require.Equal(t, originTokenAmount.DestTokenAddress, cciptypes.UnknownAddress(executeReport.Message.TokenAmounts[0].DestTokenAddress.Bytes()))
-		require.Equal(t, bytesToUint32LE(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
+		require.Equal(t, binary.LittleEndian.Uint32(originTokenAmount.DestExecData), executeReport.Message.TokenAmounts[0].DestGasAmount)
 		require.Equal(t, originMsg.Sender, cciptypes.UnknownAddress(executeReport.Message.Sender))
 	})
 }

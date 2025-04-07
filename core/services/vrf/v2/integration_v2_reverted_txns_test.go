@@ -16,15 +16,15 @@ import (
 
 	"github.com/jmoiron/sqlx"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/batch_vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_coordinator_v2"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/vrf_external_sub_owner_example"
 	txmgrcommon "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	"github.com/smartcontractkit/chainlink-integrations/evm/config/toml"
 	"github.com/smartcontractkit/chainlink-integrations/evm/types"
 	evmutils "github.com/smartcontractkit/chainlink-integrations/evm/utils"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/batch_vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_coordinator_v2"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/vrf_external_sub_owner_example"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/cltest"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 	"github.com/smartcontractkit/chainlink/v2/core/services/chainlink"

@@ -215,7 +215,7 @@ jobs:
       OPTIONAL_GATI_LAMBDA_URL: ${{ secrets.AWS_INFRA_RELENG_TOKEN_ISSUER_LAMBDA_URL }}
       FLAKEGUARD_SPLUNK_ENDPOINT: ${{ secrets.FLAKEGUARD_SPLUNK_ENDPOINT }}
       FLAKEGUARD_SPLUNK_HEC: ${{ secrets.FLAKEGUARD_SPLUNK_HEC }}
-      
+
   run-core-e2e-tests-for-pr:
     name: Run Core E2E Tests For PR
     permissions:
@@ -364,7 +364,7 @@ jobs:
       chainlink_version: ${{ inputs.evm-ref || inputs.cl_ref || github.sha }}
       test_path: .github/e2e-tests.yml
       # Run tests with flakeguard and rerun failed tests once
-      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}      
+      extraArgs: ${{ '{"flakeguard_enable":"true","flakeguard_run_count":"1","flakeguard_rerun_failed_count":"1"}' }}
       test_trigger: Merge Queue E2E CCIP Tests
       upload_cl_node_coverage_artifact: true
       upload_cl_node_coverage_artifact_prefix: cl_node_coverage_data_

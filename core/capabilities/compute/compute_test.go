@@ -65,7 +65,7 @@ func setup(t *testing.T, config Config) testHarness {
 	registry := capabilities.NewRegistry(log)
 	connector := gcmocks.NewGatewayConnector(t)
 	idGeneratorFn := func() string { return validRequestUUID }
-	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log)
+	connectorHandler, err := webapi.NewOutgoingConnectorHandler(connector, config.ServiceConfig, ghcapabilities.MethodComputeAction, log, webapi.WithFixedStart())
 	require.NoError(t, err)
 
 	fetchFactory, err := NewOutgoingConnectorFetcherFactory(connectorHandler, idGeneratorFn)
@@ -230,7 +230,9 @@ func TestComputeFetch(t *testing.T) {
 		},
 	}
 
-	headers, err := values.NewMap(map[string]any{})
+	headers, err := values.NewMap(map[string]any{
+		"Content-Type": "application/json",
+	})
 	require.NoError(t, err)
 	expected := cappkg.CapabilityResponse{
 		Value: &values.Map{
@@ -308,7 +310,7 @@ func TestComputeFetchMaxResponseSizeBytes(t *testing.T) {
 	}
 
 	_, err = th.compute.Execute(t.Context(), req)
-	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2056, 1*1024))
+	require.ErrorContains(t, err, fmt.Sprintf("response size %d exceeds maximum allowed size %d", 2092, 1*1024))
 }
 
 func gatewayResponse(t *testing.T, msgID string, body []byte) *api.Message {
