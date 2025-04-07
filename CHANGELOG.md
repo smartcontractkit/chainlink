@@ -30,7 +30,7 @@
 
 - [#16723](https://github.com/smartcontractkit/chainlink/pull/16723) [`aac9ddf67d`](https://github.com/smartcontractkit/chainlink/commit/aac9ddf67d4171fe30a83ece2a6dca986bece120) - #nops bump chain selector
 
-- [#16550](https://github.com/smartcontractkit/chainlink/pull/16550) [`73b6542360`](https://github.com/smartcontractkit/chainlink/commit/73b6542360a051845e2916a00032c534a8263521) - #updated Removed unnecessary dependendies from json_normalization_test.go.
+- [#16550](https://github.com/smartcontractkit/chainlink/pull/16550) [`73b6542360`](https://github.com/smartcontractkit/chainlink/commit/73b6542360a051845e2916a00032c534a8263521) - #updated Removed unnecessary dependencies from json_normalization_test.go.
 
 - [#16654](https://github.com/smartcontractkit/chainlink/pull/16654) [`8ccee340b0`](https://github.com/smartcontractkit/chainlink/commit/8ccee340b0cb7d879973930eb8637c8524dde7cb) - #updated Generate keystone wrappers using forge.
 
@@ -85,7 +85,7 @@
 
 - [#16263](https://github.com/smartcontractkit/chainlink/pull/16263) [`aeb468e1f9`](https://github.com/smartcontractkit/chainlink/commit/aeb468e1f9d4cccd7a73c474b0515700613d9bc4) - #changed enhanced logging for capabilities' server requests
 
-- [#16624](https://github.com/smartcontractkit/chainlink/pull/16624) [`953cdc8bbe`](https://github.com/smartcontractkit/chainlink/commit/953cdc8bbecdb42fc7429b3986d3355f45d00926) - fix: resovles panic send: on closed channel in workflow engine #bugfix
+- [#16624](https://github.com/smartcontractkit/chainlink/pull/16624) [`953cdc8bbe`](https://github.com/smartcontractkit/chainlink/commit/953cdc8bbecdb42fc7429b3986d3355f45d00926) - fix: resolves panic send: on closed channel in workflow engine #bugfix
 
 - [#16477](https://github.com/smartcontractkit/chainlink/pull/16477) [`d27cae5991`](https://github.com/smartcontractkit/chainlink/commit/d27cae599135636da62c9af40ddcbafc61b864cb) - go.mod update in core/scripts #updated
 
@@ -141,7 +141,7 @@
 
 - [#16206](https://github.com/smartcontractkit/chainlink/pull/16206) [`5175b36bdf`](https://github.com/smartcontractkit/chainlink/commit/5175b36bdf82052616553d9a2900b6cc0346a259) - Fix wasm workflow toml fields #changed
 
-- [#15974](https://github.com/smartcontractkit/chainlink/pull/15974) [`111fe84ec6`](https://github.com/smartcontractkit/chainlink/commit/111fe84ec692dff5c5be0da5c3f079540044b682) - Add solana support for contract transmitter and remove evm depdendency for address encoding #added
+- [#15974](https://github.com/smartcontractkit/chainlink/pull/15974) [`111fe84ec6`](https://github.com/smartcontractkit/chainlink/commit/111fe84ec692dff5c5be0da5c3f079540044b682) - Add solana support for contract transmitter and remove evm dependency for address encoding #added
 
 ### Patch Changes
 
