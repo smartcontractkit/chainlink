@@ -85,11 +85,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
+          - runner: ubuntu-8cores-32GB
             goarch: amd64
             dist_name: linux_amd64
 
-          - runner: ubuntu-24.04-4cores-16GB-ARM
+          - runner: ubuntu-24.04-8cores-32GB-ARM
             goarch: arm64
             dist_name: linux_arm64
     steps:
