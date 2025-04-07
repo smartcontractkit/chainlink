@@ -24,7 +24,7 @@ type DeployCCIPOutput struct {
 }
 
 func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput) (*deployment.Environment, error) {
-	chains, solChains, err := devenv.NewChains(lggr, output.Chains)
+	chains, err := devenv.NewChains(lggr, output.Chains)
 	if err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func NewDeployEnvironmentFromCribOutput(lggr logger.Logger, output DeployOutput)
 		lggr,
 		output.AddressBook,
 		chains,
-		solChains,
+		nil, // nil for solana chains, can use memory solana chain example when required
 		output.NodeIDs,
 		nil, // todo: populate the offchain client using output.DON
 		func() context.Context { return context.Background() }, deployment.XXXGenerateTestOCRSecrets(),

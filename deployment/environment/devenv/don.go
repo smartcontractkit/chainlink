@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 	"time"
 
@@ -188,7 +189,7 @@ type Node struct {
 	NodeID          string                    // node id returned by job distributor after node is registered with it
 	JDId            string                    // job distributor id returned by node after Job distributor is created in node
 	Name            string                    // name of the node
-	AccountAddr     map[string]string         // chain id to node's account address mapping for supported chains
+	AccountAddr     map[uint64]string         // chain id to node's account address mapping for supported chains
 	Ocr2KeyBundleID string                    // OCR2 key bundle id of the node
 	gqlClient       client.Client             // graphql client to interact with the node
 	restClient      *clclient.ChainlinkClient // rest client to interact with the node
@@ -198,7 +199,7 @@ type Node struct {
 }
 
 type JDChainConfigInput struct {
-	ChainID   string
+	ChainID   uint64
 	ChainType string
 }
 
@@ -216,26 +217,26 @@ func (n *Node) AddLabel(label *ptypes.Label) {
 // It fetches the account address, peer id, and OCR2 key bundle id and creates the JobDistributorChainConfig.
 func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChainConfigInput, jd JobDistributor) error {
 	for _, chain := range chains {
-		chainId := chain.ChainID
+		chainId := strconv.FormatUint(chain.ChainID, 10)
 		var account string
 		switch chain.ChainType {
 		case "EVM":
 			accountAddr, err := n.gqlClient.FetchAccountAddress(ctx, chainId)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
 			if accountAddr == nil {
 				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
 			if n.AccountAddr == nil {
-				n.AccountAddr = make(map[string]string)
+				n.AccountAddr = make(map[uint64]string)
 			}
 			n.AccountAddr[chain.ChainID] = *accountAddr
 			account = *accountAddr
 		case "APTOS", "SOLANA":
 			accounts, err := n.gqlClient.FetchKeys(ctx, chain.ChainType)
 			if err != nil {
-				return fmt.Errorf("failed to fetch account address for node %s and chain %s: %w", n.Name, chain.ChainType, err)
+				return fmt.Errorf("failed to fetch account address for node %s: %w", n.Name, err)
 			}
 			if len(accounts) == 0 {
 				return fmt.Errorf("no account address found for node %s", n.Name)
