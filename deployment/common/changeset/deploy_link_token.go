@@ -14,6 +14,8 @@ import (
 	solTokenUtil "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
 
 	"github.com/smartcontractkit/chainlink/deployment"
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
+
 	"github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
@@ -32,11 +34,43 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 		return deployment.ChangesetOutput{}, err
 	}
 	newAddresses := deployment.NewMemoryAddressBook()
+	ds := datastore.NewMemoryDataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	]()
+
+	ds.Seal()
+
+	err = ds.Addresses().Add(
+		datastore.AddressRef{
+			ChainSelector: chains[0],
+			Type:          datastore.ContractType(types.LinkToken),
+			Version:       &deployment.Version1_0_0,
+			Qualifier:     "testrses",
+			Address:       "0x12334243454654",
+			Labels:        datastore.NewLabelSet("link_token2"),
+		},
+	)
+	if err != nil {
+		return deployment.ChangesetOutput{}, err
+	}
+
+	err = ds.ContractMetadata().Add(
+		datastore.ContractMetadata[datastore.DefaultMetadata]{
+			ChainSelector: chains[0],
+			Address:       "0x12334243454654",
+			Metadata:      datastore.DefaultMetadata{Data: "test"},
+		},
+	)
+
 	deployGrp := errgroup.Group{}
 	for _, chain := range chains {
 		family, err := chainsel.GetSelectorFamily(chain)
 		if err != nil {
-			return deployment.ChangesetOutput{AddressBook: newAddresses}, err
+			return deployment.ChangesetOutput{
+				AddressBook: newAddresses,
+				DataStore:   ds,
+			}, err
 		}
 		var deployFn func() error
 		switch family {
@@ -66,7 +100,7 @@ func DeployLinkToken(e deployment.Environment, chains []uint64) (deployment.Chan
 			return nil
 		})
 	}
-	return deployment.ChangesetOutput{AddressBook: newAddresses}, deployGrp.Wait()
+	return deployment.ChangesetOutput{AddressBook: newAddresses, DataStore: ds}, deployGrp.Wait()
 }
 
 // DeployStaticLinkToken deploys a static link token contract to the chain identified by the ChainSelector.

@@ -27,6 +27,7 @@ import (
 	nodev1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/node"
 	"github.com/smartcontractkit/chainlink-protos/job-distributor/v1/shared/ptypes"
 
+	"github.com/smartcontractkit/chainlink/deployment/datastore"
 	"github.com/smartcontractkit/chainlink/deployment/operations"
 
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
@@ -102,10 +103,14 @@ type Environment struct {
 	Name              string
 	Logger            logger.Logger
 	ExistingAddresses AddressBook
-	Chains            map[uint64]Chain
-	SolChains         map[uint64]SolChain
-	AptosChains       map[uint64]AptosChain
-	NodeIDs           []string
+	ExistingDataStore datastore.DataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	]
+	Chains      map[uint64]Chain
+	SolChains   map[uint64]SolChain
+	AptosChains map[uint64]AptosChain
+	NodeIDs     []string
 	// The Offchain client is responsible for node and job management.
 	Offchain   OffchainClient
 	GetContext func() context.Context
@@ -118,6 +123,10 @@ func NewEnvironment(
 	name string,
 	logger logger.Logger,
 	existingAddrs AddressBook,
+	existingDataStore datastore.DataStore[
+		datastore.DefaultMetadata,
+		datastore.DefaultMetadata,
+	],
 	chains map[uint64]Chain,
 	solChains map[uint64]SolChain,
 	nodeIDs []string,
@@ -129,6 +138,7 @@ func NewEnvironment(
 		Name:              name,
 		Logger:            logger,
 		ExistingAddresses: existingAddrs,
+		ExistingDataStore: existingDataStore,
 		Chains:            chains,
 		SolChains:         solChains,
 		NodeIDs:           nodeIDs,
