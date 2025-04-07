@@ -92,7 +92,14 @@ func (h *MessageHasherV1) Hash(_ context.Context, msg cciptypes.Message) (ccipty
 
 	anyToSolanaMessage.TokenReceiver = ed.tokenReceiver
 	anyToSolanaMessage.ExtraArgs = ed.extraArgs
-	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp, ed.accounts)
+	accounts := ed.accounts
+	// if logical receiver is empty, don't prepend it to the accounts list
+	if !msg.Receiver.IsZeroOrEmpty() {
+		accounts = append([]solana.PublicKey{solana.PublicKeyFromBytes(msg.Receiver)}, accounts...)
+	}
+
+	h.lggr.Debugw("in msg hasher", "logical receiver", solana.PublicKeyFromBytes(msg.Receiver), "token receiver", ed.tokenReceiver, "accounts", accounts)
+	hash, err := ccip.HashAnyToSVMMessage(anyToSolanaMessage, msg.Header.OnRamp, accounts)
 	return [32]byte(hash), err
 }
 

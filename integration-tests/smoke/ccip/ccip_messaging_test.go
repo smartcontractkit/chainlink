@@ -250,7 +250,6 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
 
 		accounts := [][32]byte{
-			receiverProgram,
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
 			solana.SystemProgramID,

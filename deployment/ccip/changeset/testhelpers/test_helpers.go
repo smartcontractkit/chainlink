@@ -1689,6 +1689,7 @@ type TestTransferRequest struct {
 	Name                   string
 	SourceChain, DestChain uint64
 	Receiver               []byte
+	TokenReceiver          []byte
 	ExpectedStatus         int
 	// optional
 	Tokens                []router.ClientEVMTokenAmount
@@ -1726,8 +1727,6 @@ func TransferMultiple(
 
 	for _, tt := range requests {
 		t.Run(tt.Name, func(t *testing.T) {
-			expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
-
 			pairId := SourceDestPair{
 				SourceChainSelector: tt.SourceChain,
 				DestChainSelector:   tt.DestChain,
@@ -1739,6 +1738,15 @@ func TransferMultiple(
 			var tokens any
 			switch family {
 			case chainsel.FamilyEVM:
+				destFamily, err := chainsel.GetSelectorFamily(tt.DestChain)
+				require.NoError(t, err)
+				if destFamily == chainsel.FamilySolana {
+					// for EVM2Solana token transfer we need to use tokenReceiver instead logical receiver
+					expectedTokenBalances.add(tt.DestChain, tt.TokenReceiver, tt.ExpectedTokenBalances)
+				} else {
+					expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
+				}
+
 				tokens = tt.Tokens
 
 				// TODO: handle this for all chains
@@ -1752,6 +1760,7 @@ func TransferMultiple(
 				}
 			case chainsel.FamilySolana:
 				tokens = tt.SolTokens
+				expectedTokenBalances.add(tt.DestChain, tt.Receiver, tt.ExpectedTokenBalances)
 			default:
 				t.Errorf("unsupported source chain: %v", family)
 			}
