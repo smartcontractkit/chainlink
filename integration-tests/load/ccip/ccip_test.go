@@ -37,6 +37,8 @@ var (
 
 // this key only works on simulated geth chains in crib
 const simChainTestKey = "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+
+// nolint:gosec will be used later
 const solTestKey = "57qbvFjTChfNwQxqkFZwjHp7xYoPZa7f9ow6GA59msfCH1g6onSjKUTrrLp4w1nAwbwQuit8YgJJ2AwT9BSwownC"
 
 // step 1: setup
