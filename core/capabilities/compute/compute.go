@@ -76,7 +76,7 @@ var (
 
 var _ capabilities.ActionCapability = (*Compute)(nil)
 
-type FetcherFn func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error)
+type FetcherFn func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error)
 
 type FetcherFactory interface {
 	NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn
@@ -325,48 +325,42 @@ func NewOutgoingConnectorFetcherFactory(
 }
 
 func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter custmsg.MessageEmitter) FetcherFn {
-	return func(ctx context.Context, req *wasmpb.FetchRequest) (*wasmpb.FetchResponse, error) {
-		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowId); err != nil {
-			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowId, err)
+	return func(ctx context.Context, req *host.FetchRequest) (*host.FetchResponse, error) {
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowID); err != nil {
+			return nil, fmt.Errorf("workflow ID %q is invalid: %w", req.Metadata.WorkflowID, err)
 		}
-		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionId); err != nil {
-			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionId, err)
+		if err := validation.ValidateWorkflowOrExecutionID(req.Metadata.WorkflowExecutionID); err != nil {
+			return nil, fmt.Errorf("workflow execution ID %q is invalid: %w", req.Metadata.WorkflowExecutionID, err)
 		}
 
 		cma := emitter.With(
-			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowID, req.Metadata.WorkflowID,
 			platform.KeyWorkflowName, req.Metadata.DecodedWorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
-			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionId,
+			platform.KeyWorkflowExecutionID, req.Metadata.WorkflowExecutionID,
 			timestampKey, time.Now().UTC().Format(time.RFC3339Nano),
 		)
 
 		messageID := strings.Join([]string{
-			req.Metadata.WorkflowExecutionId,
+			req.Metadata.WorkflowExecutionID,
 			ghcapabilities.MethodComputeAction,
 			f.idGenerator(),
 		}, "/")
 
-		fields := req.Headers.GetFields()
-		headersReq := make(map[string]string, len(fields))
-		for k, v := range fields {
-			headersReq[k] = v.String()
-		}
-
 		resp, err := f.outgoingConnectorHandler.HandleSingleNodeRequest(ctx, messageID, ghcapabilities.Request{
-			URL:        req.Url,
+			URL:        req.URL,
 			Method:     req.Method,
-			Headers:    headersReq,
+			Headers:    req.Headers,
 			Body:       req.Body,
 			TimeoutMs:  req.TimeoutMs,
-			WorkflowID: req.Metadata.WorkflowId,
+			WorkflowID: req.Metadata.WorkflowID,
 		})
 		if err != nil {
 			return nil, err
 		}
 
 		log.Debugw("received gateway response", "donID", resp.Body.DonId, "msgID", resp.Body.MessageId, "receiver", resp.Body.Receiver, "sender", resp.Body.Sender)
-		var response wasmpb.FetchResponse
+		var response host.FetchResponse
 		err = json.Unmarshal(resp.Body.Payload, &response)
 		if err != nil {
 			return nil, fmt.Errorf("failed to unmarshal fetch response: %w", err)
@@ -374,7 +368,7 @@ func (f *outgoingConnectorFetcherFactory) NewFetcher(log logger.Logger, emitter 
 
 		f.metrics.with(
 			"status", strconv.FormatUint(uint64(response.StatusCode), 10),
-			platform.KeyWorkflowID, req.Metadata.WorkflowId,
+			platform.KeyWorkflowID, req.Metadata.WorkflowID,
 			platform.KeyWorkflowName, req.Metadata.WorkflowName,
 			platform.KeyWorkflowOwner, req.Metadata.WorkflowOwner,
 		).incrementHTTPRequestCounter(ctx)
