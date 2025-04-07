@@ -16,8 +16,8 @@ type MutableEnvMetadataStore[M Cloneable[M]] interface {
 
 // MemoryEnvMetadataStore is a concrete implementation of the EnvMetadataStore interface.
 type MemoryEnvMetadataStore[M Cloneable[M]] struct {
-	mu      sync.RWMutex
-	Records []EnvMetadata[M] `json:"records"`
+	mu     sync.RWMutex
+	Record *EnvMetadata[M] `json:"record"`
 }
 
 // MemoryEnvMetadataStore implements EnvMetadataStore interface.
@@ -28,35 +28,29 @@ var _ MutableEnvMetadataStore[DefaultMetadata] = &MemoryEnvMetadataStore[Default
 
 // NewMemoryEnvMetadataStore creates a new MemoryEnvMetadataStore instance.
 func NewMemoryEnvMetadataStore[M Cloneable[M]]() *MemoryEnvMetadataStore[M] {
-	return &MemoryEnvMetadataStore[M]{Records: []EnvMetadata[M]{}}
+	return &MemoryEnvMetadataStore[M]{Record: nil}
 }
 
-// Get returns the EnvMetadata record if it exists, and a boolean indicating its existence
-// and an error if any occurred.
-// If no records exist, it returns an empty EnvMetadata and ErrEnvMetadataNotFound.
-// If the record exists, it returns a clone of the record and a nil error.
+// Get returns a copy of the stored EnvMetadata record if it exists or an error if any occurred.
+// If no record exist, it returns an empty EnvMetadata and ErrEnvMetadataNotSet.
+// If the record exists, it returns a copy of the record and a nil error.
 func (s *MemoryEnvMetadataStore[M]) Get() (EnvMetadata[M], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	if len(s.Records) == 0 {
-		return EnvMetadata[M]{}, ErrEnvMetadataNotFound
+	if s.Record == nil {
+		return EnvMetadata[M]{}, ErrEnvMetadataNotSet
 	}
 
-	return s.Records[0].Clone(), nil
+	return s.Record.Clone(), nil
 }
 
-// Update replaces the existing record if present or adds it to the slice if empty.
-// The record is always stored at index 0 of the slice to maintain a single record.
-func (s *MemoryEnvMetadataStore[M]) Update(record EnvMetadata[M]) error {
+// Set sets the EnvMetadata record in the store. If the record already exists, it will be replaced.
+func (s *MemoryEnvMetadataStore[M]) Set(record EnvMetadata[M]) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if len(s.Records) == 0 {
-		s.Records = append(s.Records, record)
-	} else {
-		s.Records[0] = record
-	}
+	s.Record = &record
 
 	return nil
 }

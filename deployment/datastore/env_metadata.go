@@ -2,7 +2,7 @@ package datastore
 
 import "errors"
 
-var ErrEnvMetadataNotFound = errors.New("no environment metadata record can be found")
+var ErrEnvMetadataNotSet = errors.New("no environment metadata set")
 
 // EnvMetadata implements the Record interface
 var _ Record[EnvMetadataKey, EnvMetadata[DefaultMetadata]] = EnvMetadata[DefaultMetadata]{}

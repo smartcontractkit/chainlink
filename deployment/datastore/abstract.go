@@ -86,11 +86,13 @@ type UnaryStore[K Comparable[K], R Record[K, R]] interface {
 
 // MutableUnaryStore is an interface that represents a mutable store that contains a single record.
 type MutableUnaryStore[K Comparable[K], R Record[K, R]] interface {
-	// Get returns the record or an error.
-	// if the record exists, the error should be nil.
+	// Get returns a copy of the record or an error.
+	// If the record exists, the error should be nil.
 	// If the record does not exist, the error should not be nil.
 	Get() (R, error)
 
-	// Update replaces the existing record if present or adds it to the slice if empty.
-	Update(record R) error
+	// Set sets the record in the store.
+	// If the record already exists, it should be replaced.
+	// If the record does not exist, it should be added.
+	Set(record R) error
 }

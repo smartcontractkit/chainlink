@@ -110,10 +110,10 @@ func (s *MemoryDataStore[CM, EM]) Merge(other DataStore[CM, EM]) error {
 
 	envMetadata, err := other.EnvMetadata().Get()
 	if err != nil {
-		if errors.Is(err, ErrEnvMetadataNotFound) {
+		if errors.Is(err, ErrEnvMetadataNotSet) {
 			// If the env metadata was not set in `other` data store, Get() will return
-			// ErrEnvMetadataNotFound. In this case, we don't need to do anything because
-			// since `other` don't contain any update to the env metadata, we can just
+			// ErrEnvMetadataNotSet. In this case, we don't need to do anything because
+			// since `other` doesn't contain any update to the env metadata, we can just
 			// skip the env metadata update.
 			return nil
 		}
@@ -121,7 +121,7 @@ func (s *MemoryDataStore[CM, EM]) Merge(other DataStore[CM, EM]) error {
 	}
 	// If the env metadata was set, we need to update it in the current
 	// data store.
-	err = s.EnvMetadataStore.Update(envMetadata)
+	err = s.EnvMetadataStore.Set(envMetadata)
 	if err != nil {
 		return err
 	}
