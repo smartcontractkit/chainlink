@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemoryDomainMetadataStore_Get(t *testing.T) {
+func TestMemoryEnvMetadataStore_Get(t *testing.T) {
 	var (
-		recordOne = DomainMetadata[DefaultMetadata]{
+		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
 			Metadata:    DefaultMetadata{Data: "data1"},
@@ -17,15 +17,15 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		givenState        []DomainMetadata[DefaultMetadata]
+		givenState        []EnvMetadata[DefaultMetadata]
 		domain            string
 		recordShouldExist bool
-		expectedRecord    DomainMetadata[DefaultMetadata]
+		expectedRecord    EnvMetadata[DefaultMetadata]
 		expectedError     error
 	}{
 		{
 			name: "domain exists",
-			givenState: []DomainMetadata[DefaultMetadata]{
+			givenState: []EnvMetadata[DefaultMetadata]{
 				recordOne,
 			},
 			domain:            "example.com",
@@ -34,17 +34,17 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 		},
 		{
 			name:              "domain does not exist",
-			givenState:        []DomainMetadata[DefaultMetadata]{},
+			givenState:        []EnvMetadata[DefaultMetadata]{},
 			domain:            "nonexistent.com",
 			recordShouldExist: false,
-			expectedRecord:    DomainMetadata[DefaultMetadata]{},
-			expectedError:     ErrDomainMetadataNotFound,
+			expectedRecord:    EnvMetadata[DefaultMetadata]{},
+			expectedError:     ErrEnvMetadataNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := &MemoryDomainMetadataStore[DefaultMetadata]{Records: tt.givenState}
+			store := &MemoryEnvMetadataStore[DefaultMetadata]{Records: tt.givenState}
 			record, err := store.Get()
 
 			if tt.recordShouldExist {
@@ -58,14 +58,14 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 	}
 }
 
-func TestMemoryDomainMetadataStore_Update(t *testing.T) {
+func TestMemoryEnvMetadataStore_Update(t *testing.T) {
 	var (
-		recordOne = DomainMetadata[DefaultMetadata]{
+		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
 			Metadata:    DefaultMetadata{Data: "data1"},
 		}
-		recordTwo = DomainMetadata[DefaultMetadata]{
+		recordTwo = EnvMetadata[DefaultMetadata]{
 			Domain:      "example2.com",
 			Environment: "test2",
 			Metadata:    DefaultMetadata{Data: "data2"},
@@ -74,19 +74,19 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		initialState   []DomainMetadata[DefaultMetadata]
-		updateRecord   DomainMetadata[DefaultMetadata]
-		expectedRecord DomainMetadata[DefaultMetadata]
+		initialState   []EnvMetadata[DefaultMetadata]
+		updateRecord   EnvMetadata[DefaultMetadata]
+		expectedRecord EnvMetadata[DefaultMetadata]
 	}{
 		{
 			name:           "update existing record",
-			initialState:   []DomainMetadata[DefaultMetadata]{recordOne},
+			initialState:   []EnvMetadata[DefaultMetadata]{recordOne},
 			updateRecord:   recordTwo,
 			expectedRecord: recordTwo,
 		},
 		{
 			name:           "add new record",
-			initialState:   []DomainMetadata[DefaultMetadata]{},
+			initialState:   []EnvMetadata[DefaultMetadata]{},
 			updateRecord:   recordOne,
 			expectedRecord: recordOne,
 		},
@@ -94,7 +94,7 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewMemoryDomainMetadataStore[DefaultMetadata]()
+			store := NewMemoryEnvMetadataStore[DefaultMetadata]()
 			for _, record := range tt.initialState {
 				err := store.Update(record)
 				require.NoError(t, err)

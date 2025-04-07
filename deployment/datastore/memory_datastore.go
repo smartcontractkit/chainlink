@@ -19,16 +19,16 @@ type Sealer[T any] interface {
 type BaseDataStore[
 	T Cloneable[T],
 	U Cloneable[U],
-	R AddressRefStore, CM ContractMetadataStore[T], DM DomainMetadataStore[U],
+	R AddressRefStore, CM ContractMetadataStore[T], DM EnvMetadataStore[U],
 ] interface {
 	Addresses() R
 	ContractMetadata() CM
-	DomainMetadata() DM
+	EnvMetadata() DM
 }
 
 // DataStore is an interface that defines the operations for a read-only data store.
 type DataStore[T Cloneable[T], U Cloneable[U]] interface {
-	BaseDataStore[T, U, AddressRefStore, ContractMetadataStore[T], DomainMetadataStore[U]]
+	BaseDataStore[T, U, AddressRefStore, ContractMetadataStore[T], EnvMetadataStore[U]]
 }
 
 // MutableDataStore is an interface that defines the operations for a mutable data store.
@@ -36,7 +36,7 @@ type MutableDataStore[T Cloneable[T], U Cloneable[U]] interface {
 	Merger[DataStore[T, U]]
 	Sealer[DataStore[T, U]]
 
-	BaseDataStore[T, U, MutableAddressRefStore, MutableContractMetadataStore[T], MutableDomainMetadataStore[U]]
+	BaseDataStore[T, U, MutableAddressRefStore, MutableContractMetadataStore[T], MutableEnvMetadataStore[U]]
 }
 
 // MemoryDataStore is a concrete implementation of the MutableDataStore interface.
@@ -45,7 +45,7 @@ var _ MutableDataStore[DefaultMetadata, DefaultMetadata] = &MemoryDataStore[Defa
 type MemoryDataStore[CM Cloneable[CM], DM Cloneable[DM]] struct {
 	AddressRefStore       *MemoryAddressRefStore           `json:"addressRefStore"`
 	ContractMetadataStore *MemoryContractMetadataStore[CM] `json:"contractMetadataStore"`
-	DomainMetadataStore   *MemoryDomainMetadataStore[DM]   `json:"domainMetadataStore"`
+	EnvMetadataStore      *MemoryEnvMetadataStore[DM]      `json:"envMetadataStore"`
 }
 
 // NewMemoryDataStore creates a new instance of MemoryDataStore.
@@ -54,7 +54,7 @@ func NewMemoryDataStore[CM Cloneable[CM], DM Cloneable[DM]]() *MemoryDataStore[C
 	return &MemoryDataStore[CM, DM]{
 		AddressRefStore:       NewMemoryAddressRefStore(),
 		ContractMetadataStore: NewMemoryContractMetadataStore[CM](),
-		DomainMetadataStore:   NewMemoryDomainMetadataStore[DM](),
+		EnvMetadataStore:      NewMemoryEnvMetadataStore[DM](),
 	}
 }
 
@@ -63,7 +63,7 @@ func (s *MemoryDataStore[CM, DM]) Seal() DataStore[CM, DM] {
 	return &sealedMemoryDataStore[CM, DM]{
 		AddressRefStore:       s.AddressRefStore,
 		ContractMetadataStore: s.ContractMetadataStore,
-		DomainMetadataStore:   s.DomainMetadataStore,
+		EnvMetadataStore:      s.EnvMetadataStore,
 	}
 }
 
@@ -77,9 +77,9 @@ func (s *MemoryDataStore[CM, DM]) ContractMetadata() MutableContractMetadataStor
 	return s.ContractMetadataStore
 }
 
-// DomainMetadata returns the DomainMetadataStore of the MemoryDataStore.
-func (s *MemoryDataStore[CM, DM]) DomainMetadata() MutableDomainMetadataStore[DM] {
-	return s.DomainMetadataStore
+// EnvMetadata returns the EnvMetadataStore of the MutableEnvMetadataStore.
+func (s *MemoryDataStore[CM, DM]) EnvMetadata() MutableEnvMetadataStore[DM] {
+	return s.EnvMetadataStore
 }
 
 // Merge merges the given mutable data store into the current MemoryDataStore.
@@ -106,18 +106,18 @@ func (s *MemoryDataStore[CM, DM]) Merge(other DataStore[CM, DM]) error {
 		}
 	}
 
-	// If the domain metadata was not set in `other` data store, we don't need to
+	// If the env metadata was not set in `other` data store, we don't need to
 	// update it.
-	domainMetadata, err := other.DomainMetadata().Get()
+	envMetadata, err := other.EnvMetadata().Get()
 	if err != nil {
-		// Get() will return ErrDomainMetadataNotFound if no record is set. So
+		// Get() will return ErrEnvMetadataNotFound if no record is set. So
 		// we can skip the update in this case.
 		return nil
 	}
 
-	// If the domain metadata was set, we need to update it in the current
+	// If the env metadata was set, we need to update it in the current
 	// data store.
-	err = s.DomainMetadataStore.Update(domainMetadata)
+	err = s.EnvMetadataStore.Update(envMetadata)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ var _ DataStore[DefaultMetadata, DefaultMetadata] = &sealedMemoryDataStore[Defau
 type sealedMemoryDataStore[CM Cloneable[CM], DM Cloneable[DM]] struct {
 	AddressRefStore       *MemoryAddressRefStore           `json:"addressRefStore"`
 	ContractMetadataStore *MemoryContractMetadataStore[CM] `json:"contractMetadataStore"`
-	DomainMetadataStore   *MemoryDomainMetadataStore[DM]   `json:"domainMetadataStore"`
+	EnvMetadataStore      *MemoryEnvMetadataStore[DM]      `json:"envMetadataStore"`
 }
 
 // Addresses returns the AddressRefStore of the sealedMemoryDataStore.
@@ -150,9 +150,9 @@ func (s *sealedMemoryDataStore[CM, DM]) ContractMetadata() ContractMetadataStore
 	return s.ContractMetadataStore
 }
 
-// DomainMetadata returns the DomainMetadataStore of the sealedMemoryDataStore.
+// EnvMetadata returns the EnvMetadataStore of the sealedMemoryDataStore.
 //
-//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of DomainMetadata() in the same file
-func (s *sealedMemoryDataStore[CM, DM]) DomainMetadata() DomainMetadataStore[DM] {
-	return s.DomainMetadataStore
+//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of EnvMetadata() in the same file
+func (s *sealedMemoryDataStore[CM, DM]) EnvMetadata() EnvMetadataStore[DM] {
+	return s.EnvMetadataStore
 }
