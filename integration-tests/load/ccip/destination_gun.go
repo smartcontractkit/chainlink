@@ -105,6 +105,7 @@ func (m *DestinationGun) Call(_ *wasp.Generator) *wasp.Response {
 	if err != nil {
 		m.l.Errorw("Failed to transmit message",
 			"gun", waspGroup,
+			"sourceChainFamily", selectorFamily,
 			err, deployment.MaybeDataErr(err))
 		if m.metricPipe != nil {
 			// in the event of an error, still push a metric
