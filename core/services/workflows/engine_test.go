@@ -2222,7 +2222,7 @@ func Test_stepUpdateManager(t *testing.T) {
 }
 
 func TestEngine_ConcurrentExecutions(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-397")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-397")
 
 	ctx := testutils.Context(t)
 	reg := coreCap.NewRegistry(logger.TestLogger(t))

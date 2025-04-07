@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mcmsevmsdk "github.com/smartcontractkit/mcms/sdk/evm"
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
@@ -448,7 +449,7 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
 func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-438")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-438")
 
 	t.Parallel()
 	// --- arrange ---

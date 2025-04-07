@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap/zapcore"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -24,7 +25,7 @@ import (
 )
 
 func TestMCMSWithTimelockState_GenerateMCMSWithTimelockViewSolana(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-404")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-404")
 
 	t.Parallel()
 	envConfig := memory.MemoryEnvironmentConfig{SolChains: 1}

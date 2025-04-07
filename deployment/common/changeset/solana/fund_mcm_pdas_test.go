@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	chainselectors "github.com/smartcontractkit/chain-selectors"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	mcmsSolana "github.com/smartcontractkit/mcms/sdk/solana"
 
 	"github.com/smartcontractkit/chainlink/deployment"
@@ -233,7 +234,7 @@ func TestFundMCMSignersChangeset_VerifyPreconditions(t *testing.T) {
 }
 
 func TestFundMCMSignersChangeset_Apply(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-403")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-403")
 
 	t.Parallel()
 	env := setupFundingTestEnv(t)

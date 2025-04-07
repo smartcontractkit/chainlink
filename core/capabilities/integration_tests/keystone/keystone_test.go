@@ -16,6 +16,7 @@ import (
 	"go.uber.org/zap/zapcore"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
 	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
@@ -28,7 +29,7 @@ func Test_AllAtOnceTransmissionSchedule(t *testing.T) {
 }
 
 func Test_OneAtATimeTransmissionSchedule(t *testing.T) {
-	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-399")
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-399")
 
 	testTransmissionSchedule(t, "2s", "oneAtATime")
 }
