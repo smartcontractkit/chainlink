@@ -181,6 +181,7 @@ type AggregatorPriceConfig struct {
 
 // StaticPriceConfig specifies a price defined statically.
 type StaticPriceConfig struct {
+	// Deprecated: ChainID field is not used.
 	ChainID uint64   `json:"chainID,string"`
 	Price   *big.Int `json:"price"`
 }
