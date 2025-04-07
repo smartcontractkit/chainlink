@@ -146,11 +146,15 @@ func (t *tronTransmitter) IsExecTransmitter() bool {
 func (t *tronTransmitter) unpackPayload(payload []byte) (report []byte, rs [][32]byte, ss [][32]byte, vs [32]byte, err error) {
 	// Due to the quirks of the Tron API to send a transaction, we need to specify each parameter of the transmit function
 	// To avoid modifying the OCRContractTransmitter, we can just unpack the payload here
-	result, err := t.contractABI.Unpack("transmit", payload)
+
+	// Skip the first 4 bytes which is the function selector
+	result, err := t.contractABI.Methods["transmit"].Inputs.Unpack(payload[4:])
 	if err != nil {
 		return nil, nil, nil, [32]byte{}, fmt.Errorf("failed to unpack payload: %w", err)
 	}
 
+	report = result[0].([]byte)
+	rs = result[1].([][32]byte)
 	report = result[0].([]byte)
 	rs = result[1].([][32]byte)
 	ss = result[2].([][32]byte)
