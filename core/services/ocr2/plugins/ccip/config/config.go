@@ -76,7 +76,7 @@ func (c *DynamicPriceGetterConfig) MoveDeprecatedFields(
 		return nil
 	}
 	if len(c.TokenPrices) > 0 {
-		return fmt.Errorf("config is deprecated but contains the new 'TokenPrices' field - remove deprecated fields")
+		return errors.New("config is deprecated but contains the new 'TokenPrices' field - remove deprecated fields")
 	}
 
 	tokenPricesCfg := make([]TokenPriceConfig, 0, len(c.AggregatorPrices)+len(c.StaticPrices))

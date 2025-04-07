@@ -691,8 +691,8 @@ func TestReorg(t *testing.T) {
 	}
 	priceGetterConfigBytes, err := json.MarshalIndent(priceGetterConfig, "", " ")
 	require.NoError(t, err)
-	priceGetterConfigJson := string(priceGetterConfigBytes)
-	ccipTH.SetUpNodesAndJobs(t, "", priceGetterConfigJson, "")
+	priceGetterConfigJSON := string(priceGetterConfigBytes)
+	ccipTH.SetUpNodesAndJobs(t, "", priceGetterConfigJSON, "")
 
 	gasLimit := big.NewInt(200_00)
 	tokenAmount := big.NewInt(1)

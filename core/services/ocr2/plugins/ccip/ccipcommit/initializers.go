@@ -10,9 +10,10 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 	libocr2 "github.com/smartcontractkit/libocr/offchainreporting2plus"
 	"go.uber.org/multierr"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/pricegetter"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/sqlutil"
 
@@ -142,12 +143,15 @@ func NewCommitServices(
 	// --------------------------------------------------------------------------------
 	// Backwards compatibility for old job spec price getter dynamic config.
 	// Should be removed after all jobSpecs migrate to the new format.
+	if sourceChainID < 0 || destChainID < 0 {
+		return nil, fmt.Errorf("source and dest chain IDs must be positive")
+	}
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
 	if !ok {
 		return nil, fmt.Errorf("failed to get source chain by evm ID %d", destChainID)
 	}
-	dstChain, ok := chainselectors.ChainByEvmChainID(uint64(destChainID))
-	if !ok {
+	dstChain, ok2 := chainselectors.ChainByEvmChainID(uint64(destChainID))
+	if !ok2 {
 		return nil, fmt.Errorf("failed to get dest chain by evm ID %d", destChainID)
 	}
 	dynamicPriceGetter, is := priceGetter.(*pricegetter.DynamicPriceGetter)

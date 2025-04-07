@@ -123,7 +123,7 @@ func TestCommitConfig(t *testing.T) {
 				require.ErrorContains(t, err, test.expectedValidationError.Error())
 			} else {
 				require.NoError(t, err)
-				require.Len(t, pgc.AggregatorPrices, 0)
+				require.Empty(t, pgc.AggregatorPrices, 0)
 				require.Len(t, pgc.TokenPrices, 3)
 			}
 		})

@@ -8,9 +8,10 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/internal/ccipcommon"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
@@ -120,10 +121,7 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 			if test.param.invalidConfigErrorExpected {
 				require.Error(t, err)
 				return
-			} else {
-				require.NoError(t, err)
 			}
-
 			require.NoError(t, err)
 			ctx := testutils.Context(t)
 
@@ -166,6 +164,7 @@ func TestDynamicPriceGetterWithEmptyInput(t *testing.T) {
 
 				if actualPrice == nil {
 					assert.Fail(t, "Token price not found")
+					return
 				}
 				assert.Equal(t, 0, expectedPrice.Cmp(actualPrice),
 					"Token price mismatch: expected price %v, got %v", expectedPrice, *actualPrice)
