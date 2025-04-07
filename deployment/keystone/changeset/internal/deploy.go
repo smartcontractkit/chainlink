@@ -14,8 +14,6 @@ import (
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/mcms"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 	"golang.org/x/exp/maps"
@@ -981,12 +979,12 @@ func containsAllDONs(donInfos []capabilities_registry.CapabilitiesRegistryDONInf
 
 // configureForwarder sets the config for the forwarder contract on the chain for all Dons that accept workflows
 // dons that don't accept workflows are not registered with the forwarder
-func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]timelock.BatchChainOperation, error) {
+func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.KeystoneForwarder, dons []RegisteredDon, useMCMS bool) (map[uint64]mcmstypes.BatchOperation, error) {
 	if fwdr == nil {
 		return nil, errors.New("nil forwarder contract")
 	}
 	var (
-		opMap = make(map[uint64]timelock.BatchChainOperation)
+		opMap = make(map[uint64]mcmstypes.BatchOperation)
 	)
 	for _, dn := range dons {
 		if !dn.Info.AcceptsWorkflows {
@@ -1011,15 +1009,9 @@ func configureForwarder(lggr logger.Logger, chain deployment.Chain, fwdr *kf.Key
 			}
 		} else {
 			// create the mcms proposals
-			ops := timelock.BatchChainOperation{
-				ChainIdentifier: mcms.ChainIdentifier(chain.Selector),
-				Batch: []mcms.Operation{
-					{
-						To:    fwdr.Address(),
-						Data:  tx.Data(),
-						Value: big.NewInt(0),
-					},
-				},
+			ops, err := proposalutils.BatchOperationForChain(chain.Selector, fwdr.Address().Hex(), tx.Data(), big.NewInt(0), string(KeystoneForwarder), nil)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create proposal batch operation for chain %d: %w", chain.Selector, err)
 			}
 			opMap[chain.Selector] = ops
 		}
