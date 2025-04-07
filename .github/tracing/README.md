@@ -9,7 +9,7 @@ One way to generate traces locally today is with the OCR2 basic smoke test.
 1. navigate to `.github/tracing/` and then run `docker compose --file local-smoke-docker-compose.yaml up`
 2. setup a local docker registry at `127.0.0.1:5000` (https://www.docker.com/blog/how-to-use-your-own-registry-2/)
 3. run `make build_push_plugin_docker_image` in `chainlink/integration-tests/Makefile`
-4. preapre your `overrides.toml` file with selected network and CL image name and version and place it anywhere
+4. prepare your `overrides.toml` file with selected network and CL image name and version and place it anywhere
 inside `integration-tests` directory. Sample `overrides.toml` file:
 ```toml
 [ChainlinkImage]
@@ -68,7 +68,7 @@ Adding traces requires identifying an observability gap in a related group of co
 - "What's the behavior of the JobProcessorOne component when jobs with [x, y, z] attributes are processed?"
 - "Is this critical path workflow behaving the way we expect?"
 
-The developer will measure a flow of execution from end to end in one trace. Each logically separate measure of this flow is called a span. Spans have either one or no parent span and multiple children span. The relationship between parent and child spans in agreggate will form a directed acyclic graph. The trace begins at the root of this graph.
+The developer will measure a flow of execution from end to end in one trace. Each logically separate measure of this flow is called a span. Spans have either one or no parent span and multiple children span. The relationship between parent and child spans in aggregate will form a directed acyclic graph. The trace begins at the root of this graph.
 
 The most trivial application of a span is measuring top level performance in one critical path. There is much more you can do, including creating human readable and timestamped events within a span (useful for monitoring concurrent access to resources), recording errors, linking parent and children spans through large parts of an application, and even extending a span beyond a single process.
 
