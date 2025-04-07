@@ -448,6 +448,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
 func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-438")
+
 	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)

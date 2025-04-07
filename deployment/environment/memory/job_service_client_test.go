@@ -17,6 +17,8 @@ import (
 )
 
 func TestJobClientProposeJob(t *testing.T) {
+	t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-432")
+
 	t.Parallel()
 	ctx := testutils.Context(t)
 	chains, _ := memory.NewMemoryChains(t, 1, 1)

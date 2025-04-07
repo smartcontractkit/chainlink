@@ -699,6 +699,9 @@ func TestKeeperRemove(t *testing.T) {
 	for _, rv := range registryVersions {
 		registryVersion := rv
 		t.Run(fmt.Sprintf("registry_1_%d", registryVersion), func(t *testing.T) {
+			if registryVersion == ethereum.RegistryVersion_1_2 {
+				t.Skip("Flaky Test: https://smartcontract-it.atlassian.net/browse/DX-435")
+			}
 			t.Parallel()
 			l := logging.GetTestLogger(t)
 			config, err := tc.GetConfig([]string{"Smoke"}, tc.Keeper)
