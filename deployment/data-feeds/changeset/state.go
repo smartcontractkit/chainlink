@@ -140,7 +140,7 @@ func GenerateFeedConfigView(e deployment.Environment, chainName string) *v1_0.Fe
 	baseDir := ".."
 	envName := e.Name
 
-	filePath := filepath.Join(baseDir, envName, "artifacts", "feeds", chainName+".json")
+	filePath := filepath.Join(baseDir, envName, "inputs", "feeds", chainName+".json")
 
 	_, err := os.Stat(filePath)
 	if os.IsNotExist(err) {
