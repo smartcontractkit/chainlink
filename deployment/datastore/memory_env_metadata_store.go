@@ -5,19 +5,19 @@ import (
 )
 
 // EnvMetadataStore is an interface that defines the methods for a store that manages environment metadata.
-type EnvMetadataStore[DM Cloneable[DM]] interface {
-	UnaryStore[EnvMetadataKey, EnvMetadata[DM]]
+type EnvMetadataStore[M Cloneable[M]] interface {
+	UnaryStore[EnvMetadataKey, EnvMetadata[M]]
 }
 
 // MutableEnvMetadataStore is an interface that defines the methods for a mutable store that manages environment metadata.
-type MutableEnvMetadataStore[DM Cloneable[DM]] interface {
-	MutableUnaryStore[EnvMetadataKey, EnvMetadata[DM]]
+type MutableEnvMetadataStore[M Cloneable[M]] interface {
+	MutableUnaryStore[EnvMetadataKey, EnvMetadata[M]]
 }
 
 // MemoryEnvMetadataStore is a concrete implementation of the EnvMetadataStore interface.
-type MemoryEnvMetadataStore[DM Cloneable[DM]] struct {
+type MemoryEnvMetadataStore[M Cloneable[M]] struct {
 	mu      sync.RWMutex
-	Records []EnvMetadata[DM] `json:"records"`
+	Records []EnvMetadata[M] `json:"records"`
 }
 
 // MemoryEnvMetadataStore implements EnvMetadataStore interface.
@@ -48,7 +48,7 @@ func (s *MemoryEnvMetadataStore[M]) Get() (EnvMetadata[M], error) {
 
 // Update replaces the existing record if present or adds it to the slice if empty.
 // The record is always stored at index 0 of the slice to maintain a single record.
-func (s *MemoryEnvMetadataStore[DM]) Update(record EnvMetadata[DM]) error {
+func (s *MemoryEnvMetadataStore[M]) Update(record EnvMetadata[M]) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
