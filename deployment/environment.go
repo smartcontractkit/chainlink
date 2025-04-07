@@ -106,9 +106,10 @@ type Environment struct {
 	SolChains         map[uint64]SolChain
 	AptosChains       map[uint64]AptosChain
 	NodeIDs           []string
-	Offchain          OffchainClient
-	GetContext        func() context.Context
-	OCRSecrets        OCRSecrets
+	// The Offchain client is responsible for node and job management.
+	Offchain   OffchainClient
+	GetContext func() context.Context
+	OCRSecrets OCRSecrets
 	// OperationsBundle contains dependencies required by the operations API.
 	OperationsBundle operations.Bundle
 }

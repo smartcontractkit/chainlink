@@ -16,10 +16,17 @@ type BootstrapSpec struct {
 	RelayConfig RelayConfig `toml:"relayConfig"`
 }
 
+// PluginType is the type of plugin set in the TOML.
+type PluginType string
+
+const (
+	PluginTypeLLO PluginType = "llo"
+)
+
 // RelayType is the type of relay set in the TOML.
 type RelayType string
 
-var (
+const (
 	RelayTypeEVM    RelayType = "evm"
 	RelayTypeSolana RelayType = "solana"
 )

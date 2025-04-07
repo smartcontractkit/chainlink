@@ -950,8 +950,8 @@ func TestCRE_OCR3_PoR_Workflow_GatewayDon_MockedPrice(t *testing.T) {
 				Input:              input[1],
 				Capabilities:       []string{},
 				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node
 				GatewayNodeIndex:   0,
-				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 			},
 		}
 	}
@@ -1057,14 +1057,14 @@ func TestCRE_OCR3_PoR_Workflow_CapabilitiesDons_LivePrice(t *testing.T) {
 				Input:              input[1],
 				Capabilities:       []string{keystonetypes.WriteEVMCapability},
 				DONTypes:           []string{keystonetypes.CapabilitiesDON}, // <----- it's crucial to set the correct DON type
-				BootstrapNodeIndex: 0,
+				BootstrapNodeIndex: -1,                                      // <----- indicate that capabilities DON doesn't have a bootstrap node and will use the global bootstrap node
 			},
 			{
 				Input:              input[2],
 				Capabilities:       []string{},
 				DONTypes:           []string{keystonetypes.GatewayDON}, // <----- it's crucial to set the correct DON type
+				BootstrapNodeIndex: -1,                                 // <----- it's crucial to indicate there's no bootstrap node for the gateway DON
 				GatewayNodeIndex:   0,
-				BootstrapNodeIndex: -1, // <----- it's crucial to indicate there's no bootstrap node
 			},
 		}
 	}

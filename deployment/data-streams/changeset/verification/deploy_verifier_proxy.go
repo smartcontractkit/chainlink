@@ -7,10 +7,11 @@ import (
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink/deployment/data-streams/utils/mcmsutil"
+
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	datastreams "github.com/smartcontractkit/chainlink/deployment/data-streams"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
 	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
 )
@@ -22,6 +23,7 @@ type verifierProxyDeploy struct{}
 type DeployVerifierProxyConfig struct {
 	// ChainsToDeploy is a list of chain selectors to deploy the contract to.
 	ChainsToDeploy map[uint64]DeployVerifierProxy
+	Ownership      types.OwnershipSettings
 	Version        semver.Version
 }
 
@@ -54,6 +56,12 @@ func (v *verifierProxyDeploy) Apply(e deployment.Environment, cc DeployVerifierP
 		e.Logger.Errorw("Failed to deploy VerifierProxy", "err", err, "addresses", ab)
 		return deployment.ChangesetOutput{AddressBook: ab}, deployment.MaybeDataErr(err)
 	}
+
+	if cc.Ownership.ShouldTransfer && cc.Ownership.MCMSProposalConfig != nil {
+		filter := deployment.NewTypeAndVersion(types.VerifierProxy, deployment.Version0_5_0)
+		return mcmsutil.TransferToMCMSWithTimelockForTypeAndVersion(e, ab, filter, *cc.Ownership.MCMSProposalConfig)
+	}
+
 	return deployment.ChangesetOutput{
 		AddressBook: ab,
 	}, nil
@@ -86,12 +94,12 @@ func deploy(e deployment.Environment, ab deployment.AddressBook, cfg DeployVerif
 			e.Logger.Errorw("Failed to get chain addresses", "err", err)
 			return err
 		}
-		chainState, err := datastreams.LoadChainConfig(chain, chainAddresses)
+		chainState, err := changeset.LoadChainState(e.Logger, chain, chainAddresses)
 		if err != nil {
 			e.Logger.Errorw("Failed to load chain state", "err", err)
 			return err
 		}
-		if chainState.VerifierProxys == nil || len(chainState.VerifierProxys[chain.Selector]) == 0 {
+		if len(chainState.VerifierProxys) == 0 {
 			errNoCCS := errors.New("no VerifierProxy on chain")
 			e.Logger.Error(errNoCCS)
 			return errNoCCS
