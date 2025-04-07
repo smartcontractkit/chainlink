@@ -26,8 +26,8 @@ func (d envMetadataKey) Environment() string { return d.environment }
 
 // Equals returns true if the two EnvMetadataKey instances are equal, false otherwise.
 func (d envMetadataKey) Equals(other EnvMetadataKey) bool {
-	return d.domain == other.Domain() &&
-		d.environment == other.Environment()
+	return d.Domain() == other.Domain() &&
+		d.Environment() == other.Environment()
 }
 
 // NewEnvMetadataKey creates a new EnvMetadataKey instance.
