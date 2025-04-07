@@ -6,8 +6,8 @@ import (
 	require "github.com/stretchr/testify/require"
 )
 
-func TestDomainMetadata_Clone(t *testing.T) {
-	original := DomainMetadata[DefaultMetadata]{
+func TestEnvMetadata_Clone(t *testing.T) {
+	original := EnvMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",
 		Metadata:    DefaultMetadata{Data: "test-value"},
@@ -21,15 +21,15 @@ func TestDomainMetadata_Clone(t *testing.T) {
 	require.NotSame(t, &original.Metadata, &cloned.Metadata) // Ensure Metadata is a deep copy
 }
 
-func TestDomainMetadata_Key(t *testing.T) {
-	domainMetadata := DomainMetadata[DefaultMetadata]{
+func TestEnvMetadata_Key(t *testing.T) {
+	envMetadata := EnvMetadata[DefaultMetadata]{
 		Domain:      "example.com",
 		Environment: "production",
 		Metadata:    DefaultMetadata{Data: "test data"},
 	}
 
-	key := domainMetadata.Key()
-	expectedKey := NewDomainMetadataKey("example.com", "production")
+	key := envMetadata.Key()
+	expectedKey := NewEnvMetadataKey("example.com", "production")
 
 	require.Equal(t, expectedKey, key)
 }

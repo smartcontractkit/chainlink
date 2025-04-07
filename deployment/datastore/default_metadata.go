@@ -1,6 +1,6 @@
 package datastore
 
-// DefaultMetadata is a struct tuat can be used as a default metadata type.
+// DefaultMetadata is a struct that can be used as a default metadata type.
 type DefaultMetadata struct {
 	Data string `json:"data"`
 }

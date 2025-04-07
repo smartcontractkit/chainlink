@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDomainMetadataKey(t *testing.T) {
+func TestEnvMetadataKey(t *testing.T) {
 	tests := []struct {
 		name           string
 		domain         string
@@ -43,8 +43,8 @@ func TestDomainMetadataKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			key := NewDomainMetadataKey(tt.domain, tt.environment)
-			otherKey := NewDomainMetadataKey(tt.otherDomain, tt.otherEnv)
+			key := NewEnvMetadataKey(tt.domain, tt.environment)
+			otherKey := NewEnvMetadataKey(tt.otherDomain, tt.otherEnv)
 
 			assert.Equal(t, tt.domain, key.Domain())
 			assert.Equal(t, tt.environment, key.Environment())

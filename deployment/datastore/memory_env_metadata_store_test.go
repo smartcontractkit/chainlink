@@ -6,9 +6,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestMemoryDomainMetadataStore_Get(t *testing.T) {
+func TestMemoryEnvMetadataStore_Get(t *testing.T) {
 	var (
-		recordOne = DomainMetadata[DefaultMetadata]{
+		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
 			Metadata:    DefaultMetadata{Data: "data1"},
@@ -17,55 +17,52 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 
 	tests := []struct {
 		name              string
-		givenState        []DomainMetadata[DefaultMetadata]
+		givenState        *EnvMetadata[DefaultMetadata]
 		domain            string
 		recordShouldExist bool
-		expectedRecord    DomainMetadata[DefaultMetadata]
+		expectedRecord    EnvMetadata[DefaultMetadata]
+		expectedError     error
 	}{
 		{
-			name: "domain exists",
-			givenState: []DomainMetadata[DefaultMetadata]{
-				recordOne,
-			},
+			name:              "env metadata set",
+			givenState:        &recordOne,
 			domain:            "example.com",
 			recordShouldExist: true,
 			expectedRecord:    recordOne,
 		},
 		{
-			name:              "domain does not exist",
-			givenState:        []DomainMetadata[DefaultMetadata]{},
+			name:              "env metadata not set",
 			domain:            "nonexistent.com",
 			recordShouldExist: false,
-			expectedRecord:    DomainMetadata[DefaultMetadata]{},
+			expectedRecord:    EnvMetadata[DefaultMetadata]{},
+			expectedError:     ErrEnvMetadataNotSet,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := &MemoryDomainMetadataStore[DefaultMetadata]{Records: tt.givenState}
-			record, ok, err := store.Get()
+			store := MemoryEnvMetadataStore[DefaultMetadata]{Record: tt.givenState}
 
+			record, err := store.Get()
 			if tt.recordShouldExist {
 				require.NoError(t, err)
-				require.True(t, ok)
 				require.Equal(t, tt.expectedRecord, record)
 			} else {
-				require.NoError(t, err)
-				require.False(t, ok)
+				require.Equal(t, tt.expectedError, err)
 				require.Equal(t, tt.expectedRecord, record)
 			}
 		})
 	}
 }
 
-func TestMemoryDomainMetadataStore_Update(t *testing.T) {
+func TestMemoryEnvMetadataStore_Set(t *testing.T) {
 	var (
-		recordOne = DomainMetadata[DefaultMetadata]{
+		recordOne = EnvMetadata[DefaultMetadata]{
 			Domain:      "example.com",
 			Environment: "test",
 			Metadata:    DefaultMetadata{Data: "data1"},
 		}
-		recordTwo = DomainMetadata[DefaultMetadata]{
+		recordTwo = EnvMetadata[DefaultMetadata]{
 			Domain:      "example2.com",
 			Environment: "test2",
 			Metadata:    DefaultMetadata{Data: "data2"},
@@ -74,19 +71,18 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 
 	tests := []struct {
 		name           string
-		initialState   []DomainMetadata[DefaultMetadata]
-		updateRecord   DomainMetadata[DefaultMetadata]
-		expectedRecord DomainMetadata[DefaultMetadata]
+		initialState   *EnvMetadata[DefaultMetadata]
+		updateRecord   EnvMetadata[DefaultMetadata]
+		expectedRecord EnvMetadata[DefaultMetadata]
 	}{
 		{
 			name:           "update existing record",
-			initialState:   []DomainMetadata[DefaultMetadata]{recordOne},
+			initialState:   &recordOne,
 			updateRecord:   recordTwo,
 			expectedRecord: recordTwo,
 		},
 		{
 			name:           "add new record",
-			initialState:   []DomainMetadata[DefaultMetadata]{},
 			updateRecord:   recordOne,
 			expectedRecord: recordOne,
 		},
@@ -94,18 +90,13 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			store := NewMemoryDomainMetadataStore[DefaultMetadata]()
-			for _, record := range tt.initialState {
-				err := store.Update(record)
-				require.NoError(t, err)
-			}
+			store := MemoryEnvMetadataStore[DefaultMetadata]{Record: tt.initialState}
 
-			err := store.Update(tt.updateRecord)
+			err := store.Set(tt.updateRecord)
 			require.NoError(t, err)
 
-			record, ok, err := store.Get()
+			record, err := store.Get()
 			require.NoError(t, err)
-			require.True(t, ok)
 			require.Equal(t, tt.expectedRecord, record)
 		})
 	}
