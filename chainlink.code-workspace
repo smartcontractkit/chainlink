@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../chainlink-framework"
+		},
+		{
+			"path": "../chainlink-integrations"
+		}
+	],
+	"settings": {}
+}
