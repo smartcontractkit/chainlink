@@ -62,9 +62,9 @@ require (
 	github.com/pelletier/go-toml/v2 v2.2.3
 	github.com/pkg/errors v0.9.1
 	github.com/pressly/goose/v3 v3.21.1
-	github.com/prometheus/client_golang v1.21.0
+	github.com/prometheus/client_golang v1.21.1
 	github.com/prometheus/client_model v0.6.1
-	github.com/prometheus/common v0.62.0
+	github.com/prometheus/common v0.63.0
 	github.com/prometheus/prometheus v0.302.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/rogpeppe/go-internal v1.13.1
@@ -76,11 +76,11 @@ require (
 	github.com/smartcontractkit/chainlink-automation v0.8.1
 	github.com/smartcontractkit/chainlink-ccip v0.0.0-20250407102550-fbd77983055c
 	github.com/smartcontractkit/chainlink-ccip/chains/solana v0.0.0-20250327092605-1990b9f79aa3
-	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407133210-105e77327dbe
+	github.com/smartcontractkit/chainlink-common v0.6.1-0.20250407221007-b26aef17d389
 	github.com/smartcontractkit/chainlink-data-streams v0.1.1-0.20250325191518-036bb568a69d
 	github.com/smartcontractkit/chainlink-evm v0.0.0-20250407094203-82c959593df2
 	github.com/smartcontractkit/chainlink-feeds v0.1.2-0.20250227211209-7cd000095135
-	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250407174128-32053176cc1b
+	github.com/smartcontractkit/chainlink-framework/capabilities v0.0.0-20250407221638-9e71b8427efb
 	github.com/smartcontractkit/chainlink-framework/chains v0.0.0-20250325121830-cfa9bf24c4f5
 	github.com/smartcontractkit/chainlink-framework/multinode v0.0.0-20250402142713-6529d36f91f3
 	github.com/smartcontractkit/chainlink-integrations/evm v0.0.0-20250402183906-b7e976bc0c24
@@ -103,21 +103,21 @@ require (
 	go.dedis.ch/fixbuf v1.0.3
 	go.dedis.ch/kyber/v3 v3.1.0
 	go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin v0.49.0
-	go.opentelemetry.io/otel v1.34.0
-	go.opentelemetry.io/otel/metric v1.34.0
-	go.opentelemetry.io/otel/sdk/metric v1.34.0
-	go.opentelemetry.io/otel/trace v1.34.0
+	go.opentelemetry.io/otel v1.35.0
+	go.opentelemetry.io/otel/metric v1.35.0
+	go.opentelemetry.io/otel/sdk/metric v1.35.0
+	go.opentelemetry.io/otel/trace v1.35.0
 	go.uber.org/atomic v1.11.0
 	go.uber.org/multierr v1.11.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/crypto v0.36.0
 	golang.org/x/exp v0.0.0-20250218142911-aa4b98e5adaa
-	golang.org/x/mod v0.23.0
+	golang.org/x/mod v0.24.0
 	golang.org/x/sync v0.12.0
 	golang.org/x/term v0.30.0
 	golang.org/x/time v0.10.0
 	gonum.org/v1/gonum v0.15.1
-	google.golang.org/grpc v1.70.0
+	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/guregu/null.v4 v4.0.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
@@ -182,6 +182,8 @@ require (
 	github.com/cenkalti/backoff v2.2.1+incompatible // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/cloudevents/sdk-go/binding/format/protobuf/v2 v2.15.2 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.16.0 // indirect
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/cockroachdb/errors v1.11.3 // indirect
@@ -240,7 +242,7 @@ require (
 	github.com/golang/snappy v0.0.5-0.20220116011046-fa5810519dcb // indirect
 	github.com/google/btree v1.1.3 // indirect
 	github.com/google/flatbuffers v24.12.23+incompatible // indirect
-	github.com/google/go-cmp v0.6.0 // indirect
+	github.com/google/go-cmp v0.7.0 // indirect
 	github.com/google/go-tpm v0.9.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/gorilla/context v1.1.1 // indirect
@@ -303,7 +305,7 @@ require (
 	github.com/pierrec/lz4/v4 v4.1.22 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
-	github.com/prometheus/procfs v0.15.1 // indirect
+	github.com/prometheus/procfs v0.16.0 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
 	github.com/rs/cors v1.11.1 // indirect
 	github.com/russross/blackfriday/v2 v2.1.0 // indirect
@@ -324,8 +326,8 @@ require (
 	github.com/tendermint/go-amino v0.16.0 // indirect
 	github.com/tidwall/match v1.1.1 // indirect
 	github.com/tidwall/pretty v1.2.1 // indirect
-	github.com/tklauser/go-sysconf v0.3.13 // indirect
-	github.com/tklauser/numcpus v0.7.0 // indirect
+	github.com/tklauser/go-sysconf v0.3.15 // indirect
+	github.com/tklauser/numcpus v0.10.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	github.com/umbracle/fastrlp v0.0.0-20220527094140-59d5dd30e722 // indirect
@@ -343,28 +345,28 @@ require (
 	go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc v0.59.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploggrpc v0.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlplog/otlploghttp v0.10.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.34.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetrichttp v1.34.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.34.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.34.0 // indirect
-	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.34.0 // indirect
+	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp v1.35.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutlog v0.10.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdoutmetric v1.34.0 // indirect
 	go.opentelemetry.io/otel/exporters/stdout/stdouttrace v1.34.0 // indirect
 	go.opentelemetry.io/otel/log v0.10.0 // indirect
-	go.opentelemetry.io/otel/sdk v1.34.0 // indirect
+	go.opentelemetry.io/otel/sdk v1.35.0 // indirect
 	go.opentelemetry.io/otel/sdk/log v0.10.0 // indirect
 	go.opentelemetry.io/proto/otlp v1.5.0 // indirect
 	go.uber.org/ratelimit v0.3.1 // indirect
 	golang.org/x/arch v0.11.0 // indirect
-	golang.org/x/net v0.37.0 // indirect
+	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
 	golang.org/x/text v0.23.0 // indirect
 	golang.org/x/tools v0.30.0 // indirect
 	golang.org/x/xerrors v0.0.0-20240903120638-7835f813f4da // indirect
 	google.golang.org/genproto v0.0.0-20250122153221-138b5a5a4fd4 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20250219182151-9fdb1cabc7b2 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20250219182151-9fdb1cabc7b2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20250324211829-b45e905df463 // indirect
 	gopkg.in/guregu/null.v2 v2.1.2 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect

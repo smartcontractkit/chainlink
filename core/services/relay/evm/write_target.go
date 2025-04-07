@@ -16,11 +16,11 @@ import (
 	chainselectors "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
 
-	"github.com/smartcontractkit/chainlink-common/pkg/beholder/monitor"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
+	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -86,7 +86,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to create poll period: %w", err)
 	}
 
-	// TODO: Unsure what the timeout should be, I don't see an EVM config that corresponds to this. 
+	// TODO: Unsure what the timeout should be, I don't see an EVM config that corresponds to this.
 	timeout, err := commonconfig.NewDuration(30 * time.Second)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create timeout: %w", err)
@@ -97,7 +97,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		return nil, fmt.Errorf("failed to get chain info: %w", err)
 	}
 
-	beholder, err := writetarget.NewWriteTargetMonitor(ctx, lggr)
+	beholder, err := writetarget.NewMonitor(ctx, lggr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Aptos WT monitor client: %+w", err)
 	}
