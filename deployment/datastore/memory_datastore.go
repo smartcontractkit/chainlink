@@ -141,22 +141,16 @@ type sealedMemoryDataStore[CM Cloneable[CM], EM Cloneable[EM]] struct {
 
 // Addresses returns the AddressRefStore of the sealedMemoryDataStore.
 // It implements the BaseDataStore interface.
-//
-//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of Addresses() in the same file
 func (s *sealedMemoryDataStore[CM, EM]) Addresses() AddressRefStore {
 	return s.AddressRefStore
 }
 
 // ContractMetadata returns the ContractMetadataStore of the sealedMemoryDataStore.
-//
-//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of ContractMetadata() in the same file
 func (s *sealedMemoryDataStore[CM, EM]) ContractMetadata() ContractMetadataStore[CM] {
 	return s.ContractMetadataStore
 }
 
 // EnvMetadata returns the EnvMetadataStore of the sealedMemoryDataStore.
-//
-//nolint:revive // this triggers a false positive confusing-naming linter error probably there are two implementations of EnvMetadata() in the same file
 func (s *sealedMemoryDataStore[CM, EM]) EnvMetadata() EnvMetadataStore[EM] {
 	return s.EnvMetadataStore
 }
