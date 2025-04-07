@@ -207,6 +207,12 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		return DeployCCIPOutput{}, err
 	}
 
+	lggr.Infow("distributing Solana transmitter funds...")
+	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
+
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to convert address book to address book map: %w", err)
@@ -292,6 +298,11 @@ func ConfigureCCIPOCR(ctx context.Context, lggr logger.Logger, envConfig devenv.
 		return DeployCCIPOutput{}, err
 	}
 
+	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
+
 	addresses, err := e.ExistingAddresses.Addresses()
 	if err != nil {
 		return DeployCCIPOutput{}, fmt.Errorf("failed to get convert address book to address book map: %w", err)
@@ -314,8 +325,14 @@ func FundCCIPTransmitters(ctx context.Context, lggr logger.Logger, envConfig dev
 	// distribute funds to transmitters
 	// we need to use the nodeinfo from the envConfig here, because multiAddr is not
 	// populated in the environment variable
-	lggr.Infow("distributing funds...")
+	lggr.Infow("distributing EVM transmitter funds...")
 	err = distributeTransmitterFunds(lggr, don.PluginNodes(), *e)
+	if err != nil {
+		return DeployCCIPOutput{}, err
+	}
+
+	lggr.Infow("distributing Solana transmitter funds...")
+	err = distributeTransmitterFundsSolana(lggr, don.PluginNodes(), *e)
 	if err != nil {
 		return DeployCCIPOutput{}, err
 	}

@@ -241,6 +241,7 @@ func (n *Node) CreateCCIPOCRSupportedChains(ctx context.Context, chains []JDChai
 				return fmt.Errorf("no account address found for node %s", n.Name)
 			}
 
+			n.AccountAddr[chain.ChainID] = accounts[0]
 			account = accounts[0]
 		default:
 			return fmt.Errorf("unsupported chainType %v", chain.ChainType)

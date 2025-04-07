@@ -6,6 +6,7 @@ import (
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	gethtypes "github.com/ethereum/go-ethereum/core/types"
+	"github.com/gagliardetto/solana-go"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"golang.org/x/sync/errgroup"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/environment/devenv"
+	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
 )
 
 func distributeTransmitterFunds(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
@@ -77,4 +79,47 @@ func SendFundsToAccounts(ctx context.Context, lggr logger.Logger, chain deployme
 		nonce++
 	}
 	return nil
+}
+
+func distributeTransmitterFundsSolana(lggr logger.Logger, nodeInfo []devenv.Node, env deployment.Environment) error {
+	g := new(errgroup.Group)
+
+	const solFundingLamports = 100000
+
+	for sel, chain := range env.SolChains {
+		sel, chain := sel, chain
+
+		g.Go(func() error {
+			var solanaAddrs []solana.PublicKey
+			for _, n := range nodeInfo {
+				chainID, err := chainsel.GetChainIDFromSelector(sel)
+				if err != nil {
+					lggr.Errorw("could not get chain id from selector", "selector", sel, "err", err)
+					return err
+				}
+				base58Addr := n.AccountAddr[chainID]
+				lggr.Infof("Solana acc %v", n.AccountAddr)
+
+				for chainID, addr := range n.AccountAddr {
+					lggr.Infof("Chain ID: %s, Account Address: %s\n", chainID, addr)
+				}
+
+				pk, err := solana.PublicKeyFromBase58(base58Addr)
+				if err != nil {
+					lggr.Errorw("error converting base58 to solana PublicKey", "err", err, "address", base58Addr)
+					return err
+				}
+				solanaAddrs = append(solanaAddrs, pk)
+			}
+
+			err := memory.FundSolanaAccounts(env.GetContext(), solanaAddrs, solFundingLamports, chain.Client)
+			if err != nil {
+				lggr.Errorw("error funding solana accounts", "err", err, "selector", sel)
+				return err
+			}
+			return nil
+		})
+	}
+
+	return g.Wait()
 }
