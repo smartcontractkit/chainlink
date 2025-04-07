@@ -23,7 +23,7 @@ func NewDevspaceEnvFromStateDir(lggr logger.Logger, envStateDir string) CRIBEnv 
 	}
 }
 
-func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
+func (c CRIBEnv) GetConfig(evmKey string, solKey string) (DeployOutput, error) {
 	reader := NewOutputReader(c.cribEnvStateDirPath)
 	nodesDetails, err := reader.ReadNodesDetails()
 	if err != nil {
@@ -34,11 +34,21 @@ func (c CRIBEnv) GetConfig(key string) (DeployOutput, error) {
 		return DeployOutput{}, err
 	}
 	for i, chain := range chainConfigs {
-		err := chain.SetDeployerKey(&key)
-		if err != nil {
-			return DeployOutput{}, err
+		if chain.ChainType == "EVM" {
+			err := chain.SetDeployerKey(&evmKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
 		}
-		chainConfigs[i] = chain
+
+		if chain.ChainType == "SOLANA" {
+			err := chain.SetSolDeployerKey(&solKey)
+			if err != nil {
+				return DeployOutput{}, err
+			}
+			chainConfigs[i] = chain
+		}
 	}
 
 	addressBook, err := reader.ReadAddressBook()
@@ -59,7 +69,7 @@ type RPC struct {
 }
 
 type ChainConfig struct {
-	ChainID   uint64 // chain id as per EIP-155, mainly applicable for EVM chains
+	ChainID   string // chain id as string to conform with non EVM chains
 	ChainName string // name of the chain populated from chainselector repo
 	ChainType string // should denote the chain family. Acceptable values are EVM, COSMOS, SOLANA, STARKNET, APTOS etc
 	WSRPCs    []RPC  // websocket rpcs to connect to the chain
