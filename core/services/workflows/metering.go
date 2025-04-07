@@ -15,6 +15,7 @@ const (
 	MeteringReportSchema string = "github.com/smartcontractkit/chainlink-common/pkg/capabilities/pb/capabilities.proto"
 	MeteringReportDomain string = "platform"
 	MeteringReportEntity string = "MeteringReport"
+	MeteringProtoPkg     string = "pb"
 )
 
 type MeteringReportStepRef string

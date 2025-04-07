@@ -90,7 +90,7 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to configure forward contracts: %w", err)
 	}
 
-	cresp, err := GetContractSets(env.Logger, &GetContractSetsRequest{
+	cresp, err := GetContractSetsV2(env.Logger, GetContractSetsRequestV2{
 		Chains:      env.Chains,
 		AddressBook: env.ExistingAddresses,
 	})
@@ -106,10 +106,10 @@ func ConfigureForwardContracts(env deployment.Environment, req ConfigureForwardC
 		for chainSelector, op := range r.OpsPerChain {
 			contracts := cresp.ContractSets[chainSelector]
 			timelocksPerChain := map[uint64]common.Address{
-				chainSelector: contracts.Timelock.Address(),
+				chainSelector: contracts.Forwarder.McmsContracts.Timelock.Address(),
 			}
 			proposerMCMSes := map[uint64]*gethwrappers.ManyChainMultiSig{
-				chainSelector: contracts.ProposerMcm,
+				chainSelector: contracts.Forwarder.McmsContracts.ProposerMcm,
 			}
 
 			proposal, err := proposalutils.BuildProposalFromBatches(

@@ -34,43 +34,54 @@ func GenerateConfigs(input cretypes.GeneratePoRConfigsInput) (cretypes.NodeIndex
 	var donBootstrapNodeHost string
 	var donBootstrapNodePeerID string
 
-	bootstrapNode, err := node.FindOneWithLabel(input.DonMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.BootstrapNode}, node.EqualLabels)
+	bootstrapNodes, err := node.FindManyWithLabel(input.DonMetadata.NodesMetadata, &cretypes.Label{Key: node.NodeTypeKey, Value: cretypes.BootstrapNode}, node.EqualLabels)
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to find bootstrap node")
+		return nil, errors.Wrap(err, "failed to find bootstrap nodes")
 	}
 
-	donBootstrapNodePeerID, err = node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to get bootstrap node peer ID")
-	}
+	switch len(bootstrapNodes) {
+	case 0:
+		// if DON doesn't have bootstrap node, we need to use the global bootstrap node
+		donBootstrapNodeHost = input.PeeringData.GlobalBootstraperHost
+		donBootstrapNodePeerID = input.PeeringData.GlobalBootstraperPeerID
+	case 1:
+		bootstrapNode := bootstrapNodes[0]
 
-	for _, label := range bootstrapNode.Labels {
-		if label.Key == node.HostLabelKey {
-			donBootstrapNodeHost = label.Value
-			break
+		donBootstrapNodePeerID, err = node.ToP2PID(bootstrapNode, node.KeyExtractingTransformFn)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to get bootstrap node peer ID")
 		}
-	}
 
-	if donBootstrapNodeHost == "" {
-		return nil, errors.New("failed to get bootstrap node host from labels")
-	}
-
-	var nodeIndex int
-	for _, label := range bootstrapNode.Labels {
-		if label.Key == node.IndexKey {
-			nodeIndex, err = strconv.Atoi(label.Value)
-			if err != nil {
-				return nil, errors.Wrap(err, "failed to convert node index to int")
+		for _, label := range bootstrapNode.Labels {
+			if label.Key == node.HostLabelKey {
+				donBootstrapNodeHost = label.Value
+				break
 			}
-			break
 		}
-	}
 
-	// generate configuration for the bootstrap node
-	configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
+		if donBootstrapNodeHost == "" {
+			return nil, errors.New("failed to get bootstrap node host from labels")
+		}
 
-	if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
-		configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
+		var nodeIndex int
+		for _, label := range bootstrapNode.Labels {
+			if label.Key == node.IndexKey {
+				nodeIndex, err = strconv.Atoi(label.Value)
+				if err != nil {
+					return nil, errors.Wrap(err, "failed to convert node index to int")
+				}
+				break
+			}
+		}
+
+		// generate configuration for the bootstrap node
+		configOverrides[nodeIndex] = config.BootstrapEVM(donBootstrapNodePeerID, chainIDUint64, input.CapabilitiesRegistryAddress, input.BlockchainOutput.Nodes[0].InternalHTTPUrl, input.BlockchainOutput.Nodes[0].InternalWSUrl)
+
+		if keystoneflags.HasFlag(input.Flags, cretypes.WorkflowDON) {
+			configOverrides[nodeIndex] += config.BoostrapDon2DonPeering(input.PeeringData)
+		}
+	default:
+		return nil, errors.New("multiple bootstrap nodes within a DON found, expected only one")
 	}
 
 	// find worker nodes
