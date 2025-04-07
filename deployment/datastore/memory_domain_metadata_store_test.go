@@ -21,6 +21,7 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 		domain            string
 		recordShouldExist bool
 		expectedRecord    DomainMetadata[DefaultMetadata]
+		expectedError     error
 	}{
 		{
 			name: "domain exists",
@@ -37,22 +38,22 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 			domain:            "nonexistent.com",
 			recordShouldExist: false,
 			expectedRecord:    DomainMetadata[DefaultMetadata]{},
+			expectedError:     ErrDomainMetadataNotFound,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := &MemoryDomainMetadataStore[DefaultMetadata]{Records: tt.givenState}
-			record, ok, err := store.Get()
+			record, err := store.Get()
 
 			if tt.recordShouldExist {
 				require.NoError(t, err)
-				require.True(t, ok)
 				require.Equal(t, tt.expectedRecord, record)
 			} else {
-				require.NoError(t, err)
-				require.False(t, ok)
+				require.Equal(t, tt.expectedError, err)
 				require.Equal(t, tt.expectedRecord, record)
+
 			}
 		})
 	}
@@ -103,9 +104,8 @@ func TestMemoryDomainMetadataStore_Update(t *testing.T) {
 			err := store.Update(tt.updateRecord)
 			require.NoError(t, err)
 
-			record, ok, err := store.Get()
+			record, err := store.Get()
 			require.NoError(t, err)
-			require.True(t, ok)
 			require.Equal(t, tt.expectedRecord, record)
 		})
 	}

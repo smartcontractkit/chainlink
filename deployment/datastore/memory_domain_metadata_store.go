@@ -33,17 +33,17 @@ func NewMemoryDomainMetadataStore[M Cloneable[M]]() *MemoryDomainMetadataStore[M
 
 // Get returns the DomainMetadata record if it exists, and a boolean indicating its existence
 // and an error if any occurred.
-// If no records exist, it returns an empty DomainMetadata and false.
-// If the record exists, it returns a clone of the record and true.
-func (s *MemoryDomainMetadataStore[M]) Get() (DomainMetadata[M], bool, error) {
+// If no records exist, it returns an empty DomainMetadata and ErrDomainMetadataNotFound.
+// If the record exists, it returns a clone of the record and a nil error.
+func (s *MemoryDomainMetadataStore[M]) Get() (DomainMetadata[M], error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	if len(s.Records) == 0 {
-		return DomainMetadata[M]{}, false, nil
+		return DomainMetadata[M]{}, ErrDomainMetadataNotFound
 	}
 
-	return s.Records[0].Clone(), true, nil
+	return s.Records[0].Clone(), nil
 }
 
 // Update replaces the existing record if present or adds it to the slice if empty.

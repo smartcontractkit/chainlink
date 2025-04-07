@@ -1,5 +1,9 @@
 package datastore
 
+import "errors"
+
+var ErrDomainMetadataNotFound = errors.New("no domain metadata record can be found")
+
 // DomainMetadata implements the Record interface
 var _ Record[DomainMetadataKey, DomainMetadata[DefaultMetadata]] = DomainMetadata[DefaultMetadata]{}
 
