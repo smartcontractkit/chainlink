@@ -5,15 +5,17 @@ import (
 	"crypto/rand"
 	"errors"
 	"fmt"
+	"math/big"
+	mathrand "math/rand"
+	"time"
+
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
+
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_router"
 	solcommon "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/common"
 	solstate "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
 	soltokens "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/tokens"
-	"math/big"
-	mathrand "math/rand"
-	"time"
 
 	"go.uber.org/atomic"
 
@@ -26,6 +28,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
+
 	"github.com/smartcontractkit/chainlink/deployment"
 	ccipchangeset "github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"

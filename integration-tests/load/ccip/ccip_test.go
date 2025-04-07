@@ -2,11 +2,12 @@ package ccip
 
 import (
 	"context"
-	"github.com/gagliardetto/solana-go"
 	"math/big"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/chainlink/integration-tests/testconfig/ccip"
 
