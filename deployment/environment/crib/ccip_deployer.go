@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/gagliardetto/solana-go"
+	solana "github.com/gagliardetto/solana-go"
 	"github.com/rs/zerolog"
 	chainsel "github.com/smartcontractkit/chain-selectors"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
@@ -154,8 +154,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 	solChainSelectors := e.AllChainSelectorsSolana()
 
 	// Set up SOL <--> EVM lanes
-	lggr.Infof("setting up solana lanes for %d chains", len(e.Chains))
-	var laneChangesets []commonchangeset.ConfiguredChangeSet
+	lggr.Infof("setting up solana lanes for chains %+v", e.Chains)
 
 	deployedEnv := testhelpers.DeployedEnv{
 		Env:          *e,
@@ -163,6 +162,7 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		FeedChainSel: homeChainSel,
 	}
 	for _, evmSelector := range evmChainSelectors {
+		var laneChangesets []commonchangeset.ConfiguredChangeSet
 		gasPrices := map[uint64]*big.Int{
 			solChainSelectors[0]: testhelpers.DefaultGasPrice,
 		}
@@ -176,13 +176,13 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		evmFamily, _ := chainsel.GetSelectorFamily(evmSelector)
 
 		// EVM -> SOL
-		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], true, gasPrices, tokenPrices, fqCfg)
+		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], false, gasPrices, tokenPrices, fqCfg)
 		laneChangesets = append(laneChangesets, cs...)
 		cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solChainSelectors[0], evmSelector, evmFamily)
 		laneChangesets = append(laneChangesets, cs...)
 
 		// SOL -> EVM
-		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], true)
+		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], false)
 		laneChangesets = append(laneChangesets, cs...)
 
 		*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)

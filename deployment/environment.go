@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 
+	mapset "github.com/deckarep/golang-set/v2"
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -198,6 +199,35 @@ func (e Environment) AllChainSelectorsSolana() []uint64 {
 		return selectors[i] < selectors[j]
 	})
 	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamilies() []uint64 {
+	selectors := make([]uint64, 0, len(e.Chains)+len(e.SolChains)+len(e.AptosChains))
+	for sel := range e.Chains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.SolChains {
+		selectors = append(selectors, sel)
+	}
+	for sel := range e.AptosChains {
+		selectors = append(selectors, sel)
+	}
+	sort.Slice(selectors, func(i, j int) bool {
+		return selectors[i] < selectors[j]
+	})
+	return selectors
+}
+
+func (e Environment) AllChainSelectorsAllFamilliesExcluding(excluding []uint64) []uint64 {
+	selectors := mapset.NewSet(e.AllChainSelectorsAllFamilies())
+	exclusionSet := mapset.NewSet(excluding)
+	selectors = selectors.Difference(exclusionSet)
+	selectorsSlice := selectors.ToSlice()
+	sort.Slice(selectorsSlice, func(i, j int) bool {
+		return selectorsSlice[i].(uint64) < selectorsSlice[j].(uint64)
+	})
+	return selectors
+
 }
 
 func (e Environment) AllDeployerKeys() []common.Address {

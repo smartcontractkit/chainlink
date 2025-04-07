@@ -49,10 +49,7 @@ func ReportToSigData(reportCtx types.ReportContext, report types.Report) (*big.I
 		dataArray = append(dataArray, new(big.Int).SetBytes(splitReport[i]))
 	}
 
-	hash, err := curve.Curve.ComputeHashOnElements(dataArray)
-	if err != nil {
-		return &big.Int{}, err
-	}
+	hash := curve.ComputeHashOnElements(dataArray)
 	return hash, nil
 }
 

@@ -2,12 +2,11 @@ package solana
 
 import (
 	"context"
+	solana "github.com/gagliardetto/solana-go"
 	"math"
 
 	"fmt"
 	"strconv"
-
-	"github.com/gagliardetto/solana-go"
 
 	"github.com/smartcontractkit/mcms"
 	mcmsTypes "github.com/smartcontractkit/mcms/types"
