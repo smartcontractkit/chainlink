@@ -1,4 +1,4 @@
 ChainID = '743111'
 
-[EVM.GasEstimator]
+[GasEstimator]
 PriceMax = '120 gwei'
