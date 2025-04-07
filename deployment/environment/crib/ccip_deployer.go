@@ -176,13 +176,13 @@ func DeployCCIPAndAddLanes(ctx context.Context, lggr logger.Logger, envConfig de
 		evmFamily, _ := chainsel.GetSelectorFamily(evmSelector)
 
 		// EVM -> SOL
-		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], true, gasPrices, tokenPrices, fqCfg)
+		cs := testhelpers.AddEVMSrcChangesets(evmSelector, solChainSelectors[0], false, gasPrices, tokenPrices, fqCfg)
 		laneChangesets = append(laneChangesets, cs...)
 		cs = testhelpers.AddLaneSolanaChangesets(&deployedEnv, solChainSelectors[0], evmSelector, evmFamily)
 		laneChangesets = append(laneChangesets, cs...)
 
 		// SOL -> EVM
-		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], true)
+		cs = testhelpers.AddEVMDestChangesets(&deployedEnv, evmSelector, solChainSelectors[0], false)
 		laneChangesets = append(laneChangesets, cs...)
 
 		*e, err = commonchangeset.Apply(nil, *e, nil, laneChangesets[0], laneChangesets[1:]...)

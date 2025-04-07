@@ -340,7 +340,7 @@ func TestTokenTransfer_EVM2SolanaCRIB(t *testing.T) {
 
 	oneE9 := new(big.Int).SetUint64(1e9)
 
-	SetProgramIDsSafe(state.SolChains[sourceChain])
+	SetProgramIDsSafe(state.SolChains[destChain])
 
 	// Deploy tokens and pool by CCIP Owner
 	srcToken, _, destToken, err := testhelpers.DeployTransferableTokenSolana(
