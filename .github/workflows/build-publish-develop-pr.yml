@@ -85,7 +85,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-8cores-32GB
+          - runner: ubuntu-24.04-8cores-32GB
             goarch: amd64
             dist_name: linux_amd64
 
