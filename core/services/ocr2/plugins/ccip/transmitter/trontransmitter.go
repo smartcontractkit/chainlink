@@ -18,6 +18,13 @@ import (
 	"github.com/smartcontractkit/libocr/gethwrappers2/ocr2aggregator"
 )
 
+type Keystore interface {
+	keys.AddressChecker
+	keys.RoundRobin
+	keys.Locker
+	keys.RawUnhashedSigner
+}
+
 type tronTransmitter struct {
 	txm                         txManager
 	contractABI                 abi.ABI
@@ -27,7 +34,7 @@ type tronTransmitter struct {
 	strategy                    types.TxStrategy
 	checker                     txmgr.TransmitCheckerSpec
 	chainID                     *big.Int
-	keystore                    keys.RoundRobin
+	keystore                    Keystore
 	statuschecker               statuschecker.CCIPTransactionStatusChecker // Used for CCIP's idempotency key generation
 }
 
@@ -40,7 +47,7 @@ func NewTronTransmitter(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore keys.RoundRobin,
+	keystore Keystore,
 ) (Transmitter, error) {
 	// Ensure that a keystore is provided.
 	if keystore == nil {
@@ -73,7 +80,7 @@ func NewTronTransmitterWithStatusChecker(
 	strategy types.TxStrategy,
 	checker txmgr.TransmitCheckerSpec,
 	chainID *big.Int,
-	keystore keys.RoundRobin,
+	keystore Keystore,
 ) (Transmitter, error) {
 	t, err := NewTronTransmitter(txm, fromAddresses, gasLimit, effectiveTransmitterAddress, strategy, checker, chainID, keystore)
 
@@ -92,7 +99,12 @@ func NewTronTransmitterWithStatusChecker(
 
 // Trons Write API is different from the EVM Write API, so this function name is slightly misleading but it's to ensure we conform to the Transmitter interface
 func (t *tronTransmitter) CreateEthTransaction(ctx context.Context, toAddress common.Address, payload []byte, txMeta *txmgr.TxMeta) error {
-	// TODO: RoundRobinFromAddress
+	roundRobinFromAddress, err := t.keystore.GetNextAddress(ctx, t.fromAddresses...)
+	if err != nil {
+		return fmt.Errorf("skipped OCR transmission, error getting round-robin address: %w", err)
+	}
+
+	fmt.Printf("Round Robin From Address: %s", roundRobinFromAddress.Hex())
 
 	if t.IsExecTransmitter() {
 		// TODO: Add idempotency key generation
