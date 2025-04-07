@@ -218,7 +218,7 @@ func (e Environment) AllChainSelectorsAllFamilies() []uint64 {
 	return selectors
 }
 
-func (e Environment) AllChainSelectorsAllFamilliesExcluding(excluding []uint64) []uint64 {
+func (e Environment) AllChainSelectorsAllFamiliesExcluding(excluding []uint64) []uint64 {
 	selectors := e.AllChainSelectorsAllFamilies()
 	ret := make([]uint64, 0)
 	// remove the excluded selectors
@@ -228,7 +228,7 @@ func (e Environment) AllChainSelectorsAllFamilliesExcluding(excluding []uint64) 
 		}
 		ret = append(ret, sel)
 	}
-	return selectors
+	return ret
 }
 
 func (e Environment) AllDeployerKeys() []common.Address {
