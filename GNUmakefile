@@ -1,5 +1,7 @@
 .DEFAULT_GOAL := chainlink
 
+#test
+
 COMMIT_SHA ?= $(shell git rev-parse HEAD)
 VERSION = $(shell jq -r '.version' package.json)
 GO_LDFLAGS := $(shell tools/bin/ldflags)
