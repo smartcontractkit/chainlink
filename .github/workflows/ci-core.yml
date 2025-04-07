@@ -42,8 +42,12 @@ jobs:
           github.event_name == 'schedule' ||
           github.event_name == 'workflow_dispatch'
         }}
-    runs-on: ubuntu-latest
+    # running on macos allows longer list of files than linux
+    runs-on: macos-latest
     steps:
+      # one need to install newest version of bash to support declarative -A used in map-affected-files-to-modules.sh
+      - name: Install bash
+        run: brew install bash
       - name: Checkout the repo
         uses: actions/checkout@v4
         with:
@@ -226,16 +230,6 @@ jobs:
         shell: bash
         run: |
           find . -type f,d -exec touch -r {} -d '1970-01-01T00:00:01' {} \; || true
-
-      - name: Setup NodeJS
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        if: ${{ matrix.type.should-run == 'true' }}
-        uses: ./.github/actions/install-solidity-foundry
 
       - name: Setup Go
         if: ${{ matrix.type.should-run == 'true' }}
@@ -565,10 +559,6 @@ jobs:
           only-modules: "true"
       - name: Install protoc-gen-go-wsrpc
         run: curl https://github.com/smartcontractkit/wsrpc/raw/main/cmd/protoc-gen-go-wsrpc/protoc-gen-go-wsrpc --output $HOME/go/bin/protoc-gen-go-wsrpc && chmod +x $HOME/go/bin/protoc-gen-go-wsrpc
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
       - name: make generate
         run: |
           make rm-mocked
