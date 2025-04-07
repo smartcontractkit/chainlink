@@ -79,7 +79,7 @@ func TestGrantRoleInTimeLock(t *testing.T) {
 			ExistingProposerByChain: map[uint64]common.Address{
 				evmSelectors[0]: existingProposer.Address(),
 			},
-			MCMS: &commonchangeset.TimelockConfig{MinDelay: 0},
+			MCMS: &proposalutils.TimelockConfig{MinDelay: 0},
 		},
 	))
 	require.NoError(t, err)

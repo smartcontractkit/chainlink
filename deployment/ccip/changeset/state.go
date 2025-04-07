@@ -8,31 +8,33 @@ import (
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/smartcontractkit/ccip-owner-contracts/pkg/gethwrappers"
-	"github.com/smartcontractkit/ccip-owner-contracts/pkg/proposal/timelock"
 	"golang.org/x/sync/errgroup"
 
 	solOffRamp "github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/ccip_offramp"
 	solState "github.com/smartcontractkit/chainlink-ccip/chains/solana/utils/state"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/link_token"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/commit_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/link_token"
+	commonstate "github.com/smartcontractkit/chainlink/deployment/common/changeset/state"
+	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/log_message_data_receiver"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc20"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/commit_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/evm_2_evm_onramp"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/log_message_data_receiver"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/burn_with_from_mint_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/lock_release_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc20"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/erc677"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
 
 	"github.com/ethereum/go-ethereum/accounts/abi/bind"
 	"github.com/ethereum/go-ethereum/common"
@@ -52,26 +54,26 @@ import (
 
 	chain_selectors "github.com/smartcontractkit/chain-selectors"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/fee_quoter"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/offramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/onramp"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/aggregator_v3_interface"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/nonce_manager"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/offramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/onramp"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/aggregator_v3_interface"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -124,7 +126,7 @@ var (
 // CCIPChainState holds a Go binding for all the currently deployed CCIP contracts
 // on a chain. If a binding is nil, it means here is no such contract on the chain.
 type CCIPChainState struct {
-	commoncs.MCMSWithTimelockState
+	commonstate.MCMSWithTimelockState
 	commoncs.LinkTokenState
 	commoncs.StaticLinkTokenState
 	ABIByAddress       map[string]string
@@ -504,6 +506,20 @@ type CCIPOnChainState struct {
 	AptosChains map[uint64]AptosCCIPChainState
 }
 
+func (c CCIPOnChainState) EVMMCMSStateByChain() map[uint64]commonstate.MCMSWithTimelockState {
+	mcmsStateByChain := make(map[uint64]commonstate.MCMSWithTimelockState)
+	for chainSelector, chain := range c.Chains {
+		mcmsStateByChain[chainSelector] = commonstate.MCMSWithTimelockState{
+			CancellerMcm: chain.CancellerMcm,
+			BypasserMcm:  chain.BypasserMcm,
+			ProposerMcm:  chain.ProposerMcm,
+			Timelock:     chain.Timelock,
+			CallProxy:    chain.CallProxy,
+		}
+	}
+	return mcmsStateByChain
+}
+
 func (s CCIPOnChainState) OffRampPermissionLessExecutionThresholdSeconds(ctx context.Context, env deployment.Environment, selector uint64) (uint32, error) {
 	family, err := chain_selectors.GetSelectorFamily(selector)
 	if err != nil {
@@ -601,24 +617,21 @@ func (s CCIPOnChainState) SupportedChains() map[uint64]struct{} {
 	return chains
 }
 
-func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, error) {
+func (s CCIPOnChainState) View(e *deployment.Environment, chains []uint64) (map[string]view.ChainView, map[string]view.SolChainView, error) {
 	m := make(map[string]view.ChainView)
 	mu := sync.Mutex{}
+	sm := make(map[string]view.SolChainView)
+	solanaMu := sync.Mutex{}
 	grp := errgroup.Group{}
 	for _, chainSelector := range chains {
 		var name string
-		var chainView view.ChainView
 		chainSelector := chainSelector
 		grp.Go(func() error {
-			chainInfo, err := deployment.ChainInfo(chainSelector)
+			family, err := chain_selectors.GetSelectorFamily(chainSelector)
 			if err != nil {
 				return err
 			}
-			if _, ok := s.Chains[chainSelector]; !ok {
-				return fmt.Errorf("chain not supported %d", chainSelector)
-			}
-			chainState := s.Chains[chainSelector]
-			chainView, err = chainState.GenerateView()
+			chainInfo, err := deployment.ChainInfo(chainSelector)
 			if err != nil {
 				return err
 			}
@@ -626,19 +639,46 @@ func (s CCIPOnChainState) View(chains []uint64) (map[string]view.ChainView, erro
 			if chainInfo.ChainName == "" {
 				name = strconv.FormatUint(chainSelector, 10)
 			}
-			chainView.ChainSelector = chainSelector
 			id, err := chain_selectors.GetChainIDFromSelector(chainSelector)
 			if err != nil {
 				return fmt.Errorf("failed to get chain id from selector %d: %w", chainSelector, err)
 			}
-			chainView.ChainID = id
-			mu.Lock()
-			m[name] = chainView
-			mu.Unlock()
+			switch family {
+			case chain_selectors.FamilyEVM:
+				if _, ok := s.Chains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.Chains[chainSelector]
+				chainView, err := chainState.GenerateView()
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				mu.Lock()
+				m[name] = chainView
+				mu.Unlock()
+			case chain_selectors.FamilySolana:
+				if _, ok := s.SolChains[chainSelector]; !ok {
+					return fmt.Errorf("chain not supported %d", chainSelector)
+				}
+				chainState := s.SolChains[chainSelector]
+				chainView, err := chainState.GenerateView(e.SolChains[chainSelector])
+				if err != nil {
+					return err
+				}
+				chainView.ChainSelector = chainSelector
+				chainView.ChainID = id
+				solanaMu.Lock()
+				sm[name] = chainView
+				solanaMu.Unlock()
+			default:
+				return fmt.Errorf("unsupported chain family %s", family)
+			}
 			return nil
 		})
 	}
-	return m, grp.Wait()
+	return m, sm, grp.Wait()
 }
 
 func (s CCIPOnChainState) GetOffRampAddressBytes(chainSelector uint64) ([]byte, error) {
@@ -764,7 +804,7 @@ func LoadOnchainState(e deployment.Environment) (CCIPOnChainState, error) {
 // LoadChainState Loads all state for a chain into state
 func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[string]deployment.TypeAndVersion) (CCIPChainState, error) {
 	var state CCIPChainState
-	mcmsWithTimelock, err := commoncs.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
+	mcmsWithTimelock, err := commonstate.MaybeLoadMCMSWithTimelockChainState(chain, addresses)
 	if err != nil {
 		return state, err
 	}
@@ -1131,7 +1171,7 @@ func LoadChainState(ctx context.Context, chain deployment.Chain, addresses map[s
 	return state, nil
 }
 
-func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *MCMSConfig) error {
+func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel uint64, mcmsCfg *proposalutils.TimelockConfig) error {
 	err := deployment.IsValidChainSelector(chainSel)
 	if err != nil {
 		return fmt.Errorf("is not valid chain selector %d: %w", chainSel, err)
@@ -1145,17 +1185,15 @@ func ValidateChain(env deployment.Environment, state CCIPOnChainState, chainSel 
 		return fmt.Errorf("%s does not exist in state", chain)
 	}
 	if mcmsCfg != nil {
-		if chainState.Timelock == nil {
-			return fmt.Errorf("missing timelock on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Schedule && chainState.ProposerMcm == nil {
-			return fmt.Errorf("missing proposerMcm on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Cancel && chainState.CancellerMcm == nil {
-			return fmt.Errorf("missing cancellerMcm on %s", chain)
-		}
-		if mcmsCfg.MCMSAction == timelock.Bypass && chainState.BypasserMcm == nil {
-			return fmt.Errorf("missing bypasserMcm on %s", chain)
+		err = mcmsCfg.Validate(chain, commonstate.MCMSWithTimelockState{
+			CancellerMcm: chainState.CancellerMcm,
+			ProposerMcm:  chainState.ProposerMcm,
+			BypasserMcm:  chainState.BypasserMcm,
+			Timelock:     chainState.Timelock,
+			CallProxy:    chainState.CallProxy,
+		})
+		if err != nil {
+			return err
 		}
 	}
 	return nil

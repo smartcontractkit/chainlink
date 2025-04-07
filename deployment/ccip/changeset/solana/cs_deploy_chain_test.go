@@ -29,8 +29,8 @@ import (
 
 // For remote fetching, we need to use the short sha
 const (
-	OldSha = "712ce04f688b"
-	NewSha = "879d53b3d4ce"
+	OldSha = "aa0756b72e7b70640a6a6235fbbd13aff407402a"
+	NewSha = "f1ced171b7538afc6c9f488803f90d10ac0f0b52"
 )
 
 func verifyProgramSizes(t *testing.T, e deployment.Environment) {
@@ -68,6 +68,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 	require.NoError(t, err)
 	feeAggregatorPrivKey, _ := solana.NewRandomPrivateKey()
 	feeAggregatorPubKey := feeAggregatorPrivKey.PublicKey()
+	mcmsConfig := proposalutils.SingleGroupTimelockConfigV2(t)
 	return []commonchangeset.ConfiguredChangeSet{
 		commonchangeset.Configure(
 			deployment.CreateLegacyChangeSet(v1_6.DeployHomeChainChangeset),
@@ -98,7 +99,7 @@ func initialDeployCS(t *testing.T, e deployment.Environment, buildConfig *ccipCh
 						EnableExecutionAfter: int64(globals.PermissionLessExecutionThreshold.Seconds()),
 					},
 				},
-				MCMSWithTimelockConfig: proposalutils.SingleGroupTimelockConfigV2(t),
+				MCMSWithTimelockConfig: &mcmsConfig,
 				BuildConfig:            buildConfig,
 			},
 		),
@@ -166,7 +167,9 @@ func TestUpgrade(t *testing.T) {
 			DestinationDir: e.SolChains[solChainSelectors[0]].ProgramsPath,
 			LocalBuild: ccipChangesetSolana.LocalBuildConfig{
 				BuildLocally:        true,
-				CleanDestinationDir: true},
+				CleanDestinationDir: true,
+				GenerateVanityKeys:  true,
+			},
 		},
 	))
 	require.NoError(t, err)
@@ -191,6 +194,7 @@ func TestUpgrade(t *testing.T) {
 			OffRamp:   true,
 		})
 	upgradeAuthority := timelockSignerPDA
+	// upgradeAuthority := e.SolChains[solChainSelectors[0]].DeployerKey.PublicKey()
 	state, err := ccipChangeset.LoadOnchainStateSolana(e)
 	require.NoError(t, err)
 	verifyProgramSizes(t, e)
@@ -224,7 +228,7 @@ func TestUpgrade(t *testing.T) {
 					NewMCMVersion:       &deployment.Version1_1_0,
 					UpgradeAuthority:    upgradeAuthority,
 					SpillAddress:        upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -263,7 +267,7 @@ func TestUpgrade(t *testing.T) {
 					NewRMNRemoteVersion:            &deployment.Version1_1_0,
 					UpgradeAuthority:               upgradeAuthority,
 					SpillAddress:                   upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -281,7 +285,7 @@ func TestUpgrade(t *testing.T) {
 					NewTimelockVersion:         &deployment.Version1_1_0,
 					UpgradeAuthority:           upgradeAuthority,
 					SpillAddress:               upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},
@@ -293,7 +297,7 @@ func TestUpgrade(t *testing.T) {
 				ChainSelector: solChainSelectors[0],
 				FeeAggregator: feeAggregatorPubKey2.String(),
 				MCMSSolana: &ccipChangesetSolana.MCMSConfigSolana{
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 					RouterOwnedByTimelock:    true,
@@ -320,7 +324,7 @@ func TestUpgrade(t *testing.T) {
 					NewOffRampVersion: &deployment.Version1_1_0,
 					UpgradeAuthority:  upgradeAuthority,
 					SpillAddress:      upgradeAuthority,
-					MCMS: &ccipChangeset.MCMSConfig{
+					MCMS: &proposalutils.TimelockConfig{
 						MinDelay: 1 * time.Second,
 					},
 				},

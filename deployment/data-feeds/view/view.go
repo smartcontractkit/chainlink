@@ -3,6 +3,7 @@ package view
 import (
 	"encoding/json"
 
+	"github.com/smartcontractkit/chainlink/deployment/common/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-feeds/view/v1_0"
 )
 
@@ -21,7 +22,8 @@ func NewChain() ChainView {
 }
 
 type DataFeedsView struct {
-	Chains map[string]ChainView `json:"chains,omitempty"`
+	Chains map[string]ChainView    `json:"chains,omitempty"`
+	Nops   map[string]view.NopView `json:"nops,omitempty"`
 }
 
 func (v DataFeedsView) MarshalJSON() ([]byte, error) {

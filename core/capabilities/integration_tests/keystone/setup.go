@@ -17,9 +17,8 @@ import (
 	commoncap "github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/datastreams"
 	v3 "github.com/smartcontractkit/chainlink-common/pkg/types/mercury/v3"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	feeds_consumer "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/integration_tests/framework"
-	feeds_consumer "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/feeds_consumer_1_0_0"
 
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 
@@ -127,12 +126,11 @@ func RawReportContext(reportCtx ocrTypes.ReportContext) []byte {
 }
 
 func newReport(t *testing.T, feedID [32]byte, price *big.Int, timestamp int64) []byte {
-	ctx := tests.Context(t)
 	v3Codec := reportcodec.NewReportCodec(feedID, logger.TestLogger(t))
-	raw, err := v3Codec.BuildReport(ctx, v3.ReportFields{
+	raw, err := v3Codec.BuildReport(t.Context(), v3.ReportFields{
 		BenchmarkPrice: price,
 
-		Timestamp: uint32(timestamp),
+		Timestamp: uint32(timestamp), //nolint:gosec // G115
 		Bid:       big.NewInt(0),
 		Ask:       big.NewInt(0),
 		LinkFee:   big.NewInt(0),

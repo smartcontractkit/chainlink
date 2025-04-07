@@ -37,15 +37,15 @@ var _ connector.GatewayConnectorHandler = &OutgoingConnectorHandler{}
 type OutgoingConnectorHandler struct {
 	services.StateMachine
 	gc                  connector.GatewayConnector
-	gatewaySelector     *RoundRobinSelector
 	method              string
 	lggr                logger.Logger
 	incomingRateLimiter *common.RateLimiter
 	outgoingRateLimiter *common.RateLimiter
 	responses           *responses
+	selectorOpts        []func(*RoundRobinSelector)
 }
 
-func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger) (*OutgoingConnectorHandler, error) {
+func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceConfig, method string, lgger logger.Logger, opts ...func(*RoundRobinSelector)) (*OutgoingConnectorHandler, error) {
 	outgoingRLCfg := outgoingRateLimiterConfigDefaults(config.OutgoingRateLimiter)
 	outgoingRateLimiter, err := common.NewRateLimiter(outgoingRLCfg)
 	if err != nil {
@@ -63,12 +63,12 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 
 	return &OutgoingConnectorHandler{
 		gc:                  gc,
-		gatewaySelector:     NewRoundRobinSelector(gc.GatewayIDs()),
 		method:              method,
 		responses:           newResponses(),
 		outgoingRateLimiter: outgoingRateLimiter,
 		incomingRateLimiter: incomingRateLimiter,
 		lggr:                lgger,
+		selectorOpts:        opts,
 	}, nil
 }
 
@@ -76,7 +76,6 @@ func NewOutgoingConnectorHandler(gc connector.GatewayConnector, config ServiceCo
 // TODO: handle retries
 func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, messageID string, req capabilities.Request) (*api.Message, error) {
 	lggr := logger.With(c.lggr, "messageID", messageID, "workflowID", req.WorkflowID)
-
 	workflowAllow, globalAllow := c.outgoingRateLimiter.AllowVerbose(req.WorkflowID)
 	if !workflowAllow {
 		return nil, errors.New(errorOutgoingRatelimitWorkflow)
@@ -116,17 +115,12 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 		Payload:   payload,
 	}
 
-	selectedGateway, err := c.gatewaySelector.NextGateway()
+	selectedGateway, err := c.awaitConnection(ctx, awaitContext{
+		messageID:  messageID,
+		workflowID: req.WorkflowID,
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to select gateway: %w", err)
-	}
-
-	lggr = logger.With(lggr, "gatewayID", selectedGateway)
-
-	lggr.Infow("selected gateway, awaiting connection")
-
-	if err := c.gc.AwaitConnection(ctx, selectedGateway); err != nil {
-		return nil, errors.Wrap(err, "await connection canceled")
+		return nil, err
 	}
 
 	if err := c.gc.SignAndSendToGateway(ctx, selectedGateway, body); err != nil {
@@ -151,6 +145,91 @@ func (c *OutgoingConnectorHandler) HandleSingleNodeRequest(ctx context.Context, 
 	case <-ctx.Done():
 		return nil, ctx.Err()
 	}
+}
+
+// awaitContext are context values useful for tracing the logs of awaiting connections.
+type awaitContext struct {
+	gateway    string
+	workflowID string
+	messageID  string
+}
+
+// awaitConnection attempts to establish a connection to an available gateway.  It iterates through available gateways
+// using a round robin selector, connecting to the first available.  The method respects the provided context, allowing for
+// cancellation or timeout.
+func (c *OutgoingConnectorHandler) awaitConnection(ctx context.Context, md awaitContext) (string, error) {
+	lggr := logger.With(c.lggr, "messageID", md.messageID, "workflowID", md.workflowID)
+	selector := NewRoundRobinSelector(c.gc.GatewayIDs(), c.selectorOpts...)
+	attempts := make(map[string]int)
+	backoff := 10 * time.Millisecond
+
+	for {
+		select {
+		case <-ctx.Done():
+			return "", ctx.Err()
+		default:
+			gateway, err := selector.NextGateway()
+			if err != nil {
+				return "", fmt.Errorf("failed to select gateway: %w", err)
+			}
+
+			md.gateway = gateway
+
+			if attempts[gateway] > 0 {
+				if allGatewaysAttempted(attempts) {
+					lggr.Warnw("all available gateway nodes attempted without connection, backing off", "waitTime", backoff)
+
+					select {
+					case <-ctx.Done():
+						return "", ctx.Err()
+					case <-time.After(backoff):
+						// backoff completed, update state and continue with next iteration
+						attempts = make(map[string]int)
+						backoff *= 2
+					}
+				}
+			}
+
+			attempts[gateway]++
+
+			lggr.Infow("selected gateway, awaiting connection", "selectedGateway", gateway)
+
+			if err := c.attemptGatewayConnection(ctx, md); err != nil {
+				lggr.Warnw("failed to await connection to gateway node, retrying", "selectedGateway", gateway, "error", err)
+				continue
+			}
+
+			lggr.Debugw("connected successfully", "selectedGateway", gateway)
+			return gateway, nil
+		}
+	}
+}
+
+// allGatewaysAttempted checks if all available gateways have been attempted.
+func allGatewaysAttempted(attempts map[string]int) bool {
+	for _, count := range attempts {
+		if count == 0 {
+			return false
+		}
+	}
+	return true
+}
+
+// attemptGatewayConnection waits to connect to a gateway with a new child context
+func (c *OutgoingConnectorHandler) attemptGatewayConnection(ctx context.Context, md awaitContext) error {
+	lggr := logger.With(c.lggr, "messageID", md.messageID, "workflowID", md.workflowID, "selectedGateway", md.gateway)
+	timeout := 1_000 * time.Millisecond
+
+	lggr.Debugw("awaiting connection", "timeout", timeout)
+
+	// create a new child context to wait on gateway connection
+	ctxWithTimeout, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	if err := c.gc.AwaitConnection(ctxWithTimeout, md.gateway); err != nil {
+		return fmt.Errorf("gateway connection failed: %w", err)
+	}
+	return nil
 }
 
 // HandleGatewayMessage processes incoming messages from the Gateway,

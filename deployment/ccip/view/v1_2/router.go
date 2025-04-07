@@ -5,13 +5,13 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink/deployment/common/view/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
 )
 
 type RouterView struct {
 	types.ContractMetaData
-	IsTestRouter  bool                      `json:"isTestRouter,omitempty"`
+	IsTestRouter  bool                      `json:"isTestRouter"`
 	WrappedNative common.Address            `json:"wrappedNative,omitempty"`
 	ARMProxy      common.Address            `json:"armProxy,omitempty"`
 	OnRamps       map[uint64]common.Address `json:"onRamps,omitempty"`  // Map of DestinationChainSelectors to OnRamp Addresses

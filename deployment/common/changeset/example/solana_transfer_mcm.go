@@ -3,7 +3,6 @@ package example
 import (
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/gagliardetto/solana-go"
 	"github.com/gagliardetto/solana-go/rpc"
@@ -24,7 +23,7 @@ type TransferData struct {
 	Amount uint64
 }
 type TransferFromTimelockConfig struct {
-	TimelockDelay   time.Duration
+	TimelockCfg     proposalutils.TimelockConfig
 	AmountsPerChain map[uint64]TransferData
 }
 
@@ -125,7 +124,7 @@ func (f TransferFromTimelock) Apply(e deployment.Environment, config TransferFro
 		inspectors,
 		batches,
 		"transfer funds from timelock singer",
-		config.TimelockDelay,
+		config.TimelockCfg,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, fmt.Errorf("failed to build proposal: %w", err)

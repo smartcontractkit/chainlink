@@ -45,9 +45,9 @@ func (j JobClient) ListKeypairs(ctx context.Context, in *csav1.ListKeypairsReque
 	panic("implement me")
 }
 
-func (j JobClient) ReplayLogs(selectorToBlock map[uint64]uint64) error {
+func (j JobClient) ReplayLogs(ctx context.Context, selectorToBlock map[uint64]uint64) error {
 	for _, node := range j.nodeStore.list() {
-		if err := node.ReplayLogs(selectorToBlock); err != nil {
+		if err := node.ReplayLogs(ctx, selectorToBlock); err != nil {
 			return err
 		}
 	}

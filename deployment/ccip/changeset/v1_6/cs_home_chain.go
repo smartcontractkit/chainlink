@@ -22,11 +22,11 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/ccip_home"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	capabilities_registry "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/internal"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/ccip_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	capabilities_registry "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	p2ptypes "github.com/smartcontractkit/chainlink/v2/core/services/p2p/types"
 )
 
@@ -457,7 +457,7 @@ func addNodes(
 type RemoveDONsConfig struct {
 	HomeChainSel uint64
 	DonIDs       []uint32
-	MCMS         *changeset.MCMSConfig
+	MCMS         *proposalutils.TimelockConfig
 }
 
 func (c RemoveDONsConfig) Validate(homeChain changeset.CCIPChainState) error {
@@ -531,7 +531,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove DONs",
-		cfg.MCMS.MinDelay,
+		*cfg.MCMS,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err
@@ -544,7 +544,7 @@ func RemoveDONs(e deployment.Environment, cfg RemoveDONsConfig) (deployment.Chan
 type RemoveNodesConfig struct {
 	HomeChainSel   uint64
 	P2PIDsToRemove [][32]byte
-	MCMSCfg        *changeset.MCMSConfig
+	MCMSCfg        *proposalutils.TimelockConfig
 }
 
 func removeNodesPrecondition(env deployment.Environment, c RemoveNodesConfig) error {
@@ -658,7 +658,7 @@ func removeNodesLogic(env deployment.Environment, c RemoveNodesConfig) (deployme
 		inspectors,
 		[]mcmstypes.BatchOperation{batchOperation},
 		"Remove Nodes from CapabilitiesRegistry",
-		c.MCMSCfg.MinDelay,
+		*c.MCMSCfg,
 	)
 	if err != nil {
 		return deployment.ChangesetOutput{}, err

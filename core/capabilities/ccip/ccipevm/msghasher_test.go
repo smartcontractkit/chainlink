@@ -22,17 +22,15 @@ import (
 	agbinary "github.com/gagliardetto/binary"
 	solanago "github.com/gagliardetto/solana-go"
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
-	"github.com/stretchr/testify/require"
-
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
 	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
 	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
+	"github.com/stretchr/testify/require"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
@@ -262,12 +260,12 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		)
 
 		onchainHash, err := msghasher.Hash(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
 		require.NoError(t, err)
 
 		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
-		msgH, err := h.Hash(tests.Context(t), msg)
+		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 		require.Equal(t, expectedMsgHash, msgH.String())
 		require.Equal(t, onchainHash, [32]byte(msgH), "my hash and onchain hash should match")
@@ -339,11 +337,11 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		)
 
 		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
-		msgH, err := h.Hash(tests.Context(t), msg)
+		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 
 		msgHashOnchain, err := msghasher.Hash(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, any2EVMMessage, onRampAddress)
 		require.NoError(t, err)
 
@@ -433,11 +431,11 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 		//)
 
 		h := NewMessageHasherV1(logger.Test(t), extraDataCodec)
-		msgH, err := h.Hash(tests.Context(t), msg)
+		msgH, err := h.Hash(t.Context(), msg)
 		require.NoError(t, err)
 
 		msgHashOnchain, err := msghasher.Hash(&bind.CallOpts{
-			Context: tests.Context(t),
+			Context: t.Context(),
 		}, any2EVMMessage, onRampAddress)
 		require.NoError(t, err)
 
@@ -463,11 +461,11 @@ func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
 			any2EVMMessage := ccipMsgToAny2EVMMessage(t, msg, msg.Header.SourceChainSelector)
 
 			onchainHash, err := msghasher.Hash(&bind.CallOpts{
-				Context: tests.Context(t),
+				Context: t.Context(),
 			}, any2EVMMessage, common.LeftPadBytes(msg.Header.OnRamp, 32))
 			require.NoError(t, err)
 
-			myHash, err := msgHasher.Hash(tests.Context(t), msg)
+			myHash, err := msgHasher.Hash(t.Context(), msg)
 			require.NoError(t, err)
 
 			t.Logf("onchain hash: %s, my hash: %s", hexutil.Encode(onchainHash[:]), myHash.String())

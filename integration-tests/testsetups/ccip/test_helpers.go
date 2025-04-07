@@ -91,7 +91,7 @@ func (l *DeployedLocalDevEnvironment) StartChains(t *testing.T) {
 	require.NotEmpty(t, feedSel, "feedSel should not be empty")
 	chains, err := devenv.NewChains(lggr, envConfig.Chains)
 	require.NoError(t, err)
-	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, chains)
+	replayBlocks, err := testhelpers.LatestBlocksByChain(ctx, l.DeployedEnv.Env)
 	require.NoError(t, err)
 	l.DeployedEnv.Users = users
 	l.DeployedEnv.Env.Chains = chains
@@ -140,7 +140,7 @@ func (l *DeployedLocalDevEnvironment) DeleteJobs(ctx context.Context, jobIDs map
 }
 
 func (l *DeployedLocalDevEnvironment) MockUSDCAttestationServer(t *testing.T, isUSDCAttestationMissing bool) string {
-	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, nil, isUSDCAttestationMissing)
+	err := ccipactions.SetMockServerWithUSDCAttestation(l.testEnv.MockAdapter, isUSDCAttestationMissing)
 	require.NoError(t, err)
 	return l.testEnv.MockAdapter.InternalEndpoint
 }
@@ -252,6 +252,7 @@ func MustCCIPNameToRMNName(a string) string {
 	m := map[string]string{
 		chainsel.GETH_TESTNET.Name:  "DevnetAlpha",
 		chainsel.GETH_DEVNET_2.Name: "DevnetBeta",
+		chainsel.GETH_DEVNET_3.Name: "DevnetGamma",
 		// TODO: Add more as needed.
 	}
 	v, ok := m[a]

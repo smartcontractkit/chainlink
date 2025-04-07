@@ -22,8 +22,7 @@ import (
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/environment"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/chainlink"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/foundry"
-	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver"
-	mockservercfg "github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/mockserver-cfg"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/parrot"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/k8s/pkg/helm/reorg"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/networks"
 	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/conversions"
@@ -548,9 +547,7 @@ func DeployEnvironments(
 	}
 	if pointer.GetBool(testInputs.TestGroupInput.USDCMockDeployment) ||
 		pointer.GetBool(testInputs.TestGroupInput.TokenConfig.WithPipeline) {
-		testEnvironment.
-			AddHelm(mockservercfg.New(nil)).
-			AddHelm(mockserver.New(nil))
+		testEnvironment.AddHelm(parrot.New(nil))
 	}
 	err := testEnvironment.Run()
 	require.NoError(t, err)

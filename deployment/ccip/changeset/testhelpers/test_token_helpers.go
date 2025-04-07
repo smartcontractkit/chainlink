@@ -3,6 +3,7 @@ package testhelpers
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/Masterminds/semver/v3"
 	"github.com/ethereum/go-ethereum/common"
@@ -11,6 +12,8 @@ import (
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/v1_5_1"
@@ -19,8 +22,6 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
 	"github.com/smartcontractkit/chainlink/deployment/environment/memory"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
 )
 
 const (
@@ -129,10 +130,12 @@ func SetupTwoChainEnvironmentWithTokens(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)
@@ -207,10 +210,12 @@ func DeployTestTokenPools(
 		// Transfer ownership of token admin registry to the Timelock
 		e, err = commoncs.Apply(t, e, timelockContracts,
 			commoncs.Configure(
-				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelock),
+				deployment.CreateLegacyChangeSet(commoncs.TransferToMCMSWithTimelockV2),
 				commoncs.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: timelockOwnedContractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)

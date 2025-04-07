@@ -30,12 +30,17 @@ type engineMetrics struct {
 	workflowExecutionLatencyGauge            metric.Int64Gauge // ms
 	workflowStepErrorCounter                 metric.Int64Counter
 	workflowInitializationCounter            metric.Int64Counter
-	engineHeartbeatCounter                   metric.Int64Counter
-	workflowCompletedDurationSeconds         metric.Int64Histogram
-	workflowEarlyExitDurationSeconds         metric.Int64Histogram
-	workflowErrorDurationSeconds             metric.Int64Histogram
-	workflowTimeoutDurationSeconds           metric.Int64Histogram
-	workflowStepDurationSeconds              metric.Int64Histogram
+
+	// Deprecated: use the gauge instead
+	engineHeartbeatCounter metric.Int64Counter
+	engineHeartbeatGauge   metric.Int64Gauge
+
+	workflowCompletedDurationSeconds metric.Int64Histogram
+	workflowEarlyExitDurationSeconds metric.Int64Histogram
+	workflowErrorDurationSeconds     metric.Int64Histogram
+	workflowTimeoutDurationSeconds   metric.Int64Histogram
+	workflowStepDurationSeconds      metric.Int64Histogram
+	workflowMissingMeteringReport    metric.Int64Counter
 }
 
 func initMonitoringResources() (em *engineMetrics, err error) {
@@ -113,9 +118,15 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		return nil, fmt.Errorf("failed to register workflow step error counter: %w", err)
 	}
 
+	// Deprecated: use the gauge below
 	em.engineHeartbeatCounter, err = beholder.GetMeter().Int64Counter("platform_engine_heartbeat")
 	if err != nil {
 		return nil, fmt.Errorf("failed to register engine heartbeat counter: %w", err)
+	}
+
+	em.engineHeartbeatGauge, err = beholder.GetMeter().Int64Gauge("platform_engine_workflow_heartbeat")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register engine heartbeat gauge: %w", err)
 	}
 
 	em.workflowCompletedDurationSeconds, err = beholder.GetMeter().Int64Histogram(
@@ -156,6 +167,11 @@ func initMonitoringResources() (em *engineMetrics, err error) {
 		metric.WithUnit("seconds"))
 	if err != nil {
 		return nil, fmt.Errorf("failed to register step execution time histogram: %w", err)
+	}
+
+	em.workflowMissingMeteringReport, err = beholder.GetMeter().Int64Counter("platform_engine_workflow_missing_metering_report")
+	if err != nil {
+		return nil, fmt.Errorf("failed to register workflow metering missing gauge: %w", err)
 	}
 
 	return em, nil
@@ -259,6 +275,11 @@ func (c workflowsMetricLabeler) incrementEngineHeartbeatCounter(ctx context.Cont
 	c.em.engineHeartbeatCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }
 
+func (c workflowsMetricLabeler) engineHeartbeatGauge(ctx context.Context, val int64) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.engineHeartbeatGauge.Record(ctx, val, metric.WithAttributes(otelLabels...))
+}
+
 func (c workflowsMetricLabeler) incrementCapabilityFailureCounter(ctx context.Context) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.capabilityFailureCounter.Add(ctx, 1, metric.WithAttributes(otelLabels...))
@@ -302,4 +323,9 @@ func (c workflowsMetricLabeler) updateWorkflowTimeoutDurationHistogram(ctx conte
 func (c workflowsMetricLabeler) updateWorkflowStepDurationHistogram(ctx context.Context, duration int64) {
 	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
 	c.em.workflowStepDurationSeconds.Record(ctx, duration, metric.WithAttributes(otelLabels...))
+}
+
+func (c workflowsMetricLabeler) incrementWorkflowMissingMeteringReport(ctx context.Context) {
+	otelLabels := monutils.KvMapToOtelAttributes(c.Labels)
+	c.em.workflowMissingMeteringReport.Add(ctx, 1, metric.WithAttributes(otelLabels...))
 }

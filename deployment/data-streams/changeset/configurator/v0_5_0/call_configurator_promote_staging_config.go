@@ -14,18 +14,18 @@ import (
 	"github.com/smartcontractkit/mcms/sdk/evm"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 )
 
 var PromoteStagingConfigChangeset = deployment.CreateChangeSet(promoteStagingConfigLogic, promoteStagingConfigPrecondition)
 
 type PromoteStagingConfigConfig struct {
 	PromotionsByChain map[uint64][]PromoteStagingConfig
-	MCMSConfig        *changeset.MCMSConfig
+	MCMSConfig        *types.MCMSConfig
 }
 
 type PromoteStagingConfig struct {
@@ -122,7 +122,10 @@ func promoteStagingConfigLogic(e deployment.Environment, cfg PromoteStagingConfi
 			inspectorPerChain,
 			allBatches,
 			"PromoteStagingConfig proposal",
-			cfg.MCMSConfig.MinDelay,
+			proposalutils.TimelockConfig{
+				MinDelay:     cfg.MCMSConfig.MinDelay,
+				OverrideRoot: cfg.MCMSConfig.OverrideRoot,
+			},
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err
@@ -142,7 +145,7 @@ func promoteOrBuildTx(
 	promotion PromoteStagingConfig,
 	opts *bind.TransactOpts,
 	chain deployment.Chain,
-	mcmsConfig *changeset.MCMSConfig,
+	mcmsConfig *types.MCMSConfig,
 ) (*ethTypes.Transaction, error) {
 	tx, err := configuratorContract.PromoteStagingConfig(opts, promotion.ConfigID, promotion.IsGreenProduction)
 	if err != nil {
@@ -185,7 +188,7 @@ func maybeLoadConfigurator(e deployment.Environment, chainSel uint64, contractAd
 	return &State{Configurator: conf}, nil
 }
 
-func getTransactOptsPromoteStagingConfig(e deployment.Environment, chainSel uint64, mcmsConfig *changeset.MCMSConfig) *bind.TransactOpts {
+func getTransactOptsPromoteStagingConfig(e deployment.Environment, chainSel uint64, mcmsConfig *types.MCMSConfig) *bind.TransactOpts {
 	if mcmsConfig == nil {
 		return e.Chains[chainSel].DeployerKey
 	}

@@ -3,10 +3,13 @@ package ccip
 import (
 	"math/big"
 	"testing"
+	"time"
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/stretchr/testify/require"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_home"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/ccip/changeset/testhelpers"
@@ -14,8 +17,6 @@ import (
 	commonchangeset "github.com/smartcontractkit/chainlink/deployment/common/changeset"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	commontypes "github.com/smartcontractkit/chainlink/deployment/common/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_home"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/rmn_remote"
 )
 
 var (
@@ -198,7 +199,9 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 				deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 				commonchangeset.TransferToMCMSWithTimelockConfig{
 					ContractsByChain: contractsByChain,
-					MinDelay:         0,
+					MCMSConfig: proposalutils.TimelockConfig{
+						MinDelay: 0 * time.Second,
+					},
 				},
 			),
 		)
@@ -212,10 +215,10 @@ func updateRMNConfig(t *testing.T, tc updateRMNConfigTestCase) {
 	previousActiveDigest, err := rmnHome.GetActiveDigest(nil)
 	require.NoError(t, err)
 
-	var mcmsConfig *changeset.MCMSConfig
+	var mcmsConfig *proposalutils.TimelockConfig
 
 	if tc.useMCMS {
-		mcmsConfig = &changeset.MCMSConfig{
+		mcmsConfig = &proposalutils.TimelockConfig{
 			MinDelay: 0,
 		}
 	}
@@ -391,7 +394,9 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(commonchangeset.TransferToMCMSWithTimelock),
 			commonchangeset.TransferToMCMSWithTimelockConfig{
 				ContractsByChain: contractsByChain,
-				MinDelay:         0,
+				MCMSConfig: proposalutils.TimelockConfig{
+					MinDelay: 0 * time.Second,
+				},
 			},
 		),
 		commonchangeset.Configure(
@@ -417,7 +422,7 @@ func TestSetRMNRemoteOnRMNProxy(t *testing.T) {
 			deployment.CreateLegacyChangeSet(v1_6.SetRMNRemoteOnRMNProxyChangeset),
 			v1_6.SetRMNRemoteOnRMNProxyConfig{
 				ChainSelectors: allChains,
-				MCMSConfig: &changeset.MCMSConfig{
+				MCMSConfig: &proposalutils.TimelockConfig{
 					MinDelay: 0,
 				},
 			},

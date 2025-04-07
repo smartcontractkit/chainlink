@@ -9,10 +9,10 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	ethTypes "github.com/ethereum/go-ethereum/core/types"
 
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
 	"github.com/smartcontractkit/chainlink/deployment"
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/changeset/types"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
 
 	mcmslib "github.com/smartcontractkit/mcms"
 	mcmssdk "github.com/smartcontractkit/mcms/sdk"
@@ -128,7 +128,10 @@ func callSetConfigCommon[T Config](
 			inspectorPerChain,
 			allBatches,
 			proposalName,
-			mcmsConfig.MinDelay,
+			proposalutils.TimelockConfig{
+				MinDelay:     mcmsConfig.MinDelay,
+				OverrideRoot: mcmsConfig.OverrideRoot,
+			},
 		)
 		if err != nil {
 			return deployment.ChangesetOutput{}, err

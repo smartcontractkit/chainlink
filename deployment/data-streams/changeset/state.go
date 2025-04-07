@@ -16,14 +16,14 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view"
 	"github.com/smartcontractkit/chainlink/deployment/data-streams/view/v0_5"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/channel_config_store"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/configurator"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/fee_manager"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/channel_config_store"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/configurator"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/fee_manager"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/generated/link_token_interface"
-	rewardManager "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
-	verifier "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/link_token_interface"
+	rewardManager "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/reward_manager_v0_5_0"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_proxy_v0_5_0"
+	verifier "github.com/smartcontractkit/chainlink-evm/gethwrappers/llo-feeds/generated/verifier_v0_5_0"
 )
 
 type DataStreamsChainState struct {
@@ -80,8 +80,12 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 	cc.Verifiers = make(map[common.Address]*verifier.Verifier)
 	cc.VerifierProxys = make(map[common.Address]*verifier_proxy_v0_5_0.VerifierProxy)
 
-	for address, tvStr := range addresses {
-		switch tvStr.String() {
+	for address, tv := range addresses {
+		if belongsToMCMS(address, mcmsWithTimelock) {
+			continue
+		}
+
+		switch tv.String() {
 		case deployment.NewTypeAndVersion(types.ChannelConfigStore, deployment.Version1_0_0).String():
 			ccs, err := channel_config_store.NewChannelConfigStore(common.HexToAddress(address), chain.Client)
 			if err != nil {
@@ -132,7 +136,7 @@ func LoadChainState(logger logger.Logger, chain deployment.Chain, addresses map[
 			cc.VerifierProxys[common.HexToAddress(address)] = css
 
 		default:
-			return &cc, fmt.Errorf("unknown contract %s", tvStr)
+			return &cc, fmt.Errorf("unknown contract %s", tv)
 		}
 	}
 	return &cc, nil
@@ -173,5 +177,36 @@ func (c DataStreamsChainState) GenerateView() (view.ChainView, error) {
 			chainView.Configurator[configurator.Address().Hex()] = configuratorView
 		}
 	}
+	if c.RewardManagers != nil {
+		for _, rm := range c.RewardManagers {
+			rmView, err := v0_5.GenerateRewardManagerView(rm)
+			if err != nil {
+				return chainView, errors.Wrapf(err, "failed to generate RewardManager view %s", rm.Address().String())
+			}
+			chainView.RewardManager[rm.Address().Hex()] = rmView
+		}
+	}
 	return chainView, nil
+}
+
+// Helper function to determine if an address belongs to the MCMS contracts, and should be loaded in a separated way
+func belongsToMCMS(addr string, mcmsWithTimelock *commonchangeset.MCMSWithTimelockState) bool {
+	if mcmsWithTimelock == nil || mcmsWithTimelock.MCMSWithTimelockContracts == nil {
+		return false
+	}
+	c := mcmsWithTimelock.MCMSWithTimelockContracts
+
+	switch {
+	case c.Timelock != nil && c.Timelock.Address().String() == addr:
+		return true
+	case c.CallProxy != nil && c.CallProxy.Address().String() == addr:
+		return true
+	case c.ProposerMcm != nil && c.ProposerMcm.Address().String() == addr:
+		return true
+	case c.CancellerMcm != nil && c.CancellerMcm.Address().String() == addr:
+		return true
+	case c.BypasserMcm != nil && c.BypasserMcm.Address().String() == addr:
+		return true
+	}
+	return false
 }

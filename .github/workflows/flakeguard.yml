@@ -136,7 +136,7 @@ jobs:
       - name: Install flakeguard
         if: ${{ inputs.runAllTests == false }}
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ba69ae1d8ddee8b9bbc90f6e042c5d1ce6004697 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
 
       - name: Find new or updated test packages
         if: ${{ inputs.runAllTests == false && env.RUN_CUSTOM_TEST_PACKAGES == '' }}
@@ -281,14 +281,6 @@ jobs:
           persist-credentials: false
           ref: ${{ env.GIT_HEAD_REF }}
 
-      - name: Setup NodeJS
-        uses: ./.github/actions/setup-nodejs
-        with:
-          prod: "true"
-
-      - name: Install Foundry
-        uses: ./.github/actions/install-solidity-foundry
-
       - name: Setup Go
         uses: ./.github/actions/setup-go
         with:
@@ -331,7 +323,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ba69ae1d8ddee8b9bbc90f6e042c5d1ce6004697 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
 
       - name: Run tests with flakeguard
         shell: bash
@@ -377,6 +369,24 @@ jobs:
           name: test-result-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
           path: test-result.json
           retention-days: 1
+
+      - name: Upload raw test logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
+          path: flakeguard_raw_output
+          retention-days: 7
+          compression-level: 9
+    
+      - name: Upload raw test logs as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: raw-transformed-output-${{ needs.get-tests.outputs.workflow_id }}-${{ steps.gen_id.outputs.id }}
+          path: flakeguard_raw_output_transformed
+          retention-days: 7
+          compression-level: 9
 
   report:
     needs: [get-tests, run-tests]
@@ -425,7 +435,7 @@ jobs:
 
       - name: Install flakeguard
         shell: bash
-        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@ba69ae1d8ddee8b9bbc90f6e042c5d1ce6004697 # flakguard@0.1.0
+        run: go install github.com/smartcontractkit/chainlink-testing-framework/tools/flakeguard@7f8fa09251be87f51357ffc517fd93cd408f5723 # flakguard@0.1.0
 
       - name: Aggregate Flakeguard Results
         id: results
@@ -469,7 +479,9 @@ jobs:
 
           # Read the summary from the generated report
           summary=$(jq -c '.summary_data' ./flakeguard-report/all-test-report.json)
+          unable_to_attribute_test=$(jq 'any(.results.[]; .test_name | startswith("UnableToAttribute"))')
           echo "summary=$summary" >> $GITHUB_OUTPUT
+          echo "unable_to_attribute_test=$unable_to_attribute_test" >> $GITHUB_OUTPUT
 
       - name: Upload All Test Report as Artifact
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).total_runs > 0 }}
@@ -494,7 +506,7 @@ jobs:
           path: ./flakeguard-report/failed-test-report-with-logs.json
           name: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
           retention-days: 90
-
+      
       - name: Get GitHub Failed Test Report Artifact Link
         id: get-failed-logs-url
         if: ${{ (success() || failure()) && fromJSON(steps.results.outputs.summary).failed_runs > 0 }}
@@ -667,45 +679,46 @@ jobs:
               ]
             }
 
-      - name: Send general Slack message
-        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
-        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
-        id: slack
-        env:
-          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
-        with:
-          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
-          payload: |
-            {
-              "attachments": [
-                {
-                  "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
-                  "blocks": [
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
-                      }
-                    },
-                    {
-                      "type": "section",
-                      "text": {
-                        "type": "mrkdwn",
-                        "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
-                      }
-                    }
-                  ]
-                }
-              ]
-            }
+      # This has mostly been noise. We can re-enable it if we find it necessary
+      # - name: Send general Slack message
+      #   uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+      #   if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && fromJSON(steps.results.outputs.summary).flaky_tests == 0 && fromJSON(steps.results.outputs.summary).total_tests > 0 }}
+      #   id: slack
+      #   env:
+      #     SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+      #   with:
+      #     channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+      #     payload: |
+      #       {
+      #         "attachments": [
+      #           {
+      #             "color": "${{ contains(join(needs.*.result, ','), 'failure') && '#C62828' || contains(join(needs.*.result, ','), 'cancelled') && '#FFA000' || '2E7D32' }}",
+      #             "blocks": [
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "Flaky Test Detector for `${{ steps.set_project_path_pretty.outputs.path }}` project - ${{ contains(join(needs.*.result, ','), 'failure') && 'Failed :x:' || contains(join(needs.*.result, ','), 'cancelled') && 'Was cancelled :warning:' || 'Passed :white_check_mark:' }}"
+      #                 }
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "${{ inputs.runAllTests == true && format('Ran all tests for `{0}` branch.', env.GIT_HEAD_REF) || format('Ran changed tests between `{0}` and `{1}` (`{2}`).', env.GIT_BASE_REF, needs.get-tests.outputs.git_head_short_sha, env.GIT_HEAD_REF) }}"
+      #                 }
+      #               },
+      #               {
+      #                 "type": "section",
+      #                 "text": {
+      #                   "type": "mrkdwn",
+      #                   "text": "${{ inputs.runAllTests == true && format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details>', github.server_url, github.repository, github.run_id) || format('<{0}/{1}/actions/runs/{2}|View Flaky Detector Details> | <{3}/compare/{4}...{5}#files_bucket|Compare Changes>{6}', github.server_url, github.repository, github.run_id, inputs.repoUrl, inputs.baseRef, needs.get-tests.outputs.git_head_sha, github.event_name == 'pull_request' && format(' | <{0}|View PR>', github.event.pull_request.html_url) || '') }}"
+      #                 }
+      #               }
+      #             ]
+      #           }
+      #         ]
+      #       }
 
       - name: Send Slack message for Flakeguard Errors
         if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && (steps.check-errors.conclusion == 'failure' || steps.results.conclusion == 'failure' || steps.generate-report.conclusion == 'failure') }}
@@ -739,6 +752,38 @@ jobs:
               ]
             }
 
+      - name: Send Slack message for UnableToAttribute tests
+        if: ${{ (success() || failure()) && inputs.slackNotificationAfterTestsChannelId != '' && steps.results.outputs.summary == 'true' }}
+        uses: slackapi/slack-github-action@6c661ce58804a1a20f6dc5fbee7f0381b469e001 # v1.25.0
+        env:
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+        with:
+          channel-id: ${{ inputs.slackNotificationAfterTestsChannelId }}
+          payload: |
+            {
+              "attachments": [
+                {
+                  "color": "#C62828",
+                  "blocks": [
+                    {
+                      "type": "header",
+                      "text": {
+                        "type": "plain_text",
+                        "text": "Flakeguard Unable to Attribute a Test Due to Panic or Race :warning:"
+                      }
+                    },
+                    {
+                      "type": "section",
+                      "text": {
+                        "type": "mrkdwn",
+                        "text": "<@U01Q4N37KFG> <@U04DYU1KLGJ> ${{ format('<{0}/{1}/actions/runs/{2}|See details>', github.server_url, github.repository, github.run_id) }} and add to panic detection scenarios."
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+
   llm-analysis:
     name: LLM Analysis
     runs-on: ubuntu-latest
@@ -748,15 +793,15 @@ jobs:
       - name: Download all test result artifacts
         uses: actions/download-artifact@v4
         with:
-          path: context/results.json
-          pattern: failed-test-results-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
+          path: context
+          pattern: failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json
       - name: Analyze
-        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.1.0
+        uses: smartcontractkit/.github/actions/flakeguard-ai-analysis@flakeguard-ai-analysis/1.2.0
         with:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
-          failed_test_results: "context/results.json"
+          failed_test_results: "context/failed-test-report-with-logs-${{ needs.get-tests.outputs.workflow_id }}.json"
       - name: Upload Analysis
         uses: actions/upload-artifact@v4
         with:
-          name: llm-analysis.jsonl
+          name: llm-analysis-${{ needs.get-tests.outputs.workflow_id }}.jsonl
           path: ${{ github.workspace }}/analysis.jsonl

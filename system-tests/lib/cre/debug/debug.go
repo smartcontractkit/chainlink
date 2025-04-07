@@ -81,7 +81,7 @@ func PrintTestDebug(testName string, l zerolog.Logger, input types.DebugInput) {
 			l.Info().Msg("✅ Reports were sent")
 
 			// debug report transmissions
-			ReportTransmissions(logFiles, l, input.BlockchainOutput.Nodes[0].HostWSUrl)
+			ReportTransmissions(logFiles, l, input.BlockchainOutput.Nodes[0].ExternalWSUrl)
 		}
 
 		// Add support for new capabilities here as needed, if there is some specific debug information to be printed

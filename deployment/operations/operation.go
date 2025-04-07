@@ -2,6 +2,7 @@ package operations
 
 import (
 	"context"
+	"sync"
 
 	"github.com/Masterminds/semver/v3"
 
@@ -14,13 +15,18 @@ import (
 type Bundle struct {
 	Logger     logger.Logger
 	GetContext func() context.Context
+	reporter   Reporter
+	// internal use only, for storing the hash of the report to avoid repeat sha256 computation.
+	reportHashCache *sync.Map
 }
 
 // NewBundle creates and returns a new Bundle.
-func NewBundle(getContext func() context.Context, logger logger.Logger) Bundle {
+func NewBundle(getContext func() context.Context, logger logger.Logger, reporter Reporter) Bundle {
 	return Bundle{
-		Logger:     logger,
-		GetContext: getContext,
+		Logger:          logger,
+		GetContext:      getContext,
+		reporter:        reporter,
+		reportHashCache: &sync.Map{},
 	}
 }
 
@@ -32,9 +38,9 @@ type OperationHandler[IN, OUT, DEP any] func(e Bundle, deps DEP, input IN) (outp
 // This definition and OperationHandler together form the composite keys for an Operation.
 // 2 Operations are considered the same if they have the Definition and OperationHandler.
 type Definition struct {
-	ID          string
-	Version     *semver.Version
-	Description string
+	ID          string          `json:"id"`
+	Version     *semver.Version `json:"version"`
+	Description string          `json:"description"`
 }
 
 // Operation is the low level building blocks of the Operations API.

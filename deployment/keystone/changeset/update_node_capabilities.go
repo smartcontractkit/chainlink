@@ -14,7 +14,7 @@ import (
 	"github.com/smartcontractkit/chainlink/deployment/common/proposalutils"
 	"github.com/smartcontractkit/chainlink/deployment/keystone/changeset/internal"
 
-	kcr "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
+	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/p2pkey"
 )
 
@@ -80,12 +80,12 @@ func (req *MutateNodeCapabilitiesRequest) UseMCMS() bool {
 	return req.MCMSConfig != nil
 }
 
-func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSet, error) {
+func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e deployment.Environment) (*internal.UpdateNodeCapabilitiesImplRequest, *ContractSetV2, error) {
 	if err := req.Validate(e); err != nil {
 		return nil, nil, fmt.Errorf("failed to validate UpdateNodeCapabilitiesRequest: %w", err)
 	}
 	registryChain := e.Chains[req.RegistryChainSel] // exists because of the validation above
-	resp, err := GetContractSets(e.Logger, &GetContractSetsRequest{
+	resp, err := GetContractSetsV2(e.Logger, GetContractSetsRequestV2{
 		Chains:      map[uint64]deployment.Chain{req.RegistryChainSel: registryChain},
 		AddressBook: e.ExistingAddresses,
 	})
@@ -99,7 +99,7 @@ func (req *MutateNodeCapabilitiesRequest) updateNodeCapabilitiesImplRequest(e de
 
 	return &internal.UpdateNodeCapabilitiesImplRequest{
 		Chain:                registryChain,
-		CapabilitiesRegistry: contractSet.CapabilitiesRegistry,
+		CapabilitiesRegistry: contractSet.CapabilitiesRegistry.Contract,
 		P2pToCapabilities:    req.P2pToCapabilities,
 		UseMCMS:              req.UseMCMS(),
 	}, &contractSet, nil
@@ -123,10 +123,10 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			return out, errors.New("expected MCMS operation to be non-nil")
 		}
 		timelocksPerChain := map[uint64]string{
-			c.Chain.Selector: contractSet.Timelock.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.Timelock.Address().Hex(),
 		}
 		proposerMCMSes := map[uint64]string{
-			c.Chain.Selector: contractSet.ProposerMcm.Address().Hex(),
+			c.Chain.Selector: contractSet.CapabilitiesRegistry.McmsContracts.ProposerMcm.Address().Hex(),
 		}
 		inspector, err := proposalutils.McmsInspectorForChain(env, req.RegistryChainSel)
 		if err != nil {
@@ -142,7 +142,7 @@ func UpdateNodeCapabilities(env deployment.Environment, req *UpdateNodeCapabilit
 			inspectorPerChain,
 			[]types.BatchOperation{*r.Ops},
 			"proposal to set update node capabilities",
-			req.MCMSConfig.MinDuration,
+			proposalutils.TimelockConfig{MinDelay: req.MCMSConfig.MinDuration},
 		)
 		if err != nil {
 			return out, fmt.Errorf("failed to build proposal: %w", err)

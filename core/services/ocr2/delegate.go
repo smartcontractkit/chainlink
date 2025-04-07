@@ -51,6 +51,7 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/llo"
+	"github.com/smartcontractkit/chainlink/v2/core/services/llo/retirement"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipcommit"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/ccipexec"
@@ -122,7 +123,7 @@ type Delegate struct {
 	RelayGetter
 	isNewlyCreatedJob     bool // Set to true if this is a new job freshly added, false if job was present already on node boot.
 	mailMon               *mailbox.Monitor
-	retirementReportCache llo.RetirementReportCache
+	retirementReportCache retirement.RetirementReportCache
 
 	legacyChains         legacyevm.LegacyChainContainer // legacy: use relayers instead
 	capabilitiesRegistry core.CapabilitiesRegistry
@@ -232,7 +233,7 @@ type DelegateOpts struct {
 	Relayers              RelayGetter
 	MailMon               *mailbox.Monitor
 	CapabilitiesRegistry  core.CapabilitiesRegistry
-	RetirementReportCache llo.RetirementReportCache
+	RetirementReportCache retirement.RetirementReportCache
 }
 
 func NewDelegate(
@@ -1618,8 +1619,8 @@ func (d *Delegate) newServicesOCR2Functions(
 
 func (d *Delegate) newServicesCCIPCommit(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != relay.NetworkEVM {
-		return nil, errors.New("non evm chains are not supported for CCIP commit")
+	if !isCCIPSupportedNetwork(spec.Relay) {
+		return nil, fmt.Errorf("chain not supported for CCIP commit: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
 	if err != nil {
@@ -1762,8 +1763,8 @@ func newCCIPCommitPluginBytes(isSourceProvider bool, sourceStartBlock uint64, de
 
 func (d *Delegate) ccipCommitGetDstProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.CommitPluginJobSpecConfig, transmitterID string) (types.CCIPCommitProvider, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != relay.NetworkEVM {
-		return nil, errors.New("non evm chains are not supported for CCIP commit")
+	if !isCCIPSupportedNetwork(spec.Relay) {
+		return nil, fmt.Errorf("chain not supported for CCIP commit: %s", spec.Relay)
 	}
 
 	dstRid, err := spec.RelayID()
@@ -1862,8 +1863,8 @@ func (d *Delegate) ccipCommitGetSrcProvider(ctx context.Context, jb job.Job, plu
 
 func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.SugaredLogger, jb job.Job, bootstrapPeers []commontypes.BootstrapperLocator, kb ocr2key.KeyBundle, ocrDB *db, lc ocrtypes.LocalConfig, transmitterID string) ([]job.ServiceCtx, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != relay.NetworkEVM {
-		return nil, errors.New("non evm chains are not supported for CCIP execution")
+	if !isCCIPSupportedNetwork(spec.Relay) {
+		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
 
@@ -1922,8 +1923,8 @@ func (d *Delegate) newServicesCCIPExecution(ctx context.Context, lggr logger.Sug
 
 func (d *Delegate) ccipExecGetDstProvider(ctx context.Context, jb job.Job, pluginJobSpecConfig ccipconfig.ExecPluginJobSpecConfig, transmitterID string) (types.CCIPExecProvider, error) {
 	spec := jb.OCR2OracleSpec
-	if spec.Relay != relay.NetworkEVM {
-		return nil, errors.New("non evm chains are not supported for CCIP execution")
+	if !isCCIPSupportedNetwork(spec.Relay) {
+		return nil, fmt.Errorf("chain not supported for CCIP execution: %s", spec.Relay)
 	}
 	dstRid, err := spec.RelayID()
 
@@ -2044,4 +2045,13 @@ func (l *logWriter) Write(p []byte) (n int, err error) {
 	l.log.Debug(string(p), nil)
 	n = len(p)
 	return
+}
+
+func isCCIPSupportedNetwork(network string) bool {
+	switch network {
+	case relay.NetworkEVM, relay.NetworkTron:
+		return true
+	default:
+		return false
+	}
 }
