@@ -162,6 +162,7 @@ func createEVM2SolanaMessages(t *testing.T) (cciptypes.Message, ccip_offramp.Any
 	}
 
 	msgAccounts := []solana.PublicKey{
+		receiver,
 		solana.MustPublicKeyFromBase58("42Gia5bGsh8R2S44e37t9fsucap1qsgjr6GjBmWotgdF"),
 	}
 	return any2AnyMsg, any2SolanaMsg, msgAccounts
