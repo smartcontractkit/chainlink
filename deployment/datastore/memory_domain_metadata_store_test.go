@@ -53,7 +53,6 @@ func TestMemoryDomainMetadataStore_Get(t *testing.T) {
 			} else {
 				require.Equal(t, tt.expectedError, err)
 				require.Equal(t, tt.expectedRecord, record)
-
 			}
 		})
 	}

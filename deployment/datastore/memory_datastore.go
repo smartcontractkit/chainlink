@@ -113,12 +113,13 @@ func (s *MemoryDataStore[CM, DM]) Merge(other DataStore[CM, DM]) error {
 		// Get() will return ErrDomainMetadataNotFound if no record is set. So
 		// we can skip the update in this case.
 		return nil
-	} else {
-		// If the domain metadata was set, we need to update it in the current
-		// data store.
-		if err := s.DomainMetadataStore.Update(domainMetadata); err != nil {
-			return err
-		}
+	}
+
+	// If the domain metadata was set, we need to update it in the current
+	// data store.
+	err = s.DomainMetadataStore.Update(domainMetadata)
+	if err != nil {
+		return err
 	}
 
 	return nil
