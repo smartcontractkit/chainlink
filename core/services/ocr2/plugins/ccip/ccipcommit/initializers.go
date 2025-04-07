@@ -3,6 +3,7 @@ package ccipcommit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"math/big"
 	"time"
@@ -144,7 +145,7 @@ func NewCommitServices(
 	// Backwards compatibility for old job spec price getter dynamic config.
 	// Should be removed after all jobSpecs migrate to the new format.
 	if sourceChainID < 0 || destChainID < 0 {
-		return nil, fmt.Errorf("source and dest chain IDs must be positive")
+		return nil, errors.New("source and dest chain IDs must be positive")
 	}
 	srcChain, ok := chainselectors.ChainByEvmChainID(uint64(sourceChainID))
 	if !ok {
@@ -156,9 +157,9 @@ func NewCommitServices(
 	}
 	dynamicPriceGetter, is := priceGetter.(*pricegetter.DynamicPriceGetter)
 	if is {
-		sourceNativeEvmAddr, err := ccipcalc.GenericAddrToEvm(sourceNative)
-		if err != nil {
-			return nil, fmt.Errorf("convert source native token address %s to evm address: %w", sourceNative, err)
+		sourceNativeEvmAddr, err2 := ccipcalc.GenericAddrToEvm(sourceNative)
+		if err2 != nil {
+			return nil, fmt.Errorf("convert source native token address %s to evm address: %w", sourceNative, err2)
 		}
 		err = dynamicPriceGetter.MoveDeprecatedFields(srcChain.Selector, dstChain.Selector, sourceNativeEvmAddr)
 		if err != nil {
