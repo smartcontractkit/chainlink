@@ -22,6 +22,10 @@ on:
         description: "Whether to build and publish - defaults to just build"
         required: false
         default: "false"
+      persist-image:
+        description: "Whether to persist the image - defaults to false"
+        required: false
+        default: "false"
 
 concurrency:
   group: "build-publish-${{ github.ref_name }}-${{ github.sha }}"
@@ -51,6 +55,7 @@ jobs:
           GH_EVENT_NAME: ${{ github.event_name }}
           GH_EVENT_NUMBER: ${{ github.event.number }}
           GH_INPUTS_BUILD_PUBLISH: ${{ inputs.build-publish }}
+          GH_INPUTS_PERSIST_IMAGE: ${{ inputs.persist-image }}
           LABEL_HAS_BUILD_PUBLISH: ${{ contains(github.event.pull_request.labels.*.name, 'build-publish') }}
         run: |
           short_sha=$(git rev-parse --short HEAD)
@@ -59,11 +64,16 @@ jobs:
             echo "image-tag=develop" | tee -a $GITHUB_OUTPUT
             echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
           elif [[ $GH_EVENT_NAME == 'workflow_dispatch' ]]; then
-            echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT
-              if [[ "$GH_INPUTS_BUILD_PUBLISH" == 'false' ]]; then
-                echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
-              else
-                echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
+            if [[ "$GH_INPUTS_PERSIST_IMAGE" == 'true' ]]; then
+              echo "image-tag=pr-${short_sha}" | tee -a $GITHUB_OUTPUT}
+            else 
+              echo "image-tag=${short_sha}" | tee -a $GITHUB_OUTPUT}
+            fi
+          
+            if [[ "$GH_INPUTS_BUILD_PUBLISH" == 'false' ]]; then
+              echo "release-type=snapshot" | tee -a $GITHUB_OUTPUT
+            else
+              echo "release-type=nightly" | tee -a $GITHUB_OUTPUT
             fi
           else
             if [[ $GH_EVENT_NAME == "pull_request" ]]; then
