@@ -1,6 +1,7 @@
 
 [blockchain_a]
   type = "anvil"
+  chain_id = "1337"
   docker_cmd_params = ["-b", "5"]
 
 [jd]
@@ -45,6 +46,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
       user_config_overrides = """
@@ -75,6 +77,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -103,6 +106,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -131,6 +135,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
@@ -159,6 +164,7 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true
