@@ -99,7 +99,7 @@ install-plugins: ## Build & install LOOPP binaries for products and chains.
 		cd $(shell GOPRIVATE=github.com/smartcontractkit/chainlink-internal-integrations go mod download -json github.com/smartcontractkit/chainlink-internal-integrations/aptos/relayer@$(APTOS_RELAYER_GIT_REF) | jq -r .Dir) && \
 		go install $(GOFLAGS) ./cmd/chainlink-aptos; \
 		echo "Cron..."; \
-		GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/cron | jq -r '.'; \
+		GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/cron@$(CAPABILITIES_GIT_REF) | jq -r '.'; \
 		cd $(shell GOPRIVATE=github.com/smartcontractkit/capabilities go mod download -json github.com/smartcontractkit/capabilities/cron@$(CAPABILITIES_GIT_REF) | jq -r .Dir) && \
 		go install $(GOFLAGS) .; \
 		echo "Readcontract..."; \
