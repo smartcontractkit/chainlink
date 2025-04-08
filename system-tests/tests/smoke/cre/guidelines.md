@@ -55,7 +55,7 @@ The test requires several environment variables. Below is a launch configuration
   "env": {
     "CTF_CONFIGS": "environment-one-don.toml",
     "PRIVATE_KEY": "ac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
-    "GIST_WRITE_TOKEN": "xxxx",
+    "GIST_WRITE_TOKEN": "xxxx"
   },
   "args": [
     "-test.run",
