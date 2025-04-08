@@ -10,15 +10,15 @@ import (
 func TestMemoryDataStore_Merge(t *testing.T) {
 	tests := []struct {
 		name          string
-		setup         func() (*MemoryDataStore[DefaultMetadata], *MemoryDataStore[DefaultMetadata])
+		setup         func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata])
 		expectedCount int
 		expectedLabel string
 	}{
 		{
 			name: "Merge single address",
-			setup: func() (*MemoryDataStore[DefaultMetadata], *MemoryDataStore[DefaultMetadata]) {
-				dataStore1 := NewMemoryDataStore[DefaultMetadata]()
-				dataStore2 := NewMemoryDataStore[DefaultMetadata]()
+			setup: func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata]) {
+				dataStore1 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
+				dataStore2 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 				err := dataStore2.Addresses().AddOrUpdate(AddressRef{
 					Address:   "0x123",
 					Type:      "type1",
@@ -32,9 +32,9 @@ func TestMemoryDataStore_Merge(t *testing.T) {
 		},
 		{
 			name: "Match existing address with labels",
-			setup: func() (*MemoryDataStore[DefaultMetadata], *MemoryDataStore[DefaultMetadata]) {
-				dataStore1 := NewMemoryDataStore[DefaultMetadata]()
-				dataStore2 := NewMemoryDataStore[DefaultMetadata]()
+			setup: func() (*MemoryDataStore[DefaultMetadata, DefaultMetadata], *MemoryDataStore[DefaultMetadata, DefaultMetadata]) {
+				dataStore1 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
+				dataStore2 := NewMemoryDataStore[DefaultMetadata, DefaultMetadata]()
 
 				// Add initial data to dataStore1
 				err := dataStore1.Addresses().AddOrUpdate(AddressRef{

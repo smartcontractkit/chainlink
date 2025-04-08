@@ -17,13 +17,13 @@ import (
 	"github.com/smartcontractkit/chainlink-common/pkg/services/servicetest"
 	commonTypes "github.com/smartcontractkit/chainlink-common/pkg/types"
 	"github.com/smartcontractkit/chainlink-common/pkg/values"
-	"github.com/smartcontractkit/chainlink-integrations/evm/heads/headstest"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/heads/headstest"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/client/clienttest"
-	gasmocks "github.com/smartcontractkit/chainlink-integrations/evm/gas/mocks"
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
+	"github.com/smartcontractkit/chainlink-evm/pkg/client/clienttest"
+	gasmocks "github.com/smartcontractkit/chainlink-evm/pkg/gas/mocks"
+	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	evmcapabilities "github.com/smartcontractkit/chainlink/v2/core/capabilities"

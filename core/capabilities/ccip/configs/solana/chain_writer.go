@@ -22,7 +22,7 @@ var ccipCommonIDL = idl.FetchCommonIDL()
 const (
 	sourceChainSelectorPath       = "Info.AbstractReports.Messages.Header.SourceChainSelector"
 	destTokenAddress              = "Info.AbstractReports.Messages.TokenAmounts.DestTokenAddress"
-	receiverAddress               = "Info.AbstractReports.Messages.Receiver"
+	tokenReceiverAddress          = "ExtraData.ExtraArgsDecoded.tokenReceiver"
 	merkleRootSourceChainSelector = "Info.MerkleRoots.ChainSel"
 	merkleRoot                    = "Info.MerkleRoots.MerkleRoot"
 )
@@ -150,7 +150,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 		ATAs: []chainwriter.ATALookup{
 			{
 				Location:      destTokenAddress,
-				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: receiverAddress}},
+				WalletAddress: chainwriter.Lookup{AccountLookup: &chainwriter.AccountLookup{Location: tokenReceiverAddress}},
 				TokenProgram: chainwriter.Lookup{
 					AccountsFromLookupTable: &chainwriter.AccountsFromLookupTable{
 						LookupTableName: "PoolLookupTable",
@@ -236,15 +236,7 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 			getRMNRemoteProgramAccount(offrampProgramAddress),
 			getRMNRemoteCursesLookup(offrampProgramAddress),
 			getRMNRemoteConfigLookup(offrampProgramAddress),
-			{
-				AccountLookup: &chainwriter.AccountLookup{
-					Name:       "UserAccounts",
-					Location:   "ExtraData.ExtraArgsDecoded.accounts",
-					IsWritable: chainwriter.MetaBool{BitmapLocation: "ExtraData.ExtraArgsDecoded.accountIsWritableBitmap", StartIndex: 1},
-					IsSigner:   chainwriter.MetaBool{Value: false},
-				},
-				Optional: true,
-			},
+			// logic receiver and user defined messaging accounts are appended in the CCIPExecute args transform
 			// user token account, token billing config, pool chain config, and pool lookup table accounts
 			// are appended to the accounts list in the CCIPExecute args transform for each token transfer
 		},

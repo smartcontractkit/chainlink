@@ -9,7 +9,7 @@ import (
 	"github.com/pelletier/go-toml/v2"
 	"gopkg.in/guregu/null.v4"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils/big"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils/big"
 	"github.com/smartcontractkit/chainlink/v2/core/services/job"
 )
 

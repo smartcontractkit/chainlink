@@ -6,15 +6,13 @@ import (
 	big "math/big"
 
 	common "github.com/ethereum/go-ethereum/common"
-	client "github.com/smartcontractkit/chainlink-integrations/evm/client"
+	client "github.com/smartcontractkit/chainlink-evm/pkg/client"
 
-	config "github.com/smartcontractkit/chainlink-integrations/evm/config"
+	config "github.com/smartcontractkit/chainlink-evm/pkg/config"
 
 	context "context"
 
-	evmtypes "github.com/smartcontractkit/chainlink-integrations/evm/types"
-
-	gas "github.com/smartcontractkit/chainlink-integrations/evm/gas"
+	gas "github.com/smartcontractkit/chainlink-evm/pkg/gas"
 
 	heads "github.com/smartcontractkit/chainlink-framework/chains/heads"
 
@@ -22,11 +20,13 @@ import (
 
 	logger "github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	logpoller "github.com/smartcontractkit/chainlink-integrations/evm/logpoller"
+	logpoller "github.com/smartcontractkit/chainlink-evm/pkg/logpoller"
 
 	mock "github.com/stretchr/testify/mock"
 
-	monitor "github.com/smartcontractkit/chainlink-integrations/evm/monitor"
+	monitor "github.com/smartcontractkit/chainlink-evm/pkg/monitor"
+
+	pkgtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 
 	txmgr "github.com/smartcontractkit/chainlink-framework/chains/txmgr"
 
@@ -336,19 +336,19 @@ func (_c *Chain_GetChainStatus_Call) RunAndReturn(run func(context.Context) (typ
 }
 
 // HeadBroadcaster provides a mock function with no fields
-func (_m *Chain) HeadBroadcaster() heads.Broadcaster[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadBroadcaster() heads.Broadcaster[*pkgtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadBroadcaster")
 	}
 
-	var r0 heads.Broadcaster[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() heads.Broadcaster[*evmtypes.Head, common.Hash]); ok {
+	var r0 heads.Broadcaster[*pkgtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() heads.Broadcaster[*pkgtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(heads.Broadcaster[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(heads.Broadcaster[*pkgtypes.Head, common.Hash])
 		}
 	}
 
@@ -372,30 +372,30 @@ func (_c *Chain_HeadBroadcaster_Call) Run(run func()) *Chain_HeadBroadcaster_Cal
 	return _c
 }
 
-func (_c *Chain_HeadBroadcaster_Call) Return(_a0 heads.Broadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
+func (_c *Chain_HeadBroadcaster_Call) Return(_a0 heads.Broadcaster[*pkgtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Chain_HeadBroadcaster_Call) RunAndReturn(run func() heads.Broadcaster[*evmtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
+func (_c *Chain_HeadBroadcaster_Call) RunAndReturn(run func() heads.Broadcaster[*pkgtypes.Head, common.Hash]) *Chain_HeadBroadcaster_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // HeadTracker provides a mock function with no fields
-func (_m *Chain) HeadTracker() heads.Tracker[*evmtypes.Head, common.Hash] {
+func (_m *Chain) HeadTracker() heads.Tracker[*pkgtypes.Head, common.Hash] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for HeadTracker")
 	}
 
-	var r0 heads.Tracker[*evmtypes.Head, common.Hash]
-	if rf, ok := ret.Get(0).(func() heads.Tracker[*evmtypes.Head, common.Hash]); ok {
+	var r0 heads.Tracker[*pkgtypes.Head, common.Hash]
+	if rf, ok := ret.Get(0).(func() heads.Tracker[*pkgtypes.Head, common.Hash]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(heads.Tracker[*evmtypes.Head, common.Hash])
+			r0 = ret.Get(0).(heads.Tracker[*pkgtypes.Head, common.Hash])
 		}
 	}
 
@@ -419,12 +419,12 @@ func (_c *Chain_HeadTracker_Call) Run(run func()) *Chain_HeadTracker_Call {
 	return _c
 }
 
-func (_c *Chain_HeadTracker_Call) Return(_a0 heads.Tracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
+func (_c *Chain_HeadTracker_Call) Return(_a0 heads.Tracker[*pkgtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Chain_HeadTracker_Call) RunAndReturn(run func() heads.Tracker[*evmtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
+func (_c *Chain_HeadTracker_Call) RunAndReturn(run func() heads.Tracker[*pkgtypes.Head, common.Hash]) *Chain_HeadTracker_Call {
 	_c.Call.Return(run)
 	return _c
 }
@@ -1029,19 +1029,19 @@ func (_c *Chain_Transact_Call) RunAndReturn(run func(context.Context, string, st
 }
 
 // TxManager provides a mock function with no fields
-func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee] {
+func (_m *Chain) TxManager() txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee] {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for TxManager")
 	}
 
-	var r0 txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]
-	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]); ok {
+	var r0 txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]
+	if rf, ok := ret.Get(0).(func() txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee])
+			r0 = ret.Get(0).(txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee])
 		}
 	}
 
@@ -1065,12 +1065,12 @@ func (_c *Chain_TxManager_Call) Run(run func()) *Chain_TxManager_Call {
 	return _c
 }
 
-func (_c *Chain_TxManager_Call) Return(_a0 txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) *Chain_TxManager_Call {
+func (_c *Chain_TxManager_Call) Return(_a0 txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) *Chain_TxManager_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Chain_TxManager_Call) RunAndReturn(run func() txmgr.TxManager[*big.Int, *evmtypes.Head, common.Address, common.Hash, common.Hash, evmtypes.Nonce, gas.EvmFee]) *Chain_TxManager_Call {
+func (_c *Chain_TxManager_Call) RunAndReturn(run func() txmgr.TxManager[*big.Int, *pkgtypes.Head, common.Address, common.Hash, common.Hash, pkgtypes.Nonce, gas.EvmFee]) *Chain_TxManager_Call {
 	_c.Call.Return(run)
 	return _c
 }
