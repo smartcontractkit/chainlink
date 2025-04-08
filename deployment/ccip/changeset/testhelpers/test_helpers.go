@@ -570,8 +570,6 @@ func SendRequestSol(
 
 	rmnRemoteCursesPDA, _, err := solstate.FindRMNRemoteCursesPDA(s.RMNRemote)
 	require.NoError(t, err)
-	externalTokenPoolsSignerPDA, _, err := solstate.FindExternalTokenPoolsSignerPDA(s.Router)
-	require.NoError(t, err)
 
 	base := ccip_router.NewCcipSendInstruction(
 		destinationChainSelector,
@@ -595,7 +593,6 @@ func SendRequestSol(
 		s.RMNRemote,
 		rmnRemoteCursesPDA,
 		s.RMNRemoteConfigPDA,
-		externalTokenPoolsSignerPDA,
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 
@@ -2046,7 +2043,7 @@ func DeploySolanaCcipReceiver(t *testing.T, e deployment.Environment) {
 	require.NoError(t, err)
 	for solSelector, chainState := range state.SolChains {
 		solTestReceiver.SetProgramID(chainState.Receiver)
-		externalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(chainState.Receiver)
+		externalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, chainState.Receiver)
 		instruction, ixErr := solTestReceiver.NewInitializeInstruction(
 			chainState.Router,
 			changeset.FindReceiverTargetAccount(chainState.Receiver),

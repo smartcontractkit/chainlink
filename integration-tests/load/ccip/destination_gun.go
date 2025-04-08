@@ -358,7 +358,6 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		solana.PublicKey{},
 		solana.PublicKey{},
 		solana.PublicKey{},
-		solana.PublicKey{},
 	)
 	base.GetFeeTokenUserAssociatedAccountAccount().WRITE()
 	instruction, err := base.ValidateAndBuild()
