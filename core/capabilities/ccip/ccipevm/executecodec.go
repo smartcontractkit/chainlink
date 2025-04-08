@@ -59,7 +59,6 @@ func (e *ExecutePluginCodecV1) Encode(ctx context.Context, report cciptypes.Exec
 		evmMessages := make([]offramp.InternalAny2EVMRampMessage, 0, len(chainReport.Messages))
 		for _, message := range chainReport.Messages {
 			receiver := common.BytesToAddress(message.Receiver)
-
 			tokenAmounts := make([]offramp.InternalAny2EVMTokenTransfer, 0, len(message.TokenAmounts))
 			for _, tokenAmount := range message.TokenAmounts {
 				if tokenAmount.Amount.IsEmpty() {
