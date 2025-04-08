@@ -36,8 +36,7 @@ import (
 	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
 	evmtypes "github.com/smartcontractkit/chainlink-evm/pkg/types"
 	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ocrimpls"
 	cctypes "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/types"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/evm/txmgr"
@@ -49,8 +48,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/keys/ocr2key"
 	"github.com/smartcontractkit/chainlink/v2/core/services/relay/evm"
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 func Test_ContractTransmitter_TransmitWithoutSignatures(t *testing.T) {
@@ -188,12 +185,7 @@ func abiEncodeUint32(data uint32) ([]byte, error) {
 
 // Test EVM -> SVM extra data decoding in contract transmitter
 func TestSVMExecCallDataFuncExtraDataDecoding(t *testing.T) {
-	extraDataCodec := ccipcommon.NewExtraDataCodec(
-		ccipcommon.NewExtraDataCodecParams(
-			ccipevm.ExtraDataDecoder{},
-			ccipsolana.ExtraDataDecoder{},
-		),
-	)
+	extraDataCodec := defaults.DefaultExtraDataCodec
 	t.Run("fails when multiple reports are included", func(t *testing.T) {
 		reports := []ccipocr3.ExecutePluginReportSingleChain{{}, {}}
 		reportWithInfo := ccipocr3.ExecuteReportInfo{

@@ -9,10 +9,8 @@ import (
 
 	"golang.org/x/exp/maps"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-
 	"github.com/avast/retry-go/v4"
+
 	ragep2ptypes "github.com/smartcontractkit/libocr/ragep2p/types"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/loop"
@@ -29,6 +27,7 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	"github.com/smartcontractkit/chainlink-evm/pkg/config/toml"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
 	configsevm "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/evm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/launcher"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/oraclecreator"
@@ -206,12 +205,6 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 		return nil, fmt.Errorf("failed to get chain selector from chain ID %d", homeChainChainID)
 	}
 
-	addressCodec := common.NewAddressCodec(
-		common.NewAddressCodecParams(
-			ccipevm.AddressCodec{},
-			ccipsolana.AddressCodec{},
-		))
-
 	// if bootstrappers are provided we assume that the node is a plugin oracle.
 	// the reason for this is that bootstrap oracles do not need to be aware
 	// of other bootstrap oracles. however, plugin oracles, at least initially,
@@ -233,7 +226,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			bootstrapperLocators,
 			hcr,
 			cciptypes.ChainSelector(homeChainChainSelector),
-			addressCodec,
+			defaults.DefaultAddressCodec,
 		)
 	} else {
 		oracleCreator = oraclecreator.NewBootstrapOracleCreator(
@@ -243,7 +236,7 @@ func (d *Delegate) ServicesForSpec(ctx context.Context, spec job.Job) (services 
 			d.monitoringEndpointGen,
 			d.lggr,
 			homeChainContractReader,
-			addressCodec,
+			defaults.DefaultAddressCodec,
 		)
 	}
 

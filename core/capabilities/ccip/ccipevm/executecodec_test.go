@@ -15,8 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
@@ -227,7 +226,6 @@ func TestExecutePluginCodecV1(t *testing.T) {
 }
 
 func Test_DecodeReport(t *testing.T) {
-	ExtraDataCodec := ccipcommon.NewExtraDataCodec(ccipcommon.NewExtraDataCodecParams(ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
 	offRampABI, err := offramp.OffRampMetaData.GetAbi()
 	require.NoError(t, err)
 
@@ -246,7 +244,7 @@ func Test_DecodeReport(t *testing.T) {
 
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
 
-	codec := NewExecutePluginCodecV1(ExtraDataCodec)
+	codec := NewExecutePluginCodecV1(defaults.DefaultExtraDataCodec)
 	decoded, err := codec.Decode(t.Context(), rawReport)
 	require.NoError(t, err)
 

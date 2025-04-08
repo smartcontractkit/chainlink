@@ -25,6 +25,7 @@ import (
 
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
 	solanaconfig "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/configs/solana"
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr3/promwrapper"
 
@@ -50,17 +51,10 @@ import (
 	evmrelaytypes "github.com/smartcontractkit/chainlink/v2/core/services/relay/evm/types"
 	"github.com/smartcontractkit/chainlink/v2/core/services/synchronization"
 	"github.com/smartcontractkit/chainlink/v2/core/services/telemetry"
-
-	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 )
 
 var _ cctypes.OracleCreator = &pluginOracleCreator{}
-var extraDataCodec = ccipcommon.NewExtraDataCodec(
-	ccipcommon.NewExtraDataCodecParams(
-		ccipevm.ExtraDataDecoder{},
-		ccipsolana.ExtraDataDecoder{},
-	),
-)
+var extraDataCodec = defaults.DefaultExtraDataCodec
 
 var plugins = map[string]plugin{
 	chainsel.FamilyEVM: {
@@ -358,7 +352,8 @@ func (i *pluginOracleCreator) createFactoryAndTransmitter(
 				ContractReaders:   contractReaders,
 				ContractWriters:   chainWriters,
 				RmnPeerClient:     rmnPeerClient,
-				RmnCrypto:         rmnCrypto})
+				RmnCrypto:         rmnCrypto,
+			})
 		factory = promwrapper.NewReportingPluginFactory[[]byte](factory, i.lggr, chainID, "CCIPCommit")
 		transmitter = plugins[chainFamily].ContractTransmitterFactory.NewCommitTransmitter(destChainWriter,
 			ocrtypes.Account(destFromAccounts[0]),
