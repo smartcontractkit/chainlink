@@ -208,31 +208,9 @@ func getExecuteMethodConfig(fromAddress string, offrampProgramAddress string) ch
 					IsWritable: false,
 				},
 			},
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "ExternalExecutionConfig",
-					PublicKey: getAddressConstant(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("external_execution_config")},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-			},
 			getAuthorityAccountConstant(fromAddress),
 			getSystemProgramConstant(),
 			getSysVarInstructionConstant(),
-			{
-				PDALookups: &chainwriter.PDALookups{
-					Name:      "ExternalTokenPoolsSigner",
-					PublicKey: getAddressConstant(offrampProgramAddress),
-					Seeds: []chainwriter.Seed{
-						{Static: []byte("external_token_pools_signer")},
-					},
-					IsSigner:   false,
-					IsWritable: false,
-				},
-			},
 			getRMNRemoteProgramAccount(offrampProgramAddress),
 			getRMNRemoteCursesLookup(offrampProgramAddress),
 			getRMNRemoteConfigLookup(offrampProgramAddress),
