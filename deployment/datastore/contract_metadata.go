@@ -8,13 +8,6 @@ var ErrContractMetadataExists = errors.New("a contract metadata record with the 
 // ContractMetadata implements the Record interface
 var _ Record[ContractMetadataKey, ContractMetadata[DefaultMetadata]] = ContractMetadata[DefaultMetadata]{}
 
-// DefaultMetadata is a default implementation of the custom contract metadata that can be used to store the
-// contract metadata in the datastore as a simple string.
-type DefaultMetadata string
-
-// DefaultMetadata implements the Cloneable interface
-func (d DefaultMetadata) Clone() DefaultMetadata { return d }
-
 // ContractMetadata is a generic struct that holds the metadata for a contract on a specific chain.
 // It implements the Record interface and is used to store contract metadata in the datastore.
 // The metadata is generic and can be of any type that implements the Cloneable interface.

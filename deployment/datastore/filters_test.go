@@ -258,15 +258,15 @@ func TestContractMetadataByChainSelector(t *testing.T) {
 	var (
 		recordOne = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
-			Metadata:      DefaultMetadata("Record1"),
+			Metadata:      DefaultMetadata{Data: "Record1"},
 		}
 		recordTwo = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 2,
-			Metadata:      DefaultMetadata("Record2"),
+			Metadata:      DefaultMetadata{Data: "Record2"},
 		}
 		recordThree = ContractMetadata[DefaultMetadata]{
 			ChainSelector: 1,
-			Metadata:      DefaultMetadata("Record3"),
+			Metadata:      DefaultMetadata{Data: "Record3"},
 		}
 	)
 
