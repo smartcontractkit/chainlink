@@ -462,7 +462,7 @@ func TestPriceService_observeTokenPriceUpdates(t *testing.T) {
 
 			destTokens := make([]cciptypes.Address, len(tc.tokenDecimalsParams))
 			copy(destTokens, tc.tokenDecimalsParams)
-			
+
 			offRampReader.EXPECT().GetTokens(mock.Anything).Return(cciptypes.OffRampTokens{
 				DestinationTokens: destTokens,
 			}, nil).Maybe()
