@@ -38,7 +38,6 @@ flowchart LR
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-framework/capabilities
-	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-integrations/evm
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
@@ -151,7 +150,6 @@ flowchart LR
 	chainlink-data-streams --> chainlink-common
 	click chainlink-data-streams href "https://github.com/smartcontractkit/chainlink-data-streams"
 	chainlink-evm --> chainlink-framework/capabilities
-	chainlink-evm --> chainlink-framework/chains
 	chainlink-evm --> chainlink-integrations/evm
 	click chainlink-evm href "https://github.com/smartcontractkit/chainlink-evm"
 	chainlink-feeds --> chainlink-common
