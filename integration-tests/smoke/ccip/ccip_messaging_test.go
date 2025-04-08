@@ -247,10 +247,9 @@ func Test_CCIPMessaging_EVM2Solana(t *testing.T) {
 		receiverProgram := state.SolChains[destChain].Receiver
 		receiver := receiverProgram.Bytes()
 		receiverTargetAccountPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("counter")}, receiverProgram)
-		receiverExternalExecutionConfigPDA, _, _ := solstate.FindExternalExecutionConfigPDA(receiverProgram)
+		receiverExternalExecutionConfigPDA, _, _ := solana.FindProgramAddress([][]byte{[]byte("external_execution_config")}, receiverProgram)
 
 		accounts := [][32]byte{
-			receiverProgram,
 			receiverExternalExecutionConfigPDA,
 			receiverTargetAccountPDA,
 			solana.SystemProgramID,

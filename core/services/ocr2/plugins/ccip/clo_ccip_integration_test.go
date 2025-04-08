@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_2_0/router"
 	"github.com/smartcontractkit/chainlink-evm/gethwrappers/generated/mock_v3_aggregator_contract"
@@ -20,25 +20,6 @@ import (
 	"github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers"
 	integrationtesthelpers "github.com/smartcontractkit/chainlink/v2/core/services/ocr2/plugins/ccip/testhelpers/integration"
 )
-
-func Test_CLOSpecApprovalFlow_pipeline(t *testing.T) {
-	t.Parallel()
-	ccipTH := integrationtesthelpers.SetupCCIPIntegrationTH(
-		t,
-		testhelpers.SourceChainID,
-		testhelpers.SourceChainSelector,
-		testhelpers.DestChainID,
-		testhelpers.DestChainSelector,
-		ccip.DefaultSourceFinalityDepth,
-		ccip.DefaultDestFinalityDepth,
-	)
-
-	tokenPricesUSDPipeline, linkUSD, ethUSD := ccipTH.CreatePricesPipeline(t)
-	defer linkUSD.Close()
-	defer ethUSD.Close()
-
-	test_CLOSpecApprovalFlow(t, ccipTH, tokenPricesUSDPipeline, "")
-}
 
 func Test_CLOSpecApprovalFlow_dynamicPriceGetter(t *testing.T) {
 	t.Parallel()

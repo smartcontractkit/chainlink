@@ -56,7 +56,7 @@ import (
 	testutils "github.com/smartcontractkit/chainlink/integration-tests/ccip-tests/utils"
 	"github.com/smartcontractkit/chainlink/integration-tests/docker/test_env"
 
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/maybe_revert_message_receiver"
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/latest/token_pool"
@@ -1158,25 +1158,33 @@ func (ccipModule *CCIPCommon) AvgBlockTime(ctx context.Context) (time.Duration, 
 // DynamicPriceGetterConfig specifies the configuration for the price getter in price pipeline.
 // This should match pricegetter.DynamicPriceGetterConfig in core/services/ocr2/plugins/ccip/internal/pricegetter
 type DynamicPriceGetterConfig struct {
-	AggregatorPrices map[common.Address]AggregatorPriceConfig `json:"aggregatorPrices"`
-	StaticPrices     map[common.Address]StaticPriceConfig     `json:"staticPrices"`
+	TokenPrices []TokenPriceConfig `json:"tokenPrices"`
+}
+
+type TokenPriceConfig struct {
+	TokenAddress     common.Address         `json:"tokenAddress"`
+	ChainSelector    uint64                 `json:"chainSelector,string"`
+	AggregatorConfig *AggregatorPriceConfig `json:"aggregatorConfig,omitempty"`
+	StaticConfig     *StaticPriceConfig     `json:"staticConfig,omitempty"`
 }
 
 func (d *DynamicPriceGetterConfig) AddPriceConfig(
 	tokenAddr string,
+	tokenChainSelector uint64,
 	aggregatorMap map[common.Address]*contracts.MockAggregator,
 	price *big.Int,
 	chainID uint64,
 ) error {
 	aggregatorContract, ok := aggregatorMap[common.HexToAddress(tokenAddr)]
 	if !ok || aggregatorContract == nil {
-		return d.AddStaticPriceConfig(tokenAddr, chainID, price)
+		return d.AddStaticPriceConfig(tokenAddr, tokenChainSelector, chainID, price)
 	}
-	return d.AddAggregatorPriceConfig(tokenAddr, aggregatorMap, price)
+	return d.AddAggregatorPriceConfig(tokenAddr, tokenChainSelector, aggregatorMap, price)
 }
 
 func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(
 	tokenAddr string,
+	tokenChainSelector uint64,
 	aggregatorMap map[common.Address]*contracts.MockAggregator,
 	price *big.Int,
 ) error {
@@ -1190,18 +1198,26 @@ func (d *DynamicPriceGetterConfig) AddAggregatorPriceConfig(
 		return fmt.Errorf("error in updating round data %w", err)
 	}
 
-	d.AggregatorPrices[common.HexToAddress(tokenAddr)] = AggregatorPriceConfig{
-		ChainID:                   aggregatorContract.ChainID(),
-		AggregatorContractAddress: aggregatorContract.ContractAddress,
-	}
+	d.TokenPrices = append(d.TokenPrices, TokenPriceConfig{
+		TokenAddress:  common.HexToAddress(tokenAddr),
+		ChainSelector: tokenChainSelector,
+		AggregatorConfig: &AggregatorPriceConfig{
+			ChainID:                   aggregatorContract.ChainID(),
+			AggregatorContractAddress: aggregatorContract.ContractAddress,
+		},
+	})
 	return nil
 }
 
-func (d *DynamicPriceGetterConfig) AddStaticPriceConfig(tokenAddr string, chainID uint64, price *big.Int) error {
-	d.StaticPrices[common.HexToAddress(tokenAddr)] = StaticPriceConfig{
-		ChainID: chainID,
-		Price:   price,
-	}
+func (d *DynamicPriceGetterConfig) AddStaticPriceConfig(tokenAddr string, tokenChainSelector, chainID uint64, price *big.Int) error {
+	d.TokenPrices = append(d.TokenPrices, TokenPriceConfig{
+		TokenAddress:  common.HexToAddress(tokenAddr),
+		ChainSelector: tokenChainSelector,
+		StaticConfig: &StaticPriceConfig{
+			ChainID: chainID,
+			Price:   price,
+		},
+	})
 	return nil
 }
 
@@ -2873,27 +2889,28 @@ type CCIPLane struct {
 }
 
 func (lane *CCIPLane) TokenPricesConfig() (string, error) {
-	d := &DynamicPriceGetterConfig{
-		AggregatorPrices: make(map[common.Address]AggregatorPriceConfig),
-		StaticPrices:     make(map[common.Address]StaticPriceConfig),
-	}
+	d := &DynamicPriceGetterConfig{TokenPrices: make([]TokenPriceConfig, 0)}
+
+	destChainSelector := lane.Source.DestChainSelector
+	sourceChainSelector := lane.Dest.SourceChainSelector
+
 	// for each token if there is a price aggregator, add it to the aggregator prices
 	// else add it to the static prices
 	for _, token := range lane.Dest.Common.BridgeTokens {
-		err := d.AddPriceConfig(token.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
+		err := d.AddPriceConfig(token.Address(), destChainSelector, lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
 		if err != nil {
 			return "", fmt.Errorf("error in adding PriceConfig for source bridge token %s: %w", token.Address(), err)
 		}
 	}
-	err := d.AddPriceConfig(lane.Dest.Common.FeeToken.Address(), lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
+	err := d.AddPriceConfig(lane.Dest.Common.FeeToken.Address(), destChainSelector, lane.Dest.Common.PriceAggregators, LinkToUSD, lane.DestChain.GetChainID().Uint64())
 	if err != nil {
 		return "", fmt.Errorf("error adding PriceConfig for dest Fee token %s: %w", lane.Dest.Common.FeeToken.Address(), err)
 	}
-	err = d.AddPriceConfig(lane.Dest.Common.WrappedNative.Hex(), lane.Dest.Common.PriceAggregators, WrappedNativeToUSD, lane.DestChain.GetChainID().Uint64())
+	err = d.AddPriceConfig(lane.Dest.Common.WrappedNative.Hex(), destChainSelector, lane.Dest.Common.PriceAggregators, WrappedNativeToUSD, lane.DestChain.GetChainID().Uint64())
 	if err != nil {
 		return "", fmt.Errorf("error in adding PriceConfig for dest WrappedNative token %s: %w", lane.Dest.Common.WrappedNative.Hex(), err)
 	}
-	err = d.AddPriceConfig(lane.Source.Common.WrappedNative.Hex(), lane.Source.Common.PriceAggregators, WrappedNativeToUSD, lane.SourceChain.GetChainID().Uint64())
+	err = d.AddPriceConfig(lane.Source.Common.WrappedNative.Hex(), sourceChainSelector, lane.Source.Common.PriceAggregators, WrappedNativeToUSD, lane.SourceChain.GetChainID().Uint64())
 	if err != nil {
 		return "", fmt.Errorf("error in adding PriceConfig for source WrappedNative token %s: %w", lane.Source.Common.WrappedNative.Hex(), err)
 	}

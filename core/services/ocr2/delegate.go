@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -40,7 +41,7 @@ import (
 	llotypes "github.com/smartcontractkit/chainlink-common/pkg/types/llo"
 	"github.com/smartcontractkit/chainlink-common/pkg/utils/mailbox"
 	datastreamsllo "github.com/smartcontractkit/chainlink-data-streams/llo"
-	"github.com/smartcontractkit/chainlink-integrations/evm/keys"
+	"github.com/smartcontractkit/chainlink-evm/pkg/keys"
 
 	"github.com/smartcontractkit/chainlink/v2/core/bridges"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -1703,6 +1704,21 @@ func (d *Delegate) ccipCommitPriceGetter(ctx context.Context, lggr logger.Sugare
 			}
 
 			aggregatorChainsToContracts[aggCfg.ChainID] = append(aggregatorChainsToContracts[aggCfg.ChainID], aggCfg.AggregatorContractAddress)
+		}
+
+		for _, priceCfg := range pluginJobSpecConfig.PriceGetterConfig.TokenPrices {
+			if priceCfg.AggregatorConfig == nil {
+				continue
+			}
+			aggCfg := *priceCfg.AggregatorConfig
+			contractAddrs, ok := aggregatorChainsToContracts[aggCfg.ChainID]
+			if !ok {
+				aggregatorChainsToContracts[aggCfg.ChainID] = make([]common.Address, 0)
+			}
+			if !slices.Contains(contractAddrs, aggCfg.AggregatorContractAddress) {
+				aggregatorChainsToContracts[aggCfg.ChainID] = append(aggregatorChainsToContracts[aggCfg.ChainID],
+					aggCfg.AggregatorContractAddress)
+			}
 		}
 
 		contractReaders := map[uint64]types.ContractReader{}

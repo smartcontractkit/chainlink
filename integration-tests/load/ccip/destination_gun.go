@@ -24,7 +24,7 @@ import (
 	"github.com/ethereum/go-ethereum/common/hexutil"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 
 	selectors "github.com/smartcontractkit/chain-selectors"
@@ -355,7 +355,6 @@ func (m *DestinationGun) sendSolanaMessage(src uint64) error {
 		fqDestChainPDA,
 		feeTokenFqBillingConfigPDA,
 		linkFqBillingConfigPDA,
-		solana.PublicKey{},
 		solana.PublicKey{},
 		solana.PublicKey{},
 		solana.PublicKey{},
