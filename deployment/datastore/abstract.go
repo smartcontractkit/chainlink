@@ -75,3 +75,24 @@ type MutableStore[K Comparable[K], R Record[K, R]] interface {
 	// such record exists to be deleted
 	Delete(key K) error
 }
+
+// UnaryStore is an interface that represents a read-only store that is limited to a single record.
+type UnaryStore[K Comparable[K], R Record[K, R]] interface {
+	// Get returns the record or an error.
+	// if the record exists, the error should be nil.
+	// If the record does not exist, the error should not be nil.
+	Get() (R, error)
+}
+
+// MutableUnaryStore is an interface that represents a mutable store that contains a single record.
+type MutableUnaryStore[K Comparable[K], R Record[K, R]] interface {
+	// Get returns a copy of the record or an error.
+	// If the record exists, the error should be nil.
+	// If the record does not exist, the error should not be nil.
+	Get() (R, error)
+
+	// Set sets the record in the store.
+	// If the record already exists, it should be replaced.
+	// If the record does not exist, it should be added.
+	Set(record R) error
+}

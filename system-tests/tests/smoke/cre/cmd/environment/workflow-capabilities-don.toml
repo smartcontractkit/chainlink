@@ -1,31 +1,22 @@
 
-[blockchain_a]
+[blockchain]
   type = "anvil"
-  chain_id = "1337"
+  chain_id = "1337" # required
   docker_cmd_params = ["-b", "5"]
 
 [jd]
-  image = "injected-at-runtime"
+  # change to your image version
+  image = "job-distributor:0.9.0"
 
 [infra]
   # either "docker" or "crib"
   type = "docker"
 
-[workflow_config]
-  workflow_name = "abcdefgasd"
-  # 0x01 8e16c39e 0000 20 0000000000000000 = ETH/USD Benchmark Price with 0 decimals
-  feed_id = "018e16c39e000320000000000000000000000000000000000000000000000000"
-
-  use_cre_cli = true
-  should_compile_new_workflow = false
-
-  [workflow_config.dependencies]
-  cron_capability_binary_path = "./cron"
-  cre_cli_binary_path = "./cre_v0.1.5_linux_amd64"
-
-  [workflow_config.compiled_config]
-    binary_url = "https://gist.githubusercontent.com/Tofel/1a2f6f7d9424bcb176a7cee31112bc11/raw/0e3859564f92c141cb856c65ef7a3db711588c08/binary.wasm.br.b64"
-    config_url = "https://gist.githubusercontent.com/Tofel/ee33265710f482d21854c52b7c75652e/raw/5a53b2214c46d0058a7c30f4edf5d40c318d60a8/three-dons-config.json_07_04_2025"
+[extra_capabilities]
+# uncomment as needed and adjust paths to enable these capabilities and have them copied to containers/pods
+# cron_capability_binary_path = "../cron"
+# log_event_trigger_binary_path = "../logtrigger"
+# read_contract_capability_binary_path = "../readcontract"
 
 [[nodesets]]
   nodes = 5
@@ -36,21 +27,20 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13000
-    volume_name = "workflow_volume"
 
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
-      # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
-      # capabilities = ['./cron']
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -64,14 +54,16 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -85,14 +77,16 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -106,14 +100,16 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -127,14 +123,16 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -146,7 +144,7 @@
       """
 
 [[nodesets]]
-  nodes = 2
+  nodes = 3
   override_mode = "each"
   http_port_range_start = 10200
   name = "capabilities"
@@ -154,19 +152,20 @@
   [nodesets.db]
     image = "postgres:12.0"
     port = 13100
-    volume_name = "capabilities_volume"
 
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -180,14 +179,39 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+      [Feature]
+			LogPoller = true
+
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
@@ -211,14 +235,16 @@
   [[nodesets.node_specs]]
 
     [nodesets.node_specs.node]
-      image = "injected-at-runtime"
+      docker_ctx = "../../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
       [Feature]
 			LogPoller = true
 
-            [Log]
-            Level = 'debug'
-            JSONConsole = true
+      [Log]
+      Level = 'debug'
+      JSONConsole = true
 
 			[OCR2]
 			Enabled = true
