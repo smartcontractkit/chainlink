@@ -20,7 +20,6 @@ All major release versions have pre-built docker images available for download f
 If you are interested in contributing please see our [contribution guidelines](./docs/CONTRIBUTING.md).
 If you are here to report a bug or request a feature, please [check currently open Issues](https://github.com/smartcontractkit/chainlink/issues).
 For more information about how to get started with Chainlink, check our [official documentation](https://docs.chain.link/).
-Resources for Solidity developers can be found in the [Chainlink Hardhat Box](https://github.com/smartcontractkit/hardhat-starter-kit).
 
 ## Community
 
@@ -39,10 +38,9 @@ regarding Chainlink social accounts, news, and networking.
 3. Install [Postgres (>= 12.x)](https://wiki.postgresql.org/wiki/Detailed_installation_guides). It is recommended to run the latest major version of postgres.
    - Note if you are running the official Chainlink docker image, the highest supported Postgres version is 16.x due to the bundled client.
    - You should [configure Postgres](https://www.postgresql.org/docs/current/ssl-tcp.html) to use SSL connection (or for testing you can set `?sslmode=disable` in your Postgres query string).
-4. Ensure you have Python 3 installed (this is required by [solc-select](https://github.com/crytic/solc-select) which is needed to compile solidity contracts)
-5. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
-6. Build and install Chainlink: `make install`
-7. Run the node: `chainlink help`
+4. Download Chainlink: `git clone https://github.com/smartcontractkit/chainlink && cd chainlink`
+5. Build and install Chainlink: `make install`
+6. Run the node: `chainlink help`
 
 For the latest information on setting up a development environment, see the [Development Setup Guide](https://github.com/smartcontractkit/chainlink/wiki/Development-Setup-Guide).
 
@@ -161,15 +159,6 @@ cosign verify index.docker.io/smartcontract/chainlink:${tag} \
 
 Using the `make` command will install the correct version.
 
-4. Build contracts:
-
-```bash
-pushd contracts
-pnpm i
-pnpm compile:native
-popd
-```
-
 4. Generate and compile static assets:
 
 ```bash
@@ -266,24 +255,6 @@ can be run on all three modules using:
 ```
 make gomodtidy
 ```
-
-### Solidity
-
-Inside the `contracts/` directory:
-
-1. Install dependencies:
-
-```bash
-pnpm i
-```
-
-2. Run tests:
-
-```bash
-pnpm test
-```
-NOTE: Chainlink is currently in the process of migrating to Foundry and contains both Foundry and Hardhat tests in some versions. More information can be found here: [Chainlink Foundry Documentation](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/foundry.md).
-Any 't.sol' files associated with Foundry tests, contained within the src directories will be ignored by Hardhat.
 
 ### Code Generation
 
