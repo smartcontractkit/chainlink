@@ -1264,7 +1264,7 @@ func (cfg UpdateRouterRampsConfig) Validate(e deployment.Environment, state chan
 			return fmt.Errorf("missing onramp onramp for chain %d", chainSel)
 		}
 		if !cfg.TestRouter && cfg.MCMS == nil && !cfg.BypassMCMS {
-			return fmt.Errorf("must provide an MCMS config if activating ramps on the main router (use BypassMCMS to skip this check in staging envs)")
+			return errors.New("must provide an MCMS config if activating ramps on the main router (use BypassMCMS to skip this check in staging envs)")
 		}
 		if !cfg.SkipOwnershipCheck {
 			if cfg.TestRouter {
