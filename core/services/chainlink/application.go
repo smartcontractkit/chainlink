@@ -937,14 +937,13 @@ func newCREServices(
 					workflowLimits,
 					artifactsStore,
 				)
-
 				globalLogger.Debugw("Creating WorkflowRegistrySyncer")
 				wfRegRid := capCfg.WorkflowRegistry().RelayID()
 				wfRegRelayer, err := relayerChainInterops.Get(wfRegRid)
 				if err != nil {
 					return nil, fmt.Errorf("could not fetch relayer %s configured for workflow registry: %w", rid, err)
 				}
-				wfSyncer := syncer.NewWorkflowRegistry(
+				wfSyncer, err := syncer.NewWorkflowRegistry(
 					lggr,
 					func(ctx context.Context, bytes []byte) (syncer.ContractReader, error) {
 						return wfRegRelayer.NewContractReader(ctx, bytes)
@@ -956,6 +955,9 @@ func newCREServices(
 					eventHandler,
 					workflowDonNotifier,
 				)
+				if err != nil {
+					return nil, fmt.Errorf("failed to instantiate workflow syncer: %w", err)
+				}
 
 				srvcs = append(srvcs, wfSyncer)
 			}

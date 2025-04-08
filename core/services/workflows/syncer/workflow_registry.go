@@ -12,6 +12,10 @@ import (
 	"sync"
 	"time"
 
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/metric"
+
+	"github.com/smartcontractkit/chainlink-common/pkg/beholder"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/services"
 	"github.com/smartcontractkit/chainlink-common/pkg/types"
@@ -139,6 +143,8 @@ type workflowRegistry struct {
 	handler        evtHandler
 
 	workflowDonNotifier donNotifier
+
+	metrics *metrics
 }
 
 // WithTicker allows external callers to provide a ticker to the workflowRegistry.  This is useful
@@ -170,7 +176,7 @@ func NewWorkflowRegistry(
 	handler evtHandler,
 	workflowDonNotifier donNotifier,
 	opts ...func(*workflowRegistry),
-) *workflowRegistry {
+) (*workflowRegistry, error) {
 	ets := []WorkflowRegistryEventType{
 		ForceUpdateSecretsEvent,
 		WorkflowActivatedEvent,
@@ -178,6 +184,11 @@ func NewWorkflowRegistry(
 		WorkflowPausedEvent,
 		WorkflowRegisteredEvent,
 		WorkflowUpdatedEvent,
+	}
+
+	m, err := newMetrics()
+	if err != nil {
+		return nil, err
 	}
 
 	wr := &workflowRegistry{
@@ -189,12 +200,13 @@ func NewWorkflowRegistry(
 		eventTypes:              ets,
 		handler:                 handler,
 		workflowDonNotifier:     workflowDonNotifier,
+		metrics:                 m,
 	}
 
 	for _, opt := range opts {
 		opt(wr)
 	}
-	return wr
+	return wr, err
 }
 
 // Start starts the workflowRegistry.  It starts two goroutines, one for querying the contract
@@ -353,13 +365,20 @@ func (w *workflowRegistry) readRegistryEvents(ctx context.Context, don capabilit
 			}
 
 			for _, event := range events {
-				err := w.handler.Handle(ctx, event.Event)
-				if err != nil {
-					w.lggr.Errorw("failed to handle event", "err", err, "type", event.Event.EventType)
-				}
+				w.handle(ctx, event.Event)
 			}
 		}
 	}
+}
+
+func (w *workflowRegistry) handle(ctx context.Context, event Event) {
+	start := time.Now()
+	err := w.handler.Handle(ctx, event)
+	totalDuration := time.Since(start)
+	if err != nil {
+		w.lggr.Errorw("failed to handle event", "err", err, "type", event.GetEventType())
+	}
+	w.metrics.recordHandleDuration(ctx, totalDuration, string(event.GetEventType()), err == nil)
 }
 
 // getTicker returns the ticker that the workflowRegistry will use to poll for events.  If the ticker
@@ -501,12 +520,10 @@ func (w *workflowRegistry) loadWorkflows(ctx context.Context, don capabilities.D
 				ConfigURL:     workflow.ConfigURL,
 				SecretsURL:    workflow.SecretsURL,
 			}
-			if err = w.handler.Handle(ctx, workflowAsEvent{
+			w.handle(ctx, workflowAsEvent{
 				Data:      toRegisteredEvent,
 				EventType: WorkflowRegisteredEvent,
-			}); err != nil {
-				w.lggr.Errorf("failed to handle workflow registration: %s", err)
-			}
+			})
 		}
 
 		if len(workflows.WorkflowMetadataList) == 0 {
@@ -611,4 +628,29 @@ func toWorkflowRegistryEventResponse(
 	}
 
 	return resp
+}
+
+type metrics struct {
+	handleDuration metric.Int64Histogram
+}
+
+func (m *metrics) recordHandleDuration(ctx context.Context, d time.Duration, event string, success bool) {
+	// Beholder doesn't support non-string attributes
+	successStr := "false"
+	if success {
+		successStr = "true"
+	}
+	m.handleDuration.Record(ctx, d.Milliseconds(), metric.WithAttributes(
+		attribute.String("success", successStr),
+		attribute.String("eventType", event),
+	))
+}
+
+func newMetrics() (*metrics, error) {
+	h, err := beholder.GetMeter().Int64Histogram("platform_workflow_registry_syncer_handler_duration_ms")
+	if err != nil {
+		return nil, err
+	}
+
+	return &metrics{handleDuration: h}, nil
 }
