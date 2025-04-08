@@ -1,6 +1,7 @@
 
 [blockchain_a]
   type = "anvil"
+  chain_id = "1337"
   docker_cmd_params = ["-b", "5"]
 
 [jd]
@@ -31,7 +32,7 @@
 
 [[nodesets]]
   nodes = 5
-  override_mode = "all"
+  override_mode = "each"
   http_port_range_start = 10100
   name = "workflow"
 
@@ -45,8 +46,125 @@
     [nodesets.node_specs.node]
       docker_ctx = "../../../.."
       docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       # ommitted on purpose, if not defined here it will be added by Go code if worker nodes from this DON have cron capability
       # capabilities = ['./cron']
+      user_config_overrides = """
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
+      user_config_overrides = """
+            [Telemetry]
+            Enabled = true
+            Endpoint = 'host.docker.internal:4317'
+            InsecureConnection = true
+            TraceSampleRatio = 1
+
+            [Log]
+            Level = 'debug'
+            JSONConsole = true
+
+            [Feature]
+			LogPoller = true
+
+			[OCR2]
+			Enabled = true
+			DatabaseTimeout = '1s'
+
+			[P2P.V2]
+			Enabled = true
+			ListenAddresses = ['0.0.0.0:5001']
+      """
+
+  [[nodesets.node_specs]]
+
+    [nodesets.node_specs.node]
+      docker_ctx = "../../../.."
+      docker_file = "plugins/chainlink.Dockerfile"
+      # image = "chainlink-tmp:latest"
       user_config_overrides = """
             [Telemetry]
             Enabled = true

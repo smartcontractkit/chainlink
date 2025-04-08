@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"math/rand/v2"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -15,8 +16,10 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/ethereum/go-ethereum/common"
 	"github.com/google/uuid"
 	"github.com/pkg/errors"
+	"github.com/rs/zerolog"
 	"github.com/shopspring/decimal"
 	ocrTypes "github.com/smartcontractkit/libocr/offchainreporting2plus/types"
 	"github.com/stretchr/testify/require"
@@ -30,15 +33,23 @@ import (
 	kcr "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/capabilities_registry_1_1_0"
 	jobv1 "github.com/smartcontractkit/chainlink-protos/job-distributor/v1/job"
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/blockchain"
+	"github.com/smartcontractkit/chainlink-testing-framework/framework/components/jd"
 	ns "github.com/smartcontractkit/chainlink-testing-framework/framework/components/simple_node_set"
+	"github.com/smartcontractkit/chainlink-testing-framework/lib/utils/testcontext"
 	"github.com/smartcontractkit/chainlink-testing-framework/wasp"
 	"github.com/smartcontractkit/chainlink/deployment/environment/nodeclient"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
+	cldlogger "github.com/smartcontractkit/chainlink/deployment/logger"
+	libc "github.com/smartcontractkit/chainlink/system-tests/lib/conversions"
+	libcontracts "github.com/smartcontractkit/chainlink/system-tests/lib/cre/contracts"
 	lidebug "github.com/smartcontractkit/chainlink/system-tests/lib/cre/debug"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/don/node"
+	creenv "github.com/smartcontractkit/chainlink/system-tests/lib/cre/environment"
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/flags"
 	mock_capability "github.com/smartcontractkit/chainlink/system-tests/lib/cre/mock"
 	keystonetypes "github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
+	libtypes "github.com/smartcontractkit/chainlink/system-tests/lib/types"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/targets"
 	"github.com/smartcontractkit/chainlink/v2/core/logger"
 	"github.com/smartcontractkit/chainlink/v2/core/services/keystore/chaintype"
@@ -47,9 +58,20 @@ import (
 )
 
 type TestConfigLoadTest struct {
-	TestConfig
-	WorkflowDONLoad  *WorkflowLoad       `toml:"workflow_load"`
-	MockCapabilities []*MockCapabilities `toml:"mock_capabilities"`
+	BlockchainA                   *blockchain.Input                      `toml:"blockchain_a" validate:"required"`
+	NodeSets                      []*ns.Input                            `toml:"nodesets" validate:"required"`
+	JD                            *jd.Input                              `toml:"jd" validate:"required"`
+	KeystoneContracts             *keystonetypes.KeystoneContractsInput  `toml:"keystone_contracts"`
+	WorkflowRegistryConfiguration *keystonetypes.WorkflowRegistryInput   `toml:"workflow_registry_configuration"`
+	FeedConsumer                  *keystonetypes.DeployFeedConsumerInput `toml:"feed_consumer"`
+	Infra                         *libtypes.InfraInput                   `toml:"infra" validate:"required"`
+	WorkflowDONLoad               *WorkflowLoad                          `toml:"workflow_load"`
+	MockCapabilities              []*MockCapabilities                    `toml:"mock_capabilities"`
+	BinariesConfig                *BinariesConfig                        `toml:"binaries_config"`
+}
+
+type BinariesConfig struct {
+	MockCapabilityBinaryPath string `toml:"mock_capability_binary_path"`
 }
 
 type MockCapabilities struct {
@@ -70,14 +92,79 @@ type FeedWithStreamID struct {
 	StreamID int32  `json:"streamID"`
 }
 
+type loadTestSetupOutput struct {
+	feedsConsumerAddress common.Address
+	forwarderAddress     common.Address
+	blockchainOutput     *blockchain.Output
+	donTopology          *keystonetypes.DonTopology
+	nodeOutput           []*keystonetypes.WrappedNodeOutput
+}
+
+func setupLoadTestEnvironment(
+	t *testing.T,
+	testLogger zerolog.Logger,
+	in *TestConfigLoadTest,
+	mustSetCapabilitiesFn func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet,
+	capabilityFactoryFns []func([]string) []keystone_changeset.DONCapabilityWithConfig,
+	jobSpecFactoryFns []keystonetypes.JobSpecFactoryFn,
+) *loadTestSetupOutput {
+	absMockCapabilityBinaryPath, err := filepath.Abs(in.BinariesConfig.MockCapabilityBinaryPath)
+	require.NoError(t, err, "failed to get absolute path for mock capability binary")
+
+	universalSetupInput := creenv.SetupInput{
+		CapabilitiesAwareNodeSets:  mustSetCapabilitiesFn(in.NodeSets),
+		CapabilityFactoryFunctions: capabilityFactoryFns,
+		BlockchainsInput:           *in.BlockchainA,
+		JdInput:                    *in.JD,
+		InfraInput:                 *in.Infra,
+		CustomBinariesPaths:        map[string]string{keystonetypes.MockCapability: absMockCapabilityBinaryPath},
+		JobSpecFactoryFunctions:    jobSpecFactoryFns,
+	}
+
+	universalSetupOutput, setupErr := creenv.SetupTestEnvironment(testcontext.Get(t), testLogger, cldlogger.NewSingleFileLogger(t), universalSetupInput)
+	require.NoError(t, setupErr, "failed to setup test environment")
+
+	// TODO not sure we need this for the load test, ask @George Dorin
+	// deployFeedConsumerInput := &keystonetypes.DeployFeedConsumerInput{
+	// 	ChainSelector: universalSetupOutput.BlockchainOutput.ChainSelector,
+	// 	CldEnv:        universalSetupOutput.CldEnvironment,
+	// }
+	// deployFeedsConsumerOutput, err := libcontracts.DeployFeedsConsumer(testLogger, deployFeedConsumerInput)
+	// require.NoError(t, err, "failed to deploy feeds consumer")
+
+	// configureFeedConsumerInput := &keystonetypes.ConfigureFeedConsumerInput{
+	// 	SethClient:            universalSetupOutput.BlockchainOutput.SethClient,
+	// 	FeedConsumerAddress:   deployFeedsConsumerOutput.FeedConsumerAddress,
+	// 	AllowedSenders:        []common.Address{universalSetupOutput.KeystoneContractsOutput.ForwarderAddress},
+	// 	AllowedWorkflowOwners: []common.Address{universalSetupOutput.BlockchainOutput.SethClient.MustGetRootKeyAddress()},
+	// 	AllowedWorkflowNames:  []string{in.WorkflowConfig.WorkflowName},
+	// }
+	// _, err = libcontracts.ConfigureFeedsConsumer(testLogger, configureFeedConsumerInput)
+	// require.NoError(t, err, "failed to configure feeds consumer")
+
+	// Set inputs in the test config, so that they can be saved
+	in.KeystoneContracts = &keystonetypes.KeystoneContractsInput{}
+	in.KeystoneContracts.Out = universalSetupOutput.KeystoneContractsOutput
+	// in.FeedConsumer = deployFeedConsumerInput
+	in.WorkflowRegistryConfiguration = &keystonetypes.WorkflowRegistryInput{}
+	in.WorkflowRegistryConfiguration.Out = universalSetupOutput.WorkflowRegistryConfigurationOutput
+
+	return &loadTestSetupOutput{
+		// feedsConsumerAddress: deployFeedsConsumerOutput.FeedConsumerAddress,
+		forwarderAddress: universalSetupOutput.KeystoneContractsOutput.ForwarderAddress,
+		blockchainOutput: universalSetupOutput.BlockchainOutput.BlockchainOutput,
+		donTopology:      universalSetupOutput.DonTopology,
+		nodeOutput:       universalSetupOutput.NodeOutput,
+	}
+}
+
 func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 	testLogger := framework.L
 
 	// Load and validate test configuration
 	in, err := framework.Load[TestConfigLoadTest](t)
 	require.NoError(t, err, "couldn't load test config")
-	validateEnvVars(t, &in.TestConfig)
-	require.Len(t, in.NodeSets, 2, "expected 3 node sets in the test config")
+	require.Len(t, in.NodeSets, 2, "expected 2 node sets in the test config")
 
 	mustSetCapabilitiesFn := func(input []*ns.Input) []*keystonetypes.CapabilitiesAwareNodeSet {
 		return []*keystonetypes.CapabilitiesAwareNodeSet{
@@ -108,45 +195,52 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		}
 	}
 
-	// Create function that will append test specific jobs
-	createCustomJobsFunc := func(jobSpecs keystonetypes.DonJobs, donWithMetadata *keystonetypes.DonWithMetadata) (keystonetypes.DonJobs, error) {
-		workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
-		if err2 != nil {
-			// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
-			return nil, errors.Wrap(err2, "failed to find worker nodes")
-		}
-		for _, workerNode := range workflowNodeSet {
-			nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
-			if nodeIDErr != nil {
-				return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+	loadTestJobSpecsFactoryFn := func(input *keystonetypes.JobSpecFactoryInput) (keystonetypes.DonsToJobSpecs, error) {
+		donTojobSpecs := make(keystonetypes.DonsToJobSpecs, 0)
+
+		for _, donWithMetadata := range input.DonTopology.DonsWithMetadata {
+			jobSpecs := make(keystonetypes.DonJobs, 0)
+			workflowNodeSet, err2 := node.FindManyWithLabel(donWithMetadata.NodesMetadata, &keystonetypes.Label{Key: node.NodeTypeKey, Value: keystonetypes.WorkerNode}, node.EqualLabels)
+			if err2 != nil {
+				// there should be no DON without worker nodes, even gateway DON is composed of a single worker node
+				return nil, errors.Wrap(err2, "failed to find worker nodes")
 			}
-			if flags.HasFlag(donWithMetadata.Flags, keystonetypes.OCR3Capability) {
-				for i := range feedsAddresses {
-					feedConfig := make([]FeedConfig, 0)
+			for _, workerNode := range workflowNodeSet {
+				nodeID, nodeIDErr := node.FindLabelValue(workerNode, node.NodeIDKey)
+				if nodeIDErr != nil {
+					return nil, errors.Wrap(nodeIDErr, "failed to get node id from labels")
+				}
+				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.OCR3Capability) {
+					for i := range feedsAddresses {
+						feedConfig := make([]FeedConfig, 0)
 
-					for _, feed := range feedsAddresses[i] {
-						feedID, err2 := datastreams.NewFeedID(feed.Feed)
-						if err2 != nil {
-							return nil, err2
+						for _, feed := range feedsAddresses[i] {
+							feedID, err2 := datastreams.NewFeedID(feed.Feed)
+							if err2 != nil {
+								return nil, err2
+							}
+							feedBytes := feedID.Bytes()
+							feedConfig = append(feedConfig, FeedConfig{
+								FeedIDsIndex: feed.StreamID,
+								Deviation:    "0.001",
+								Heartbeat:    3600,
+								RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
+							})
 						}
-						feedBytes := feedID.Bytes()
-						feedConfig = append(feedConfig, FeedConfig{
-							FeedIDsIndex: feed.StreamID,
-							Deviation:    "0.001",
-							Heartbeat:    3600,
-							RemappedID:   "0x" + hex.EncodeToString(feedBytes[:]),
-						})
-					}
 
-					jobSpecs = append(jobSpecs, WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig))
+						jobSpecs = append(jobSpecs, WorkflowsJob(nodeID, fmt.Sprintf("load_%d", i), feedConfig))
+					}
+				}
+
+				if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
+					jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, filepath.Join("/home/capabilities", filepath.Base(in.BinariesConfig.MockCapabilityBinaryPath)), in.MockCapabilities))
 				}
 			}
 
-			if flags.HasFlag(donWithMetadata.Flags, keystonetypes.MockCapability) && in.MockCapabilities != nil {
-				jobSpecs = append(jobSpecs, MockCapabilitiesJob(nodeID, in.MockCapabilities))
-			}
+			donTojobSpecs[donWithMetadata.ID] = jobSpecs
 		}
-		return jobSpecs, nil
+
+		return donTojobSpecs, nil
 	}
 
 	WorkflowDONLoadTestCapabilitiesFactoryFn := func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig {
@@ -191,14 +285,23 @@ func TestLoad_Workflow_Streams_MockCapabilities(t *testing.T) {
 		return capabilities
 	}
 
-	// TODO: remove createCustomJobsFunc from setupTestEnvironment and figure out a way to push custom jobs in a sane way
-	setupOutput := setupTestEnvironment(t, testLogger, &in.TestConfig, nil, mustSetCapabilitiesFn, createCustomJobsFunc, WorkflowDONLoadTestCapabilitiesFactoryFn)
+	chainIDInt, chainErr := strconv.Atoi(in.BlockchainA.ChainID)
+	require.NoError(t, chainErr, "failed to convert chain ID to int")
+
+	setupOutput := setupLoadTestEnvironment(
+		t,
+		testLogger,
+		in,
+		mustSetCapabilitiesFn,
+		[]func(donFlags []string) []keystone_changeset.DONCapabilityWithConfig{WorkflowDONLoadTestCapabilitiesFactoryFn, libcontracts.ChainWriterCapabilityFactory(libc.MustSafeUint64(int64(chainIDInt)))},
+		[]keystonetypes.JobSpecFactoryFn{loadTestJobSpecsFactoryFn},
+	)
 
 	ctx := t.Context()
 	// Log extra information that might help debugging
 	t.Cleanup(func() {
 		if t.Failed() {
-			logTestInfo(testLogger, in.WorkflowConfig.FeedID, in.WorkflowConfig.WorkflowName, setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
+			logTestInfo(testLogger, "n/a", "n/a", setupOutput.feedsConsumerAddress.Hex(), setupOutput.forwarderAddress.Hex())
 
 			logDir := fmt.Sprintf("%s-%s", framework.DefaultCTFLogsDir, t.Name())
 
@@ -692,6 +795,7 @@ type FeedConfig struct {
 	RemappedID   string `json:"remappedID"`
 }
 
+// TODO shouldn't consumer address be configurable?
 func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1.ProposeJobRequest {
 	const workflowTemplateLoad = `
  type = "workflow"
@@ -705,8 +809,8 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
   - id: streams-trigger@2.0.0
     config:
       feedIds:
- {{- range .FeedIDsIndex }}
-        - '{{ . }}'
+ {{- range .Feeds }}
+        - '{{ .FeedIDsIndex }}'
  {{- end }}
  consensus:
    - id: "offchain_reporting@1.0.0"
@@ -716,21 +820,21 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
          - "$(trigger.outputs)"
      config:
        report_id: "0001"
-       key_id: "evm"	
+       key_id: "evm"
        aggregation_method: "llo_streams"
        aggregation_config:
          streams:
-        {{ range $index, $feed := .Feeds }}
- 		  "{{ $index }}":
- 			deviation: "{{ $feed.Deviation }}"
- 			heartbeat: {{ $feed.Heartbeat }}
- 			remappedID: {{ $feed.RemappedID }}
- 		{{- end }}
+{{- range $index, $feed := .Feeds }}
+           "{{ $index }}":
+             deviation: "{{ $feed.Deviation }}"
+             heartbeat: {{ $feed.Heartbeat }}
+             remappedID: {{ $feed.RemappedID }}
+{{- end }}
        encoder: "EVM"
        encoder_config:
          abi: "(bytes32 RemappedID, uint224 Price, uint32 Timestamp)[] Reports"
  targets:
-   -  id: write_ethereum@1.0.0
+   - id: write_ethereum@1.0.0
      inputs:
        signed_report: "$(evm_median.outputs)"
      config:
@@ -750,7 +854,7 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
 		"WorkflowName": workflowName,
-		"FeedIDs":      feeds,
+		"Feeds":        feeds,
 		"JobID":        uuid.NewString(),
 	})
 	if err != nil {
@@ -762,13 +866,13 @@ func WorkflowsJob(nodeID string, workflowName string, feeds []FeedConfig) *jobv1
 		Spec:   renderedTemplate.String()}
 }
 
-func MockCapabilitiesJob(nodeID string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
+func MockCapabilitiesJob(nodeID, binaryPath string, mocks []*MockCapabilities) *jobv1.ProposeJobRequest {
 	jobTemplate := `type = "standardcapabilities"
 			schemaVersion = 1
 			externalJobID = "{{ .JobID }}"
-			name = "mock-capabilities"
+			name = "mock-capability"
 			forwardingAllowed = false
-			command = "/home/capabilities/amd64_mock"
+			command = "{{ .BinaryPath }}"
 			config = """
 				port=7777
 		{{ range $index, $m := .Mocks }}
@@ -792,10 +896,13 @@ func MockCapabilitiesJob(nodeID string, mocks []*MockCapabilities) *jobv1.Propos
 		})
 	}
 
+	jobUUID := uuid.NewString()
 	var renderedTemplate bytes.Buffer
 	err = tmpl.Execute(&renderedTemplate, map[string]interface{}{
-		"JobID": uuid.NewString(),
-		"Mocks": mockJobsData,
+		"JobID":      jobUUID,
+		"ShortID":    jobUUID[0:8],
+		"BinaryPath": binaryPath,
+		"Mocks":      mockJobsData,
 	})
 	if err != nil {
 		panic(err)

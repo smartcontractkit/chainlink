@@ -9,6 +9,10 @@ import (
 	"github.com/smartcontractkit/chainlink/system-tests/lib/cre/types"
 )
 
+var WebAPIJobSpecFactoryFn = func(input *types.JobSpecFactoryInput) (types.DonsToJobSpecs, error) {
+	return GenerateJobSpecs(input.DonTopology)
+}
+
 func GenerateJobSpecs(donTopology *types.DonTopology) (types.DonsToJobSpecs, error) {
 	if donTopology == nil {
 		return nil, errors.New("topology is nil")

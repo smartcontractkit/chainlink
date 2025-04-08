@@ -19,7 +19,7 @@ ifndef APTOS_RELAYER_GIT_REF
 override APTOS_RELAYER_GIT_REF = "2.21.0-beta16-aptos"
 endif
 ifndef CAPABILITIES_GIT_REF
-override CAPABILITIES_GIT_REF = "d47e69a0a62dabb95df658585cc9229d2c4a4b32"
+override CAPABILITIES_GIT_REF = "cf8a3317f89784ff2bf51c04e65b4afcb6eb4363"
 endif
 
 .PHONY: install
