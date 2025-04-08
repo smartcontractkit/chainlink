@@ -12,22 +12,23 @@ import (
 	"github.com/smartcontractkit/chainlink-ccip/pkg/reader"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/token_admin_registry"
+
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
+	price_registry_1_2_0 "github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/price_registry"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_2_0/router"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/burn_mint_erc677"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/multicall3"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/shared/generated/weth9"
 
 	"github.com/smartcontractkit/chainlink/deployment"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/maybe_revert_message_receiver"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_messenger"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/latest/mock_usdc_token_transmitter"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_0_0/rmn_proxy_contract"
-	price_registry_1_2_0 "github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/price_registry"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_2_0/router"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/mock_rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_0/rmn_contract"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_5_1/usdc_token_pool"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/ccip/generated/v1_6_0/registry_module_owner_custom"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/burn_mint_erc677"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/multicall3"
-	"github.com/smartcontractkit/chainlink/v2/core/gethwrappers/shared/generated/weth9"
 )
 
 var (
@@ -147,14 +148,14 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	chainState, chainExists := state.Chains[chain.Selector]
 	var weth9Contract *weth9.WETH9
 	var tokenAdminReg *token_admin_registry.TokenAdminRegistry
-	var registryModule *registry_module_owner_custom.RegistryModuleOwnerCustom
+	var registryModules []*registry_module_owner_custom.RegistryModuleOwnerCustom
 	var rmnProxy *rmn_proxy_contract.RMNProxy
 	var r *router.Router
 	var mc3 *multicall3.Multicall3
 	if chainExists {
 		weth9Contract = chainState.Weth9
 		tokenAdminReg = chainState.TokenAdminRegistry
-		registryModule = chainState.RegistryModule
+		registryModules = chainState.RegistryModules1_6
 		rmnProxy = chainState.RMNProxy
 		r = chainState.Router
 		mc3 = chainState.Multicall3
@@ -277,7 +278,7 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 	} else {
 		e.Logger.Infow("tokenAdminRegistry already deployed", "chain", chain.String(), "addr", tokenAdminReg.Address)
 	}
-	if registryModule == nil {
+	if len(registryModules) == 0 {
 		customRegistryModule, err := deployment.DeployContract(e.Logger, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom] {
 				regModAddr, tx2, regMod, err2 := registry_module_owner_custom.DeployRegistryModuleOwnerCustom(
@@ -285,36 +286,44 @@ func deployPrerequisiteContracts(e deployment.Environment, ab deployment.Address
 					chain.Client,
 					tokenAdminReg.Address())
 				return deployment.ContractDeploy[*registry_module_owner_custom.RegistryModuleOwnerCustom]{
-					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_5_0), Err: err2,
+					Address: regModAddr, Contract: regMod, Tx: tx2, Tv: deployment.NewTypeAndVersion(RegistryModule, deployment.Version1_6_0), Err: err2,
 				}
 			})
 		if err != nil {
 			e.Logger.Errorw("Failed to deploy custom registry module", "chain", chain.String(), "err", err)
 			return err
 		}
-		registryModule = customRegistryModule.Contract
+		registryModules = append(registryModules, customRegistryModule.Contract)
+		e.Logger.Infow("deployed custom registry module", "chain", chain.String(), "addr", customRegistryModule.Address)
 	} else {
-		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", registryModule.Address)
-	}
-	isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, registryModule.Address())
-	if err != nil {
-		e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
-		return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
-	}
-	if !isRegistryAdded {
-		tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, registryModule.Address())
-		if err != nil {
-			e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
-			return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+		regAddresses := make([]common.Address, len(registryModules))
+		for _, reg := range registryModules {
+			regAddresses = append(regAddresses, reg.Address())
 		}
+		e.Logger.Infow("custom registry module already deployed", "chain", chain.String(), "addr", regAddresses)
+	}
+	for _, reg := range registryModules {
+		isRegistryAdded, err := tokenAdminReg.IsRegistryModule(nil, reg.Address())
+		if err != nil {
+			e.Logger.Errorw("Failed to check if registry module is added on token admin registry", "chain", chain.String(), "err", err)
+			return fmt.Errorf("failed to check if registry module is added on token admin registry: %w", err)
+		}
+		if !isRegistryAdded {
+			tx, err := tokenAdminReg.AddRegistryModule(chain.DeployerKey, reg.Address())
+			if err != nil {
+				e.Logger.Errorw("Failed to assign registry module on token admin registry", "chain", chain.String(), "err", err)
+				return fmt.Errorf("failed to assign registry module on token admin registry: %w", err)
+			}
 
-		_, err = chain.Confirm(tx)
-		if err != nil {
-			e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
-			return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			_, err = chain.Confirm(tx)
+			if err != nil {
+				e.Logger.Errorw("Failed to confirm assign registry module on token admin registry", "chain", chain.String(), "err", err)
+				return fmt.Errorf("failed to confirm assign registry module on token admin registry: %w", err)
+			}
+			e.Logger.Infow("assigned registry module on token admin registry")
 		}
-		e.Logger.Infow("assigned registry module on token admin registry")
 	}
+
 	if weth9Contract == nil {
 		weth, err := deployment.DeployContract(lggr, chain, ab,
 			func(chain deployment.Chain) deployment.ContractDeploy[*weth9.WETH9] {
