@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	df_changeset "github.com/smartcontractkit/chainlink/deployment/data-feeds/changeset"
 	keystone_changeset "github.com/smartcontractkit/chainlink/deployment/keystone/changeset"
 
 	"github.com/smartcontractkit/chainlink-testing-framework/framework"
@@ -231,13 +233,22 @@ func configureDataFeedsCacheContract(testLogger zerolog.Logger, input *configure
 			return errors.Wrap(dfAdminErr, "failed to set feed admin")
 		}
 
+		cleanFeedID := strings.TrimPrefix(input.feedID, "0x")
+
+		// Ensure the feed ID is long enough
+		if len(cleanFeedID) < 14 { // Need at least 7 bytes (14 hex chars)
+			return fmt.Errorf("feed ID too short: %s", input.feedID)
+		} else if len(cleanFeedID) > 32 {
+			cleanFeedID = cleanFeedID[:32]
+		}
+
 		// Extract decimals from feed ID
-		decimals, decimalsErr := libcontracts.GetDecimalsFromFeedID(input.feedID)
+		decimals, decimalsErr := df_changeset.GetDecimalsFromFeedID(cleanFeedID)
 		if decimalsErr != nil {
 			return errors.Wrapf(decimalsErr, "failed to get decimals from feed ID %s", input.feedID)
 		}
 
-		dfConfigErr := libcrecli.SetFeedConfig(input.creCLIAbsPath, input.feedID, strconv.Itoa(decimals), "PoR test feed", chainIDInt, []common.Address{input.forwarderAddress}, []common.Address{input.sethClient.MustGetRootKeyAddress()}, []string{input.workflowName}, input.settingsFile)
+		dfConfigErr := libcrecli.SetFeedConfig(input.creCLIAbsPath, input.feedID, strconv.Itoa(int(decimals)), "PoR test feed", chainIDInt, []common.Address{input.forwarderAddress}, []common.Address{input.sethClient.MustGetRootKeyAddress()}, []string{input.workflowName}, input.settingsFile)
 		if dfConfigErr != nil {
 			return errors.Wrap(dfConfigErr, "failed to set feed config")
 		}
@@ -412,6 +423,7 @@ func setupPoRTestEnvironment(
 		sethClient:              universalSetupOutput.BlockchainOutput.SethClient,
 		deployerPrivateKey:      universalSetupOutput.BlockchainOutput.DeployerPrivateKey,
 		creCLIAbsPath:           creCLIAbsPath,
+		settingsFile:            creCLISettingsFile,
 		writeTargetName:         corevm.GenerateWriteTargetName(universalSetupOutput.BlockchainOutput.ChainID),
 	}
 

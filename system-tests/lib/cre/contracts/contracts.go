@@ -497,7 +497,8 @@ func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeed
 		ChainsToDeploy: []uint64{input.ChainSelector},
 		Labels:         []string{"data-feeds"},
 	}
-	dfOutput, dfErr := df_changeset.DeployCacheChangeset.Apply(*input.CldEnv, deployConfig)
+
+	dfOutput, dfErr := df_changeset.RunChangeset(df_changeset.DeployCacheChangeset, *input.CldEnv, deployConfig)
 	if dfErr != nil {
 		return nil, errors.Wrap(dfErr, "failed to deploy data feed cache contract")
 	}
@@ -507,26 +508,14 @@ func DeployDataFeedsCache(testLogger zerolog.Logger, input *types.DeployDataFeed
 		return nil, errors.Wrap(mergeErr, "failed to merge address book")
 	}
 
-	addresses, err := input.CldEnv.ExistingAddresses.AddressesForChain(input.ChainSelector)
-	if err != nil {
-		return nil, errors.Wrapf(err, "failed to get addresses for chain %d from the address book", input.ChainSelector)
-	}
+	dataFeedsCacheAddress := df_changeset.GetDataFeedsCacheAddress(input.CldEnv.ExistingAddresses, input.ChainSelector, nil)
 
-	var dataFeedsCacheAddress common.Address
-	for addrStr, tv := range addresses {
-		if strings.Contains(tv.String(), "DataFeedsCache") {
-			dataFeedsCacheAddress = common.HexToAddress(addrStr)
-			testLogger.Info().Msgf("Deployed DataFeedsCache contract at %s", dataFeedsCacheAddress.Hex())
-			break
-		}
-	}
-
-	if dataFeedsCacheAddress == (common.Address{}) {
+	if dataFeedsCacheAddress == "" {
 		return nil, errors.New("failed to find FeedConsumer address in the address book")
 	}
 
 	out := &types.DeployDataFeedsCacheOutput{
-		DataFeedsCacheAddress: dataFeedsCacheAddress,
+		DataFeedsCacheAddress: common.HexToAddress(dataFeedsCacheAddress),
 	}
 	input.Out = out
 

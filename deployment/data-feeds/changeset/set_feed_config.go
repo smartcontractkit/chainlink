@@ -15,17 +15,10 @@ import (
 var SetFeedConfigChangeset = deployment.CreateChangeSet(setFeedConfigLogic, setFeedConfigPrecondition)
 
 func setFeedConfigLogic(env deployment.Environment, c types.SetFeedDecimalConfig) (deployment.ChangesetOutput, error) {
-	state, stateErr := LoadOnchainState(env)
-	if stateErr != nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("failed to load onchain state: %w", stateErr)
-	}
+	state, _ := LoadOnchainState(env)
 	chain := env.Chains[c.ChainSelector]
 	chainState := state.Chains[c.ChainSelector]
 	contract := chainState.DataFeedsCache[c.CacheAddress]
-
-	if contract == nil {
-		return deployment.ChangesetOutput{}, fmt.Errorf("cache contract not found for address %s", c.CacheAddress.String())
-	}
 
 	txOpt := chain.DeployerKey
 	if c.McmsConfig != nil {
