@@ -73,6 +73,7 @@ func validatePoolDeployment(
 	return nil
 }
 
+// append mcms txns generated from solanainstructions
 func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, poolType deployment.ContractType, txns *[]mcmsTypes.Transaction) error {
 	for _, ixn := range instructions {
 		tx, err := BuildMCMSTxn(ixn, tokenPool.String(), poolType)
@@ -84,6 +85,7 @@ func appendTxs(instructions []solana.Instruction, tokenPool solana.PublicKey, po
 	return nil
 }
 
+// get rate limit config for remote chain
 func getRateLimitConfig(
 	e deployment.Environment, cfg RemoteChainTokenPoolConfig, remoteChainConfigAccount solBaseTokenPool.BaseChain,
 ) (bool, *solBaseTokenPool.RateLimitConfig, *solBaseTokenPool.RateLimitConfig) {
@@ -107,6 +109,7 @@ func getRateLimitConfig(
 	return setRateLimit, inboundRateLimit, outboundRateLimit
 }
 
+// get diff of pool addresses
 func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAddresses []solBaseTokenPool.RemoteAddress) []solBaseTokenPool.RemoteAddress {
 	var result []solBaseTokenPool.RemoteAddress
 	for _, newAddr := range newPoolAddresses {
@@ -124,6 +127,7 @@ func poolDiff(existingPoolAddresses []solBaseTokenPool.RemoteAddress, newPoolAdd
 	return result
 }
 
+// get pool pdas
 func getPoolPDAs(solTokenPubKey string, poolAddress solana.PublicKey, remoteChainSelector uint64) (solana.PublicKey, solana.PublicKey, solana.PublicKey) {
 	tokenPubKey := solana.MustPublicKeyFromBase58(solTokenPubKey)
 	poolConfigPDA, _ := solTokenUtil.TokenPoolConfigAddress(tokenPubKey, poolAddress)
