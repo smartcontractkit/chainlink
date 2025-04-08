@@ -8,11 +8,14 @@ import (
 
 // DefaultExtraDataCodec is the default ExtraDataCodec for CCIP initialized with all supported chain families.
 var DefaultExtraDataCodec = common.NewExtraDataCodec(
-	common.NewExtraDataCodecParams(ccipevm.ExtraDataDecoder{}, ccipsolana.ExtraDataDecoder{}))
+	common.ExtraDataCodecParams{
+		EVMExtraDataDecoder:    ccipevm.ExtraDataDecoder{},
+		SolanaExtraDataDecoder: ccipsolana.ExtraDataDecoder{},
+	})
 
 // DefaultAddressCodec is the default AddressCodec for CCIP initialized with all supported chain families.
 var DefaultAddressCodec = common.NewAddressCodec(
-	common.NewAddressCodecParams(
-		ccipevm.AddressCodec{},
-		ccipsolana.AddressCodec{},
-	))
+	common.AddressCodecParams{
+		EVMAddressCodec:    ccipevm.AddressCodec{},
+		SolanaAddressCodec: ccipsolana.AddressCodec{},
+	})

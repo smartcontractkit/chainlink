@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipevm"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/contracts/tests/config"
@@ -26,9 +27,15 @@ import (
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
+var extraDataCodec = common.NewExtraDataCodec(
+	common.ExtraDataCodecParams{
+		EVMExtraDataDecoder:    ccipevm.ExtraDataDecoder{},
+		SolanaExtraDataDecoder: ExtraDataDecoder{},
+	})
+
 func TestMessageHasher_EVM2SVM(t *testing.T) {
 	any2AnyMsg, any2SolanaMsg, msgAccounts := createEVM2SolanaMessages(t)
-	msgHasher := NewMessageHasherV1(logger.Test(t), defaults.DefaultExtraDataCodec)
+	msgHasher := NewMessageHasherV1(logger.Test(t), extraDataCodec)
 	actualHash, err := msgHasher.Hash(testutils.Context(t), any2AnyMsg)
 	require.NoError(t, err)
 	expectedHash, err := ccip.HashAnyToSVMMessage(any2SolanaMsg, any2AnyMsg.Header.OnRamp, msgAccounts)

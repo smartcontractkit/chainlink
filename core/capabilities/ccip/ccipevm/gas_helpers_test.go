@@ -9,8 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 
 	chainsel "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
-
 	"github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
@@ -82,7 +80,7 @@ func Test_calculateMessageMaxGas(t *testing.T) {
 			}
 			// Set the source chain selector to be EVM for now
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
-			ep := EstimateProvider{extraDataCodec: defaults.DefaultExtraDataCodec}
+			ep := EstimateProvider{extraDataCodec: extraDataCodec}
 			got := ep.CalculateMessageMaxGas(msg)
 			t.Log(got)
 			assert.Equalf(t, tt.want, got, "calculateMessageMaxGas(%v, %v)", tt.args.dataLen, tt.args.numTokens)
@@ -140,7 +138,7 @@ func TestCalculateMaxGas(t *testing.T) {
 			}
 
 			msg.Header.SourceChainSelector = ccipocr3.ChainSelector(chainsel.ETHEREUM_TESTNET_SEPOLIA.Selector)
-			ep := EstimateProvider{extraDataCodec: defaults.DefaultExtraDataCodec}
+			ep := EstimateProvider{extraDataCodec: extraDataCodec}
 			gotTree := ep.CalculateMerkleTreeGas(tt.numRequests)
 			gotMsg := ep.CalculateMessageMaxGas(msg)
 			t.Log("want", tt.want, "got", gotTree+gotMsg)

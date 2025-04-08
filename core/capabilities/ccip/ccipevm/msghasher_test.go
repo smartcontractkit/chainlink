@@ -24,20 +24,25 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/solana/gobindings/fee_quoter"
+	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/ccipsolana"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
 
-	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
-	"github.com/smartcontractkit/chainlink-evm/pkg/assets"
-	evmtestutils "github.com/smartcontractkit/chainlink-evm/pkg/testutils"
-	"github.com/smartcontractkit/chainlink-evm/pkg/utils"
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
+	"github.com/smartcontractkit/chainlink-evm/gethwrappers/ccip/generated/v1_6_0/message_hasher"
+	"github.com/smartcontractkit/chainlink-integrations/evm/assets"
+	evmtestutils "github.com/smartcontractkit/chainlink-integrations/evm/testutils"
+	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
+	ccipcommon "github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common"
 	"github.com/smartcontractkit/chainlink/v2/core/internal/testutils"
 
 	cciptypes "github.com/smartcontractkit/chainlink-ccip/pkg/types/ccipocr3"
 )
 
-var extraDataCodec = defaults.DefaultExtraDataCodec
+var extraDataCodec = ccipcommon.NewExtraDataCodec(
+	ccipcommon.ExtraDataCodecParams{
+		EVMExtraDataDecoder:    ExtraDataDecoder{},
+		SolanaExtraDataDecoder: ccipsolana.ExtraDataDecoder{},
+	})
 
 // NOTE: these test cases are only EVM <-> EVM.
 // Update these cases once we have non-EVM examples.
@@ -213,7 +218,7 @@ func testSetup(t *testing.T) *testSetupData {
 	}
 }
 
-func TestMessagerHasher_againstRmnSharedVector(t *testing.T) {
+func TestMessageHasher_againstRmnSharedVector(t *testing.T) {
 	transactor := evmtestutils.MustNewSimTransactor(t)
 	backend := backends.NewSimulatedBackend(types.GenesisAlloc{
 		transactor.From: {Balance: assets.Ether(1000).ToInt()},

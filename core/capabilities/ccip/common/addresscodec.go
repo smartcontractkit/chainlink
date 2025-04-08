@@ -22,23 +22,15 @@ type AddressCodec struct {
 
 // AddressCodecParams is a struct that holds the parameters for creating a AddressCodec
 type AddressCodecParams struct {
-	evmAddressCodec    ChainSpecificAddressCodec
-	solanaAddressCodec ChainSpecificAddressCodec
-}
-
-// NewAddressCodecParams is a constructor for AddressCodecParams
-func NewAddressCodecParams(evmAddressCodec ChainSpecificAddressCodec, solanaAddressCodec ChainSpecificAddressCodec) AddressCodecParams {
-	return AddressCodecParams{
-		evmAddressCodec:    evmAddressCodec,
-		solanaAddressCodec: solanaAddressCodec,
-	}
+	EVMAddressCodec    ChainSpecificAddressCodec
+	SolanaAddressCodec ChainSpecificAddressCodec
 }
 
 // NewAddressCodec is a constructor for AddressCodec
 func NewAddressCodec(params AddressCodecParams) AddressCodec {
 	return AddressCodec{
-		EVMAddressCodec:    params.evmAddressCodec,
-		SolanaAddressCodec: params.solanaAddressCodec,
+		EVMAddressCodec:    params.EVMAddressCodec,
+		SolanaAddressCodec: params.SolanaAddressCodec,
 	}
 }
 

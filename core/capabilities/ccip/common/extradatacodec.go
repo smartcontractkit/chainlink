@@ -30,23 +30,15 @@ type RealExtraDataCodec struct {
 
 // ExtraDataCodecParams is a struct that holds the parameters for creating a RealExtraDataCodec
 type ExtraDataCodecParams struct {
-	evmExtraDataDecoder    ExtraDataDecoder
-	solanaExtraDataDecoder ExtraDataDecoder
-}
-
-// NewExtraDataCodecParams is a constructor for ExtraDataCodecParams
-func NewExtraDataCodecParams(evmDecoder ExtraDataDecoder, solanaDecoder ExtraDataDecoder) ExtraDataCodecParams {
-	return ExtraDataCodecParams{
-		evmExtraDataDecoder:    evmDecoder,
-		solanaExtraDataDecoder: solanaDecoder,
-	}
+	EVMExtraDataDecoder    ExtraDataDecoder
+	SolanaExtraDataDecoder ExtraDataDecoder
 }
 
 // NewExtraDataCodec is a constructor for RealExtraDataCodec
 func NewExtraDataCodec(params ExtraDataCodecParams) RealExtraDataCodec {
 	return RealExtraDataCodec{
-		EVMExtraDataDecoder:    params.evmExtraDataDecoder,
-		SolanaExtraDataDecoder: params.solanaExtraDataDecoder,
+		EVMExtraDataDecoder:    params.EVMExtraDataDecoder,
+		SolanaExtraDataDecoder: params.SolanaExtraDataDecoder,
 	}
 }
 

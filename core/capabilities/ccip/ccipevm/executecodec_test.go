@@ -15,7 +15,6 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/defaults"
 	"github.com/smartcontractkit/chainlink/v2/core/capabilities/ccip/common/mocks"
 
 	"github.com/smartcontractkit/chainlink-ccip/chains/evm/gobindings/generated/v1_6_0/message_hasher"
@@ -244,7 +243,7 @@ func Test_DecodeReport(t *testing.T) {
 
 	rawReport := *abi.ConvertType(executeInputs[1], new([]byte)).(*[]byte)
 
-	codec := NewExecutePluginCodecV1(defaults.DefaultExtraDataCodec)
+	codec := NewExecutePluginCodecV1(extraDataCodec)
 	decoded, err := codec.Decode(t.Context(), rawReport)
 	require.NoError(t, err)
 
