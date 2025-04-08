@@ -401,6 +401,14 @@ func (p *priceService) findMissingDestNativeTokenPrice(
 		"prices", tokenPrices,
 	)
 
+	destNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.destChainSelector}
+	sourceNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.sourceChainSelector}
+
+	if _, exists := tokenPrices[destNativeTokenID]; exists {
+		lggr.Debugw("price for destination native already exists, new job spec must be in place")
+		return nil, nil
+	}
+
 	fee, bridged, err := ccipcommon.GetDestinationTokens(ctx, p.offRampReader, p.destPriceRegistryReader)
 	if err != nil {
 		return nil, fmt.Errorf("get destination tokens: %w", err)
@@ -411,14 +419,6 @@ func (p *priceService) findMissingDestNativeTokenPrice(
 	sourceNativeAddressInDestTokens := slices.Contains(onchainDestTokens, p.sourceNative)
 	if !sourceNativeAddressInDestTokens {
 		lggr.Debugw("destination tokens do not have source native address price is not missing")
-		return nil, nil
-	}
-
-	destNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.destChainSelector}
-	sourceNativeTokenID := ccipcommon.TokenID{TokenAddress: p.sourceNative, ChainSelector: p.sourceChainSelector}
-
-	if _, exists := tokenPrices[destNativeTokenID]; exists {
-		lggr.Debugw("price for destination native already exists, new job spec must be in place")
 		return nil, nil
 	}
 
