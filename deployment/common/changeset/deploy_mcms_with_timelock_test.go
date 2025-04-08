@@ -16,6 +16,8 @@ import (
 	mcmssolanasdk "github.com/smartcontractkit/mcms/sdk/solana"
 	mcmstypes "github.com/smartcontractkit/mcms/types"
 
+	"github.com/smartcontractkit/chainlink-common/pkg/utils/tests"
+
 	"github.com/smartcontractkit/chainlink-integrations/evm/testutils"
 	"github.com/smartcontractkit/chainlink-integrations/evm/utils"
 
@@ -448,6 +450,8 @@ func TestDeployMCMSWithTimelockV2(t *testing.T) {
 
 // TestDeployMCMSWithTimelockV2SkipInit tests calling the deploy changeset when accounts have already been initialized
 func TestDeployMCMSWithTimelockV2SkipInitSolana(t *testing.T) {
+	tests.SkipFlakey(t, "https://smartcontract-it.atlassian.net/browse/DX-438")
+
 	t.Parallel()
 	// --- arrange ---
 	log := logger.TestLogger(t)
