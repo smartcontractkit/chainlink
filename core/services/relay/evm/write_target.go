@@ -13,14 +13,16 @@ import (
 
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/pkg/errors"
+
 	chainselectors "github.com/smartcontractkit/chain-selectors"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget"
+
+	"github.com/smartcontractkit/chainlink-evm/pkg/report/monitor"
+	"github.com/smartcontractkit/chainlink-evm/pkg/writetarget"
 
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities"
 	"github.com/smartcontractkit/chainlink-common/pkg/capabilities/consensus/ocr3/types"
 	commonconfig "github.com/smartcontractkit/chainlink-common/pkg/config"
 	"github.com/smartcontractkit/chainlink-common/pkg/logger"
-	"github.com/smartcontractkit/chainlink-framework/capabilities/writetarget/beholder/monitor"
 
 	forwarder "github.com/smartcontractkit/chainlink-evm/gethwrappers/keystone/generated/forwarder_1_0_0"
 	"github.com/smartcontractkit/chainlink/v2/core/chains/legacyevm"
@@ -48,7 +50,7 @@ func NewWriteTarget(ctx context.Context, relayer *Relayer, chain legacyevm.Chain
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to marshal contract reader config %v", err)
+		return nil, fmt.Errorf("failed to marshal contract reader config %w", err)
 	}
 	cr, err := relayer.NewContractReader(ctx, contractReaderConfigEncoded)
 	if err != nil {
