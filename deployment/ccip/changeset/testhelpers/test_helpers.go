@@ -1223,7 +1223,7 @@ func DeployTransferableTokenSolana(
 				RemoteChainSelector: evmChainSel,
 				SolTokenPubKey:      solTokenAddress.String(),
 				PoolType:            solTestTokenPool.BurnAndMint_PoolType,
-				RemoteConfig: solTestTokenPool.RemoteConfig{
+				RemoteConfig: &solTestTokenPool.RemoteConfig{
 					// this can be potentially read from the state if we are given the token symbol
 					PoolAddresses: []solTestTokenPool.RemoteAddress{
 						{
