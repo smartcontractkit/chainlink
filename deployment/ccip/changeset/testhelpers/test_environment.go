@@ -627,13 +627,6 @@ func AddCCIPContractsToEnvironment(t *testing.T, allChains []uint64, tEnv TestEn
 		}
 	}
 
-	aptosChains := []uint64{}
-	for _, chain := range allChains {
-		if _, ok := e.Env.AptosChains[chain]; ok {
-			aptosChains = append(aptosChains, chain)
-		}
-	}
-
 	for _, chain := range evmChains {
 		evmContractParams[chain] = v1_6.ChainContractParams{
 			FeeQuoterParams: v1_6.DefaultFeeQuoterParams(),
