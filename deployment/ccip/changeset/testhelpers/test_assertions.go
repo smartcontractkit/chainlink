@@ -422,7 +422,10 @@ func ConfirmCommitWithExpectedSeqNumRange(
 			iter, err := offRamp.FilterCommitReportAccepted(&bind.FilterOpts{
 				Context: t.Context(),
 			})
-			require.NoError(t, err)
+			// In some test case the test ends while the filter is still running resulting in a context.Canceled error.
+			if err != nil && !errors.Is(err, context.Canceled) {
+				require.NoError(t, err)
+			}
 			for iter.Next() {
 				event := iter.Event
 				verified := verifyCommitReport(event)
